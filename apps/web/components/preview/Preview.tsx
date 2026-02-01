@@ -3,7 +3,6 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { useTimelineStore, usePlaybackState } from "@vibe-edit/core";
 import { PlaybackControls } from "./PlaybackControls";
-import { cn } from "@vibe-edit/ui";
 
 export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

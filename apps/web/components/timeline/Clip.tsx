@@ -73,15 +73,17 @@ export function ClipComponent({ clip, zoom, track }: ClipProps) {
         case "move":
           moveClip(clip.id, track.id, Math.max(0, originalStartTime + deltaTime));
           break;
-        case "trim-start":
+        case "trim-start": {
           const newStartTime = Math.max(0, originalStartTime + deltaTime);
           const maxStartTime = originalStartTime + originalDuration - 0.1;
           trimClipStart(clip.id, Math.min(newStartTime, maxStartTime));
           break;
-        case "trim-end":
+        }
+        case "trim-end": {
           const newDuration = Math.max(0.1, originalDuration + deltaTime);
           trimClipEnd(clip.id, newDuration);
           break;
+        }
       }
     },
     [

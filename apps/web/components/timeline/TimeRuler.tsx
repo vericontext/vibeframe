@@ -8,7 +8,7 @@ interface TimeRulerProps {
   duration: number;
 }
 
-export function TimeRuler({ zoom, width, duration }: TimeRulerProps) {
+export function TimeRuler({ zoom, duration }: TimeRulerProps) {
   // Calculate tick interval based on zoom level
   const getTickInterval = () => {
     if (zoom >= 100) return 1; // 1 second

@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { useTimelineStore, useSources, MediaSource, MediaType } from "@vibe-edit/core";
+import { useTimelineStore, useSources, MediaType } from "@vibe-edit/core";
 import { MediaItem } from "./MediaItem";
 import { UploadZone } from "./UploadZone";
 import { Button, MagnifyingGlassIcon } from "@vibe-edit/ui";
-import { cn } from "@vibe-edit/ui";
 
 type FilterType = "all" | MediaType;
 

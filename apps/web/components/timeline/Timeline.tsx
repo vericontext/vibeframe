@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useCallback, useEffect, useState } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import { useTimelineStore, useZoom, useTracks, useClips } from "@vibe-edit/core";
 import { Track } from "./Track";
 import { Playhead } from "./Playhead";

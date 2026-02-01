@@ -12,7 +12,7 @@ import {
 
 export function PlaybackControls() {
   const { isPlaying, currentTime } = usePlaybackState();
-  const { project, play, pause, togglePlayback, seek } = useTimelineStore();
+  const { project, togglePlayback, seek } = useTimelineStore();
 
   const handleSkipBack = () => {
     seek(Math.max(0, currentTime - 5));
