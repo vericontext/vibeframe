@@ -1,6 +1,6 @@
 // Interface and registry
-export * from "./interface";
-export { providerRegistry, getBestProviderForCapability } from "./interface/registry";
+export * from "./interface/index.js";
+export { providerRegistry, getBestProviderForCapability } from "./interface/registry.js";
 
 // Individual providers
 export { WhisperProvider, whisperProvider } from "./whisper";
@@ -47,4 +47,4 @@ export type {
   EmotionalPeak,
   SuggestedCut,
   PlatformSuitability,
-} from "./interface";
+} from "./interface/index.js";
