@@ -16,14 +16,15 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@vibe-edit/core": "workspace:*",
     "@vibe-edit/ai-providers": "workspace:*",
-    "commander": "^12.0.0",
+    "@vibe-edit/core": "workspace:*",
     "chalk": "^5.3.0",
+    "commander": "^12.0.0",
     "ora": "^8.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "1",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vitest": "^1.2.2"
