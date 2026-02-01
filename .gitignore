@@ -34,3 +34,5 @@ pnpm-debug.log*
 # Cache
 .cache
 .eslintcache
+
+samples/
