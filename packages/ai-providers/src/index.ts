@@ -32,4 +32,8 @@ export type {
   Highlight,
   HighlightCriteria,
   HighlightsResult,
+  BrollClipInfo,
+  NarrationSegment,
+  BrollMatch,
+  BrollMatchResult,
 } from "./interface";

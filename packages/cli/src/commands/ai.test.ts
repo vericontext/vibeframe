@@ -93,4 +93,41 @@ describe("ai commands", () => {
       }).toThrow();
     });
   });
+
+  describe("ai b-roll", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai b-roll --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Match B-roll footage");
+      expect(output).toContain("--threshold");
+      expect(output).toContain("--broll");
+      expect(output).toContain("--broll-dir");
+      expect(output).toContain("--output");
+      expect(output).toContain("--analyze-only");
+      expect(output).toContain("--language");
+    });
+
+    it("fails without B-roll files", () => {
+      expect(() => {
+        execSync(`${CLI} ai b-roll "test narration"`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+
+    it("fails without API keys", () => {
+      expect(() => {
+        execSync(`${CLI} ai b-roll test.mp3 -b clip.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
+        });
+      }).toThrow();
+    });
+  });
 });

@@ -6,6 +6,111 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Phase 4: B-Roll Matcher Implementation
+- Added `vibe ai b-roll` command for automatic B-roll to narration matching
+- Full AI pipeline orchestration:
+  1. **Whisper** - Transcribes narration audio to text with timestamps
+  2. **Claude Vision** - Analyzes B-roll video frames for visual content
+  3. **Claude** - Analyzes narration for visual requirements and matches B-roll
+  4. **Project Engine** - Creates project with matched B-roll clips
+
+**Features:**
+- Audio narration transcription with Whisper
+- Script text input support (from file or direct text)
+- B-roll discovery from file list or directory
+- Claude Vision analysis of B-roll content (description + tags)
+- AI-powered narration analysis for visual requirements
+- Semantic matching between narration and B-roll
+- Configurable confidence threshold filtering (default: 0.6)
+- Analyze-only mode for testing
+- Project generation with source-offset clips
+- JSON output with detailed match analysis
+
+**Files modified:**
+- `packages/ai-providers/src/interface/types.ts` - Added BrollClipInfo, NarrationSegment, BrollMatch, BrollMatchResult types
+- `packages/ai-providers/src/claude/ClaudeProvider.ts` - Added analyzeBrollContent, analyzeNarrationForVisuals, matchBrollToNarration methods
+- `packages/ai-providers/src/index.ts` - Exported new types
+- `packages/cli/src/commands/ai.ts` - Added b-roll command (~300 lines)
+- `packages/cli/src/commands/ai.test.ts` - Added tests
+- `docs/roadmap.md` - Marked B-Roll Matcher complete
+- `CLAUDE.md` - Added CLI documentation
+
+**Usage:**
+```bash
+# Match B-roll files to audio narration
+vibe ai b-roll podcast.mp3 -b clip1.mp4,clip2.mp4 -o project.vibe.json
+
+# Use B-roll directory
+vibe ai b-roll narration.mp3 --broll-dir ./broll -o project.vibe.json
+
+# From script file
+vibe ai b-roll script.txt -f -b clip.mp4 -o project.vibe.json
+
+# Direct text input
+vibe ai b-roll "Our product solves..." -b demo.mp4,office.mp4 -o project.vibe.json
+
+# Custom confidence threshold
+vibe ai b-roll audio.mp3 --broll-dir ./assets -t 0.7 -o project.vibe.json
+
+# Analyze only (no project generation)
+vibe ai b-roll audio.mp3 --broll-dir ./broll --analyze-only
+
+# Specify transcription language
+vibe ai b-roll korean-audio.mp3 --broll-dir ./broll -l ko -o project.vibe.json
+```
+
+**CLI Output Example:**
+```
+🎬 B-Roll Matcher Pipeline
+────────────────────────────────────────────────────────────
+
+✓ Found 5 B-roll file(s)
+
+✓ Processed 12 narration segments (2:30 total)
+
+✓ Analyzed 5 B-roll clips
+  → office.mp4: "People working at desks with computers"
+    [office, technology, teamwork, workspace, indoor]
+  → product-demo.mp4: "Close-up of mobile app interface"
+    [technology, mobile, app, close-up, user-interface]
+  ...
+
+✓ Narration analysis complete
+
+✓ Found 10 matches (83% coverage)
+
+📊 Match Summary
+────────────────────────────────────────────────────────────
+
+  Segment 1 [0:00 - 0:15]
+    "Our team has been working hard on..."
+    → office.mp4 (92%)
+    Office environment matches discussion of team work
+
+  Segment 2 [0:15 - 0:30]
+    "The new app features..."
+    → product-demo.mp4 (88%)
+    App demo footage matches feature discussion
+  ...
+
+  ⚠ 2 unmatched segment(s): [8, 11]
+
+────────────────────────────────────────────────────────────
+Total: 10/12 segments matched, 83% coverage
+
+✓ Created project: project.vibe.json
+  → Analysis saved: project-analysis.json
+
+✅ B-Roll matching complete!
+
+Next steps:
+  vibe project info project.vibe.json
+  vibe export project.vibe.json -o final.mp4
+  Consider adding more B-roll clips for unmatched segments
+```
+
+---
+
 ### Phase 4: Auto Highlights Implementation
 - Added `vibe ai highlights` command for extracting highlights from long-form content
 - Full AI pipeline orchestration:

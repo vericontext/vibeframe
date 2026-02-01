@@ -20,7 +20,8 @@ export type AICapability =
   | "audio-isolation"
   | "search-replace"
   | "outpaint"
-  | "highlight-detection";
+  | "highlight-detection"
+  | "b-roll-matching";
 
 /**
  * Generation status
@@ -220,6 +221,78 @@ export interface HighlightsResult {
   totalHighlightDuration: TimeSeconds;
   /** List of highlights */
   highlights: Highlight[];
+}
+
+/**
+ * B-roll clip information with visual analysis
+ */
+export interface BrollClipInfo {
+  /** Unique identifier */
+  id: string;
+  /** File path */
+  filePath: string;
+  /** Duration in seconds */
+  duration: TimeSeconds;
+  /** AI-generated description of the visual content */
+  description: string;
+  /** Tags for semantic matching */
+  tags: string[];
+  /** Base64-encoded thumbnail (optional) */
+  thumbnailBase64?: string;
+}
+
+/**
+ * Narration segment with visual suggestions
+ */
+export interface NarrationSegment {
+  /** Segment index */
+  index: number;
+  /** Start time in seconds */
+  startTime: TimeSeconds;
+  /** End time in seconds */
+  endTime: TimeSeconds;
+  /** Transcribed or input text */
+  text: string;
+  /** AI-suggested visual description for this segment */
+  visualDescription: string;
+  /** Suggested tags for B-roll matching */
+  suggestedBrollTags: string[];
+}
+
+/**
+ * Match between a narration segment and a B-roll clip
+ */
+export interface BrollMatch {
+  /** Index of the narration segment */
+  narrationSegmentIndex: number;
+  /** ID of the matched B-roll clip */
+  brollClipId: string;
+  /** Match confidence score (0-1) */
+  confidence: number;
+  /** Reason for the match */
+  reason: string;
+  /** Suggested start offset within the B-roll clip */
+  suggestedStartOffset: TimeSeconds;
+  /** Suggested duration from the B-roll clip */
+  suggestedDuration: TimeSeconds;
+}
+
+/**
+ * Result of B-roll matching pipeline
+ */
+export interface BrollMatchResult {
+  /** Source narration file path */
+  narrationFile: string;
+  /** Total narration duration */
+  totalDuration: TimeSeconds;
+  /** Analyzed B-roll clips */
+  brollClips: BrollClipInfo[];
+  /** Parsed narration segments */
+  narrationSegments: NarrationSegment[];
+  /** Matches between segments and B-roll */
+  matches: BrollMatch[];
+  /** Indices of narration segments without matches */
+  unmatchedSegments: number[];
 }
 
 /**
