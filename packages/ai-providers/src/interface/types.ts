@@ -29,7 +29,11 @@ export type AICapability =
   | "video-extend"
   | "video-inpaint"
   | "video-upscale"
-  | "frame-interpolation";
+  | "frame-interpolation"
+  | "voice-clone"
+  | "dubbing"
+  | "music-generation"
+  | "audio-restoration";
 
 /**
  * Generation status

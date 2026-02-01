@@ -6,6 +6,76 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Voice & Audio Features
+Added 4 new AI-powered audio processing commands for Phase 4.
+
+**New Commands:**
+- `vibe ai voice-clone` - Clone voices from audio samples using ElevenLabs
+- `vibe ai music` - Generate background music from prompts using MusicGen (Replicate)
+- `vibe ai music-status` - Check music generation status
+- `vibe ai audio-restore` - Restore audio quality (denoise, enhance) with Replicate or FFmpeg
+- `vibe ai dub` - Multi-provider dubbing pipeline (Whisper + Claude + ElevenLabs)
+
+**ElevenLabsProvider Enhancements:**
+- Added `cloneVoice()` method for voice cloning from audio samples
+- Added `deleteVoice()` method for removing cloned voices
+- Added `voice-clone` capability
+
+**ReplicateProvider Enhancements:**
+- Added `generateMusic()` method using MusicGen model
+- Added `getMusicStatus()` and `waitForMusic()` methods
+- Added `restoreAudio()` method for AI audio restoration
+- Added `getAudioRestorationStatus()` and `waitForAudioRestoration()` methods
+- Added `music-generation` and `audio-restoration` capabilities
+
+**New Types:**
+- `VoiceCloneOptions`, `VoiceCloneResult` - Voice cloning interfaces
+- `MusicGenerationOptions`, `MusicGenerationResult` - Music generation interfaces
+- `AudioRestorationOptions`, `AudioRestorationResult` - Audio restoration interfaces
+
+**Files modified:**
+- `packages/ai-providers/src/interface/types.ts` - Added `voice-clone`, `dubbing`, `music-generation`, `audio-restoration` capabilities
+- `packages/ai-providers/src/elevenlabs/ElevenLabsProvider.ts` - Added cloneVoice, deleteVoice methods
+- `packages/ai-providers/src/replicate/ReplicateProvider.ts` - Added music and audio restoration methods
+- `packages/ai-providers/src/index.ts` - Exported new types
+- `packages/cli/src/commands/ai.ts` - Added 5 new commands (~400 lines)
+- `packages/cli/src/commands/ai.test.ts` - Added tests for new commands
+- `docs/roadmap.md` - Marked Voice & Audio features complete
+- `CLAUDE.md` - Added CLI documentation
+
+**Usage:**
+```bash
+# Voice Clone
+pnpm vibe ai voice-clone sample1.mp3 sample2.mp3 -n "MyVoice" -d "Professional narrator"
+pnpm vibe ai voice-clone --list  # List all voices
+
+# Music Generation
+pnpm vibe ai music "upbeat electronic" -d 10 -o bgm.mp3
+pnpm vibe ai music "cinematic orchestral" -d 30 --model stereo-large -o theme.mp3
+pnpm vibe ai music "lofi hip-hop" --no-wait  # Async mode, returns task ID
+pnpm vibe ai music-status <task-id>  # Check status
+
+# Audio Restoration
+pnpm vibe ai audio-restore noisy.mp3 --ffmpeg -o clean.mp3  # Free FFmpeg fallback
+pnpm vibe ai audio-restore noisy.mp3 --denoise --enhance -o restored.mp3
+
+# AI Dubbing (multi-provider pipeline)
+pnpm vibe ai dub video.mp4 -l es -o video-spanish.mp4
+pnpm vibe ai dub podcast.mp3 -l ko -v <voice-id> -o dubbed.mp3
+pnpm vibe ai dub video.mp4 -l ja --analyze-only -o timing.json
+```
+
+**FFmpeg Audio Restoration Filters (Free):**
+```bash
+# Basic noise reduction
+ffmpeg -i input.mp3 -af "afftdn=nf=-30" output.mp3
+
+# Full restoration chain
+ffmpeg -i input.mp3 -af "highpass=f=80,lowpass=f=12000,afftdn=nf=-30,loudnorm=I=-16:TP=-1.5:LRA=11" output.mp3
+```
+
+---
+
 ### Video Understanding & Generation Features
 Added 4 new AI-powered video processing commands for Phase 4.
 

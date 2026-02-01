@@ -5,6 +5,31 @@ import type {
 } from "../interface/types";
 
 /**
+ * Voice clone options
+ */
+export interface VoiceCloneOptions {
+  /** Voice name (required) */
+  name: string;
+  /** Voice description */
+  description?: string;
+  /** Voice labels as key-value pairs */
+  labels?: Record<string, string>;
+  /** Remove background noise from samples */
+  removeBackgroundNoise?: boolean;
+}
+
+/**
+ * Voice clone result
+ */
+export interface VoiceCloneResult {
+  success: boolean;
+  /** The created voice ID */
+  voiceId?: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
  * Sound effect generation options
  */
 export interface SoundEffectOptions {
@@ -84,7 +109,7 @@ export class ElevenLabsProvider implements AIProvider {
   id = "elevenlabs";
   name = "ElevenLabs";
   description = "AI text-to-speech with natural voices and voice cloning";
-  capabilities: AICapability[] = ["text-to-speech", "sound-generation", "audio-isolation"];
+  capabilities: AICapability[] = ["text-to-speech", "sound-generation", "audio-isolation", "voice-clone"];
   iconUrl = "/icons/elevenlabs.svg";
   isAvailable = true;
 
@@ -330,6 +355,123 @@ export class ElevenLabsProvider implements AIProvider {
         success: true,
         audioBuffer,
       };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Clone a voice from audio samples
+   * Requires at least one audio sample (1-25 samples supported)
+   */
+  async cloneVoice(
+    audioSamples: Buffer[],
+    options: VoiceCloneOptions
+  ): Promise<VoiceCloneResult> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: "ElevenLabs API key not configured",
+      };
+    }
+
+    if (audioSamples.length === 0) {
+      return {
+        success: false,
+        error: "At least one audio sample is required",
+      };
+    }
+
+    if (audioSamples.length > 25) {
+      return {
+        success: false,
+        error: "Maximum 25 audio samples allowed",
+      };
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("name", options.name);
+
+      if (options.description) {
+        formData.append("description", options.description);
+      }
+
+      if (options.labels) {
+        formData.append("labels", JSON.stringify(options.labels));
+      }
+
+      if (options.removeBackgroundNoise) {
+        formData.append("remove_background_noise", "true");
+      }
+
+      // Add audio samples
+      for (let i = 0; i < audioSamples.length; i++) {
+        const blob = new Blob([new Uint8Array(audioSamples[i])]);
+        formData.append("files", blob, `sample_${i + 1}.mp3`);
+      }
+
+      const response = await fetch(`${this.baseUrl}/voices/add`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": this.apiKey,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return {
+          success: false,
+          error: `Voice clone failed: ${error}`,
+        };
+      }
+
+      const data = (await response.json()) as { voice_id: string };
+
+      return {
+        success: true,
+        voiceId: data.voice_id,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Delete a cloned voice
+   */
+  async deleteVoice(voiceId: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: "ElevenLabs API key not configured",
+      };
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/voices/${voiceId}`, {
+        method: "DELETE",
+        headers: {
+          "xi-api-key": this.apiKey,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return {
+          success: false,
+          error: `Voice deletion failed: ${error}`,
+        };
+      }
+
+      return { success: true };
     } catch (error) {
       return {
         success: false,

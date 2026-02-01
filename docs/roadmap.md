@@ -116,10 +116,10 @@ Intelligence built into every interaction.
 - [x] Frame Interpolation - AI slow motion (`vibe ai video-interpolate`)
 
 ### Voice & Audio
-- [ ] Voice Clone - Custom AI voice from samples
-- [ ] AI Dubbing - Automatic multilingual dubbing with lip-sync
-- [ ] Music Generation - Generate background music from prompts
-- [ ] Audio Restoration - Noise removal, quality enhancement
+- [x] Voice Clone - Custom AI voice from samples (`vibe ai voice-clone`)
+- [x] AI Dubbing - Automatic multilingual dubbing (`vibe ai dub`)
+- [x] Music Generation - Generate background music from prompts (`vibe ai music`)
+- [x] Audio Restoration - Noise removal, quality enhancement (`vibe ai audio-restore`)
 
 ### Smart Editing
 - [ ] Video-to-Video - Style transfer for videos
@@ -210,6 +210,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 video-extend | video-upscale | video-interpolate | video-inpaint
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
                 script-to-video | highlights | b-roll | viral
+                voice-clone | music | music-status | audio-restore | dub
 ```
 
 ---

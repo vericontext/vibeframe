@@ -285,4 +285,160 @@ describe("ai commands", () => {
       }).toThrow();
     });
   });
+
+  // Voice & Audio Features
+  describe("ai voice-clone", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai voice-clone --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Clone a voice");
+      expect(output).toContain("--name");
+      expect(output).toContain("--description");
+      expect(output).toContain("--labels");
+      expect(output).toContain("--remove-noise");
+      expect(output).toContain("--list");
+    });
+
+    it("requires name option when cloning", () => {
+      expect(() => {
+        execSync(`${CLI} ai voice-clone sample.mp3`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, ELEVENLABS_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+
+    it("fails without API key", () => {
+      expect(() => {
+        execSync(`${CLI} ai voice-clone sample.mp3 --name "TestVoice"`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, ELEVENLABS_API_KEY: undefined },
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai music", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai music --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Generate background music");
+      expect(output).toContain("--duration");
+      expect(output).toContain("--melody");
+      expect(output).toContain("--model");
+      expect(output).toContain("--output");
+      expect(output).toContain("--no-wait");
+    });
+
+    it("fails without API key", () => {
+      expect(() => {
+        execSync(`${CLI} ai music "upbeat electronic"`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, REPLICATE_API_TOKEN: undefined },
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai music-status", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai music-status --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Check music generation status");
+      expect(output).toContain("task-id");
+    });
+
+    it("fails without API key", () => {
+      expect(() => {
+        execSync(`${CLI} ai music-status test-task-id`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, REPLICATE_API_TOKEN: undefined },
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai audio-restore", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai audio-restore --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Restore audio quality");
+      expect(output).toContain("--output");
+      expect(output).toContain("--ffmpeg");
+      expect(output).toContain("--denoise");
+      expect(output).toContain("--enhance");
+      expect(output).toContain("--noise-floor");
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai audio-restore /tmp/nonexistent_audio_12345.mp3 --ffmpeg`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai dub", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai dub --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Dub audio/video");
+      expect(output).toContain("--language");
+      expect(output).toContain("--source");
+      expect(output).toContain("--voice");
+      expect(output).toContain("--analyze-only");
+      expect(output).toContain("--output");
+    });
+
+    it("requires language option", () => {
+      expect(() => {
+        execSync(`${CLI} ai dub /tmp/video.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+
+    it("fails without API keys", () => {
+      expect(() => {
+        execSync(`${CLI} ai dub /tmp/video.mp4 -l es`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
+        });
+      }).toThrow();
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai dub /tmp/nonexistent_video_12345.mp4 -l es`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test", ELEVENLABS_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+  });
 });

@@ -7,4 +7,6 @@ export {
   type SoundEffectOptions,
   type SoundEffectResult,
   type AudioIsolationResult,
+  type VoiceCloneOptions,
+  type VoiceCloneResult,
 } from "./ElevenLabsProvider";
