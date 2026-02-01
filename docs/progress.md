@@ -6,6 +6,26 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Export Command
+- Added `vibe export` command for rendering projects to video
+- Uses FFmpeg.wasm for in-process video encoding
+- Features:
+  - Quality presets: draft (360p), standard (720p), high (1080p), ultra (4K)
+  - Format support: mp4, webm, mov
+  - Automatic aspect ratio handling (16:9, 9:16, 1:1)
+  - Clip trimming and concatenation
+  - Progress indication during encoding
+
+**Files created:**
+- `packages/cli/src/commands/export.ts`
+
+**Usage:**
+```bash
+vibe export project.vibe.json -o output.mp4 -p high
+```
+
+---
+
 ### Media Info Command
 - Added `vibe media` command for media file analysis
 - Uses `music-metadata` package for audio/video metadata parsing

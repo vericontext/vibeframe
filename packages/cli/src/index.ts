@@ -5,6 +5,7 @@ import { projectCommand } from "./commands/project.js";
 import { timelineCommand } from "./commands/timeline.js";
 import { aiCommand } from "./commands/ai.js";
 import { mediaCommand } from "./commands/media.js";
+import { exportCommand } from "./commands/export.js";
 
 const program = new Command();
 
@@ -17,5 +18,6 @@ program.addCommand(projectCommand);
 program.addCommand(timelineCommand);
 program.addCommand(aiCommand);
 program.addCommand(mediaCommand);
+program.addCommand(exportCommand);
 
 program.parse();
