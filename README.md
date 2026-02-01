@@ -10,7 +10,7 @@ VibeEdit is a web-based video editor that prioritizes natural language over trad
 
 ## Features
 
-- **Natural Language Editing**: Say "인트로 3초로 줄이고 마지막에 페이드아웃" or "trim intro to 3 seconds and add fadeout at the end"
+- **Natural Language Editing**: Say "trim intro to 3 seconds and add fadeout at the end"
 - **Drag & Drop Timeline**: Intuitive timeline with multi-track support
 - **Real-time Preview**: Canvas-based preview with playback controls
 - **AI Provider Plugins**: Extensible architecture supporting multiple AI models
@@ -25,15 +25,15 @@ We use friendlier terms instead of traditional video editing jargon:
 
 | Traditional | Vibe Term | Description |
 |-------------|-----------|-------------|
-| Timeline | 스토리보드 | Video sequence |
-| Keyframe | 포인트 | Change point |
-| Render | 내보내기 | Create final video |
-| Layer | 겹침 | Stacking order |
-| Transition | 전환 | Scene change |
-| Clip | 조각 | Video piece |
-| Trim | 자르기 | Cut edges |
-| Aspect Ratio | 화면 비율 | YouTube/TikTok/Instagram |
-| Color Grading | 분위기 | Color mood |
+| Timeline | Storyboard | Video sequence |
+| Keyframe | Point | Change point |
+| Render | Export | Create final video |
+| Layer | Stack | Stacking order |
+| Transition | Switch | Scene change |
+| Clip | Piece | Video piece |
+| Trim | Cut | Cut edges |
+| Aspect Ratio | Screen Ratio | YouTube/TikTok/Instagram |
+| Color Grading | Mood | Color mood |
 
 ## Tech Stack
 
