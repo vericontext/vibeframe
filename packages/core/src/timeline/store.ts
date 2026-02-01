@@ -10,7 +10,7 @@ import type {
   Id,
   TimeSeconds,
   AspectRatio,
-} from "./types";
+} from "./types.js";
 
 /** Generate unique ID */
 export const generateId = (): Id => {

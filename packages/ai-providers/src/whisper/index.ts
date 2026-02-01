@@ -1,1 +1,1 @@
-export * from "./WhisperProvider";
+export * from "./WhisperProvider.js";

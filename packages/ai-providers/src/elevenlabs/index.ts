@@ -9,4 +9,4 @@ export {
   type AudioIsolationResult,
   type VoiceCloneOptions,
   type VoiceCloneResult,
-} from "./ElevenLabsProvider";
+} from "./ElevenLabsProvider.js";

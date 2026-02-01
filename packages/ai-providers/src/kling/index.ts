@@ -1,1 +1,1 @@
-export * from "./KlingProvider";
+export * from "./KlingProvider.js";

@@ -1,1 +1,1 @@
-export { OpenAIProvider, openaiProvider } from "./OpenAIProvider";
+export { OpenAIProvider, openaiProvider } from "./OpenAIProvider.js";

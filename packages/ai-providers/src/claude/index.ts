@@ -5,4 +5,4 @@ export {
   type MotionResult,
   type RemotionComponent,
   type StoryboardSegment,
-} from "./ClaudeProvider";
+} from "./ClaudeProvider.js";

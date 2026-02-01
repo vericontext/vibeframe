@@ -1,4 +1,4 @@
-import type { AIProvider, AIProviderRegistry, AICapability } from "./types";
+import type { AIProvider, AIProviderRegistry, AICapability } from "./types.js";
 
 /**
  * Default implementation of the AI Provider Registry

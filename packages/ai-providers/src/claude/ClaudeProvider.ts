@@ -14,7 +14,7 @@ import type {
   PlatformSpec,
   PlatformCut,
   TimeSeconds,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Motion graphic generation options

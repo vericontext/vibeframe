@@ -1,1 +1,1 @@
-export * from "./StabilityProvider";
+export * from "./StabilityProvider.js";

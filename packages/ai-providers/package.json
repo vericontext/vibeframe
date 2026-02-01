@@ -3,32 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./interface": {
-      "types": "./src/interface/index.ts",
-      "default": "./src/interface/index.ts"
+      "types": "./dist/interface/index.d.ts",
+      "import": "./dist/interface/index.js"
     },
     "./whisper": {
-      "types": "./src/whisper/index.ts",
-      "default": "./src/whisper/index.ts"
+      "types": "./dist/whisper/index.d.ts",
+      "import": "./dist/whisper/index.js"
     },
     "./gemini": {
-      "types": "./src/gemini/index.ts",
-      "default": "./src/gemini/index.ts"
+      "types": "./dist/gemini/index.d.ts",
+      "import": "./dist/gemini/index.js"
     },
     "./runway": {
-      "types": "./src/runway/index.ts",
-      "default": "./src/runway/index.ts"
+      "types": "./dist/runway/index.d.ts",
+      "import": "./dist/runway/index.js"
     },
     "./kling": {
-      "types": "./src/kling/index.ts",
-      "default": "./src/kling/index.ts"
+      "types": "./dist/kling/index.d.ts",
+      "import": "./dist/kling/index.js"
     }
   },
   "scripts": {

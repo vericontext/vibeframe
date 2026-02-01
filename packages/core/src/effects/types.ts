@@ -1,4 +1,4 @@
-import type { Effect, EffectType, TimeSeconds } from "../timeline/types";
+import type { Effect, EffectType, TimeSeconds } from "../timeline/types.js";
 
 /** Effect definition for the registry */
 export interface EffectDefinition {

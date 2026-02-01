@@ -3,20 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./timeline": {
-      "types": "./src/timeline/index.ts",
-      "default": "./src/timeline/index.ts"
+      "types": "./dist/timeline/index.d.ts",
+      "import": "./dist/timeline/index.js"
     },
     "./effects": {
-      "types": "./src/effects/index.ts",
-      "default": "./src/effects/index.ts"
+      "types": "./dist/effects/index.d.ts",
+      "import": "./dist/effects/index.js"
     }
   },
   "scripts": {

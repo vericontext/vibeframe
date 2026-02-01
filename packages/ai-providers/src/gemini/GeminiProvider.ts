@@ -6,7 +6,7 @@ import type {
   GenerateOptions,
   VideoResult,
   EditSuggestion,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Google Gemini provider for AI video generation and editing

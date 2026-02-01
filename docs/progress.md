@@ -6,6 +6,34 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Fix: ESM Module Resolution for CLI Installation
+Fixed `vibe setup` failing after curl installation with `ERR_MODULE_NOT_FOUND`.
+
+**Root Cause:**
+- CLI symlink pointed to compiled JS: `~/.vibeframe/packages/cli/dist/index.js`
+- But `@vibeframe/ai-providers` and `@vibeframe/core` package.json exports pointed to TypeScript source (`.ts`)
+- Node.js cannot execute `.ts` files directly, causing module resolution failure
+
+**Solution:**
+- Updated package.json exports in both packages to point to compiled `./dist/*.js` files
+- Changed `moduleResolution` from `bundler` to `NodeNext` in tsconfig.json
+- Added `.js` extensions to all relative imports in source files (ESM requirement)
+
+**Files Modified:**
+- `packages/ai-providers/package.json` - Updated exports to `./dist/*.js`
+- `packages/core/package.json` - Updated exports to `./dist/*.js`
+- `packages/ai-providers/tsconfig.json` - Changed to `module: NodeNext`
+- `packages/core/tsconfig.json` - Changed to `module: NodeNext`
+- `packages/ai-providers/src/**/*.ts` - Added `.js` extensions to imports
+- `packages/core/src/**/*.ts` - Added `.js` extensions to imports
+
+**Verification:**
+- `pnpm build` - All packages build successfully
+- `node packages/cli/dist/index.js setup --help` - CLI works without errors
+- 51 CLI tests pass
+
+---
+
 ### Interactive Mode & Install Script
 Added curl-installable setup and interactive REPL mode for VibeFrame.
 

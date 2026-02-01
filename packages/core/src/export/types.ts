@@ -1,4 +1,4 @@
-import type { AspectRatio, TimeSeconds } from "../timeline/types";
+import type { AspectRatio, TimeSeconds } from "../timeline/types.js";
 
 /** Video codec options */
 export type VideoCodec = "h264" | "h265" | "vp9" | "av1";

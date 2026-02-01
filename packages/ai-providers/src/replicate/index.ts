@@ -1,1 +1,1 @@
-export * from "./ReplicateProvider";
+export * from "./ReplicateProvider.js";

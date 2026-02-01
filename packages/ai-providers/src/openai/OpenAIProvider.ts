@@ -5,7 +5,7 @@ import type {
   ProviderConfig,
   CommandParseResult,
   TimelineCommand,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * OpenAI GPT provider for natural language timeline commands

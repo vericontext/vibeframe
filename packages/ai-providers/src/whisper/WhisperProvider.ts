@@ -3,7 +3,7 @@ import type {
   AICapability,
   ProviderConfig,
   TranscriptResult,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * OpenAI Whisper provider for speech-to-text

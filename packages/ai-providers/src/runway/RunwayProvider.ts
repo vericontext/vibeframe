@@ -4,7 +4,7 @@ import type {
   ProviderConfig,
   GenerateOptions,
   VideoResult,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Runway Gen-3 Alpha Turbo video generation options

@@ -1,24 +1,24 @@
 // Interface and registry
-export * from "./interface/index";
-export { providerRegistry, getBestProviderForCapability } from "./interface/registry";
+export * from "./interface/index.js";
+export { providerRegistry, getBestProviderForCapability } from "./interface/registry.js";
 
 // Individual providers
-export { WhisperProvider, whisperProvider } from "./whisper";
-export { GeminiProvider, geminiProvider } from "./gemini";
-export { OpenAIProvider, openaiProvider } from "./openai";
-export { ClaudeProvider, claudeProvider } from "./claude";
-export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude";
-export { ElevenLabsProvider, elevenLabsProvider } from "./elevenlabs";
-export type { Voice, TTSOptions, TTSResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs";
-export { DalleProvider, dalleProvider } from "./dalle";
-export type { ImageOptions, ImageResult, ImageEditOptions } from "./dalle";
-export { RunwayProvider, runwayProvider } from "./runway";
-export { KlingProvider, klingProvider } from "./kling";
-export type { KlingVideoExtendOptions } from "./kling";
-export { StabilityProvider, stabilityProvider } from "./stability";
-export { ReplicateProvider, replicateProvider } from "./replicate";
-export type { ReplicateUpscaleOptions, ReplicateUpscaleResult, ReplicateInpaintOptions, MusicGenerationOptions, MusicGenerationResult, AudioRestorationOptions, AudioRestorationResult } from "./replicate";
-export type { StabilityImageOptions, StabilityImageResult, StabilityImg2ImgOptions, StabilityUpscaleOptions, StabilitySearchReplaceOptions, StabilityOutpaintOptions } from "./stability";
+export { WhisperProvider, whisperProvider } from "./whisper/index.js";
+export { GeminiProvider, geminiProvider } from "./gemini/index.js";
+export { OpenAIProvider, openaiProvider } from "./openai/index.js";
+export { ClaudeProvider, claudeProvider } from "./claude/index.js";
+export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";
+export { ElevenLabsProvider, elevenLabsProvider } from "./elevenlabs/index.js";
+export type { Voice, TTSOptions, TTSResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
+export { DalleProvider, dalleProvider } from "./dalle/index.js";
+export type { ImageOptions, ImageResult, ImageEditOptions } from "./dalle/index.js";
+export { RunwayProvider, runwayProvider } from "./runway/index.js";
+export { KlingProvider, klingProvider } from "./kling/index.js";
+export type { KlingVideoExtendOptions } from "./kling/index.js";
+export { StabilityProvider, stabilityProvider } from "./stability/index.js";
+export { ReplicateProvider, replicateProvider } from "./replicate/index.js";
+export type { ReplicateUpscaleOptions, ReplicateUpscaleResult, ReplicateInpaintOptions, MusicGenerationOptions, MusicGenerationResult, AudioRestorationOptions, AudioRestorationResult } from "./replicate/index.js";
+export type { StabilityImageOptions, StabilityImageResult, StabilityImg2ImgOptions, StabilityUpscaleOptions, StabilitySearchReplaceOptions, StabilityOutpaintOptions } from "./stability/index.js";
 
 // Re-export commonly used types
 export type {
@@ -47,4 +47,4 @@ export type {
   EmotionalPeak,
   SuggestedCut,
   PlatformSuitability,
-} from "./interface/index";
+} from "./interface/index.js";

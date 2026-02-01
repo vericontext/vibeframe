@@ -4,4 +4,4 @@ export {
   type ImageOptions,
   type ImageResult,
   type ImageEditOptions,
-} from "./DalleProvider";
+} from "./DalleProvider.js";

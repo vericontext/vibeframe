@@ -3,7 +3,7 @@ import type {
   AICapability,
   ProviderConfig,
   VideoResult,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Video upscale options

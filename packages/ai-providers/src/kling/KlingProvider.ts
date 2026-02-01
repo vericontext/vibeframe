@@ -5,7 +5,7 @@ import type {
   ProviderConfig,
   GenerateOptions,
   VideoResult,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Kling video generation options

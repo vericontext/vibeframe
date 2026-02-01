@@ -2,7 +2,7 @@ import type {
   AIProvider,
   AICapability,
   ProviderConfig,
-} from "../interface/types";
+} from "../interface/types.js";
 
 /**
  * Image generation options
