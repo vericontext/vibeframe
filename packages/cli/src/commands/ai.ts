@@ -2,6 +2,8 @@ import { Command } from "commander";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
+import { execSync, exec } from "node:child_process";
+import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import {
@@ -25,11 +27,16 @@ import {
   klingProvider,
   stabilityProvider,
   type TimelineCommand,
+  type Highlight,
+  type HighlightCriteria,
+  type HighlightsResult,
 } from "@vibe-edit/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { EffectType } from "@vibe-edit/core/timeline";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { getApiKey } from "../utils/api-key.js";
+
+const execAsync = promisify(exec);
 
 export const aiCommand = new Command("ai")
   .description("AI provider commands");
@@ -2012,6 +2019,308 @@ aiCommand
       process.exit(1);
     }
   });
+
+// Auto Highlights command
+aiCommand
+  .command("highlights")
+  .description("Extract highlights from long-form video/audio content")
+  .argument("<media>", "Video or audio file path")
+  .option("-o, --output <path>", "Output JSON file with highlights")
+  .option("-p, --project <path>", "Create project with highlight clips")
+  .option("-d, --duration <seconds>", "Target highlight reel duration", "60")
+  .option("-n, --count <number>", "Maximum number of highlights")
+  .option("-t, --threshold <value>", "Confidence threshold (0-1)", "0.7")
+  .option("--criteria <type>", "Selection criteria: emotional | informative | funny | all", "all")
+  .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
+  .action(async (mediaPath: string, options) => {
+    try {
+      // Validate API keys
+      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
+      if (!openaiApiKey) {
+        console.error(chalk.red("OpenAI API key required for Whisper transcription."));
+        console.error(chalk.dim("Set OPENAI_API_KEY environment variable"));
+        process.exit(1);
+      }
+
+      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
+      if (!claudeApiKey) {
+        console.error(chalk.red("Anthropic API key required for highlight analysis."));
+        console.error(chalk.dim("Set ANTHROPIC_API_KEY environment variable"));
+        process.exit(1);
+      }
+
+      const absPath = resolve(process.cwd(), mediaPath);
+      if (!existsSync(absPath)) {
+        console.error(chalk.red(`File not found: ${absPath}`));
+        process.exit(1);
+      }
+
+      console.log();
+      console.log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log();
+
+      // Determine if we need to extract audio (for video files)
+      const ext = extname(absPath).toLowerCase();
+      const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"];
+      const isVideo = videoExtensions.includes(ext);
+      let audioPath = absPath;
+      let tempAudioPath: string | null = null;
+
+      // Step 1: Extract audio if video
+      if (isVideo) {
+        const audioSpinner = ora("🎵 Extracting audio from video...").start();
+
+        try {
+          // Check FFmpeg availability
+          try {
+            execSync("ffmpeg -version", { stdio: "ignore" });
+          } catch {
+            audioSpinner.fail(chalk.red("FFmpeg not found. Please install FFmpeg."));
+            process.exit(1);
+          }
+
+          tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
+          await execAsync(
+            `ffmpeg -i "${absPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
+            { maxBuffer: 50 * 1024 * 1024 }
+          );
+          audioPath = tempAudioPath;
+
+          // Get video duration
+          const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
+          const { stdout: durationOut } = await execAsync(durationCmd);
+          const totalDuration = parseFloat(durationOut.trim());
+
+          audioSpinner.succeed(chalk.green(`Extracted audio (${formatTime(totalDuration)} total duration)`));
+        } catch (error) {
+          audioSpinner.fail(chalk.red("Failed to extract audio"));
+          console.error(error);
+          process.exit(1);
+        }
+      }
+
+      // Step 2: Transcribe with Whisper
+      const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
+
+      const whisper = new WhisperProvider();
+      await whisper.initialize({ apiKey: openaiApiKey });
+
+      const audioBuffer = await readFile(audioPath);
+      const audioBlob = new Blob([audioBuffer]);
+
+      const transcriptResult = await whisper.transcribe(audioBlob, options.language);
+
+      if (transcriptResult.status === "failed" || !transcriptResult.segments) {
+        transcribeSpinner.fail(chalk.red(`Transcription failed: ${transcriptResult.error}`));
+        // Cleanup temp file
+        if (tempAudioPath && existsSync(tempAudioPath)) {
+          await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+        }
+        process.exit(1);
+      }
+
+      transcribeSpinner.succeed(chalk.green(`Transcribed ${transcriptResult.segments.length} segments`));
+
+      // Cleanup temp audio file
+      if (tempAudioPath && existsSync(tempAudioPath)) {
+        await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+      }
+
+      // Step 3: Analyze with Claude
+      const analyzeSpinner = ora("🔍 Analyzing highlights with Claude...").start();
+
+      const claude = new ClaudeProvider();
+      await claude.initialize({ apiKey: claudeApiKey });
+
+      const targetDuration = options.duration ? parseFloat(options.duration) : undefined;
+      const maxCount = options.count ? parseInt(options.count) : undefined;
+
+      const allHighlights = await claude.analyzeForHighlights(transcriptResult.segments, {
+        criteria: options.criteria as HighlightCriteria,
+        targetDuration,
+        maxCount,
+      });
+
+      if (allHighlights.length === 0) {
+        analyzeSpinner.warn(chalk.yellow("No highlights detected in the content"));
+        process.exit(0);
+      }
+
+      analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
+
+      // Step 4: Filter and rank
+      const filterSpinner = ora("📊 Filtering and ranking...").start();
+
+      const threshold = parseFloat(options.threshold);
+      const filteredHighlights = filterHighlights(allHighlights, {
+        threshold,
+        targetDuration,
+        maxCount,
+      });
+
+      const totalHighlightDuration = filteredHighlights.reduce((sum, h) => sum + h.duration, 0);
+
+      filterSpinner.succeed(chalk.green(`Selected ${filteredHighlights.length} highlights (${totalHighlightDuration.toFixed(1)}s total)`));
+
+      // Get total source duration
+      let sourceDuration = 0;
+      if (transcriptResult.segments.length > 0) {
+        sourceDuration = transcriptResult.segments[transcriptResult.segments.length - 1].endTime;
+      }
+
+      // Prepare result
+      const result: HighlightsResult = {
+        sourceFile: absPath,
+        totalDuration: sourceDuration,
+        criteria: options.criteria as HighlightCriteria,
+        threshold,
+        highlightsCount: filteredHighlights.length,
+        totalHighlightDuration,
+        highlights: filteredHighlights,
+      };
+
+      // Step 5: Output results
+      console.log();
+      console.log(chalk.bold.cyan("Highlights Summary"));
+      console.log(chalk.dim("─".repeat(60)));
+
+      for (const highlight of filteredHighlights) {
+        const startFormatted = formatTime(highlight.startTime);
+        const endFormatted = formatTime(highlight.endTime);
+        const confidencePercent = (highlight.confidence * 100).toFixed(0);
+        const categoryColor = getCategoryColor(highlight.category);
+
+        console.log();
+        console.log(`  ${chalk.yellow(`${highlight.index}.`)} [${startFormatted} - ${endFormatted}] ${categoryColor(highlight.category)}, ${chalk.dim(`${confidencePercent}%`)}`);
+        console.log(`     ${chalk.white(highlight.reason)}`);
+        console.log(`     ${chalk.dim(truncate(highlight.transcript, 80))}`);
+      }
+
+      console.log();
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Total: ${chalk.bold(filteredHighlights.length)} highlights, ${chalk.bold(totalHighlightDuration.toFixed(1))} seconds`);
+      console.log();
+
+      // Save JSON output
+      if (options.output) {
+        const outputPath = resolve(process.cwd(), options.output);
+        await writeFile(outputPath, JSON.stringify(result, null, 2), "utf-8");
+        console.log(chalk.green(`💾 Saved highlights to: ${outputPath}`));
+      }
+
+      // Create project with highlight clips
+      if (options.project) {
+        const projectSpinner = ora("📦 Creating project...").start();
+
+        const project = new Project("Highlight Reel");
+
+        // Add source
+        const source = project.addSource({
+          name: basename(absPath),
+          url: absPath,
+          type: isVideo ? "video" : "audio",
+          duration: sourceDuration,
+        });
+
+        // Get video track
+        const videoTrack = project.getTracks().find((t) => t.type === "video");
+        if (!videoTrack) {
+          projectSpinner.fail(chalk.red("Failed to create project"));
+          process.exit(1);
+        }
+
+        // Add clips for each highlight
+        let currentTime = 0;
+        for (const highlight of filteredHighlights) {
+          project.addClip({
+            sourceId: source.id,
+            trackId: videoTrack.id,
+            startTime: currentTime,
+            duration: highlight.duration,
+            sourceStartOffset: highlight.startTime,
+            sourceEndOffset: highlight.endTime,
+          });
+          currentTime += highlight.duration;
+        }
+
+        const projectPath = resolve(process.cwd(), options.project);
+        await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+        projectSpinner.succeed(chalk.green(`Created project: ${projectPath}`));
+      }
+
+      console.log();
+      console.log(chalk.bold.green("✅ Highlight extraction complete!"));
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Highlight extraction failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Filter highlights by threshold, count, and target duration
+ */
+function filterHighlights(
+  highlights: Highlight[],
+  options: { threshold: number; targetDuration?: number; maxCount?: number }
+): Highlight[] {
+  // 1. Filter by confidence threshold
+  let filtered = highlights.filter((h) => h.confidence >= options.threshold);
+
+  // 2. Sort by confidence (descending)
+  filtered.sort((a, b) => b.confidence - a.confidence);
+
+  // 3. Limit by count if specified
+  if (options.maxCount && filtered.length > options.maxCount) {
+    filtered = filtered.slice(0, options.maxCount);
+  }
+
+  // 4. Fit to target duration if specified (with 10% tolerance)
+  if (options.targetDuration) {
+    const targetWithTolerance = options.targetDuration * 1.1;
+    let total = 0;
+    filtered = filtered.filter((h) => {
+      if (total + h.duration <= targetWithTolerance) {
+        total += h.duration;
+        return true;
+      }
+      return false;
+    });
+  }
+
+  // 5. Re-sort by startTime (chronological order)
+  filtered.sort((a, b) => a.startTime - b.startTime);
+
+  // 6. Re-index
+  return filtered.map((h, i) => ({ ...h, index: i + 1 }));
+}
+
+/**
+ * Get color for highlight category
+ */
+function getCategoryColor(category: string): (text: string) => string {
+  switch (category) {
+    case "emotional":
+      return chalk.magenta;
+    case "informative":
+      return chalk.cyan;
+    case "funny":
+      return chalk.yellow;
+    default:
+      return chalk.white;
+  }
+}
+
+/**
+ * Truncate text with ellipsis
+ */
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + "...";
+}
 
 function getStatusColor(status: string): string {
   switch (status) {

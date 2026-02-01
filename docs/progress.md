@@ -6,6 +6,86 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Phase 4: Auto Highlights Implementation
+- Added `vibe ai highlights` command for extracting highlights from long-form content
+- Full AI pipeline orchestration:
+  1. **FFmpeg** - Extracts audio from video files
+  2. **Whisper** - Transcribes audio to text with timestamps
+  3. **Claude** - Analyzes transcript and identifies engaging moments
+  4. **Filtering** - Ranks and filters by confidence threshold
+  5. **Project Engine** - Creates project with highlight clips
+
+**Features:**
+- Automatic audio extraction for video files
+- AI-powered highlight detection with Claude
+- Configurable criteria: emotional, informative, funny, or all
+- Confidence threshold filtering (default: 0.7)
+- Target duration and max count options
+- JSON output with detailed highlight metadata
+- Project generation with source-offset clips
+
+**Files modified:**
+- `packages/ai-providers/src/interface/types.ts` - Added Highlight types
+- `packages/ai-providers/src/claude/ClaudeProvider.ts` - Added analyzeForHighlights method
+- `packages/ai-providers/src/index.ts` - Exported new types
+- `packages/cli/src/commands/ai.ts` - Added highlights command (~200 lines)
+- `packages/cli/src/commands/ai.test.ts` - Added tests
+- `docs/roadmap.md` - Marked Auto Highlights complete
+- `CLAUDE.md` - Added CLI documentation
+
+**Usage:**
+```bash
+# Extract highlights from video
+vibe ai highlights video.mp4 -o highlights.json
+
+# Create highlight reel project
+vibe ai highlights podcast.mp3 -p highlights.vibe.json
+
+# Specify target duration and criteria
+vibe ai highlights lecture.mp4 -d 60 --criteria informative -o best-moments.json
+
+# Filter by confidence and count
+vibe ai highlights interview.mp4 -t 0.8 -n 5 -o top5.json
+
+# Korean language transcription
+vibe ai highlights korean-video.mp4 -l ko -o highlights.json
+```
+
+**CLI Output Example:**
+```
+🎬 Highlight Extraction Pipeline
+────────────────────────────────────────────────────────────
+
+✓ Extracted audio (45:32 total duration)
+
+✓ Transcribed 324 segments
+
+✓ Found 12 potential highlights
+
+✓ Selected 8 highlights (58.5s total)
+
+Highlights Summary
+────────────────────────────────────────────────────────────
+
+  1. [02:00 - 02:25] informative, 92%
+     Key insight about the main topic
+     "This is important because..."
+
+  2. [05:45 - 06:10] funny, 88%
+     Amusing anecdote about...
+     "And then I realized..."
+  ...
+
+────────────────────────────────────────────────────────────
+Total: 8 highlights, 58.5 seconds
+
+💾 Saved highlights to: highlights.json
+
+✅ Highlight extraction complete!
+```
+
+---
+
 ### Phase 4: Script-to-Video Implementation
 - Added `vibe ai script-to-video` command for end-to-end video generation from text
 - Full AI pipeline orchestration:

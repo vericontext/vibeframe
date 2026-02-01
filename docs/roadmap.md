@@ -99,7 +99,9 @@ Intelligence built into every interaction.
 - [x] **Script-to-Video** - Generate complete videos from text scripts
   - Claude storyboard analysis → ElevenLabs TTS → DALL-E visuals → Runway/Kling video
   - Full pipeline: `vibe ai script-to-video <script> -o project.vibe.json`
-- [ ] Auto Highlights - Extract highlights from long-form content
+- [x] **Auto Highlights** - Extract highlights from long-form content
+  - FFmpeg audio extraction → Whisper transcription → Claude highlight analysis
+  - Full pipeline: `vibe ai highlights <media> -o highlights.json -p project.vibe.json`
 - [ ] B-Roll Matcher - Auto-match B-roll to narration
 - [ ] Viral Optimizer - Platform-specific optimization (YouTube, TikTok, Instagram)
 
@@ -202,7 +204,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 video | video-status | video-cancel
                 kling | kling-status
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
-                script-to-video
+                script-to-video | highlights
 ```
 
 ---

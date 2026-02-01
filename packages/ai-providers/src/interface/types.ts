@@ -19,7 +19,8 @@ export type AICapability =
   | "sound-generation"
   | "audio-isolation"
   | "search-replace"
-  | "outpaint";
+  | "outpaint"
+  | "highlight-detection";
 
 /**
  * Generation status
@@ -172,6 +173,53 @@ export interface CommandParseResult {
   error?: string;
   /** Clarification question if command is ambiguous */
   clarification?: string;
+}
+
+/**
+ * Highlight detection criteria
+ */
+export type HighlightCriteria = "emotional" | "informative" | "funny" | "all";
+
+/**
+ * Highlight segment identified from content
+ */
+export interface Highlight {
+  /** Index of this highlight */
+  index: number;
+  /** Start time in seconds */
+  startTime: TimeSeconds;
+  /** End time in seconds */
+  endTime: TimeSeconds;
+  /** Duration in seconds */
+  duration: TimeSeconds;
+  /** Reason why this is a highlight */
+  reason: string;
+  /** Transcript text for this segment */
+  transcript: string;
+  /** Confidence score 0-1 */
+  confidence: number;
+  /** Category of the highlight */
+  category: "emotional" | "informative" | "funny";
+}
+
+/**
+ * Result of highlight extraction
+ */
+export interface HighlightsResult {
+  /** Source file path */
+  sourceFile: string;
+  /** Total duration of the source in seconds */
+  totalDuration: TimeSeconds;
+  /** Criteria used for extraction */
+  criteria: HighlightCriteria;
+  /** Confidence threshold used */
+  threshold: number;
+  /** Number of highlights extracted */
+  highlightsCount: number;
+  /** Total duration of all highlights */
+  totalHighlightDuration: TimeSeconds;
+  /** List of highlights */
+  highlights: Highlight[];
 }
 
 /**

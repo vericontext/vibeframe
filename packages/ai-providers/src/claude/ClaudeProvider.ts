@@ -4,6 +4,9 @@ import type {
   AICapability,
   ProviderConfig,
   EditSuggestion,
+  TranscriptSegment,
+  Highlight,
+  HighlightCriteria,
 } from "../interface/types";
 
 /**
@@ -79,8 +82,8 @@ export interface StoryboardSegment {
 export class ClaudeProvider implements AIProvider {
   id = "claude";
   name = "Anthropic Claude";
-  description = "AI-powered motion graphics, content analysis, and storyboarding";
-  capabilities: AICapability[] = ["auto-edit", "natural-language-command"];
+  description = "AI-powered motion graphics, content analysis, storyboarding, and highlight detection";
+  capabilities: AICapability[] = ["auto-edit", "natural-language-command", "highlight-detection"];
   iconUrl = "/icons/claude.svg";
   isAvailable = true;
 
@@ -363,6 +366,122 @@ Respond with JSON array:
         confidence: s.confidence,
       }));
     } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Analyze transcript segments and identify engaging highlights
+   */
+  async analyzeForHighlights(
+    segments: TranscriptSegment[],
+    options: {
+      criteria?: HighlightCriteria;
+      targetDuration?: number;
+      maxCount?: number;
+    } = {}
+  ): Promise<Highlight[]> {
+    if (!this.apiKey) {
+      return [];
+    }
+
+    const criteria = options.criteria || "all";
+
+    // Format segments for analysis
+    const transcriptWithTimestamps = segments
+      .map((seg) => `[${seg.startTime.toFixed(1)}s - ${seg.endTime.toFixed(1)}s] ${seg.text}`)
+      .join("\n");
+
+    const systemPrompt = `You are an expert video editor analyzing a transcript to identify the most engaging moments for a highlight reel.
+
+Criteria definitions:
+- "emotional": Strong emotional content - excitement, humor, surprise, inspiration, heartfelt moments, dramatic reveals
+- "informative": Key insights, important facts, valuable takeaways, "aha" moments, educational content
+- "funny": Comedy, wit, unexpected humor, amusing anecdotes, entertaining moments
+- "all": All types of engaging content
+
+Current selection criteria: "${criteria}"
+
+For each highlight you identify, provide:
+1. Start timestamp (in seconds) - align with segment boundaries when possible
+2. End timestamp (in seconds) - complete the thought/moment naturally
+3. A brief reason why this is a highlight (1 sentence)
+4. The relevant transcript text
+5. A confidence score from 0 to 1 (0.7+ for strong highlights)
+6. Category: "emotional", "informative", or "funny"
+
+Guidelines:
+- Prefer complete thoughts and natural breakpoints
+- Avoid cutting mid-sentence or mid-thought
+- Higher confidence for universally engaging content
+- Consider pacing - highlights should have good energy
+- Minimum highlight duration: 5 seconds
+- Maximum highlight duration: 60 seconds
+${options.targetDuration ? `- Target total highlight duration: approximately ${options.targetDuration} seconds` : ""}
+${options.maxCount ? `- Maximum number of highlights: ${options.maxCount}` : ""}
+
+Respond with a JSON array ONLY (no other text):
+[{"startTime": 120.5, "endTime": 145.2, "reason": "Key insight about...", "transcript": "The actual text...", "confidence": 0.92, "category": "informative"}]`;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: "user",
+              content: `Analyze this transcript and identify the most engaging highlights:\n\n${transcriptWithTimestamps}`,
+            },
+          ],
+          system: systemPrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Claude API error:", await response.text());
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        content: Array<{ type: string; text?: string }>;
+      };
+
+      const text = data.content.find((c) => c.type === "text")?.text;
+      if (!text) return [];
+
+      // Extract JSON array from response
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return [];
+
+      const rawHighlights = JSON.parse(jsonMatch[0]) as Array<{
+        startTime: number;
+        endTime: number;
+        reason: string;
+        transcript: string;
+        confidence: number;
+        category: "emotional" | "informative" | "funny";
+      }>;
+
+      // Transform and add index
+      return rawHighlights.map((h, index) => ({
+        index: index + 1,
+        startTime: h.startTime,
+        endTime: h.endTime,
+        duration: h.endTime - h.startTime,
+        reason: h.reason,
+        transcript: h.transcript,
+        confidence: h.confidence,
+        category: h.category,
+      }));
+    } catch (error) {
+      console.error("Error analyzing highlights:", error);
       return [];
     }
   }

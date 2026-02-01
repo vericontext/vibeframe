@@ -25,7 +25,11 @@ export type {
   GenerateOptions,
   VideoResult,
   TranscriptResult,
+  TranscriptSegment,
   EditSuggestion,
   TimelineCommand,
   CommandParseResult,
+  Highlight,
+  HighlightCriteria,
+  HighlightsResult,
 } from "./interface";

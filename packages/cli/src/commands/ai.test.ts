@@ -56,4 +56,41 @@ describe("ai commands", () => {
       }).toThrow();
     });
   });
+
+  describe("ai highlights", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai highlights --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Extract highlights");
+      expect(output).toContain("--threshold");
+      expect(output).toContain("--criteria");
+      expect(output).toContain("--duration");
+      expect(output).toContain("--count");
+      expect(output).toContain("--output");
+      expect(output).toContain("--project");
+    });
+
+    it("fails without API keys", () => {
+      expect(() => {
+        execSync(`${CLI} ai highlights /tmp/nonexistent.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
+        });
+      }).toThrow();
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai highlights /tmp/nonexistent_video_12345.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+  });
 });
