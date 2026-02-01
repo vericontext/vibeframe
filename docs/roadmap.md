@@ -16,11 +16,26 @@ Core infrastructure and basic editing capabilities.
 - [x] Video preview with playback controls
 - [x] Media library with upload
 - [x] CLI package for headless operations
-- [x] FFmpeg.wasm export pipeline
+- [x] FFmpeg.wasm export pipeline (client-side, <4GB projects)
 
 ---
 
-## Phase 2: AI Provider Integration 🚧
+## Phase 2: Rendering Infrastructure 📋
+
+Overcome browser memory limits for AI-generated content.
+
+- [ ] **Hybrid rendering architecture**
+  - FFmpeg.wasm for lightweight edits (draft preview, <4GB)
+  - Server-side FFmpeg for final export & heavy AI content
+- [ ] Server rendering service (Docker-based)
+- [ ] Chunked upload/download for large media
+- [ ] Project state persistence (Supabase/Postgres)
+- [ ] **Live Link**: CLI ↔ Web UI sync via WebSocket
+  - CLI commands trigger real-time UI preview updates
+
+---
+
+## Phase 3: AI Provider Integration 🚧
 
 Unified interface for AI services.
 
@@ -33,13 +48,12 @@ Unified interface for AI services.
 
 ### Audio
 - [ ] **Whisper** - Speech-to-text, auto-subtitles
-- [ ] **ElevenLabs** - Text-to-speech, voice cloning
-- [ ] **Suno** - AI music generation
+- [ ] **ElevenLabs** - TTS, voice cloning, sound effects
+- [ ] **Audiocraft (Meta)** - Local music generation (open source)
 - [ ] Beat detection & sync
 
 ### Image
 - [ ] **DALL-E** - Thumbnail generation, image editing
-- [ ] **Midjourney** (via API) - Concept art, storyboards
 - [ ] **Stable Diffusion** - Local image generation
 - [ ] Background removal / replacement
 
@@ -50,31 +64,38 @@ Unified interface for AI services.
 - [ ] **HeyGen** - AI avatars, lip sync
 - [ ] Scene detection & auto-cutting
 
+> **Note**: AI video outputs are processed server-side due to file size.
+
 ---
 
-## Phase 3: MCP Integration 📋
+## Phase 4: MCP Integration 📋
 
 Model Context Protocol for extensible AI workflows.
 
+### Prerequisites
+- [ ] Project state schema for MCP Resource serialization
+- [ ] Zustand → JSON-serializable state mapping
+
+### Implementation
 - [ ] MCP server implementation for VibeEdit
 - [ ] Tool definitions (timeline manipulation, export, effects)
-- [ ] Resource providers (project files, media assets)
+- [ ] Resource providers (project state, media assets)
 - [ ] Prompt templates for common editing tasks
 - [ ] Claude Desktop / Cursor integration
-- [ ] Custom MCP server for third-party AI tools
 
-**Example MCP tools:**
+**Example MCP interface:**
 ```
-vibe://tools/add-clip
-vibe://tools/apply-effect
+vibe://resources/project/{id}/state    # Full project state
+vibe://resources/project/{id}/clips    # Clip list
+vibe://tools/timeline/add-clip
+vibe://tools/timeline/split
 vibe://tools/export
-vibe://resources/project/{id}
-vibe://prompts/edit-suggestions
+vibe://prompts/suggest-edits
 ```
 
 ---
 
-## Phase 4: AI-Native Editing 📋
+## Phase 5: AI-Native Editing 📋
 
 Intelligence built into every interaction.
 
@@ -89,15 +110,26 @@ Intelligence built into every interaction.
 
 ---
 
-## Phase 5: Advanced Features 📋
+## Phase 6: Sync & Collaboration 📋
 
-Power user features and ecosystem.
+Local-first with optional real-time sync.
 
-### Collaboration
-- [ ] Real-time multiplayer editing
+### Local-First Foundation
+- [ ] **CRDT-based state** (Yjs or Automerge)
+- [ ] Offline-capable editing
+- [ ] Conflict-free merge on reconnect
+
+### Collaboration (opt-in)
+- [ ] Real-time multiplayer editing (CRDT sync)
 - [ ] Version history & branching
 - [ ] Comments & review workflow
 - [ ] Team workspaces
+
+> **Design**: Local-first by default. Collaboration is additive, not required.
+
+---
+
+## Phase 7: Ecosystem & Scale 📋
 
 ### Ecosystem
 - [ ] Plugin marketplace
@@ -109,17 +141,11 @@ Power user features and ecosystem.
 - [ ] REST API for automation
 - [ ] Webhooks for CI/CD pipelines
 - [ ] SDK for custom integrations
-- [ ] Headless rendering service
 
----
-
-## Phase 6: Scale 📋
-
-Enterprise and platform features.
-
-- [ ] Self-hosted deployment option
+### Enterprise
+- [ ] Self-hosted deployment (Docker Compose)
 - [ ] S3/GCS media storage
-- [ ] Distributed rendering
+- [ ] Distributed rendering workers
 - [ ] Usage analytics
 - [ ] White-label solution
 
@@ -148,7 +174,20 @@ vibe ai         providers | transcribe | suggest
 3. **Headless First** - CLI/API before UI
 4. **Provider Agnostic** - Swap AI providers freely
 5. **MCP Compatible** - Standard protocol for AI tools
-6. **Local First** - Works offline, sync when online
+6. **Local First** - Works offline, CRDT sync when online
+7. **Hybrid Rendering** - Client for preview, server for heavy lifting
+
+---
+
+## Technical Decisions
+
+| Challenge | Solution |
+|-----------|----------|
+| Browser memory limit (~4GB) | Hybrid rendering: FFmpeg.wasm for preview, server for export |
+| AI video file sizes | Server-side processing, chunked transfers |
+| Local-first + Collaboration | CRDT (Yjs/Automerge) for conflict-free sync |
+| MCP Resource exposure | JSON-serializable project state schema |
+| CLI ↔ UI sync | WebSocket Live Link for real-time preview |
 
 ---
 
