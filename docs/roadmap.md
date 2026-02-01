@@ -105,7 +105,9 @@ Intelligence built into every interaction.
 - [x] **B-Roll Matcher** - Auto-match B-roll to narration
   - Whisper transcription → Claude Vision B-roll analysis → Claude semantic matching
   - Full pipeline: `vibe ai b-roll <narration> --broll-dir ./broll -o project.vibe.json`
-- [ ] Viral Optimizer - Platform-specific optimization (YouTube, TikTok, Instagram)
+- [x] **Viral Optimizer** - Platform-specific optimization (YouTube, TikTok, Instagram)
+  - Whisper transcription → Claude viral analysis → Platform cuts generation
+  - Full pipeline: `vibe ai viral <project> -p youtube-shorts,tiktok -o ./viral-output`
 
 ### Video Understanding & Generation
 - [ ] Video Extend - AI-powered clip extension
@@ -206,7 +208,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 video | video-status | video-cancel
                 kling | kling-status
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
-                script-to-video | highlights | b-roll
+                script-to-video | highlights | b-roll | viral
 ```
 
 ---

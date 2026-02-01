@@ -6,6 +6,99 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Phase 4: Viral Optimizer Implementation
+- Added `vibe ai viral` command for platform-specific video optimization
+- Full AI pipeline orchestration:
+  1. **Whisper** - Transcribes video content for analysis
+  2. **Claude** - Analyzes viral potential (hook strength, emotional peaks, pacing)
+  3. **Claude** - Generates platform-specific cuts
+  4. **Claude** - Generates social-media styled captions
+  5. **Project Engine** - Creates platform variant projects
+
+**Features:**
+- Viral potential analysis with scoring (0-100)
+- Hook strength assessment
+- Emotional peak detection
+- Pacing evaluation (slow/moderate/fast)
+- Platform suitability scores (YouTube, YouTube Shorts, TikTok, Instagram Reels, Instagram Feed, Twitter)
+- Platform-specific project generation with optimized cuts
+- Caption generation (minimal, bold, animated styles)
+- Analyze-only mode for quick assessment
+- JSON output with detailed analysis results
+
+**Files modified:**
+- `packages/ai-providers/src/interface/types.ts` - Added PlatformSpec, ViralAnalysis, PlatformCut, and related types
+- `packages/ai-providers/src/claude/ClaudeProvider.ts` - Added analyzeViralPotential, suggestPlatformCuts, generateViralCaptions methods
+- `packages/ai-providers/src/index.ts` - Exported new types
+- `packages/cli/src/commands/ai.ts` - Added viral command (~400 lines)
+- `packages/cli/src/commands/ai.test.ts` - Added tests
+- `docs/roadmap.md` - Marked Viral Optimizer complete
+- `CLAUDE.md` - Added CLI documentation
+
+**Usage:**
+```bash
+# Analyze viral potential only
+pnpm vibe ai viral project.vibe.json --analyze-only
+
+# Generate for specific platforms
+pnpm vibe ai viral project.vibe.json -p tiktok,instagram-reels
+
+# Full pipeline with custom options
+pnpm vibe ai viral project.vibe.json -p youtube-shorts,tiktok -o ./optimized --caption-style bold
+
+# All platforms
+pnpm vibe ai viral project.vibe.json -o ./viral-output
+
+# Export generated variant
+pnpm vibe export viral-output/tiktok.vibe.json -o tiktok.mp4
+```
+
+**CLI Output Example:**
+```
+🚀 Viral Optimizer Pipeline
+────────────────────────────────────────────────────────────
+
+✓ Loaded project: My Video (2:34, 5 clips)
+✓ Transcribed 45 segments
+
+📊 Analyzing viral potential...
+✓ Analysis complete
+
+Viral Potential Summary
+────────────────────────────────────────────────────────────
+  Overall Score: 78%
+  Hook Strength: 85%
+  Pacing: moderate
+
+  Platform Suitability:
+    TikTok           ████████░░ 82%
+    YouTube Shorts   ███████░░░ 75%
+    Instagram Reels  ████████░░ 80%
+    YouTube          █████████░ 92%
+
+  Emotional Peaks:
+    0:45.2 - excitement (90%)
+    2:15.3 - humor (85%)
+
+🎬 Generating platform variants...
+  ✔ youtube.vibe.json (2:34, 16:9)
+  ✔ youtube-shorts.vibe.json (0:58, 9:16)
+  ✔ tiktok.vibe.json (0:45, 9:16)
+  ✔ instagram-reels.vibe.json (0:52, 9:16)
+
+────────────────────────────────────────────────────────────
+✅ Viral optimization complete!
+   4 platform variants generated
+
+💾 Saved to: ./viral-output/
+
+Next steps:
+  vibe export viral-output/tiktok.vibe.json -o tiktok.mp4
+  vibe export viral-output/youtube-shorts.vibe.json -o shorts.mp4
+```
+
+---
+
 ### Phase 4: B-Roll Matcher Implementation
 - Added `vibe ai b-roll` command for automatic B-roll to narration matching
 - Full AI pipeline orchestration:

@@ -130,4 +130,51 @@ describe("ai commands", () => {
       }).toThrow();
     });
   });
+
+  describe("ai viral", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai viral --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Optimize video for viral potential");
+      expect(output).toContain("--platforms");
+      expect(output).toContain("--output-dir");
+      expect(output).toContain("--analyze-only");
+      expect(output).toContain("--skip-captions");
+      expect(output).toContain("--caption-style");
+      expect(output).toContain("--hook-duration");
+    });
+
+    it("validates platform names", () => {
+      expect(() => {
+        execSync(`${CLI} ai viral /tmp/test.vibe.json -p invalid-platform`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+
+    it("fails without API keys", () => {
+      expect(() => {
+        execSync(`${CLI} ai viral /tmp/test.vibe.json`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
+        });
+      }).toThrow();
+    });
+
+    it("fails with nonexistent project", () => {
+      expect(() => {
+        execSync(`${CLI} ai viral /tmp/nonexistent_project_12345.vibe.json`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+  });
 });

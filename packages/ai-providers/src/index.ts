@@ -36,4 +36,12 @@ export type {
   NarrationSegment,
   BrollMatch,
   BrollMatchResult,
+  PlatformSpec,
+  ViralAnalysis,
+  PlatformCut,
+  PlatformCutSegment,
+  ViralOptimizationResult,
+  EmotionalPeak,
+  SuggestedCut,
+  PlatformSuitability,
 } from "./interface";

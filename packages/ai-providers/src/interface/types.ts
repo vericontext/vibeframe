@@ -1,5 +1,8 @@
 import type { Clip, TimeSeconds } from "@vibe-edit/core";
 
+// Re-export TimeSeconds for use by consumers
+export type { TimeSeconds } from "@vibe-edit/core";
+
 /**
  * AI Provider capabilities
  */
@@ -21,7 +24,8 @@ export type AICapability =
   | "search-replace"
   | "outpaint"
   | "highlight-detection"
-  | "b-roll-matching";
+  | "b-roll-matching"
+  | "viral-optimization";
 
 /**
  * Generation status
@@ -293,6 +297,128 @@ export interface BrollMatchResult {
   matches: BrollMatch[];
   /** Indices of narration segments without matches */
   unmatchedSegments: number[];
+}
+
+/**
+ * Platform specification for viral optimization
+ */
+export interface PlatformSpec {
+  /** Platform identifier */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Required aspect ratio */
+  aspectRatio: "16:9" | "9:16" | "1:1" | "4:5";
+  /** Maximum duration in seconds */
+  maxDuration: number;
+  /** Ideal duration range */
+  idealDuration: { min: number; max: number };
+  /** Platform-specific features */
+  features: { captions: boolean; hook: boolean };
+}
+
+/**
+ * Emotional peak detected in content
+ */
+export interface EmotionalPeak {
+  /** Timestamp in seconds */
+  time: TimeSeconds;
+  /** Type of emotion */
+  emotion: string;
+  /** Intensity score 0-1 */
+  intensity: number;
+}
+
+/**
+ * Suggested cut for viral content
+ */
+export interface SuggestedCut {
+  /** Start time in seconds */
+  startTime: TimeSeconds;
+  /** End time in seconds */
+  endTime: TimeSeconds;
+  /** Reason for this cut */
+  reason: string;
+}
+
+/**
+ * Platform-specific suitability score
+ */
+export interface PlatformSuitability {
+  /** Suitability score 0-1 */
+  suitability: number;
+  /** Improvement suggestions */
+  suggestions: string[];
+}
+
+/**
+ * Result of viral potential analysis
+ */
+export interface ViralAnalysis {
+  /** Overall viral potential score 0-100 */
+  overallScore: number;
+  /** Hook strength score 0-100 (first few seconds effectiveness) */
+  hookStrength: number;
+  /** Content pacing assessment */
+  pacing: "slow" | "moderate" | "fast";
+  /** Detected emotional peaks */
+  emotionalPeaks: EmotionalPeak[];
+  /** Suggested cuts for optimization */
+  suggestedCuts: SuggestedCut[];
+  /** Platform-specific suitability scores */
+  platforms: Record<string, PlatformSuitability>;
+  /** Hook optimization recommendation */
+  hookRecommendation: {
+    /** Suggested new start time for better hook */
+    suggestedStartTime: TimeSeconds;
+    /** Reason for recommendation */
+    reason: string;
+  };
+}
+
+/**
+ * Segment for platform-specific cut
+ */
+export interface PlatformCutSegment {
+  /** Source clip ID */
+  sourceClipId: string;
+  /** Start time in seconds */
+  startTime: TimeSeconds;
+  /** End time in seconds */
+  endTime: TimeSeconds;
+  /** Priority score 0-1 */
+  priority: number;
+}
+
+/**
+ * Platform-specific video cut
+ */
+export interface PlatformCut {
+  /** Target platform */
+  platform: string;
+  /** Selected segments for this platform */
+  segments: PlatformCutSegment[];
+  /** Total duration of the cut */
+  totalDuration: TimeSeconds;
+}
+
+/**
+ * Result of viral optimization pipeline
+ */
+export interface ViralOptimizationResult {
+  /** Source project file path */
+  sourceProject: string;
+  /** Analysis results */
+  analysis: ViralAnalysis;
+  /** Generated platform cuts */
+  platformCuts: PlatformCut[];
+  /** Generated platform project files */
+  platformProjects: Array<{
+    platform: string;
+    projectPath: string;
+    duration: TimeSeconds;
+    aspectRatio: string;
+  }>;
 }
 
 /**
