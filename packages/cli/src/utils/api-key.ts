@@ -3,6 +3,7 @@ import { readFile, writeFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { config } from "dotenv";
 import chalk from "chalk";
+import { getApiKeyFromConfig, PROVIDER_ENV_VARS } from "../config/index.js";
 
 // Load .env from project root (where package.json is)
 function findProjectRoot(): string {
@@ -78,7 +79,7 @@ async function prompt(question: string, hidden = false): Promise<string> {
 }
 
 /**
- * Get API key from environment, prompt if not found
+ * Get API key from config, environment, or prompt
  */
 export async function getApiKey(
   envVar: string,
@@ -90,22 +91,42 @@ export async function getApiKey(
     return optionValue;
   }
 
-  // 2. Load .env and check environment
+  // 2. Check ~/.vibe-edit/config.yaml
+  // Map env var to provider key
+  const providerKeyMap: Record<string, string> = {
+    ANTHROPIC_API_KEY: "anthropic",
+    OPENAI_API_KEY: "openai",
+    GOOGLE_API_KEY: "google",
+    ELEVENLABS_API_KEY: "elevenlabs",
+    RUNWAY_API_KEY: "runway",
+    KLING_API_KEY: "kling",
+    STABILITY_API_KEY: "stability",
+    REPLICATE_API_TOKEN: "replicate",
+  };
+  const providerKey = providerKeyMap[envVar];
+  if (providerKey) {
+    const configKey = await getApiKeyFromConfig(providerKey);
+    if (configKey) {
+      return configKey;
+    }
+  }
+
+  // 3. Load .env and check environment
   loadEnv();
   const envValue = process.env[envVar];
   if (envValue) {
     return envValue;
   }
 
-  // 3. Check if running in TTY (interactive terminal)
+  // 4. Check if running in TTY (interactive terminal)
   if (!process.stdin.isTTY) {
     return null;
   }
 
-  // 4. Prompt for API key
+  // 5. Prompt for API key
   console.log();
   console.log(chalk.yellow(`${providerName} API key not found.`));
-  console.log(chalk.dim(`Set ${envVar} in .env or environment variables.`));
+  console.log(chalk.dim(`Set ${envVar} in .env, run 'vibe setup', or enter below.`));
   console.log();
 
   const apiKey = await prompt(chalk.cyan(`Enter ${providerName} API key: `), true);
@@ -114,7 +135,7 @@ export async function getApiKey(
     return null;
   }
 
-  // 5. Ask if user wants to save to .env
+  // 6. Ask if user wants to save to .env
   const save = await prompt(chalk.cyan("Save to .env for future use? (y/N): "));
 
   if (save.toLowerCase() === "y" || save.toLowerCase() === "yes") {

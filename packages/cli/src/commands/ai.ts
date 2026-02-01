@@ -5167,7 +5167,7 @@ function applySuggestion(project: Project, suggestion: any): boolean {
   return false;
 }
 
-function executeCommand(project: Project, cmd: TimelineCommand): boolean {
+export function executeCommand(project: Project, cmd: TimelineCommand): boolean {
   const { action, clipIds, params } = cmd;
 
   try {

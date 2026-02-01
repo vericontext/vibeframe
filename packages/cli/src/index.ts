@@ -11,6 +11,12 @@ import { mediaCommand } from "./commands/media.js";
 import { exportCommand } from "./commands/export.js";
 import { batchCommand } from "./commands/batch.js";
 import { detectCommand } from "./commands/detect.js";
+import { setupCommand } from "./commands/setup.js";
+import { startRepl } from "./repl/index.js";
+
+// Re-export repl and config for library usage
+export { startRepl, Session, executeReplCommand } from "./repl/index.js";
+export { loadConfig, saveConfig, isConfigured, type VibeConfig } from "./config/index.js";
 
 const program = new Command();
 
@@ -26,5 +32,16 @@ program.addCommand(mediaCommand);
 program.addCommand(exportCommand);
 program.addCommand(batchCommand);
 program.addCommand(detectCommand);
+program.addCommand(setupCommand);
 
-program.parse();
+// Check if any arguments provided
+if (process.argv.length <= 2) {
+  // No arguments - start interactive REPL
+  startRepl().catch((err) => {
+    console.error("Failed to start REPL:", err);
+    process.exit(1);
+  });
+} else {
+  // Arguments provided - parse normally
+  program.parse();
+}

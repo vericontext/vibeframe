@@ -131,6 +131,15 @@ Intelligence built into every interaction.
 - [x] Video Style Transfer - Artistic style for videos (`vibe ai style-transfer`)
 - [x] Object Tracking - SAM-2/co-tracker tracking (`vibe ai track-object`)
 
+### Installation & Interactive Mode
+- [x] **Install Script** - One-line installation: `curl -fsSL vibe-edit.dev/install.sh | bash`
+- [x] **Setup Wizard** - Interactive API key configuration (`vibe setup`)
+- [x] **Interactive REPL** - Natural language editing mode (run `vibe` with no args)
+  - Built-in commands: new, open, save, info, list, add, export, undo
+  - Natural language: "trim clip to 5s", "add fade in", etc.
+  - Auto-save, undo history, session state management
+- [x] **Config System** - YAML config at `~/.vibe-edit/config.yaml`
+
 ---
 
 ## Phase 5: Server Infrastructure 📋
@@ -193,9 +202,12 @@ Local-first with optional real-time sync.
 
 ## CLI Status
 
-**157 tests passing**
+**220 tests passing**
 
 ```
+vibe            (no args) → Start interactive REPL mode
+vibe setup      Configure API keys and preferences
+
 vibe project    create | info | set
 vibe timeline   add-source | add-clip | add-track | add-effect | trim | list
                 split | duplicate | delete | move
@@ -213,6 +225,25 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 voice-clone | music | music-status | audio-restore | dub
                 duck | grade | speed-ramp | reframe | auto-shorts
                 style-transfer | track-object
+```
+
+### Interactive Mode (REPL)
+```
+vibe> new <name>      Create new project
+vibe> open <path>     Open project file
+vibe> save            Save current project
+vibe> add <media>     Add media to project
+vibe> info            Show project info
+vibe> list            List timeline contents
+vibe> export          Export to video
+vibe> undo            Undo last action
+vibe> help            Show help
+vibe> exit            Exit
+
+# Natural language commands
+vibe> trim the clip to 5 seconds
+vibe> add fade in effect
+vibe> split at 3 seconds
 ```
 
 ---

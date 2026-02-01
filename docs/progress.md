@@ -6,6 +6,77 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Interactive Mode & Install Script
+Added curl-installable setup and interactive REPL mode for VibeEdit.
+
+**Install Script:**
+- `curl -fsSL vibe-edit.dev/install.sh | bash` - One-line installation
+- Checks for Node.js 18+, git, FFmpeg (optional)
+- Clones repo, installs dependencies, builds, creates symlink
+- Runs setup wizard automatically
+
+**Setup Command (`vibe setup`):**
+- Interactive wizard for configuring LLM provider (Claude/OpenAI/Gemini/Ollama)
+- Secure API key input with masking
+- Optional video generation provider setup (Runway, Kling, Stability, Replicate)
+- Default settings configuration (aspect ratio, export quality)
+- Saves config to `~/.vibe-edit/config.yaml`
+
+**Interactive REPL Mode:**
+- Run `vibe` without arguments to start interactive mode
+- Built-in commands: new, open, save, info, list, add, export, undo, help, exit
+- Natural language editing: "trim clip to 5 seconds", "add fade in effect"
+- Auto-save after each command (configurable)
+- Undo support with state history
+
+**Config System:**
+- YAML-based configuration at `~/.vibe-edit/config.yaml`
+- Stores LLM provider preference, API keys, defaults
+- Integrated with existing API key system (config > .env > prompt)
+
+**New Files:**
+- `scripts/install.sh` - Installation script
+- `packages/cli/src/config/schema.ts` - Config types
+- `packages/cli/src/config/index.ts` - Config loader/saver
+- `packages/cli/src/commands/setup.ts` - Setup wizard
+- `packages/cli/src/repl/session.ts` - Session state manager
+- `packages/cli/src/repl/executor.ts` - Command executor
+- `packages/cli/src/repl/prompts.ts` - ASCII logo, help text
+- `packages/cli/src/repl/index.ts` - REPL entry point
+
+**Files Modified:**
+- `packages/cli/src/index.ts` - REPL by default, added setup command
+- `packages/cli/src/utils/api-key.ts` - Config integration
+- `packages/cli/src/commands/ai.ts` - Exported executeCommand
+- `packages/cli/package.json` - Added yaml dependency
+
+**New Tests:** 63 tests added (total: 220 tests)
+- Config schema tests
+- Config loader tests
+- REPL prompts tests
+- REPL session tests
+- REPL executor tests
+
+**Usage:**
+```bash
+# Install
+curl -fsSL vibe-edit.dev/install.sh | bash
+
+# Configure
+vibe setup
+
+# Start interactive mode
+vibe
+vibe> new my-project
+vibe> add intro.mp4
+vibe> trim the clip to 5 seconds
+vibe> add fade in
+vibe> export
+vibe> exit
+```
+
+---
+
 ### Smart Editing Features
 Added 8 new AI-powered smart editing commands for Phase 4.
 
