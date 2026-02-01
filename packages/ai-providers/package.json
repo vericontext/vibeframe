@@ -1,0 +1,45 @@
+{
+  "name": "@vibe-edit/ai-providers",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./interface": {
+      "types": "./src/interface/index.ts",
+      "default": "./src/interface/index.ts"
+    },
+    "./whisper": {
+      "types": "./src/whisper/index.ts",
+      "default": "./src/whisper/index.ts"
+    },
+    "./gemini": {
+      "types": "./src/gemini/index.ts",
+      "default": "./src/gemini/index.ts"
+    },
+    "./runway": {
+      "types": "./src/runway/index.ts",
+      "default": "./src/runway/index.ts"
+    },
+    "./kling": {
+      "types": "./src/kling/index.ts",
+      "default": "./src/kling/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@vibe-edit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  }
+}

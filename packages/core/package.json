@@ -1,0 +1,34 @@
+{
+  "name": "@vibe-edit/core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./timeline": {
+      "types": "./src/timeline/index.ts",
+      "default": "./src/timeline/index.ts"
+    },
+    "./effects": {
+      "types": "./src/effects/index.ts",
+      "default": "./src/effects/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "immer": "^10.0.3",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  }
+}
