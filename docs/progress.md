@@ -6,6 +6,27 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### CLI Unit Tests
+- Added comprehensive unit tests for `Project` engine class
+- 43 test cases covering:
+  - Project initialization and settings
+  - Media source CRUD operations
+  - Track management
+  - Clip operations (add, move, trim, remove)
+  - Effect management
+  - Transitions
+  - JSON serialization/deserialization
+
+**Files created:**
+- `packages/cli/src/engine/project.test.ts`
+
+**Run tests:**
+```bash
+pnpm --filter @vibe-edit/cli test
+```
+
+---
+
 ### CLI Package Implementation
 - Created `packages/cli/` - headless command-line interface for video editing
 - Implemented `Project` class in `packages/cli/src/engine/project.ts`
