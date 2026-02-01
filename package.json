@@ -10,7 +10,8 @@
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "clean": "turbo clean && rm -rf node_modules",
-    "vibe": "tsx packages/cli/src/index.ts"
+    "vibe": "tsx packages/cli/src/index.ts",
+    "mcp": "tsx packages/mcp-server/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

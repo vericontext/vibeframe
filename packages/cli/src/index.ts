@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+
+// Re-export engine for library usage
+export { Project, generateId, type ProjectFile } from "./engine/index.js";
 import { projectCommand } from "./commands/project.js";
 import { timelineCommand } from "./commands/timeline.js";
 import { aiCommand } from "./commands/ai.js";

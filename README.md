@@ -125,6 +125,20 @@ pnpm vibe ai suggest <project> "add fade"    # Get suggestions (Gemini)
 pnpm vibe ai tts "Hello" -o voice.mp3        # Text-to-speech (ElevenLabs)
 pnpm vibe ai motion "logo intro" -o intro.tsx    # Motion graphics (Claude)
 pnpm vibe ai storyboard "script..." -o story.json  # Storyboard (Claude)
+pnpm vibe ai image "prompt" -o image.png         # Generate image (DALL-E)
+pnpm vibe ai thumbnail "desc" -s youtube         # Video thumbnail (DALL-E)
+pnpm vibe ai background "desc" -a 16:9           # Video background (DALL-E)
+pnpm vibe ai video "prompt" -o video.mp4         # Generate video (Runway Gen-3)
+pnpm vibe ai video "prompt" -i image.jpg         # Image-to-video (Runway Gen-3)
+pnpm vibe ai video-status <task-id>              # Check video status
+pnpm vibe ai video-cancel <task-id>              # Cancel generation
+pnpm vibe ai kling "prompt" -o video.mp4         # Generate video (Kling AI)
+pnpm vibe ai kling "prompt" -i image.jpg         # Image-to-video (Kling AI)
+pnpm vibe ai kling-status <task-id>              # Check Kling status
+pnpm vibe ai sd "prompt" -o image.png            # Generate image (Stable Diffusion)
+pnpm vibe ai sd-upscale image.png -o big.png     # Upscale image
+pnpm vibe ai sd-remove-bg photo.png              # Remove background
+pnpm vibe ai sd-img2img img.png "oil painting"   # Image-to-image
 
 # Detection (FFmpeg-based)
 pnpm vibe detect scenes <video>              # Auto-detect scene changes
