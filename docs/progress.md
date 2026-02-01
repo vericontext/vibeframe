@@ -6,6 +6,51 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Batch Operations
+- Added `vibe batch` command for processing multiple items at once
+- Commands:
+  - `vibe batch import <project> <directory>` - Import multiple media files from directory
+    - Supports recursive search (-r), file extension filter (--filter)
+  - `vibe batch concat <project> [source-ids...]` - Concatenate sources into sequential clips
+    - Supports --all, --start, --gap, --track options
+  - `vibe batch apply-effect <project> <effect-type> [clip-ids...]` - Apply effect to multiple clips
+    - Supports --all, --duration, --intensity options
+  - `vibe batch remove-clips <project> [clip-ids...]` - Remove multiple clips
+    - Supports --all, --track options
+  - `vibe batch info <project>` - Show project statistics
+- Added 12 integration tests for batch commands
+- Total tests: 101 (51 unit + 50 integration)
+
+**Files created:**
+- `packages/cli/src/commands/batch.ts`
+- `packages/cli/src/commands/batch.test.ts`
+
+**Usage:**
+```bash
+# Import all media from a directory
+vibe batch import project.vibe.json ./media/
+
+# Import recursively, only mp4 files
+vibe batch import project.vibe.json ./media/ -r --filter ".mp4"
+
+# Concatenate all sources into clips
+vibe batch concat project.vibe.json --all
+
+# Concatenate with 1s gap between clips
+vibe batch concat project.vibe.json --all --gap 1
+
+# Apply fadeIn to all clips
+vibe batch apply-effect project.vibe.json fadeIn --all
+
+# Remove all clips
+vibe batch remove-clips project.vibe.json --all
+
+# Show project statistics
+vibe batch info project.vibe.json
+```
+
+---
+
 ### Timeline Operations
 - Added advanced clip manipulation commands to CLI
 - New Project methods: `splitClip()`, `duplicateClip()`
