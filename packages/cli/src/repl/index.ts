@@ -18,6 +18,8 @@ export { executeReplCommand, type CommandResult } from "./executor.js";
  * Start the interactive REPL
  */
 export async function startRepl(): Promise<void> {
+  console.error("[DEBUG] 1. startRepl called");
+
   // Check if TTY is available
   if (!hasTTY()) {
     console.error(chalk.red("Error: Interactive mode requires a terminal."));
@@ -29,21 +31,31 @@ export async function startRepl(): Promise<void> {
     process.exit(1);
   }
 
+  console.error("[DEBUG] 2. hasTTY passed");
+
   // Create session and initialize
   const session = new Session();
   await session.initialize();
 
+  console.error("[DEBUG] 3. session initialized");
+
   // Check configuration status
   const configured = await isConfigured();
 
+  console.error("[DEBUG] 4. isConfigured:", configured);
+
   // Print welcome message
   console.log(getWelcomeMessage(configured));
+
+  console.error("[DEBUG] 5. welcome message printed");
 
   // Create readline interface with TTY support
   const rl = createTTYInterface({
     prompt: getPrompt(),
     historySize: 100,
   });
+
+  console.error("[DEBUG] 6. readline interface created");
 
   // Handle SIGINT (Ctrl+C)
   rl.on("SIGINT", () => {
@@ -112,5 +124,7 @@ export async function startRepl(): Promise<void> {
   });
 
   // Start the REPL
+  console.error("[DEBUG] 7. calling rl.prompt()");
   rl.prompt();
+  console.error("[DEBUG] 8. rl.prompt() called");
 }
