@@ -40,9 +40,9 @@ import {
   type ViralAnalysis,
   type PlatformCut,
   type ViralOptimizationResult,
-} from "@vibe-edit/ai-providers";
+} from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
-import type { EffectType } from "@vibe-edit/core/timeline";
+import type { EffectType } from "@vibeframe/core/timeline";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { getApiKey } from "../utils/api-key.js";
 
@@ -1401,7 +1401,7 @@ aiCommand
 
       const spinner = ora("Initializing Replicate...").start();
 
-      const { ReplicateProvider } = await import("@vibe-edit/ai-providers");
+      const { ReplicateProvider } = await import("@vibeframe/ai-providers");
       const replicate = new ReplicateProvider();
       await replicate.initialize({ apiKey });
 
@@ -1525,7 +1525,7 @@ aiCommand
 
       const spinner = ora("Initializing Replicate...").start();
 
-      const { ReplicateProvider } = await import("@vibe-edit/ai-providers");
+      const { ReplicateProvider } = await import("@vibeframe/ai-providers");
       const replicate = new ReplicateProvider();
       await replicate.initialize({ apiKey });
 

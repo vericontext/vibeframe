@@ -1,6 +1,6 @@
 /**
- * Configuration loader/saver for VibeEdit CLI
- * Config stored at ~/.vibe-edit/config.yaml
+ * Configuration loader/saver for VibeFrame CLI
+ * Config stored at ~/.vibeframe/config.yaml
  */
 
 import { resolve } from "node:path";
@@ -10,13 +10,13 @@ import { parse, stringify } from "yaml";
 import { type VibeConfig, createDefaultConfig, PROVIDER_ENV_VARS } from "./schema.js";
 
 /** Config directory path */
-export const CONFIG_DIR = resolve(homedir(), ".vibe-edit");
+export const CONFIG_DIR = resolve(homedir(), ".vibeframe");
 
 /** Config file path */
 export const CONFIG_PATH = resolve(CONFIG_DIR, "config.yaml");
 
 /**
- * Load configuration from ~/.vibe-edit/config.yaml
+ * Load configuration from ~/.vibeframe/config.yaml
  * Returns null if config doesn't exist
  */
 export async function loadConfig(): Promise<VibeConfig | null> {
@@ -41,7 +41,7 @@ export async function loadConfig(): Promise<VibeConfig | null> {
 }
 
 /**
- * Save configuration to ~/.vibe-edit/config.yaml
+ * Save configuration to ~/.vibeframe/config.yaml
  */
 export async function saveConfig(config: VibeConfig): Promise<void> {
   // Ensure config directory exists

@@ -21,11 +21,11 @@ export default function LandingPage() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Play className="w-4 h-4 text-primary-foreground fill-current" />
             </div>
-            <span className="text-xl font-bold">VibeEdit</span>
+            <span className="text-xl font-bold">VibeFrame</span>
           </div>
           <div className="flex items-center gap-4">
             <Link 
-              href="https://github.com/vericontext/vibe-edit" 
+              href="https://github.com/vericontext/vibeframe" 
               target="_blank"
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -33,7 +33,7 @@ export default function LandingPage() {
               <span className="hidden sm:inline">GitHub</span>
             </Link>
             <Link
-              href="https://github.com/vericontext/vibe-edit#cli-commands"
+              href="https://github.com/vericontext/vibeframe#cli-commands"
               target="_blank"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
@@ -66,7 +66,7 @@ export default function LandingPage() {
           <div className="bg-secondary rounded-xl p-1 max-w-xl mx-auto mb-8">
             <div className="flex items-center gap-2 px-4 py-3 bg-background rounded-lg font-mono text-sm">
               <span className="text-muted-foreground">$</span>
-              <span className="text-foreground">npm install -g @vibe-edit/cli</span>
+              <span className="text-foreground">npm install -g @vibeframe/cli</span>
               <button 
                 className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
                 title="Copy to clipboard"
@@ -81,7 +81,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link 
-              href="https://github.com/vericontext/vibe-edit"
+              href="https://github.com/vericontext/vibeframe"
               target="_blank"
               className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
@@ -135,7 +135,7 @@ export default function LandingPage() {
               Built for AI agents
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Not another Premiere clone. VibeEdit is designed from the ground up 
+              Not another Premiere clone. VibeFrame is designed from the ground up 
               for automation and AI-powered workflows.
             </p>
           </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
       <section className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
-            Traditional vs VibeEdit
+            Traditional vs VibeFrame
           </h2>
           
           <div className="grid sm:grid-cols-2 gap-6">
@@ -196,7 +196,7 @@ export default function LandingPage() {
             </div>
             
             <div className="bg-primary/10 border border-primary/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4 text-primary">VibeEdit</h3>
+              <h3 className="text-lg font-semibold mb-4 text-primary">VibeFrame</h3>
               <ul className="space-y-3">
                 <li className="flex items-start gap-2">
                   <span className="text-primary">✓</span>
@@ -231,7 +231,7 @@ export default function LandingPage() {
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
                 <p className="text-muted-foreground">
-                  Control VibeEdit from Claude Desktop or Cursor
+                  Control VibeFrame from Claude Desktop or Cursor
                 </p>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function LandingPage() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link 
-              href="https://github.com/vericontext/vibe-edit"
+              href="https://github.com/vericontext/vibeframe"
               target="_blank"
               className="flex items-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 font-medium hover:bg-foreground/90 transition-colors"
             >
@@ -275,7 +275,7 @@ export default function LandingPage() {
               Star on GitHub
             </Link>
             <Link
-              href="https://github.com/vericontext/vibe-edit/blob/main/docs/mcp.md"
+              href="https://github.com/vericontext/vibeframe/blob/main/docs/mcp.md"
               target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary transition-colors"
             >
@@ -293,16 +293,16 @@ export default function LandingPage() {
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
               <Play className="w-3 h-3 text-primary-foreground fill-current" />
             </div>
-            <span>VibeEdit</span>
+            <span>VibeFrame</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="https://github.com/vericontext/vibe-edit" target="_blank" className="hover:text-foreground transition-colors">
+            <Link href="https://github.com/vericontext/vibeframe" target="_blank" className="hover:text-foreground transition-colors">
               GitHub
             </Link>
-            <Link href="https://github.com/vericontext/vibe-edit/blob/main/docs/roadmap.md" target="_blank" className="hover:text-foreground transition-colors">
+            <Link href="https://github.com/vericontext/vibeframe/blob/main/docs/roadmap.md" target="_blank" className="hover:text-foreground transition-colors">
               Roadmap
             </Link>
-            <Link href="https://github.com/vericontext/vibe-edit/blob/main/LICENSE" target="_blank" className="hover:text-foreground transition-colors">
+            <Link href="https://github.com/vericontext/vibeframe/blob/main/LICENSE" target="_blank" className="hover:text-foreground transition-colors">
               MIT License
             </Link>
           </div>

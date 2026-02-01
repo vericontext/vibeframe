@@ -16,7 +16,7 @@ import {
 } from "../config/index.js";
 
 export const setupCommand = new Command("setup")
-  .description("Configure VibeEdit (LLM provider, API keys)")
+  .description("Configure VibeFrame (LLM provider, API keys)")
   .option("--reset", "Reset configuration to defaults")
   .action(async (options) => {
     if (options.reset) {
@@ -84,7 +84,7 @@ async function prompt(question: string, hidden = false): Promise<string> {
  */
 async function runSetupWizard(): Promise<void> {
   console.log();
-  console.log(chalk.bold.cyan("VibeEdit Setup Wizard"));
+  console.log(chalk.bold.cyan("VibeFrame Setup Wizard"));
   console.log(chalk.dim("─".repeat(40)));
   console.log();
 

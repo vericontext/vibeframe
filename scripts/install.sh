@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# VibeEdit Installer
-# curl -fsSL https://vibe-edit.dev/install.sh | bash
+# VibeFrame Installer
+# curl -fsSL https://vibeframe.ai/install.sh | bash
 #
 
 set -e
@@ -15,7 +15,7 @@ DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Installation directory
-VIBE_HOME="${VIBE_HOME:-$HOME/.vibe-edit}"
+VIBE_HOME="${VIBE_HOME:-$HOME/.vibeframe}"
 
 # Print banner
 banner() {
@@ -101,8 +101,8 @@ if [ -d "$VIBE_HOME" ]; then
   cd "$VIBE_HOME"
   git pull origin main
 else
-  step "Cloning VibeEdit..."
-  git clone --depth 1 https://github.com/vericontext/vibe-edit.git "$VIBE_HOME"
+  step "Cloning VibeFrame..."
+  git clone --depth 1 https://github.com/vericontext/vibeframe.git "$VIBE_HOME"
   cd "$VIBE_HOME"
 fi
 

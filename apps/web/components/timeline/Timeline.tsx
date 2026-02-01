@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useRef, useCallback, useState } from "react";
-import { useTimelineStore, useZoom, useTracks, useClips } from "@vibe-edit/core";
+import { useTimelineStore, useZoom, useTracks, useClips } from "@vibeframe/core";
 import { Track } from "./Track";
 import { Playhead } from "./Playhead";
 import { TimeRuler } from "./TimeRuler";
-import { Button, PlusIcon, MinusIcon } from "@vibe-edit/ui";
+import { Button, PlusIcon, MinusIcon } from "@vibeframe/ui";
 
 export function Timeline() {
   const containerRef = useRef<HTMLDivElement>(null);

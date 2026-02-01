@@ -1,6 +1,6 @@
-# VibeEdit MCP Integration Guide
+# VibeFrame MCP Integration Guide
 
-Complete guide for integrating VibeEdit with AI assistants via Model Context Protocol (MCP).
+Complete guide for integrating VibeFrame with AI assistants via Model Context Protocol (MCP).
 
 ---
 
@@ -23,10 +23,10 @@ Complete guide for integrating VibeEdit with AI assistants via Model Context Pro
 
 ## Overview
 
-VibeEdit's MCP server enables AI assistants to control video editing through natural language:
+VibeFrame's MCP server enables AI assistants to control video editing through natural language:
 
 ```
-User → AI Assistant → MCP Server → VibeEdit → Video Project
+User → AI Assistant → MCP Server → VibeFrame → Video Project
 ```
 
 **What you can do:**
@@ -38,7 +38,7 @@ User → AI Assistant → MCP Server → VibeEdit → Video Project
 
 **Requirements:**
 - Node.js 18+
-- VibeEdit installed and built
+- VibeFrame installed and built
 - An MCP-compatible AI assistant (Claude Desktop, Cursor, etc.)
 
 ---
@@ -48,9 +48,9 @@ User → AI Assistant → MCP Server → VibeEdit → Video Project
 ### Prerequisites
 
 ```bash
-# Clone and build VibeEdit
-git clone https://github.com/vericontext/vibe-edit.git
-cd vibe-edit
+# Clone and build VibeFrame
+git clone https://github.com/vericontext/vibeframe.git
+cd vibeframe
 pnpm install
 pnpm build
 ```
@@ -64,13 +64,13 @@ pnpm build
    open ~/Library/Application\ Support/Claude/claude_desktop_config.json
    ```
 
-2. Add VibeEdit server:
+2. Add VibeFrame server:
    ```json
    {
      "mcpServers": {
-       "vibe-edit": {
+       "vibeframe": {
          "command": "node",
-         "args": ["/Users/YOUR_USERNAME/vibe-edit/packages/mcp-server/dist/index.js"],
+         "args": ["/Users/YOUR_USERNAME/vibeframe/packages/mcp-server/dist/index.js"],
          "env": {
            "VIBE_PROJECT_PATH": "/Users/YOUR_USERNAME/videos/my-project.vibe.json"
          }
@@ -81,7 +81,7 @@ pnpm build
 
 3. Restart Claude Desktop
 
-4. Verify: Look for VibeEdit tools in Claude's tool list
+4. Verify: Look for VibeFrame tools in Claude's tool list
 
 #### Windows
 
@@ -94,9 +94,9 @@ pnpm build
    ```json
    {
      "mcpServers": {
-       "vibe-edit": {
+       "vibeframe": {
          "command": "node",
-         "args": ["C:/Users/YOUR_USERNAME/vibe-edit/packages/mcp-server/dist/index.js"],
+         "args": ["C:/Users/YOUR_USERNAME/vibeframe/packages/mcp-server/dist/index.js"],
          "env": {
            "VIBE_PROJECT_PATH": "C:/Users/YOUR_USERNAME/videos/my-project.vibe.json"
          }
@@ -123,7 +123,7 @@ Add to `.cursor/mcp.json` in your workspace:
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "node",
       "args": ["${workspaceFolder}/packages/mcp-server/dist/index.js"],
       "env": {
@@ -136,11 +136,11 @@ Add to `.cursor/mcp.json` in your workspace:
 
 ### Other MCP Clients
 
-Any MCP-compatible client can use VibeEdit. The server communicates via stdio:
+Any MCP-compatible client can use VibeFrame. The server communicates via stdio:
 
 ```bash
 # Direct invocation
-node /path/to/vibe-edit/packages/mcp-server/dist/index.js
+node /path/to/vibeframe/packages/mcp-server/dist/index.js
 
 # Or with environment
 VIBE_PROJECT_PATH=/path/to/project.vibe.json node /path/to/dist/index.js
@@ -152,7 +152,7 @@ VIBE_PROJECT_PATH=/path/to/project.vibe.json node /path/to/dist/index.js
 
 ### Project Files
 
-VibeEdit uses `.vibe.json` files to store project state:
+VibeFrame uses `.vibe.json` files to store project state:
 
 ```json
 {
@@ -454,7 +454,7 @@ vibe batch apply-effect my-project.vibe.json fadeIn --all
 
 ### AI Pipelines
 
-VibeEdit's AI pipelines work with MCP-created projects:
+VibeFrame's AI pipelines work with MCP-created projects:
 
 ```bash
 # After creating project via MCP:
@@ -517,7 +517,7 @@ Ensure read/write access to:
 # Run server manually
 node packages/mcp-server/dist/index.js
 
-# Should output: "VibeEdit MCP Server started"
+# Should output: "VibeFrame MCP Server started"
 ```
 
 #### Use MCP Inspector
@@ -533,7 +533,7 @@ The MCP server logs to stderr. Enable verbose logging:
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "node",
       "args": ["/path/to/dist/index.js"],
       "env": {
@@ -546,7 +546,7 @@ The MCP server logs to stderr. Enable verbose logging:
 
 ### Getting Help
 
-- [GitHub Issues](https://github.com/vericontext/vibe-edit/issues)
+- [GitHub Issues](https://github.com/vericontext/vibeframe/issues)
 - [MCP Documentation](https://modelcontextprotocol.io)
 
 ---

@@ -4,7 +4,7 @@ import { resolve, basename, extname, join } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import type { MediaType, EffectType } from "@vibe-edit/core/timeline";
+import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 
 export const batchCommand = new Command("batch")
   .description("Batch operations for processing multiple items");

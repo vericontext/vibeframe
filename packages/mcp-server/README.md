@@ -1,22 +1,22 @@
-# VibeEdit MCP Server
+# VibeFrame MCP Server
 
-MCP (Model Context Protocol) server for VibeEdit, enabling AI assistants like **Claude Desktop** and **Cursor** to interact with video editing projects through natural language.
+MCP (Model Context Protocol) server for VibeFrame, enabling AI assistants like **Claude Desktop** and **Cursor** to interact with video editing projects through natural language.
 
 > "Create a video project, add my intro clip, trim it to 5 seconds, and add a fade-in effect"
 
 ```
-Claude Desktop → MCP Server → VibeEdit Project (.vibe.json)
+Claude Desktop → MCP Server → VibeFrame Project (.vibe.json)
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Install VibeEdit
+### 1. Install VibeFrame
 
 ```bash
-git clone https://github.com/vericontext/vibe-edit.git
-cd vibe-edit
+git clone https://github.com/vericontext/vibeframe.git
+cd vibeframe
 pnpm install
 pnpm build
 ```
@@ -28,9 +28,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "node",
-      "args": ["/path/to/vibe-edit/packages/mcp-server/dist/index.js"],
+      "args": ["/path/to/vibeframe/packages/mcp-server/dist/index.js"],
       "env": {
         "VIBE_PROJECT_PATH": "/path/to/your/project.vibe.json"
       }
@@ -43,7 +43,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 
 ### 3. Restart Claude Desktop
 
-The VibeEdit tools will now be available.
+The VibeFrame tools will now be available.
 
 ---
 
@@ -56,9 +56,9 @@ Using built package:
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "node",
-      "args": ["/absolute/path/to/vibe-edit/packages/mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/vibeframe/packages/mcp-server/dist/index.js"],
       "env": {
         "VIBE_PROJECT_PATH": "/path/to/project.vibe.json"
       }
@@ -74,9 +74,9 @@ Using tsx for hot-reload:
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "npx",
-      "args": ["tsx", "/path/to/vibe-edit/packages/mcp-server/src/index.ts"],
+      "args": ["tsx", "/path/to/vibeframe/packages/mcp-server/src/index.ts"],
       "env": {
         "VIBE_PROJECT_PATH": "/path/to/project.vibe.json"
       }
@@ -92,7 +92,7 @@ Add to your workspace's `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "node",
       "args": ["${workspaceFolder}/packages/mcp-server/dist/index.js"],
       "env": {
@@ -116,7 +116,7 @@ Add to your workspace's `.cursor/mcp.json`:
 ### Project Management
 
 #### `project_create`
-Create a new VibeEdit project file.
+Create a new VibeFrame project file.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -456,10 +456,10 @@ The server needs read/write access to:
 
 ```bash
 # Start in development mode (with hot reload)
-pnpm --filter @vibe-edit/mcp-server start:dev
+pnpm --filter @vibeframe/mcp-server start:dev
 
 # Build for production
-pnpm --filter @vibe-edit/mcp-server build
+pnpm --filter @vibeframe/mcp-server build
 
 # Run from monorepo root
 pnpm mcp
@@ -478,17 +478,17 @@ npx @modelcontextprotocol/inspector node packages/mcp-server/dist/index.js
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  Claude Desktop │────▶│  MCP Server      │────▶│  .vibe.json     │
-│  / Cursor       │ MCP │  (VibeEdit)      │ I/O │  Project File   │
+│  / Cursor       │ MCP │  (VibeFrame)      │ I/O │  Project File   │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
                                │
                                ▼
                         ┌──────────────────┐
-                        │  @vibe-edit/cli  │
+                        │  @vibeframe/cli  │
                         │  (Project class) │
                         └──────────────────┘
 ```
 
-The MCP server exposes VibeEdit's CLI functionality through the Model Context Protocol, allowing AI assistants to manipulate video projects programmatically.
+The MCP server exposes VibeFrame's CLI functionality through the Model Context Protocol, allowing AI assistants to manipulate video projects programmatically.
 
 ---
 

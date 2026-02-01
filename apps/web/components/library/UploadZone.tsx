@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useRef, useState } from "react";
-import { cn, UploadIcon } from "@vibe-edit/ui";
+import { cn, UploadIcon } from "@vibeframe/ui";
 
 interface UploadZoneProps {
   onFilesAdded: (files: File[]) => void;

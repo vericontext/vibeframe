@@ -5,7 +5,7 @@
 import chalk from "chalk";
 
 /**
- * ASCII Logo for VibeEdit
+ * ASCII Logo for VibeFrame
  */
 export const ASCII_LOGO = `
 ${chalk.magenta(" ██╗   ██╗██╗██████╗ ███████╗")}

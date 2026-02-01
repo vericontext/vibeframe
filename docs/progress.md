@@ -7,10 +7,10 @@ Detailed changelog of development progress. Updated after each significant chang
 ## 2026-02-02
 
 ### Interactive Mode & Install Script
-Added curl-installable setup and interactive REPL mode for VibeEdit.
+Added curl-installable setup and interactive REPL mode for VibeFrame.
 
 **Install Script:**
-- `curl -fsSL vibe-edit.dev/install.sh | bash` - One-line installation
+- `curl -fsSL vibeframe.ai/install.sh | bash` - One-line installation
 - Checks for Node.js 18+, git, FFmpeg (optional)
 - Clones repo, installs dependencies, builds, creates symlink
 - Runs setup wizard automatically
@@ -20,7 +20,7 @@ Added curl-installable setup and interactive REPL mode for VibeEdit.
 - Secure API key input with masking
 - Optional video generation provider setup (Runway, Kling, Stability, Replicate)
 - Default settings configuration (aspect ratio, export quality)
-- Saves config to `~/.vibe-edit/config.yaml`
+- Saves config to `~/.vibeframe/config.yaml`
 
 **Interactive REPL Mode:**
 - Run `vibe` without arguments to start interactive mode
@@ -30,7 +30,7 @@ Added curl-installable setup and interactive REPL mode for VibeEdit.
 - Undo support with state history
 
 **Config System:**
-- YAML-based configuration at `~/.vibe-edit/config.yaml`
+- YAML-based configuration at `~/.vibeframe/config.yaml`
 - Stores LLM provider preference, API keys, defaults
 - Integrated with existing API key system (config > .env > prompt)
 
@@ -60,7 +60,7 @@ Added curl-installable setup and interactive REPL mode for VibeEdit.
 **Usage:**
 ```bash
 # Install
-curl -fsSL vibe-edit.dev/install.sh | bash
+curl -fsSL vibeframe.ai/install.sh | bash
 
 # Configure
 vibe setup
@@ -727,7 +727,7 @@ vibe ai sd-outpaint photo.png --right 256 --creativity 0.7 -o extended.png
 
 ### MCP (Model Context Protocol) Integration
 - Created `packages/mcp-server/` - MCP server for AI assistant integration
-- Enables Claude Desktop, Cursor, and other MCP clients to control VibeEdit
+- Enables Claude Desktop, Cursor, and other MCP clients to control VibeFrame
 
 **Tools (12):**
 - Project: `project_create`, `project_info`
@@ -762,9 +762,9 @@ vibe ai sd-outpaint photo.png --right 256 --creativity 0.7 -o extended.png
 ```json
 {
   "mcpServers": {
-    "vibe-edit": {
+    "vibeframe": {
       "command": "npx",
-      "args": ["tsx", "/path/to/vibe-edit/packages/mcp-server/src/index.ts"],
+      "args": ["tsx", "/path/to/vibeframe/packages/mcp-server/src/index.ts"],
       "env": {
         "VIBE_PROJECT_PATH": "/path/to/project.vibe.json"
       }
@@ -1073,7 +1073,7 @@ vibe detect beats music.mp3 -o beats.json
 vibe ai tts "Hello, this is a test" -o narration.mp3
 
 # Use specific voice
-vibe ai tts "Welcome to VibeEdit" -v <voice-id> -o intro.mp3
+vibe ai tts "Welcome to VibeFrame" -v <voice-id> -o intro.mp3
 
 # List available voices
 vibe ai voices
@@ -1311,7 +1311,7 @@ vibe export project.vibe.json -o output.mp4 -p high
 
 **Run tests:**
 ```bash
-pnpm --filter @vibe-edit/cli test
+pnpm --filter @vibeframe/cli test
 ```
 
 ---

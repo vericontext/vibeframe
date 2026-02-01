@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { useTimelineStore, usePlaybackState } from "@vibe-edit/core";
+import { useTimelineStore, usePlaybackState } from "@vibeframe/core";
 import {
   Button,
   PlayIcon,
   PauseIcon,
   TrackPreviousIcon,
   TrackNextIcon,
-} from "@vibe-edit/ui";
+} from "@vibeframe/ui";
 
 export function PlaybackControls() {
   const { isPlaying, currentTime } = usePlaybackState();

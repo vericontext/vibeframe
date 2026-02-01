@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { useTimelineStore } from "@vibe-edit/core";
-import { Button, cn } from "@vibe-edit/ui";
+import { useTimelineStore } from "@vibeframe/core";
+import { Button, cn } from "@vibeframe/ui";
 
 interface Message {
   id: string;
@@ -17,7 +17,7 @@ export function ChatPanel() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hi! I'm your VibeEdit assistant. Tell me what you want to do with your video, like \"인트로 3초로 줄이고 마지막에 페이드아웃\" or \"add a fade in to the first clip\".",
+        "Hi! I'm your VibeFrame assistant. Tell me what you want to do with your video, like \"인트로 3초로 줄이고 마지막에 페이드아웃\" or \"add a fade in to the first clip\".",
       timestamp: new Date(),
     },
   ]);

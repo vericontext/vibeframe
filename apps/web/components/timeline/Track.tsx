@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Track as TrackType, Clip as ClipType, useTimelineStore } from "@vibe-edit/core";
+import { Track as TrackType, Clip as ClipType, useTimelineStore } from "@vibeframe/core";
 import { ClipComponent } from "./Clip";
-import { cn } from "@vibe-edit/ui";
+import { cn } from "@vibeframe/ui";
 
 interface TrackProps {
   track: TrackType;

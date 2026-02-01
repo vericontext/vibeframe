@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { useTimelineStore, usePlaybackState } from "@vibe-edit/core";
+import { useTimelineStore, usePlaybackState } from "@vibeframe/core";
 import { PlaybackControls } from "./PlaybackControls";
 
 export function Preview() {

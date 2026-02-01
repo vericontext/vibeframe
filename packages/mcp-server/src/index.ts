@@ -15,9 +15,9 @@ import { resources, readResource } from "./resources/index.js";
 import { prompts, getPrompt } from "./prompts/index.js";
 
 /**
- * VibeEdit MCP Server
+ * VibeFrame MCP Server
  *
- * Exposes VibeEdit functionality through the Model Context Protocol.
+ * Exposes VibeFrame functionality through the Model Context Protocol.
  * This allows Claude Desktop, Cursor, and other MCP clients to:
  * - Manipulate video timelines
  * - Access project state
@@ -25,7 +25,7 @@ import { prompts, getPrompt } from "./prompts/index.js";
  */
 const server = new Server(
   {
-    name: "vibe-edit",
+    name: "vibeframe",
     version: "0.1.0",
   },
   {
@@ -74,7 +74,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("VibeEdit MCP Server started");
+  console.error("VibeFrame MCP Server started");
 }
 
 main().catch((error) => {

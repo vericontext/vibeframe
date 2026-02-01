@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-edit/web",
+  "name": "@vibeframe/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,8 +16,8 @@
     "@radix-ui/react-slider": "^1.1.2",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tooltip": "^1.0.7",
-    "@vibe-edit/core": "workspace:*",
-    "@vibe-edit/ui": "workspace:*",
+    "@vibeframe/core": "workspace:*",
+    "@vibeframe/ui": "workspace:*",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.563.0",

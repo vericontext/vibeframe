@@ -1,4 +1,4 @@
-# VibeEdit
+# VibeFrame
 
 **AI-native video editing. CLI-first. MCP-ready.**
 
@@ -8,7 +8,7 @@
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
 ```bash
-npm install -g @vibe-edit/cli
+npm install -g @vibeframe/cli
 
 # Create a TikTok video from a script
 vibe ai script-to-video "A day in the life of a developer..." -a 9:16 -o project.vibe.json
@@ -25,11 +25,11 @@ vibe ai viral project.vibe.json -p tiktok,youtube-shorts,instagram-reels
 
 ---
 
-## Why VibeEdit?
+## Why VibeFrame?
 
-Traditional video editors are built for **clicking buttons**. VibeEdit is built for **AI agents**.
+Traditional video editors are built for **clicking buttons**. VibeFrame is built for **AI agents**.
 
-| Traditional Editor | VibeEdit |
+| Traditional Editor | VibeFrame |
 |-------------------|----------|
 | Import → Drag → Trim → Export | `vibe ai edit "trim intro to 3s"` |
 | Manual scene detection | `vibe detect scenes video.mp4` |
@@ -54,8 +54,8 @@ Traditional video editors are built for **clicking buttons**. VibeEdit is built 
 ### Installation
 
 ```bash
-git clone https://github.com/vericontext/vibe-edit.git
-cd vibe-edit
+git clone https://github.com/vericontext/vibeframe.git
+cd vibeframe
 pnpm install
 ```
 
@@ -146,7 +146,7 @@ Viral Potential Summary
 
 ## MCP Integration
 
-VibeEdit works with Claude Desktop and Cursor via MCP (Model Context Protocol):
+VibeFrame works with Claude Desktop and Cursor via MCP (Model Context Protocol):
 
 ```bash
 pnpm mcp  # Start MCP server
@@ -240,7 +240,7 @@ vibe ai viral <project>              # Platform optimization
 ## Project Structure
 
 ```
-vibe-edit/
+vibeframe/
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
 │   ├── cli/               # Command-line interface (135 tests)

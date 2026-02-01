@@ -14,7 +14,7 @@ export default function EditorPage() {
       {/* Header */}
       <header className="flex h-12 items-center justify-between border-b border-border bg-secondary px-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-primary">VibeEdit</h1>
+          <h1 className="text-lg font-semibold text-primary">VibeFrame</h1>
           <span className="rounded bg-primary/20 px-2 py-0.5 text-xs text-primary">
             Beta
           </span>

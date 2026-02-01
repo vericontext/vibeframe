@@ -91,7 +91,7 @@ export async function getApiKey(
     return optionValue;
   }
 
-  // 2. Check ~/.vibe-edit/config.yaml
+  // 2. Check ~/.vibeframe/config.yaml
   // Map env var to provider key
   const providerKeyMap: Record<string, string> = {
     ANTHROPIC_API_KEY: "anthropic",

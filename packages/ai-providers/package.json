@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-edit/ai-providers",
+  "name": "@vibeframe/ai-providers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -37,7 +37,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@vibe-edit/core": "workspace:*"
+    "@vibeframe/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

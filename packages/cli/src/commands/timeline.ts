@@ -4,7 +4,7 @@ import { resolve, basename, extname } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import type { MediaType } from "@vibe-edit/core/timeline";
+import type { MediaType } from "@vibeframe/core/timeline";
 
 export const timelineCommand = new Command("timeline")
   .description("Timeline editing commands");

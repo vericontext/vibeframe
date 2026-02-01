@@ -1,7 +1,7 @@
-import type { Clip, TimeSeconds } from "@vibe-edit/core";
+import type { Clip, TimeSeconds } from "@vibeframe/core";
 
 // Re-export TimeSeconds for use by consumers
-export type { TimeSeconds } from "@vibe-edit/core";
+export type { TimeSeconds } from "@vibeframe/core";
 
 /**
  * AI Provider capabilities

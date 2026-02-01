@@ -56,10 +56,10 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.0.7
         version: 1.2.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@vibe-edit/core':
+      '@vibeframe/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@vibe-edit/ui':
+      '@vibeframe/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       class-variance-authority:
@@ -108,7 +108,7 @@ importers:
 
   packages/ai-providers:
     dependencies:
-      '@vibe-edit/core':
+      '@vibeframe/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -127,10 +127,10 @@ importers:
       '@ffmpeg/util':
         specifier: ^0.12.2
         version: 0.12.2
-      '@vibe-edit/ai-providers':
+      '@vibeframe/ai-providers':
         specifier: workspace:*
         version: link:../ai-providers
-      '@vibe-edit/core':
+      '@vibeframe/core':
         specifier: workspace:*
         version: link:../core
       chalk:
@@ -189,10 +189,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.25.3(hono@4.11.7)(zod@3.25.76)
-      '@vibe-edit/cli':
+      '@vibeframe/cli':
         specifier: workspace:*
         version: link:../cli
-      '@vibe-edit/core':
+      '@vibeframe/core':
         specifier: workspace:*
         version: link:../core
       zod:

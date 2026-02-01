@@ -1,6 +1,6 @@
 /**
  * REPL Main Entry Point
- * Interactive shell for VibeEdit
+ * Interactive shell for VibeFrame
  */
 
 import { createInterface, Interface } from "node:readline";

@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { Project, type ProjectFile } from "@vibe-edit/cli/engine";
+import { Project, type ProjectFile } from "@vibeframe/cli/engine";
 
 // Tool definitions for MCP
 export const tools = [
   // Project Management
   {
     name: "project_create",
-    description: "Create a new VibeEdit project file",
+    description: "Create a new VibeFrame project file",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -38,7 +38,7 @@ export const tools = [
   },
   {
     name: "project_info",
-    description: "Get information about a VibeEdit project",
+    description: "Get information about a VibeFrame project",
     inputSchema: {
       type: "object" as const,
       properties: {

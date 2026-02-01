@@ -16,7 +16,7 @@ import type {
   AspectRatio,
   MediaType,
   EffectType,
-} from "@vibe-edit/core/timeline";
+} from "@vibeframe/core/timeline";
 
 /** Generate unique ID */
 export const generateId = (): Id => {

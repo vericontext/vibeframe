@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { Project, type ProjectFile } from "@vibe-edit/cli/engine";
+import { Project, type ProjectFile } from "@vibeframe/cli/engine";
 
 // Resource definitions for MCP
 export const resources = [
   {
     uri: "vibe://project/current",
     name: "Current Project State",
-    description: "Full state of the currently active VibeEdit project",
+    description: "Full state of the currently active VibeFrame project",
     mimeType: "application/json",
   },
   {

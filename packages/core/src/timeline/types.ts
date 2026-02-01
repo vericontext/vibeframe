@@ -1,5 +1,5 @@
 /**
- * Core Timeline Types for VibeEdit
+ * Core Timeline Types for VibeFrame
  *
  * Using "Vibe" terminology:
  * - Clip -> 조각 (piece)

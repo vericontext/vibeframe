@@ -15,7 +15,7 @@ import { Project, type ProjectFile } from "../engine/index.js";
 import {
   OpenAIProvider,
   type TimelineCommand,
-} from "@vibe-edit/ai-providers";
+} from "@vibeframe/ai-providers";
 
 /** Built-in command result */
 export interface CommandResult {

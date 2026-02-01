@@ -1,4 +1,4 @@
-# VibeEdit Roadmap
+# VibeFrame Roadmap
 
 **Vision**: The open-source standard for AI-native video editing.
 
@@ -132,13 +132,13 @@ Intelligence built into every interaction.
 - [x] Object Tracking - SAM-2/co-tracker tracking (`vibe ai track-object`)
 
 ### Installation & Interactive Mode
-- [x] **Install Script** - One-line installation: `curl -fsSL vibe-edit.dev/install.sh | bash`
+- [x] **Install Script** - One-line installation: `curl -fsSL vibeframe.ai/install.sh | bash`
 - [x] **Setup Wizard** - Interactive API key configuration (`vibe setup`)
 - [x] **Interactive REPL** - Natural language editing mode (run `vibe` with no args)
   - Built-in commands: new, open, save, info, list, add, export, undo
   - Natural language: "trim clip to 5s", "add fade in", etc.
   - Auto-save, undo history, session state management
-- [x] **Config System** - YAML config at `~/.vibe-edit/config.yaml`
+- [x] **Config System** - YAML config at `~/.vibeframe/config.yaml`
 
 ---
 

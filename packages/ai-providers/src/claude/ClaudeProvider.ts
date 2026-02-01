@@ -1,4 +1,4 @@
-import type { Clip } from "@vibe-edit/core";
+import type { Clip } from "@vibeframe/core";
 import type {
   AIProvider,
   AICapability,

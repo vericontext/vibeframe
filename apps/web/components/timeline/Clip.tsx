@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useRef } from "react";
-import { Clip, Track, useTimelineStore } from "@vibe-edit/core";
+import { Clip, Track, useTimelineStore } from "@vibeframe/core";
 import {
   cn,
   ContextMenu,
@@ -12,7 +12,7 @@ import {
   ScissorsIcon,
   CopyIcon,
   TrashIcon,
-} from "@vibe-edit/ui";
+} from "@vibeframe/ui";
 
 interface ClipProps {
   clip: Clip;

@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for VibeEdit
+about: Suggest an idea for VibeFrame
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''

@@ -1,6 +1,6 @@
-# Contributing to VibeEdit
+# Contributing to VibeFrame
 
-Thank you for your interest in contributing to VibeEdit! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to VibeFrame! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -9,7 +9,7 @@ Please be respectful and considerate of others. We want to foster an inclusive a
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/vibe-edit.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/vibeframe.git`
 3. Install dependencies: `pnpm install`
 4. Create a new branch: `git checkout -b feature/your-feature-name`
 

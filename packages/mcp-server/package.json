@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-edit/mcp-server",
+  "name": "@vibeframe/mcp-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,8 +18,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@vibe-edit/cli": "workspace:*",
-    "@vibe-edit/core": "workspace:*",
+    "@vibeframe/cli": "workspace:*",
+    "@vibeframe/core": "workspace:*",
     "zod": "^3.22.4"
   },
   "devDependencies": {

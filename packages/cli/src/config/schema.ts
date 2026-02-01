@@ -1,6 +1,6 @@
 /**
- * Configuration schema for VibeEdit CLI
- * Stored at ~/.vibe-edit/config.yaml
+ * Configuration schema for VibeFrame CLI
+ * Stored at ~/.vibeframe/config.yaml
  */
 
 export type LLMProvider = "claude" | "openai" | "gemini" | "ollama";

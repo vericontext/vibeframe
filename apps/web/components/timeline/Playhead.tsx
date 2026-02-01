@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { useTimelineStore } from "@vibe-edit/core";
+import { useTimelineStore } from "@vibeframe/core";
 
 interface PlayheadProps {
   currentTime: number;

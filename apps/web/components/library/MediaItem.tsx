@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { MediaSource, useTimelineStore } from "@vibe-edit/core";
+import { MediaSource, useTimelineStore } from "@vibeframe/core";
 import {
   cn,
   ContextMenu,
@@ -12,7 +12,7 @@ import {
   FileVideoIcon,
   ImageIcon,
   TrashIcon,
-} from "@vibe-edit/ui";
+} from "@vibeframe/ui";
 
 interface MediaItemProps {
   source: MediaSource;
