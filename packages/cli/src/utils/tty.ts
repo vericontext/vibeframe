@@ -38,8 +38,12 @@ export function getTTYInputStream(): NodeJS.ReadableStream {
  */
 export function hasTTY(): boolean {
   if (process.stdin.isTTY) return true;
+
+  // Try to actually open /dev/tty to verify it's accessible
   try {
-    require("fs").accessSync("/dev/tty");
+    const fs = require("fs");
+    const fd = fs.openSync("/dev/tty", "r");
+    fs.closeSync(fd);
     return true;
   } catch {
     return false;
