@@ -4,6 +4,7 @@
 
 import { Command } from "commander";
 import { createInterface } from "node:readline";
+import { createReadStream } from "node:fs";
 import chalk from "chalk";
 import {
   loadConfig,
@@ -14,6 +15,39 @@ import {
   type LLMProvider,
   PROVIDER_NAMES,
 } from "../config/index.js";
+
+// TTY input stream - use /dev/tty when stdin is not a TTY (e.g., piped from curl)
+let ttyInput: NodeJS.ReadableStream | null = null;
+
+/**
+ * Get TTY input stream, opening /dev/tty if needed
+ */
+function getTTYInput(): NodeJS.ReadableStream {
+  if (process.stdin.isTTY) {
+    return process.stdin;
+  }
+
+  // stdin is not a TTY (piped), open /dev/tty directly
+  if (!ttyInput) {
+    try {
+      ttyInput = createReadStream("/dev/tty");
+    } catch {
+      // Fallback to stdin if /dev/tty is not available (e.g., on Windows)
+      return process.stdin;
+    }
+  }
+  return ttyInput;
+}
+
+/**
+ * Close TTY input if we opened it
+ */
+function closeTTYInput(): void {
+  if (ttyInput && ttyInput !== process.stdin) {
+    (ttyInput as NodeJS.ReadStream).destroy?.();
+    ttyInput = null;
+  }
+}
 
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
@@ -27,49 +61,57 @@ export const setupCommand = new Command("setup")
       return;
     }
 
-    await runSetupWizard();
+    try {
+      await runSetupWizard();
+    } finally {
+      closeTTYInput();
+    }
   });
 
 /**
  * Prompt for input with optional hidden mode
  */
 async function prompt(question: string, hidden = false): Promise<string> {
+  const input = getTTYInput();
+
   const rl = createInterface({
-    input: process.stdin,
+    input,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    if (hidden && process.stdin.isTTY) {
+    // For hidden input, we need raw mode on the TTY
+    if (hidden && (input as NodeJS.ReadStream).isTTY) {
       process.stdout.write(question);
 
-      let input = "";
-      process.stdin.setRawMode(true);
-      process.stdin.resume();
-      process.stdin.setEncoding("utf8");
+      let value = "";
+      const stdin = input as NodeJS.ReadStream;
+      stdin.setRawMode(true);
+      stdin.resume();
+      stdin.setEncoding("utf8");
 
       const onData = (char: string) => {
         if (char === "\n" || char === "\r" || char === "\u0004") {
-          process.stdin.setRawMode(false);
-          process.stdin.pause();
-          process.stdin.removeListener("data", onData);
+          stdin.setRawMode(false);
+          stdin.removeListener("data", onData);
           process.stdout.write("\n");
           rl.close();
-          resolve(input);
+          resolve(value);
         } else if (char === "\u0003") {
           // Ctrl+C
+          closeTTYInput();
           process.exit(1);
         } else if (char === "\u007F" || char === "\b") {
           // Backspace
-          if (input.length > 0) {
-            input = input.slice(0, -1);
+          if (value.length > 0) {
+            value = value.slice(0, -1);
           }
         } else {
-          input += char;
+          value += char;
         }
       };
 
-      process.stdin.on("data", onData);
+      stdin.on("data", onData);
     } else {
       rl.question(question, (answer) => {
         rl.close();
