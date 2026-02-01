@@ -32,11 +32,12 @@ export default function LandingPage() {
               <Github className="w-5 h-5" />
               <span className="hidden sm:inline">GitHub</span>
             </Link>
-            <Link 
-              href="/editor"
+            <Link
+              href="https://github.com/vericontext/vibe-edit#cli-commands"
+              target="_blank"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Try Editor
+              CLI Docs
             </Link>
           </div>
         </div>
@@ -143,7 +144,7 @@ export default function LandingPage() {
             <FeatureCard 
               icon={<Terminal className="w-6 h-6" />}
               title="CLI-First"
-              description="Full video editing from the command line. 135 tests. Zero GUI required."
+              description="Full video editing from the command line. 157 tests. Zero GUI required."
             />
             <FeatureCard 
               icon={<MessageSquare className="w-6 h-6" />}
@@ -273,11 +274,12 @@ export default function LandingPage() {
               <Github className="w-5 h-5" />
               Star on GitHub
             </Link>
-            <Link 
-              href="/editor"
+            <Link
+              href="https://github.com/vericontext/vibe-edit/blob/main/docs/mcp.md"
+              target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary transition-colors"
             >
-              Try the Editor
+              MCP Setup Guide
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
