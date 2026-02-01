@@ -387,6 +387,127 @@ describe("Project", () => {
 
       expect(project.getDuration()).toBe(15);
     });
+
+    describe("splitClip", () => {
+      it("splits a clip at given time", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 10,
+          sourceStartOffset: 0,
+          sourceEndOffset: 10,
+        });
+
+        const result = project.splitClip(clip.id, 4);
+        expect(result).not.toBeNull();
+
+        const [firstClip, secondClip] = result!;
+        expect(firstClip.duration).toBe(4);
+        expect(firstClip.sourceEndOffset).toBe(4);
+        expect(secondClip.startTime).toBe(4);
+        expect(secondClip.duration).toBe(6);
+        expect(secondClip.sourceStartOffset).toBe(4);
+        expect(project.getClips()).toHaveLength(2);
+      });
+
+      it("returns null for non-existent clip", () => {
+        const result = project.splitClip("non-existent", 5);
+        expect(result).toBeNull();
+      });
+
+      it("returns null when split time is at or before 0", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 10,
+          sourceStartOffset: 0,
+          sourceEndOffset: 10,
+        });
+
+        expect(project.splitClip(clip.id, 0)).toBeNull();
+        expect(project.splitClip(clip.id, -1)).toBeNull();
+      });
+
+      it("returns null when split time is at or after duration", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 10,
+          sourceStartOffset: 0,
+          sourceEndOffset: 10,
+        });
+
+        expect(project.splitClip(clip.id, 10)).toBeNull();
+        expect(project.splitClip(clip.id, 15)).toBeNull();
+      });
+    });
+
+    describe("duplicateClip", () => {
+      it("duplicates a clip after original", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 5,
+          sourceStartOffset: 0,
+          sourceEndOffset: 5,
+        });
+
+        const duplicate = project.duplicateClip(clip.id);
+        expect(duplicate).not.toBeNull();
+        expect(duplicate?.sourceId).toBe(sourceId);
+        expect(duplicate?.trackId).toBe("video-track-1");
+        expect(duplicate?.startTime).toBe(5); // After original
+        expect(duplicate?.duration).toBe(5);
+        expect(project.getClips()).toHaveLength(2);
+      });
+
+      it("duplicates a clip at specified time", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 5,
+          sourceStartOffset: 0,
+          sourceEndOffset: 5,
+        });
+
+        const duplicate = project.duplicateClip(clip.id, 20);
+        expect(duplicate).not.toBeNull();
+        expect(duplicate?.startTime).toBe(20);
+      });
+
+      it("duplicates clip effects with new IDs", () => {
+        const clip = project.addClip({
+          sourceId,
+          trackId: "video-track-1",
+          startTime: 0,
+          duration: 5,
+          sourceStartOffset: 0,
+          sourceEndOffset: 5,
+        });
+
+        project.addEffect(clip.id, {
+          type: "fadeIn",
+          startTime: 0,
+          duration: 1,
+          params: { intensity: 1 },
+        });
+
+        const duplicate = project.duplicateClip(clip.id);
+        expect(duplicate?.effects).toHaveLength(1);
+        expect(duplicate?.effects[0].type).toBe("fadeIn");
+        expect(duplicate?.effects[0].id).not.toBe(clip.effects?.[0]?.id);
+      });
+
+      it("returns null for non-existent clip", () => {
+        const result = project.duplicateClip("non-existent");
+        expect(result).toBeNull();
+      });
+    });
   });
 
   describe("effects", () => {

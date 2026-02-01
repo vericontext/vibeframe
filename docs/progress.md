@@ -6,6 +6,47 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Timeline Operations
+- Added advanced clip manipulation commands to CLI
+- New Project methods: `splitClip()`, `duplicateClip()`
+- Commands:
+  - `vibe timeline split <project> <clip-id> -t <time>` - Split clip at given time
+  - `vibe timeline duplicate <project> <clip-id> [-t <time>]` - Duplicate clip
+  - `vibe timeline delete <project> <clip-id>` - Delete clip from timeline
+  - `vibe timeline move <project> <clip-id> [-t <time>] [--track <id>]` - Move clip
+- Added 8 unit tests for splitClip/duplicateClip
+- Added 8 integration tests for new CLI commands
+- Total tests: 89 (51 unit + 38 integration)
+
+**Files modified:**
+- `packages/cli/src/engine/project.ts` - Added splitClip, duplicateClip methods
+- `packages/cli/src/commands/timeline.ts` - Added split, duplicate, delete, move commands
+- `packages/cli/src/engine/project.test.ts` - Added splitClip/duplicateClip tests
+- `packages/cli/src/commands/timeline.test.ts` - Added integration tests
+
+**Usage:**
+```bash
+# Split a 10s clip at 4s mark -> creates two clips (4s + 6s)
+vibe timeline split project.vibe.json <clip-id> -t 4
+
+# Duplicate a clip (places after original by default)
+vibe timeline duplicate project.vibe.json <clip-id>
+
+# Duplicate at specific time
+vibe timeline duplicate project.vibe.json <clip-id> -t 20
+
+# Delete a clip
+vibe timeline delete project.vibe.json <clip-id>
+
+# Move clip to new time
+vibe timeline move project.vibe.json <clip-id> -t 15
+
+# Move clip to different track
+vibe timeline move project.vibe.json <clip-id> --track <track-id>
+```
+
+---
+
 ### Export Command
 - Added `vibe export` command for rendering projects to video
 - Uses FFmpeg.wasm for in-process video encoding

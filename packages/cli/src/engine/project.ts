@@ -257,6 +257,76 @@ export class Project {
     return this.state.clips.filter((c) => c.trackId === trackId);
   }
 
+  /**
+   * Split a clip at a specific time, creating two clips
+   * @param id Clip ID to split
+   * @param splitTime Time relative to clip start (not timeline time)
+   * @returns [firstClip, secondClip] or null if failed
+   */
+  splitClip(id: Id, splitTime: TimeSeconds): [Clip, Clip] | null {
+    const clip = this.state.clips.find((c) => c.id === id);
+    if (!clip) return null;
+
+    // Validate split time
+    if (splitTime <= 0 || splitTime >= clip.duration) {
+      return null;
+    }
+
+    // Create the second clip (after split point)
+    const secondClip: Clip = {
+      id: generateId(),
+      sourceId: clip.sourceId,
+      trackId: clip.trackId,
+      startTime: clip.startTime + splitTime,
+      duration: clip.duration - splitTime,
+      sourceStartOffset: clip.sourceStartOffset + splitTime,
+      sourceEndOffset: clip.sourceEndOffset,
+      effects: [], // Effects don't transfer to split clips
+    };
+
+    // Modify the first clip (before split point)
+    clip.duration = splitTime;
+    clip.sourceEndOffset = clip.sourceStartOffset + splitTime;
+
+    // Add the second clip
+    this.state.clips.push(secondClip);
+    this.calculateDuration();
+
+    return [clip, secondClip];
+  }
+
+  /**
+   * Duplicate a clip
+   * @param id Clip ID to duplicate
+   * @param offsetTime Optional time offset for the duplicate (default: place after original)
+   * @returns The duplicated clip or null if failed
+   */
+  duplicateClip(id: Id, offsetTime?: TimeSeconds): Clip | null {
+    const clip = this.state.clips.find((c) => c.id === id);
+    if (!clip) return null;
+
+    const newStartTime = offsetTime ?? clip.startTime + clip.duration;
+
+    const duplicatedClip: Clip = {
+      id: generateId(),
+      sourceId: clip.sourceId,
+      trackId: clip.trackId,
+      startTime: newStartTime,
+      duration: clip.duration,
+      sourceStartOffset: clip.sourceStartOffset,
+      sourceEndOffset: clip.sourceEndOffset,
+      effects: clip.effects.map((e) => ({
+        ...e,
+        id: generateId(),
+      })),
+    };
+
+    this.state.clips.push(duplicatedClip);
+    this.calculateDuration();
+
+    return duplicatedClip;
+  }
+
   // ============ Effect Operations ============
 
   addEffect(clipId: Id, effect: Omit<Effect, "id">): Effect | null {

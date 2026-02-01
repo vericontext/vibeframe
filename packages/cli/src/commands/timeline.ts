@@ -328,6 +328,176 @@ timelineCommand
     }
   });
 
+timelineCommand
+  .command("split")
+  .description("Split a clip at a specific time")
+  .argument("<project>", "Project file path")
+  .argument("<clip-id>", "Clip ID to split")
+  .option("-t, --time <seconds>", "Split time relative to clip start", "0")
+  .action(async (projectPath: string, clipId: string, options) => {
+    const spinner = ora("Splitting clip...").start();
+
+    try {
+      const filePath = resolve(process.cwd(), projectPath);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const clip = project.getClip(clipId);
+      if (!clip) {
+        spinner.fail(chalk.red(`Clip not found: ${clipId}`));
+        process.exit(1);
+      }
+
+      const splitTime = parseFloat(options.time);
+      if (splitTime <= 0 || splitTime >= clip.duration) {
+        spinner.fail(chalk.red(`Invalid split time. Must be between 0 and ${clip.duration}s`));
+        process.exit(1);
+      }
+
+      const result = project.splitClip(clipId, splitTime);
+      if (!result) {
+        spinner.fail(chalk.red("Failed to split clip"));
+        process.exit(1);
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      const [first, second] = result;
+      spinner.succeed(chalk.green("Clip split successfully"));
+      console.log();
+      console.log(chalk.dim("  First clip:"), first.id, `(${first.duration.toFixed(2)}s)`);
+      console.log(chalk.dim("  Second clip:"), second.id, `(${second.duration.toFixed(2)}s)`);
+    } catch (error) {
+      spinner.fail(chalk.red("Failed to split clip"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+timelineCommand
+  .command("duplicate")
+  .description("Duplicate a clip")
+  .argument("<project>", "Project file path")
+  .argument("<clip-id>", "Clip ID to duplicate")
+  .option("-t, --time <seconds>", "Start time for duplicate (default: after original)")
+  .action(async (projectPath: string, clipId: string, options) => {
+    const spinner = ora("Duplicating clip...").start();
+
+    try {
+      const filePath = resolve(process.cwd(), projectPath);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const clip = project.getClip(clipId);
+      if (!clip) {
+        spinner.fail(chalk.red(`Clip not found: ${clipId}`));
+        process.exit(1);
+      }
+
+      const offsetTime = options.time ? parseFloat(options.time) : undefined;
+      const duplicated = project.duplicateClip(clipId, offsetTime);
+
+      if (!duplicated) {
+        spinner.fail(chalk.red("Failed to duplicate clip"));
+        process.exit(1);
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      spinner.succeed(chalk.green(`Clip duplicated: ${duplicated.id}`));
+      console.log();
+      console.log(chalk.dim("  Start:"), duplicated.startTime, "s");
+      console.log(chalk.dim("  Duration:"), duplicated.duration, "s");
+    } catch (error) {
+      spinner.fail(chalk.red("Failed to duplicate clip"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+timelineCommand
+  .command("delete")
+  .description("Delete a clip from the timeline")
+  .argument("<project>", "Project file path")
+  .argument("<clip-id>", "Clip ID to delete")
+  .action(async (projectPath: string, clipId: string) => {
+    const spinner = ora("Deleting clip...").start();
+
+    try {
+      const filePath = resolve(process.cwd(), projectPath);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const clip = project.getClip(clipId);
+      if (!clip) {
+        spinner.fail(chalk.red(`Clip not found: ${clipId}`));
+        process.exit(1);
+      }
+
+      const removed = project.removeClip(clipId);
+      if (!removed) {
+        spinner.fail(chalk.red("Failed to delete clip"));
+        process.exit(1);
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      spinner.succeed(chalk.green("Clip deleted"));
+    } catch (error) {
+      spinner.fail(chalk.red("Failed to delete clip"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+timelineCommand
+  .command("move")
+  .description("Move a clip to a new position")
+  .argument("<project>", "Project file path")
+  .argument("<clip-id>", "Clip ID to move")
+  .option("-t, --time <seconds>", "New start time")
+  .option("--track <track-id>", "Move to different track")
+  .action(async (projectPath: string, clipId: string, options) => {
+    const spinner = ora("Moving clip...").start();
+
+    try {
+      const filePath = resolve(process.cwd(), projectPath);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const clip = project.getClip(clipId);
+      if (!clip) {
+        spinner.fail(chalk.red(`Clip not found: ${clipId}`));
+        process.exit(1);
+      }
+
+      const newTime = options.time !== undefined ? parseFloat(options.time) : clip.startTime;
+      const newTrack = options.track || clip.trackId;
+
+      const moved = project.moveClip(clipId, newTrack, newTime);
+      if (!moved) {
+        spinner.fail(chalk.red("Failed to move clip"));
+        process.exit(1);
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      const updated = project.getClip(clipId)!;
+      spinner.succeed(chalk.green("Clip moved"));
+      console.log();
+      console.log(chalk.dim("  Track:"), updated.trackId);
+      console.log(chalk.dim("  Start:"), updated.startTime, "s");
+    } catch (error) {
+      spinner.fail(chalk.red("Failed to move clip"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
 function detectMediaType(path: string): MediaType {
   const ext = extname(path).toLowerCase();
   const videoExts = [".mp4", ".mov", ".webm", ".avi", ".mkv"];

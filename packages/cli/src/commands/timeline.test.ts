@@ -311,4 +311,189 @@ describe("timeline commands", () => {
       expect(output).not.toContain("Clips");
     });
   });
+
+  describe("timeline split", () => {
+    let clipId: string;
+
+    beforeEach(() => {
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      let content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      const sourceId = content.state.sources[0].id;
+
+      execSync(
+        `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 10`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      clipId = content.state.clips[0].id;
+    });
+
+    it("splits a clip at given time", () => {
+      execSync(`${CLI} timeline split "${projectFile}" ${clipId} --time 4`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.clips).toHaveLength(2);
+      expect(content.state.clips[0].duration).toBe(4);
+      expect(content.state.clips[1].duration).toBe(6);
+      expect(content.state.clips[1].startTime).toBe(4);
+    });
+
+    it("fails with invalid split time", () => {
+      expect(() => {
+        execSync(`${CLI} timeline split "${projectFile}" ${clipId} --time 0`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          stdio: "pipe",
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("timeline duplicate", () => {
+    let clipId: string;
+
+    beforeEach(() => {
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      let content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      const sourceId = content.state.sources[0].id;
+
+      execSync(
+        `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 5`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      clipId = content.state.clips[0].id;
+    });
+
+    it("duplicates a clip after original", () => {
+      execSync(`${CLI} timeline duplicate "${projectFile}" ${clipId}`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.clips).toHaveLength(2);
+      expect(content.state.clips[1].startTime).toBe(5);
+      expect(content.state.clips[1].duration).toBe(5);
+    });
+
+    it("duplicates a clip at specified time", () => {
+      execSync(
+        `${CLI} timeline duplicate "${projectFile}" ${clipId} --time 20`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.clips[1].startTime).toBe(20);
+    });
+  });
+
+  describe("timeline delete", () => {
+    let clipId: string;
+
+    beforeEach(() => {
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      let content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      const sourceId = content.state.sources[0].id;
+
+      execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      clipId = content.state.clips[0].id;
+    });
+
+    it("deletes a clip", () => {
+      const contentBefore = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(contentBefore.state.clips).toHaveLength(1);
+
+      execSync(`${CLI} timeline delete "${projectFile}" ${clipId}`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.clips).toHaveLength(0);
+    });
+
+    it("fails with non-existent clip", () => {
+      expect(() => {
+        execSync(`${CLI} timeline delete "${projectFile}" non-existent`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          stdio: "pipe",
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("timeline move", () => {
+    let clipId: string;
+
+    beforeEach(() => {
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      let content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      const sourceId = content.state.sources[0].id;
+
+      execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      clipId = content.state.clips[0].id;
+    });
+
+    it("moves a clip to new time", () => {
+      execSync(`${CLI} timeline move "${projectFile}" ${clipId} --time 15`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.clips[0].startTime).toBe(15);
+    });
+
+    it("moves a clip to different track", () => {
+      // Add audio track
+      execSync(`${CLI} timeline add-track "${projectFile}" audio -n "Audio 2"`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      const newTrackId = content.state.tracks[2].id;
+
+      execSync(
+        `${CLI} timeline move "${projectFile}" ${clipId} --track ${newTrackId}`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      const updated = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(updated.state.clips[0].trackId).toBe(newTrackId);
+    });
+  });
 });
