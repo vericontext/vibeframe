@@ -3,12 +3,13 @@
  * Interactive shell for VibeFrame
  */
 
+import { createInterface } from "node:readline";
 import chalk from "chalk";
 import { Session } from "./session.js";
 import { executeReplCommand } from "./executor.js";
 import { getWelcomeMessage, getPrompt } from "./prompts.js";
 import { isConfigured } from "../config/index.js";
-import { createTTYInterface, hasTTY, closeTTYStream } from "../utils/tty.js";
+import { hasTTY } from "../utils/tty.js";
 
 // Re-export for external use
 export { Session } from "./session.js";
@@ -18,8 +19,6 @@ export { executeReplCommand, type CommandResult } from "./executor.js";
  * Start the interactive REPL
  */
 export async function startRepl(): Promise<void> {
-  console.error("[DEBUG] 1. startRepl called");
-
   // Check if TTY is available
   if (!hasTTY()) {
     console.error(chalk.red("Error: Interactive mode requires a terminal."));
@@ -31,31 +30,24 @@ export async function startRepl(): Promise<void> {
     process.exit(1);
   }
 
-  console.error("[DEBUG] 2. hasTTY passed");
-
   // Create session and initialize
   const session = new Session();
   await session.initialize();
 
-  console.error("[DEBUG] 3. session initialized");
-
   // Check configuration status
   const configured = await isConfigured();
-
-  console.error("[DEBUG] 4. isConfigured:", configured);
 
   // Print welcome message
   console.log(getWelcomeMessage(configured));
 
-  console.error("[DEBUG] 5. welcome message printed");
-
-  // Create readline interface with TTY support
-  const rl = createTTYInterface({
-    prompt: getPrompt(),
+  // Create readline interface with standard Node.js readline
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
     historySize: 100,
+    prompt: getPrompt(),
   });
-
-  console.error("[DEBUG] 6. readline interface created");
 
   // Handle SIGINT (Ctrl+C)
   rl.on("SIGINT", () => {
@@ -91,7 +83,6 @@ export async function startRepl(): Promise<void> {
       if (result.message) {
         console.log(result.message);
       }
-      closeTTYStream();
       rl.close();
       process.exit(0);
       return;
@@ -119,12 +110,9 @@ export async function startRepl(): Promise<void> {
   rl.on("close", () => {
     console.log();
     console.log(chalk.dim("Goodbye!"));
-    closeTTYStream();
     process.exit(0);
   });
 
   // Start the REPL
-  console.error("[DEBUG] 7. calling rl.prompt()");
   rl.prompt();
-  console.error("[DEBUG] 8. rl.prompt() called");
 }

@@ -3,7 +3,6 @@
  * Handles stdin fallback to /dev/tty for piped environments
  */
 
-import { createReadStream } from "node:fs";
 import { createInterface, Interface } from "node:readline";
 import { ReadStream } from "node:tty";
 
@@ -133,9 +132,9 @@ export async function promptHidden(question: string): Promise<string> {
             process.stdout.write("\b \b");
           }
         } else if (char >= " ") {
-          // Printable character
+          // Printable character (may be multiple chars when pasting)
           value += char;
-          process.stdout.write("*"); // Show asterisk instead
+          process.stdout.write("*".repeat(char.length)); // Show asterisk for each char
         }
       };
 

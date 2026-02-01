@@ -6,6 +6,32 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Fix: REPL Hanging & API Key Masking Issues
+Fixed two issues with CLI interactive mode:
+
+**Issue 1: REPL Hangs on Startup**
+- Running `vibe` without arguments would hang with no output (while `vibe --help` worked fine)
+- Root cause: Custom `createTTYInterface` using `/dev/tty` stream caused readline to hang
+- Solution: Switched to standard Node.js `readline.createInterface` with `process.stdin`
+
+**Issue 2: API Key Masking Shows Single Asterisk**
+- When pasting API keys during `vibe setup`, only one `*` was displayed regardless of key length
+- Root cause: Raw mode `onData` callback receives all pasted characters at once, but code assumed single char
+- Solution: Changed `process.stdout.write("*")` to `process.stdout.write("*".repeat(char.length))`
+
+**Files Modified:**
+- `packages/cli/src/repl/index.ts` - Use standard readline instead of custom TTY, removed debug logs
+- `packages/cli/src/utils/tty.ts` - Fixed asterisk masking for pasted text, removed unused import
+
+**Verification:**
+```bash
+pnpm --filter @vibeframe/cli build
+vibe           # Should show logo and prompt
+vibe setup     # Pasting API key shows correct number of asterisks
+```
+
+---
+
 ### Fix: vibe setup fails when called from install.sh
 Fixed `vibe setup` failing with "Interactive setup requires a terminal" when run via `curl ... | bash`.
 
