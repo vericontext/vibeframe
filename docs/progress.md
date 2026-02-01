@@ -6,6 +6,174 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-01
 
+### Subtitle Format Output (SRT/VTT)
+- Added subtitle format output to `vibe ai transcribe` command
+- Supported formats:
+  - **SRT** (SubRip Subtitle) - Standard subtitle format
+  - **VTT** (WebVTT) - Web Video Text Tracks for HTML5 video
+  - **JSON** - Raw transcript data with segments
+- Format auto-detection from file extension (`.srt`, `.vtt`, `.json`)
+- Explicit format option: `--format srt|vtt|json`
+- Added 20 unit tests for subtitle utilities
+
+**Files created:**
+- `packages/cli/src/utils/subtitle.ts` - Subtitle formatting utilities
+- `packages/cli/src/utils/subtitle.test.ts` - Unit tests
+
+**Usage:**
+```bash
+# Transcribe and save as SRT
+vibe ai transcribe audio.mp3 -o subtitles.srt
+
+# Transcribe and save as VTT
+vibe ai transcribe audio.mp3 -o subtitles.vtt
+
+# Explicit format (overrides extension)
+vibe ai transcribe audio.mp3 -o output.txt -f srt
+
+# Korean language with VTT output
+vibe ai transcribe interview.mp3 -l ko -o captions.vtt
+```
+
+---
+
+### Scene Detection & Media Analysis
+- Added `vibe detect` command for automatic media analysis
+- Commands:
+  - `vibe detect scenes <video>` - Detect scene changes using FFmpeg
+  - `vibe detect silence <media>` - Detect silence periods in audio/video
+  - `vibe detect beats <audio>` - Detect beats for music sync
+- Scene detection can auto-add clips to project (`--project` option)
+- Uses FFmpeg's scene detection and audio analysis filters
+- No external API required - works offline
+
+**Files created:**
+- `packages/cli/src/commands/detect.ts`
+
+**Usage:**
+```bash
+# Detect scenes in video
+vibe detect scenes video.mp4 -t 0.3 -o scenes.json
+
+# Add detected scenes as clips to project
+vibe detect scenes video.mp4 --project project.vibe.json
+
+# Detect silence periods
+vibe detect silence audio.mp3 -n -30 -d 0.5
+
+# Detect beats for music sync
+vibe detect beats music.mp3 -o beats.json
+```
+
+---
+
+### ElevenLabs Text-to-Speech
+- Added `vibe ai tts` command for text-to-speech generation
+- Added `vibe ai voices` command to list available voices
+- Uses ElevenLabs API with multilingual v2 model
+- Supports voice selection, custom output path
+- Added ElevenLabsProvider with getVoices(), textToSpeech() methods
+
+**Files created:**
+- `packages/ai-providers/src/elevenlabs/ElevenLabsProvider.ts`
+- `packages/ai-providers/src/elevenlabs/index.ts`
+
+**Usage:**
+```bash
+# Generate speech
+vibe ai tts "Hello, this is a test" -o narration.mp3
+
+# Use specific voice
+vibe ai tts "Welcome to VibeEdit" -v <voice-id> -o intro.mp3
+
+# List available voices
+vibe ai voices
+```
+
+---
+
+### OpenAI GPT Natural Language Commands
+- Added `vibe ai edit` command for natural language timeline control
+- Uses GPT-4o-mini to parse instructions into executable commands
+- Supported actions: trim, split, move, duplicate, add-effect, remove-clip, add-track
+- Dry-run mode to preview without executing (`--dry-run`)
+- Fallback to pattern matching when API unavailable
+
+**Files created:**
+- `packages/ai-providers/src/openai/OpenAIProvider.ts` - GPT provider
+- `packages/ai-providers/src/openai/index.ts` - Export
+
+**Files modified:**
+- `packages/ai-providers/src/interface/types.ts` - Added TimelineCommand, CommandParseResult types
+- `packages/cli/src/commands/ai.ts` - Added `edit` command
+
+**Usage:**
+```bash
+# Natural language editing
+vibe ai edit project.vibe.json "trim all clips to 5 seconds"
+vibe ai edit project.vibe.json "add fade in effect"
+vibe ai edit project.vibe.json "split the first clip at 3 seconds"
+vibe ai edit project.vibe.json "delete all clips"
+
+# Preview without executing
+vibe ai edit project.vibe.json "add blur effect" --dry-run
+```
+
+---
+
+### Gemini Auto-Edit Integration
+- Implemented actual Gemini API integration for `vibe ai suggest`
+- Sends clip data and user instruction to Gemini 1.5 Flash
+- AI analyzes clips and returns smart edit suggestions
+- Fallback to pattern matching when API fails
+- Supported suggestion types: trim, cut, add-effect, reorder, delete, split, merge
+
+**Files modified:**
+- `packages/ai-providers/src/gemini/GeminiProvider.ts` - Added real API call
+
+**Usage:**
+```bash
+# Get AI-powered edit suggestions
+vibe ai suggest project.vibe.json "add fade in at the beginning"
+vibe ai suggest project.vibe.json "trim all clips to 5 seconds"
+vibe ai suggest project.vibe.json "make it more dynamic"
+
+# Apply first suggestion automatically
+vibe ai suggest project.vibe.json "add fadeOut" --apply
+```
+
+---
+
+### API Key Management
+- Added interactive API key prompt when not found in environment
+- Loads `.env` file from project root automatically
+- Prompts user to enter API key if not found
+- Option to save API key to `.env` for future use
+- Added `.env.example` template file
+- Added 4 unit tests for API key utilities
+- Total tests: 125 (75 unit + 50 integration)
+
+**Files created:**
+- `packages/cli/src/utils/api-key.ts` - API key loading and prompting
+- `packages/cli/src/utils/api-key.test.ts` - Unit tests
+- `.env.example` - Template for environment variables
+
+**Usage:**
+```bash
+# Will prompt for API key if not found
+vibe ai transcribe audio.mp3
+
+# Output:
+# OpenAI API key not found.
+# Set OPENAI_API_KEY in .env or environment variables.
+#
+# Enter OpenAI API key: ********
+# Save to .env for future use? (y/N): y
+# API key saved to .env
+```
+
+---
+
 ### Batch Operations
 - Added `vibe batch` command for processing multiple items at once
 - Commands:

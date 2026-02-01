@@ -32,7 +32,7 @@ VibeEdit is a web-based video editor that prioritizes natural language over trad
 - **Styling**: Tailwind CSS, Radix UI
 - **Video Processing**: FFmpeg.wasm (client), FFmpeg (server)
 - **AI Integration**: Plugin-based provider system
-- **Testing**: Vitest (101 tests)
+- **Testing**: Vitest (125 tests)
 
 ## Project Structure
 
@@ -119,6 +119,15 @@ pnpm vibe export <project> -o out.mp4 -p high    # Export video
 # AI providers
 pnpm vibe ai providers                   # List providers
 pnpm vibe ai transcribe <audio>          # Transcribe with Whisper
+pnpm vibe ai transcribe <audio> -o sub.srt   # Export as SRT subtitles
+pnpm vibe ai edit <project> "trim to 5s"     # Natural language editing (GPT)
+pnpm vibe ai suggest <project> "add fade"    # Get suggestions (Gemini)
+pnpm vibe ai tts "Hello" -o voice.mp3        # Text-to-speech (ElevenLabs)
+
+# Detection (FFmpeg-based)
+pnpm vibe detect scenes <video>              # Auto-detect scene changes
+pnpm vibe detect silence <audio>             # Detect silence periods
+pnpm vibe detect beats <audio>               # Detect beats for music sync
 ```
 
 ## Vibe Terminology

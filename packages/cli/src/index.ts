@@ -7,6 +7,7 @@ import { aiCommand } from "./commands/ai.js";
 import { mediaCommand } from "./commands/media.js";
 import { exportCommand } from "./commands/export.js";
 import { batchCommand } from "./commands/batch.js";
+import { detectCommand } from "./commands/detect.js";
 
 const program = new Command();
 
@@ -21,5 +22,6 @@ program.addCommand(aiCommand);
 program.addCommand(mediaCommand);
 program.addCommand(exportCommand);
 program.addCommand(batchCommand);
+program.addCommand(detectCommand);
 
 program.parse();

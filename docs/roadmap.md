@@ -42,15 +42,15 @@ Unified interface for AI services.
 ### Text / Language
 - [x] Provider interface design
 - [x] Provider registry system
-- [ ] **OpenAI GPT** - Natural language commands, script generation
-- [ ] **Gemini** - Multimodal understanding, auto-edit suggestions
+- [x] **OpenAI GPT** - Natural language timeline commands (`vibe ai edit`)
+- [x] **Gemini** - Multimodal understanding, auto-edit suggestions
 - [ ] **Claude** - Long-form content analysis, timeline planning
 
 ### Audio
-- [ ] **Whisper** - Speech-to-text, auto-subtitles
-- [ ] **ElevenLabs** - TTS, voice cloning, sound effects
-- [ ] **Audiocraft (Meta)** - Local music generation (open source)
-- [ ] Beat detection & sync
+- [x] **Whisper** - Speech-to-text, auto-subtitles (SRT/VTT export)
+- [x] **ElevenLabs** - Text-to-speech (`vibe ai tts`)
+- [ ] ~~**Audiocraft (Meta)**~~ - Skipped (regional availability)
+- [x] Beat detection & silence detection (`vibe detect beats/silence`)
 
 ### Image
 - [ ] **DALL-E** - Thumbnail generation, image editing
@@ -62,7 +62,7 @@ Unified interface for AI services.
 - [ ] **Kling** - Video generation
 - [ ] **Pika** - Video-to-video transformation
 - [ ] **HeyGen** - AI avatars, lip sync
-- [ ] Scene detection & auto-cutting
+- [x] Scene detection & auto-cutting (`vibe detect scenes`)
 
 > **Note**: AI video outputs are processed server-side due to file size.
 
@@ -153,7 +153,7 @@ Local-first with optional real-time sync.
 
 ## CLI Status
 
-**101 tests passing** (51 unit + 50 integration)
+**125 tests passing** (75 unit + 50 integration)
 
 ```
 vibe project    create | info | set

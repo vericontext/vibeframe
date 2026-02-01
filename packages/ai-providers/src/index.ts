@@ -5,6 +5,9 @@ export { providerRegistry, getBestProviderForCapability } from "./interface/regi
 // Individual providers
 export { WhisperProvider, whisperProvider } from "./whisper";
 export { GeminiProvider, geminiProvider } from "./gemini";
+export { OpenAIProvider, openaiProvider } from "./openai";
+export { ElevenLabsProvider, elevenLabsProvider } from "./elevenlabs";
+export type { Voice, TTSOptions, TTSResult } from "./elevenlabs";
 export { RunwayProvider, runwayProvider } from "./runway";
 export { KlingProvider, klingProvider } from "./kling";
 
@@ -17,4 +20,6 @@ export type {
   VideoResult,
   TranscriptResult,
   EditSuggestion,
+  TimelineCommand,
+  CommandParseResult,
 } from "./interface";

@@ -10,6 +10,7 @@ export type AICapability =
   | "speech-to-text"
   | "text-to-speech"
   | "auto-edit"
+  | "natural-language-command"
   | "style-transfer"
   | "object-removal"
   | "background-removal"
@@ -130,6 +131,46 @@ export interface EditSuggestion {
 }
 
 /**
+ * Timeline command parsed from natural language
+ */
+export interface TimelineCommand {
+  /** Command type */
+  action:
+    | "add-clip"
+    | "remove-clip"
+    | "trim"
+    | "split"
+    | "move"
+    | "duplicate"
+    | "add-effect"
+    | "remove-effect"
+    | "set-volume"
+    | "add-transition"
+    | "add-track"
+    | "export";
+  /** Target clip IDs (empty for global commands) */
+  clipIds: string[];
+  /** Command parameters */
+  params: Record<string, unknown>;
+  /** Human-readable description of what this command does */
+  description: string;
+}
+
+/**
+ * Result of parsing natural language command
+ */
+export interface CommandParseResult {
+  /** Whether parsing was successful */
+  success: boolean;
+  /** Parsed commands to execute */
+  commands: TimelineCommand[];
+  /** Error message if parsing failed */
+  error?: string;
+  /** Clarification question if command is ambiguous */
+  clarification?: string;
+}
+
+/**
  * Provider configuration
  */
 export interface ProviderConfig {
@@ -201,6 +242,14 @@ export interface AIProvider {
    * Upscale video resolution
    */
   upscale?(video: Blob, targetResolution: string): Promise<VideoResult>;
+
+  /**
+   * Parse natural language command into timeline operations
+   */
+  parseCommand?(
+    instruction: string,
+    context: { clips: Clip[]; tracks: string[] }
+  ): Promise<CommandParseResult>;
 }
 
 /**
