@@ -16,6 +16,11 @@ Core infrastructure and basic editing capabilities.
 - [x] Video preview with playback controls
 - [x] Media library with upload
 - [x] CLI package for headless operations
+  - [x] Project management (create, info, set)
+  - [x] Timeline editing (add-source, add-clip, add-track, trim, list)
+  - [x] Timeline operations (split, duplicate, delete, move)
+  - [x] Batch operations (import, concat, apply-effect, remove-clips)
+  - [x] Media info utilities (info, duration)
 
 ---
 
@@ -32,15 +37,16 @@ Connect AI providers and enable natural language editing.
 
 ---
 
-## Phase 3: Video Processing 📋
+## Phase 3: Video Processing 🚧
 
 Actual video rendering and export capabilities.
 
 - [ ] WebCodecs API integration
-- [ ] FFmpeg.wasm for encoding
+- [x] FFmpeg.wasm for encoding (CLI export command)
 - [ ] Real-time effect preview
-- [ ] Export pipeline (MP4, WebM)
-- [ ] Quality presets (draft, standard, high, ultra)
+- [x] Export pipeline (MP4, WebM, MOV)
+- [x] Quality presets (draft, standard, high, ultra)
+- [ ] Aspect ratio handling (16:9, 9:16, 1:1) - CLI only
 
 ---
 
@@ -49,10 +55,28 @@ Actual video rendering and export capabilities.
 Power user features and collaboration.
 
 - [ ] Beat sync (auto-cut to music beats)
+- [ ] Scene/silence detection
 - [ ] Real-time collaboration
 - [ ] Template system
 - [ ] Plugin marketplace
 - [ ] Keyboard shortcuts customization
+
+---
+
+## CLI Status
+
+**101 tests passing** (51 unit + 50 integration)
+
+Commands available:
+```
+vibe project    create | info | set
+vibe timeline   add-source | add-clip | add-track | add-effect | trim | list
+                split | duplicate | delete | move
+vibe batch      import | concat | apply-effect | remove-clips | info
+vibe media      info | duration
+vibe export     <project> -o <output> -p <preset>
+vibe ai         providers | transcribe | suggest
+```
 
 ---
 
