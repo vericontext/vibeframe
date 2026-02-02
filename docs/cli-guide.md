@@ -189,7 +189,51 @@ my-video.vibe.json
 └── transitions: [...]      # Transitions between clips
 ```
 
-**Key points:**
+### When Do You Need a Project?
+
+| Task | Project Needed? |
+|------|----------------|
+| Generate image (`vibe ai image`) | ❌ No |
+| Generate audio (`vibe ai tts`) | ❌ No |
+| Generate sound effect (`vibe ai sfx`) | ❌ No |
+| Combine multiple files into video | ✅ Yes |
+| Add effects (fade, trim) | ✅ Yes |
+| Export final video | ✅ Yes |
+
+**Think of it this way:**
+- **No project** = Just generate files (images, audio, etc.)
+- **With project** = Assemble files into a video (timeline + export)
+
+**Example: Quick image generation (no project)**
+```
+vibe> generate an image of a cat
+✓ Saved: cat.png
+vibe> exit
+```
+
+**Example: Full video workflow (needs project)**
+```
+vibe> new my-video
+✓ Created project: my-video
+
+vibe [my-video]> generate image of intro scene
+✓ Saved: intro-scene.png
+
+vibe [my-video]> generate audio "Welcome to my channel"
+✓ Saved: output.mp3
+
+vibe [my-video]> add intro-scene.png
+✓ Added source: intro-scene.png
+
+vibe [my-video]> add output.mp3
+✓ Added source: output.mp3
+
+vibe [my-video]> export my-video.mp4
+✓ Exported: my-video.mp4
+```
+
+### Key Points
+
 - Timeline operations (add clips, effects, export) require a project
 - AI generation commands (`vibe ai image`, `vibe ai tts`) work without a project
 - In REPL mode, project is stored in memory until you `save` it
