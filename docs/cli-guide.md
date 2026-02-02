@@ -122,6 +122,62 @@ vibe> export the video
 
 ---
 
+## Core Concepts
+
+### What is a Project?
+
+A **project** is a `.vibe.json` file that stores your video editing state:
+
+```
+my-video.vibe.json
+├── name: "my-video"        # Project name
+├── aspectRatio: "16:9"     # Output aspect ratio
+├── frameRate: 30           # Output frame rate
+├── sources: [...]          # Media files (images, videos, audio)
+├── tracks: [...]           # Timeline layers (video, audio)
+├── clips: [...]            # Pieces of media placed on timeline
+└── transitions: [...]      # Transitions between clips
+```
+
+**Key points:**
+- Timeline operations (add clips, effects, export) require a project
+- AI generation commands (`vibe ai image`, `vibe ai tts`) work without a project
+- In REPL mode, project is stored in memory until you `save` it
+- In CLI mode, you pass the project file path to each command
+
+**Typical workflow:**
+```bash
+# 1. Generate media (no project needed)
+vibe ai image "sunset landscape" -o sunset.png
+vibe ai tts "Welcome" -o welcome.mp3
+
+# 2. Create project
+vibe project create "my-video" -o my-video.vibe.json
+
+# 3. Add media to project timeline
+vibe timeline add-source my-video.vibe.json sunset.png
+vibe timeline add-source my-video.vibe.json welcome.mp3
+
+# 4. Create clips from sources
+vibe timeline add-clip my-video.vibe.json source-1 -d 5
+
+# 5. Export final video
+vibe export my-video.vibe.json -o output.mp4
+```
+
+**REPL mode equivalent:**
+```
+vibe> generate a sunset image
+vibe> create welcome audio
+vibe> new my-video
+vibe [my-video]> add sunset.png
+vibe [my-video]> add welcome.mp3
+vibe [my-video]> save my-video.vibe.json
+vibe [my-video]> export output.mp4
+```
+
+---
+
 ## Two Ways to Use VibeFrame
 
 ### 1. CLI Mode (Direct Commands)
