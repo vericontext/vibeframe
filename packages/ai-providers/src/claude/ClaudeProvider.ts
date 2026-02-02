@@ -14,6 +14,7 @@ import type {
   PlatformSpec,
   PlatformCut,
   TimeSeconds,
+  CommandParseResult,
 } from "../interface/types.js";
 
 /**
@@ -107,6 +108,155 @@ export class ClaudeProvider implements AIProvider {
 
   isConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  /**
+   * Parse natural language command into structured timeline operations
+   */
+  async parseCommand(
+    instruction: string,
+    context: { clips: Clip[]; tracks: string[] }
+  ): Promise<CommandParseResult> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        commands: [],
+        error: "Claude API key not configured",
+      };
+    }
+
+    try {
+      const clipsInfo = context.clips.map((clip) => ({
+        id: clip.id,
+        name: clip.sourceId,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        trackId: clip.trackId,
+        effects: clip.effects?.map((e) => e.type) || [],
+      }));
+
+      const systemPrompt = `You are a video editing assistant that converts natural language commands into structured timeline operations.
+
+Available actions:
+- add-clip: Add a new clip (params: sourceId, startTime, duration, trackId)
+- remove-clip: Remove clip(s) (clipIds required)
+- trim: Trim clip duration (params: startTrim, endTrim, or newDuration)
+- split: Split clip at time (params: splitTime - relative to clip start)
+- move: Move clip (params: newStartTime, newTrackId)
+- duplicate: Duplicate clip (params: newStartTime optional)
+- add-effect: Add effect (params: effectType, duration, intensity)
+- remove-effect: Remove effect (params: effectType)
+- set-volume: Set audio volume (params: volume 0-1)
+- add-transition: Add transition between clips (params: transitionType, duration)
+- add-track: Add new track (params: trackType: video|audio)
+- export: Export project (params: format, quality)
+- speed-change: Change clip playback speed (params: speed - e.g., 2 for 2x, 0.5 for half speed)
+- reverse: Reverse clip playback (no params needed)
+- crop: Crop/resize video (params: aspectRatio OR x, y, width, height)
+- position: Move clips to beginning/end/middle (params: position - "beginning", "end", "middle")
+
+Available effect types: fadeIn, fadeOut, blur, brightness, contrast, saturation, grayscale, sepia
+Available transition types: crossfade, wipe, slide, fade
+
+Current timeline state:
+Clips: ${JSON.stringify(clipsInfo, null, 2)}
+Tracks: ${JSON.stringify(context.tracks)}
+
+Rules:
+1. If user says "all clips" or "every clip", include all clip IDs
+2. If user references "first", "last", "intro", "outro", map to appropriate clips
+3. Time can be specified as "3s", "3 seconds", "00:03", etc.
+4. If command is ambiguous, set clarification field
+5. Multiple commands can be returned for complex instructions
+6. For "speed up" use speed > 1, for "slow down" use speed < 1
+7. For crop to portrait, use aspectRatio: "9:16", for square use "1:1"
+8. "reverse" flips the clip playback backwards
+
+Respond with JSON only:
+{
+  "success": true,
+  "commands": [
+    {
+      "action": "trim",
+      "clipIds": ["clip-id"],
+      "params": {"newDuration": 5},
+      "description": "Trim clip to 5 seconds"
+    }
+  ]
+}
+
+Or if clarification needed:
+{
+  "success": true,
+  "commands": [],
+  "clarification": "Which clip do you want to trim?"
+}`;
+
+      const response = await fetch(`${this.baseUrl}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 2048,
+          messages: [
+            {
+              role: "user",
+              content: instruction,
+            },
+          ],
+          system: systemPrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Claude API error:", error);
+        return {
+          success: false,
+          commands: [],
+          error: `API error: ${response.status}`,
+        };
+      }
+
+      const data = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>;
+      };
+
+      const textContent = data.content?.find((c) => c.type === "text");
+      if (!textContent?.text) {
+        return {
+          success: false,
+          commands: [],
+          error: "No response from Claude",
+        };
+      }
+
+      // Extract JSON from response (Claude may include markdown code blocks)
+      let jsonText = textContent.text;
+      const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim();
+      }
+
+      const result = JSON.parse(jsonText) as CommandParseResult;
+      return {
+        success: result.success ?? true,
+        commands: result.commands || [],
+        error: result.error,
+        clarification: result.clarification,
+      };
+    } catch (error) {
+      console.error("Claude parseCommand error:", error);
+      return {
+        success: false,
+        commands: [],
+        error: error instanceof Error ? error.message : "Failed to parse command",
+      };
+    }
   }
 
   /**

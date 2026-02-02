@@ -9,12 +9,14 @@ import chalk from "chalk";
 import ora from "ora";
 import { Session } from "./session.js";
 import { success, error, warn, info, getHelpText, formatProjectInfo } from "./prompts.js";
-import { getApiKeyFromConfig, loadConfig } from "../config/index.js";
+import { getApiKeyFromConfig, loadConfig, type LLMProvider } from "../config/index.js";
 import { executeCommand } from "../commands/ai.js";
 import { Project, type ProjectFile } from "../engine/index.js";
 import {
   OpenAIProvider,
+  ClaudeProvider,
   type TimelineCommand,
+  type CommandParseResult,
 } from "@vibeframe/ai-providers";
 
 /** Built-in command result */
@@ -258,21 +260,42 @@ async function executeNaturalLanguageCommand(
     };
   }
 
-  // Get OpenAI API key (used for command parsing)
-  // Note: Natural language commands currently require OpenAI for parsing
-  const apiKey = await getApiKeyFromConfig("openai");
-  if (!apiKey) {
+  // Get configured LLM provider for command parsing
+  const config = await loadConfig();
+  const llmProviderType: LLMProvider = config?.llm?.provider || "openai";
+
+  // Map provider type to API key name
+  const providerKeyMap: Record<LLMProvider, string> = {
+    claude: "anthropic",
+    openai: "openai",
+    gemini: "google",
+    ollama: "ollama",
+  };
+
+  const apiKeyName = providerKeyMap[llmProviderType];
+  const apiKey = await getApiKeyFromConfig(apiKeyName);
+
+  if (!apiKey && llmProviderType !== "ollama") {
     return {
       success: false,
       message: error(
-        "Natural language commands require OpenAI API key.\n" +
-        "   Run 'vibe setup --full' and configure OpenAI under Additional Providers."
+        `${llmProviderType.charAt(0).toUpperCase() + llmProviderType.slice(1)} API key not configured.\n` +
+        "   Run 'vibe setup' to configure your API key."
       ),
     };
   }
 
-  const llmProvider = new OpenAIProvider();
-  await llmProvider.initialize({ apiKey });
+  // Create the appropriate LLM provider
+  let llmProvider: OpenAIProvider | ClaudeProvider;
+
+  if (llmProviderType === "claude") {
+    llmProvider = new ClaudeProvider();
+  } else {
+    // Default to OpenAI for other providers (openai, gemini with OpenAI-compatible API, etc.)
+    llmProvider = new OpenAIProvider();
+  }
+
+  await llmProvider.initialize({ apiKey: apiKey || "" });
 
   const spinner = ora({ text: "Processing...", spinner: "dots" }).start();
 
