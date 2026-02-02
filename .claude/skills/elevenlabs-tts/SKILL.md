@@ -139,6 +139,10 @@ python .claude/skills/elevenlabs-tts/scripts/voice-clone.py "My Voice" sample1.m
 
 # Isolate vocals from audio
 python .claude/skills/elevenlabs-tts/scripts/isolate.py song.mp3 -o vocals.mp3
+
+# Dub video to another language
+python .claude/skills/elevenlabs-tts/scripts/dub.py video.mp4 -o dubbed_es.mp4 --target-lang es
+python .claude/skills/elevenlabs-tts/scripts/dub.py video.mp4 -o dubbed_ko.mp4 --target-lang ko --source-lang en
 ```
 
 ## Integration with VibeFrame

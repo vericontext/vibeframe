@@ -265,6 +265,13 @@ python .claude/skills/replicate-ai/scripts/interpolate.py --url https://example.
 # Style transfer
 python .claude/skills/replicate-ai/scripts/style-transfer.py content.png style.png -o stylized.png
 
+# Speech enhancement / audio restoration
+python .claude/skills/replicate-ai/scripts/speech-enhance.py noisy.mp3 -o clean.mp3
+
+# Object tracking in video
+python .claude/skills/replicate-ai/scripts/track.py --url https://example.com/video.mp4 -o tracked.json
+python .claude/skills/replicate-ai/scripts/track.py --url https://example.com/video.mp4 -o tracked.json --prompt "red car"
+
 # Generic model prediction
 python .claude/skills/replicate-ai/scripts/predict.py MODEL_VERSION '{"input": "param"}'
 ```

@@ -133,6 +133,15 @@ python .claude/skills/runway-video/scripts/image.py "portrait photo" \
 # Resolution options: 720p, 1080p, square, portrait, portrait_hd
 ```
 
+### Video Inpainting (Remove/Replace Objects)
+```bash
+# Remove object (masked area becomes filled)
+python .claude/skills/runway-video/scripts/inpaint.py frame.png mask.png -o cleaned.mp4
+
+# Replace with specific content
+python .claude/skills/runway-video/scripts/inpaint.py frame.png mask.png "ocean waves" -o replaced.mp4
+```
+
 ## Integration with VibeFrame CLI
 
 ```bash
