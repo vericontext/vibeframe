@@ -2457,6 +2457,7 @@ aiCommand
   .option("-d, --duration <seconds>", "Target total duration in seconds")
   .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
   .option("-g, --generator <engine>", "Video generator: runway | kling", "runway")
+  .option("-i, --image-provider <provider>", "Image provider: dalle | stability | gemini", "dalle")
   .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
   .option("--images-only", "Generate images only, skip video generation")
   .option("--no-voiceover", "Skip voiceover generation")
@@ -2470,9 +2471,30 @@ aiCommand
         process.exit(1);
       }
 
-      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiApiKey) {
-        console.error(chalk.red("OpenAI API key required for image generation"));
+      // Get image provider API key
+      let imageApiKey: string | undefined;
+      const imageProvider = options.imageProvider || "dalle";
+
+      if (imageProvider === "dalle") {
+        imageApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
+        if (!imageApiKey) {
+          console.error(chalk.red("OpenAI API key required for DALL-E image generation"));
+          process.exit(1);
+        }
+      } else if (imageProvider === "stability") {
+        imageApiKey = (await getApiKey("STABILITY_API_KEY", "Stability AI")) ?? undefined;
+        if (!imageApiKey) {
+          console.error(chalk.red("Stability API key required for image generation"));
+          process.exit(1);
+        }
+      } else if (imageProvider === "gemini") {
+        imageApiKey = (await getApiKey("GOOGLE_API_KEY", "Google")) ?? undefined;
+        if (!imageApiKey) {
+          console.error(chalk.red("Google API key required for Gemini image generation"));
+          process.exit(1);
+        }
+      } else {
+        console.error(chalk.red(`Unknown image provider: ${imageProvider}. Use dalle, stability, or gemini`));
         process.exit(1);
       }
 
@@ -2578,43 +2600,102 @@ aiCommand
         console.log();
       }
 
-      // Step 3: Generate images with DALL-E
-      const imageSpinner = ora("🎨 Generating visuals with DALL-E...").start();
+      // Step 3: Generate images with selected provider
+      const providerNames: Record<string, string> = {
+        dalle: "DALL-E",
+        stability: "Stability AI",
+        gemini: "Gemini",
+      };
+      const imageSpinner = ora(`🎨 Generating visuals with ${providerNames[imageProvider]}...`).start();
 
-      const dalle = new DalleProvider();
-      await dalle.initialize({ apiKey: openaiApiKey });
-
-      // Determine image size based on aspect ratio
-      const imageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
+      // Determine image size/aspect ratio based on provider
+      const dalleImageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
         "16:9": "1792x1024",
         "9:16": "1024x1792",
         "1:1": "1024x1024",
       };
-      const imageSize = imageSizes[options.aspectRatio] || "1792x1024";
+      type StabilityAspectRatio = "16:9" | "1:1" | "21:9" | "2:3" | "3:2" | "4:5" | "5:4" | "9:16" | "9:21";
+      const stabilityAspectRatios: Record<string, StabilityAspectRatio> = {
+        "16:9": "16:9",
+        "9:16": "9:16",
+        "1:1": "1:1",
+      };
 
       const imagePaths: string[] = [];
+
+      // Initialize the selected provider
+      let dalleInstance: DalleProvider | undefined;
+      let stabilityInstance: StabilityProvider | undefined;
+      let geminiInstance: GeminiProvider | undefined;
+
+      if (imageProvider === "dalle") {
+        dalleInstance = new DalleProvider();
+        await dalleInstance.initialize({ apiKey: imageApiKey });
+      } else if (imageProvider === "stability") {
+        stabilityInstance = new StabilityProvider();
+        await stabilityInstance.initialize({ apiKey: imageApiKey });
+      } else if (imageProvider === "gemini") {
+        geminiInstance = new GeminiProvider();
+        await geminiInstance.initialize({ apiKey: imageApiKey });
+      }
+
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         imageSpinner.text = `🎨 Generating image ${i + 1}/${segments.length}: ${segment.description.slice(0, 30)}...`;
 
         try {
-          const imageResult = await dalle.generateImage(segment.visuals, {
-            size: imageSize,
-            quality: "standard",
-          });
+          let imageBuffer: Buffer | undefined;
+          let imageUrl: string | undefined;
 
-          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
-            const imageUrl = imageResult.images[0].url;
-            const imagePath = resolve(outputDir, `scene-${i + 1}.png`);
+          if (imageProvider === "dalle" && dalleInstance) {
+            const imageResult = await dalleInstance.generateImage(segment.visuals, {
+              size: dalleImageSizes[options.aspectRatio] || "1792x1024",
+              quality: "standard",
+            });
+            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+              imageUrl = imageResult.images[0].url;
+            }
+          } else if (imageProvider === "stability" && stabilityInstance) {
+            const imageResult = await stabilityInstance.generateImage(segment.visuals, {
+              aspectRatio: stabilityAspectRatios[options.aspectRatio] || "16:9",
+              model: "sd3.5-large",
+            });
+            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+              // Stability returns base64 or URL
+              const img = imageResult.images[0];
+              if (img.base64) {
+                imageBuffer = Buffer.from(img.base64, "base64");
+              } else if (img.url) {
+                imageUrl = img.url;
+              }
+            }
+          } else if (imageProvider === "gemini" && geminiInstance) {
+            const imageResult = await geminiInstance.generateImage(segment.visuals, {
+              aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+            });
+            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+              const img = imageResult.images[0];
+              // Gemini only returns base64 images
+              if (img.base64) {
+                imageBuffer = Buffer.from(img.base64, "base64");
+              }
+            }
+          }
 
-            // Download image
+          // Save the image
+          const imagePath = resolve(outputDir, `scene-${i + 1}.png`);
+
+          if (imageBuffer) {
+            await writeFile(imagePath, imageBuffer);
+            imagePaths.push(imagePath);
+          } else if (imageUrl) {
             const response = await fetch(imageUrl);
             const buffer = Buffer.from(await response.arrayBuffer());
             await writeFile(imagePath, buffer);
             imagePaths.push(imagePath);
           } else {
             console.log(chalk.yellow(`\n  ⚠ Failed to generate image for scene ${i + 1}`));
-            imagePaths.push(""); // Placeholder for failed image
+            imagePaths.push("");
           }
         } catch (err) {
           console.log(chalk.yellow(`\n  ⚠ Error generating image for scene ${i + 1}: ${err}`));
@@ -2628,7 +2709,7 @@ aiCommand
       }
 
       const successfulImages = imagePaths.filter((p) => p !== "").length;
-      imageSpinner.succeed(chalk.green(`Generated ${successfulImages}/${segments.length} images`));
+      imageSpinner.succeed(chalk.green(`Generated ${successfulImages}/${segments.length} images with ${providerNames[imageProvider]}`));
       console.log();
 
       // Step 4: Generate videos (if not images-only)
@@ -3793,122 +3874,268 @@ aiCommand
   .option("-t, --threshold <value>", "Confidence threshold (0-1)", "0.7")
   .option("--criteria <type>", "Selection criteria: emotional | informative | funny | all", "all")
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
+  .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
+  .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
   .action(async (mediaPath: string, options) => {
     try {
-      // Validate API keys
-      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiApiKey) {
-        console.error(chalk.red("OpenAI API key required for Whisper transcription."));
-        console.error(chalk.dim("Set OPENAI_API_KEY environment variable"));
-        process.exit(1);
-      }
-
-      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-      if (!claudeApiKey) {
-        console.error(chalk.red("Anthropic API key required for highlight analysis."));
-        console.error(chalk.dim("Set ANTHROPIC_API_KEY environment variable"));
-        process.exit(1);
-      }
-
       const absPath = resolve(process.cwd(), mediaPath);
       if (!existsSync(absPath)) {
         console.error(chalk.red(`File not found: ${absPath}`));
         process.exit(1);
       }
 
-      console.log();
-      console.log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log();
-
       // Determine if we need to extract audio (for video files)
       const ext = extname(absPath).toLowerCase();
       const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"];
       const isVideo = videoExtensions.includes(ext);
-      let audioPath = absPath;
-      let tempAudioPath: string | null = null;
 
-      // Step 1: Extract audio if video
-      if (isVideo) {
-        const audioSpinner = ora("🎵 Extracting audio from video...").start();
-
-        try {
-          // Check FFmpeg availability
-          try {
-            execSync("ffmpeg -version", { stdio: "ignore" });
-          } catch {
-            audioSpinner.fail(chalk.red("FFmpeg not found. Please install FFmpeg."));
-            process.exit(1);
-          }
-
-          tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
-          await execAsync(
-            `ffmpeg -i "${absPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
-            { maxBuffer: 50 * 1024 * 1024 }
-          );
-          audioPath = tempAudioPath;
-
-          // Get video duration
-          const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-          const { stdout: durationOut } = await execAsync(durationCmd);
-          const totalDuration = parseFloat(durationOut.trim());
-
-          audioSpinner.succeed(chalk.green(`Extracted audio (${formatTime(totalDuration)} total duration)`));
-        } catch (error) {
-          audioSpinner.fail(chalk.red("Failed to extract audio"));
-          console.error(error);
-          process.exit(1);
-        }
+      console.log();
+      console.log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
+      console.log(chalk.dim("─".repeat(60)));
+      if (options.useGemini) {
+        console.log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
+      } else {
+        console.log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
       }
-
-      // Step 2: Transcribe with Whisper
-      const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
-
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiApiKey });
-
-      const audioBuffer = await readFile(audioPath);
-      const audioBlob = new Blob([audioBuffer]);
-
-      const transcriptResult = await whisper.transcribe(audioBlob, options.language);
-
-      if (transcriptResult.status === "failed" || !transcriptResult.segments) {
-        transcribeSpinner.fail(chalk.red(`Transcription failed: ${transcriptResult.error}`));
-        // Cleanup temp file
-        if (tempAudioPath && existsSync(tempAudioPath)) {
-          await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
-        }
-        process.exit(1);
-      }
-
-      transcribeSpinner.succeed(chalk.green(`Transcribed ${transcriptResult.segments.length} segments`));
-
-      // Cleanup temp audio file
-      if (tempAudioPath && existsSync(tempAudioPath)) {
-        await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
-      }
-
-      // Step 3: Analyze with Claude
-      const analyzeSpinner = ora("🔍 Analyzing highlights with Claude...").start();
-
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey: claudeApiKey });
+      console.log();
 
       const targetDuration = options.duration ? parseFloat(options.duration) : undefined;
       const maxCount = options.count ? parseInt(options.count) : undefined;
 
-      const allHighlights = await claude.analyzeForHighlights(transcriptResult.segments, {
-        criteria: options.criteria as HighlightCriteria,
-        targetDuration,
-        maxCount,
-      });
+      let allHighlights: Highlight[] = [];
+      let sourceDuration = 0;
 
-      if (allHighlights.length === 0) {
-        analyzeSpinner.warn(chalk.yellow("No highlights detected in the content"));
-        process.exit(0);
+      if (options.useGemini && isVideo) {
+        // Gemini Video Understanding flow - visual + audio analysis
+        const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
+        if (!geminiApiKey) {
+          console.error(chalk.red("Google API key required for Gemini Video Understanding."));
+          console.error(chalk.dim("Set GOOGLE_API_KEY environment variable"));
+          process.exit(1);
+        }
+
+        // Get video duration
+        const durationSpinner = ora("📊 Analyzing video metadata...").start();
+        try {
+          const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
+          const { stdout: durationOut } = await execAsync(durationCmd);
+          sourceDuration = parseFloat(durationOut.trim());
+          durationSpinner.succeed(chalk.green(`Video duration: ${formatTime(sourceDuration)}`));
+        } catch {
+          durationSpinner.fail(chalk.red("Failed to get video duration"));
+          process.exit(1);
+        }
+
+        // Analyze with Gemini Video
+        const geminiSpinner = ora("🎬 Analyzing video with Gemini (visual + audio)...").start();
+
+        const gemini = new GeminiProvider();
+        await gemini.initialize({ apiKey: geminiApiKey });
+
+        // Read video file
+        const videoBuffer = await readFile(absPath);
+
+        // Build prompt for highlight extraction
+        const criteriaText = options.criteria === "all"
+          ? "emotional, informative, and funny moments"
+          : `${options.criteria} moments`;
+
+        const durationText = targetDuration
+          ? `Target a total highlight duration of ${targetDuration} seconds.`
+          : "";
+        const countText = maxCount
+          ? `Find up to ${maxCount} highlights.`
+          : "";
+
+        const geminiPrompt = `Analyze this video and identify the most engaging highlights based on BOTH visual and audio content.
+
+Focus on finding ${criteriaText}. ${durationText} ${countText}
+
+For each highlight, provide:
+1. Start timestamp (in seconds, as a number)
+2. End timestamp (in seconds, as a number)
+3. Category: "emotional", "informative", or "funny"
+4. Confidence score (0-1)
+5. Brief reason why this is a highlight
+6. What is said/shown during this moment
+
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
+{
+  "highlights": [
+    {
+      "startTime": 12.5,
+      "endTime": 28.3,
+      "category": "emotional",
+      "confidence": 0.95,
+      "reason": "Powerful personal story about overcoming challenges",
+      "transcript": "When I first started, everyone said it was impossible..."
+    }
+  ]
+}
+
+Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID (speech, reactions) to find the most compelling moments.`;
+
+        const result = await gemini.analyzeVideo(videoBuffer, geminiPrompt, {
+          fps: 1,
+          lowResolution: options.lowRes,
+        });
+
+        if (!result.success || !result.response) {
+          geminiSpinner.fail(chalk.red(`Gemini analysis failed: ${result.error}`));
+          process.exit(1);
+        }
+
+        // Parse Gemini response
+        try {
+          // Extract JSON from response (may have markdown code blocks)
+          let jsonStr = result.response;
+          const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[1];
+          }
+          // Also try to find raw JSON object
+          const objectMatch = jsonStr.match(/\{[\s\S]*"highlights"[\s\S]*\}/);
+          if (objectMatch) {
+            jsonStr = objectMatch[0];
+          }
+
+          const parsed = JSON.parse(jsonStr);
+
+          if (parsed.highlights && Array.isArray(parsed.highlights)) {
+            allHighlights = parsed.highlights.map((h: {
+              startTime: number;
+              endTime: number;
+              category?: string;
+              confidence?: number;
+              reason?: string;
+              transcript?: string;
+            }, i: number) => ({
+              index: i + 1,
+              startTime: h.startTime,
+              endTime: h.endTime,
+              duration: h.endTime - h.startTime,
+              category: h.category || "all",
+              confidence: h.confidence || 0.8,
+              reason: h.reason || "Engaging moment",
+              transcript: h.transcript || "",
+            }));
+          }
+        } catch (parseError) {
+          geminiSpinner.fail(chalk.red("Failed to parse Gemini response"));
+          console.error(chalk.dim("Response was:"), result.response.substring(0, 500));
+          process.exit(1);
+        }
+
+        geminiSpinner.succeed(chalk.green(`Found ${allHighlights.length} highlights via visual+audio analysis`));
+
+      } else {
+        // Original Whisper + Claude flow
+        const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
+        if (!openaiApiKey) {
+          console.error(chalk.red("OpenAI API key required for Whisper transcription."));
+          console.error(chalk.dim("Set OPENAI_API_KEY environment variable"));
+          process.exit(1);
+        }
+
+        const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
+        if (!claudeApiKey) {
+          console.error(chalk.red("Anthropic API key required for highlight analysis."));
+          console.error(chalk.dim("Set ANTHROPIC_API_KEY environment variable"));
+          process.exit(1);
+        }
+
+        let audioPath = absPath;
+        let tempAudioPath: string | null = null;
+
+        // Step 1: Extract audio if video
+        if (isVideo) {
+          const audioSpinner = ora("🎵 Extracting audio from video...").start();
+
+          try {
+            // Check FFmpeg availability
+            try {
+              execSync("ffmpeg -version", { stdio: "ignore" });
+            } catch {
+              audioSpinner.fail(chalk.red("FFmpeg not found. Please install FFmpeg."));
+              process.exit(1);
+            }
+
+            tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
+            await execAsync(
+              `ffmpeg -i "${absPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
+              { maxBuffer: 50 * 1024 * 1024 }
+            );
+            audioPath = tempAudioPath;
+
+            // Get video duration
+            const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
+            const { stdout: durationOut } = await execAsync(durationCmd);
+            sourceDuration = parseFloat(durationOut.trim());
+
+            audioSpinner.succeed(chalk.green(`Extracted audio (${formatTime(sourceDuration)} total duration)`));
+          } catch (error) {
+            audioSpinner.fail(chalk.red("Failed to extract audio"));
+            console.error(error);
+            process.exit(1);
+          }
+        }
+
+        // Step 2: Transcribe with Whisper
+        const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
+
+        const whisper = new WhisperProvider();
+        await whisper.initialize({ apiKey: openaiApiKey });
+
+        const audioBuffer = await readFile(audioPath);
+        const audioBlob = new Blob([audioBuffer]);
+
+        const transcriptResult = await whisper.transcribe(audioBlob, options.language);
+
+        if (transcriptResult.status === "failed" || !transcriptResult.segments) {
+          transcribeSpinner.fail(chalk.red(`Transcription failed: ${transcriptResult.error}`));
+          // Cleanup temp file
+          if (tempAudioPath && existsSync(tempAudioPath)) {
+            await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+          }
+          process.exit(1);
+        }
+
+        transcribeSpinner.succeed(chalk.green(`Transcribed ${transcriptResult.segments.length} segments`));
+
+        // Cleanup temp audio file
+        if (tempAudioPath && existsSync(tempAudioPath)) {
+          await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+        }
+
+        // Get source duration from transcript segments
+        if (transcriptResult.segments.length > 0) {
+          sourceDuration = transcriptResult.segments[transcriptResult.segments.length - 1].endTime;
+        }
+
+        // Step 3: Analyze with Claude
+        const analyzeSpinner = ora("🔍 Analyzing highlights with Claude...").start();
+
+        const claude = new ClaudeProvider();
+        await claude.initialize({ apiKey: claudeApiKey });
+
+        allHighlights = await claude.analyzeForHighlights(transcriptResult.segments, {
+          criteria: options.criteria as HighlightCriteria,
+          targetDuration,
+          maxCount,
+        });
+
+        if (allHighlights.length === 0) {
+          analyzeSpinner.warn(chalk.yellow("No highlights detected in the content"));
+          process.exit(0);
+        }
+
+        analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
       }
 
-      analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
+      if (allHighlights.length === 0) {
+        console.log(chalk.yellow("No highlights detected in the content"));
+        process.exit(0);
+      }
 
       // Step 4: Filter and rank
       const filterSpinner = ora("📊 Filtering and ranking...").start();
@@ -3923,12 +4150,6 @@ aiCommand
       const totalHighlightDuration = filteredHighlights.reduce((sum, h) => sum + h.duration, 0);
 
       filterSpinner.succeed(chalk.green(`Selected ${filteredHighlights.length} highlights (${totalHighlightDuration.toFixed(1)}s total)`));
-
-      // Get total source duration
-      let sourceDuration = 0;
-      if (transcriptResult.segments.length > 0) {
-        sourceDuration = transcriptResult.segments[transcriptResult.segments.length - 1].endTime;
-      }
 
       // Prepare result
       const result: HighlightsResult = {
@@ -5125,6 +5346,8 @@ aiCommand
   .option("--caption-style <style>", "Caption style: minimal, bold, animated", "bold")
   .option("--analyze-only", "Show segments without generating")
   .option("-l, --language <lang>", "Language code for transcription")
+  .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
+  .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
   .action(async (videoPath: string, options) => {
     try {
       // Check FFmpeg
@@ -5135,61 +5358,186 @@ aiCommand
         process.exit(1);
       }
 
-      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiApiKey) {
-        console.error(chalk.red("OpenAI API key required for transcription."));
-        process.exit(1);
-      }
-
-      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-      if (!claudeApiKey) {
-        console.error(chalk.red("Anthropic API key required for highlight detection."));
-        process.exit(1);
-      }
-
       const absPath = resolve(process.cwd(), videoPath);
+      if (!existsSync(absPath)) {
+        console.error(chalk.red(`File not found: ${absPath}`));
+        process.exit(1);
+      }
+
       const targetDuration = parseInt(options.duration);
       const shortCount = parseInt(options.count);
 
-      // Step 1: Extract audio and transcribe
-      const spinner = ora("Extracting audio...").start();
-      const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
+      console.log();
+      console.log(chalk.bold.cyan("🎬 Auto Shorts Generator"));
+      console.log(chalk.dim("─".repeat(60)));
+      if (options.useGemini) {
+        console.log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
+      } else {
+        console.log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
+      }
+      console.log();
 
-      await execAsync(`ffmpeg -i "${absPath}" -vn -acodec libmp3lame -q:a 2 "${tempAudio}" -y`);
+      let highlights: Highlight[] = [];
 
-      spinner.text = "Transcribing audio...";
+      if (options.useGemini) {
+        // Gemini Video Understanding flow
+        const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
+        if (!geminiApiKey) {
+          console.error(chalk.red("Google API key required for Gemini Video Understanding."));
+          console.error(chalk.dim("Set GOOGLE_API_KEY environment variable"));
+          process.exit(1);
+        }
 
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiApiKey });
+        const spinner = ora("🎬 Analyzing video with Gemini (visual + audio)...").start();
 
-      const audioBuffer = await readFile(tempAudio);
-      const audioBlob = new Blob([audioBuffer]);
-      const transcript = await whisper.transcribe(audioBlob, options.language);
+        const gemini = new GeminiProvider();
+        await gemini.initialize({ apiKey: geminiApiKey });
 
-      // Clean up temp audio
-      try {
-        await execAsync(`rm "${tempAudio}"`);
-      } catch { /* ignore cleanup errors */ }
+        // Read video file
+        const videoBuffer = await readFile(absPath);
 
-      if (!transcript.segments || transcript.segments.length === 0) {
-        spinner.fail(chalk.red("No transcript found"));
-        process.exit(1);
+        // Build prompt for short-form content detection
+        const geminiPrompt = `Analyze this video to find the BEST moments for short-form vertical video content (TikTok, YouTube Shorts, Instagram Reels).
+
+Find ${shortCount * 3} potential clips that are ${targetDuration} seconds or shorter each.
+
+Look for:
+- Visually striking or surprising moments
+- Emotional peaks (laughter, reactions, reveals)
+- Key quotes or memorable statements
+- Action sequences or dramatic moments
+- Meme-worthy or shareable moments
+- Strong hooks (great opening lines)
+- Satisfying conclusions
+
+For each highlight, provide:
+1. Start timestamp (seconds, as number)
+2. End timestamp (seconds, as number) - ensure duration is close to ${targetDuration}s
+3. Virality score (0-1) - how likely this would perform on social media
+4. Hook quality (0-1) - how strong is the opening
+5. Brief reason why this would work as a short
+
+IMPORTANT: Respond ONLY with valid JSON:
+{
+  "highlights": [
+    {
+      "startTime": 45.2,
+      "endTime": 75.8,
+      "confidence": 0.92,
+      "hookQuality": 0.85,
+      "reason": "Unexpected plot twist with strong visual reaction"
+    }
+  ]
+}
+
+Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, reactions, music) to find viral-worthy moments.`;
+
+        const result = await gemini.analyzeVideo(videoBuffer, geminiPrompt, {
+          fps: 1,
+          lowResolution: options.lowRes,
+        });
+
+        if (!result.success || !result.response) {
+          spinner.fail(chalk.red(`Gemini analysis failed: ${result.error}`));
+          process.exit(1);
+        }
+
+        // Parse Gemini response
+        try {
+          let jsonStr = result.response;
+          const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[1];
+          }
+          const objectMatch = jsonStr.match(/\{[\s\S]*"highlights"[\s\S]*\}/);
+          if (objectMatch) {
+            jsonStr = objectMatch[0];
+          }
+
+          const parsed = JSON.parse(jsonStr);
+
+          if (parsed.highlights && Array.isArray(parsed.highlights)) {
+            highlights = parsed.highlights.map((h: {
+              startTime: number;
+              endTime: number;
+              confidence?: number;
+              hookQuality?: number;
+              reason?: string;
+            }, i: number) => ({
+              index: i + 1,
+              startTime: h.startTime,
+              endTime: h.endTime,
+              duration: h.endTime - h.startTime,
+              category: "viral" as HighlightCriteria,
+              confidence: h.confidence || 0.8,
+              reason: h.reason || "Engaging moment",
+              transcript: "",
+            }));
+          }
+        } catch (parseError) {
+          spinner.fail(chalk.red("Failed to parse Gemini response"));
+          console.error(chalk.dim("Response was:"), result.response.substring(0, 500));
+          process.exit(1);
+        }
+
+        spinner.succeed(chalk.green(`Found ${highlights.length} potential shorts via visual+audio analysis`));
+
+      } else {
+        // Original Whisper + Claude flow
+        const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
+        if (!openaiApiKey) {
+          console.error(chalk.red("OpenAI API key required for transcription."));
+          process.exit(1);
+        }
+
+        const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
+        if (!claudeApiKey) {
+          console.error(chalk.red("Anthropic API key required for highlight detection."));
+          process.exit(1);
+        }
+
+        // Step 1: Extract audio and transcribe
+        const spinner = ora("Extracting audio...").start();
+        const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
+
+        await execAsync(`ffmpeg -i "${absPath}" -vn -acodec libmp3lame -q:a 2 "${tempAudio}" -y`);
+
+        spinner.text = "Transcribing audio...";
+
+        const whisper = new WhisperProvider();
+        await whisper.initialize({ apiKey: openaiApiKey });
+
+        const audioBuffer = await readFile(tempAudio);
+        const audioBlob = new Blob([audioBuffer]);
+        const transcript = await whisper.transcribe(audioBlob, options.language);
+
+        // Clean up temp audio
+        try {
+          await execAsync(`rm "${tempAudio}"`);
+        } catch { /* ignore cleanup errors */ }
+
+        if (!transcript.segments || transcript.segments.length === 0) {
+          spinner.fail(chalk.red("No transcript found"));
+          process.exit(1);
+        }
+
+        // Step 2: Find highlights
+        spinner.text = "Finding highlights...";
+
+        const claude = new ClaudeProvider();
+        await claude.initialize({ apiKey: claudeApiKey });
+
+        highlights = await claude.analyzeForHighlights(transcript.segments, {
+          criteria: "all",
+          targetDuration: targetDuration * shortCount,
+          maxCount: shortCount * 3, // Get extras to choose from
+        });
+
+        spinner.succeed(chalk.green(`Found ${highlights.length} potential highlights`));
       }
 
-      // Step 2: Find highlights
-      spinner.text = "Finding highlights...";
-
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey: claudeApiKey });
-
-      const highlights = await claude.analyzeForHighlights(transcript.segments, {
-        criteria: "all",
-        targetDuration: targetDuration * shortCount,
-        maxCount: shortCount * 3, // Get extras to choose from
-      });
-
       if (highlights.length === 0) {
-        spinner.fail(chalk.red("No highlights found"));
+        console.error(chalk.red("No highlights found"));
         process.exit(1);
       }
 
@@ -5197,7 +5545,7 @@ aiCommand
       highlights.sort((a, b) => b.confidence - a.confidence);
       const selectedHighlights = highlights.slice(0, shortCount);
 
-      spinner.succeed(chalk.green(`Found ${highlights.length} highlights, selected ${selectedHighlights.length}`));
+      console.log(chalk.green(`Selected top ${selectedHighlights.length} for short generation`));
 
       console.log();
       console.log(chalk.bold.cyan("Auto Shorts"));
