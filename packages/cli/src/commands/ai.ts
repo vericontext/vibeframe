@@ -599,66 +599,188 @@ aiCommand
 
 aiCommand
   .command("image")
-  .description("Generate image using DALL-E")
+  .description("Generate image using AI (DALL-E, Gemini Imagen, or Stability)")
   .argument("<prompt>", "Image description prompt")
-  .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("-p, --provider <provider>", "Provider: dalle, gemini, stability", "dalle")
+  .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, STABILITY_API_KEY)")
   .option("-o, --output <path>", "Output file path (downloads image)")
-  .option("-s, --size <size>", "Image size: 1024x1024, 1792x1024, 1024x1792", "1024x1024")
-  .option("-q, --quality <quality>", "Quality: standard, hd", "standard")
-  .option("--style <style>", "Style: vivid, natural", "vivid")
+  .option("-s, --size <size>", "Image size (dalle: 1024x1024, 1792x1024, 1024x1792)", "1024x1024")
+  .option("-r, --ratio <ratio>", "Aspect ratio (gemini: 1:1, 16:9, 9:16, 3:4, 4:3)", "1:1")
+  .option("-q, --quality <quality>", "Quality: standard, hd (dalle only)", "standard")
+  .option("--style <style>", "Style: vivid, natural (dalle only)", "vivid")
   .option("-n, --count <n>", "Number of images to generate", "1")
   .action(async (prompt: string, options) => {
     try {
-      const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
+      const provider = options.provider.toLowerCase();
+      const validProviders = ["dalle", "gemini", "stability"];
+      if (!validProviders.includes(provider)) {
+        console.error(chalk.red(`Invalid provider: ${provider}`));
+        console.error(chalk.dim(`Available providers: ${validProviders.join(", ")}`));
+        process.exit(1);
+      }
+
+      // Get API key based on provider
+      const envKeyMap: Record<string, string> = {
+        dalle: "OPENAI_API_KEY",
+        gemini: "GOOGLE_API_KEY",
+        stability: "STABILITY_API_KEY",
+      };
+      const providerNameMap: Record<string, string> = {
+        dalle: "OpenAI",
+        gemini: "Google",
+        stability: "Stability",
+      };
+      const envKey = envKeyMap[provider];
+      const providerName = providerNameMap[provider];
+
+      const apiKey = await getApiKey(envKey, providerName, options.apiKey);
       if (!apiKey) {
-        console.error(chalk.red("OpenAI API key required. Use --api-key or set OPENAI_API_KEY"));
+        console.error(chalk.red(`${providerName} API key required.`));
+        console.error(chalk.dim(`Use --api-key or set ${envKey} environment variable`));
         process.exit(1);
       }
 
-      const spinner = ora("Generating image...").start();
+      const spinner = ora(`Generating image with ${providerName}...`).start();
 
-      const dalle = new DalleProvider();
-      await dalle.initialize({ apiKey });
+      if (provider === "dalle") {
+        const dalle = new DalleProvider();
+        await dalle.initialize({ apiKey });
 
-      const result = await dalle.generateImage(prompt, {
-        size: options.size,
-        quality: options.quality,
-        style: options.style,
-        n: parseInt(options.count),
-      });
+        const result = await dalle.generateImage(prompt, {
+          size: options.size,
+          quality: options.quality,
+          style: options.style,
+          n: parseInt(options.count),
+        });
 
-      if (!result.success || !result.images) {
-        spinner.fail(chalk.red(result.error || "Image generation failed"));
-        process.exit(1);
-      }
-
-      spinner.succeed(chalk.green(`Generated ${result.images.length} image(s)`));
-
-      console.log();
-      console.log(chalk.bold.cyan("Generated Images"));
-      console.log(chalk.dim("─".repeat(60)));
-
-      for (let i = 0; i < result.images.length; i++) {
-        const img = result.images[i];
-        console.log();
-        console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
-        if (img.revisedPrompt) {
-          console.log(chalk.dim(`    Revised: ${img.revisedPrompt.slice(0, 100)}...`));
+        if (!result.success || !result.images) {
+          spinner.fail(chalk.red(result.error || "Image generation failed"));
+          process.exit(1);
         }
-      }
-      console.log();
 
-      // Download if output specified
-      if (options.output && result.images.length > 0) {
-        const downloadSpinner = ora("Downloading image...").start();
-        try {
-          const response = await fetch(result.images[0].url);
-          const buffer = Buffer.from(await response.arrayBuffer());
-          const outputPath = resolve(process.cwd(), options.output);
-          await writeFile(outputPath, buffer);
-          downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-        } catch (err) {
-          downloadSpinner.fail(chalk.red("Failed to download image"));
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with DALL-E`));
+
+        console.log();
+        console.log(chalk.bold.cyan("Generated Images"));
+        console.log(chalk.dim("─".repeat(60)));
+
+        for (let i = 0; i < result.images.length; i++) {
+          const img = result.images[i];
+          console.log();
+          console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
+          if (img.revisedPrompt) {
+            console.log(chalk.dim(`    Revised: ${img.revisedPrompt.slice(0, 100)}...`));
+          }
+        }
+        console.log();
+
+        // Download if output specified
+        if (options.output && result.images.length > 0) {
+          const downloadSpinner = ora("Downloading image...").start();
+          try {
+            const response = await fetch(result.images[0].url);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+            downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+          } catch (err) {
+            downloadSpinner.fail(chalk.red("Failed to download image"));
+          }
+        }
+      } else if (provider === "gemini") {
+        const gemini = new GeminiProvider();
+        await gemini.initialize({ apiKey });
+
+        const result = await gemini.generateImage(prompt, {
+          numberOfImages: parseInt(options.count),
+          aspectRatio: options.ratio as "1:1" | "16:9" | "9:16" | "3:4" | "4:3",
+        });
+
+        if (!result.success || !result.images) {
+          spinner.fail(chalk.red(result.error || "Image generation failed"));
+          process.exit(1);
+        }
+
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini Imagen 3`));
+
+        console.log();
+        console.log(chalk.bold.cyan("Generated Images"));
+        console.log(chalk.dim("─".repeat(60)));
+
+        // Gemini returns base64, we need to save or display
+        for (let i = 0; i < result.images.length; i++) {
+          const img = result.images[i];
+          console.log();
+          console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image, ${img.mimeType})`);
+        }
+        console.log();
+
+        // Save if output specified
+        if (options.output && result.images.length > 0) {
+          const saveSpinner = ora("Saving image...").start();
+          try {
+            const img = result.images[0];
+            const buffer = Buffer.from(img.base64, "base64");
+            const outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+            saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+          } catch (err) {
+            saveSpinner.fail(chalk.red("Failed to save image"));
+          }
+        } else {
+          console.log(chalk.yellow("Use -o to save the generated image to a file"));
+        }
+      } else if (provider === "stability") {
+        const stability = new StabilityProvider();
+        await stability.initialize({ apiKey });
+
+        // Map size to Stability aspect ratio
+        const aspectRatioMap: Record<string, "16:9" | "1:1" | "9:16"> = {
+          "1024x1024": "1:1",
+          "1792x1024": "16:9",
+          "1024x1792": "9:16",
+        };
+
+        const result = await stability.generateImage(prompt, {
+          aspectRatio: aspectRatioMap[options.size] || "1:1",
+          count: parseInt(options.count),
+        });
+
+        if (!result.success || !result.images) {
+          spinner.fail(chalk.red(result.error || "Image generation failed"));
+          process.exit(1);
+        }
+
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Stability AI`));
+
+        console.log();
+        console.log(chalk.bold.cyan("Generated Images"));
+        console.log(chalk.dim("─".repeat(60)));
+
+        for (let i = 0; i < result.images.length; i++) {
+          console.log();
+          console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image)`);
+        }
+        console.log();
+
+        // Save if output specified
+        if (options.output && result.images.length > 0) {
+          const saveSpinner = ora("Saving image...").start();
+          try {
+            const img = result.images[0];
+            if (!img.base64) {
+              saveSpinner.fail(chalk.red("No image data returned"));
+              process.exit(1);
+            }
+            const buffer = Buffer.from(img.base64, "base64");
+            const outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+            saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+          } catch (err) {
+            saveSpinner.fail(chalk.red("Failed to save image"));
+          }
+        } else {
+          console.log(chalk.yellow("Use -o to save the generated image to a file"));
         }
       }
     } catch (error) {
@@ -788,30 +910,46 @@ aiCommand
 
 aiCommand
   .command("video")
-  .description("Generate video using Runway Gen-3")
+  .description("Generate video using AI (Runway or Kling)")
   .argument("<prompt>", "Text prompt describing the video")
-  .option("-k, --api-key <key>", "Runway API key (or set RUNWAY_API_SECRET env)")
+  .option("-p, --provider <provider>", "Provider: runway, kling", "runway")
+  .option("-k, --api-key <key>", "API key (or set RUNWAY_API_SECRET / KLING_API_KEY env)")
   .option("-o, --output <path>", "Output file path (downloads video)")
   .option("-i, --image <path>", "Reference image for image-to-video")
   .option("-d, --duration <sec>", "Duration: 5 or 10 seconds", "5")
-  .option("-r, --ratio <ratio>", "Aspect ratio: 16:9 or 9:16", "16:9")
-  .option("-s, --seed <number>", "Random seed for reproducibility")
+  .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (Kling only)", "16:9")
+  .option("-s, --seed <number>", "Random seed for reproducibility (Runway only)")
+  .option("-m, --mode <mode>", "Generation mode: std or pro (Kling only)", "std")
+  .option("-n, --negative <prompt>", "Negative prompt - what to avoid (Kling only)")
   .option("--no-wait", "Start generation and return task ID without waiting")
   .action(async (prompt: string, options) => {
     try {
-      const apiKey = await getApiKey("RUNWAY_API_SECRET", "Runway", options.apiKey);
-      if (!apiKey) {
-        console.error(chalk.red("Runway API key required. Use --api-key or set RUNWAY_API_SECRET"));
+      const provider = options.provider.toLowerCase();
+      const validProviders = ["runway", "kling"];
+      if (!validProviders.includes(provider)) {
+        console.error(chalk.red(`Invalid provider: ${provider}`));
+        console.error(chalk.dim(`Available providers: ${validProviders.join(", ")}`));
         process.exit(1);
       }
 
-      const spinner = ora("Initializing Runway Gen-3...").start();
+      // Get API key based on provider
+      const envKey = provider === "runway" ? "RUNWAY_API_SECRET" : "KLING_API_KEY";
+      const providerName = provider === "runway" ? "Runway" : "Kling";
+      const apiKey = await getApiKey(envKey, providerName, options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red(`${providerName} API key required.`));
+        if (provider === "kling") {
+          console.error(chalk.dim("Format: ACCESS_KEY:SECRET_KEY"));
+        }
+        console.error(chalk.dim(`Use --api-key or set ${envKey} environment variable`));
+        process.exit(1);
+      }
 
-      const runway = new RunwayProvider();
-      await runway.initialize({ apiKey });
+      const spinner = ora(`Initializing ${providerName}...`).start();
 
-      // If image provided, read it
+      // Read reference image if provided
       let referenceImage: string | undefined;
+      let isImageToVideo = false;
       if (options.image) {
         spinner.text = "Reading reference image...";
         const imagePath = resolve(process.cwd(), options.image);
@@ -826,48 +964,108 @@ aiCommand
         };
         const mimeType = mimeTypes[ext || "png"] || "image/png";
         referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+        isImageToVideo = true;
       }
 
       spinner.text = "Starting video generation...";
 
-      const result = await runway.generateVideo(prompt, {
-        prompt,
-        referenceImage,
-        duration: parseInt(options.duration) as 5 | 10,
-        aspectRatio: options.ratio as "16:9" | "9:16",
-        seed: options.seed ? parseInt(options.seed) : undefined,
-      });
+      let result;
+      let finalResult;
 
-      if (result.status === "failed") {
-        spinner.fail(chalk.red(result.error || "Failed to start generation"));
-        process.exit(1);
-      }
+      if (provider === "runway") {
+        const runway = new RunwayProvider();
+        await runway.initialize({ apiKey });
 
-      console.log();
-      console.log(chalk.bold.cyan("Video Generation Started"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log(`Task ID: ${chalk.bold(result.id)}`);
+        result = await runway.generateVideo(prompt, {
+          prompt,
+          referenceImage,
+          duration: parseInt(options.duration) as 5 | 10,
+          aspectRatio: options.ratio as "16:9" | "9:16",
+          seed: options.seed ? parseInt(options.seed) : undefined,
+        });
 
-      if (!options.wait) {
-        spinner.succeed(chalk.green("Generation started"));
+        if (result.status === "failed") {
+          spinner.fail(chalk.red(result.error || "Failed to start generation"));
+          process.exit(1);
+        }
+
         console.log();
-        console.log(chalk.dim("Check status with:"));
-        console.log(chalk.dim(`  pnpm vibe ai video-status ${result.id}`));
+        console.log(chalk.bold.cyan("Video Generation Started"));
+        console.log(chalk.dim("─".repeat(60)));
+        console.log(`Provider: ${chalk.bold("Runway Gen-3")}`);
+        console.log(`Task ID: ${chalk.bold(result.id)}`);
+
+        if (!options.wait) {
+          spinner.succeed(chalk.green("Generation started"));
+          console.log();
+          console.log(chalk.dim("Check status with:"));
+          console.log(chalk.dim(`  vibe ai video-status ${result.id}`));
+          console.log();
+          return;
+        }
+
+        spinner.text = "Generating video (this may take 1-2 minutes)...";
+
+        finalResult = await runway.waitForCompletion(
+          result.id,
+          (status) => {
+            if (status.progress !== undefined) {
+              spinner.text = `Generating video... ${status.progress}%`;
+            }
+          },
+          300000 // 5 minute timeout
+        );
+      } else {
+        // Kling provider
+        const kling = new KlingProvider();
+        await kling.initialize({ apiKey });
+
+        if (!kling.isConfigured()) {
+          spinner.fail(chalk.red("Invalid API key format. Use ACCESS_KEY:SECRET_KEY"));
+          process.exit(1);
+        }
+
+        result = await kling.generateVideo(prompt, {
+          prompt,
+          referenceImage,
+          duration: parseInt(options.duration) as 5 | 10,
+          aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
+          negativePrompt: options.negative,
+        });
+
+        if (result.status === "failed") {
+          spinner.fail(chalk.red(result.error || "Failed to start generation"));
+          process.exit(1);
+        }
+
         console.log();
-        return;
+        console.log(chalk.bold.cyan("Video Generation Started"));
+        console.log(chalk.dim("─".repeat(60)));
+        console.log(`Provider: ${chalk.bold("Kling AI")}`);
+        console.log(`Task ID: ${chalk.bold(result.id)}`);
+        console.log(`Type: ${isImageToVideo ? "image2video" : "text2video"}`);
+
+        if (!options.wait) {
+          spinner.succeed(chalk.green("Generation started"));
+          console.log();
+          console.log(chalk.dim("Check status with:"));
+          console.log(chalk.dim(`  vibe ai kling-status ${result.id}${isImageToVideo ? " --type image2video" : ""}`));
+          console.log();
+          return;
+        }
+
+        spinner.text = "Generating video (this may take 2-5 minutes)...";
+
+        const taskType = isImageToVideo ? "image2video" : "text2video";
+        finalResult = await kling.waitForCompletion(
+          result.id,
+          taskType,
+          (status) => {
+            spinner.text = `Generating video... ${status.status}`;
+          },
+          600000 // 10 minute timeout
+        );
       }
-
-      spinner.text = "Generating video (this may take 1-2 minutes)...";
-
-      const finalResult = await runway.waitForCompletion(
-        result.id,
-        (status) => {
-          if (status.progress !== undefined) {
-            spinner.text = `Generating video... ${status.progress}%`;
-          }
-        },
-        300000 // 5 minute timeout
-      );
 
       if (finalResult.status !== "completed") {
         spinner.fail(chalk.red(finalResult.error || "Generation failed"));
@@ -879,6 +1077,9 @@ aiCommand
       console.log();
       if (finalResult.videoUrl) {
         console.log(`Video URL: ${finalResult.videoUrl}`);
+      }
+      if (finalResult.duration) {
+        console.log(`Duration: ${finalResult.duration}s`);
       }
       console.log();
 

@@ -10,6 +10,7 @@ export type AICapability =
   | "text-to-video"
   | "image-to-video"
   | "video-to-video"
+  | "text-to-image"
   | "speech-to-text"
   | "text-to-speech"
   | "auto-edit"

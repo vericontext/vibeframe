@@ -6,6 +6,137 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Feature: Claude Code Skills for AI Provider APIs
+Created 9 Claude Code skills for development-time API reference and helper scripts. These skills enable Claude Code to access vendor API documentation and use helper scripts during VibeFrame CLI development.
+
+**Skills Created:**
+
+| Skill | Description | Scripts |
+|-------|-------------|---------|
+| `openai-api` | GPT chat, DALL-E, Whisper, TTS | chat.py, dalle.py, whisper.py, tts.py |
+| `claude-api` | Claude chat, command parsing, motion graphics, storyboarding | chat.py, parse.py, motion.py, storyboard.py |
+| `remotion-motion` | Remotion component generation and rendering | generate.py, render.py |
+| `replicate-ai` | Video upscaling, music gen, background removal | predict.py, upscale.py, music.py, rembg.py |
+| `gemini-image` | Gemini Nano Banana image generation | generate.py |
+| `elevenlabs-tts` | Text-to-speech, sound effects | tts.py, sfx.py |
+| `runway-video` | Runway Gen-3 video generation | generate.py |
+| `stability-image` | Stability AI image generation/editing | generate.py |
+| `kling-video` | Kling AI video generation with JWT auth | generate.py |
+
+**Each Skill Includes:**
+- `SKILL.md` - API documentation with cURL examples, parameters, response formats
+- `scripts/*.py` - Python helper scripts with CLI interface for quick API calls
+
+**Files Created:**
+- `.claude/skills/openai-api/SKILL.md` + 4 scripts
+- `.claude/skills/claude-api/SKILL.md` + 4 scripts
+- `.claude/skills/remotion-motion/SKILL.md` + 2 scripts
+- `.claude/skills/replicate-ai/SKILL.md` + 4 scripts
+- `.claude/skills/gemini-image/SKILL.md` + 1 script
+- `.claude/skills/elevenlabs-tts/SKILL.md` + 2 scripts
+- `.claude/skills/runway-video/SKILL.md` + 1 script
+- `.claude/skills/stability-image/SKILL.md` + 1 script
+- `.claude/skills/kling-video/SKILL.md` + 1 script
+
+**Usage (during development with Claude Code):**
+```bash
+# Example: Use skills to quickly test APIs
+python .claude/skills/openai-api/scripts/chat.py "Parse: trim 5 seconds"
+python .claude/skills/claude-api/scripts/motion.py "animated subscribe button" -o Sub.tsx
+python .claude/skills/replicate-ai/scripts/music.py "upbeat intro" -o music.mp3 -d 10
+python .claude/skills/gemini-image/scripts/generate.py "thumbnail for coding video" -o thumb.png
+```
+
+---
+
+### Feature: Unified AI Provider Selection for CLI Commands
+Added `--provider` option to video and image generation commands, enabling users to choose between different AI providers for each task.
+
+**Video Generation (`vibe ai video`)**
+- Added `--provider` / `-p` option: `runway` (default), `kling`
+- Unified Runway and Kling video generation under one command
+- Supports text-to-video and image-to-video modes
+- Added Kling-specific options: `--mode`, `--negative`, `--ratio 1:1`
+
+**Image Generation (`vibe ai image`)**
+- Added `--provider` / `-p` option: `dalle` (default), `gemini`, `stability`
+- Added Gemini Imagen 3 support with high-quality image generation
+- Added `--ratio` option for Gemini aspect ratios (1:1, 16:9, 9:16, 3:4, 4:3)
+
+**GeminiProvider Enhancements**
+- Added `generateImage()` method using Imagen 3 API
+- Returns base64-encoded images
+- Added "text-to-image" to AICapability type
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts` - Updated video and image commands
+- `packages/ai-providers/src/gemini/GeminiProvider.ts` - Added image generation
+- `packages/ai-providers/src/interface/types.ts` - Added text-to-image capability
+- `docs/cli-guide.md` - Updated command examples and provider table
+
+**Usage:**
+```bash
+# Video generation with provider selection
+vibe ai video "sunset timelapse" -o sunset.mp4               # Runway (default)
+vibe ai video "sunset timelapse" -o sunset.mp4 -p kling      # Kling AI
+vibe ai video "sunset" -i photo.jpg -o animated.mp4 -p kling # Image-to-video
+
+# Image generation with provider selection
+vibe ai image "mountain landscape" -o mountain.png           # DALL-E (default)
+vibe ai image "mountain landscape" -o mountain.png -p gemini # Gemini Imagen 3
+vibe ai image "mountain landscape" -o mountain.png -p stability # Stability AI
+```
+
+---
+
+### Feature: Multi-Provider Promo Video Workflow
+Created a promotional video demonstrating multiple AI providers working together.
+
+**Workflow:**
+1. **Claude** - Generated storyboard from script (`vibe ai storyboard`)
+2. **ElevenLabs** - TTS narration (`vibe ai tts`)
+3. **DALL-E** - Scene images (frustration, terminal-ui, simplicity, features)
+4. **FFmpeg** - Combined images into video slideshow with fade transitions
+
+**Generated Assets:**
+- `promo/script.txt` - Narration script
+- `promo/storyboard.json` - 6-scene storyboard
+- `promo/assets/narration.mp3` - 23s TTS narration (ElevenLabs)
+- `promo/assets/logo-dalle.png` - VibeFrame logo
+- `promo/assets/terminal-ui.png` - Terminal interface mockup
+- `promo/assets/scene1-frustration.png` - Complex UI frustration
+- `promo/assets/scene4-simplicity.png` - Simplicity comparison
+- `promo/assets/scene5-features.png` - Feature icons
+
+**Final Video:**
+- `promo/promo-v2.mp4` - 23.5s, 1920x1080, H.264 + AAC
+- Slideshow format with fade in/out transitions
+- Audio synced to narration length
+
+**Files Created:**
+- `promo/create-video.sh` - FFmpeg script for slideshow creation
+- All assets in `promo/assets/`
+
+**Usage:**
+```bash
+# Generate storyboard
+vibe ai storyboard promo/script.txt -f -d 30 -o promo/storyboard.json
+
+# Generate narration
+vibe ai tts "Your script..." -v EXAVITQu4vr4xnSDxMaL -o promo/assets/narration.mp3
+
+# Generate images
+vibe ai image "description..." -o promo/assets/image.png
+
+# Create video from images
+bash promo/create-video.sh
+```
+
+**Documentation:**
+- Added "Example 5: Multi-Provider Promo Video (Advanced)" to `docs/cli-guide.md`
+
+---
+
 ### Feature: CLI User Experience Improvements
 Enhanced CLI onboarding, documentation, and installation experience.
 

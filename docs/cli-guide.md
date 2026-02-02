@@ -72,6 +72,7 @@ These providers handle media generation and transformation tasks.
 | **Whisper** | Speech-to-text transcription | `OPENAI_API_KEY` |
 | **ElevenLabs** | Text-to-speech, voice cloning, SFX | `ELEVENLABS_API_KEY` |
 | **DALL-E** | Image generation | `OPENAI_API_KEY` |
+| **Gemini Imagen 3** | Image generation (high quality) | `GOOGLE_API_KEY` |
 | **Stability AI** | Image generation, editing, inpainting | `STABILITY_API_KEY` |
 | **Runway** | Video generation (Gen-3) | `RUNWAY_API_SECRET` |
 | **Kling** | Video generation | `KLING_API_KEY` |
@@ -154,8 +155,19 @@ vibe ai edit <project> "trim all clips to 10 seconds"
 # Text-to-speech
 vibe ai tts "Your text here" -o output.mp3
 
-# Image generation
-vibe ai image "description" -o output.png
+# Image generation (supports: dalle, gemini, stability)
+vibe ai image "description" -o output.png                    # Default: DALL-E
+vibe ai image "description" -o output.png -p gemini          # Gemini Imagen 3
+vibe ai image "description" -o output.png -p stability       # Stability AI
+
+# Video generation (supports: runway, kling)
+vibe ai video "description" -o output.mp4                    # Default: Runway
+vibe ai video "description" -o output.mp4 -p kling           # Kling AI
+vibe ai video "description" -i ref.png -o output.mp4         # Image-to-video
+
+# Motion graphics (Remotion + Claude)
+vibe ai motion "animated title card for YouTube" -o title.tsx
+vibe ai motion "lower third with name" -o lower.tsx -s corporate
 
 # Storyboard generation
 vibe ai storyboard "content" -d 30 -o storyboard.json
@@ -165,6 +177,12 @@ vibe ai sfx "whoosh sound" -o effect.mp3
 
 # Transcription
 vibe ai transcribe audio.mp3 -o subtitles.srt
+
+# Image editing (Stability AI)
+vibe ai sd-img2img input.png "make it look vintage" -o output.png
+vibe ai sd-replace input.png "cat" "dog" -o output.png
+vibe ai sd-outpaint input.png --left 200 --right 200 -o wider.png
+vibe ai sd-remove-bg input.png -o no-bg.png
 ```
 
 **Export**

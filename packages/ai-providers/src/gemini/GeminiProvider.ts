@@ -9,13 +9,39 @@ import type {
 } from "../interface/types.js";
 
 /**
- * Google Gemini provider for AI video generation and editing
+ * Image generation options for Gemini Imagen
+ */
+export interface GeminiImageOptions {
+  /** Number of images to generate (1-4) */
+  numberOfImages?: number;
+  /** Aspect ratio */
+  aspectRatio?: "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
+  /** Safety filter level */
+  safetyFilterLevel?: "block_low_and_above" | "block_medium_and_above" | "block_only_high";
+  /** Person generation setting */
+  personGeneration?: "dont_allow" | "allow_adult";
+}
+
+/**
+ * Image generation result
+ */
+export interface GeminiImageResult {
+  success: boolean;
+  images?: Array<{
+    base64: string;
+    mimeType: string;
+  }>;
+  error?: string;
+}
+
+/**
+ * Google Gemini provider for AI video generation, image generation, and editing
  */
 export class GeminiProvider implements AIProvider {
   id = "gemini";
   name = "Google Gemini";
-  description = "AI video generation and smart editing suggestions using Gemini";
-  capabilities: AICapability[] = ["text-to-video", "auto-edit"];
+  description = "AI video generation, image generation (Imagen 3), and smart editing suggestions";
+  capabilities: AICapability[] = ["text-to-video", "auto-edit", "text-to-image"];
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
 
@@ -70,6 +96,109 @@ export class GeminiProvider implements AIProvider {
   async cancelGeneration(_id: string): Promise<boolean> {
     // TODO: Implement cancellation
     return true;
+  }
+
+  /**
+   * Generate images using Gemini (Nano Banana)
+   * Uses generateContent with responseModalities: ["TEXT", "IMAGE"]
+   */
+  async generateImage(
+    prompt: string,
+    options: GeminiImageOptions = {}
+  ): Promise<GeminiImageResult> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: "Google API key not configured",
+      };
+    }
+
+    try {
+      // Use Gemini 2.5 Flash Image model (Nano Banana)
+      const response = await fetch(
+        `${this.baseUrl}/models/gemini-2.5-flash-image:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"],
+              imageConfig: {
+                aspectRatio: options.aspectRatio || "1:1",
+              },
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage: string;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error?.message || errorText;
+        } catch {
+          errorMessage = errorText;
+        }
+        return {
+          success: false,
+          error: `API error (${response.status}): ${errorMessage}`,
+        };
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string;
+              inlineData?: {
+                mimeType: string;
+                data: string;
+              };
+            }>;
+          };
+        }>;
+      };
+
+      const parts = data.candidates?.[0]?.content?.parts;
+      if (!parts || parts.length === 0) {
+        return {
+          success: false,
+          error: "No content in response",
+        };
+      }
+
+      // Extract images from parts
+      const images: Array<{ base64: string; mimeType: string }> = [];
+      for (const part of parts) {
+        if (part.inlineData) {
+          images.push({
+            base64: part.inlineData.data,
+            mimeType: part.inlineData.mimeType,
+          });
+        }
+      }
+
+      if (images.length === 0) {
+        return {
+          success: false,
+          error: "No images in response",
+        };
+      }
+
+      return {
+        success: true,
+        images,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 
   async autoEdit(clips: Clip[], instruction: string): Promise<EditSuggestion[]> {
