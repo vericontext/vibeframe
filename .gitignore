@@ -36,3 +36,7 @@ pnpm-debug.log*
 .eslintcache
 
 samples/
+# Generated outputs
+demo-output/
+docker/test-output/
+promo/
