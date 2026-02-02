@@ -8,6 +8,7 @@ export { GeminiProvider, geminiProvider } from "./gemini/index.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";
+export { OllamaProvider, ollamaProvider } from "./ollama/index.js";
 export { ElevenLabsProvider, elevenLabsProvider } from "./elevenlabs/index.js";
 export type { Voice, TTSOptions, TTSResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
 export { DalleProvider, dalleProvider } from "./dalle/index.js";

@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Project, type ProjectFile } from "@vibeframe/cli/engine";
+import type { EffectType } from "@vibeframe/core";
 
 // Tool definitions for MCP
 export const tools = [
@@ -68,6 +69,10 @@ export const tools = [
         name: {
           type: "string",
           description: "Optional name for the source",
+        },
+        duration: {
+          type: "number",
+          description: "Duration of the media in seconds (default: 10)",
         },
       },
       required: ["projectPath", "mediaPath"],
@@ -359,7 +364,7 @@ export async function handleToolCall(
           name: (args.name as string) || mediaPath.split("/").pop() || "media",
           type: mediaTypes[ext] || "video",
           url: mediaPath,
-          duration: 10, // Default, should be detected
+          duration: (args.duration as number) || 10,
         });
         await saveProject(args.projectPath as string, project);
         result = `Added source: ${source.id}`;
@@ -445,7 +450,7 @@ export async function handleToolCall(
       case "timeline_add_effect": {
         const project = await loadProject(args.projectPath as string);
         const effect = project.addEffect(args.clipId as string, {
-          type: args.effectType as any,
+          type: args.effectType as EffectType,
           startTime: (args.startTime as number) || 0,
           duration: (args.duration as number) || 1,
           params: { intensity: (args.intensity as number) || 1 },

@@ -40,13 +40,6 @@ export const resources = [
 let currentProjectPath: string | null = process.env.VIBE_PROJECT_PATH || null;
 
 /**
- * Set the current project path
- */
-export function setCurrentProject(path: string): void {
-  currentProjectPath = path;
-}
-
-/**
  * Get the current project path
  */
 export function getCurrentProjectPath(): string | null {

@@ -14,6 +14,7 @@ import { Project } from "../engine/index.js";
 import {
   OpenAIProvider,
   ClaudeProvider,
+  OllamaProvider,
 } from "@vibeframe/ai-providers";
 
 /** Built-in command result */
@@ -282,10 +283,12 @@ async function executeNaturalLanguageCommand(
   }
 
   // Create the appropriate LLM provider
-  let llmProvider: OpenAIProvider | ClaudeProvider;
+  let llmProvider: OpenAIProvider | ClaudeProvider | OllamaProvider;
 
   if (llmProviderType === "claude") {
     llmProvider = new ClaudeProvider();
+  } else if (llmProviderType === "ollama") {
+    llmProvider = new OllamaProvider();
   } else {
     // Default to OpenAI for other providers (openai, gemini with OpenAI-compatible API, etc.)
     llmProvider = new OpenAIProvider();
