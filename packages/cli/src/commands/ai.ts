@@ -600,9 +600,9 @@ aiCommand
 
 aiCommand
   .command("image")
-  .description("Generate image using AI (DALL-E, Gemini Imagen, or Stability)")
+  .description("Generate image using AI (Gemini, DALL-E, or Stability)")
   .argument("<prompt>", "Image description prompt")
-  .option("-p, --provider <provider>", "Provider: dalle, gemini, stability, runway", "dalle")
+  .option("-p, --provider <provider>", "Provider: gemini, dalle, stability, runway", "gemini")
   .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, STABILITY_API_KEY)")
   .option("-o, --output <path>", "Output file path (downloads image)")
   .option("-s, --size <size>", "Image size (dalle: 1024x1024, 1792x1024, 1024x1792)", "1024x1024")

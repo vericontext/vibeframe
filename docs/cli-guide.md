@@ -56,13 +56,13 @@ export KLING_API_KEY="..."               # Kling video
 ### Step 3: Test Basic AI Commands
 
 ```bash
-# Test 1: Generate an image (DALL-E)
+# Test 1: Generate an image (Gemini - default)
 vibe ai image "a cute robot waving hello, digital art" -o robot.png
 
-# Test 2: Generate TTS
+# Test 2: Generate TTS (ElevenLabs)
 vibe ai tts "Hello! Welcome to VibeFrame." -o hello.mp3
 
-# Test 3: Generate sound effect
+# Test 3: Generate sound effect (ElevenLabs)
 vibe ai sfx "whoosh transition sound" -o whoosh.mp3 -d 2
 ```
 
@@ -94,14 +94,14 @@ vibe> exit
 ### Image Generation (Multi-Provider)
 
 ```bash
-# DALL-E (default) - Best for creative/artistic images
-vibe ai image "sunset over mountains" -o sunset-dalle.png
+# Gemini Imagen 3 (default) - High quality, fast
+vibe ai image "sunset over mountains" -o sunset.png
+
+# DALL-E - Best for creative/artistic images
+vibe ai image "sunset over mountains" -o sunset-dalle.png -p dalle
 
 # Stability AI - Best for photorealistic
 vibe ai image "sunset over mountains" -o sunset-stability.png -p stability
-
-# Gemini Imagen 3 - High quality, fast
-vibe ai image "sunset over mountains" -o sunset-gemini.png -p gemini
 
 # With aspect ratio
 vibe ai image "vertical phone wallpaper" -o wallpaper.png -r 9:16
