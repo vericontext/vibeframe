@@ -2,11 +2,11 @@
  * Core Timeline Types for VibeFrame
  *
  * Using "Vibe" terminology:
- * - Clip -> 조각 (piece)
- * - Track -> 겹침 (layer)
- * - Timeline -> 스토리보드 (storyboard)
- * - Keyframe -> 포인트 (point)
- * - Transition -> 전환 (transition)
+ * - Clip -> piece (segment of media on timeline)
+ * - Track -> layer (vertical stack for compositing)
+ * - Timeline -> storyboard (the complete sequence)
+ * - Keyframe -> point (a moment of change)
+ * - Transition -> transition (effect between clips)
  */
 
 /** Unique identifier type */
@@ -33,7 +33,7 @@ export interface MediaSource {
   thumbnail?: string;
 }
 
-/** A clip (조각) - a piece of media on the timeline */
+/** A clip (piece) - a segment of media on the timeline */
 export interface Clip {
   id: Id;
   /** Reference to the source media */
@@ -56,7 +56,7 @@ export interface Clip {
   isLocked?: boolean;
 }
 
-/** A track (겹침) - a layer containing clips */
+/** A track (layer) - a vertical stack containing clips */
 export interface Track {
   id: Id;
   name: string;
@@ -97,7 +97,7 @@ export interface Effect {
   keyframes?: Keyframe[];
 }
 
-/** A keyframe (포인트) - a point of change */
+/** A keyframe (point) - a moment of parameter change */
 export interface Keyframe {
   id: Id;
   /** Time relative to effect start */

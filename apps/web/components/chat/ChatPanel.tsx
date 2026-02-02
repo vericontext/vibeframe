@@ -17,7 +17,7 @@ export function ChatPanel() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hi! I'm your VibeFrame assistant. Tell me what you want to do with your video, like \"인트로 3초로 줄이고 마지막에 페이드아웃\" or \"add a fade in to the first clip\".",
+        "Hi! I'm your VibeFrame assistant. Tell me what you want to do with your video, like \"trim the intro to 3 seconds and add fade out\" or \"add a fade in to the first clip\".",
       timestamp: new Date(),
     },
   ]);
@@ -49,9 +49,9 @@ export function ChatPanel() {
 
       // Trim command
       const trimMatch = lowerCommand.match(
-        /(?:trim|shorten|cut|줄이|자르)/i
+        /(?:trim|shorten|cut)/i
       );
-      const durationMatch = lowerCommand.match(/(\d+)\s*(?:s|sec|초|seconds?)/);
+      const durationMatch = lowerCommand.match(/(\d+)\s*(?:s|sec|seconds?)/);
 
       if (trimMatch && durationMatch) {
         const duration = parseInt(durationMatch[1]);
@@ -62,7 +62,7 @@ export function ChatPanel() {
       }
 
       // Fade in command
-      if (/fade\s*in|페이드\s*인/i.test(lowerCommand)) {
+      if (/fade\s*in/i.test(lowerCommand)) {
         const firstClip = clips[0];
         if (firstClip) {
           addEffect(firstClip.id, {
@@ -76,7 +76,7 @@ export function ChatPanel() {
       }
 
       // Fade out command
-      if (/fade\s*out|페이드\s*아웃/i.test(lowerCommand)) {
+      if (/fade\s*out/i.test(lowerCommand)) {
         const lastClip = clips[clips.length - 1];
         if (lastClip) {
           addEffect(lastClip.id, {
