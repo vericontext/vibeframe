@@ -255,6 +255,9 @@ vibe> exit            Exit
 vibe> trim the clip to 5 seconds
 vibe> add fade in effect
 vibe> split at 3 seconds
+vibe> export the video
+vibe> render the project
+vibe> save as mp4
 ```
 
 ---
