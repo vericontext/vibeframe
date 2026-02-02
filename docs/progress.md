@@ -11,7 +11,7 @@ Added OllamaProvider to enable local LLM support for natural language timeline c
 
 **Features:**
 - Uses Ollama's `/api/chat` endpoint (default: `http://localhost:11434`)
-- Default model: `mistral` (4GB), also supports `phi` (1.6GB) and `tinyllama` (0.6GB)
+- Default model: `llama3.2` (2GB), also supports `mistral` (4GB), `phi` (1.6GB), `tinyllama` (0.6GB)
 - No API key required - runs completely locally
 - Full `parseCommand` implementation with same capabilities as OpenAI/Claude providers
 - Fallback pattern matching when Ollama server is unavailable
@@ -35,7 +35,7 @@ Added OllamaProvider to enable local LLM support for natural language timeline c
 ```bash
 # Install and run Ollama
 ollama serve
-ollama pull mistral  # or phi (smaller)
+ollama pull llama3.2  # default model (or mistral for better quality)
 
 # Configure VibeFrame to use Ollama
 vibe setup --full  # Select "Ollama" as LLM provider
@@ -50,6 +50,7 @@ vibe> trim the clip to 5 seconds  # Uses local Ollama!
 **Recommended Ollama Models:**
 | Model | Size | Notes |
 |-------|------|-------|
+| llama3.2 | 2GB | Default, good balance |
 | phi | 1.6GB | Lightweight, fast |
 | tinyllama | 0.6GB | Smallest |
 | mistral | 4.1GB | Best quality |
