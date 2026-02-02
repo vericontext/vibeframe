@@ -167,7 +167,7 @@ export class KlingProvider implements AIProvider {
       const body: Record<string, unknown> = {
         prompt,
         model_name: "kling-v1-5",
-        mode: "std",
+        mode: options?.mode || "pro",
         aspect_ratio: aspectRatioMap[options?.aspectRatio || "16:9"] || "16:9",
         duration: options?.duration === 10 ? "10" : "5",
       };

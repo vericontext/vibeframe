@@ -973,7 +973,7 @@ aiCommand
   .option("-d, --duration <sec>", "Duration: 5 or 10 seconds", "5")
   .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (Kling only)", "16:9")
   .option("-s, --seed <number>", "Random seed for reproducibility (Runway only)")
-  .option("-m, --mode <mode>", "Generation mode: std or pro (Kling only)", "std")
+  .option("-m, --mode <mode>", "Generation mode: std or pro (Kling only)", "pro")
   .option("-n, --negative <prompt>", "Negative prompt - what to avoid (Kling only)")
   .option("--no-wait", "Start generation and return task ID without waiting")
   .action(async (prompt: string, options) => {
@@ -1085,6 +1085,7 @@ aiCommand
           duration: parseInt(options.duration) as 5 | 10,
           aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
           negativePrompt: options.negative,
+          mode: options.mode as "std" | "pro",
         });
 
         if (result.status === "failed") {
@@ -1272,7 +1273,7 @@ aiCommand
   .option("-i, --image <path>", "Reference image for image-to-video")
   .option("-d, --duration <sec>", "Duration: 5 or 10 seconds", "5")
   .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1", "16:9")
-  .option("-m, --mode <mode>", "Generation mode: std (standard) or pro", "std")
+  .option("-m, --mode <mode>", "Generation mode: std (standard) or pro", "pro")
   .option("-n, --negative <prompt>", "Negative prompt (what to avoid)")
   .option("--no-wait", "Start generation and return task ID without waiting")
   .action(async (prompt: string, options) => {
@@ -1323,6 +1324,7 @@ aiCommand
         duration: parseInt(options.duration) as 5 | 10,
         aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
         negativePrompt: options.negative,
+        mode: options.mode as "std" | "pro",
       });
 
       if (result.status === "failed") {

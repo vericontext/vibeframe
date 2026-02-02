@@ -69,6 +69,8 @@ export interface GenerateOptions {
   seed?: number;
   /** Style preset */
   style?: string;
+  /** Generation mode (Kling: std or pro) */
+  mode?: "std" | "pro";
   /** Reference image for image-to-video */
   referenceImage?: Blob | string;
   /** Reference video for video-to-video */
