@@ -17,7 +17,7 @@ import urllib.error
 
 
 BASE_URL = "https://api.replicate.com/v1"
-MODEL_VERSION = "671ac645ce5e552cc63a54a2bbff63fcf798043ac68f86b6f8d6e7df5c6a5a57"  # MusicGen
+MODEL_VERSION = "671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb"  # MusicGen
 POLL_INTERVAL = 3
 MAX_WAIT = 300
 

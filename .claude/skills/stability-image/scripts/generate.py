@@ -14,11 +14,13 @@ import urllib.request
 import urllib.error
 
 MODELS = {
-    "sd35-large": "sd3.5-large",
-    "sd35-turbo": "sd3.5-large-turbo",
-    "sd35-medium": "sd3.5-medium",
-    "core": "stable-image-core",
-    "ultra": "stable-image-ultra",
+    "sd35-large": ("sd3", "sd3.5-large"),
+    "sd35-turbo": ("sd3", "sd3.5-large-turbo"),
+    "sd35-medium": ("sd3", "sd3.5-medium"),
+    "sd3-large": ("sd3", "sd3-large"),
+    "sd3-medium": ("sd3", "sd3-medium"),
+    "core": ("core", None),
+    "ultra": ("ultra", None),
 }
 
 ASPECT_RATIOS = ["16:9", "1:1", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"]
@@ -49,10 +51,12 @@ def generate_image(
         return {"success": False, "error": "STABILITY_API_KEY not set"}
 
     # Resolve model alias
+    endpoint = model
+    model_param = None
     if model in MODELS:
-        model = MODELS[model]
+        endpoint, model_param = MODELS[model]
 
-    url = f"https://api.stability.ai/v2beta/stable-image/generate/{model}"
+    url = f"https://api.stability.ai/v2beta/stable-image/generate/{endpoint}"
 
     # Build multipart form data
     boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
@@ -63,6 +67,9 @@ def generate_image(
 
     add_field("prompt", prompt)
     add_field("output_format", output_format)
+
+    if model_param:
+        add_field("model", model_param)
 
     if aspect_ratio in ASPECT_RATIOS:
         add_field("aspect_ratio", aspect_ratio)
@@ -83,6 +90,7 @@ def generate_image(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": f"multipart/form-data; boundary={boundary}",
         "Accept": "image/*",
+        "User-Agent": "VibeFrame/1.0",
     }
 
     try:

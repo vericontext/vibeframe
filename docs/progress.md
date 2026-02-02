@@ -29,6 +29,11 @@ Performed comprehensive integration testing of Claude Code skills and CLI comman
 | CLI | vibe ai sfx | ✅ Pass | ElevenLabs SFX working |
 | CLI | vibe ai transcribe | ✅ Pass | SRT output correct |
 | CLI | project create/info | ✅ Pass | Project CRUD working |
+| Stability Image | generate.py | ✅ Pass | 672KB PNG - fixed API endpoint |
+| Replicate AI | music.py | ✅ Pass | 60KB MP3 (5s) - fixed model version |
+| Replicate AI | upscale.py | ✅ --help | Requires input image |
+| Runway Video | generate.py | ✅ --help | Video gen skipped (cost/time) |
+| Kling Video | generate.py | ✅ --help | Video gen skipped (cost/time) |
 
 **Bugs Fixed:**
 
@@ -42,15 +47,31 @@ Performed comprehensive integration testing of Claude Code skills and CLI comman
    - Solution: Added code to strip markdown code blocks before JSON parsing
    - File: `.claude/skills/claude-api/scripts/storyboard.py`
 
+3. **stability generate.py - API Endpoint Changed**
+   - Problem: Stability AI changed API from `/generate/sd3.5-large` to `/generate/sd3` with model parameter
+   - Solution: Updated MODELS dict to use (endpoint, model_param) tuples, added model field to form data
+   - File: `.claude/skills/stability-image/scripts/generate.py`
+
+4. **replicate music.py - Model Version Outdated**
+   - Problem: MusicGen model version hash was outdated (422 error)
+   - Solution: Updated MODEL_VERSION to `671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb`
+   - File: `.claude/skills/replicate-ai/scripts/music.py`
+
 **API Key Status:**
 - ✅ OPENAI_API_KEY - Working (chat, dalle, whisper, tts)
 - ✅ ANTHROPIC_API_KEY - Working (chat, parse, motion, storyboard)
 - ✅ GOOGLE_API_KEY - Working (text, image generation)
 - ✅ ELEVENLABS_API_KEY - Working (tts, sfx)
+- ✅ STABILITY_API_KEY - Working (image generation)
+- ✅ REPLICATE_API_TOKEN - Working (music generation)
+- ✅ RUNWAY_API_SECRET - Configured (video gen not tested - cost)
+- ✅ KLING_API_KEY - Configured (video gen not tested - cost)
 
 **Files Modified:**
 - `.claude/skills/claude-api/scripts/parse.py` - JSON array output format
 - `.claude/skills/claude-api/scripts/storyboard.py` - Markdown code block stripping
+- `.claude/skills/stability-image/scripts/generate.py` - Fixed API endpoint and added User-Agent
+- `.claude/skills/replicate-ai/scripts/music.py` - Updated MusicGen model version
 
 **Verification Commands:**
 ```bash
@@ -59,6 +80,8 @@ python .claude/skills/openai-api/scripts/chat.py "Hello"
 python .claude/skills/claude-api/scripts/parse.py "trim 10s and add fade"
 python .claude/skills/claude-api/scripts/storyboard.py "product demo" -d 30 -o /tmp/test.json
 python .claude/skills/gemini-image/scripts/generate.py "red circle" -o /tmp/gemini.png
+python .claude/skills/stability-image/scripts/generate.py "blue square" -o /tmp/stability.png
+python .claude/skills/replicate-ai/scripts/music.py "jingle" -o /tmp/music.mp3 -d 5
 
 # Test CLI
 pnpm vibe ai image "test" -o /tmp/test.png
