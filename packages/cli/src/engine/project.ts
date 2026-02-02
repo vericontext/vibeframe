@@ -15,7 +15,6 @@ import type {
   TimeSeconds,
   AspectRatio,
   MediaType,
-  EffectType,
 } from "@vibeframe/core/timeline";
 
 /** Generate unique ID */

@@ -22,7 +22,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "tsx src/index.ts",
-    "lint": "eslint src/",
+    "lint": "eslint --ext .ts,.tsx src/",
     "test": "vitest"
   },
   "dependencies": {

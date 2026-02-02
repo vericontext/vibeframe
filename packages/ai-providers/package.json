@@ -33,7 +33,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "lint": "eslint src/",
+    "lint": "eslint --ext .ts,.tsx src/",
     "test": "vitest"
   },
   "dependencies": {

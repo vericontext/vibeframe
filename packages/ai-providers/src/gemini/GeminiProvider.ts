@@ -34,8 +34,8 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generateVideo(
-    prompt: string,
-    options?: GenerateOptions
+    _prompt: string,
+    _options?: GenerateOptions
   ): Promise<VideoResult> {
     if (!this.apiKey) {
       return {
@@ -67,7 +67,7 @@ export class GeminiProvider implements AIProvider {
     };
   }
 
-  async cancelGeneration(id: string): Promise<boolean> {
+  async cancelGeneration(_id: string): Promise<boolean> {
     // TODO: Implement cancellation
     return true;
   }

@@ -6,7 +6,6 @@ import type {
   Track,
   MediaSource,
   Effect,
-  Transition,
   Id,
   TimeSeconds,
   AspectRatio,

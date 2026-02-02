@@ -3,20 +3,17 @@
  * Handles both built-in commands and natural language AI commands
  */
 
-import { resolve, extname } from "node:path";
-import { readFile, access } from "node:fs/promises";
+import { extname } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Session } from "./session.js";
 import { success, error, warn, info, getHelpText, formatProjectInfo } from "./prompts.js";
 import { getApiKeyFromConfig, loadConfig, type LLMProvider } from "../config/index.js";
 import { executeCommand } from "../commands/ai.js";
-import { Project, type ProjectFile } from "../engine/index.js";
+import { Project } from "../engine/index.js";
 import {
   OpenAIProvider,
   ClaudeProvider,
-  type TimelineCommand,
-  type CommandParseResult,
 } from "@vibeframe/ai-providers";
 
 /** Built-in command result */
@@ -166,7 +163,6 @@ async function executeBuiltinCommand(
 
       // Determine media type from extension
       const ext = extname(absPath).toLowerCase();
-      const videoExts = [".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"];
       const audioExts = [".mp3", ".wav", ".aac", ".ogg", ".m4a", ".flac"];
       const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
 

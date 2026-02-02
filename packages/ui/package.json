@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "lint": "eslint src/"
+    "lint": "eslint --ext .ts,.tsx src/"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.0",

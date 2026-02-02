@@ -13,7 +13,6 @@ import {
   PROVIDER_NAMES,
 } from "../config/index.js";
 import {
-  prompt,
   promptHidden,
   promptSelect,
   promptConfirm,
@@ -73,7 +72,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log();
 
   const providers: LLMProvider[] = ["claude", "openai", "gemini", "ollama"];
-  const providerLabels = providers.map((p, i) => {
+  const providerLabels = providers.map((p) => {
     const rec = p === "claude" ? chalk.dim(" (recommended)") : "";
     return `${PROVIDER_NAMES[p]}${rec}`;
   });

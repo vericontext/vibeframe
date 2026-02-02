@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { Session } from "./session.js";
 import { executeReplCommand } from "./executor.js";
 import {

@@ -12,7 +12,7 @@ let ttyStream: ReadStream | null = null;
  * Get a TTY-capable input stream
  * Falls back to /dev/tty when stdin is piped (e.g., from curl)
  */
-export function getTTYInputStream(): NodeJS.ReadableStream {
+export function getTTYInputStream(): typeof process.stdin | ReadStream {
   if (process.stdin.isTTY) {
     return process.stdin;
   }

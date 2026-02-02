@@ -3,7 +3,7 @@ import { readFile, writeFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { config } from "dotenv";
 import chalk from "chalk";
-import { getApiKeyFromConfig, PROVIDER_ENV_VARS } from "../config/index.js";
+import { getApiKeyFromConfig } from "../config/index.js";
 
 // Load .env from project root (where package.json is)
 function findProjectRoot(): string {

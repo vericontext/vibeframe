@@ -437,18 +437,6 @@ export class ReplicateProvider implements AIProvider {
 
     try {
       const duration = Math.max(1, Math.min(30, options.duration || 8));
-      const model = options.model || "stereo-large";
-
-      // MusicGen model on Replicate
-      const modelVersions: Record<string, string> = {
-        "large": "meta/musicgen:7be0f12c54a8d033a0fbd14418c9af98962da9a86f5ff7811f9b3423a1f0b7d7",
-        "stereo-large": "meta/musicgen:stereo-large",
-        "melody-large": "meta/musicgen:melody-large",
-        "stereo-melody-large": "meta/musicgen:stereo-melody-large",
-      };
-
-      const version = modelVersions[model] || modelVersions["stereo-large"];
-      const isOfficialModel = version.startsWith("meta/musicgen:");
 
       const input: Record<string, unknown> = {
         prompt,
@@ -471,15 +459,6 @@ export class ReplicateProvider implements AIProvider {
       if (options.temperature !== undefined) {
         input.temperature = options.temperature;
       }
-
-      // Use official model endpoint for meta models
-      const endpoint = isOfficialModel
-        ? `${this.baseUrl}/models/${version.replace(":", "/versions/")}/predictions`
-        : `${this.baseUrl}/predictions`;
-
-      const body = isOfficialModel
-        ? { input }
-        : { version: version.split(":")[1], input };
 
       const response = await fetch(`${this.baseUrl}/predictions`, {
         method: "POST",

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { readFile, writeFile, readdir, stat } from "node:fs/promises";
+import { readFile, writeFile, readdir } from "node:fs/promises";
 import { resolve, basename, extname, join } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
@@ -64,7 +64,7 @@ batchCommand
       // Collect media files
       const mediaFiles: string[] = [];
 
-      async function scanDir(dir: string): Promise<void> {
+      const scanDir = async (dir: string): Promise<void> => {
         const entries = await readdir(dir, { withFileTypes: true });
 
         for (const entry of entries) {
@@ -81,7 +81,7 @@ batchCommand
             }
           }
         }
-      }
+      };
 
       await scanDir(dirPath);
 

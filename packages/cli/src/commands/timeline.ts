@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { readFile, writeFile, stat } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
 import chalk from "chalk";
 import ora from "ora";

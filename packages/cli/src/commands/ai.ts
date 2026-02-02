@@ -33,12 +33,9 @@ import {
   type HighlightCriteria,
   type HighlightsResult,
   type BrollClipInfo,
-  type NarrationSegment,
   type BrollMatch,
   type BrollMatchResult,
   type PlatformSpec,
-  type ViralAnalysis,
-  type PlatformCut,
   type ViralOptimizationResult,
 } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
@@ -3938,8 +3935,6 @@ aiCommand
       const replicate = new ReplicateProvider();
       await replicate.initialize({ apiKey });
 
-      const spinner = ora("Uploading audio...").start();
-
       // For Replicate, we need a publicly accessible URL
       // This is a limitation - users need to upload their file first
       console.log(chalk.yellow("Note: Replicate requires a publicly accessible audio URL"));
@@ -4048,12 +4043,6 @@ aiCommand
         zh: "Chinese", ar: "Arabic", ru: "Russian", hi: "Hindi",
       };
       const targetLangName = languageNames[options.language] || options.language;
-
-      const translationPrompt = `Translate the following segments to ${targetLangName}.
-Preserve the segment numbers exactly as they appear. Keep translations natural and suitable for speech.
-Return ONLY the translated segments in the same format, no explanations.
-
-${segmentTexts}`;
 
       // Use Claude's analyzeContent method to translate the segments
       // The segments maintain their timing, we just need translated text
@@ -4426,7 +4415,7 @@ aiCommand
       // Clean up temp file
       try {
         await execAsync(`rm "${tempAudio}"`);
-      } catch { }
+      } catch { /* ignore cleanup errors */ }
 
       spinner.succeed(chalk.green(`Found ${speedResult.keyframes.length} speed keyframes`));
 
@@ -4460,12 +4449,6 @@ aiCommand
       // For simplicity, we'll create segments and concatenate
       // A full implementation would use complex filter expressions
       // Here we use setpts with a simple approach
-
-      // Get video duration
-      const { stdout: durationOut } = await execAsync(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`
-      );
-      const totalDuration = parseFloat(durationOut.trim());
 
       // For demo, apply average speed or first segment's speed
       const avgSpeed = speedResult.keyframes.reduce((sum, kf) => sum + kf.speed, 0) / speedResult.keyframes.length;
@@ -4590,7 +4573,7 @@ aiCommand
       // Clean up temp files
       try {
         await execAsync(`rm -rf "${tempDir}"`);
-      } catch { }
+      } catch { /* ignore cleanup errors */ }
 
       spinner.succeed(chalk.green(`Analyzed ${cropKeyframes.length} keyframes`));
 
@@ -4712,7 +4695,7 @@ aiCommand
       // Clean up temp audio
       try {
         await execAsync(`rm "${tempAudio}"`);
-      } catch { }
+      } catch { /* ignore cleanup errors */ }
 
       if (!transcript.segments || transcript.segments.length === 0) {
         spinner.fail(chalk.red("No transcript found"));
@@ -5232,7 +5215,7 @@ export function executeCommand(project: Project, cmd: TimelineCommand): boolean 
         // TODO: Implement volume control
         return false;
 
-      case "add-track":
+      case "add-track": {
         const trackType = (params.trackType as "video" | "audio") || "video";
         const tracks = project.getTracks();
         project.addTrack({
@@ -5244,6 +5227,7 @@ export function executeCommand(project: Project, cmd: TimelineCommand): boolean 
           isVisible: true,
         });
         return true;
+      }
 
       case "speed-change":
         // Store speed info in clip metadata (processed during export)

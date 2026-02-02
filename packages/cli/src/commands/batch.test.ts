@@ -82,8 +82,6 @@ describe("batch commands", () => {
   });
 
   describe("batch concat", () => {
-    let sourceIds: string[];
-
     beforeEach(() => {
       // Import media first
       execSync(
@@ -97,8 +95,6 @@ describe("batch commands", () => {
         s.duration = 5 + i; // 5, 6, 7 seconds
       });
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
-
-      sourceIds = content.state.sources.map((s: any) => s.id);
     });
 
     it("concatenates all sources", () => {
