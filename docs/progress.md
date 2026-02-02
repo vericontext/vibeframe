@@ -23,8 +23,10 @@ Replaced regex-based command matching with LLM-powered intent classification for
   - `sfx` → generateSFX()
   - `video` → CLI suggestion
   - `project` → create project
+  - `add-media` → add file to project timeline
   - `timeline` → existing parseCommand flow
 - Includes fallback pattern matching when LLM fails
+- Smart builtin detection: "add X to the project" → LLM, "add X" → builtin
 
 **Now works:**
 ```
@@ -32,14 +34,18 @@ vibe> create a welcome audio message          ✓
 vibe> make me a banner image for my channel   ✓
 vibe> generate speech saying hello world      ✓
 vibe> new project called demo                 ✓
+vibe> add sunset.png to the project           ✓
+vibe> include intro.mp4 in timeline           ✓
 ```
 
 **Files Modified:**
 - `packages/cli/src/repl/executor.ts` - Complete rewrite of natural language handling:
-  - Added `CommandIntent` interface
+  - Added `CommandIntent` interface with `add-media` type
   - Added `classifyCommand()` using LLM API
   - Added `fallbackClassify()` for offline mode
+  - Updated `isBuiltinCommand()` to detect natural language phrases
   - Rewrote `executeNaturalLanguageCommand()` to use intent-based routing
+  - Added `add-media` handler for natural language file adding
 
 ---
 

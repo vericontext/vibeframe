@@ -32,12 +32,13 @@ export interface CommandResult {
 
 /** Unified command intent from LLM */
 interface CommandIntent {
-  type: "image" | "tts" | "sfx" | "video" | "timeline" | "project" | "unknown";
+  type: "image" | "tts" | "sfx" | "video" | "timeline" | "project" | "add-media" | "unknown";
   params: {
     prompt?: string;
     text?: string;
     outputFile?: string;
     projectName?: string;
+    filename?: string;
     [key: string]: unknown;
   };
   clarification?: string;
@@ -60,7 +61,8 @@ Analyze the user's natural language input and classify it into one of these type
 4. "video" - Video generation (e.g., "generate a video of ocean waves")
 5. "timeline" - Timeline editing commands (e.g., "trim clip to 5 seconds", "add fade effect", "split at 3s")
 6. "project" - Project management (e.g., "create new project called X", "start a project named Y")
-7. "unknown" - Cannot understand the command
+7. "add-media" - Add existing media file to project (e.g., "add sunset.png to the project", "add video.mp4 to timeline", "include intro.mp3")
+8. "unknown" - Cannot understand the command
 
 Extract relevant parameters:
 - For image: prompt (the image description), outputFile (optional)
@@ -68,18 +70,20 @@ Extract relevant parameters:
 - For sfx: prompt (sound description), outputFile (optional)
 - For video: prompt (video description), outputFile (optional)
 - For project: projectName
+- For add-media: filename (the file to add, e.g., "sunset.png", "video.mp4")
 - For timeline: leave params empty (will be parsed separately)
 
 If the command is ambiguous, set clarification to ask for more details.
 
 Respond with JSON only:
 {
-  "type": "image|tts|sfx|video|timeline|project|unknown",
+  "type": "image|tts|sfx|video|timeline|project|add-media|unknown",
   "params": {
     "prompt": "extracted prompt if applicable",
     "text": "text to speak if tts",
     "outputFile": "output.png or output.mp3 if specified",
-    "projectName": "project name if project command"
+    "projectName": "project name if project command",
+    "filename": "file to add if add-media"
   },
   "clarification": "question to ask if ambiguous (optional)"
 }
@@ -89,7 +93,9 @@ Examples:
 - "generate an image of a sunset" → {"type": "image", "params": {"prompt": "a sunset"}}
 - "make a project called demo" → {"type": "project", "params": {"projectName": "demo"}}
 - "trim to 5 seconds" → {"type": "timeline", "params": {}}
-- "create a welcome banner image" → {"type": "image", "params": {"prompt": "a welcome banner"}}`;
+- "create a welcome banner image" → {"type": "image", "params": {"prompt": "a welcome banner"}}
+- "add sunset.png to the project" → {"type": "add-media", "params": {"filename": "sunset.png"}}
+- "include intro.mp4 in timeline" → {"type": "add-media", "params": {"filename": "intro.mp4"}}`;
 
   try {
     let endpoint: string;
@@ -218,12 +224,20 @@ function fallbackClassify(input: string): CommandIntent {
     return { type: "project", params: { projectName: nameMatch?.[1]?.trim() || "Untitled" } };
   }
 
+  // Add media patterns (add X to project/timeline)
+  if (lower.match(/(?:add|include|import)\s+.+\s+(?:to|into)\s+(?:the\s+)?(?:project|timeline)/)) {
+    const filenameMatch = input.match(/(?:add|include|import)\s+["']?([^\s"']+\.[a-z0-9]+)["']?/i);
+    if (filenameMatch) {
+      return { type: "add-media", params: { filename: filenameMatch[1] } };
+    }
+  }
+
   // Timeline patterns (trim, split, fade, effect, etc.)
   if (lower.match(/(?:trim|split|fade|effect|cut|delete|remove|move|duplicate|speed|reverse|crop)/)) {
     return { type: "timeline", params: {} };
   }
 
-  return { type: "unknown", params: {}, clarification: "I couldn't understand that command. Try: 'generate an image of...', 'create audio saying...', or 'trim clip to 5 seconds'" };
+  return { type: "unknown", params: {}, clarification: "I couldn't understand that command. Try: 'generate an image of...', 'create audio saying...', or 'add file.mp4 to project'" };
 }
 
 /**
@@ -373,14 +387,39 @@ function parseBuiltinCommand(input: string): { cmd: string; args: string[] } {
   return { cmd, args };
 }
 
-/** Check if input looks like a built-in command */
+/** Check if input looks like a built-in command (not natural language) */
 function isBuiltinCommand(input: string): boolean {
   const builtins = [
     "new", "open", "save", "info", "list", "add", "export",
     "undo", "setup", "help", "exit", "quit", "q", "clear"
   ];
   const { cmd } = parseBuiltinCommand(input);
-  return builtins.includes(cmd);
+
+  if (!builtins.includes(cmd)) {
+    return false;
+  }
+
+  // Check if it looks like natural language (contains phrases that indicate NL)
+  const lower = input.toLowerCase();
+  const naturalLanguagePatterns = [
+    /\bto the project\b/,
+    /\bto project\b/,
+    /\binto the project\b/,
+    /\binto project\b/,
+    /\bto timeline\b/,
+    /\bto the timeline\b/,
+    /\bplease\b/,
+    /\bcan you\b/,
+    /\bcould you\b/,
+  ];
+
+  for (const pattern of naturalLanguagePatterns) {
+    if (pattern.test(lower)) {
+      return false; // Let NL handler process it
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -656,6 +695,75 @@ async function executeNaturalLanguageCommand(
         const name = String(intent.params.projectName || "Untitled Project");
         session.createProject(name);
         return { success: true, message: success(`Created project: ${name}`) };
+      }
+
+      case "add-media": {
+        spinner.stop();
+
+        if (!session.hasProject()) {
+          return {
+            success: false,
+            message: error("No project loaded. Use 'new <name>' to create one first."),
+          };
+        }
+
+        const filename = String(intent.params.filename || "");
+        if (!filename) {
+          return {
+            success: false,
+            message: error("No filename specified. Try: 'add sunset.png to project'"),
+          };
+        }
+
+        const { exists, absPath } = session.checkMediaExists(filename);
+        if (!exists) {
+          return { success: false, message: error(`File not found: ${filename}`) };
+        }
+
+        session.pushHistory("add source");
+        const project = session.getProject();
+
+        // Determine media type from extension
+        const ext = extname(absPath).toLowerCase();
+        const audioExts = [".mp3", ".wav", ".aac", ".ogg", ".m4a", ".flac"];
+        const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
+
+        let mediaType: "video" | "audio" | "image" = "video";
+        if (audioExts.includes(ext)) mediaType = "audio";
+        else if (imageExts.includes(ext)) mediaType = "image";
+
+        // Add source
+        const source = project.addSource({
+          name: absPath.split("/").pop() || "media",
+          type: mediaType,
+          url: absPath,
+          duration: 10,
+          width: 1920,
+          height: 1080,
+        });
+
+        // Also add a clip to the timeline
+        const tracks = project.getTracksByType(mediaType === "audio" ? "audio" : "video");
+        const trackId = tracks.length > 0 ? tracks[0].id : project.getTracks()[0]?.id;
+
+        if (trackId) {
+          const existingClips = project.getClipsByTrack(trackId);
+          const startTime = existingClips.reduce(
+            (max, c) => Math.max(max, c.startTime + c.duration),
+            0
+          );
+
+          project.addClip({
+            sourceId: source.id,
+            trackId,
+            startTime,
+            duration: source.duration,
+            sourceStartOffset: 0,
+            sourceEndOffset: source.duration,
+          });
+        }
+
+        return { success: true, message: success(`Added: ${source.name}`) };
       }
 
       case "timeline": {
