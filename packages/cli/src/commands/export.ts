@@ -1,10 +1,9 @@
 import { Command } from "commander";
-import { readFile, writeFile } from "node:fs/promises";
-import { resolve, basename, extname } from "node:path";
+import { readFile, access } from "node:fs/promises";
+import { resolve, basename, dirname } from "node:path";
+import { spawn } from "node:child_process";
 import chalk from "chalk";
 import ora from "ora";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { Project, type ProjectFile } from "../engine/index.js";
 
 export const exportCommand = new Command("export")
@@ -19,10 +18,23 @@ export const exportCommand = new Command("export")
   )
   .option("-y, --overwrite", "Overwrite output file if exists", false)
   .action(async (projectPath: string, options) => {
-    const spinner = ora("Initializing FFmpeg...").start();
+    const spinner = ora("Checking FFmpeg...").start();
 
     try {
+      // Check if FFmpeg is installed
+      const ffmpegPath = await findFFmpeg();
+      if (!ffmpegPath) {
+        spinner.fail(chalk.red("FFmpeg not found"));
+        console.error();
+        console.error(chalk.yellow("Please install FFmpeg:"));
+        console.error(chalk.dim("  macOS:   brew install ffmpeg"));
+        console.error(chalk.dim("  Ubuntu:  sudo apt install ffmpeg"));
+        console.error(chalk.dim("  Windows: winget install ffmpeg"));
+        process.exit(1);
+      }
+
       // Load project
+      spinner.text = "Loading project...";
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
@@ -46,145 +58,40 @@ export const exportCommand = new Command("export")
       // Get preset settings
       const presetSettings = getPresetSettings(options.preset, summary.aspectRatio);
 
-      spinner.text = "Loading FFmpeg...";
-
-      // Initialize FFmpeg
-      const ffmpeg = new FFmpeg();
-
-      ffmpeg.on("progress", ({ progress }) => {
-        const percent = Math.round(progress * 100);
-        spinner.text = `Encoding... ${percent}%`;
-      });
-
-      // Load FFmpeg core
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-      });
-
-      spinner.text = "Processing clips...";
-
       // Get clips sorted by start time
       const clips = project.getClips().sort((a, b) => a.startTime - b.startTime);
       const sources = project.getSources();
 
-      // Load source files into FFmpeg
-      const loadedSources = new Set<string>();
+      // Verify source files exist
+      spinner.text = "Verifying source files...";
       for (const clip of clips) {
         const source = sources.find((s) => s.id === clip.sourceId);
-        if (source && !loadedSources.has(source.id)) {
+        if (source) {
           try {
-            spinner.text = `Loading ${source.name}...`;
-            const sourceData = await fetchFile(source.url);
-            await ffmpeg.writeFile(source.id + extname(source.url), sourceData);
-            loadedSources.add(source.id);
-          } catch (error) {
-            spinner.warn(chalk.yellow(`Could not load source: ${source.name}`));
+            await access(source.url);
+          } catch {
+            spinner.fail(chalk.red(`Source file not found: ${source.url}`));
+            process.exit(1);
           }
         }
       }
 
-      if (loadedSources.size === 0) {
-        spinner.fail(chalk.red("No source files could be loaded"));
-        process.exit(1);
-      }
-
-      // Build filter complex for combining clips
-      spinner.text = "Building timeline...";
-
-      const filterParts: string[] = [];
-      const inputParts: string[] = [];
-      let inputIndex = 0;
-
-      for (const clip of clips) {
-        const source = sources.find((s) => s.id === clip.sourceId);
-        if (!source || !loadedSources.has(source.id)) continue;
-
-        const inputFile = source.id + extname(source.url);
-        inputParts.push("-i", inputFile);
-
-        // Trim filter
-        const trimStart = clip.sourceStartOffset;
-        const trimEnd = clip.sourceStartOffset + clip.duration;
-
-        filterParts.push(
-          `[${inputIndex}:v]trim=start=${trimStart}:end=${trimEnd},setpts=PTS-STARTPTS[v${inputIndex}]`
-        );
-
-        if (source.type === "video") {
-          filterParts.push(
-            `[${inputIndex}:a]atrim=start=${trimStart}:end=${trimEnd},asetpts=PTS-STARTPTS[a${inputIndex}]`
-          );
-        }
-
-        inputIndex++;
-      }
-
-      // Concatenate all clips
-      const videoConcat = clips
-        .map((_, i) => `[v${i}]`)
-        .join("");
-      const audioConcat = clips
-        .filter((c) => {
-          const source = sources.find((s) => s.id === c.sourceId);
-          return source?.type === "video";
-        })
-        .map((_, i) => `[a${i}]`)
-        .join("");
-
-      if (inputIndex > 1) {
-        filterParts.push(
-          `${videoConcat}concat=n=${inputIndex}:v=1:a=0[outv]`
-        );
-        if (audioConcat) {
-          filterParts.push(
-            `${audioConcat}concat=n=${inputIndex}:v=0:a=1[outa]`
-          );
-        }
-      } else {
-        filterParts.push(`[v0]copy[outv]`);
-        if (audioConcat) {
-          filterParts.push(`[a0]acopy[outa]`);
-        }
-      }
-
-      spinner.text = "Encoding...";
-
       // Build FFmpeg command
-      const ffmpegArgs: string[] = [];
+      spinner.text = "Building export command...";
+      const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, outputPath, options);
 
-      // Add inputs
-      for (let i = 0; i < inputParts.length; i += 2) {
-        ffmpegArgs.push(inputParts[i], inputParts[i + 1]);
+      if (process.env.DEBUG) {
+        console.log("\nFFmpeg command:");
+        console.log("ffmpeg", ffmpegArgs.join(" "));
+        console.log();
       }
-
-      // Add filter complex
-      ffmpegArgs.push("-filter_complex", filterParts.join(";"));
-
-      // Map outputs
-      ffmpegArgs.push("-map", "[outv]");
-      if (audioConcat) {
-        ffmpegArgs.push("-map", "[outa]");
-      }
-
-      // Add encoding settings based on preset
-      ffmpegArgs.push(...presetSettings.ffmpegArgs);
-
-      // Output file
-      const outputFileName = `output.${options.format}`;
-      if (options.overwrite) {
-        ffmpegArgs.push("-y");
-      }
-      ffmpegArgs.push(outputFileName);
 
       // Run FFmpeg
-      await ffmpeg.exec(ffmpegArgs);
+      spinner.text = "Encoding...";
 
-      // Read output and save
-      spinner.text = "Saving output...";
-      const outputData = await ffmpeg.readFile(outputFileName);
-      await writeFile(outputPath, outputData);
+      await runFFmpeg(ffmpegPath, ffmpegArgs, (progress) => {
+        spinner.text = `Encoding... ${progress}%`;
+      });
 
       spinner.succeed(chalk.green(`Exported: ${outputPath}`));
 
@@ -206,6 +113,200 @@ export const exportCommand = new Command("export")
       process.exit(1);
     }
   });
+
+/**
+ * Find FFmpeg executable
+ */
+async function findFFmpeg(): Promise<string | null> {
+  const { exec } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execAsync = promisify(exec);
+
+  try {
+    const { stdout } = await execAsync("which ffmpeg || where ffmpeg 2>/dev/null");
+    return stdout.trim().split("\n")[0];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build FFmpeg arguments for export
+ */
+function buildFFmpegArgs(
+  clips: ReturnType<Project["getClips"]>,
+  sources: ReturnType<Project["getSources"]>,
+  presetSettings: PresetSettings,
+  outputPath: string,
+  options: { overwrite?: boolean; format?: string }
+): string[] {
+  const args: string[] = [];
+
+  // Overwrite flag first
+  if (options.overwrite) {
+    args.push("-y");
+  }
+
+  // Add input files
+  const sourceMap = new Map<string, number>();
+  let inputIndex = 0;
+
+  for (const clip of clips) {
+    const source = sources.find((s) => s.id === clip.sourceId);
+    if (source && !sourceMap.has(source.id)) {
+      args.push("-i", source.url);
+      sourceMap.set(source.id, inputIndex);
+      inputIndex++;
+    }
+  }
+
+  // Build filter complex
+  const filterParts: string[] = [];
+  const videoStreams: string[] = [];
+  const audioStreams: string[] = [];
+
+  clips.forEach((clip, clipIdx) => {
+    const source = sources.find((s) => s.id === clip.sourceId);
+    if (!source) return;
+
+    const srcIdx = sourceMap.get(source.id);
+    if (srcIdx === undefined) return;
+
+    const trimStart = clip.sourceStartOffset;
+    const trimEnd = clip.sourceStartOffset + clip.duration;
+
+    // Video filter chain
+    let videoFilter = `[${srcIdx}:v]trim=start=${trimStart}:end=${trimEnd},setpts=PTS-STARTPTS`;
+
+    // Apply effects
+    for (const effect of clip.effects || []) {
+      if (effect.type === "fadeIn") {
+        videoFilter += `,fade=t=in:st=0:d=${effect.duration}`;
+      } else if (effect.type === "fadeOut") {
+        const fadeStart = clip.duration - effect.duration;
+        videoFilter += `,fade=t=out:st=${fadeStart}:d=${effect.duration}`;
+      }
+    }
+
+    videoFilter += `[v${clipIdx}]`;
+    filterParts.push(videoFilter);
+    videoStreams.push(`[v${clipIdx}]`);
+
+    // Audio filter chain (if video has audio)
+    if (source.type === "video" || source.type === "audio") {
+      let audioFilter = `[${srcIdx}:a]atrim=start=${trimStart}:end=${trimEnd},asetpts=PTS-STARTPTS`;
+
+      // Apply audio effects
+      for (const effect of clip.effects || []) {
+        if (effect.type === "fadeIn") {
+          audioFilter += `,afade=t=in:st=0:d=${effect.duration}`;
+        } else if (effect.type === "fadeOut") {
+          const fadeStart = clip.duration - effect.duration;
+          audioFilter += `,afade=t=out:st=${fadeStart}:d=${effect.duration}`;
+        }
+      }
+
+      audioFilter += `[a${clipIdx}]`;
+      filterParts.push(audioFilter);
+      audioStreams.push(`[a${clipIdx}]`);
+    }
+  });
+
+  // Concatenate all clips
+  if (clips.length > 1) {
+    filterParts.push(
+      `${videoStreams.join("")}concat=n=${clips.length}:v=1:a=0[outv]`
+    );
+    if (audioStreams.length > 0) {
+      filterParts.push(
+        `${audioStreams.join("")}concat=n=${audioStreams.length}:v=0:a=1[outa]`
+      );
+    }
+  } else {
+    // Single clip - just copy
+    filterParts.push(`${videoStreams[0]}copy[outv]`);
+    if (audioStreams.length > 0) {
+      filterParts.push(`${audioStreams[0]}acopy[outa]`);
+    }
+  }
+
+  // Add filter complex
+  args.push("-filter_complex", filterParts.join(";"));
+
+  // Map outputs
+  args.push("-map", "[outv]");
+  if (audioStreams.length > 0) {
+    args.push("-map", "[outa]");
+  }
+
+  // Add encoding settings
+  args.push(...presetSettings.ffmpegArgs);
+
+  // Output file
+  args.push(outputPath);
+
+  return args;
+}
+
+/**
+ * Run FFmpeg with progress reporting
+ */
+function runFFmpeg(
+  ffmpegPath: string,
+  args: string[],
+  onProgress: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let duration = 0;
+    let stderr = "";
+
+    ffmpeg.stderr?.on("data", (data: Buffer) => {
+      const output = data.toString();
+      stderr += output;
+
+      // Parse duration
+      const durationMatch = output.match(/Duration: (\d+):(\d+):(\d+\.\d+)/);
+      if (durationMatch) {
+        const [, hours, minutes, seconds] = durationMatch;
+        duration =
+          parseInt(hours) * 3600 +
+          parseInt(minutes) * 60 +
+          parseFloat(seconds);
+      }
+
+      // Parse progress
+      const timeMatch = output.match(/time=(\d+):(\d+):(\d+\.\d+)/);
+      if (timeMatch && duration > 0) {
+        const [, hours, minutes, seconds] = timeMatch;
+        const currentTime =
+          parseInt(hours) * 3600 +
+          parseInt(minutes) * 60 +
+          parseFloat(seconds);
+        const percent = Math.min(100, Math.round((currentTime / duration) * 100));
+        onProgress(percent);
+      }
+    });
+
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        // Extract error message
+        const errorMatch = stderr.match(/Error.*$/m);
+        const errorMsg = errorMatch ? errorMatch[0] : `FFmpeg exited with code ${code}`;
+        reject(new Error(errorMsg));
+      }
+    });
+
+    ffmpeg.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
 
 interface PresetSettings {
   resolution: string;
@@ -270,7 +371,7 @@ function getPresetSettings(
   };
 
   // Adjust resolution for aspect ratio
-  const settings = presets[preset] || presets.standard;
+  const settings = { ...presets[preset] || presets.standard };
 
   if (aspectRatio === "9:16") {
     // Vertical video
