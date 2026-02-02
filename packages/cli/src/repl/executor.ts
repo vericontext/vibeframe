@@ -59,10 +59,17 @@ Analyze the user's natural language input and classify it into one of these type
 2. "tts" - Text-to-speech / audio generation (e.g., "create audio saying hello", "generate a welcome message", "make voiceover for intro")
 3. "sfx" - Sound effects (e.g., "create explosion sound", "generate rain sound effect")
 4. "video" - Video generation (e.g., "generate a video of ocean waves")
-5. "timeline" - Timeline editing commands (e.g., "trim clip to 5 seconds", "add fade effect", "split at 3s")
+5. "timeline" - Timeline editing commands:
+   - Adding effects: "add fade-in effect", "add blur to clip", "apply transition"
+   - Trimming: "trim to 5 seconds", "cut the first 10s", "shorten clip"
+   - Transitions: "add crossfade between clips", "add dissolve"
+   - Modifications: "speed up by 2x", "reverse the clip", "change opacity"
+   - Splitting: "split at 3s", "cut at this point"
 6. "project" - Project management (e.g., "create new project called X", "start a project named Y")
 7. "add-media" - Add existing media file to project (e.g., "add sunset.png to the project", "add video.mp4 to timeline", "include intro.mp3")
 8. "unknown" - Cannot understand the command
+
+IMPORTANT: If the input mentions "effect", "fade", "transition", "trim", "cut", "split", "speed", "reverse", "blur", or similar editing terms, classify as "timeline".
 
 Extract relevant parameters:
 - For image: prompt (the image description), outputFile (optional)
@@ -193,6 +200,18 @@ Examples:
 function fallbackClassify(input: string): CommandIntent {
   const lower = input.toLowerCase();
 
+  // Timeline patterns (check FIRST - catch-all for editing operations)
+  // This must come before other patterns to properly route "add fade-in effect" etc.
+  if (lower.match(/(?:add|apply|put|set)\s+(?:a\s+)?(?:fade|effect|transition|blur|filter|opacity)/)) {
+    return { type: "timeline", params: {} };
+  }
+  if (lower.match(/(?:fade|effect|transition|blur|filter|opacity|brightness|contrast|saturation)\s+(?:to|on|for)\s+(?:the\s+)?(?:clip|track|video|audio)/)) {
+    return { type: "timeline", params: {} };
+  }
+  if (lower.match(/(?:trim|split|cut|crop|move|duplicate|reverse|speed|delete|remove)\s+(?:the\s+)?(?:clip|track|video|audio)?/)) {
+    return { type: "timeline", params: {} };
+  }
+
   // Image patterns
   if (lower.match(/(?:image|picture|photo|illustration|banner|thumbnail)/)) {
     const prompt = input.replace(/(?:generate|create|make|draw)\s+(?:an?\s+)?/i, "")
@@ -232,8 +251,8 @@ function fallbackClassify(input: string): CommandIntent {
     }
   }
 
-  // Timeline patterns (trim, split, fade, effect, etc.)
-  if (lower.match(/(?:trim|split|fade|effect|cut|delete|remove|move|duplicate|speed|reverse|crop)/)) {
+  // Generic timeline patterns (broader catch)
+  if (lower.match(/(?:fade|effect|transition|blur|filter|trim|split|cut|crop|move|duplicate|reverse|speed|opacity|volume|brightness|contrast|saturation)/)) {
     return { type: "timeline", params: {} };
   }
 
@@ -387,39 +406,52 @@ function parseBuiltinCommand(input: string): { cmd: string; args: string[] } {
   return { cmd, args };
 }
 
-/** Check if input looks like a built-in command (not natural language) */
+/** Check if input looks like a simple built-in command (not natural language) */
 function isBuiltinCommand(input: string): boolean {
-  const builtins = [
-    "new", "open", "save", "info", "list", "add", "export",
-    "undo", "setup", "help", "exit", "quit", "q", "clear"
-  ];
   const { cmd } = parseBuiltinCommand(input);
-
-  if (!builtins.includes(cmd)) {
-    return false;
-  }
-
-  // Check if it looks like natural language (contains phrases that indicate NL)
   const lower = input.toLowerCase();
-  const naturalLanguagePatterns = [
-    /\bto the project\b/,
-    /\bto project\b/,
-    /\binto the project\b/,
-    /\binto project\b/,
-    /\bto timeline\b/,
-    /\bto the timeline\b/,
-    /\bplease\b/,
-    /\bcan you\b/,
-    /\bcould you\b/,
+
+  // Natural language hints - if ANY match, route to LLM
+  const naturalLanguageKeywords = [
+    // Timeline operation keywords
+    /\b(?:fade|effect|transition|trim|split|cut|crop|move|duplicate|reverse|speed|blur|filter|opacity|volume|brightness|contrast|saturation)\b/,
+    // Phrases indicating NL
+    /\bto (?:the )?(?:clip|track|timeline|project|video|audio)\b/,
+    /\b(?:please|can you|could you|want to|would like|i need|make it|change the)\b/,
+    // Creative commands
+    /\b(?:generate|create|make|draw)\s+(?:an?\s+)?(?:image|picture|audio|video|sound|animation)\b/,
+    // Descriptive phrases
+    /\b(?:saying|named|called|about|featuring|showing|depicting)\b/,
+    // Action words that suggest NL
+    /\b(?:intro|outro|animation|banner|thumbnail|welcome|goodbye)\b/,
   ];
 
-  for (const pattern of naturalLanguagePatterns) {
+  for (const pattern of naturalLanguageKeywords) {
     if (pattern.test(lower)) {
-      return false; // Let NL handler process it
+      return false; // Natural language → LLM handles it
     }
   }
 
-  return true;
+  // Simple builtin patterns - only these exact forms are treated as builtins
+  const simpleBuiltins: Record<string, RegExp> = {
+    exit: /^(?:exit|quit|q)$/i,
+    quit: /^(?:exit|quit|q)$/i,
+    q: /^(?:exit|quit|q)$/i,
+    help: /^help$/i,
+    setup: /^setup(?:\s+--full)?$/i,
+    clear: /^clear$/i,
+    new: /^new(?:\s+[\w-]+)?$/i, // "new" alone or "new my-project" (simple name only, no spaces)
+    open: /^open\s+.+\.(?:vibe\.)?json$/i, // "open file.vibe.json"
+    save: /^save(?:\s+.+\.(?:vibe\.)?json)?$/i,
+    info: /^info$/i,
+    list: /^list$/i,
+    add: /^add(?:\s+[\w./-]+\.\w+)?$/i, // "add" alone or "add file.mp4" (filename only)
+    export: /^export(?:\s+[\w./-]+)?$/i,
+    undo: /^undo$/i,
+  };
+
+  const pattern = simpleBuiltins[cmd];
+  return pattern ? pattern.test(input.trim()) : false;
 }
 
 /**

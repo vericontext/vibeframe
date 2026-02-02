@@ -6,6 +6,48 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Fix: Comprehensive Natural Language Routing for REPL
+Fixed greedy builtin command detection that was incorrectly routing natural language commands.
+
+**Problem:**
+- Most natural language commands were being incorrectly routed to builtin handlers
+- "add fade-in effect to the clip" → treated as builtin "add" → "File not found: fade-in effect to the clip"
+- "new intro animation" → treated as builtin "new" → "Created project: intro animation"
+- The `isBuiltinCommand()` function was too greedy - checking if first word was a builtin name
+
+**Solution:**
+- Inverted routing logic: check for natural language hints FIRST
+- Added comprehensive natural language keyword detection:
+  - Timeline operations: fade, effect, transition, trim, split, cut, crop, blur, filter, etc.
+  - Phrases: "to the clip", "to the timeline", "please", "can you", etc.
+  - Creative commands: "generate an image of", "create audio saying", etc.
+  - Descriptive words: intro, outro, animation, banner, thumbnail, etc.
+- Defined strict regex patterns for builtin commands (only exact forms match)
+- Enhanced LLM classification prompt with better timeline examples
+
+**Now works:**
+```
+vibe> add fade-in effect to the clip    ✓ → timeline (was: builtin add)
+vibe> add blur effect                    ✓ → timeline (was: builtin add)
+vibe> new intro animation project        ✓ → project via LLM (was: builtin new)
+vibe> create a sunset image              ✓ → image
+vibe> add sunset.png to the project      ✓ → add-media
+
+# Still works as builtins:
+vibe> add sunset.png                     ✓ → builtin add
+vibe> new my-video                       ✓ → builtin new
+vibe> exit                               ✓ → builtin exit
+```
+
+**Files Modified:**
+- `packages/cli/src/repl/executor.ts`:
+  - Rewrote `isBuiltinCommand()` with inverted logic (NL-first approach)
+  - Added `simpleBuiltins` regex map for exact builtin command patterns
+  - Enhanced `classifyCommand()` LLM prompt with timeline examples
+  - Improved `fallbackClassify()` with timeline pattern detection first
+
+---
+
 ### Feature: LLM-Unified Natural Language Command Routing
 Replaced regex-based command matching with LLM-powered intent classification for all natural language commands.
 
