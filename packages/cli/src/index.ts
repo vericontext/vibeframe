@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+// Debug: Check if script starts at all
+if (process.env.VIBE_DEBUG === "1") {
+  console.log("[CLI] Script started, loading modules...");
+}
+
 import { Command } from "commander";
 
 // Re-export engine for library usage
@@ -37,6 +42,9 @@ program.addCommand(setupCommand);
 // Check if any arguments provided
 if (process.argv.length <= 2) {
   // No arguments - start interactive REPL
+  if (process.env.VIBE_DEBUG === "1") {
+    console.log("[CLI] No args, starting REPL...");
+  }
   startRepl().catch((err) => {
     console.error("Failed to start REPL:", err);
     process.exit(1);

@@ -6,6 +6,47 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Fix: Install Script Hanging After `vibe setup`
+Fixed the install script hanging after `vibe setup` completes.
+
+**Problem:**
+- After running `curl ... | bash` installation
+- User selects "Y" to run setup
+- Setup completes successfully
+- But the process doesn't exit, causing the terminal to hang
+
+**Root Cause:**
+When `vibe setup` is run from the install script with `< /dev/tty` redirection, the TTY stream opened via `getTTYInputStream()` keeps the Node.js event loop alive. Even though `closeTTYStream()` calls `destroy()` on the stream, the process doesn't exit automatically.
+
+**Solution:**
+Explicitly call `process.exit(0)` after setup completes successfully to ensure clean termination.
+
+**Files Modified:**
+- `packages/cli/src/commands/setup.ts` - Added explicit `process.exit(0)` after setup completes
+
+**Code Change:**
+```typescript
+try {
+  await runSetupWizard(options.full);
+  closeTTYStream();
+  // Explicitly exit to ensure clean termination when run from install script
+  process.exit(0);
+} catch (err) {
+  closeTTYStream();
+  throw err;
+}
+```
+
+**Verification:**
+```bash
+rm -rf ~/.vibeframe
+curl -fsSL https://vibeframe.ai/install.sh | bash
+# Select Y for setup → Should complete and return to shell prompt
+vibe           # REPL should start normally
+```
+
+---
+
 ### Fix: REPL Hanging & API Key Masking Issues
 Fixed two issues with CLI interactive mode:
 

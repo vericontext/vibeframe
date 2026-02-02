@@ -40,11 +40,11 @@ export async function startRepl(): Promise<void> {
   // Print welcome message
   console.log(getWelcomeMessage(configured));
 
-  // Create readline interface with standard Node.js readline
+  // Create readline interface with stdin
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
-    terminal: true,
+    terminal: process.stdin.isTTY ?? false,
     historySize: 100,
     prompt: getPrompt(),
   });

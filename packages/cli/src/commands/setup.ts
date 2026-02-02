@@ -43,8 +43,13 @@ export const setupCommand = new Command("setup")
 
     try {
       await runSetupWizard(options.full);
-    } finally {
       closeTTYStream();
+      // Explicitly exit to ensure clean termination when run from install script
+      // The TTY stream can keep the event loop alive otherwise
+      process.exit(0);
+    } catch (err) {
+      closeTTYStream();
+      throw err;
     }
   });
 
