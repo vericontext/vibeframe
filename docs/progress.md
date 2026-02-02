@@ -32,8 +32,8 @@ Performed comprehensive integration testing of Claude Code skills and CLI comman
 | Stability Image | generate.py | ✅ Pass | 672KB PNG - fixed API endpoint |
 | Replicate AI | music.py | ✅ Pass | 60KB MP3 (5s) - fixed model version |
 | Replicate AI | upscale.py | ✅ --help | Requires input image |
-| Runway Video | generate.py | ⚠️ API 403 | Model access denied (gen3a_turbo) |
-| Kling Video | generate.py | ⚠️ API 429 | Account balance not enough |
+| Runway Video | generate.py | ✅ Pass | 818KB MP4 (gen4_turbo + SDK) |
+| Kling Video | generate.py | ✅ Pass | 12.5MB MP4 (5.1s, pro mode) |
 
 **Bugs Fixed:**
 
@@ -57,6 +57,12 @@ Performed comprehensive integration testing of Claude Code skills and CLI comman
    - Solution: Updated MODEL_VERSION to `671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb`
    - File: `.claude/skills/replicate-ai/scripts/music.py`
 
+5. **runway generate.py - API Migration to SDK**
+   - Problem: Old REST API with gen3a_turbo model deprecated
+   - Solution: Rewrote using official `runwayml` SDK with gen4_turbo model
+   - Note: gen4_turbo requires input image (image-to-video only)
+   - File: `.claude/skills/runway-video/scripts/generate.py`
+
 **API Key Status:**
 - ✅ OPENAI_API_KEY - Working (chat, dalle, whisper, tts)
 - ✅ ANTHROPIC_API_KEY - Working (chat, parse, motion, storyboard)
@@ -64,14 +70,15 @@ Performed comprehensive integration testing of Claude Code skills and CLI comman
 - ✅ ELEVENLABS_API_KEY - Working (tts, sfx)
 - ✅ STABILITY_API_KEY - Working (image generation)
 - ✅ REPLICATE_API_TOKEN - Working (music generation)
-- ⚠️ RUNWAY_API_SECRET - Model access denied (gen3a_turbo not available)
-- ⚠️ KLING_API_KEY - Account balance insufficient
+- ✅ RUNWAY_API_SECRET - Working (gen4_turbo image-to-video)
+- ✅ KLING_API_KEY - Working (kling-v1-5 pro mode)
 
 **Files Modified:**
 - `.claude/skills/claude-api/scripts/parse.py` - JSON array output format
 - `.claude/skills/claude-api/scripts/storyboard.py` - Markdown code block stripping
 - `.claude/skills/stability-image/scripts/generate.py` - Fixed API endpoint and added User-Agent
 - `.claude/skills/replicate-ai/scripts/music.py` - Updated MusicGen model version
+- `.claude/skills/runway-video/scripts/generate.py` - Rewrote with runwayml SDK (gen4_turbo)
 
 **Verification Commands:**
 ```bash
