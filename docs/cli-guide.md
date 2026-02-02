@@ -35,8 +35,17 @@ vibe --help
 
 **Option A: Interactive Setup**
 ```bash
+# Basic setup - LLM provider only (for REPL natural language parsing)
 vibe setup
+
+# Full setup - LLM + all optional providers (TTS, video gen, images, etc.)
+vibe setup --full
 ```
+
+| Mode | What it configures |
+|------|-------------------|
+| `vibe setup` | LLM provider (Claude/OpenAI/Gemini/Ollama) + its API key |
+| `vibe setup --full` | LLM + ElevenLabs, Runway, Kling, Stability, Replicate |
 
 **Option B: Environment Variables**
 ```bash
@@ -50,6 +59,23 @@ export ANTHROPIC_API_KEY="sk-ant-..."    # Claude (storyboard, highlights)
 export OPENAI_API_KEY="sk-..."           # Whisper (transcription), DALL-E
 export STABILITY_API_KEY="sk-..."        # Stable Diffusion
 ```
+
+**API Keys Required by Command:**
+
+| Command | Required API Key |
+|---------|-----------------|
+| `vibe ai image` (default) | `GOOGLE_API_KEY` |
+| `vibe ai image -p dalle` | `OPENAI_API_KEY` |
+| `vibe ai image -p stability` | `STABILITY_API_KEY` |
+| `vibe ai tts`, `sfx`, `voices` | `ELEVENLABS_API_KEY` |
+| `vibe ai transcribe` | `OPENAI_API_KEY` |
+| `vibe ai highlights` | `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` |
+| `vibe ai highlights --use-gemini` | `GOOGLE_API_KEY` |
+| `vibe ai auto-shorts` | Same as highlights |
+| `vibe ai storyboard` | `ANTHROPIC_API_KEY` |
+| `vibe ai script-to-video` | `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` |
+| `vibe ai video` | `RUNWAY_API_SECRET` |
+| `vibe ai kling` | `KLING_API_KEY` |
 
 ### Step 3: Test AI Features (CLI Mode)
 
