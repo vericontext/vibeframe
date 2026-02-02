@@ -34,7 +34,7 @@ Unified interface for AI services.
   - Long-form content analysis & storyboarding (`vibe ai storyboard`)
   - Timeline planning with AI suggestions
 - [x] **Ollama** - Local LLM for natural language commands (no API key required)
-  - Supports mistral (4GB), phi (1.6GB), tinyllama (0.6GB)
+  - Default: llama3.2 (2GB), also supports mistral (4GB), phi (1.6GB), tinyllama (0.6GB)
   - Offline-capable natural language timeline control
 
 ### Audio
