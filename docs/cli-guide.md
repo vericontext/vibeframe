@@ -2,381 +2,503 @@
 
 Complete guide to using VibeFrame's command-line interface for AI-powered video editing.
 
-## Quick Start
-
-Get started with VibeFrame in 5 minutes:
-
-### 1. Install
+## Installation
 
 ```bash
-# Default: CLI-only installation (fastest)
-curl -fsSL https://vibeframe.ai/install.sh | bash
-
-# Full installation (includes web UI)
-curl -fsSL https://vibeframe.ai/install.sh | bash -s -- --full
+# Create a new directory and install
+mkdir vibeframe-test && cd vibeframe-test
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
 ```
 
-### 2. Configure
+**Requirements:**
+- Node.js 18+
+- Git
+- FFmpeg (optional but recommended)
+
+---
+
+## First 5 Minutes: Step-by-Step Tutorial
+
+After installation, follow these steps to verify everything works.
+
+### Step 1: Verify Installation
+
+```bash
+# Check version
+vibe --version
+# Expected: 0.1.0
+
+# Check available commands
+vibe --help
+```
+
+### Step 2: Configure API Keys
 
 ```bash
 vibe setup
 ```
 
-Choose your preferred LLM provider:
-- **Ollama** - Free, runs locally, no API key needed
-- **Claude** - Most capable, requires Anthropic API key
-- **OpenAI** - GPT-4, requires OpenAI API key
-- **Gemini** - Google AI, requires Google API key
-
-### 3. Create Your First Project
+Or set environment variables:
 
 ```bash
-vibe                    # Start interactive mode
-vibe> new my-video      # Create project
-vibe> add intro.mp4     # Add media
-vibe> trim clip-1 to 5s # Edit with natural language
-vibe> export            # Render video
+# Required for most AI features
+export OPENAI_API_KEY="sk-..."           # DALL-E, Whisper
+export ANTHROPIC_API_KEY="sk-ant-..."    # Claude (storyboard, analysis)
+export GOOGLE_API_KEY="AIza..."          # Gemini (image, video analysis)
+export ELEVENLABS_API_KEY="..."          # TTS, SFX
+export STABILITY_API_KEY="sk-..."        # Stable Diffusion
+
+# Optional (video generation)
+export RUNWAY_API_SECRET="..."           # Runway Gen-3
+export KLING_API_KEY="..."               # Kling video
+```
+
+### Step 3: Test Basic AI Commands
+
+```bash
+# Test 1: Generate an image (DALL-E)
+vibe ai image "a cute robot waving hello, digital art" -o robot.png
+
+# Test 2: Generate TTS
+vibe ai tts "Hello! Welcome to VibeFrame." -o hello.mp3
+
+# Test 3: Generate sound effect
+vibe ai sfx "whoosh transition sound" -o whoosh.mp3 -d 2
+```
+
+### Step 4: Create Your First Project
+
+```bash
+# Create a new project
+vibe project create "my-first-video" -o my-project.vibe.json
+
+# Check project info
+vibe project info my-project.vibe.json
+
+# Start interactive REPL
+vibe
+```
+
+In the REPL:
+```
+vibe> open my-project.vibe.json
+vibe> info
+vibe> help
+vibe> exit
 ```
 
 ---
 
-## AI Provider Structure
+## AI Commands Quick Reference
 
-VibeFrame uses a pluggable AI provider system. Different providers serve different purposes.
+### Image Generation (Multi-Provider)
 
-### LLM Providers (Natural Language Commands)
-
-These providers interpret your natural language commands and translate them into editing operations.
-
-| Provider | Model | API Key Required | Best For |
-|----------|-------|------------------|----------|
-| **Ollama** | llama3.2 (default) | No (local) | Offline use, privacy, free |
-| **Claude** | claude-sonnet-4-20250514 | `ANTHROPIC_API_KEY` | Complex edits, best understanding |
-| **OpenAI** | gpt-4o-mini | `OPENAI_API_KEY` | General purpose |
-| **Gemini** | gemini-1.5-flash | `GOOGLE_API_KEY` | Fast responses |
-
-**Setting the LLM provider:**
 ```bash
-vibe setup              # Interactive setup
-# Or in ~/.vibeframe/config.yaml:
-# llm:
-#   provider: ollama    # claude, openai, gemini
+# DALL-E (default) - Best for creative/artistic images
+vibe ai image "sunset over mountains" -o sunset-dalle.png
+
+# Stability AI - Best for photorealistic
+vibe ai image "sunset over mountains" -o sunset-stability.png -p stability
+
+# Gemini Imagen 3 - High quality, fast
+vibe ai image "sunset over mountains" -o sunset-gemini.png -p gemini
+
+# With aspect ratio
+vibe ai image "vertical phone wallpaper" -o wallpaper.png -r 9:16
 ```
 
-### Media Processing Providers
+### Text-to-Speech & Sound Effects
 
-These providers handle media generation and transformation tasks.
+```bash
+# TTS with default voice
+vibe ai tts "Your narration text here" -o narration.mp3
 
-| Provider | Capabilities | API Key |
-|----------|-------------|---------|
-| **Whisper** | Speech-to-text transcription | `OPENAI_API_KEY` |
-| **ElevenLabs** | Text-to-speech, voice cloning, SFX | `ELEVENLABS_API_KEY` |
-| **DALL-E** | Image generation | `OPENAI_API_KEY` |
-| **Gemini Imagen 3** | Image generation (high quality) | `GOOGLE_API_KEY` |
-| **Stability AI** | Image generation, editing, inpainting | `STABILITY_API_KEY` |
-| **Runway** | Video generation (Gen-3) | `RUNWAY_API_SECRET` |
-| **Kling** | Video generation | `KLING_API_KEY` |
-| **Replicate** | Various AI models | `REPLICATE_API_TOKEN` |
+# List available voices
+vibe ai voices
+
+# TTS with specific voice (Bella - soft female)
+vibe ai tts "Hello world" -o hello.mp3 -v EXAVITQu4vr4xnSDxMaL
+
+# Sound effect generation
+vibe ai sfx "thunder crash" -o thunder.mp3 -d 3
+vibe ai sfx "typing on keyboard" -o typing.mp3 -d 5
+vibe ai sfx "cinematic boom impact" -o boom.mp3 -d 2
+```
+
+### Video Generation
+
+```bash
+# Image-to-video with Runway (requires image input)
+vibe ai video "camera slowly zooming in" -i input.png -o output.mp4
+
+# Image-to-video with Kling
+vibe ai kling "dramatic zoom with particles" -i input.png -o output.mp4
+
+# Check video generation status
+vibe ai video-status <task-id>
+```
+
+### Transcription
+
+```bash
+# Transcribe audio to SRT subtitles
+vibe ai transcribe audio.mp3 -o subtitles.srt
+
+# Transcribe to VTT format
+vibe ai transcribe audio.mp3 -o subtitles.vtt
+
+# Transcribe with language hint
+vibe ai transcribe korean-audio.mp3 -o subtitles.srt -l ko
+```
 
 ---
 
-## Command Reference
+## Advanced AI Workflows
 
-### Project Commands
+### 1. Script-to-Video Pipeline
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `new <name>` | Create new project | `new my-video` |
-| `open <path>` | Open project file | `open project.vibe.json` |
-| `save [path]` | Save current project | `save`, `save backup.vibe.json` |
-| `info` | Show project information | `info` |
-| `export [path]` | Render video | `export`, `export output.mp4` |
-
-### Media Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `add <file>` | Add media source | `add intro.mp4` |
-| `list` | List timeline contents | `list` |
-
-### Editing Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `undo` | Undo last action | `undo` |
-
-### Natural Language Examples
+Generate a complete video from a text script using multiple AI providers.
 
 ```bash
+# Basic: Generate storyboard + images only
+vibe ai script-to-video "A day in the life of a developer. Morning coffee. Coding session. Team meeting. Deploy to production." \
+  -o ./my-video/ \
+  --images-only \
+  --no-voiceover
+
+# With DALL-E images (default)
+vibe ai script-to-video "Space exploration journey. Rockets launch. Astronauts float. Earth from orbit." \
+  -o ./space-video/ \
+  --image-provider dalle \
+  --images-only
+
+# With Stability AI images
+vibe ai script-to-video "Cyberpunk city tour. Neon streets. Flying cars. Robot vendors." \
+  -o ./cyber-video/ \
+  --image-provider stability \
+  --images-only
+
+# With Gemini images (fast, 2 credits each)
+vibe ai script-to-video "Nature documentary. Forest scenes. Wildlife. Sunset." \
+  -o ./nature-video/ \
+  --image-provider gemini \
+  --images-only
+
+# Full pipeline with voiceover (requires ElevenLabs)
+vibe ai script-to-video "Welcome to our product demo. Feature one. Feature two. Call to action." \
+  -o ./demo-video/ \
+  --image-provider gemini \
+  -v EXAVITQu4vr4xnSDxMaL
+```
+
+**Output:**
+- `storyboard.json` - Scene breakdown
+- `scene-1.png`, `scene-2.png`, ... - Generated images
+- `voiceover.mp3` - TTS narration (if enabled)
+- `project.vibe.json` - VibeFrame project file
+
+### 2. Video Highlights Extraction
+
+Extract the best moments from long-form video content.
+
+```bash
+# Traditional method (Whisper + Claude, audio-only)
+vibe ai highlights video.mp4 -o highlights.json
+
+# Gemini Video Understanding (visual + audio analysis)
+vibe ai highlights video.mp4 -o highlights.json --use-gemini
+
+# With options
+vibe ai highlights video.mp4 \
+  -o highlights.json \
+  --use-gemini \
+  --criteria emotional \
+  -n 5 \
+  -t 0.8
+
+# Create project from highlights
+vibe ai highlights video.mp4 \
+  -o highlights.json \
+  -p highlight-reel.vibe.json \
+  --use-gemini
+```
+
+**Options:**
+- `--use-gemini` - Use Gemini Video Understanding (analyzes visuals + audio)
+- `--low-res` - Low resolution mode for longer videos (Gemini only)
+- `--criteria` - `emotional`, `informative`, `funny`, or `all`
+- `-n, --count` - Maximum number of highlights
+- `-t, --threshold` - Confidence threshold (0-1)
+- `-d, --duration` - Target total duration in seconds
+
+### 3. Auto-Generate Shorts
+
+Automatically create short-form content from long videos.
+
+```bash
+# Analyze only (preview without generating)
+vibe ai auto-shorts video.mp4 \
+  -n 3 \
+  --analyze-only \
+  --use-gemini
+
+# Generate 3 shorts (9:16 aspect ratio)
+vibe ai auto-shorts video.mp4 \
+  -n 3 \
+  -d 30 \
+  --output-dir ./shorts/ \
+  --use-gemini \
+  -a 9:16
+
+# Generate square shorts for Instagram
+vibe ai auto-shorts video.mp4 \
+  -n 2 \
+  -d 60 \
+  --output-dir ./shorts/ \
+  --use-gemini \
+  -a 1:1
+```
+
+**Output:**
+- `video-short-1.mp4` - First short (cropped to aspect ratio)
+- `video-short-2.mp4` - Second short
+- ...
+
+### 4. Gemini Video Analysis
+
+Analyze and understand video content using Gemini.
+
+```bash
+# Summarize a video
+vibe ai gemini-video video.mp4 "Summarize this video in 3 bullet points"
+
+# Extract key events with timestamps
+vibe ai gemini-video video.mp4 "List all key events with timestamps"
+
+# Answer questions about video
+vibe ai gemini-video video.mp4 "What products are shown in this video?"
+
+# Analyze YouTube video (URL)
+vibe ai gemini-video "https://www.youtube.com/watch?v=VIDEO_ID" "What is the main topic?"
+
+# Custom frame rate for action videos
+vibe ai gemini-video action.mp4 "Describe the movements" --fps 5
+
+# Analyze specific segment
+vibe ai gemini-video long-video.mp4 "What happens here?" --start 60 --end 120
+```
+
+---
+
+## Complete Workflow Examples
+
+### Example A: YouTube Shorts from Podcast
+
+Convert a podcast episode into viral short clips.
+
+```bash
+# 1. Create output directory
+mkdir podcast-shorts && cd podcast-shorts
+
+# 2. Analyze and generate shorts with Gemini
+vibe ai auto-shorts ../podcast-episode.mp4 \
+  -n 5 \
+  -d 45 \
+  --output-dir ./ \
+  --use-gemini \
+  -a 9:16
+
+# 3. Check generated files
+ls -la
+# podcast-episode-short-1.mp4
+# podcast-episode-short-2.mp4
+# ...
+```
+
+### Example B: Product Demo Video
+
+Create a product demo from a script.
+
+```bash
+# 1. Create project directory
+mkdir product-demo && cd product-demo
+
+# 2. Generate video assets from script
+vibe ai script-to-video "Introducing our new app. \
+Simple dashboard for tracking metrics. \
+One-click reports. \
+Export to PDF or Excel. \
+Start your free trial today." \
+  -o ./ \
+  --image-provider gemini \
+  --images-only
+
+# 3. Add narration
+vibe ai tts "Introducing our new app. A simple dashboard for tracking all your metrics. Generate reports with one click. Export to PDF or Excel instantly. Start your free trial today." \
+  -o narration.mp3
+
+# 4. Add background music
+vibe ai sfx "upbeat corporate background music" -o bgm.mp3 -d 30
+
+# 5. Check generated assets
+ls -la
+# storyboard.json
+# scene-1.png, scene-2.png, ...
+# narration.mp3
+# bgm.mp3
+# project.vibe.json
+```
+
+### Example C: Highlight Reel from Event
+
+Create a highlight reel from event footage.
+
+```bash
+# 1. Analyze video for highlights
+vibe ai highlights event-footage.mp4 \
+  -o highlights.json \
+  -p highlight-project.vibe.json \
+  --use-gemini \
+  --criteria emotional \
+  -d 120
+
+# 2. View generated project
+vibe project info highlight-project.vibe.json
+
+# 3. Export final video
+vibe export highlight-project.vibe.json -o highlight-reel.mp4
+```
+
+---
+
+## Image Editing with Stability AI
+
+```bash
+# Upscale image (4x)
+vibe ai sd-upscale input.png -o upscaled.png -s 4
+
+# Remove background
+vibe ai sd-remove-bg photo.png -o no-bg.png
+
+# Image-to-image transformation
+vibe ai sd-img2img photo.png "make it look like a watercolor painting" -o watercolor.png
+
+# Replace objects
+vibe ai sd-replace photo.png "car" "motorcycle" -o replaced.png
+
+# Outpaint (extend image)
+vibe ai sd-outpaint photo.png --left 200 --right 200 -o wider.png
+```
+
+---
+
+## Project Commands
+
+### Creating and Managing Projects
+
+```bash
+# Create new project
+vibe project create "My Video" -o project.vibe.json
+
+# View project info
+vibe project info project.vibe.json
+
+# Rename project
+vibe project set project.vibe.json --name "New Name"
+```
+
+### Timeline Operations
+
+```bash
+# Add media source
+vibe timeline add-source project.vibe.json video.mp4 -d 30
+
+# Add clip to timeline
+vibe timeline add-clip project.vibe.json source-1 -s 0 -d 10
+
+# Add effect to clip
+vibe timeline add-effect project.vibe.json clip-1 fadeIn -d 1
+
+# List timeline contents
+vibe timeline list project.vibe.json
+
+# Trim clip
+vibe timeline trim project.vibe.json clip-1 -d 5
+
+# Split clip at timestamp
+vibe timeline split project.vibe.json clip-1 -t 3
+
+# Delete clip
+vibe timeline delete project.vibe.json clip-1
+```
+
+### Batch Operations
+
+```bash
+# Import all MP4 files from directory
+vibe batch import project.vibe.json ./videos/ --filter ".mp4"
+
+# Concatenate all clips
+vibe batch concat project.vibe.json --all
+
+# Apply effect to all clips
+vibe batch apply-effect project.vibe.json fadeIn --all
+```
+
+### Export
+
+```bash
+# Export with preset
+vibe export project.vibe.json -o output.mp4 -p standard
+
+# Presets: draft (360p), standard (720p), high (1080p), ultra (4K)
+
+# Export with auto-confirm
+vibe export project.vibe.json -o output.mp4 -p high -y
+```
+
+---
+
+## Interactive REPL Mode
+
+Start interactive mode for conversational editing:
+
+```bash
+vibe
+```
+
+**Available Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `new <name>` | Create new project |
+| `open <path>` | Open project file |
+| `save [path]` | Save current project |
+| `info` | Show project information |
+| `list` | List timeline contents |
+| `add <file>` | Add media source |
+| `undo` | Undo last action |
+| `export [path]` | Render video |
+| `help` | Show help |
+| `exit` | Exit REPL |
+
+**Natural Language Examples:**
+
+```
 vibe> "Add intro.mp4 to the timeline"
 vibe> "Trim the first clip to 5 seconds"
 vibe> "Add fade in effect to all clips"
 vibe> "Split the clip at 3 seconds"
 vibe> "Delete the last clip"
-vibe> "Move clip-2 to the beginning"
-vibe> "Add a crossfade between clip-1 and clip-2"
 ```
-
-### CLI Commands (Non-Interactive)
-
-For scripting and automation, use CLI commands directly:
-
-**Project Management**
-```bash
-vibe project create <name> -o <output.vibe.json>
-vibe project info <project.vibe.json>
-vibe project set <project> --name "New Name"
-```
-
-**Timeline Operations**
-```bash
-vibe timeline add-source <project> <media> -d <duration>
-vibe timeline add-clip <project> <source-id> -s <start> -d <duration>
-vibe timeline add-effect <project> <clip-id> fadeIn -d 1
-vibe timeline list <project>
-vibe timeline trim <project> <clip-id> -d <duration>
-vibe timeline split <project> <clip-id> -t <time>
-vibe timeline delete <project> <clip-id>
-```
-
-**Batch Operations**
-```bash
-vibe batch import <project> <directory> --filter ".mp4"
-vibe batch concat <project> --all
-vibe batch apply-effect <project> fadeIn --all
-vibe batch info <project>
-```
-
-**AI Commands**
-```bash
-# Natural language editing (uses configured LLM)
-vibe ai edit <project> "trim all clips to 10 seconds"
-
-# Text-to-speech
-vibe ai tts "Your text here" -o output.mp3
-
-# Image generation (supports: dalle, gemini, stability)
-vibe ai image "description" -o output.png                    # Default: DALL-E
-vibe ai image "description" -o output.png -p gemini          # Gemini Imagen 3
-vibe ai image "description" -o output.png -p stability       # Stability AI
-
-# Video generation (supports: runway, kling)
-vibe ai video "description" -o output.mp4                    # Default: Runway
-vibe ai video "description" -o output.mp4 -p kling           # Kling AI
-vibe ai video "description" -i ref.png -o output.mp4         # Image-to-video
-
-# Motion graphics (Remotion + Claude)
-vibe ai motion "animated title card for YouTube" -o title.tsx
-vibe ai motion "lower third with name" -o lower.tsx -s corporate
-
-# Storyboard generation
-vibe ai storyboard "content" -d 30 -o storyboard.json
-
-# Sound effects
-vibe ai sfx "whoosh sound" -o effect.mp3
-
-# Transcription
-vibe ai transcribe audio.mp3 -o subtitles.srt
-
-# Image editing (Stability AI)
-vibe ai sd-img2img input.png "make it look vintage" -o output.png
-vibe ai sd-replace input.png "cat" "dog" -o output.png
-vibe ai sd-outpaint input.png --left 200 --right 200 -o wider.png
-vibe ai sd-remove-bg input.png -o no-bg.png
-```
-
-**Export**
-```bash
-vibe export <project> -o output.mp4 -p standard -y
-# Presets: draft (360p), standard (720p), high (1080p), ultra (4K)
-```
-
----
-
-## API Requirements by Feature
-
-### Features That Work Offline (No API Key)
-
-These features work without any API key:
-
-- **Basic editing** - Cut, trim, split, delete, move clips
-- **Timeline manipulation** - Reorder tracks, adjust timing
-- **Effects** - Fade in/out, crossfade (using FFmpeg)
-- **Export** - Render video to file
-- **Project management** - Save, load, organize projects
-
-With **Ollama** (local LLM), you also get:
-- **Natural language commands** - Control editing with plain English
-- **AI-assisted editing** - Intelligent suggestions and automation
-
-### Features Requiring API Keys
-
-| Feature | Required API Key | Provider |
-|---------|------------------|----------|
-| Natural language commands | One LLM provider | Claude, OpenAI, Gemini, or Ollama (free) |
-| Speech-to-text transcription | `OPENAI_API_KEY` | Whisper |
-| Auto-generate subtitles | `OPENAI_API_KEY` | Whisper |
-| Text-to-speech narration | `ELEVENLABS_API_KEY` | ElevenLabs |
-| Voice cloning | `ELEVENLABS_API_KEY` | ElevenLabs |
-| AI image generation | `OPENAI_API_KEY` or `STABILITY_API_KEY` | DALL-E or Stability |
-| AI video generation | `RUNWAY_API_SECRET` or `KLING_API_KEY` | Runway or Kling |
-
----
-
-## Workflow Examples
-
-### Example 1: Quick Social Media Clip
-
-```bash
-vibe
-vibe> new tiktok-video
-vibe> add raw-footage.mp4
-vibe> "Trim to the best 15 seconds"
-vibe> "Add vertical crop for TikTok"
-vibe> "Add captions"
-vibe> export output-9x16.mp4
-```
-
-### Example 2: YouTube Video with Intro
-
-```bash
-vibe
-vibe> new youtube-tutorial
-vibe> add intro-template.mp4
-vibe> add screen-recording.mp4
-vibe> add outro.mp4
-vibe> "Add fade transition between all clips"
-vibe> "Speed up the middle section by 1.5x"
-vibe> export final.mp4
-```
-
-### Example 3: Podcast with Subtitles
-
-```bash
-vibe
-vibe> new podcast-ep1
-vibe> add audio.mp3
-vibe> add background.jpg
-vibe> "Generate subtitles from audio"      # Requires OPENAI_API_KEY
-vibe> "Style subtitles for YouTube"
-vibe> export podcast-ep1.mp4
-```
-
-### Example 4: AI-Generated Content
-
-```bash
-vibe
-vibe> new ai-short
-vibe> "Generate a 5-second intro video about nature"  # Requires Runway/Kling
-vibe> "Add voiceover: Welcome to our channel"         # Requires ElevenLabs
-vibe> "Generate background music"
-vibe> export ai-generated.mp4
-```
-
-### Example 5: Multi-Provider Promo Video (Advanced)
-
-Create a professional promotional video using multiple AI providers together.
-
-**What you'll use:**
-- **Claude** - Storyboard generation
-- **ElevenLabs** - TTS narration + sound effects
-- **DALL-E** - Visual assets (logo, UI mockups)
-- **OpenAI GPT** - Natural language editing
-
-**Step 1: Write script and generate storyboard (Claude)**
-
-```bash
-# Create script file
-cat > promo/script.txt << 'EOF'
-VibeFrame: Edit Videos with Your Voice.
-Tired of complex video editing software?
-Just type what you want. That's it.
-No timelines. No buttons. Your words become edits.
-Open source. Free forever.
-EOF
-
-# Generate storyboard with Claude
-vibe ai storyboard promo/script.txt -f -d 30 -o promo/storyboard.json
-```
-
-**Step 2: Generate narration (ElevenLabs TTS)**
-
-```bash
-# List available voices
-vibe ai voices
-
-# Generate TTS narration
-vibe ai tts "Tired of complex video editing? Meet VibeFrame. \
-Just type what you want. Trim clips. Add effects. Export. \
-Your words become edits. Open source. Free forever." \
-  -v EXAVITQu4vr4xnSDxMaL -o promo/narration.mp3
-```
-
-**Step 3: Generate visual assets (DALL-E)**
-
-```bash
-# Generate logo
-vibe ai image "Futuristic minimalist logo for VibeFrame video editor, \
-purple and blue gradients, dark background" -o promo/logo.png
-
-# Generate UI mockup
-vibe ai image "Clean terminal interface showing video editing commands, \
-dark theme, purple accents" -o promo/terminal-ui.png
-```
-
-**Step 4: Generate sound effects (ElevenLabs SFX)**
-
-```bash
-vibe ai sfx "digital whoosh transition, modern tech" \
-  -o promo/whoosh.mp3 --duration 2
-```
-
-**Step 5: Create project and edit with natural language (OpenAI GPT)**
-
-```bash
-# Create project with B-roll videos
-vibe project create "promo" -o promo/promo.vibe.json
-vibe timeline add-source promo/promo.vibe.json footage1.mp4 -d 40
-vibe timeline add-source promo/promo.vibe.json footage2.mp4 -d 40
-vibe batch concat promo/promo.vibe.json --all
-
-# Edit with natural language
-vibe ai edit promo/promo.vibe.json "trim first clip to 15 seconds, \
-trim second clip to 15 seconds, add fade in to first clip, \
-add fade out to second clip"
-
-# Export video
-vibe export promo/promo.vibe.json -o promo/video.mp4 -p standard
-```
-
-**Step 6: Mix audio with FFmpeg**
-
-```bash
-# Combine video with narration
-ffmpeg -y -i promo/video.mp4 -i promo/narration.mp3 \
-  -filter_complex "[0:a]volume=0.3[bg];[1:a][bg]amix=inputs=2[aout]" \
-  -map 0:v -map "[aout]" -c:v copy -c:a aac \
-  promo/final.mp4
-```
-
-**Result:** A 24-second promo video with:
-- AI-generated storyboard structure
-- Professional TTS narration
-- Custom visual assets
-- Natural language edited B-roll
-- Mixed audio track
 
 ---
 
 ## Configuration
 
-### Config File Location
+### Config File
 
-```
-~/.vibeframe/config.yaml
-```
-
-### Example Configuration
+Location: `~/.vibeframe/config.yaml`
 
 ```yaml
 version: "1.0.0"
@@ -386,20 +508,16 @@ providers:
   anthropic: sk-ant-...     # For Claude
   openai: sk-...            # For GPT-4, Whisper, DALL-E
   google: AIza...           # For Gemini
-  elevenlabs: ...           # For TTS
-  stability: sk-...         # For image generation
+  elevenlabs: ...           # For TTS, SFX
+  stability: sk-...         # For Stable Diffusion
   runway: ...               # For video generation
   kling: ...                # For video generation
 defaults:
-  aspectRatio: "16:9"       # 16:9, 9:16, 1:1, 4:5
-  exportQuality: standard   # draft, standard, high, ultra
-repl:
-  autoSave: true
+  aspectRatio: "16:9"
+  exportQuality: standard
 ```
 
-### Environment Variable Fallbacks
-
-API keys can also be set via environment variables:
+### Environment Variables
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
@@ -412,57 +530,22 @@ export KLING_API_KEY="..."
 export REPLICATE_API_TOKEN="..."
 ```
 
-The CLI checks environment variables if no key is found in the config file.
-
 ---
 
 ## Troubleshooting
 
-### "No LLM provider configured"
+### "Command not found: vibe"
 
-**Problem:** Natural language commands aren't working.
-
-**Solution:**
-1. Run `vibe setup` to configure a provider
-2. Or use Ollama for free local AI:
-   ```bash
-   # Install Ollama: https://ollama.ai
-   ollama serve              # Start server
-   ollama pull llama3.2      # Download model
-   vibe setup                # Select Ollama
-   ```
-
-### "Ollama server not running"
-
-**Problem:** Ollama is configured but commands fail.
-
-**Solution:**
 ```bash
-# Start Ollama server
-ollama serve
+# Reinstall
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
 
-# Verify it's running
-curl http://localhost:11434/api/tags
-
-# Pull the model if needed
-ollama pull llama3.2
+# Or add to PATH manually
+export PATH="$HOME/.vibeframe/packages/cli/dist:$PATH"
 ```
-
-### "API key invalid"
-
-**Problem:** Commands fail with authentication errors.
-
-**Solution:**
-1. Verify your API key is correct
-2. Check if the key has the required permissions
-3. Run `vibe setup` to re-enter the key
-4. Check environment variables aren't overriding config
 
 ### "FFmpeg not found"
 
-**Problem:** Export fails or video processing doesn't work.
-
-**Solution:**
 ```bash
 # macOS
 brew install ffmpeg
@@ -474,78 +557,25 @@ sudo apt install ffmpeg
 winget install ffmpeg
 ```
 
-### "Command not found: vibe"
+### "API key invalid"
 
-**Problem:** CLI not in PATH after installation.
+1. Verify your API key is correct
+2. Check if the key has required permissions
+3. Run `vibe setup` to re-enter the key
 
-**Solution:**
+### Video analysis fails with large files
+
+Use `--low-res` flag for videos longer than 30 minutes:
+
 ```bash
-# Add to PATH (add to ~/.bashrc or ~/.zshrc)
-export PATH="$HOME/.vibeframe/packages/cli/dist:$PATH"
-
-# Or reinstall
-curl -fsSL https://vibeframe.ai/install.sh | bash
+vibe ai highlights long-video.mp4 --use-gemini --low-res
 ```
-
-### Project file corrupted
-
-**Problem:** Can't open a `.vibe.json` file.
-
-**Solution:**
-1. Check the JSON syntax with a validator
-2. Look for backup files: `*.vibe.json.bak`
-3. The file format is documented in the schema
-
----
-
-## Tips & Best Practices
-
-### 1. Start Simple
-
-Begin with basic commands before trying complex natural language:
-```bash
-vibe> add video.mp4          # Simple
-vibe> list                   # Check what you have
-vibe> "trim clip-1 to 10s"   # Then use NL
-```
-
-### 2. Use Ollama for Offline Work
-
-Set up Ollama once and you can edit anywhere:
-```bash
-ollama pull llama3.2         # ~2GB download
-vibe setup                   # Select Ollama
-# Now works offline!
-```
-
-### 3. Save Frequently
-
-Enable auto-save or save manually:
-```bash
-vibe> save                   # Manual save
-vibe> save backup.vibe.json  # Named backup
-```
-
-### 4. Check Project Info
-
-Use `info` to understand your project state:
-```bash
-vibe> info
-# Shows: duration, clips, tracks, sources
-```
-
-### 5. Use Tab Completion
-
-The REPL supports tab completion for:
-- File paths
-- Command names
-- Clip IDs
 
 ---
 
 ## Getting Help
 
-- **In-app help:** `vibe> help`
-- **Command help:** `vibe --help`
-- **Documentation:** https://github.com/vericontext/vibeframe
+- **In-app:** `vibe --help` or `vibe ai --help`
+- **REPL:** `vibe` then `help`
+- **GitHub:** https://github.com/vericontext/vibeframe
 - **Issues:** https://github.com/vericontext/vibeframe/issues
