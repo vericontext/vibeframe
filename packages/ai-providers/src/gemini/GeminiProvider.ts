@@ -9,17 +9,43 @@ import type {
 } from "../interface/types.js";
 
 /**
- * Image generation options for Gemini Imagen
+ * Gemini model types for image generation
+ */
+export type GeminiImageModel = "flash" | "pro" | "gemini-2.5-flash-image" | "gemini-3-pro-image-preview";
+
+/**
+ * Image resolution (Pro model only)
+ */
+export type GeminiImageResolution = "1K" | "2K" | "4K";
+
+/**
+ * Image generation options for Gemini (Nano Banana)
  */
 export interface GeminiImageOptions {
-  /** Number of images to generate (1-4) */
-  numberOfImages?: number;
+  /** Model to use: flash (fast) or pro (professional) */
+  model?: GeminiImageModel;
   /** Aspect ratio */
-  aspectRatio?: "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
+  aspectRatio?: "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9";
+  /** Image resolution: 1K, 2K, 4K (Pro model only) */
+  resolution?: GeminiImageResolution;
+  /** Enable Google Search grounding (Pro model only) */
+  grounding?: boolean;
   /** Safety filter level */
   safetyFilterLevel?: "block_low_and_above" | "block_medium_and_above" | "block_only_high";
   /** Person generation setting */
   personGeneration?: "dont_allow" | "allow_adult";
+}
+
+/**
+ * Image editing options for Gemini
+ */
+export interface GeminiEditOptions {
+  /** Model to use: flash (max 3 images) or pro (max 14 images) */
+  model?: GeminiImageModel;
+  /** Output aspect ratio */
+  aspectRatio?: "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9";
+  /** Image resolution: 1K, 2K, 4K (Pro model only) */
+  resolution?: GeminiImageResolution;
 }
 
 /**
@@ -31,8 +57,17 @@ export interface GeminiImageResult {
     base64: string;
     mimeType: string;
   }>;
+  description?: string;
+  model?: string;
   error?: string;
 }
+
+const MODEL_MAP: Record<string, string> = {
+  "flash": "gemini-2.5-flash-image",
+  "pro": "gemini-3-pro-image-preview",
+  "gemini-2.5-flash-image": "gemini-2.5-flash-image",
+  "gemini-3-pro-image-preview": "gemini-3-pro-image-preview",
+};
 
 /**
  * Google Gemini provider for AI video generation, image generation, and editing
@@ -40,7 +75,7 @@ export interface GeminiImageResult {
 export class GeminiProvider implements AIProvider {
   id = "gemini";
   name = "Google Gemini";
-  description = "AI video generation, image generation (Imagen 3), and smart editing suggestions";
+  description = "AI video generation, image generation (Nano Banana), and smart editing suggestions";
   capabilities: AICapability[] = ["text-to-video", "auto-edit", "text-to-image"];
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
@@ -72,7 +107,6 @@ export class GeminiProvider implements AIProvider {
     }
 
     // TODO: Implement actual Gemini Veo API integration when available
-    // For now, return a mock response
     const id = crypto.randomUUID();
 
     return {
@@ -84,7 +118,6 @@ export class GeminiProvider implements AIProvider {
   }
 
   async getGenerationStatus(id: string): Promise<VideoResult> {
-    // TODO: Implement actual status check
     return {
       id,
       status: "processing",
@@ -94,8 +127,22 @@ export class GeminiProvider implements AIProvider {
   }
 
   async cancelGeneration(_id: string): Promise<boolean> {
-    // TODO: Implement cancellation
     return true;
+  }
+
+  /**
+   * Resolve model alias to full model ID
+   */
+  private resolveModel(model?: GeminiImageModel): string {
+    if (!model) return MODEL_MAP["flash"];
+    return MODEL_MAP[model] || MODEL_MAP["flash"];
+  }
+
+  /**
+   * Check if model is Pro
+   */
+  private isProModel(modelId: string): boolean {
+    return modelId.includes("pro");
   }
 
   /**
@@ -114,23 +161,47 @@ export class GeminiProvider implements AIProvider {
     }
 
     try {
-      // Use Gemini 2.5 Flash Image model (Nano Banana)
+      const modelId = this.resolveModel(options.model);
+      const isPro = this.isProModel(modelId);
+
+      // Build image config
+      const imageConfig: Record<string, string> = {};
+      if (options.aspectRatio) {
+        imageConfig.aspectRatio = options.aspectRatio;
+      } else {
+        imageConfig.aspectRatio = "1:1";
+      }
+
+      // Resolution is only for Pro model
+      if (options.resolution && isPro) {
+        imageConfig.imageSize = options.resolution;
+      }
+
+      // Build generation config
+      const generationConfig: Record<string, unknown> = {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig,
+      };
+
+      // Build payload
+      const payload: Record<string, unknown> = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig,
+      };
+
+      // Add Google Search grounding (Pro only)
+      if (options.grounding && isPro) {
+        payload.tools = [{ googleSearch: {} }];
+      }
+
       const response = await fetch(
-        `${this.baseUrl}/models/gemini-2.5-flash-image:generateContent?key=${this.apiKey}`,
+        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"],
-              imageConfig: {
-                aspectRatio: options.aspectRatio || "1:1",
-              },
-            },
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -154,6 +225,7 @@ export class GeminiProvider implements AIProvider {
           content?: {
             parts?: Array<{
               text?: string;
+              thought?: boolean;
               inlineData?: {
                 mimeType: string;
                 data: string;
@@ -171,14 +243,21 @@ export class GeminiProvider implements AIProvider {
         };
       }
 
-      // Extract images from parts
+      // Extract images from parts (skip thought images from Pro model)
       const images: Array<{ base64: string; mimeType: string }> = [];
+      let description: string | undefined;
+
       for (const part of parts) {
+        // Skip thought images (Pro model thinking process)
+        if (part.thought) continue;
+
         if (part.inlineData) {
           images.push({
             base64: part.inlineData.data,
             mimeType: part.inlineData.mimeType,
           });
+        } else if (part.text) {
+          description = part.text;
         }
       }
 
@@ -192,6 +271,158 @@ export class GeminiProvider implements AIProvider {
       return {
         success: true,
         images,
+        description,
+        model: modelId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Edit image(s) using Gemini (Nano Banana)
+   * Provide input image(s) with a text prompt to edit/transform/compose
+   */
+  async editImage(
+    imageBuffers: Buffer[],
+    prompt: string,
+    options: GeminiEditOptions = {}
+  ): Promise<GeminiImageResult> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: "Google API key not configured",
+      };
+    }
+
+    const modelId = this.resolveModel(options.model);
+    const isPro = this.isProModel(modelId);
+
+    // Validate image count
+    const maxImages = isPro ? 14 : 3;
+    if (imageBuffers.length > maxImages) {
+      return {
+        success: false,
+        error: `Too many input images. ${modelId} supports up to ${maxImages} images.`,
+      };
+    }
+
+    try {
+      // Build parts: text prompt first, then images
+      const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+
+      for (const buffer of imageBuffers) {
+        parts.push({
+          inlineData: {
+            mimeType: "image/png",
+            data: buffer.toString("base64"),
+          },
+        });
+      }
+
+      // Build image config
+      const imageConfig: Record<string, string> = {};
+      if (options.aspectRatio) {
+        imageConfig.aspectRatio = options.aspectRatio;
+      }
+      if (options.resolution && isPro) {
+        imageConfig.imageSize = options.resolution;
+      }
+
+      // Build generation config
+      const generationConfig: Record<string, unknown> = {
+        responseModalities: ["TEXT", "IMAGE"],
+      };
+      if (Object.keys(imageConfig).length > 0) {
+        generationConfig.imageConfig = imageConfig;
+      }
+
+      const payload = {
+        contents: [{ parts }],
+        generationConfig,
+      };
+
+      const response = await fetch(
+        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage: string;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error?.message || errorText;
+        } catch {
+          errorMessage = errorText;
+        }
+        return {
+          success: false,
+          error: `API error (${response.status}): ${errorMessage}`,
+        };
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string;
+              thought?: boolean;
+              inlineData?: {
+                mimeType: string;
+                data: string;
+              };
+            }>;
+          };
+        }>;
+      };
+
+      const responseParts = data.candidates?.[0]?.content?.parts;
+      if (!responseParts || responseParts.length === 0) {
+        return {
+          success: false,
+          error: "No content in response",
+        };
+      }
+
+      // Extract images (skip thought images)
+      const images: Array<{ base64: string; mimeType: string }> = [];
+      let description: string | undefined;
+
+      for (const part of responseParts) {
+        if (part.thought) continue;
+
+        if (part.inlineData) {
+          images.push({
+            base64: part.inlineData.data,
+            mimeType: part.inlineData.mimeType,
+          });
+        } else if (part.text) {
+          description = part.text;
+        }
+      }
+
+      if (images.length === 0) {
+        return {
+          success: false,
+          error: "No images in response",
+        };
+      }
+
+      return {
+        success: true,
+        images,
+        description,
+        model: modelId,
       };
     } catch (error) {
       return {

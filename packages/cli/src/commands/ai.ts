@@ -695,8 +695,7 @@ aiCommand
         await gemini.initialize({ apiKey });
 
         const result = await gemini.generateImage(prompt, {
-          numberOfImages: parseInt(options.count),
-          aspectRatio: options.ratio as "1:1" | "16:9" | "9:16" | "3:4" | "4:3",
+          aspectRatio: options.ratio as "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9",
         });
 
         if (!result.success || !result.images) {
@@ -704,7 +703,7 @@ aiCommand
           process.exit(1);
         }
 
-        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini Imagen 3`));
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini (Nano Banana)`));
 
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));
@@ -2225,6 +2224,137 @@ aiCommand
       }
     } catch (error) {
       console.error(chalk.red("Outpainting failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+// Gemini (Nano Banana) commands
+aiCommand
+  .command("gemini")
+  .description("Generate image using Gemini (Nano Banana)")
+  .argument("<prompt>", "Text prompt describing the image")
+  .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
+  .option("-o, --output <path>", "Output file path", "output.png")
+  .option("-m, --model <model>", "Model: flash (fast), pro (professional, 4K)", "flash")
+  .option("-r, --ratio <ratio>", "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, 21:9, etc.", "1:1")
+  .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Pro model only)")
+  .option("--grounding", "Enable Google Search grounding (Pro only)")
+  .action(async (prompt: string, options) => {
+    try {
+      const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red("Google API key required."));
+        console.error(chalk.dim("Use --api-key or set GOOGLE_API_KEY environment variable"));
+        process.exit(1);
+      }
+
+      const modelName = options.model === "pro" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
+      const spinner = ora(`Generating image with ${modelName}...`).start();
+
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey });
+
+      const result = await gemini.generateImage(prompt, {
+        model: options.model,
+        aspectRatio: options.ratio,
+        resolution: options.size,
+        grounding: options.grounding,
+      });
+
+      if (!result.success || !result.images || result.images.length === 0) {
+        spinner.fail(chalk.red(result.error || "Image generation failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Image generated"));
+
+      if (result.model) {
+        console.log(chalk.dim(`Model: ${result.model}`));
+      }
+
+      const img = result.images[0];
+      if (img.base64) {
+        const outputPath = resolve(process.cwd(), options.output);
+        const buffer = Buffer.from(img.base64, "base64");
+        await writeFile(outputPath, buffer);
+        console.log(chalk.green(`Saved to: ${outputPath}`));
+      }
+    } catch (error) {
+      console.error(chalk.red("Image generation failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+aiCommand
+  .command("gemini-edit")
+  .description("Edit image(s) using Gemini (Nano Banana)")
+  .argument("<images...>", "Input image file(s) followed by edit prompt")
+  .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
+  .option("-o, --output <path>", "Output file path", "edited.png")
+  .option("-m, --model <model>", "Model: flash (max 3 images), pro (max 14 images)", "flash")
+  .option("-r, --ratio <ratio>", "Output aspect ratio")
+  .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Pro model only)")
+  .action(async (args: string[], options) => {
+    try {
+      // Last argument is the prompt, rest are image paths
+      if (args.length < 2) {
+        console.error(chalk.red("Need at least one image and a prompt"));
+        process.exit(1);
+      }
+
+      const prompt = args[args.length - 1];
+      const imagePaths = args.slice(0, -1);
+
+      const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red("Google API key required."));
+        process.exit(1);
+      }
+
+      const spinner = ora(`Reading ${imagePaths.length} image(s)...`).start();
+
+      // Load all images
+      const imageBuffers: Buffer[] = [];
+      for (const imagePath of imagePaths) {
+        const absPath = resolve(process.cwd(), imagePath);
+        const buffer = await readFile(absPath);
+        imageBuffers.push(buffer);
+      }
+
+      const modelName = options.model === "pro" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
+      spinner.text = `Editing with ${modelName}...`;
+
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey });
+
+      const result = await gemini.editImage(imageBuffers, prompt, {
+        model: options.model,
+        aspectRatio: options.ratio,
+        resolution: options.size,
+      });
+
+      if (!result.success || !result.images || result.images.length === 0) {
+        spinner.fail(chalk.red(result.error || "Image editing failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Image edited"));
+
+      if (result.model) {
+        console.log(chalk.dim(`Model: ${result.model}`));
+      }
+
+      const img = result.images[0];
+      if (img.base64) {
+        const outputPath = resolve(process.cwd(), options.output);
+        const buffer = Buffer.from(img.base64, "base64");
+        await writeFile(outputPath, buffer);
+        console.log(chalk.green(`Saved to: ${outputPath}`));
+      }
+    } catch (error) {
+      console.error(chalk.red("Image editing failed"));
       console.error(error);
       process.exit(1);
     }

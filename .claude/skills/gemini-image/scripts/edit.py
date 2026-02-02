@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Gemini Image Generation Script (Nano Banana)
+Gemini Image Editing Script (Nano Banana)
 
-Generate images using Google Gemini's native image generation.
+Edit images using Google Gemini's native image generation with input images.
 
 Usage:
-    python generate.py "your prompt" -o output.png
-    python generate.py "your prompt" -o output.png -r 16:9 -m flash
-    python generate.py "your prompt" -o output.png -m pro -s 2K
+    python edit.py input.png "change the background to sunset" -o output.png
+    python edit.py photo.png "convert to watercolor painting" -o watercolor.png -m pro
 
 Requirements:
     - GOOGLE_API_KEY environment variable
@@ -21,6 +20,7 @@ import os
 import sys
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 MODELS = {
     "flash": "gemini-2.5-flash-image",
@@ -32,28 +32,54 @@ ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"
 RESOLUTIONS = ["1K", "2K", "4K"]
 
 
-def generate_image(
+def get_mime_type(file_path: str) -> str:
+    """Get MIME type from file extension."""
+    ext = Path(file_path).suffix.lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }
+    return mime_types.get(ext, "image/png")
+
+
+def load_image_as_base64(file_path: str) -> tuple[str, str]:
+    """Load image file and return (base64_data, mime_type)."""
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode("utf-8"), get_mime_type(file_path)
+
+
+def edit_image(
+    input_paths: list[str],
     prompt: str,
     output_path: str,
     model: str = "flash",
-    aspect_ratio: str = "1:1",
+    aspect_ratio: str | None = None,
     resolution: str | None = None,
-    grounding: bool = False,
     api_key: str | None = None,
 ) -> dict:
-    """Generate an image using Gemini API."""
+    """Edit image(s) using Gemini API."""
 
     api_key = api_key or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         return {"success": False, "error": "GOOGLE_API_KEY environment variable not set"}
 
+    # Validate input files
+    for path in input_paths:
+        if not os.path.exists(path):
+            return {"success": False, "error": f"Input file not found: {path}"}
+
     # Resolve model alias
     model_id = MODELS.get(model, model)
     is_pro = "pro" in model_id.lower()
 
-    # Validate aspect ratio
-    if aspect_ratio not in ASPECT_RATIOS:
-        return {"success": False, "error": f"Invalid aspect ratio. Choose from: {', '.join(ASPECT_RATIOS)}"}
+    # Validate number of reference images
+    max_images = 14 if is_pro else 3
+    if len(input_paths) > max_images:
+        return {"success": False, "error": f"Too many input images. {model_id} supports up to {max_images} images."}
 
     # Validate resolution (Pro only)
     if resolution and not is_pro:
@@ -65,28 +91,36 @@ def generate_image(
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={api_key}"
 
+    # Build parts: text prompt first, then images
+    parts = [{"text": prompt}]
+
+    for input_path in input_paths:
+        image_b64, mime_type = load_image_as_base64(input_path)
+        parts.append({
+            "inlineData": {
+                "mimeType": mime_type,
+                "data": image_b64
+            }
+        })
+
     # Build image config
-    image_config = {"aspectRatio": aspect_ratio}
+    image_config = {}
+    if aspect_ratio and aspect_ratio in ASPECT_RATIOS:
+        image_config["aspectRatio"] = aspect_ratio
     if resolution:
         image_config["imageSize"] = resolution
 
     # Build generation config
     generation_config = {
         "responseModalities": ["TEXT", "IMAGE"],
-        "imageConfig": image_config
     }
+    if image_config:
+        generation_config["imageConfig"] = image_config
 
-    # Build payload
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": generation_config
     }
-
-    # Add Google Search grounding (Pro only)
-    if grounding and is_pro:
-        payload["tools"] = [{"googleSearch": {}}]
-    elif grounding and not is_pro:
-        print("Warning: Google Search grounding is only supported on Pro model. Ignoring --grounding")
 
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -147,78 +181,90 @@ def generate_image(
         "size_bytes": len(image_bytes),
         "description": text_description,
         "model": model_id,
-        "resolution": resolution or "1K",
+        "input_images": len(input_paths),
     }
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate images using Gemini (Nano Banana)",
+        description="Edit images using Gemini (Nano Banana)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    %(prog)s "A sunset over mountains" -o sunset.png
-    %(prog)s "Product photo of headphones" -o product.png -r 1:1
-    %(prog)s "YouTube thumbnail for coding tutorial" -o thumb.png -r 16:9 -m pro -s 2K
-    %(prog)s "Current weather in NYC" -o weather.png -m pro --grounding
+    # Single image editing
+    %(prog)s photo.png "change the background to a beach" -o beach.png
+
+    # Style transfer
+    %(prog)s portrait.jpg "convert to oil painting style" -o painting.png -m pro
+
+    # Multi-image composition (Pro)
+    %(prog)s person1.png person2.png "group photo in an office" -o group.png -m pro
+
+    # With resolution (Pro)
+    %(prog)s product.png "add dramatic lighting" -o product_lit.png -m pro -s 2K
         """
     )
 
-    parser.add_argument("prompt", help="Image generation prompt")
-    parser.add_argument("-o", "--output", required=True, help="Output file path (e.g., output.png)")
-    parser.add_argument(
-        "-r", "--ratio",
-        default="1:1",
-        choices=ASPECT_RATIOS,
-        help="Aspect ratio (default: 1:1)"
-    )
+    parser.add_argument("inputs", nargs="+", help="Input image file(s) followed by the edit prompt")
+    parser.add_argument("-o", "--output", required=True, help="Output file path")
     parser.add_argument(
         "-m", "--model",
         default="flash",
-        help="Model: flash (fast), pro (professional), or full model name (default: flash)"
+        help="Model: flash (fast, max 3 images), pro (professional, max 14 images)"
+    )
+    parser.add_argument(
+        "-r", "--ratio",
+        choices=ASPECT_RATIOS,
+        help="Output aspect ratio (optional, defaults to input ratio)"
     )
     parser.add_argument(
         "-s", "--size",
         choices=RESOLUTIONS,
         help="Image resolution: 1K, 2K, 4K (Pro model only)"
     )
-    parser.add_argument(
-        "--grounding",
-        action="store_true",
-        help="Enable Google Search grounding for real-time info (Pro only)"
-    )
     parser.add_argument("-k", "--api-key", help="Google API key (or set GOOGLE_API_KEY env)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
+    # Parse inputs: last argument is prompt, rest are image files
+    if len(args.inputs) < 2:
+        parser.error("Need at least one image and a prompt")
+
+    prompt = args.inputs[-1]
+    input_paths = args.inputs[:-1]
+
+    # Validate input files exist
+    for path in input_paths:
+        if not os.path.exists(path):
+            print(f"Error: File not found: {path}", file=sys.stderr)
+            sys.exit(1)
+
     model_name = MODELS.get(args.model, args.model)
     if args.verbose:
         print(f"Model: {model_name}")
-        print(f"Prompt: {args.prompt}")
-        print(f"Aspect ratio: {args.ratio}")
+        print(f"Input images: {', '.join(input_paths)}")
+        print(f"Prompt: {prompt}")
+        if args.ratio:
+            print(f"Aspect ratio: {args.ratio}")
         if args.size:
             print(f"Resolution: {args.size}")
-        if args.grounding:
-            print("Grounding: enabled")
 
-    print(f"Generating image with {model_name}...")
+    print(f"Editing {len(input_paths)} image(s) with {model_name}...")
 
-    result = generate_image(
-        prompt=args.prompt,
+    result = edit_image(
+        input_paths=input_paths,
+        prompt=prompt,
         output_path=args.output,
         model=args.model,
         aspect_ratio=args.ratio,
         resolution=args.size,
-        grounding=args.grounding,
         api_key=args.api_key,
     )
 
     if result["success"]:
         print(f"Saved to: {result['output_path']}")
         print(f"Size: {result['size_bytes']:,} bytes")
-        if result.get("resolution"):
-            print(f"Resolution: {result['resolution']}")
         if result.get("description") and args.verbose:
             print(f"Description: {result['description']}")
         sys.exit(0)

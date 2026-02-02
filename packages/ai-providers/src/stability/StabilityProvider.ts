@@ -363,7 +363,7 @@ export class StabilityProvider implements AIProvider {
         formData.append("seed", String(options.seed));
       }
 
-      const response = await fetch(`${this.baseUrl}/v2beta/stable-image/generate/sd3.5-large`, {
+      const response = await fetch(`${this.baseUrl}/v2beta/stable-image/generate/sd3`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
