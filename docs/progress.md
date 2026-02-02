@@ -6,6 +6,64 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-02
 
+### Feature: CLI User Experience Improvements
+Enhanced CLI onboarding, documentation, and installation experience.
+
+**New Documentation:**
+- Created `docs/cli-guide.md` - Comprehensive CLI usage guide in English
+  - Quick Start section
+  - AI provider structure (LLM and media providers)
+  - Command reference and API requirements by feature
+  - Offline/free features list
+  - Workflow examples (social media, YouTube, podcast, AI-generated)
+  - Configuration guide and troubleshooting
+
+**REPL Welcome Message Improvements:**
+- Shows current LLM provider status on startup (e.g., "● LLM: Ollama (Local)")
+- Displays active capabilities (Whisper, TTS, Video Gen, Images)
+- Added tip for Ollama users to ensure server is running
+- Updated help text with "Getting Started" quick reference section
+
+**Setup Wizard Improvements:**
+- Added provider descriptions explaining each LLM's characteristics
+- Claude: "Best understanding, most capable"
+- OpenAI: "GPT-4, reliable and fast"
+- Gemini: "Google AI, good for general use"
+- Ollama: "Free, local, no API key needed"
+- Added Ollama server startup guidance when selected
+- Added environment variable fallback note for API keys
+
+**Install Script Changes:**
+- Made CLI-only installation the default (faster install)
+- Added `--full` flag for full installation with web UI
+- Added `--skip-setup` flag to skip setup wizard
+- CLI-only builds only core, ai-providers, mcp-server, and cli packages
+- Updated completion messages to show relevant commands
+
+**Files Created:**
+- `docs/cli-guide.md` - CLI usage guide
+
+**Files Modified:**
+- `packages/cli/src/repl/prompts.ts` - Status display, Getting Started section
+- `packages/cli/src/repl/index.ts` - Pass config to welcome message
+- `packages/cli/src/commands/setup.ts` - Provider descriptions, Ollama guidance
+- `scripts/install.sh` - CLI-only default, --full flag
+
+**Usage:**
+```bash
+# Default CLI-only install (faster)
+curl -fsSL https://vibeframe.ai/install.sh | bash
+
+# Full install with web UI
+curl -fsSL https://vibeframe.ai/install.sh | bash -s -- --full
+
+# Start REPL - shows status
+vibe
+# Output: ● LLM: Ollama (Local)
+```
+
+---
+
 ### Feature: Ollama Provider for Local LLM Support
 Added OllamaProvider to enable local LLM support for natural language timeline commands without requiring external API keys.
 

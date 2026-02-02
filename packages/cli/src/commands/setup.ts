@@ -69,12 +69,20 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
   // Step 1: Select LLM Provider
   console.log(chalk.bold("1. Choose your AI provider"));
+  console.log(chalk.dim("   This provider handles natural language commands."));
   console.log();
 
   const providers: LLMProvider[] = ["claude", "openai", "gemini", "ollama"];
+  const providerDescriptions: Record<LLMProvider, string> = {
+    claude: "Best understanding, most capable",
+    openai: "GPT-4, reliable and fast",
+    gemini: "Google AI, good for general use",
+    ollama: "Free, local, no API key needed",
+  };
   const providerLabels = providers.map((p) => {
     const rec = p === "claude" ? chalk.dim(" (recommended)") : "";
-    return `${PROVIDER_NAMES[p]}${rec}`;
+    const desc = chalk.dim(` - ${providerDescriptions[p]}`);
+    return `${PROVIDER_NAMES[p]}${rec}${desc}`;
   });
 
   const currentIndex = providers.indexOf(config.llm.provider);
@@ -89,6 +97,20 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   // Step 2: API Key for selected provider
   const selectedProvider = config.llm.provider;
 
+  // Show Ollama-specific guidance
+  if (selectedProvider === "ollama") {
+    console.log(chalk.bold("2. Ollama Setup"));
+    console.log();
+    console.log(chalk.dim("   Ollama runs locally and requires no API key."));
+    console.log(chalk.dim("   Make sure Ollama is running before using VibeFrame:"));
+    console.log();
+    console.log(chalk.cyan("   ollama serve") + chalk.dim("          # Start server"));
+    console.log(chalk.cyan("   ollama pull llama3.2") + chalk.dim("  # Download model (first time)"));
+    console.log();
+    console.log(chalk.dim("   Server should be running at http://localhost:11434"));
+    console.log();
+  }
+
   if (selectedProvider !== "ollama") {
     const providerKey =
       selectedProvider === "gemini"
@@ -98,6 +120,10 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
         : selectedProvider;
 
     console.log(chalk.bold(`2. ${PROVIDER_NAMES[selectedProvider]} API Key`));
+    console.log(
+      chalk.dim(`   You can also set ${getEnvVarName(selectedProvider)} environment variable.`)
+    );
+    console.log();
 
     const existingKey = config.providers[providerKey as keyof typeof config.providers];
     if (existingKey) {
@@ -214,4 +240,17 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 function maskApiKey(key: string): string {
   if (key.length <= 8) return "****";
   return `${key.slice(0, 4)}${"*".repeat(8)}${key.slice(-4)}`;
+}
+
+/**
+ * Get environment variable name for a provider
+ */
+function getEnvVarName(provider: LLMProvider): string {
+  const envVars: Record<LLMProvider, string> = {
+    claude: "ANTHROPIC_API_KEY",
+    openai: "OPENAI_API_KEY",
+    gemini: "GOOGLE_API_KEY",
+    ollama: "",
+  };
+  return envVars[provider];
 }

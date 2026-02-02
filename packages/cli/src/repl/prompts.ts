@@ -3,6 +3,8 @@
  */
 
 import chalk from "chalk";
+import type { VibeConfig, LLMProvider } from "../config/schema.js";
+import { PROVIDER_NAMES } from "../config/schema.js";
 
 /**
  * ASCII Logo for VibeFrame
@@ -19,24 +21,74 @@ ${chalk.magenta("   ╚═══╝  ╚═╝╚═════╝ ╚═══
 /**
  * Welcome message shown when REPL starts
  */
-export function getWelcomeMessage(configured: boolean): string {
+export function getWelcomeMessage(
+  configured: boolean,
+  config?: VibeConfig | null
+): string {
   const lines = [
     ASCII_LOGO,
     chalk.dim("─".repeat(40)),
     chalk.cyan("AI-First Video Editor"),
     chalk.dim("Type commands in natural language"),
     "",
-    chalk.dim(`Type ${chalk.white("help")} for commands, ${chalk.white("exit")} to quit`),
-    "",
   ];
+
+  // Show status info
+  if (configured && config) {
+    lines.push(getStatusLine(config));
+    lines.push("");
+  }
+
+  lines.push(
+    chalk.dim(`Type ${chalk.white("help")} for commands, ${chalk.white("exit")} to quit`)
+  );
+  lines.push("");
 
   if (!configured) {
     lines.push(chalk.yellow("No configuration found."));
     lines.push(chalk.yellow(`Run ${chalk.white("setup")} to configure API keys.`));
     lines.push("");
+  } else if (config?.llm.provider === "ollama") {
+    lines.push(
+      chalk.dim(`Tip: Ensure Ollama is running (${chalk.white("ollama serve")})`)
+    );
+    lines.push("");
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Get status line showing current LLM provider and capabilities
+ */
+function getStatusLine(config: VibeConfig): string {
+  const provider = config.llm.provider;
+  const providerName = PROVIDER_NAMES[provider] || provider;
+
+  const statusIcon = chalk.green("●");
+  const llmStatus = `${statusIcon} LLM: ${chalk.cyan(providerName)}`;
+
+  // Check for additional capabilities
+  const capabilities: string[] = [];
+
+  if (config.providers.openai) {
+    capabilities.push("Whisper");
+  }
+  if (config.providers.elevenlabs) {
+    capabilities.push("TTS");
+  }
+  if (config.providers.runway || config.providers.kling) {
+    capabilities.push("Video Gen");
+  }
+  if (config.providers.stability || config.providers.openai) {
+    capabilities.push("Images");
+  }
+
+  if (capabilities.length > 0) {
+    return `${llmStatus} ${chalk.dim("│")} ${chalk.dim(capabilities.join(", "))}`;
+  }
+
+  return llmStatus;
 }
 
 /**
@@ -59,6 +111,15 @@ export function getHelpText(): string {
 
   const lines = [
     "",
+    chalk.bold.cyan("Getting Started"),
+    chalk.dim("─".repeat(40)),
+    "",
+    `  ${chalk.yellow("1.")} ${chalk.white("setup")}              Configure API keys`,
+    `  ${chalk.yellow("2.")} ${chalk.white("new <name>")}         Create project`,
+    `  ${chalk.yellow("3.")} ${chalk.white("add <media>")}        Add media file`,
+    `  ${chalk.yellow("4.")} ${chalk.white("<natural language>")} Edit with AI`,
+    `  ${chalk.yellow("5.")} ${chalk.white("export")}             Render video`,
+    "",
     chalk.bold.cyan("Built-in Commands"),
     chalk.dim("─".repeat(40)),
     "",
@@ -80,6 +141,8 @@ export function getHelpText(): string {
   lines.push(`  ${chalk.white('"Add fade in effect to all clips"')}`);
   lines.push(`  ${chalk.white('"Split the clip at 3 seconds"')}`);
   lines.push(`  ${chalk.white('"Delete the last clip"')}`);
+  lines.push("");
+  lines.push(chalk.dim(`  See docs/cli-guide.md for full documentation`));
   lines.push("");
 
   return lines.join("\n");

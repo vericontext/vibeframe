@@ -8,7 +8,7 @@ import chalk from "chalk";
 import { Session } from "./session.js";
 import { executeReplCommand } from "./executor.js";
 import { getWelcomeMessage, getPrompt } from "./prompts.js";
-import { isConfigured } from "../config/index.js";
+import { isConfigured, loadConfig } from "../config/index.js";
 import { hasTTY } from "../utils/tty.js";
 
 // Re-export for external use
@@ -36,9 +36,10 @@ export async function startRepl(): Promise<void> {
 
   // Check configuration status
   const configured = await isConfigured();
+  const config = await loadConfig();
 
   // Print welcome message
-  console.log(getWelcomeMessage(configured));
+  console.log(getWelcomeMessage(configured, config));
 
   // Create readline interface with stdin
   const rl = createInterface({

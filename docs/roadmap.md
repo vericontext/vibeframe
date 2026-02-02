@@ -136,12 +136,20 @@ Intelligence built into every interaction.
 
 ### Installation & Interactive Mode
 - [x] **Install Script** - One-line installation: `curl -fsSL https://vibeframe.ai/install.sh | bash`
+  - CLI-only by default (fastest), `--full` for web UI
+  - `--skip-setup` to skip setup wizard
 - [x] **Setup Wizard** - Interactive API key configuration (`vibe setup`)
+  - Provider descriptions explaining characteristics
+  - Ollama-specific guidance for local setup
+  - Environment variable fallback notes
 - [x] **Interactive REPL** - Natural language editing mode (run `vibe` with no args)
   - Built-in commands: new, open, save, info, list, add, export, undo
   - Natural language: "trim clip to 5s", "add fade in", etc.
   - Auto-save, undo history, session state management
+  - LLM provider status display on startup
+  - Getting Started quick reference in help
 - [x] **Config System** - YAML config at `~/.vibeframe/config.yaml`
+- [x] **CLI Guide** - Comprehensive documentation at `docs/cli-guide.md`
 
 ---
 
