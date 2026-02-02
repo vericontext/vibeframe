@@ -1,6 +1,7 @@
 /**
  * REPL Command Executor
  * Handles both built-in commands and natural language AI commands
+ * Uses LLM to understand all natural language and route to appropriate handlers
  */
 
 import { extname, resolve } from "node:path";
@@ -29,55 +30,200 @@ export interface CommandResult {
   showSetup?: boolean;
 }
 
+/** Unified command intent from LLM */
+interface CommandIntent {
+  type: "image" | "tts" | "sfx" | "video" | "timeline" | "project" | "unknown";
+  params: {
+    prompt?: string;
+    text?: string;
+    outputFile?: string;
+    projectName?: string;
+    [key: string]: unknown;
+  };
+  clarification?: string;
+}
+
 /**
- * Try to execute AI generation commands (image, tts, sfx)
- * These don't require a project
+ * Use LLM to classify and parse natural language command
  */
-async function tryExecuteAICommand(
+async function classifyCommand(
   input: string,
-  lowerInput: string
-): Promise<CommandResult | null> {
-  // Image generation patterns
-  const imageMatch = lowerInput.match(
-    /(?:generate|create|make|draw)\s+(?:an?\s+)?(?:image|picture|photo|illustration)\s+(?:of\s+)?(.+?)(?:\s+(?:and\s+)?(?:save|output|export)\s+(?:as|to|it\s+as)\s+(\S+))?$/i
-  );
-  if (imageMatch) {
-    const prompt = imageMatch[1].trim();
-    const outputFile = imageMatch[2] || `${prompt.split(/\s+/).slice(0, 3).join("-").toLowerCase()}.png`;
-    return await generateImage(prompt, outputFile);
+  apiKey: string,
+  providerType: LLMProvider
+): Promise<CommandIntent> {
+  const systemPrompt = `You are a command classifier for a video editing CLI called VibeFrame.
+Analyze the user's natural language input and classify it into one of these types:
+
+1. "image" - Generate an image (e.g., "create an image of sunset", "make a picture of a cat", "generate a welcome banner")
+2. "tts" - Text-to-speech / audio generation (e.g., "create audio saying hello", "generate a welcome message", "make voiceover for intro")
+3. "sfx" - Sound effects (e.g., "create explosion sound", "generate rain sound effect")
+4. "video" - Video generation (e.g., "generate a video of ocean waves")
+5. "timeline" - Timeline editing commands (e.g., "trim clip to 5 seconds", "add fade effect", "split at 3s")
+6. "project" - Project management (e.g., "create new project called X", "start a project named Y")
+7. "unknown" - Cannot understand the command
+
+Extract relevant parameters:
+- For image: prompt (the image description), outputFile (optional)
+- For tts: text (what to say), outputFile (optional)
+- For sfx: prompt (sound description), outputFile (optional)
+- For video: prompt (video description), outputFile (optional)
+- For project: projectName
+- For timeline: leave params empty (will be parsed separately)
+
+If the command is ambiguous, set clarification to ask for more details.
+
+Respond with JSON only:
+{
+  "type": "image|tts|sfx|video|timeline|project|unknown",
+  "params": {
+    "prompt": "extracted prompt if applicable",
+    "text": "text to speak if tts",
+    "outputFile": "output.png or output.mp3 if specified",
+    "projectName": "project name if project command"
+  },
+  "clarification": "question to ask if ambiguous (optional)"
+}
+
+Examples:
+- "create a welcome audio message" → {"type": "tts", "params": {"text": "welcome"}}
+- "generate an image of a sunset" → {"type": "image", "params": {"prompt": "a sunset"}}
+- "make a project called demo" → {"type": "project", "params": {"projectName": "demo"}}
+- "trim to 5 seconds" → {"type": "timeline", "params": {}}
+- "create a welcome banner image" → {"type": "image", "params": {"prompt": "a welcome banner"}}`;
+
+  try {
+    let endpoint: string;
+    let headers: Record<string, string>;
+    let body: Record<string, unknown>;
+
+    if (providerType === "claude") {
+      endpoint = "https://api.anthropic.com/v1/messages";
+      headers = {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      };
+      body = {
+        model: "claude-3-5-haiku-latest",
+        max_tokens: 256,
+        messages: [{ role: "user", content: `${systemPrompt}\n\nUser input: "${input}"` }],
+      };
+    } else if (providerType === "gemini") {
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      headers = { "Content-Type": "application/json" };
+      body = {
+        contents: [{ parts: [{ text: `${systemPrompt}\n\nUser input: "${input}"` }] }],
+        generationConfig: { temperature: 0.1 },
+      };
+    } else {
+      // OpenAI or Ollama
+      endpoint = providerType === "ollama"
+        ? "http://localhost:11434/api/chat"
+        : "https://api.openai.com/v1/chat/completions";
+      headers = {
+        "Content-Type": "application/json",
+        ...(providerType !== "ollama" && { Authorization: `Bearer ${apiKey}` }),
+      };
+      body = {
+        model: providerType === "ollama" ? "llama3.2" : "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: input },
+        ],
+        temperature: 0.1,
+        ...(providerType !== "ollama" && { response_format: { type: "json_object" } }),
+      };
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      console.error("LLM API error:", await response.text());
+      return fallbackClassify(input);
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    let content: string;
+
+    if (providerType === "claude") {
+      const claudeData = data as { content?: Array<{ text?: string }> };
+      content = claudeData.content?.[0]?.text || "";
+    } else if (providerType === "gemini") {
+      const geminiData = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    } else if (providerType === "ollama") {
+      const ollamaData = data as { message?: { content?: string } };
+      content = ollamaData.message?.content || "";
+    } else {
+      const openaiData = data as { choices?: Array<{ message?: { content?: string } }> };
+      content = openaiData.choices?.[0]?.message?.content || "";
+    }
+
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return fallbackClassify(input);
+    }
+
+    const result = JSON.parse(jsonMatch[0]) as CommandIntent;
+    return {
+      type: result.type || "unknown",
+      params: result.params || {},
+      clarification: result.clarification,
+    };
+  } catch (e) {
+    console.error("classifyCommand error:", e);
+    return fallbackClassify(input);
+  }
+}
+
+/**
+ * Fallback classification using simple pattern matching
+ */
+function fallbackClassify(input: string): CommandIntent {
+  const lower = input.toLowerCase();
+
+  // Image patterns
+  if (lower.match(/(?:image|picture|photo|illustration|banner|thumbnail)/)) {
+    const prompt = input.replace(/(?:generate|create|make|draw)\s+(?:an?\s+)?/i, "")
+      .replace(/(?:image|picture|photo|illustration)\s+(?:of\s+)?/i, "")
+      .trim();
+    return { type: "image", params: { prompt: prompt || input } };
   }
 
-  // TTS / audio generation patterns
-  const ttsMatch = lowerInput.match(
-    /(?:generate|create|make)\s+(?:an?\s+)?(?:audio|voice|speech|tts|narration|voiceover)\s+(?:message\s+)?(?:saying\s+|of\s+|for\s+)?["']?(.+?)["']?(?:\s+(?:and\s+)?(?:save|output|export)\s+(?:as|to|it\s+as)\s+(\S+))?$/i
-  );
-  if (ttsMatch) {
-    const text = ttsMatch[1].trim();
-    const outputFile = ttsMatch[2] || "output.mp3";
-    return await generateTTS(text, outputFile);
+  // TTS patterns
+  if (lower.match(/(?:audio|voice|speech|tts|narration|voiceover|message|say)/)) {
+    const text = input.replace(/(?:generate|create|make)\s+(?:an?\s+)?/i, "")
+      .replace(/(?:audio|voice|speech|tts|narration|voiceover)\s*(?:message\s+)?(?:saying\s+|of\s+|for\s+)?/i, "")
+      .replace(/["']/g, "")
+      .trim();
+    return { type: "tts", params: { text: text || "Hello" } };
   }
 
-  // Sound effect patterns
-  const sfxMatch = lowerInput.match(
-    /(?:generate|create|make)\s+(?:an?\s+)?(?:sound\s*effect|sfx|sound)\s+(?:of\s+)?(.+?)(?:\s+(?:and\s+)?(?:save|output|export)\s+(?:as|to|it\s+as)\s+(\S+))?$/i
-  );
-  if (sfxMatch) {
-    const prompt = sfxMatch[1].trim();
-    const outputFile = sfxMatch[2] || "sound-effect.mp3";
-    return await generateSFX(prompt, outputFile);
+  // SFX patterns
+  if (lower.match(/(?:sound\s*effect|sfx|sound\s+of)/)) {
+    const prompt = input.replace(/(?:generate|create|make)\s+(?:an?\s+)?/i, "")
+      .replace(/(?:sound\s*effect|sfx|sound)\s+(?:of\s+)?/i, "")
+      .trim();
+    return { type: "sfx", params: { prompt: prompt || input } };
   }
 
-  // Direct "image of X" pattern
-  const simpleImageMatch = lowerInput.match(
-    /^(?:an?\s+)?(?:image|picture|photo)\s+(?:of\s+)?(.+)$/i
-  );
-  if (simpleImageMatch) {
-    const prompt = simpleImageMatch[1].trim();
-    const outputFile = `${prompt.split(/\s+/).slice(0, 3).join("-").toLowerCase()}.png`;
-    return await generateImage(prompt, outputFile);
+  // Project patterns
+  if (lower.match(/(?:new|create|start|make)\s+(?:a\s+)?(?:new\s+)?project/)) {
+    const nameMatch = input.match(/(?:called|named)\s+["']?([^"']+)["']?/i);
+    return { type: "project", params: { projectName: nameMatch?.[1]?.trim() || "Untitled" } };
   }
 
-  return null;
+  // Timeline patterns (trim, split, fade, effect, etc.)
+  if (lower.match(/(?:trim|split|fade|effect|cut|delete|remove|move|duplicate|speed|reverse|crop)/)) {
+    return { type: "timeline", params: {} };
+  }
+
+  return { type: "unknown", params: {}, clarification: "I couldn't understand that command. Try: 'generate an image of...', 'create audio saying...', or 'trim clip to 5 seconds'" };
 }
 
 /**
@@ -428,36 +574,13 @@ async function executeBuiltinCommand(
 
 /**
  * Execute a natural language command using AI
+ * Uses LLM to classify intent and route to appropriate handler
  */
 async function executeNaturalLanguageCommand(
   input: string,
   session: Session
 ): Promise<CommandResult> {
-  const lowerInput = input.toLowerCase();
-
-  // Check for AI generation commands (these don't require a project)
-  const aiCommandResult = await tryExecuteAICommand(input, lowerInput);
-  if (aiCommandResult) {
-    return aiCommandResult;
-  }
-
-  // Check if project exists
-  if (!session.hasProject()) {
-    // Special case: user might be trying to create a project with natural language
-    const createMatch = input.match(/^(?:create|make|new|start)\s+(?:a\s+)?(?:new\s+)?(?:project\s+)?(?:called\s+|named\s+)?["']?([^"']+)["']?$/i);
-    if (createMatch) {
-      const name = createMatch[1].trim();
-      session.createProject(name);
-      return { success: true, message: success(`Created project: ${name}`) };
-    }
-
-    return {
-      success: false,
-      message: error("No project loaded. Use 'new <name>' to create one first."),
-    };
-  }
-
-  // Get configured LLM provider for command parsing
+  // Get configured LLM provider
   const config = await loadConfig();
   const llmProviderType: LLMProvider = config?.llm?.provider || "openai";
 
@@ -482,75 +605,146 @@ async function executeNaturalLanguageCommand(
     };
   }
 
-  // Create the appropriate LLM provider
-  let llmProvider: OpenAIProvider | ClaudeProvider | OllamaProvider;
-
-  if (llmProviderType === "claude") {
-    llmProvider = new ClaudeProvider();
-  } else if (llmProviderType === "ollama") {
-    llmProvider = new OllamaProvider();
-  } else {
-    // Default to OpenAI for other providers (openai, gemini with OpenAI-compatible API, etc.)
-    llmProvider = new OpenAIProvider();
-  }
-
-  await llmProvider.initialize({ apiKey: apiKey || "" });
-
-  const spinner = ora({ text: "Processing...", spinner: "dots", discardStdin: false }).start();
+  const spinner = ora({ text: "Understanding command...", spinner: "dots", discardStdin: false }).start();
 
   try {
-    const project = session.getProject();
-    const clips = project.getClips();
-    const tracks = project.getTracks().map((t) => t.id);
+    // Use LLM to classify the command
+    const intent = await classifyCommand(input, apiKey || "", llmProviderType);
 
-    // Parse command using LLM
-    const result = await llmProvider.parseCommand(input, { clips, tracks });
-
-    if (!result.success) {
-      spinner.fail();
-      return { success: false, message: error(result.error || "Failed to parse command") };
-    }
-
-    if (result.clarification) {
+    // Handle clarification
+    if (intent.clarification && intent.type === "unknown") {
       spinner.warn();
-      return { success: false, message: warn(result.clarification) };
+      return { success: false, message: warn(intent.clarification) };
     }
 
-    if (result.commands.length === 0) {
-      spinner.warn();
-      return { success: false, message: warn("No commands generated") };
+    // Route based on intent type
+    switch (intent.type) {
+      case "image": {
+        spinner.text = `Generating image: "${intent.params.prompt}"...`;
+        const prompt = String(intent.params.prompt || input);
+        const outputFile = String(intent.params.outputFile || `${prompt.split(/\s+/).slice(0, 3).join("-").toLowerCase().replace(/[^a-z0-9-]/g, "")}.png`);
+        spinner.stop();
+        return await generateImage(prompt, outputFile);
+      }
+
+      case "tts": {
+        const text = String(intent.params.text || intent.params.prompt || "Hello");
+        spinner.text = `Generating audio: "${text.slice(0, 30)}..."`;
+        const outputFile = String(intent.params.outputFile || "output.mp3");
+        spinner.stop();
+        return await generateTTS(text, outputFile);
+      }
+
+      case "sfx": {
+        const prompt = String(intent.params.prompt || input);
+        spinner.text = `Generating sound effect: "${prompt}"...`;
+        const outputFile = String(intent.params.outputFile || "sound-effect.mp3");
+        spinner.stop();
+        return await generateSFX(prompt, outputFile);
+      }
+
+      case "video": {
+        spinner.fail();
+        return {
+          success: false,
+          message: info("Video generation is available via CLI:\n  vibe ai video \"" + (intent.params.prompt || "your prompt") + "\" -o output.mp4"),
+        };
+      }
+
+      case "project": {
+        spinner.stop();
+        const name = String(intent.params.projectName || "Untitled Project");
+        session.createProject(name);
+        return { success: true, message: success(`Created project: ${name}`) };
+      }
+
+      case "timeline": {
+        // Check if project exists for timeline commands
+        if (!session.hasProject()) {
+          spinner.fail();
+          return {
+            success: false,
+            message: error("No project loaded. Use 'new <name>' to create one first."),
+          };
+        }
+
+        spinner.text = "Processing timeline command...";
+
+        // Create the appropriate LLM provider for timeline parsing
+        let llmProvider: OpenAIProvider | ClaudeProvider | OllamaProvider;
+
+        if (llmProviderType === "claude") {
+          llmProvider = new ClaudeProvider();
+        } else if (llmProviderType === "ollama") {
+          llmProvider = new OllamaProvider();
+        } else {
+          llmProvider = new OpenAIProvider();
+        }
+
+        await llmProvider.initialize({ apiKey: apiKey || "" });
+
+        const project = session.getProject();
+        const clips = project.getClips();
+        const tracks = project.getTracks().map((t) => t.id);
+
+        // Parse timeline command using LLM
+        const result = await llmProvider.parseCommand(input, { clips, tracks });
+
+        if (!result.success) {
+          spinner.fail();
+          return { success: false, message: error(result.error || "Failed to parse command") };
+        }
+
+        if (result.clarification) {
+          spinner.warn();
+          return { success: false, message: warn(result.clarification) };
+        }
+
+        if (result.commands.length === 0) {
+          spinner.warn();
+          return { success: false, message: warn("No commands generated") };
+        }
+
+        // Save state for undo
+        session.pushHistory(input);
+
+        // Execute commands
+        let executed = 0;
+        for (const cmd of result.commands) {
+          const ok = executeCommand(project, cmd);
+          if (ok) executed++;
+        }
+
+        // Auto-save if enabled
+        const sessionConfig = session.getConfig();
+        if (sessionConfig?.repl.autoSave && session.getProjectPath()) {
+          await session.saveProject();
+        }
+
+        spinner.succeed();
+
+        // Build result message
+        const cmdDescriptions = result.commands
+          .map((c) => `  ${chalk.dim("-")} ${c.description}`)
+          .join("\n");
+
+        return {
+          success: true,
+          message: success(`Executed ${executed}/${result.commands.length} command(s)\n${cmdDescriptions}`),
+        };
+      }
+
+      default: {
+        spinner.warn();
+        return {
+          success: false,
+          message: warn(intent.clarification || "I couldn't understand that command. Try:\n  • generate an image of...\n  • create audio saying...\n  • trim clip to 5 seconds"),
+        };
+      }
     }
-
-    // Save state for undo
-    session.pushHistory(input);
-
-    // Execute commands
-    let executed = 0;
-    for (const cmd of result.commands) {
-      const ok = executeCommand(project, cmd);
-      if (ok) executed++;
-    }
-
-    // Auto-save if enabled
-    const config = session.getConfig();
-    if (config?.repl.autoSave && session.getProjectPath()) {
-      await session.saveProject();
-    }
-
-    spinner.succeed();
-
-    // Build result message
-    const cmdDescriptions = result.commands
-      .map((c) => `  ${chalk.dim("-")} ${c.description}`)
-      .join("\n");
-
-    return {
-      success: true,
-      message: success(`Executed ${executed}/${result.commands.length} command(s)\n${cmdDescriptions}`),
-    };
   } catch (e) {
     spinner.fail();
-    return { success: false, message: error(`AI command failed: ${e}`) };
+    return { success: false, message: error(`Command failed: ${e}`) };
   }
 }
 

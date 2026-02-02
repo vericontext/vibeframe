@@ -6,6 +6,43 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Feature: LLM-Unified Natural Language Command Routing
+Replaced regex-based command matching with LLM-powered intent classification for all natural language commands.
+
+**Problem:**
+- Previously, AI generation commands (image, tts, sfx) used rigid regex patterns
+- "create a welcome audio message" failed because "welcome" wasn't in the expected position
+- Users expected LLM to understand natural language like advertised
+
+**Solution:**
+- Added `classifyCommand()` function that uses configured LLM to understand intent
+- Supports all providers: OpenAI, Claude, Gemini, Ollama
+- Routes to appropriate handler based on classified intent:
+  - `image` → generateImage()
+  - `tts` → generateTTS()
+  - `sfx` → generateSFX()
+  - `video` → CLI suggestion
+  - `project` → create project
+  - `timeline` → existing parseCommand flow
+- Includes fallback pattern matching when LLM fails
+
+**Now works:**
+```
+vibe> create a welcome audio message          ✓
+vibe> make me a banner image for my channel   ✓
+vibe> generate speech saying hello world      ✓
+vibe> new project called demo                 ✓
+```
+
+**Files Modified:**
+- `packages/cli/src/repl/executor.ts` - Complete rewrite of natural language handling:
+  - Added `CommandIntent` interface
+  - Added `classifyCommand()` using LLM API
+  - Added `fallbackClassify()` for offline mode
+  - Rewrote `executeNaturalLanguageCommand()` to use intent-based routing
+
+---
+
 ### Fix: REPL Exits After AI Generation Commands
 Fixed the REPL exiting immediately after completing AI generation commands (image, tts, sfx).
 
@@ -18,21 +55,14 @@ Fixed the REPL exiting immediately after completing AI generation commands (imag
 - Added `discardStdin: false` option to all `ora` spinner configurations in the executor
 - This prevents the spinner from interfering with readline's stdin handling
 
-**Files Modified:**
-- `packages/cli/src/repl/executor.ts` - Added `discardStdin: false` to all 4 spinner instances:
-  - `generateImage()` spinner
-  - `generateTTS()` spinner
-  - `generateSFX()` spinner
-  - `executeNaturalLanguageCommand()` spinner
-
 **Verification:**
 ```bash
 pnpm build
 vibe
+vibe> create a welcome audio message
+# LLM understands and generates TTS
 vibe> generate an image of a sunset
 # Image generates, REPL stays open
-vibe> generate an image of a cat
-# Works for multiple commands in sequence
 vibe> exit
 ```
 

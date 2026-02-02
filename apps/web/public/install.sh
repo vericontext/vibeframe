@@ -1,7 +1,12 @@
 #!/bin/bash
 #
 # VibeFrame Installer
-# curl -fsSL https://vibeframe.ai/install.sh | bash
+#
+# Default (CLI-only, fastest):
+#   curl -fsSL https://vibeframe.ai/install.sh | bash
+#
+# Full installation (includes web UI):
+#   curl -fsSL https://vibeframe.ai/install.sh | bash -s -- --full
 #
 
 set -e
@@ -11,11 +16,33 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
 DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Installation directory
 VIBE_HOME="${VIBE_HOME:-$HOME/.vibeframe}"
+
+# Default options
+FULL_INSTALL=false
+SKIP_SETUP=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --full)
+      FULL_INSTALL=true
+      shift
+      ;;
+    --skip-setup)
+      SKIP_SETUP=true
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
 
 # Print banner
 banner() {
@@ -28,6 +55,11 @@ banner() {
   echo -e "${MAGENTA}  ╚═══╝  ╚═╝╚═════╝ ╚══════╝${NC}  ${MAGENTA}╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝${NC}"
   echo ""
   echo -e "${DIM}AI-First Video Editor${NC}"
+  if [ "$FULL_INSTALL" = true ]; then
+    echo -e "${DIM}Full installation (CLI + Web UI)${NC}"
+  else
+    echo -e "${DIM}CLI installation${NC}"
+  fi
   echo ""
 }
 
@@ -120,8 +152,17 @@ step "Installing dependencies..."
 pnpm install
 
 # Build
-step "Building..."
-pnpm build
+if [ "$FULL_INSTALL" = true ]; then
+  step "Building all packages..."
+  pnpm build
+else
+  step "Building CLI packages..."
+  # Build only CLI-related packages (faster)
+  pnpm --filter @vibeframe/core build
+  pnpm --filter @vibeframe/ai-providers build
+  pnpm --filter @vibeframe/mcp-server build
+  pnpm --filter @vibeframe/cli build
+fi
 
 echo ""
 
@@ -147,20 +188,34 @@ echo -e "${GREEN}✓${NC} Installation complete!"
 echo ""
 echo -e "${DIM}─────────────────────────────────────────${NC}"
 echo ""
-echo "Quick start:"
-echo ""
-echo -e "  ${GREEN}vibe setup${NC}    # Configure API keys"
-echo -e "  ${GREEN}vibe${NC}          # Start interactive mode"
-echo -e "  ${GREEN}vibe --help${NC}   # Show all commands"
-echo ""
 
-# Ask to run setup
-echo -e "${DIM}─────────────────────────────────────────${NC}"
-echo ""
-read -p "Run setup wizard now? (Y/n) " -n 1 -r < /dev/tty
-echo ""
-
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+if [ "$FULL_INSTALL" = true ]; then
+  echo "Quick start:"
   echo ""
-  vibe setup < /dev/tty
+  echo -e "  ${CYAN}vibe setup${NC}    # Configure API keys"
+  echo -e "  ${CYAN}vibe${NC}          # Start CLI mode"
+  echo -e "  ${CYAN}pnpm dev${NC}      # Start web UI (http://localhost:3000)"
+  echo -e "  ${CYAN}vibe --help${NC}   # Show all commands"
+else
+  echo "Quick start:"
+  echo ""
+  echo -e "  ${CYAN}vibe setup${NC}    # Configure API keys"
+  echo -e "  ${CYAN}vibe${NC}          # Start interactive mode"
+  echo -e "  ${CYAN}vibe --help${NC}   # Show all commands"
+  echo ""
+  echo -e "${DIM}Want web UI? Reinstall with: curl ... | bash -s -- --full${NC}"
+fi
+echo ""
+
+# Ask to run setup (unless skipped)
+if [ "$SKIP_SETUP" = false ]; then
+  echo -e "${DIM}─────────────────────────────────────────${NC}"
+  echo ""
+  read -p "Run setup wizard now? (Y/n) " -n 1 -r < /dev/tty
+  echo ""
+
+  if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    echo ""
+    vibe setup < /dev/tty
+  fi
 fi
