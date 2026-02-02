@@ -6,6 +6,140 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Feature: Gemini Video Understanding
+Added video analysis capabilities using Google Gemini's multimodal API.
+
+**New Skill Created:**
+- `.claude/skills/gemini-video/SKILL.md` - Full documentation for video understanding
+- `.claude/skills/gemini-video/scripts/analyze.py` - Python helper script
+
+**GeminiProvider Enhancements:**
+- Added `analyzeVideo()` method for video analysis
+- Supports inline data and YouTube URL input
+- Video metadata options: fps, start/end offset, low resolution mode
+
+**New CLI Command:**
+```bash
+# Analyze local video
+vibe ai gemini-video video.mp4 "Summarize this video"
+
+# Analyze YouTube video
+vibe ai gemini-video "https://youtube.com/watch?v=ID" "What are the key points?"
+
+# With options
+vibe ai gemini-video video.mp4 "Describe action" --fps 5 --start 60 --end 180 -v
+```
+
+**Features:**
+- Video summarization, Q&A, timestamp analysis
+- YouTube URL direct processing (no upload needed)
+- Custom FPS sampling (higher for action, lower for static)
+- Video clipping (start/end offset)
+- Low resolution mode for longer videos (fewer tokens)
+- Token usage reporting with `-v` flag
+
+**Files Created:**
+- `.claude/skills/gemini-video/SKILL.md`
+- `.claude/skills/gemini-video/scripts/analyze.py`
+
+**Files Modified:**
+- `packages/ai-providers/src/gemini/GeminiProvider.ts` (+176 lines)
+- `packages/cli/src/commands/ai.ts` (+89 lines)
+
+---
+
+### Feature: Gemini Nano Banana Pro Support and Image Editing
+Enhanced Gemini image generation with Pro model support and added image editing capabilities.
+
+**SKILL.md Updates:**
+- Added `gemini-3-pro-image-preview` (Nano Banana Pro) model documentation
+- 2K/4K resolution support (Pro model only)
+- Google Search grounding for real-time information
+- Thinking mode documentation
+- Multi-image composition (up to 14 reference images)
+- Complete aspect ratio tables and prompting best practices
+
+**New Scripts:**
+- `edit.py` - Image editing with text prompts (style transfer, object modification, composition)
+
+**GeminiProvider Enhancements:**
+- Model selection: flash (fast) vs pro (professional)
+- Resolution support: 1K, 2K, 4K (Pro only)
+- Added `editImage()` method for image-to-image editing
+- Google Search grounding option
+
+**New CLI Commands:**
+```bash
+# Generate with Pro model and 2K resolution
+vibe ai gemini "product photo" -o product.png -m pro -s 2K
+
+# Image editing
+vibe ai gemini-edit input.png "convert to watercolor style" -o output.png
+
+# Multi-image composition (Pro)
+vibe ai gemini-edit person1.png person2.png "group photo in office" -o group.png -m pro
+```
+
+**Files Created:**
+- `.claude/skills/gemini-image/scripts/edit.py`
+
+**Files Modified:**
+- `.claude/skills/gemini-image/SKILL.md` (complete rewrite)
+- `.claude/skills/gemini-image/scripts/generate.py` (Pro model, resolution, grounding)
+- `packages/ai-providers/src/gemini/GeminiProvider.ts` (+231 lines)
+- `packages/cli/src/commands/ai.ts` (+116 lines)
+
+---
+
+### Fix: Stability AI Image-to-Image Endpoint
+Fixed `sd-img2img` command returning 404 error.
+
+**Problem:**
+- `sd-img2img` used endpoint `/v2beta/stable-image/generate/sd3.5-large`
+- SD3.5 models don't support `mode=image-to-image` parameter
+
+**Solution:**
+- Changed endpoint to `/v2beta/stable-image/generate/sd3` which supports image-to-image mode
+
+**Files Modified:**
+- `packages/ai-providers/src/stability/StabilityProvider.ts` (line 366)
+
+**Verification:**
+```bash
+vibe ai sd-img2img input.png "watercolor style" -o output.png  # Now works
+```
+
+---
+
+### Test: Stability AI and Gemini Skills/CLI Verification
+Comprehensive testing of Stability and Gemini integrations.
+
+**Stability AI Tests (All Passed):**
+
+| Command | Status |
+|---------|--------|
+| `generate.py` (skill) | ✅ |
+| `vibe ai image -p stability` | ✅ |
+| `vibe ai sd` | ✅ |
+| `vibe ai sd-upscale` | ✅ |
+| `vibe ai sd-remove-bg` | ✅ |
+| `vibe ai sd-img2img` | ✅ (fixed) |
+| `vibe ai sd-replace` | ✅ |
+| `vibe ai sd-outpaint` | ✅ |
+
+**Gemini Tests (All Passed):**
+
+| Command | Status |
+|---------|--------|
+| `generate.py` (skill) | ✅ |
+| `edit.py` (skill) | ✅ |
+| `vibe ai image -p gemini` | ✅ |
+| `vibe ai gemini` | ✅ |
+| `vibe ai gemini-edit` | ✅ |
+| `vibe ai gemini-video` | ✅ |
+
+---
+
 ### Feature: Skills → CLI Integration Verification & "Wow" Demo Preparation
 Verified all 9 Claude Code Skills are properly integrated with CLI commands and created a multi-provider demo script.
 
