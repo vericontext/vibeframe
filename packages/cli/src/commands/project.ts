@@ -1,9 +1,28 @@
 import { Command } from "commander";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
+
+/**
+ * Resolve project file path - handles both file paths and directory paths
+ * If path is a directory, looks for project.vibe.json inside
+ */
+async function resolveProjectPath(inputPath: string): Promise<string> {
+  const filePath = resolve(process.cwd(), inputPath);
+
+  try {
+    const stats = await stat(filePath);
+    if (stats.isDirectory()) {
+      return resolve(filePath, "project.vibe.json");
+    }
+  } catch {
+    // Path doesn't exist or other error - let readFile handle it
+  }
+
+  return filePath;
+}
 
 export const projectCommand = new Command("project")
   .description("Project management commands");
@@ -47,7 +66,7 @@ projectCommand
     const spinner = ora("Loading project...").start();
 
     try {
-      const filePath = resolve(process.cwd(), file);
+      const filePath = await resolveProjectPath(file);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -90,7 +109,7 @@ projectCommand
     const spinner = ora("Updating project...").start();
 
     try {
-      const filePath = resolve(process.cwd(), file);
+      const filePath = await resolveProjectPath(file);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { readFile, access } from "node:fs/promises";
+import { readFile, access, stat } from "node:fs/promises";
 import { resolve, basename } from "node:path";
 import { spawn, exec } from "node:child_process";
 import { promisify } from "node:util";
@@ -8,6 +8,25 @@ import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 
 const execAsync = promisify(exec);
+
+/**
+ * Resolve project file path - handles both file paths and directory paths
+ * If path is a directory, looks for project.vibe.json inside
+ */
+async function resolveProjectPath(inputPath: string): Promise<string> {
+  const filePath = resolve(process.cwd(), inputPath);
+
+  try {
+    const stats = await stat(filePath);
+    if (stats.isDirectory()) {
+      return resolve(filePath, "project.vibe.json");
+    }
+  } catch {
+    // Path doesn't exist or other error - let readFile handle it
+  }
+
+  return filePath;
+}
 
 /**
  * Get the duration of a media file using ffprobe
@@ -72,7 +91,7 @@ export async function runExport(
     }
 
     // Load project
-    const filePath = resolve(process.cwd(), projectPath);
+    const filePath = await resolveProjectPath(projectPath);
     const content = await readFile(filePath, "utf-8");
     const data: ProjectFile = JSON.parse(content);
     const project = Project.fromJSON(data);
@@ -160,7 +179,7 @@ export const exportCommand = new Command("export")
 
       // Load project
       spinner.text = "Loading project...";
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveProjectPath(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
