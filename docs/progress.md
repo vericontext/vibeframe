@@ -6,6 +6,41 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Fix: Script-to-Video Voiceover Using Wrong Field
+Fixed script-to-video generating nonsensical voiceovers by using background music descriptions instead of actual narration.
+
+**Problem:** Running `vibe ai script-to-video "Cooking recipe..."` produced voiceovers like:
+> "Upbeat, light cooking music with natural kitchen ambiance. Rhythmic cooking sounds mixed with light background music..."
+
+The TTS was reading the `audio` field (background music descriptions) instead of actual narration.
+
+**Root Cause:** Claude's storyboard prompt defined `audio` as "Suggested audio/music", and the code used `seg.audio || seg.description` for voiceover text.
+
+**Solution:**
+1. Added `narration` field to StoryboardSegment interface
+2. Updated Claude prompt to generate proper narration:
+   ```
+   "narration": "Voiceover script to be spoken during this segment"
+   ```
+3. Changed TTS to use `seg.narration || seg.description`
+
+**Files Modified:**
+- `packages/ai-providers/src/claude/ClaudeProvider.ts` - Added narration field to interface and prompt
+- `packages/cli/src/commands/ai.ts` - Use narration for voiceover text
+
+**Before:**
+```json
+"audio": "Upbeat cooking music with natural kitchen ambiance"
+```
+
+**After:**
+```json
+"narration": "Welcome to today's cooking adventure! We're going to create something absolutely delicious using these beautiful, fresh ingredients.",
+"audio": "Light, upbeat acoustic guitar background music"
+```
+
+---
+
 ### Fix: Export Mixed Resolution Videos with Scale Filter
 Fixed export failing when video clips have different resolutions (common with AI-generated images).
 
