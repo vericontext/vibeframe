@@ -2534,8 +2534,20 @@ aiCommand
         scriptContent = await readFile(filePath, "utf-8");
       }
 
+      // Determine output directory for assets
+      // If -o looks like a directory and --output-dir is not explicitly set, use -o directory for assets
+      let effectiveOutputDir = options.outputDir;
+      const outputLooksLikeDirectory =
+        options.output.endsWith("/") ||
+        (!options.output.endsWith(".json") && !options.output.endsWith(".vibe.json"));
+
+      if (outputLooksLikeDirectory && options.outputDir === "script-video-output") {
+        // User specified a directory for -o but didn't set --output-dir, use -o directory for assets
+        effectiveOutputDir = options.output;
+      }
+
       // Create output directory
-      const outputDir = resolve(process.cwd(), options.outputDir);
+      const outputDir = resolve(process.cwd(), effectiveOutputDir);
       if (!existsSync(outputDir)) {
         await mkdir(outputDir, { recursive: true });
       }
@@ -2998,7 +3010,7 @@ aiCommand
       console.log(`  📄 Project: ${chalk.cyan(outputPath)}`);
       console.log(`  🎬 Scenes: ${segments.length}`);
       console.log(`  ⏱️  Duration: ${totalDuration}s`);
-      console.log(`  📁 Assets: ${options.outputDir}/`);
+      console.log(`  📁 Assets: ${effectiveOutputDir}/`);
       if (voiceoverPath) {
         console.log(`  🎙️  Voiceover: voiceover.mp3`);
       }

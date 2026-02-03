@@ -3,15 +3,16 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-135%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
 ```bash
-npm install -g @vibeframe/cli
+# Install VibeFrame CLI
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
 
 # Create a TikTok video from a script
-vibe ai script-to-video "A day in the life of a developer..." -a 9:16 -o project.vibe.json
+vibe ai script-to-video "A day in the life of a developer..." -a 9:16 -o ./tiktok/
 
 # Extract highlights from a podcast
 vibe ai highlights podcast.mp4 -d 60 -p highlights.vibe.json
@@ -48,31 +49,37 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 
 ### Prerequisites
 - Node.js 18+
-- pnpm 9+
 - FFmpeg (for video processing)
 
 ### Installation
 
 ```bash
-git clone https://github.com/vericontext/vibeframe.git
-cd vibeframe
-pnpm install
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
 ```
 
 ### Try It
 
 ```bash
 # Create a project
-pnpm vibe project create "My First Video" -o my-video.vibe.json
+vibe project create "My First Video" -o my-video.vibe.json
 
 # Add a video source
-pnpm vibe timeline add-source my-video.vibe.json ./intro.mp4
+vibe timeline add-source my-video.vibe.json ./intro.mp4
 
 # List what's in the project
-pnpm vibe timeline list my-video.vibe.json
+vibe timeline list my-video.vibe.json
 
 # Export to MP4
-pnpm vibe export my-video.vibe.json -o output.mp4
+vibe export my-video.vibe.json -o output.mp4
+```
+
+### Development Setup
+
+```bash
+git clone https://github.com/vericontext/vibeframe.git
+cd vibeframe
+pnpm install
+pnpm build
 ```
 
 ---
@@ -243,7 +250,7 @@ vibe ai viral <project>              # Platform optimization
 vibeframe/
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (135 tests)
+│   ├── cli/               # Command-line interface (220 tests)
 │   ├── core/              # Timeline data structures
 │   ├── ai-providers/      # AI provider plugins
 │   ├── mcp-server/        # MCP server for AI assistants
@@ -275,7 +282,7 @@ See [docs/roadmap.md](docs/roadmap.md) for details.
 ```bash
 pnpm dev       # Start dev server
 pnpm build     # Build all packages
-pnpm test      # Run tests (135 passing)
+pnpm test      # Run tests (220 passing)
 pnpm lint      # Lint code
 ```
 

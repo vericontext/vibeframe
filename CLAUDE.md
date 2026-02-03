@@ -11,7 +11,7 @@ VibeFrame is an AI-native video editing tool. CLI-first, MCP-ready. It uses natu
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run all tests (135 passing)
+pnpm test             # Run all tests (220 passing)
 pnpm lint             # Lint all packages
 pnpm format           # Format code with Prettier
 

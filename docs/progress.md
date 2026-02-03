@@ -6,6 +6,123 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Docs: Fix Test Count Inconsistency
+Fixed documentation inconsistency where test counts varied across files.
+
+**Problem:** Different documents showed different test counts:
+- README.md: "135 passing" (outdated)
+- CLAUDE.md: "135 passing" (outdated)
+- roadmap.md: "220 passing" (correct)
+
+This inconsistency damages trust with early adopters.
+
+**Solution:** Unified all test count references to **220** (actual count).
+
+**Files Modified:**
+- `README.md` - Updated badge and text (3 occurrences)
+- `CLAUDE.md` - Updated build command comment
+
+---
+
+### Fix: README Installation Instructions (Critical)
+Fixed critical onboarding issue where README advertised non-existent npm package.
+
+**Problem:** README instructed users to run:
+```bash
+npm install -g @vibeframe/cli
+```
+But `@vibeframe/cli` is **NOT published to npm** (404 error). This breaks the first step of user onboarding.
+
+**Solution:** Unified installation instructions to use curl installer:
+1. Changed hero code block from `npm install` to `curl ... | bash`
+2. Updated Quick Start > Installation to use curl installer
+3. Separated "Development Setup" section for contributors (git clone + pnpm)
+4. Removed `pnpm 9+` from prerequisites (not needed for users)
+
+**Files Modified:**
+- `README.md` - Updated installation instructions (lines 10-83)
+
+**Before:**
+```bash
+npm install -g @vibeframe/cli  # ❌ 404 error
+```
+
+**After:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
+```
+
+---
+
+### Fix: Export FFmpeg Filtergraph Error with Mixed Media Types
+Fixed critical bug where `vibe export` failed with "Error binding filtergraph inputs/outputs" when project contained both image and audio clips.
+
+**Problem:** The export command generated invalid FFmpeg filtergraph when a project had:
+- Video track: image source (e.g., `test-image.png`)
+- Audio track: audio source (e.g., `test-tts.mp3`)
+
+The bug occurred because `buildFFmpegArgs()` created video filters for ALL clips, including audio-only sources:
+```
+# Invalid: [1:v] references non-existent video stream in mp3 file
+-filter_complex [0:v]trim=...[v0];[1:v]trim=...[v1];[1:a]atrim=...[a1]
+```
+
+**Solution:** Separated clip processing by media type:
+1. Filter clips into `videoClips` (image/video sources) and `audioClips` (audio/video sources)
+2. Generate video filters only for video clips
+3. Generate audio filters only for audio clips
+4. Use correct stream counts in concat filters
+
+**Files Modified:**
+- `packages/cli/src/commands/export.ts` - Rewrote `buildFFmpegArgs()` filter generation (lines 292-386)
+
+**Verification:**
+```bash
+# Create project with image + audio
+vibe project create "Test" -o test.vibe.json
+vibe timeline add-source test.vibe.json image.png -d 5
+vibe timeline add-source test.vibe.json audio.mp3
+vibe timeline add-clip test.vibe.json <image-id> -s 0 -d 5
+vibe timeline add-clip test.vibe.json <audio-id> -s 0 -d 5
+
+# Export now works correctly
+vibe export test.vibe.json -o output.mp4
+# ✔ Exported: output.mp4
+```
+
+---
+
+### Fix: script-to-video Assets Saved to Wrong Directory
+Fixed bug where `script-to-video` saved generated images/videos to default `script-video-output/` directory instead of the `-o` specified directory.
+
+**Problem:** When running:
+```bash
+vibe ai script-to-video "..." -o ./my-video/ --images-only
+```
+- Project file: `./my-video/project.vibe.json` ✅
+- Assets (images): `./script-video-output/` ❌ (wrong location!)
+
+The `-o` option only controlled the project file path, while assets always used `--output-dir` default value.
+
+**Solution:**
+1. Detect when `-o` looks like a directory (ends with `/` or no `.json` extension)
+2. If `--output-dir` is not explicitly set, use `-o` directory for assets
+3. Updated summary output to show correct asset directory
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts` - Added `effectiveOutputDir` logic (lines 2537-2552) and fixed summary output (line 3013)
+
+**Verification:**
+```bash
+vibe ai script-to-video "Robot. City." -o ./my-video/ --images-only --no-voiceover
+
+# All files now in same directory:
+ls ./my-video/
+# project.vibe.json  storyboard.json  scene-1.png  scene-2.png
+```
+
+---
+
 ### Fix: script-to-video Export Path Handling
 Fixed bug where `script-to-video` command failed when output path doesn't exist yet.
 

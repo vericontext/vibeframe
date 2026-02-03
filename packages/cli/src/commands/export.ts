@@ -294,7 +294,18 @@ function buildFFmpegArgs(
   const videoStreams: string[] = [];
   const audioStreams: string[] = [];
 
-  clips.forEach((clip, clipIdx) => {
+  // Separate clips by track type for proper timeline-based export
+  const videoClips = clips.filter((clip) => {
+    const source = sources.find((s) => s.id === clip.sourceId);
+    return source && (source.type === "image" || source.type === "video");
+  });
+  const audioClips = clips.filter((clip) => {
+    const source = sources.find((s) => s.id === clip.sourceId);
+    return source && (source.type === "audio" || source.type === "video");
+  });
+
+  // Process video clips
+  videoClips.forEach((clip, clipIdx) => {
     const source = sources.find((s) => s.id === clip.sourceId);
     if (!source) return;
 
@@ -326,45 +337,53 @@ function buildFFmpegArgs(
     videoFilter += `[v${clipIdx}]`;
     filterParts.push(videoFilter);
     videoStreams.push(`[v${clipIdx}]`);
-
-    // Audio filter chain (only for video/audio sources, not images)
-    if (source.type === "video" || source.type === "audio") {
-      const audioTrimStart = clip.sourceStartOffset;
-      const audioTrimEnd = clip.sourceStartOffset + clip.duration;
-      let audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
-
-      // Apply audio effects
-      for (const effect of clip.effects || []) {
-        if (effect.type === "fadeIn") {
-          audioFilter += `,afade=t=in:st=0:d=${effect.duration}`;
-        } else if (effect.type === "fadeOut") {
-          const fadeStart = clip.duration - effect.duration;
-          audioFilter += `,afade=t=out:st=${fadeStart}:d=${effect.duration}`;
-        }
-      }
-
-      audioFilter += `[a${clipIdx}]`;
-      filterParts.push(audioFilter);
-      audioStreams.push(`[a${clipIdx}]`);
-    }
   });
 
-  // Concatenate all clips
-  if (clips.length > 1) {
+  // Process audio clips
+  audioClips.forEach((clip, clipIdx) => {
+    const source = sources.find((s) => s.id === clip.sourceId);
+    if (!source) return;
+
+    const srcIdx = sourceMap.get(source.id);
+    if (srcIdx === undefined) return;
+
+    const audioTrimStart = clip.sourceStartOffset;
+    const audioTrimEnd = clip.sourceStartOffset + clip.duration;
+    let audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+
+    // Apply audio effects
+    for (const effect of clip.effects || []) {
+      if (effect.type === "fadeIn") {
+        audioFilter += `,afade=t=in:st=0:d=${effect.duration}`;
+      } else if (effect.type === "fadeOut") {
+        const fadeStart = clip.duration - effect.duration;
+        audioFilter += `,afade=t=out:st=${fadeStart}:d=${effect.duration}`;
+      }
+    }
+
+    audioFilter += `[a${clipIdx}]`;
+    filterParts.push(audioFilter);
+    audioStreams.push(`[a${clipIdx}]`);
+  });
+
+  // Concatenate video clips
+  if (videoStreams.length > 1) {
     filterParts.push(
-      `${videoStreams.join("")}concat=n=${clips.length}:v=1:a=0[outv]`
+      `${videoStreams.join("")}concat=n=${videoStreams.length}:v=1:a=0[outv]`
     );
-    if (audioStreams.length > 0) {
-      filterParts.push(
-        `${audioStreams.join("")}concat=n=${audioStreams.length}:v=0:a=1[outa]`
-      );
-    }
-  } else {
-    // Single clip - just copy
+  } else if (videoStreams.length === 1) {
+    // Single video clip - just copy
     filterParts.push(`${videoStreams[0]}copy[outv]`);
-    if (audioStreams.length > 0) {
-      filterParts.push(`${audioStreams[0]}acopy[outa]`);
-    }
+  }
+
+  // Concatenate or mix audio clips
+  if (audioStreams.length > 1) {
+    filterParts.push(
+      `${audioStreams.join("")}concat=n=${audioStreams.length}:v=0:a=1[outa]`
+    );
+  } else if (audioStreams.length === 1) {
+    // Single audio clip - just copy
+    filterParts.push(`${audioStreams[0]}acopy[outa]`);
   }
 
   // Add filter complex
