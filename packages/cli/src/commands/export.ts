@@ -314,14 +314,22 @@ function buildFFmpegArgs(
   const audioStreams: string[] = [];
 
   // Separate clips by track type for proper timeline-based export
+  // Get track info to determine clip types
   const videoClips = clips.filter((clip) => {
     const source = sources.find((s) => s.id === clip.sourceId);
     return source && (source.type === "image" || source.type === "video");
   });
+
+  // Only include explicit audio clips (from audio sources on audio tracks)
+  // Video sources on video tracks should NOT contribute to audio concat
+  // This avoids mixing voiceover with embedded video audio
   const audioClips = clips.filter((clip) => {
     const source = sources.find((s) => s.id === clip.sourceId);
-    return source && (source.type === "audio" || source.type === "video");
+    return source && source.type === "audio";
   });
+
+  // Get target resolution for scaling (all clips must match for concat)
+  const [targetWidth, targetHeight] = presetSettings.resolution.split("x").map(Number);
 
   // Process video clips
   videoClips.forEach((clip, clipIdx) => {
@@ -342,6 +350,9 @@ function buildFFmpegArgs(
       const trimEnd = clip.sourceStartOffset + clip.duration;
       videoFilter = `[${srcIdx}:v]trim=start=${trimStart}:end=${trimEnd},setpts=PTS-STARTPTS`;
     }
+
+    // Scale to target resolution for concat compatibility (force same size, pad if needed)
+    videoFilter += `,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
 
     // Apply effects
     for (const effect of clip.effects || []) {
