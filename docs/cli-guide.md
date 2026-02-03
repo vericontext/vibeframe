@@ -33,7 +33,6 @@ vibe --help
 
 ### Step 2: Configure API Keys
 
-**Option A: Interactive Setup**
 ```bash
 # Basic setup - LLM provider only (for REPL natural language parsing)
 vibe setup
@@ -47,35 +46,7 @@ vibe setup --full
 | `vibe setup` | LLM provider (Claude/OpenAI/Gemini/Ollama) + its API key |
 | `vibe setup --full` | LLM + ElevenLabs, Runway, Kling, Stability, Replicate |
 
-**Option B: Environment Variables**
-```bash
-# Minimum for testing (Gemini covers image + video analysis)
-export GOOGLE_API_KEY="AIza..."
-
-# Full setup
-export GOOGLE_API_KEY="AIza..."          # Gemini (image gen, video analysis)
-export ELEVENLABS_API_KEY="..."          # TTS, SFX
-export ANTHROPIC_API_KEY="sk-ant-..."    # Claude (storyboard, highlights)
-export OPENAI_API_KEY="sk-..."           # Whisper (transcription), DALL-E
-export STABILITY_API_KEY="sk-..."        # Stable Diffusion
-```
-
-**API Keys Required by Command:**
-
-| Command | Required API Key |
-|---------|-----------------|
-| `vibe ai image` (default) | `GOOGLE_API_KEY` |
-| `vibe ai image -p dalle` | `OPENAI_API_KEY` |
-| `vibe ai image -p stability` | `STABILITY_API_KEY` |
-| `vibe ai tts`, `sfx`, `voices` | `ELEVENLABS_API_KEY` |
-| `vibe ai transcribe` | `OPENAI_API_KEY` |
-| `vibe ai highlights` | `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` |
-| `vibe ai highlights --use-gemini` | `GOOGLE_API_KEY` |
-| `vibe ai auto-shorts` | Same as highlights |
-| `vibe ai storyboard` | `ANTHROPIC_API_KEY` |
-| `vibe ai script-to-video` | `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` |
-| `vibe ai video` | `RUNWAY_API_SECRET` |
-| `vibe ai kling` | `KLING_API_KEY` |
+For manual configuration, see [Configuration](#configuration).
 
 ### Step 3: Test AI Features (CLI Mode)
 
@@ -93,7 +64,7 @@ vibe ai sfx "magical sparkle sound" -o test-sfx.mp3 -d 2
 ### Step 4: Test REPL Mode (Natural Language)
 
 ```bash
-vibe
+vibe  # Start REPL
 ```
 
 In REPL mode, natural language input is automatically converted to commands by the LLM:
@@ -103,13 +74,10 @@ vibe> create a new project called my-video
 ✓ Created project: my-video
 
 vibe [my-video]> generate an image of a sunset landscape
-✓ Image saved: a-sunset-landscape.png
+✓ Image saved: sunset-landscape.png
 
-vibe [my-video]> create a welcome audio message
-✓ Audio saved: welcome.mp3
-
-vibe [my-video]> add a-sunset-landscape.png to the project
-✓ Added source: a-sunset-landscape.png (source-1)
+vibe [my-video]> add sunset-landscape.png to the project
+✓ Added source: sunset-landscape.png (source-1)
 
 vibe [my-video]> add fade-in effect to the clip
 ✓ Added fadeIn effect to clip-1
@@ -123,56 +91,64 @@ vibe [my-video]> export the video
 - Generate media files first (images, audio) before adding them to the timeline
 - The LLM converts natural language → CLI commands internally
 
-### Supported REPL Patterns
-
-**AI Generation (no project required):**
-```
-vibe> generate an image of a sunset landscape
-vibe> create an image of a robot mascot
-vibe> make a picture of mountains
-
-vibe> create audio saying "Welcome to VibeFrame"
-vibe> generate voice message "Hello world"
-vibe> make narration for intro
-
-vibe> create a sound effect of whoosh
-vibe> generate sfx explosion
-vibe> make sound of rain
-```
-
-**Project Management:**
-```
-vibe> create a new project called my-video
-vibe> new my-video
-vibe> save
-vibe> save as project.vibe.json
-```
-
-**Timeline Operations (project required):**
-```
-vibe> add sunset.png
-vibe> add fade-in effect to clip-1
-vibe> trim clip to 5 seconds
-vibe> export output.mp4
-```
-
-**Built-in Commands:**
-| Command | Description |
-|---------|-------------|
-| `new <name>` | Create new project |
-| `open <file>` | Open project file |
-| `save [file]` | Save project |
-| `info` | Show project info |
-| `list` | Show timeline |
-| `add <file>` | Add media file |
-| `export [file]` | Export video |
-| `undo` | Undo last action |
-| `help` | Show help |
-| `exit` | Exit REPL |
-
 > **Note:** IDs shown as `source-1`, `clip-1` are simplified for readability.
 > Actual IDs are timestamp-based (e.g., `1770107336723-8jfmo7kvu`).
 > Use `list` or `info` commands to see real IDs.
+
+---
+
+## Configuration
+
+### Config File Location
+```
+~/.vibeframe/config.yaml
+```
+
+### Example Configuration
+```yaml
+version: "1.0.0"
+llm:
+  provider: claude          # claude, openai, gemini, ollama
+providers:
+  anthropic: sk-ant-...     # Claude
+  openai: sk-...            # GPT, Whisper, DALL-E
+  google: AIza...           # Gemini
+  elevenlabs: ...           # TTS, SFX
+  stability: sk-...         # Stable Diffusion
+  runway: ...               # Video generation
+  kling: ...                # Video generation
+defaults:
+  aspectRatio: "16:9"
+  exportQuality: standard
+```
+
+### Environment Variables
+```bash
+export GOOGLE_API_KEY="AIza..."          # Gemini (image, video analysis)
+export ELEVENLABS_API_KEY="..."          # TTS, SFX
+export ANTHROPIC_API_KEY="sk-ant-..."    # Claude
+export OPENAI_API_KEY="sk-..."           # Whisper, DALL-E
+export STABILITY_API_KEY="sk-..."        # Stable Diffusion
+export RUNWAY_API_SECRET="..."           # Runway
+export KLING_API_KEY="..."               # Kling
+```
+
+### API Keys by Command
+
+| Command | Required API Key |
+|---------|-----------------|
+| `vibe ai image` (default) | `GOOGLE_API_KEY` |
+| `vibe ai image -p dalle` | `OPENAI_API_KEY` |
+| `vibe ai image -p stability` | `STABILITY_API_KEY` |
+| `vibe ai tts`, `sfx`, `voices` | `ELEVENLABS_API_KEY` |
+| `vibe ai transcribe` | `OPENAI_API_KEY` |
+| `vibe ai highlights` | `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` |
+| `vibe ai highlights --use-gemini` | `GOOGLE_API_KEY` |
+| `vibe ai auto-shorts` | Same as highlights |
+| `vibe ai storyboard` | `ANTHROPIC_API_KEY` |
+| `vibe ai script-to-video` | `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` |
+| `vibe ai video` | `RUNWAY_API_SECRET` |
+| `vibe ai kling` | `KLING_API_KEY` |
 
 ---
 
@@ -208,72 +184,6 @@ my-video.vibe.json
 - **No project** = Just generate files (images, audio, etc.)
 - **With project** = Assemble files into a video (timeline + export)
 
-**Example: Quick image generation (no project)**
-```
-vibe> generate an image of a cat
-✓ Saved: cat.png
-vibe> exit
-```
-
-**Example: Full video workflow (needs project)**
-```
-vibe> new my-video
-✓ Created project: my-video
-
-vibe [my-video]> generate image of intro scene
-✓ Saved: intro-scene.png
-
-vibe [my-video]> generate audio "Welcome to my channel"
-✓ Saved: output.mp3
-
-vibe [my-video]> add intro-scene.png
-✓ Added source: intro-scene.png
-
-vibe [my-video]> add output.mp3
-✓ Added source: output.mp3
-
-vibe [my-video]> export my-video.mp4
-✓ Exported: my-video.mp4
-```
-
-### Key Points
-
-- Timeline operations (add clips, effects, export) require a project
-- AI generation commands (`vibe ai image`, `vibe ai tts`) work without a project
-- In REPL mode, project is stored in memory until you `save` it
-- In CLI mode, you pass the project file path to each command
-
-**Typical workflow:**
-```bash
-# 1. Generate media (no project needed)
-vibe ai image "sunset landscape" -o sunset.png
-vibe ai tts "Welcome" -o welcome.mp3
-
-# 2. Create project
-vibe project create "my-video" -o my-video.vibe.json
-
-# 3. Add media to project timeline
-vibe timeline add-source my-video.vibe.json sunset.png
-vibe timeline add-source my-video.vibe.json welcome.mp3
-
-# 4. Create clips from sources
-vibe timeline add-clip my-video.vibe.json source-1 -d 5
-
-# 5. Export final video
-vibe export my-video.vibe.json -o output.mp4
-```
-
-**REPL mode equivalent:**
-```
-vibe> generate a sunset image
-vibe> create welcome audio
-vibe> new my-video
-vibe [my-video]> add sunset.png
-vibe [my-video]> add welcome.mp3
-vibe [my-video]> save my-video.vibe.json
-vibe [my-video]> export output.mp4
-```
-
 ---
 
 ## Two Ways to Use VibeFrame
@@ -302,6 +212,21 @@ vibe> create a sunset image and save as sunset.png
 vibe> create a new project called my-video
 vibe> export the video
 ```
+
+**Built-in REPL Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `new <name>` | Create new project |
+| `open <file>` | Open project file |
+| `save [file]` | Save project |
+| `info` | Show project info |
+| `list` | Show timeline |
+| `add <file>` | Add media file |
+| `export [file]` | Export video |
+| `undo` | Undo last action |
+| `help` | Show help |
+| `exit` | Exit REPL |
 
 ---
 
@@ -710,14 +635,19 @@ vibe> extend the image horizontally
 
 ---
 
-## Project Management
+## Project & Timeline
 
-### Creating Projects
+### Project Management
 
 **CLI Mode:**
 ```bash
+# Create project
 vibe project create "My Video" -o project.vibe.json
+
+# View project info
 vibe project info project.vibe.json
+
+# Update project settings
 vibe project set project.vibe.json --name "New Name"
 ```
 
@@ -763,22 +693,6 @@ vibe> show timeline
 vibe> trim the first clip to 5 seconds
 vibe> split the clip at 3 seconds
 vibe> delete the last clip
-```
-
-### Batch Operations
-
-**CLI Mode:**
-```bash
-vibe batch import project.vibe.json ./videos/ --filter ".mp4"
-vibe batch concat project.vibe.json --all
-vibe batch apply-effect project.vibe.json fadeIn --all
-```
-
-**REPL Mode:**
-```
-vibe> import all mp4 files from videos folder
-vibe> concatenate all clips
-vibe> apply fade-in to all clips
 ```
 
 ### Export
@@ -923,44 +837,6 @@ vibe export reel.vibe.json -o highlight-reel.mp4 -p high
 vibe> find emotional moments in event.mp4 and create a 2-minute highlight reel
 vibe> show project info
 vibe> export in high quality
-```
-
----
-
-## Configuration
-
-### Config File Location
-```
-~/.vibeframe/config.yaml
-```
-
-### Example Configuration
-```yaml
-version: "1.0.0"
-llm:
-  provider: claude          # claude, openai, gemini, ollama
-providers:
-  anthropic: sk-ant-...     # Claude
-  openai: sk-...            # GPT, Whisper, DALL-E
-  google: AIza...           # Gemini
-  elevenlabs: ...           # TTS, SFX
-  stability: sk-...         # Stable Diffusion
-  runway: ...               # Video generation
-  kling: ...                # Video generation
-defaults:
-  aspectRatio: "16:9"
-  exportQuality: standard
-```
-
-### Environment Variables
-```bash
-export GOOGLE_API_KEY="AIza..."          # Gemini (image, video analysis)
-export ELEVENLABS_API_KEY="..."          # TTS, SFX
-export ANTHROPIC_API_KEY="sk-ant-..."    # Claude
-export OPENAI_API_KEY="sk-..."           # Whisper, DALL-E
-export STABILITY_API_KEY="sk-..."        # Stable Diffusion
-export RUNWAY_API_SECRET="..."           # Runway
-export KLING_API_KEY="..."               # Kling
 ```
 
 ---

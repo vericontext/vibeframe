@@ -6,6 +6,37 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Docs: Reorganize cli-guide.md to Reduce Duplication
+Reorganized the CLI guide documentation to eliminate redundant content and improve maintainability.
+
+**Problem:** cli-guide.md had ~1006 lines with significant duplication:
+- API keys listed 3 times (Quick Start, API table, Config section)
+- "Supported REPL Patterns" section duplicated examples already in AI Commands Reference
+- Core Concepts explained project concept multiple times with overlapping workflow examples
+- Batch Operations section rarely used (can use `--help` instead)
+
+**Solution:**
+1. Consolidated all API key information into single Configuration section
+2. Quick Start Step 2 now links to Configuration instead of duplicating
+3. Removed "Supported REPL Patterns" section (lines 126-175) - duplicated AI Commands
+4. Simplified Core Concepts - removed duplicate workflow examples
+5. Removed Batch Operations section (available via `--help`)
+6. Merged Project Management and Timeline into unified "Project & Timeline" section
+7. Moved "Built-in REPL Commands" table to "Two Ways to Use VibeFrame" section
+8. Fixed filename consistency in Quick Start REPL example (sunset-landscape.png used consistently)
+
+**Files Modified:**
+- `docs/cli-guide.md` - Reorganized and deduplicated
+
+**Result:**
+- Before: ~1006 lines
+- After: ~882 lines (~12% reduction)
+- Cleaner structure with single source of truth for API keys
+- All commands still documented
+- CLI/REPL examples preserved per user preference
+
+---
+
 ### Fix: REPL "ai voices" and "ai video -i" Bugs
 Fixed two REPL bugs where commands were misclassified or disabled.
 
