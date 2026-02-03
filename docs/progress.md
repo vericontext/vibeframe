@@ -6,6 +6,40 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Fix: script-to-video Export Path Handling
+Fixed bug where `script-to-video` command failed when output path doesn't exist yet.
+
+**Problem:** Running `vibe ai script-to-video "..." -o ./launch-video/` would fail with `ENOTDIR: not a directory` error. The `-o` option only checked if the path was an **existing** directory. If the directory didn't exist, it attempted to write directly to that path without creating parent directories first.
+
+**Solution:** Updated output path handling to:
+1. Detect if path looks like a directory (ends with `/` or has no `.json` extension)
+2. Create the directory if it doesn't exist (using `mkdir` with `recursive: true`)
+3. Save the project file as `project.vibe.json` inside
+4. For file paths, ensure parent directory exists before writing
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts` - Updated script-to-video output path handling (lines 2956-2989)
+
+**Usage:**
+```bash
+# Directory path with trailing slash (creates dir if needed)
+vibe ai script-to-video "Product launch." -o ./launch-video/
+
+# Directory path without trailing slash (creates dir if needed)
+vibe ai script-to-video "Product launch." -o ./launch-video
+
+# Nested directory path (creates all parent dirs)
+vibe ai script-to-video "Product launch." -o ./deep/nested/output/
+
+# Explicit file path (creates parent dir if needed)
+vibe ai script-to-video "Product launch." -o ./output/my-project.vibe.json
+
+# Then export works correctly
+vibe export ./launch-video/project.vibe.json -o final.mp4
+```
+
+---
+
 ### Docs: Clarify script-to-video Output in cli-guide.md
 Updated script-to-video documentation to accurately reflect video file output and full pipeline usage.
 

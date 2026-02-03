@@ -2955,11 +2955,38 @@ aiCommand
 
       // Save project file
       let outputPath = resolve(process.cwd(), options.output);
-      // If output is a directory, save project file inside it
-      if (existsSync(outputPath) && (await stat(outputPath)).isDirectory()) {
+
+      // Detect if output looks like a directory (ends with / or no .json extension)
+      const looksLikeDirectory =
+        options.output.endsWith("/") ||
+        (!options.output.endsWith(".json") &&
+          !options.output.endsWith(".vibe.json"));
+
+      if (looksLikeDirectory) {
+        // Create directory if it doesn't exist
+        if (!existsSync(outputPath)) {
+          await mkdir(outputPath, { recursive: true });
+        }
         outputPath = resolve(outputPath, "project.vibe.json");
+      } else if (
+        existsSync(outputPath) &&
+        (await stat(outputPath)).isDirectory()
+      ) {
+        // Existing directory without trailing slash
+        outputPath = resolve(outputPath, "project.vibe.json");
+      } else {
+        // File path - ensure parent directory exists
+        const parentDir = dirname(outputPath);
+        if (!existsSync(parentDir)) {
+          await mkdir(parentDir, { recursive: true });
+        }
       }
-      await writeFile(outputPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      await writeFile(
+        outputPath,
+        JSON.stringify(project.toJSON(), null, 2),
+        "utf-8"
+      );
 
       assembleSpinner.succeed(chalk.green("Project assembled"));
 
