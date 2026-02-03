@@ -6,6 +6,26 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Fix: Runway Video Generation Aspect Ratio Bug
+Fixed bug where `vibe ai video` command failed with "ratio must be one of: 768:1280, 1280:768" error.
+
+**Problem:** CLI passed user-friendly aspect ratio format (e.g., `16:9`) directly to Runway API, but API expects pixel dimensions (e.g., `1280:768`).
+
+**Solution:** Added ratio mapping in RunwayProvider:
+- `16:9` → `1280:768`
+- `9:16` → `768:1280`
+
+**Files Modified:**
+- `packages/ai-providers/src/runway/RunwayProvider.ts` - Added ratio mapping before API call
+
+**Verification:**
+```bash
+vibe ai video "camera slowly zooms in" -i image.png -o video.mp4 -r 16:9
+# ✔ Video generated and saved
+```
+
+---
+
 ### Docs: Reorganize cli-guide.md to Reduce Duplication
 Reorganized the CLI guide documentation to eliminate redundant content and improve maintainability.
 
