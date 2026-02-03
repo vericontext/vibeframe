@@ -6,6 +6,37 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Docs: Clarify script-to-video Output in cli-guide.md
+Updated script-to-video documentation to accurately reflect video file output and full pipeline usage.
+
+**Problem:** Previous documentation was misleading:
+- Most examples used `--images-only` flag
+- Output structure only showed `.png` files, missing `.mp4` video files
+- Users might think video generation is incomplete or missing
+
+**Solution:**
+1. Added full pipeline example showing images → videos → export workflow
+2. Updated output structure to show both `.png` and `.mp4` files
+3. Added options table documenting `--images-only`, `--no-voiceover`, `-g`, `-i` flags
+4. Reordered examples to show full pipeline first, `--images-only` as secondary option
+
+**Files Modified:**
+- `docs/cli-guide.md` - Updated Script-to-Video section (lines 392-453)
+
+**Usage:**
+```bash
+# Full pipeline: images → videos → timeline project
+vibe ai script-to-video "Product launch. Feature demo. Call to action." \
+  -o ./launch-video/ \
+  --image-provider gemini \
+  -g runway
+
+# Then export final video
+vibe export ./launch-video/project.vibe.json -o final.mp4
+```
+
+---
+
 ### Fix: Runway Video Generation Aspect Ratio Bug
 Fixed bug where `vibe ai video` command failed with "ratio must be one of: 768:1280, 1280:768" error.
 

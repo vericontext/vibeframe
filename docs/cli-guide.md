@@ -395,28 +395,31 @@ Automatically convert text scripts into images/videos.
 
 **CLI Mode:**
 ```bash
-# Generate images only (quick test)
+# Full pipeline: images → videos → timeline project
+vibe ai script-to-video "Product launch. Feature demo. Call to action." \
+  -o ./launch-video/ \
+  --image-provider gemini \
+  -g runway
+
+# Then export final video
+vibe export ./launch-video/project.vibe.json -o final.mp4
+
+# Images only (skip video generation for quick tests)
 vibe ai script-to-video "Space exploration story. Rocket launch. Astronauts. Earth view." \
   -o ./space-video/ \
   --images-only \
   --no-voiceover
 
-# Gemini images + narration
-vibe ai script-to-video "Product intro. Dashboard screen. Report generation. Call to action." \
-  -o ./demo/ \
-  --image-provider gemini
-
-# Use DALL-E images
+# Gemini images + Kling video generation
 vibe ai script-to-video "Fantasy world. Magical forest. Dragon and knight." \
   -o ./fantasy/ \
-  --image-provider dalle \
-  --images-only
+  --image-provider gemini \
+  -g kling
 
-# Stability AI images (realistic)
+# Stability AI images (realistic) with narration
 vibe ai script-to-video "Cooking recipe. Ingredient prep. Cooking process. Final dish." \
   -o ./cooking/ \
-  --image-provider stability \
-  --images-only
+  --image-provider stability
 ```
 
 **REPL Mode:**
@@ -426,15 +429,27 @@ vibe> generate product intro script with Gemini images
 vibe> make a cooking recipe video with realistic images
 ```
 
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--images-only` | off | Skip video generation, produce images only |
+| `--no-voiceover` | off | Skip TTS narration |
+| `-g, --generator` | `runway` | Video generator: `runway` or `kling` |
+| `-i, --image-provider` | `dalle` | Image provider: `dalle`, `stability`, `gemini` |
+
 **Output:**
 ```
-./space-video/
-├── storyboard.json      # Scene composition
-├── scene-1.png          # Rocket launch
-├── scene-2.png          # Astronauts
-├── scene-3.png          # Earth view
-├── voiceover.mp3        # Narration (optional)
-└── project.vibe.json    # Project file
+./launch-video/
+├── storyboard.json      # Scene breakdown from Claude
+├── scene-1.png          # Generated image
+├── scene-1.mp4          # Generated video (unless --images-only)
+├── scene-2.png
+├── scene-2.mp4
+├── scene-3.png
+├── scene-3.mp4
+├── voiceover.mp3        # Narration (unless --no-voiceover)
+└── project.vibe.json    # Timeline project file
 ```
 
 ---
