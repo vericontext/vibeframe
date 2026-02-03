@@ -6,6 +6,56 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-03
 
+### Feature: Scene Continuity & Narration Alignment for Script-to-Video
+Enhanced Claude storyboard prompt and image generation to improve visual consistency and narration-visual synchronization.
+
+**Problem:**
+1. 씬 간 시각적 연결성 부족 - 각 씬이 독립적으로 생성되어 스타일이 불일치
+2. 나레이션과 비주얼이 따로 노는 느낌 - 나레이션 내용이 화면에 반영되지 않음
+3. 씬 전환이 갑작스러움 - 하드컷으로 시각적 부담
+
+**Solution:**
+1. Enhanced Claude storyboard prompt with visual continuity guidelines
+2. Added `visualStyle` and `previousSceneLink` fields to `StoryboardSegment` interface
+3. Combined `visuals` with `visualStyle` for consistent image generation
+4. Added fadeIn/fadeOut effects to video clips for smoother transitions
+
+**Files Modified:**
+- `packages/ai-providers/src/claude/ClaudeProvider.ts`
+  - Added `visualStyle?: string` and `previousSceneLink?: string` to `StoryboardSegment` interface
+  - Enhanced `analyzeContent()` system prompt with:
+    - Visual continuity guidelines (consistent color palette, lighting, style)
+    - Narration-visual alignment rules (sync action words with visuals)
+    - Scene flow instructions (logical scene connections)
+    - Good/bad alignment examples
+
+- `packages/cli/src/commands/ai.ts`
+  - Modified image generation to combine `visuals` with `visualStyle` for consistency
+  - Added fadeIn/fadeOut effects (0.3s) to video clips for smooth transitions
+
+**Usage:**
+```bash
+vibe ai script-to-video "3-scene cooking tutorial: 1) Prep ingredients 2) Cook in pan 3) Plate and serve" -o /tmp/continuity-test/ --images-only
+```
+
+**Verification:**
+```bash
+# Check storyboard for new fields
+cat /tmp/continuity-test/storyboard.json
+# Should include visualStyle and previousSceneLink fields
+
+# Export and verify visual flow
+vibe export /tmp/continuity-test/ -o /tmp/continuity-test/final.mp4
+```
+
+**Expected Improvements:**
+- 일관된 비주얼 스타일 - 모든 씬이 같은 색감, 조명, 아트 스타일 유지
+- 자연스러운 씬 전환 - "카메라가 이동하며...", "같은 장소에서..." 등의 연결
+- 나레이션 = 비주얼 - 말하는 내용이 화면에 직접 보이도록
+- 부드러운 페이드 - fadeIn/fadeOut으로 하드컷 완화
+
+---
+
 ### Feature: Per-Scene TTS for Script-to-Video
 Implemented per-scene text-to-speech generation to properly synchronize narration with video scenes.
 

@@ -80,6 +80,10 @@ export interface StoryboardSegment {
   visuals: string;
   /** Voiceover narration script */
   narration?: string;
+  /** Consistent visual style reference for all scenes */
+  visualStyle?: string;
+  /** How this scene connects to the previous one */
+  previousSceneLink?: string;
   /** Suggested background audio/music */
   audio?: string;
   /** Text overlays */
@@ -393,6 +397,22 @@ Respond with JSON only:
 Break down the content into visual segments suitable for a video.
 ${targetDuration ? `Target total duration: ${targetDuration} seconds` : ""}
 
+IMPORTANT GUIDELINES:
+
+1. VISUAL CONTINUITY: Maintain consistent visual style across ALL segments:
+   - Same color palette, lighting style, and art direction throughout
+   - Reference elements from previous scenes when relevant
+   - Use consistent character/subject appearance across scenes
+
+2. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
+   - When narration mentions something specific, the visual must show it
+   - Sync action words with visual actions (e.g., "pour" should show pouring)
+   - Avoid generic narration - be specific to what's on screen
+
+3. SCENE FLOW: Each segment should logically lead to the next:
+   - Use previousSceneLink to describe how scenes connect
+   - Maintain subject/location continuity unless intentionally changing
+
 Respond with JSON array:
 [
   {
@@ -400,16 +420,25 @@ Respond with JSON array:
     "startTime": 0,
     "duration": 5,
     "description": "Brief description of this segment",
-    "visuals": "Detailed visual description for AI image generation (scene, objects, style, lighting)",
-    "narration": "Voiceover script to be spoken during this segment - natural, engaging narration",
+    "visuals": "Detailed visual description - MUST match narration content. Include: scene setup, key objects, character actions, camera angle",
+    "narration": "Voiceover text that DIRECTLY describes what's shown in visuals",
+    "visualStyle": "Art style for consistency (e.g., 'warm cinematic lighting, shallow depth of field, 4K professional video')",
+    "previousSceneLink": "How this connects to previous scene (e.g., 'continuation of kitchen scene' or 'new location: garden')",
     "audio": "Background music/sound effects description (optional)",
     "textOverlays": ["Text to show on screen"]
   }
 ]
 
+Example of GOOD narration-visual alignment:
+- Narration: "First, gather your fresh tomatoes and place them on the cutting board"
+- Visuals: "Close-up of hands placing ripe red tomatoes on wooden cutting board, warm kitchen lighting"
+
+Example of BAD alignment (avoid):
+- Narration: "Let's get started with cooking"
+- Visuals: "Aerial view of city at sunset" (MISMATCHED - nothing about cooking visible)
+
 Important: The "narration" field should contain actual spoken text for voiceover, not descriptions of audio.
-Example narration: "First, let's gather our fresh ingredients. You'll need ripe tomatoes, garlic, and olive oil."
-NOT: "Upbeat cooking music plays"`;
+The "visualStyle" field should be consistent across ALL segments to maintain visual cohesion.`;
 
     try {
       const response = await fetch(`${this.baseUrl}/messages`, {

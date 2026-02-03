@@ -2687,12 +2687,17 @@ aiCommand
         const segment = segments[i];
         imageSpinner.text = `🎨 Generating image ${i + 1}/${segments.length}: ${segment.description.slice(0, 30)}...`;
 
+        // Combine visuals with visualStyle for consistent imagery across scenes
+        const imagePrompt = segment.visualStyle
+          ? `${segment.visuals}. Style: ${segment.visualStyle}`
+          : segment.visuals;
+
         try {
           let imageBuffer: Buffer | undefined;
           let imageUrl: string | undefined;
 
           if (imageProvider === "dalle" && dalleInstance) {
-            const imageResult = await dalleInstance.generateImage(segment.visuals, {
+            const imageResult = await dalleInstance.generateImage(imagePrompt, {
               size: dalleImageSizes[options.aspectRatio] || "1792x1024",
               quality: "standard",
             });
@@ -2700,7 +2705,7 @@ aiCommand
               imageUrl = imageResult.images[0].url;
             }
           } else if (imageProvider === "stability" && stabilityInstance) {
-            const imageResult = await stabilityInstance.generateImage(segment.visuals, {
+            const imageResult = await stabilityInstance.generateImage(imagePrompt, {
               aspectRatio: stabilityAspectRatios[options.aspectRatio] || "16:9",
               model: "sd3.5-large",
             });
@@ -2714,7 +2719,7 @@ aiCommand
               }
             }
           } else if (imageProvider === "gemini" && geminiInstance) {
-            const imageResult = await geminiInstance.generateImage(segment.visuals, {
+            const imageResult = await geminiInstance.generateImage(imagePrompt, {
               aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
             });
             if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
@@ -2965,6 +2970,9 @@ aiCommand
 
       // Add video/image sources and clips
       let currentTime = 0;
+      const videoClipIds: string[] = [];
+      const fadeDuration = 0.3; // Fade duration in seconds for smooth transitions
+
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         const hasVideo = videoPaths[i] && videoPaths[i] !== "";
@@ -2986,7 +2994,7 @@ aiCommand
           duration: segment.duration,
         });
 
-        project.addClip({
+        const clip = project.addClip({
           sourceId: source.id,
           trackId: videoTrack.id,
           startTime: currentTime,
@@ -2995,7 +3003,35 @@ aiCommand
           sourceEndOffset: segment.duration,
         });
 
+        videoClipIds.push(clip.id);
         currentTime += segment.duration;
+      }
+
+      // Add fade effects to video clips for smoother scene transitions
+      for (let i = 0; i < videoClipIds.length; i++) {
+        const clipId = videoClipIds[i];
+        const clip = project.getClips().find(c => c.id === clipId);
+        if (!clip) continue;
+
+        // Add fadeIn effect (except for first clip)
+        if (i > 0) {
+          project.addEffect(clipId, {
+            type: "fadeIn",
+            startTime: 0,
+            duration: fadeDuration,
+            params: {},
+          });
+        }
+
+        // Add fadeOut effect (except for last clip)
+        if (i < videoClipIds.length - 1) {
+          project.addEffect(clipId, {
+            type: "fadeOut",
+            startTime: clip.duration - fadeDuration,
+            duration: fadeDuration,
+            params: {},
+          });
+        }
       }
 
       // Save project file
