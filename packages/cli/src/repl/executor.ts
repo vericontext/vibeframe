@@ -34,7 +34,7 @@ export interface CommandResult {
 
 /** Unified command intent from LLM */
 interface CommandIntent {
-  type: "image" | "tts" | "sfx" | "video" | "timeline" | "project" | "add-media" | "export" | "voices" | "unknown";
+  type: "image" | "tts" | "sfx" | "video" | "timeline" | "project" | "add-media" | "export" | "voices" | "regenerate-scene" | "unknown";
   params: {
     prompt?: string;
     text?: string;
@@ -42,6 +42,11 @@ interface CommandIntent {
     projectName?: string;
     filename?: string;
     imageFile?: string;
+    sceneNumber?: number;
+    projectDir?: string;
+    regenerateType?: "video" | "image" | "narration" | "all";
+    generator?: "runway" | "kling";
+    imageProvider?: "dalle" | "stability" | "gemini";
     [key: string]: unknown;
   };
   clarification?: string;
@@ -72,11 +77,19 @@ Analyze the user's natural language input and classify it into one of these type
 7. "project" - Project management (e.g., "create new project called X", "start a project named Y")
 8. "add-media" - Add existing media file to project (e.g., "add sunset.png to the project", "add video.mp4 to timeline", "include intro.mp3")
 9. "export" - Export project to video file (e.g., "export the video", "render the project", "save as mp4", "export to output.mp4", "render to file")
-10. "unknown" - Cannot understand the command
+10. "regenerate-scene" - Regenerate a specific scene from script-to-video output:
+    - "regenerate scene 3 video" (video only)
+    - "regenerate scene 2 image" (image only)
+    - "regenerate scene 1 narration" (narration/audio only)
+    - "redo scene 4" (regenerate all assets)
+    - "fix scene 3 in ./launch-video/"
+    - "remake the video for scene 2"
+11. "unknown" - Cannot understand the command
 
 IMPORTANT: "ai voices", "voices", "list voices", "show voices" should be classified as "voices", NOT as "tts".
 IMPORTANT: If the input mentions "effect", "fade", "transition", "trim", "cut", "split", "speed", "reverse", "blur", or similar editing terms, classify as "timeline".
 IMPORTANT: If the input mentions "export", "render", "output" in the context of creating a final video file, classify as "export".
+IMPORTANT: If the input mentions "regenerate", "redo", "remake", "fix" with "scene" and a number, classify as "regenerate-scene".
 
 Extract relevant parameters:
 - For image: prompt (the image description), outputFile (optional)
@@ -87,18 +100,27 @@ Extract relevant parameters:
 - For add-media: filename (the file to add, e.g., "sunset.png", "video.mp4")
 - For export: outputFile (optional, e.g., "output.mp4", "my-video.mp4")
 - For timeline: leave params empty (will be parsed separately)
+- For regenerate-scene:
+  - sceneNumber (required, the scene number to regenerate, e.g., 3)
+  - projectDir (optional, the project directory path, e.g., "./launch-video/")
+  - regenerateType: "video" | "image" | "narration" | "all" (default: "all")
+  - generator: "runway" | "kling" (optional, for video regeneration)
+  - imageProvider: "dalle" | "stability" | "gemini" (optional, for image regeneration)
 
 If the command is ambiguous, set clarification to ask for more details.
 
 Respond with JSON only:
 {
-  "type": "image|tts|sfx|video|voices|timeline|project|add-media|export|unknown",
+  "type": "image|tts|sfx|video|voices|timeline|project|add-media|export|regenerate-scene|unknown",
   "params": {
     "prompt": "extracted prompt if applicable",
     "text": "text to speak if tts",
     "outputFile": "output.png or output.mp3 if specified",
     "projectName": "project name if project command",
-    "filename": "file to add if add-media"
+    "filename": "file to add if add-media",
+    "sceneNumber": 3,
+    "projectDir": "./launch-video/",
+    "regenerateType": "video|image|narration|all"
   },
   "clarification": "question to ask if ambiguous (optional)"
 }
@@ -117,7 +139,11 @@ Examples:
 - "export to output.mp4" → {"type": "export", "params": {"outputFile": "output.mp4"}}
 - "ai voices" → {"type": "voices", "params": {}}
 - "list available voices" → {"type": "voices", "params": {}}
-- "create video from sunset.png" → {"type": "video", "params": {"prompt": "sunset", "imageFile": "sunset.png"}}`;
+- "create video from sunset.png" → {"type": "video", "params": {"prompt": "sunset", "imageFile": "sunset.png"}}
+- "regenerate scene 3 video" → {"type": "regenerate-scene", "params": {"sceneNumber": 3, "regenerateType": "video"}}
+- "redo scene 2 image in ./my-video/" → {"type": "regenerate-scene", "params": {"sceneNumber": 2, "regenerateType": "image", "projectDir": "./my-video/"}}
+- "fix scene 4" → {"type": "regenerate-scene", "params": {"sceneNumber": 4, "regenerateType": "all"}}
+- "remake narration for scene 1" → {"type": "regenerate-scene", "params": {"sceneNumber": 1, "regenerateType": "narration"}}`;
 
   try {
     let endpoint: string;
@@ -292,6 +318,34 @@ function fallbackClassify(input: string): CommandIntent {
   // Generic timeline patterns (broader catch)
   if (lower.match(/(?:fade|effect|transition|blur|filter|trim|split|cut|crop|move|duplicate|reverse|speed|opacity|volume|brightness|contrast|saturation)/)) {
     return { type: "timeline", params: {} };
+  }
+
+  // Regenerate scene patterns
+  if (lower.match(/(?:regenerate|redo|remake|fix)\s+(?:the\s+)?(?:scene|씬)\s*(\d+)/i)) {
+    const sceneMatch = lower.match(/(?:scene|씬)\s*(\d+)/i);
+    const sceneNumber = sceneMatch ? parseInt(sceneMatch[1]) : undefined;
+
+    let regenerateType: "video" | "image" | "narration" | "all" = "all";
+    if (lower.includes("video") || lower.includes("비디오") || lower.includes("영상")) {
+      regenerateType = "video";
+    } else if (lower.includes("image") || lower.includes("이미지") || lower.includes("사진")) {
+      regenerateType = "image";
+    } else if (lower.includes("narration") || lower.includes("나레이션") || lower.includes("audio") || lower.includes("오디오") || lower.includes("음성")) {
+      regenerateType = "narration";
+    }
+
+    // Extract project directory if mentioned
+    const dirMatch = input.match(/(?:in|from|at)\s+["']?([./\w-]+)["']?/i);
+    const projectDir = dirMatch ? dirMatch[1] : undefined;
+
+    return {
+      type: "regenerate-scene",
+      params: {
+        sceneNumber,
+        regenerateType,
+        projectDir,
+      }
+    };
   }
 
   return { type: "unknown", params: {}, clarification: "I couldn't understand that command. Try: 'generate an image of...', 'create audio saying...', or 'add file.mp4 to project'" };
@@ -982,6 +1036,51 @@ async function executeNaturalLanguageCommand(
           success: true,
           message: success(`Executed ${executed}/${result.commands.length} command(s)\n${cmdDescriptions}`),
         };
+      }
+
+      case "regenerate-scene": {
+        spinner.stop();
+
+        const sceneNumber = intent.params.sceneNumber as number | undefined;
+        if (!sceneNumber) {
+          return {
+            success: false,
+            message: error("Scene number required. Try: 'regenerate scene 3 video'"),
+          };
+        }
+
+        const projectDir = (intent.params.projectDir as string) || "./";
+        const regenerateType = (intent.params.regenerateType as string) || "all";
+        const generator = intent.params.generator as string | undefined;
+        const imageProvider = intent.params.imageProvider as string | undefined;
+
+        // Build CLI command
+        let cmd = `npx vibe ai regenerate-scene "${projectDir}" --scene ${sceneNumber}`;
+
+        if (regenerateType === "video") {
+          cmd += " --video-only";
+        } else if (regenerateType === "image") {
+          cmd += " --image-only";
+        } else if (regenerateType === "narration") {
+          cmd += " --narration-only";
+        }
+
+        if (generator) {
+          cmd += ` -g ${generator}`;
+        }
+        if (imageProvider) {
+          cmd += ` -i ${imageProvider}`;
+        }
+
+        console.log(chalk.dim(`Running: ${cmd}`));
+
+        try {
+          const result = execSync(cmd, { encoding: "utf-8", cwd: process.cwd(), stdio: "inherit" });
+          return { success: true, message: success(`Scene ${sceneNumber} regeneration complete`) };
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          return { success: false, message: error(`Scene regeneration failed: ${errorMessage}`) };
+        }
       }
 
       default: {
