@@ -21,11 +21,15 @@ import { exportCommand } from "./commands/export.js";
 import { batchCommand } from "./commands/batch.js";
 import { detectCommand } from "./commands/detect.js";
 import { setupCommand } from "./commands/setup.js";
-import { startRepl } from "./repl/index.js";
+import { agentCommand, startAgent } from "./commands/agent.js";
 
 // Re-export repl and config for library usage
+/** @deprecated Use startAgent from commands/agent.js instead */
 export { startRepl, Session, executeReplCommand } from "./repl/index.js";
+export { startAgent } from "./commands/agent.js";
 export { loadConfig, saveConfig, isConfigured, type VibeConfig } from "./config/index.js";
+export { AgentExecutor, ToolRegistry, ConversationMemory } from "./agent/index.js";
+export type { AgentConfig, AgentContext, AgentMessage, ToolCall, ToolResult, LLMAdapter } from "./agent/index.js";
 
 const program = new Command();
 
@@ -42,15 +46,16 @@ program.addCommand(exportCommand);
 program.addCommand(batchCommand);
 program.addCommand(detectCommand);
 program.addCommand(setupCommand);
+program.addCommand(agentCommand);
 
 // Check if any arguments provided
 if (process.argv.length <= 2) {
-  // No arguments - start interactive REPL
+  // No arguments - start Agent mode
   if (process.env.VIBE_DEBUG === "1") {
-    console.log("[CLI] No args, starting REPL...");
+    console.log("[CLI] No args, starting Agent...");
   }
-  startRepl().catch((err) => {
-    console.error("Failed to start REPL:", err);
+  startAgent().catch((err) => {
+    console.error("Failed to start Agent:", err);
     process.exit(1);
   });
 } else {

@@ -61,35 +61,36 @@ vibe ai tts "Welcome to VibeFrame, the AI video editor." -o test-tts.mp3
 vibe ai sfx "magical sparkle sound" -o test-sfx.mp3 -d 2
 ```
 
-### Step 4: Test REPL Mode (Natural Language)
+### Step 4: Test Agent Mode (Natural Language)
 
 ```bash
-vibe  # Start REPL
+vibe  # Start Agent mode (default)
 ```
 
-In REPL mode, natural language input is automatically converted to commands by the LLM:
+In Agent mode, an AI agent autonomously executes multi-step tasks using natural language:
 
 ```
-vibe> create a new project called my-video
-✓ Created project: my-video
+$ vibe
 
-vibe [my-video]> generate an image of a sunset landscape
-✓ Image saved: sunset-landscape.png
+🤖 VibeFrame AI Agent
+──────────────────────────────────────────────────
+Provider: openai
+Type "exit" to quit, "reset" to clear context, "tools" to list available tools
 
-vibe [my-video]> add sunset-landscape.png to the project
-✓ Added source: sunset-landscape.png (source-1)
+you> 프로젝트 만들고 이미지 생성해서 영상으로 추가해줘
 
-vibe [my-video]> add fade-in effect to the clip
-✓ Added fadeIn effect to clip-1
+vibe> (uses: project_create, ai_image, timeline_add_source, timeline_add_clip)
 
-vibe [my-video]> export the video
-✓ Exported: output.mp4
+완료:
+- 프로젝트 생성
+- 이미지 생성됨: generated-image.png
+- 타임라인에 추가됨
 ```
 
 **Note:**
-- `vibe [my-video]>` shows you're editing a project named "my-video"
-- Generate media files first (images, audio) before adding them to the timeline
-- The LLM converts natural language → CLI commands internally
+- Unlike REPL mode (deprecated), Agent mode executes multi-step tasks autonomously
+- Use `--confirm` flag to review each tool execution before it runs
+- Type `tools` to see all 35 available tools
 
 > **Note:** IDs shown as `source-1`, `clip-1` are simplified for readability.
 > Actual IDs are timestamp-based (e.g., `1770107336723-8jfmo7kvu`).
@@ -199,34 +200,79 @@ vibe project create "my-video" -o project.vibe.json
 vibe export project.vibe.json -o output.mp4
 ```
 
-### 2. REPL Mode (Natural Language)
+### 2. Agent Mode (Default, Autonomous AI)
 
-Interactive mode. Speak naturally and the LLM converts to commands.
+Start an autonomous AI agent that can plan and execute multi-step tasks. Agent mode uses an agentic loop where the LLM reasons, calls tools, receives results, and continues until the task is complete.
 
 ```bash
-vibe  # Start REPL
+vibe         # Start Agent mode (default)
+vibe agent   # Explicit agent command
 ```
 
-```
-vibe> create a sunset image and save as sunset.png
-vibe> create a new project called my-video
-vibe> export the video
-```
-
-**Built-in REPL Commands:**
+**Agent Commands:**
 
 | Command | Description |
 |---------|-------------|
-| `new <name>` | Create new project |
-| `open <file>` | Open project file |
-| `save [file]` | Save project |
-| `info` | Show project info |
-| `list` | Show timeline |
-| `add <file>` | Add media file |
-| `export [file]` | Export video |
-| `undo` | Undo last action |
-| `help` | Show help |
-| `exit` | Exit REPL |
+| `exit` / `quit` | Exit agent |
+| `reset` | Clear conversation context |
+| `tools` | List all available tools (35 total) |
+| `context` | Show current project context |
+
+### 3. REPL Mode (Deprecated)
+
+> **Note:** REPL mode is deprecated. Use Agent mode instead, which provides superior multi-step task execution.
+
+The legacy REPL mode is still available programmatically via `startRepl()` for library usage, but `vibe` now starts Agent mode by default.
+
+### 4. Agent Mode Options
+
+```bash
+vibe agent  # Start agent with default provider (OpenAI)
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-p, --provider <provider>` | LLM provider: openai, claude, gemini, ollama (default: openai) |
+| `-m, --model <model>` | Model to use (provider-specific) |
+| `--project <path>` | Load project file on start |
+| `-v, --verbose` | Show tool calls in output |
+| `--max-turns <n>` | Maximum turns per request (default: 10) |
+| `-c, --confirm` | Confirm before each tool execution |
+| `-i, --input <query>` | Run a single query and exit (non-interactive) |
+
+**Example Session:**
+
+```
+$ vibe agent -p claude
+
+🤖 VibeFrame AI Agent
+Provider: claude
+Type "exit" to quit, "reset" to clear context
+
+you> 새 프로젝트 만들고 sunset.mp4 추가해서 처음 10초만 남기고 페이드 아웃 넣어줘
+
+vibe> 프로젝트를 생성하고 미디어를 편집하겠습니다.
+(used: project_create, timeline_add_source, timeline_add_clip, timeline_trim, timeline_add_effect)
+
+완료:
+- 프로젝트 생성 완료
+- sunset.mp4 추가됨
+- 0-10초로 트리밍
+- 페이드 아웃 효과 적용됨
+```
+
+**Available Tools (35 total):**
+
+| Category | Tools |
+|----------|-------|
+| Project | project_create, project_info, project_set, project_open, project_save |
+| Timeline | timeline_add_source, timeline_add_clip, timeline_add_track, timeline_add_effect, timeline_trim, timeline_split, timeline_move, timeline_delete, timeline_duplicate, timeline_list |
+| Filesystem | fs_list, fs_read, fs_write, fs_exists |
+| Media | media_info, detect_scenes, detect_silence, detect_beats, ai_transcribe |
+| AI Generation | ai_image, ai_video, ai_kling, ai_tts, ai_sfx, ai_music, ai_storyboard, ai_motion |
+| Export | export_video, export_audio, export_subtitles |
 
 ---
 
