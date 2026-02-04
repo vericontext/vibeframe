@@ -275,6 +275,8 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
         console.log();
       }
 
+      // Resume readline and show prompt (ora spinner may have paused it)
+      rl.resume();
       rl.prompt();
       // Ensure stdin stays referenced after async operations
       if (typeof process.stdin.ref === "function") {
@@ -286,6 +288,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
     rl.on("line", (line) => {
       processInput(line).catch((err) => {
         console.error(chalk.red("Error:"), err.message);
+        rl.resume();
         rl.prompt();
       });
     });
