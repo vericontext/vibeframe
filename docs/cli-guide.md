@@ -25,7 +25,7 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 
 ```bash
 vibe --version
-# Expected: 0.2.x
+# Expected: 0.4.x
 
 vibe --help
 # Shows all available commands
@@ -72,7 +72,7 @@ Agent mode shows a welcome banner and waits for your input:
 ```
   ██╗   ██╗██╗██████╗ ███████╗
   ██║   ██║██║██╔══██╗██╔════╝
-  ██║   ██║██║██████╔╝█████╗    VibeFrame v0.2.1
+  ██║   ██║██║██████╔╝█████╗    VibeFrame v0.4.x
   ╚██╗ ██╔╝██║██╔══██╗██╔══╝    openai
    ╚████╔╝ ██║██████╔╝███████╗  ~/vibeframe-test
     ╚═══╝  ╚═╝╚═════╝ ╚══════╝
@@ -81,23 +81,23 @@ Agent mode shows a welcome banner and waits for your input:
 
   Commands: exit · reset · tools · context
 
-you> 이미지 만들어서 영상으로 변환해줘
+you> create an image and convert it to video
 
-vibe> 어떤 이미지를 만들까요? (예: 우주 풍경, 귀여운 로봇, 제품 사진 등)
+vibe> What kind of image should I create? (e.g., space landscape, cute robot, product photo)
 
-you> 미래 도시 야경
+you> futuristic city at night
 
 vibe> (uses: ai_image, ai_video)
 
-완료:
-- 이미지 생성: futuristic-city.png
-- 영상 생성 시작: task-abc123 (확인: vibe ai video-status abc123)
+Done:
+- Image generated: futuristic-city.png
+- Video generation started: task-abc123 (check: vibe ai video-status abc123)
 ```
 
 **Key Points:**
 - Agent mode executes multi-step tasks autonomously
 - Use `--confirm` flag to review each tool before execution
-- Type `tools` to see all 39 available tools
+- Type `tools` to see all 46 available tools
 - Type `exit` to quit
 
 > **Note:** IDs shown as `source-1`, `clip-1` are simplified for readability.
@@ -222,7 +222,7 @@ vibe agent   # Explicit agent command
 |---------|-------------|
 | `exit` / `quit` | Exit agent |
 | `reset` | Clear conversation context |
-| `tools` | List all available tools (39 total) |
+| `tools` | List all available tools (46 total) |
 | `context` | Show current project context |
 
 ### Agent Mode Options
@@ -250,7 +250,7 @@ $ vibe -p claude
 
   ██╗   ██╗██╗██████╗ ███████╗
   ██║   ██║██║██╔══██╗██╔════╝
-  ██║   ██║██║██████╔╝█████╗    VibeFrame v0.2.1
+  ██║   ██║██║██████╔╝█████╗    VibeFrame v0.4.x
   ╚██╗ ██╔╝██║██╔══██╗██╔══╝    claude
    ╚████╔╝ ██║██████╔╝███████╗  ~/vibeframe-test
     ╚═══╝  ╚═╝╚═════╝ ╚══════╝
@@ -259,28 +259,29 @@ $ vibe -p claude
 
   Commands: exit · reset · tools · context
 
-you> 새 프로젝트 만들고 sunset.mp4 추가해서 처음 10초만 남기고 페이드 아웃 넣어줘
+you> create a new project, add sunset.mp4, keep only the first 10 seconds, and add fade out
 
-vibe> 프로젝트를 생성하고 미디어를 편집하겠습니다.
+vibe> I'll create the project and edit the media.
 (uses: project_create, timeline_add_source, timeline_add_clip, timeline_trim, timeline_add_effect)
 
-완료:
-- 프로젝트 생성 완료
-- sunset.mp4 추가됨
-- 0-10초로 트리밍
-- 페이드 아웃 효과 적용됨
+Done:
+- Project created
+- sunset.mp4 added
+- Trimmed to 0-10 seconds
+- Fade out effect applied
 ```
 
-**Available Tools (39 total):**
+**Available Tools (46 total):**
 
-| Category | Tools |
-|----------|-------|
-| Project | project_create, project_info, project_set, project_open, project_save |
-| Timeline | timeline_add_source, timeline_add_clip, timeline_add_track, timeline_add_effect, timeline_trim, timeline_split, timeline_move, timeline_delete, timeline_duplicate, timeline_list |
-| Filesystem | fs_list, fs_read, fs_write, fs_exists |
-| Media | media_info, detect_scenes, detect_silence, detect_beats, ai_transcribe |
-| AI Generation | ai_image, ai_video, ai_kling, ai_tts, ai_sfx, ai_music, ai_storyboard, ai_motion, ai_script_to_video, ai_highlights, ai_auto_shorts, ai_gemini_video |
-| Export | export_video, export_audio, export_subtitles |
+| Category | Count | Tools |
+|----------|-------|-------|
+| Project | 5 | project_create, project_info, project_set, project_open, project_save |
+| Timeline | 11 | timeline_add_source, timeline_add_clip, timeline_add_track, timeline_add_effect, timeline_trim, timeline_split, timeline_move, timeline_delete, timeline_duplicate, timeline_list, timeline_clear |
+| Filesystem | 4 | fs_list, fs_read, fs_write, fs_exists |
+| Media | 8 | media_info, detect_scenes, detect_silence, detect_beats, ai_transcribe, media_compress, media_convert, media_concat |
+| AI | 12 | ai_image, ai_video, ai_kling, ai_tts, ai_sfx, ai_music, ai_storyboard, ai_motion, ai_script_to_video, ai_highlights, ai_auto_shorts, ai_gemini_video |
+| Export | 3 | export_video, export_audio, export_subtitles |
+| Batch | 3 | batch_import, batch_concat, batch_apply_effect |
 
 > **Note:** REPL mode is deprecated. Use Agent mode instead.
 
@@ -309,9 +310,9 @@ vibe ai image "professional headshot, studio lighting" -o headshot.png -p stabil
 
 **Agent Mode:**
 ```
-you> 귀여운 로봇 마스코트 이미지 만들어줘
-you> 폰 배경화면용 오로라 이미지 세로로 생성
-you> 영상 배경용 산 풍경 이미지 16:9로 만들어
+you> create a cute robot mascot image
+you> generate a portrait aurora image for phone wallpaper
+you> make a 16:9 mountain landscape image for video background
 ```
 
 **Defaults:**
@@ -341,9 +342,29 @@ vibe ai tts "This is a product demo video explaining all features." -o narration
 
 **Agent Mode:**
 ```
-you> "안녕하세요, 비브프레임입니다" 음성으로 변환해줘
-you> 사용 가능한 목소리 목록 보여줘
-you> 인트로 나레이션 만들어줘
+you> convert "Hello, this is VibeFrame" to speech
+you> show me available voices
+you> create an intro narration
+```
+
+**Available Voices (use name or ID):**
+
+| Name | Voice ID | Description |
+|------|----------|-------------|
+| Rachel | 21m00Tcm4TlvDq8ikWAM | American female (default) |
+| Adam | pNInz6obpgDQGcFmaJgB | American male |
+| Sam | yoZ06aMxZJJ28mfd3POQ | American male |
+| Bella | EXAVITQu4vr4xnSDxMaL | American female |
+| Josh | TxGEqnHWrfWFTfGW9XjX | American male |
+| Arnold | VR6AewLTigWG4xSOukaG | American male |
+
+```bash
+# Use voice name (case-insensitive)
+vibe ai tts "Hello" -o greeting.mp3 -v Rachel
+vibe ai tts "Hello" -o greeting.mp3 -v sam
+
+# Or use voice ID for custom voices
+vibe ai tts "Hello" -o greeting.mp3 -v EXAVITQu4vr4xnSDxMaL
 ```
 
 **Defaults:**
@@ -372,9 +393,9 @@ vibe ai sfx "cinematic boom impact" -o boom.mp3 -d 3
 
 **Agent Mode:**
 ```
-you> 화면 전환용 우쉬 효과음 만들어줘
-you> 10초짜리 빗소리 효과음 생성
-you> 임팩트 있는 시네마틱 사운드 만들어
+you> create a whoosh sound effect for transitions
+you> generate 10 seconds of rain sound effect
+you> make an impactful cinematic sound
 ```
 
 **Defaults:**
@@ -400,28 +421,44 @@ vibe ai transcribe korean-audio.mp3 -o subs.srt -l ko
 
 **Agent Mode:**
 ```
-you> interview.mp3에서 자막 추출해줘
-you> 팟캐스트 오디오를 VTT 자막으로 변환
-you> 한국어 오디오 자막 만들어줘
+you> extract subtitles from interview.mp3
+you> convert podcast audio to VTT subtitles
+you> create subtitles for Korean audio
 ```
 
 ---
 
 ### Video Generation (Image-to-Video)
 
-> **Prerequisites:** You need an image file first. Generate one with `vibe ai image` or use an existing image.
+> **Note:** Video generation requires an image. Generate one first if you don't have one.
+
+#### Complete Workflow (Recommended)
 
 ```bash
-# Step 1: Generate an image first
-vibe ai image "beautiful sunset over ocean" -o sunset.png
+# Step 1: Generate image (if needed)
+vibe ai image "beautiful sunset over ocean, cinematic" -o sunset.png
 
-# Step 2: Convert image to video with Runway Gen-3
-vibe ai video "camera slowly zooms in, golden hour lighting" -i sunset.png -o sunset-video.mp4
+# Step 2: Generate video from image
+vibe ai video "gentle waves, golden hour" -i sunset.png -o sunset.mp4
+
+# Step 3: Check status (async operation)
+vibe ai video-status <task-id>
+```
+
+#### If You Already Have an Image
+
+```bash
+# Convert existing image to video with Runway Gen-3
+vibe ai video "camera slowly zooms in, golden hour lighting" -i my-photo.png -o video.mp4
 
 # Or use Kling AI
-vibe ai kling "waves gently moving, cinematic" -i sunset.png -o sunset-kling.mp4
+vibe ai kling "waves gently moving, cinematic" -i my-photo.png -o video-kling.mp4
+```
 
-# Check generation status (async operation)
+#### Status & Control
+
+```bash
+# Check generation status
 vibe ai video-status <task-id>
 
 # Cancel generation
@@ -430,9 +467,13 @@ vibe ai video-cancel <task-id>
 
 **Agent Mode:**
 ```
-you> 일몰 이미지 만들고 영상으로 변환해줘
-you> sunset.png를 시네마틱하게 움직이는 영상으로 만들어
-you> 영상 생성 상태 확인해줘
+you> create an image and convert it to video
+# Agent will: 1) Generate image 2) Generate video
+
+you> convert sunset.png to video
+# Agent will use existing image
+
+you> check video generation status
 ```
 
 ---
@@ -449,7 +490,7 @@ Automatically convert text scripts into complete videos with images, narration, 
 mkdir product-demo && cd product-demo
 
 # Step 2: Generate video from script (images + narration + video)
-vibe ai script-to-video "제품 소개. 핵심 기능 데모. 사용자 후기. 구매 안내." \
+vibe ai script-to-video "Product intro. Core feature demo. User reviews. Purchase guide." \
   -o ./ \
   --image-provider gemini \
   -g runway
@@ -473,9 +514,9 @@ vibe ai script-to-video "Space exploration. Rocket launch. Mars landing." \
 
 **Agent Mode:**
 ```
-you> "제품 소개, 기능 데모, 구매 안내" 스크립트로 영상 만들어줘
-you> 스크립트로 이미지만 먼저 생성해줘
-you> 생성된 프로젝트 export해줘
+you> create a video from script "product intro, feature demo, purchase guide"
+you> generate images only from the script first
+you> export the generated project
 ```
 
 **Options:**
@@ -545,9 +586,9 @@ vibe ai highlights event.mp4 -o hl.json -p highlight-reel.vibe.json --use-gemini
 
 **Agent Mode:**
 ```
-you> lecture.mp4에서 하이라이트 추출해줘
-you> 결혼식 영상에서 감동적인 순간 찾아줘
-you> 튜토리얼에서 중요한 부분 5개 뽑아줘
+you> extract highlights from lecture.mp4
+you> find emotional moments from wedding video
+you> pick 5 important parts from the tutorial
 ```
 
 **Output (highlights.json):**
@@ -608,9 +649,9 @@ vibe ai auto-shorts vlog.mp4 \
 
 **Agent Mode:**
 ```
-you> 팟캐스트에서 5개 쇼츠 클립 만들어줘
-you> 인터뷰 영상을 틱톡용으로 잘라줘
-you> 브이로그에서 인스타 정사각형 클립 추출
+you> create 5 shorts clips from the podcast
+you> cut interview video for TikTok
+you> extract Instagram square clips from vlog
 ```
 
 **Output:**
@@ -631,26 +672,26 @@ Analyze video content and get answers about what's in the video.
 
 ```bash
 # Summarize video
-vibe ai gemini-video video.mp4 "이 영상을 3문장으로 요약해줘"
+vibe ai gemini-video video.mp4 "summarize this video in 3 sentences"
 
 # Extract timestamps
-vibe ai gemini-video tutorial.mp4 "주요 단계별 타임스탬프 알려줘"
+vibe ai gemini-video tutorial.mp4 "give me timestamps for each major step"
 
 # Q&A about video
-vibe ai gemini-video product.mp4 "이 영상에 나오는 제품 이름이 뭐야?"
+vibe ai gemini-video product.mp4 "what is the product name in this video?"
 
 # YouTube URL analysis
-vibe ai gemini-video "https://youtube.com/watch?v=xxx" "영상 내용이 뭐야?"
+vibe ai gemini-video "https://youtube.com/watch?v=xxx" "what is this video about?"
 
 # Analyze specific segment
-vibe ai gemini-video movie.mp4 "이 장면에서 무슨 일이 일어나?" --start 60 --end 120
+vibe ai gemini-video movie.mp4 "what happens in this scene?" --start 60 --end 120
 ```
 
 **Agent Mode:**
 ```
-you> video.mp4 내용 요약해줘
-you> 튜토리얼 영상의 타임스탬프 추출해
-you> 이 유튜브 영상이 무슨 내용인지 알려줘
+you> summarize video.mp4
+you> extract timestamps from the tutorial video
+you> tell me what this YouTube video is about
 ```
 
 ---
@@ -677,10 +718,10 @@ vibe ai sd-outpaint photo.png --left 200 --right 200 -o wider.png
 
 **Agent Mode:**
 ```
-you> 이미지 4배 업스케일해줘
-you> 사진 배경 제거해줘
-you> 이 사진을 수채화 스타일로 변환
-you> 자동차를 오토바이로 교체해줘
+you> upscale the image 4x
+you> remove the photo background
+you> convert this photo to watercolor style
+you> replace the car with a motorcycle
 ```
 
 ---
@@ -702,9 +743,9 @@ vibe project set project.vibe.json --name "New Name"
 
 **Agent Mode:**
 ```
-you> 새 프로젝트 만들어줘
-you> 프로젝트 정보 보여줘
-you> 프로젝트 이름 변경해줘
+you> create a new project
+you> show project info
+you> change the project name
 ```
 
 ### Timeline Operations
@@ -730,15 +771,23 @@ vibe timeline split project.vibe.json clip-1 -t 3
 
 # Delete clip
 vibe timeline delete project.vibe.json clip-1
+
+# Clear timeline (remove all clips)
+vibe timeline clear project.vibe.json --clips
+
+# Clear everything (clips + sources)
+vibe timeline clear project.vibe.json --all
 ```
 
 **Agent Mode:**
 ```
-you> intro.mp4 추가해줘
-you> 첫 번째 소스에서 10초짜리 클립 만들어
-you> 페이드인 효과 넣어줘
-you> 타임라인 보여줘
-you> 클립 5초로 자르기
+you> add intro.mp4
+you> create a 10-second clip from the first source
+you> add fade in effect
+you> show the timeline
+you> trim clip to 5 seconds
+you> delete all timeline clips
+you> reset the project
 ```
 
 ### Export
@@ -750,8 +799,8 @@ vibe export project.vibe.json -o output.mp4 -p high -y
 
 **Agent Mode:**
 ```
-you> 영상 export해줘
-you> 고화질로 내보내기
+you> export the video
+you> export in high quality
 ```
 
 **Presets:**
@@ -780,9 +829,94 @@ vibe detect beats song.mp3 -o beats.json
 
 **Agent Mode:**
 ```
-you> 영상에서 씬 변경점 찾아줘
-you> 팟캐스트의 무음 구간 탐지
-you> 음악 비트 분석해줘
+you> find scene changes in the video
+you> detect silence in the podcast
+you> analyze music beats
+```
+
+---
+
+## Batch Operations
+
+### Import Multiple Files
+
+```bash
+# Import all mp4 files from a directory
+vibe batch import ./media -p project.vibe.json --extensions mp4
+
+# Import with specific extensions
+vibe batch import ./assets -p project.vibe.json --extensions mp4,mov,mp3
+```
+
+**Agent Mode:**
+```
+you> import all video files from media folder
+you> get only mp4 and mov files from assets folder
+```
+
+### Apply Effect to Multiple Clips
+
+```bash
+vibe batch apply-effect project.vibe.json fadeIn -d 1
+```
+
+**Agent Mode:**
+```
+you> add fadeIn effect to all clips
+you> set fadeOut to 1 second for all clips
+```
+
+### Concatenate Multiple Files
+
+```bash
+vibe batch concat video1.mp4 video2.mp4 video3.mp4 -o combined.mp4
+```
+
+**Agent Mode:**
+```
+you> concatenate 3 video files
+you> merge video1.mp4 and video2.mp4 into output.mp4
+```
+
+---
+
+## Media Manipulation
+
+### Compress Video
+
+```bash
+vibe media compress video.mp4 -o compressed.mp4 -c 23
+```
+
+**Agent Mode:**
+```
+you> compress video.mp4
+you> reduce the video file size
+```
+
+### Convert Format
+
+```bash
+vibe media convert video.mov -o video.mp4
+vibe media convert audio.wav -o audio.mp3
+```
+
+**Agent Mode:**
+```
+you> convert mov file to mp4
+you> change wav to mp3
+```
+
+### Concatenate Media
+
+```bash
+vibe media concat video1.mp4 video2.mp4 -o combined.mp4
+```
+
+**Agent Mode:**
+```
+you> concatenate two videos
+you> merge intro.mp4 and main.mp4
 ```
 
 ---
@@ -804,7 +938,7 @@ vibe ai video-status <task-id>
 
 **Agent Mode:**
 ```
-you> 미래 도시 이미지 만들고 영상으로 변환해줘
+you> create a futuristic city image and convert it to video
 ```
 
 ### Example B: Podcast → Short Clips
@@ -830,7 +964,7 @@ ls -la
 
 **Agent Mode:**
 ```
-you> 팟캐스트에서 바이럴 될만한 5개 클립 찾아서 틱톡용으로 만들어줘
+you> find 5 viral-worthy clips from the podcast and make them for TikTok
 ```
 
 ### Example C: Script → Product Demo
@@ -840,7 +974,7 @@ you> 팟캐스트에서 바이럴 될만한 5개 클립 찾아서 틱톡용으�
 mkdir demo && cd demo
 
 # 2. Generate complete video from script
-vibe ai script-to-video "제품 소개. 대시보드 데모. 리포트 기능. 가입 안내." \
+vibe ai script-to-video "Product intro. Dashboard demo. Report feature. Sign up guide." \
   -o ./ \
   --image-provider gemini \
   -g runway
@@ -854,7 +988,7 @@ ls -la
 
 **Agent Mode:**
 ```
-you> "제품 소개, 기능 데모, 가입 안내" 스크립트로 데모 영상 만들어줘
+you> create a demo video from script "product intro, feature demo, sign up guide"
 ```
 
 ### Example D: Event → Highlight Reel
@@ -877,7 +1011,7 @@ vibe export reel.vibe.json -o highlight-reel.mp4 -p high
 
 **Agent Mode:**
 ```
-you> 행사 영상에서 감동적인 순간 찾아서 2분짜리 하이라이트 릴 만들어줘
+you> find emotional moments from event video and create a 2-minute highlight reel
 ```
 
 ---
