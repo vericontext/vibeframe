@@ -247,9 +247,11 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
       }
 
       // Execute agent
+      // discardStdin: false is critical - ora's default discards stdin which breaks readline
       const execSpinner = ora({
         text: "Thinking...",
         color: "cyan",
+        discardStdin: false,
       }).start();
 
       try {
