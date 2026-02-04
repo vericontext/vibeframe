@@ -437,19 +437,79 @@ vibe> make a cooking recipe video with realistic images
 | `--no-voiceover` | off | Skip TTS narration |
 | `-g, --generator` | `runway` | Video generator: `runway` or `kling` |
 | `-i, --image-provider` | `dalle` | Image provider: `dalle`, `stability`, `gemini` |
+| `--retries` | `2` | Number of retries for video generation failures |
 
 **Output:**
 ```
 ./launch-video/
 ├── storyboard.json      # Scene breakdown from Claude
+├── narration-1.mp3      # Per-scene narration
+├── narration-2.mp3
 ├── scene-1.png          # Generated image
 ├── scene-1.mp4          # Generated video (unless --images-only)
 ├── scene-2.png
 ├── scene-2.mp4
 ├── scene-3.png
 ├── scene-3.mp4
-├── voiceover.mp3        # Narration (unless --no-voiceover)
 └── project.vibe.json    # Timeline project file
+```
+
+#### Scene Regeneration
+
+If a scene fails or you want to modify it, use `regenerate-scene` to fix individual scenes without regenerating the entire video.
+
+**CLI Mode:**
+```bash
+# Regenerate video only (keeps existing image)
+vibe ai regenerate-scene ./launch-video/ --scene 4 --video-only
+
+# Regenerate image only
+vibe ai regenerate-scene ./launch-video/ --scene 4 --image-only
+
+# Regenerate narration only
+vibe ai regenerate-scene ./launch-video/ --scene 4 --narration-only
+
+# Regenerate all assets (image + narration + video)
+vibe ai regenerate-scene ./launch-video/ --scene 4
+
+# Use different providers
+vibe ai regenerate-scene ./launch-video/ --scene 4 --video-only -g kling
+vibe ai regenerate-scene ./launch-video/ --scene 4 --image-only -i gemini
+
+# Change voice for narration
+vibe ai regenerate-scene ./launch-video/ --scene 4 --narration-only -v <voice-id>
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--scene <n>` | (required) | Scene number to regenerate (1-based) |
+| `--video-only` | off | Only regenerate video |
+| `--image-only` | off | Only regenerate image |
+| `--narration-only` | off | Only regenerate narration |
+| `-g, --generator` | `runway` | Video generator: `runway` or `kling` |
+| `-i, --image-provider` | `dalle` | Image provider: `dalle`, `stability`, `gemini` |
+| `-v, --voice` | default | ElevenLabs voice ID |
+| `--retries` | `2` | Number of retries for video generation failures |
+
+**Workflow Example:**
+```bash
+# 1. Run script-to-video (scene 3 video fails)
+vibe ai script-to-video "intro. demo. features. outro." -o ./my-video/ -g runway
+
+# Output shows:
+#   🎥 Videos: 3/4 scene-*.mp4
+#      ⚠ Failed: scene 3 (fallback to image)
+#
+#   💡 To regenerate failed scenes:
+#      vibe ai regenerate-scene ./my-video/ --scene 3 --video-only
+
+# 2. Regenerate failed scene
+vibe ai regenerate-scene ./my-video/ --scene 3 --video-only
+
+# 3. Export final video
+vibe export ./my-video/ -o final.mp4
 ```
 
 ---
