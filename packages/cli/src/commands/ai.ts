@@ -2741,6 +2741,7 @@ aiCommand
 
       // Step 2: Generate per-scene voiceovers with ElevenLabs
       const perSceneTTS: { path: string; duration: number; segmentIndex: number }[] = [];
+      const failedNarrations: { sceneNum: number; error: string }[] = [];
 
       if (options.voiceover !== false && elevenlabsApiKey) {
         const ttsSpinner = ora("🎙️ Generating voiceovers with ElevenLabs...").start();
@@ -2763,7 +2764,10 @@ aiCommand
           });
 
           if (!ttsResult.success || !ttsResult.audioBuffer) {
-            ttsSpinner.warn(chalk.yellow(`Narration ${i + 1} failed: ${ttsResult.error || "Unknown error"}`));
+            const errorMsg = ttsResult.error || "Unknown error";
+            failedNarrations.push({ sceneNum: i + 1, error: errorMsg });
+            ttsSpinner.text = `🎙️ Generating narration ${i + 1}/${segments.length}... (failed)`;
+            console.log(chalk.yellow(`\n  ⚠ Narration ${i + 1} failed: ${errorMsg}`));
             continue;
           }
 
@@ -2792,7 +2796,12 @@ aiCommand
         // Update total duration
         totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
 
-        ttsSpinner.succeed(chalk.green(`Generated ${perSceneTTS.length}/${segments.length} narrations (${totalCharacters} chars, ${totalDuration.toFixed(1)}s total)`));
+        // Show success with failed count if any
+        if (failedNarrations.length > 0) {
+          ttsSpinner.warn(chalk.yellow(`Generated ${perSceneTTS.length}/${segments.length} narrations (${failedNarrations.length} failed)`));
+        } else {
+          ttsSpinner.succeed(chalk.green(`Generated ${perSceneTTS.length}/${segments.length} narrations (${totalCharacters} chars, ${totalDuration.toFixed(1)}s total)`));
+        }
 
         // Re-save storyboard with updated durations
         await writeFile(storyboardPath, JSON.stringify(segments, null, 2), "utf-8");
@@ -3330,8 +3339,15 @@ aiCommand
       console.log(`  🎬 Scenes: ${segments.length}`);
       console.log(`  ⏱️  Duration: ${totalDuration}s`);
       console.log(`  📁 Assets: ${effectiveOutputDir}/`);
-      if (perSceneTTS.length > 0) {
-        console.log(`  🎙️  Narrations: ${perSceneTTS.length} narration-*.mp3`);
+      if (perSceneTTS.length > 0 || failedNarrations.length > 0) {
+        const narrationInfo = `${perSceneTTS.length}/${segments.length}`;
+        if (failedNarrations.length > 0) {
+          const failedSceneNums = failedNarrations.map((f) => f.sceneNum).join(", ");
+          console.log(`  🎙️  Narrations: ${narrationInfo} narration-*.mp3`);
+          console.log(chalk.yellow(`     ⚠ Failed: scene ${failedSceneNums}`));
+        } else {
+          console.log(`  🎙️  Narrations: ${perSceneTTS.length} narration-*.mp3`);
+        }
       }
       console.log(`  🖼️  Images: ${successfulImages} scene-*.png`);
       if (!options.imagesOnly) {
@@ -6744,6 +6760,22 @@ export interface ScriptToVideoOptions {
 }
 
 /**
+ * Narration entry with segment tracking
+ */
+export interface NarrationEntry {
+  /** Path to the narration audio file (null if failed) */
+  path: string | null;
+  /** Duration in seconds */
+  duration: number;
+  /** Index of the segment this narration belongs to */
+  segmentIndex: number;
+  /** Whether the narration failed to generate */
+  failed: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
  * Result of script-to-video pipeline
  */
 export interface ScriptToVideoResult {
@@ -6752,11 +6784,16 @@ export interface ScriptToVideoResult {
   scenes: number;
   storyboardPath?: string;
   projectPath?: string;
+  /** @deprecated Use narrationEntries for proper segment tracking */
   narrations?: string[];
+  /** Narration entries with segment index tracking */
+  narrationEntries?: NarrationEntry[];
   images?: string[];
   videos?: string[];
   totalDuration?: number;
   failedScenes?: number[];
+  /** Failed narration scene numbers (1-indexed) */
+  failedNarrations?: number[];
   error?: string;
 }
 
@@ -6844,9 +6881,11 @@ export async function executeScriptToVideo(
       scenes: segments.length,
       storyboardPath,
       narrations: [],
+      narrationEntries: [],
       images: [],
       videos: [],
       failedScenes: [],
+      failedNarrations: [],
     };
 
     // Step 2: Generate per-scene voiceovers with ElevenLabs
@@ -6857,7 +6896,17 @@ export async function executeScriptToVideo(
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         const narrationText = segment.narration || segment.description;
-        if (!narrationText) continue;
+
+        if (!narrationText) {
+          // No narration text for this segment - add placeholder entry
+          result.narrationEntries!.push({
+            path: null,
+            duration: segment.duration,
+            segmentIndex: i,
+            failed: false, // Not failed, just no text
+          });
+          continue;
+        }
 
         const ttsResult = await elevenlabs.textToSpeech(narrationText, {
           voiceId: options.voice,
@@ -6870,7 +6919,25 @@ export async function executeScriptToVideo(
           // Get actual audio duration
           const actualDuration = await getAudioDuration(audioPath);
           segment.duration = actualDuration;
+
+          // Add to both arrays for backwards compatibility
           result.narrations!.push(audioPath);
+          result.narrationEntries!.push({
+            path: audioPath,
+            duration: actualDuration,
+            segmentIndex: i,
+            failed: false,
+          });
+        } else {
+          // TTS failed - add placeholder entry with error info
+          result.narrationEntries!.push({
+            path: null,
+            duration: segment.duration, // Keep original estimated duration
+            segmentIndex: i,
+            failed: true,
+            error: ttsResult.error || "Unknown TTS error",
+          });
+          result.failedNarrations!.push(i + 1); // 1-indexed for user display
         }
       }
 
@@ -7118,16 +7185,18 @@ export async function executeScriptToVideo(
       isVisible: true,
     });
 
-    // Add narration clips
-    if (result.narrations && result.narrations.length > 0) {
-      for (let i = 0; i < result.narrations.length; i++) {
-        const narrationPath = result.narrations[i];
-        const segment = segments[i];
-        const narrationDuration = await getAudioDuration(narrationPath);
+    // Add narration clips - use narrationEntries for proper segment alignment
+    if (result.narrationEntries && result.narrationEntries.length > 0) {
+      for (const entry of result.narrationEntries) {
+        // Skip failed or missing narrations
+        if (entry.failed || !entry.path) continue;
+
+        const segment = segments[entry.segmentIndex];
+        const narrationDuration = await getAudioDuration(entry.path);
 
         const audioSource = project.addSource({
-          name: `Narration ${i + 1}`,
-          url: narrationPath,
+          name: `Narration ${entry.segmentIndex + 1}`,
+          url: entry.path,
           type: "audio",
           duration: narrationDuration,
         });

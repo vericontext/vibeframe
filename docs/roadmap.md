@@ -150,7 +150,7 @@ Intelligence built into every interaction.
 - [x] **Agent Mode (Default)** - Claude Code-like autonomous agent (`vibe` or `vibe agent`)
   - Default entry point: `vibe` starts Agent mode
   - Multi-turn agentic loop: LLM reasoning → tool call → result → repeat
-  - **39 tools** across 6 categories (project, timeline, filesystem, media, AI, export)
+  - **46 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
   - Multi-provider support: OpenAI, Claude, Gemini, Ollama
   - Verbose mode for tool call visibility (`-v`)
   - Confirm mode: `--confirm` prompts before each tool execution
@@ -226,7 +226,7 @@ Local-first with optional real-time sync.
 
 ## CLI Status
 
-**220 tests passing**
+**256 tests passing** (46 Agent tools)
 
 ```
 vibe            (no args) → Start interactive REPL mode

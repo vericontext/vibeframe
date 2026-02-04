@@ -77,7 +77,7 @@ Agent mode shows a welcome banner and waits for your input:
    ╚████╔╝ ██║██████╔╝███████╗  ~/vibeframe-test
     ╚═══╝  ╚═╝╚═════╝ ╚══════╝
 
-  39 tools
+  46 tools
 
   Commands: exit · reset · tools · context
 
@@ -255,7 +255,7 @@ $ vibe -p claude
    ╚████╔╝ ██║██████╔╝███████╗  ~/vibeframe-test
     ╚═══╝  ╚═╝╚═════╝ ╚══════╝
 
-  39 tools
+  46 tools
 
   Commands: exit · reset · tools · context
 

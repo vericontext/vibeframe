@@ -338,6 +338,30 @@ const listDef: ToolDefinition = {
   },
 };
 
+const clearDef: ToolDefinition = {
+  name: "timeline_clear",
+  description: "Clear timeline contents (remove clips, tracks, or sources)",
+  parameters: {
+    type: "object",
+    properties: {
+      project: {
+        type: "string",
+        description: "Project file path",
+      },
+      what: {
+        type: "string",
+        description: "What to clear: clips (default), tracks, sources, or all",
+        enum: ["clips", "tracks", "sources", "all"],
+      },
+      keepTracks: {
+        type: "boolean",
+        description: "When clearing 'all', keep default empty tracks (default: true)",
+      },
+    },
+    required: ["project"],
+  },
+};
+
 // Tool Handlers
 const addSource: ToolHandler = async (args, context): Promise<ToolResult> => {
   const projectPath = args.project as string;
@@ -833,6 +857,90 @@ const list: ToolHandler = async (args, context): Promise<ToolResult> => {
   }
 };
 
+const clear: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const projectPath = args.project as string;
+  const what = (args.what as string) || "clips";
+  const keepTracks = args.keepTracks !== false; // default true
+
+  try {
+    const { project, filePath } = await loadProject(projectPath, context.workingDirectory);
+
+    const removed = {
+      clips: 0,
+      tracks: 0,
+      sources: 0,
+    };
+
+    // Remove clips
+    if (what === "clips" || what === "all") {
+      const clips = project.getClips();
+      for (const clip of clips) {
+        project.removeClip(clip.id);
+        removed.clips++;
+      }
+    }
+
+    // Remove tracks
+    if (what === "tracks" || what === "all") {
+      const tracks = project.getTracks();
+      for (const track of tracks) {
+        project.removeTrack(track.id);
+        removed.tracks++;
+      }
+
+      // Re-add default tracks if keepTracks
+      if (what === "all" && keepTracks) {
+        project.addTrack({
+          name: "Video 1",
+          type: "video",
+          order: 1,
+          isMuted: false,
+          isLocked: false,
+          isVisible: true,
+        });
+        project.addTrack({
+          name: "Audio 1",
+          type: "audio",
+          order: 0,
+          isMuted: false,
+          isLocked: false,
+          isVisible: true,
+        });
+      }
+    }
+
+    // Remove sources
+    if (what === "sources" || what === "all") {
+      const sources = project.getSources();
+      for (const source of sources) {
+        project.removeSource(source.id);
+        removed.sources++;
+      }
+    }
+
+    await saveProject(project, filePath);
+
+    // Build output message
+    const parts: string[] = [];
+    if (removed.clips > 0) parts.push(`${removed.clips} clips`);
+    if (removed.tracks > 0) parts.push(`${removed.tracks} tracks`);
+    if (removed.sources > 0) parts.push(`${removed.sources} sources`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: parts.length > 0 ? `Cleared: ${parts.join(", ")}` : "Nothing to clear",
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Failed to clear timeline: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
 // Registration function
 export function registerTimelineTools(registry: ToolRegistry): void {
   registry.register(addSourceDef, addSource);
@@ -845,4 +953,5 @@ export function registerTimelineTools(registry: ToolRegistry): void {
   registry.register(deleteDef, deleteClip);
   registry.register(duplicateDef, duplicate);
   registry.register(listDef, list);
+  registry.register(clearDef, clear);
 }

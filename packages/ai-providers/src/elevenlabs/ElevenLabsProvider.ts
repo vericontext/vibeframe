@@ -103,6 +103,73 @@ export interface TTSResult {
 }
 
 /**
+ * Known ElevenLabs voices with their IDs
+ * These are the default voices available in ElevenLabs
+ */
+export const KNOWN_VOICES: Record<string, string> = {
+  // Default/popular voices
+  rachel: "21m00Tcm4TlvDq8ikWAM",
+  adam: "pNInz6obpgDQGcFmaJgB",
+  antoni: "ErXwobaYiN019PkySvjV",
+  bella: "EXAVITQu4vr4xnSDxMaL",
+  domi: "AZnzlk1XvdvUeBnXmlld",
+  elli: "MF3mGyEYCl7XYWbV9V6O",
+  josh: "TxGEqnHWrfWFTfGW9XjX",
+  arnold: "VR6AewLTigWG4xSOukaG",
+  sam: "yoZ06aMxZJJ28mfd3POQ",
+  nicole: "piTKgcLEGmPE4e6mEKli",
+  glinda: "z9fAnlkpzviPz146aGWa",
+  clyde: "2EiwWnXFnvU5JabPnv8n",
+  freya: "jsCqWAovK2LkecY7zXl4",
+  george: "JBFqnCBsd6RMkjVDRZzb",
+  // Additional premade voices
+  charlotte: "XB0fDUnXU5powFXDhCwa",
+  callum: "N2lVS1w4EtoT3dr4eOWO",
+  charlie: "IKne3meq5aSn9XLyUdCD",
+  emily: "LcfcDJNUP1GQjkzn1xUU",
+  ethan: "g5CIjZEefAph4nQFvHAz",
+  dorothy: "ThT5KcBeYPX3keUQqHPh",
+  fin: "D38z5RcWu1voky8WS1ja",
+  gigi: "jBpfuIE2acCO8z3wKNLl",
+  harry: "SOYHLrjzK2X1ezoPC6cr",
+  lily: "pFZP5JQG7iQjIQuC4Bku",
+  brian: "nPczCjzI2devNBz1zQrb",
+  alice: "Xb7hH8MSUJpSbSDYk0k2",
+  bill: "pqHfZKP75CvOlQylNhV4",
+};
+
+/**
+ * Resolve a voice name or ID to a valid ElevenLabs voice ID
+ * @param input - Voice name (e.g., "Rachel", "Adam") or voice ID
+ * @returns The resolved voice ID
+ * @throws Error if the voice name is unknown
+ */
+export function resolveVoiceId(input: string | undefined): string {
+  // Default to Rachel if no input
+  if (!input) {
+    return KNOWN_VOICES.rachel;
+  }
+
+  // Check if it's a known voice name (case-insensitive)
+  const lowerInput = input.toLowerCase();
+  if (KNOWN_VOICES[lowerInput]) {
+    return KNOWN_VOICES[lowerInput];
+  }
+
+  // If it looks like a voice ID (long alphanumeric string), use it directly
+  if (input.length >= 15 && /^[a-zA-Z0-9]+$/.test(input)) {
+    return input;
+  }
+
+  // Unknown voice name - throw helpful error
+  const availableVoices = Object.keys(KNOWN_VOICES).join(", ");
+  throw new Error(
+    `Unknown voice "${input}". Available voices: ${availableVoices}. ` +
+    `You can also use a custom voice ID from your ElevenLabs account.`
+  );
+}
+
+/**
  * ElevenLabs provider for text-to-speech
  */
 export class ElevenLabsProvider implements AIProvider {
@@ -167,7 +234,17 @@ export class ElevenLabsProvider implements AIProvider {
     }
 
     try {
-      const voiceId = options.voiceId || "21m00Tcm4TlvDq8ikWAM"; // Default: Rachel
+      // Resolve voice name to ID (with validation)
+      let voiceId: string;
+      try {
+        voiceId = resolveVoiceId(options.voiceId);
+      } catch (voiceError) {
+        return {
+          success: false,
+          error: voiceError instanceof Error ? voiceError.message : String(voiceError),
+        };
+      }
+
       const model = options.model || "eleven_multilingual_v2";
 
       const response = await fetch(

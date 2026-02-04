@@ -6,6 +6,95 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-04
 
+### Feature: Media Pipeline Improvements
+
+Comprehensive improvements to the VibeFrame media pipeline, including TTS failure handling, voice validation, and new Agent tools.
+
+#### 1. Fix: TTS Failure Handling in Script-to-Video
+
+**Problem:**
+- When TTS failed for a scene in script-to-video pipeline, the narration array index would misalign
+- Scene 2 fails → Scene 3 narration placed at Scene 2's position
+
+**Solution:**
+- Added `NarrationEntry` interface with `segmentIndex` tracking
+- TTS loop now adds placeholder entries for failed scenes
+- Project assembly uses `segmentIndex` for correct alignment
+- Added `failedNarrations` array to track failed scene numbers
+- CLI and Agent tool show failed narration count in summary
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts` - executeScriptToVideo, CLI command
+- `packages/cli/src/agent/tools/ai.ts` - ai_script_to_video tool output
+
+#### 2. Feature: Voice ID Validation in ElevenLabs
+
+**Problem:**
+- Invalid voice names like "Sam" caused API errors with no helpful message
+- Users had to know voice IDs or use default voice
+
+**Solution:**
+- Added `KNOWN_VOICES` constant with 25+ default ElevenLabs voices
+- Added `resolveVoiceId()` function for name-to-ID resolution
+- Provides helpful error message with available voice names
+- Supports both voice names (case-insensitive) and custom voice IDs
+
+**Files Modified:**
+- `packages/ai-providers/src/elevenlabs/ElevenLabsProvider.ts`
+- `packages/ai-providers/src/elevenlabs/index.ts`
+- `packages/ai-providers/src/index.ts`
+
+**Usage:**
+```bash
+vibe
+you> "Hello world" 텍스트를 Rachel 목소리로 읽어줘
+# Works: resolves "Rachel" → "21m00Tcm4TlvDq8ikWAM"
+
+you> "Hello world" 텍스트를 Sam 목소리로 읽어줘
+# Now also works: "Sam" → "yoZ06aMxZJJ28mfd3POQ"
+```
+
+#### 3. Feature: New Agent Tools
+
+Added 7 new Agent tools across 3 categories:
+
+**Batch Tools (3 new)**
+- `batch_import` - Import multiple media files from directory
+- `batch_concat` - Concatenate sources into sequential clips
+- `batch_apply_effect` - Apply effect to multiple clips
+
+**Timeline Tools (+1)**
+- `timeline_clear` - Clear clips, tracks, sources, or all
+
+**Media Tools (+3)**
+- `media_compress` - Compress video/audio with FFmpeg
+- `media_convert` - Convert between formats
+- `media_concat` - Concatenate media files
+
+**Files Modified:**
+- `packages/cli/src/agent/tools/batch.ts` (new)
+- `packages/cli/src/agent/tools/timeline.ts`
+- `packages/cli/src/agent/tools/media.ts`
+- `packages/cli/src/agent/tools/index.ts`
+- `packages/cli/src/agent/tools/integration.test.ts`
+
+**Total Tools:** 39 → 46
+
+**Usage:**
+```bash
+vibe
+you> media 폴더의 모든 mp4 파일 import해줘
+# Uses batch_import tool
+
+you> 모든 클립에 fadeIn 효과 적용해줘
+# Uses batch_apply_effect tool
+
+you> 타임라인 클립들 모두 삭제해줘
+# Uses timeline_clear tool
+```
+
+---
+
 ### Fix: Agent Mode Multi-turn Conversation Loop
 
 Fixed critical issue where Agent mode would exit after the first response instead of continuing the conversation.

@@ -67,7 +67,7 @@ Agent (vibe)              Natural language → LLM tool calling → autonomous e
 - Claude Code-like agentic loop architecture
 - Multi-turn: LLM reasoning → tool call → result → repeat until complete
 - 4 LLM providers: OpenAI, Claude, Gemini, Ollama
-- 39 tools across 6 categories (project, timeline, filesystem, media, AI, export)
+- 46 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
 - `--confirm` flag: prompts before each tool execution
 - Example: "create project and add video" → multiple tool calls autonomously
 
@@ -90,11 +90,12 @@ packages/cli/src/agent/
 ├── tools/
 │   ├── index.ts             # ToolRegistry
 │   ├── project.ts           # 5 project tools
-│   ├── timeline.ts          # 10 timeline tools
+│   ├── timeline.ts          # 11 timeline tools
 │   ├── filesystem.ts        # 4 filesystem tools
-│   ├── media.ts             # 5 media tools
+│   ├── media.ts             # 8 media tools
 │   ├── ai.ts                # 12 AI generation tools (basic + pipeline)
-│   └── export.ts            # 3 export tools
+│   ├── export.ts            # 3 export tools
+│   └── batch.ts             # 3 batch tools
 ├── memory/
 │   └── index.ts             # ConversationMemory
 └── prompts/

@@ -447,6 +447,261 @@ const transcribe: ToolHandler = async (args, context): Promise<ToolResult> => {
   }
 };
 
+// Media Manipulation Tools
+
+const compressDef: ToolDefinition = {
+  name: "media_compress",
+  description: "Compress a video or audio file using FFmpeg",
+  parameters: {
+    type: "object",
+    properties: {
+      input: {
+        type: "string",
+        description: "Input media file path",
+      },
+      output: {
+        type: "string",
+        description: "Output file path (default: input-compressed.ext)",
+      },
+      quality: {
+        type: "string",
+        description: "Quality preset: low, medium (default), high",
+        enum: ["low", "medium", "high"],
+      },
+      maxSize: {
+        type: "string",
+        description: "Target max file size (e.g., '10M', '100M')",
+      },
+    },
+    required: ["input"],
+  },
+};
+
+const convertDef: ToolDefinition = {
+  name: "media_convert",
+  description: "Convert media file to a different format using FFmpeg",
+  parameters: {
+    type: "object",
+    properties: {
+      input: {
+        type: "string",
+        description: "Input media file path",
+      },
+      output: {
+        type: "string",
+        description: "Output file path with desired extension (e.g., 'video.webm')",
+      },
+      codec: {
+        type: "string",
+        description: "Video codec (h264, h265, vp9, av1)",
+      },
+      audioCodec: {
+        type: "string",
+        description: "Audio codec (aac, mp3, opus)",
+      },
+    },
+    required: ["input", "output"],
+  },
+};
+
+const concatDef: ToolDefinition = {
+  name: "media_concat",
+  description: "Concatenate multiple media files into one using FFmpeg",
+  parameters: {
+    type: "object",
+    properties: {
+      inputs: {
+        type: "array",
+        items: { type: "string", description: "Input file path" },
+        description: "Array of input file paths to concatenate",
+      },
+      output: {
+        type: "string",
+        description: "Output file path",
+      },
+      reencode: {
+        type: "boolean",
+        description: "Re-encode files (slower but works with different codecs)",
+      },
+    },
+    required: ["inputs", "output"],
+  },
+};
+
+const compress: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const inputPath = args.input as string;
+  const quality = (args.quality as string) || "medium";
+  const maxSize = args.maxSize as string | undefined;
+
+  try {
+    const absInput = resolve(context.workingDirectory, inputPath);
+    const ext = inputPath.split(".").pop() || "mp4";
+    const baseName = inputPath.replace(/\.[^/.]+$/, "");
+    const outputPath = args.output
+      ? resolve(context.workingDirectory, args.output as string)
+      : resolve(context.workingDirectory, `${baseName}-compressed.${ext}`);
+
+    // Quality presets (CRF values - lower = better quality, larger file)
+    const crfValues: Record<string, number> = {
+      low: 28,
+      medium: 23,
+      high: 18,
+    };
+    const crf = crfValues[quality] || 23;
+
+    let cmd: string;
+    if (maxSize) {
+      // Two-pass encoding for target size
+      cmd = `ffmpeg -i "${absInput}" -c:v libx264 -crf ${crf} -preset medium -c:a aac -b:a 128k "${outputPath}" -y`;
+    } else {
+      cmd = `ffmpeg -i "${absInput}" -c:v libx264 -crf ${crf} -preset medium -c:a aac -b:a 128k "${outputPath}" -y`;
+    }
+
+    const { stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+
+    // Get file sizes for comparison
+    const inputStats = await readFile(absInput);
+    const outputStats = await readFile(outputPath);
+    const inputSize = inputStats.length;
+    const outputSize = outputStats.length;
+    const reduction = (((inputSize - outputSize) / inputSize) * 100).toFixed(1);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: `Compressed: ${inputPath} → ${outputPath}\nSize: ${formatSize(inputSize)} → ${formatSize(outputSize)} (${reduction}% reduction)`,
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Failed to compress: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+const convert: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const inputPath = args.input as string;
+  const outputPath = args.output as string;
+  const codec = args.codec as string | undefined;
+  const audioCodec = args.audioCodec as string | undefined;
+
+  try {
+    const absInput = resolve(context.workingDirectory, inputPath);
+    const absOutput = resolve(context.workingDirectory, outputPath);
+
+    // Build codec options
+    let videoOpt = "-c:v copy";
+    let audioOpt = "-c:a copy";
+
+    if (codec) {
+      const codecMap: Record<string, string> = {
+        h264: "libx264",
+        h265: "libx265",
+        vp9: "libvpx-vp9",
+        av1: "libaom-av1",
+      };
+      videoOpt = `-c:v ${codecMap[codec] || codec}`;
+    }
+
+    if (audioCodec) {
+      const audioCodecMap: Record<string, string> = {
+        aac: "aac",
+        mp3: "libmp3lame",
+        opus: "libopus",
+      };
+      audioOpt = `-c:a ${audioCodecMap[audioCodec] || audioCodec}`;
+    }
+
+    const cmd = `ffmpeg -i "${absInput}" ${videoOpt} ${audioOpt} "${absOutput}" -y`;
+    await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: `Converted: ${inputPath} → ${outputPath}`,
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Failed to convert: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+const concat: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const inputs = args.inputs as string[];
+  const outputPath = args.output as string;
+  const reencode = args.reencode as boolean || false;
+
+  if (!inputs || inputs.length < 2) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: "At least 2 input files required for concatenation",
+    };
+  }
+
+  try {
+    const absOutput = resolve(context.workingDirectory, outputPath);
+
+    if (reencode) {
+      // Re-encode method - works with different codecs
+      const inputArgs = inputs
+        .map((i) => `-i "${resolve(context.workingDirectory, i)}"`)
+        .join(" ");
+      const filterComplex = inputs.map((_, i) => `[${i}:v][${i}:a]`).join("");
+      const cmd = `ffmpeg ${inputArgs} -filter_complex "${filterComplex}concat=n=${inputs.length}:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" "${absOutput}" -y`;
+      await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+    } else {
+      // Concat demuxer method - fast but requires same codec
+      const tempList = resolve(context.workingDirectory, `concat-list-${Date.now()}.txt`);
+      const listContent = inputs
+        .map((i) => `file '${resolve(context.workingDirectory, i)}'`)
+        .join("\n");
+      await writeFile(tempList, listContent, "utf-8");
+
+      const cmd = `ffmpeg -f concat -safe 0 -i "${tempList}" -c copy "${absOutput}" -y`;
+      await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+
+      // Clean up temp file
+      const { unlink } = await import("node:fs/promises");
+      await unlink(tempList).catch(() => {});
+    }
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: `Concatenated ${inputs.length} files → ${outputPath}`,
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Failed to concatenate: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+// Helper function
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  }
+  return `${bytes} B`;
+}
+
 // Registration function
 export function registerMediaTools(registry: ToolRegistry): void {
   registry.register(mediaInfoDef, mediaInfo);
@@ -454,4 +709,7 @@ export function registerMediaTools(registry: ToolRegistry): void {
   registry.register(detectSilenceDef, detectSilence);
   registry.register(detectBeatsDef, detectBeats);
   registry.register(transcribeDef, transcribe);
+  registry.register(compressDef, compress);
+  registry.register(convertDef, convert);
+  registry.register(concatDef, concat);
 }

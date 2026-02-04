@@ -1,6 +1,8 @@
 export {
   ElevenLabsProvider,
   elevenLabsProvider,
+  KNOWN_VOICES,
+  resolveVoiceId,
   type Voice,
   type TTSOptions,
   type TTSResult,

@@ -16,6 +16,7 @@ import { registerFilesystemTools } from "./filesystem.js";
 import { registerMediaTools } from "./media.js";
 import { registerAITools } from "./ai.js";
 import { registerExportTools } from "./export.js";
+import { registerBatchTools } from "./batch.js";
 import type { ToolDefinition } from "../types.js";
 
 // Mock the imported CLI functions to avoid actual API calls
@@ -82,12 +83,13 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     registerMediaTools(registry);
     registerAITools(registry);
     registerExportTools(registry);
+    registerBatchTools(registry);
   });
 
   describe("Tool Registration", () => {
-    it("should register all 39 tools", () => {
+    it("should register all 46 tools", () => {
       const tools = registry.getAll();
-      expect(tools.length).toBe(39);
+      expect(tools.length).toBe(46);
     });
 
     it("should register all project tools (5)", () => {
@@ -103,7 +105,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       }
     });
 
-    it("should register all timeline tools (10)", () => {
+    it("should register all timeline tools (11)", () => {
       const timelineTools = [
         "timeline_add_source",
         "timeline_add_clip",
@@ -112,6 +114,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         "timeline_trim",
         "timeline_split",
         "timeline_move",
+        "timeline_clear",
         "timeline_delete",
         "timeline_duplicate",
         "timeline_list",
@@ -128,15 +131,29 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       }
     });
 
-    it("should register all media tools (5)", () => {
+    it("should register all media tools (8)", () => {
       const mediaTools = [
         "media_info",
         "detect_scenes",
         "detect_silence",
         "detect_beats",
         "ai_transcribe",
+        "media_compress",
+        "media_convert",
+        "media_concat",
       ];
       for (const name of mediaTools) {
+        expect(registry.get(name)).toBeDefined();
+      }
+    });
+
+    it("should register all batch tools (3)", () => {
+      const batchTools = [
+        "batch_import",
+        "batch_concat",
+        "batch_apply_effect",
+      ];
+      for (const name of batchTools) {
         expect(registry.get(name)).toBeDefined();
       }
     });
@@ -548,23 +565,26 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           t.name !== "ai_transcribe" // ai_transcribe is media tool
       );
       const exportTools = allTools.filter((t) => t.name.startsWith("export_"));
+      const batchTools = allTools.filter((t) => t.name.startsWith("batch_"));
 
       expect(projectTools.length).toBe(5);
-      expect(timelineTools.length).toBe(10);
+      expect(timelineTools.length).toBe(11);  // Added timeline_clear
       expect(fsTools.length).toBe(4);
-      expect(mediaTools.length).toBe(5);
+      expect(mediaTools.length).toBe(8);  // Added media_compress, media_convert, media_concat
       expect(aiTools.length).toBe(12);
       expect(exportTools.length).toBe(3);
+      expect(batchTools.length).toBe(3);  // New batch tools
 
-      // Total should be 39
+      // Total should be 46
       expect(
         projectTools.length +
           timelineTools.length +
           fsTools.length +
           mediaTools.length +
           aiTools.length +
-          exportTools.length
-      ).toBe(39);
+          exportTools.length +
+          batchTools.length
+      ).toBe(46);
     });
   });
 });
@@ -605,6 +625,7 @@ describe("Tool Name Consistency", () => {
     registerMediaTools(registry);
     registerAITools(registry);
     registerExportTools(registry);
+    registerBatchTools(registry);
   });
 
   it("all tool names should follow naming convention", () => {
@@ -617,6 +638,7 @@ describe("Tool Name Consistency", () => {
       "detect_",
       "ai_",
       "export_",
+      "batch_",
     ];
 
     for (const tool of tools) {

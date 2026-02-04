@@ -1040,8 +1040,15 @@ const scriptToVideoHandler: ToolHandler = async (args, context): Promise<ToolRes
       lines.push(`📝 Storyboard: storyboard.json`);
     }
 
-    if (result.narrations && result.narrations.length > 0) {
-      lines.push(`🎙️  Narrations: ${result.narrations.length} narration-*.mp3`);
+    // Show narrations with failed count
+    const successfulNarrations = result.narrationEntries?.filter((e) => !e.failed && e.path) || [];
+    const failedNarrationCount = result.failedNarrations?.length || 0;
+    if (successfulNarrations.length > 0 || failedNarrationCount > 0) {
+      if (failedNarrationCount > 0) {
+        lines.push(`🎙️  Narrations: ${successfulNarrations.length}/${result.scenes} (${failedNarrationCount} failed: scene ${result.failedNarrations!.join(", ")})`);
+      } else {
+        lines.push(`🎙️  Narrations: ${successfulNarrations.length} narration-*.mp3`);
+      }
     }
 
     if (result.images && result.images.length > 0) {
@@ -1053,7 +1060,7 @@ const scriptToVideoHandler: ToolHandler = async (args, context): Promise<ToolRes
     }
 
     if (result.failedScenes && result.failedScenes.length > 0) {
-      lines.push(`⚠️  Failed scenes: ${result.failedScenes.join(", ")}`);
+      lines.push(`⚠️  Failed video scenes: ${result.failedScenes.join(", ")}`);
     }
 
     if (result.projectPath) {
