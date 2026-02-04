@@ -165,123 +165,126 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
   console.log(chalk.dim("  Commands: exit · reset · tools · context"));
   console.log();
 
-  // Create readline interface
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: process.stdin.isTTY ?? false,
-    historySize: 100,
-    prompt: chalk.green("you> "),
-  });
+  // Wrap readline in a Promise that resolves only when readline closes
+  // This keeps the Node.js event loop alive until the user exits
+  return new Promise<void>((resolve) => {
+    // Create readline interface
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: process.stdin.isTTY ?? false,
+      historySize: 100,
+      prompt: chalk.green("you> "),
+    });
 
-  // Handle SIGINT (Ctrl+C)
-  rl.on("SIGINT", () => {
-    console.log();
-    console.log(chalk.dim('Use "exit" to quit'));
-    rl.prompt();
-  });
-
-  // Process user input
-  const processInput = async (input: string) => {
-    const trimmed = input.trim();
-
-    if (!trimmed) {
-      rl.prompt();
-      return;
-    }
-
-    // Handle special commands
-    if (trimmed.toLowerCase() === "exit" || trimmed.toLowerCase() === "quit") {
+    // Handle SIGINT (Ctrl+C)
+    rl.on("SIGINT", () => {
       console.log();
-      console.log(chalk.dim("Goodbye!"));
-      rl.close();
-      process.exit(0);
-      return;
-    }
-
-    if (trimmed.toLowerCase() === "reset") {
-      agent.reset();
-      console.log(chalk.dim("Context cleared"));
-      rl.prompt();
-      return;
-    }
-
-    if (trimmed.toLowerCase() === "tools") {
-      const tools = agent.getTools();
-      console.log();
-      console.log(chalk.bold.cyan("Available Tools"));
-      console.log(chalk.dim("─".repeat(50)));
-      for (const tool of tools.sort()) {
-        console.log(`  ${chalk.yellow(tool)}`);
-      }
-      console.log();
-      console.log(chalk.dim(`Total: ${tools.length} tools`));
-      console.log();
-      rl.prompt();
-      return;
-    }
-
-    if (trimmed.toLowerCase() === "context") {
-      const context = agent.getContext();
-      console.log();
-      console.log(chalk.bold.cyan("Current Context"));
-      console.log(chalk.dim("─".repeat(50)));
-      console.log(chalk.dim("Working Directory:"), context.workingDirectory);
-      console.log(chalk.dim("Project:"), context.projectPath || "(none)");
-      console.log();
-      rl.prompt();
-      return;
-    }
-
-    // Execute agent
-    const execSpinner = ora({
-      text: "Thinking...",
-      color: "cyan",
-    }).start();
-
-    try {
-      const result = await agent.execute(trimmed);
-
-      if (verbose && result.toolsUsed.length > 0) {
-        execSpinner.info(chalk.dim(`Used: ${result.toolsUsed.join(", ")}`));
-      } else {
-        execSpinner.stop();
-      }
-
-      console.log();
-      console.log(chalk.cyan("vibe>"), result.response);
-      console.log();
-
-      if (verbose) {
-        console.log(chalk.dim(`(${result.turns} turn${result.turns > 1 ? "s" : ""})`));
-        console.log();
-      }
-    } catch (error) {
-      execSpinner.fail(chalk.red("Error"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      console.log();
-    }
-
-    rl.prompt();
-  };
-
-  // Handle each line
-  rl.on("line", (line) => {
-    processInput(line).catch((err) => {
-      console.error(chalk.red("Error:"), err.message);
+      console.log(chalk.dim('Use "exit" to quit'));
       rl.prompt();
     });
-  });
 
-  // Handle close
-  rl.on("close", () => {
-    console.log();
-    console.log(chalk.dim("Goodbye!"));
-    process.exit(0);
-  });
+    // Process user input
+    const processInput = async (input: string) => {
+      const trimmed = input.trim();
 
-  // Start REPL
-  rl.prompt();
+      if (!trimmed) {
+        rl.prompt();
+        return;
+      }
+
+      // Handle special commands
+      if (trimmed.toLowerCase() === "exit" || trimmed.toLowerCase() === "quit") {
+        console.log();
+        console.log(chalk.dim("Goodbye!"));
+        rl.close();
+        return;
+      }
+
+      if (trimmed.toLowerCase() === "reset") {
+        agent.reset();
+        console.log(chalk.dim("Context cleared"));
+        rl.prompt();
+        return;
+      }
+
+      if (trimmed.toLowerCase() === "tools") {
+        const tools = agent.getTools();
+        console.log();
+        console.log(chalk.bold.cyan("Available Tools"));
+        console.log(chalk.dim("─".repeat(50)));
+        for (const tool of tools.sort()) {
+          console.log(`  ${chalk.yellow(tool)}`);
+        }
+        console.log();
+        console.log(chalk.dim(`Total: ${tools.length} tools`));
+        console.log();
+        rl.prompt();
+        return;
+      }
+
+      if (trimmed.toLowerCase() === "context") {
+        const context = agent.getContext();
+        console.log();
+        console.log(chalk.bold.cyan("Current Context"));
+        console.log(chalk.dim("─".repeat(50)));
+        console.log(chalk.dim("Working Directory:"), context.workingDirectory);
+        console.log(chalk.dim("Project:"), context.projectPath || "(none)");
+        console.log();
+        rl.prompt();
+        return;
+      }
+
+      // Execute agent
+      const execSpinner = ora({
+        text: "Thinking...",
+        color: "cyan",
+      }).start();
+
+      try {
+        const result = await agent.execute(trimmed);
+
+        if (verbose && result.toolsUsed.length > 0) {
+          execSpinner.info(chalk.dim(`Used: ${result.toolsUsed.join(", ")}`));
+        } else {
+          execSpinner.stop();
+        }
+
+        console.log();
+        console.log(chalk.cyan("vibe>"), result.response);
+        console.log();
+
+        if (verbose) {
+          console.log(chalk.dim(`(${result.turns} turn${result.turns > 1 ? "s" : ""})`));
+          console.log();
+        }
+      } catch (error) {
+        execSpinner.fail(chalk.red("Error"));
+        console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+        console.log();
+      }
+
+      rl.prompt();
+    };
+
+    // Handle each line
+    rl.on("line", (line) => {
+      processInput(line).catch((err) => {
+        console.error(chalk.red("Error:"), err.message);
+        rl.prompt();
+      });
+    });
+
+    // Handle close - resolve the Promise to allow natural exit
+    rl.on("close", () => {
+      console.log();
+      console.log(chalk.dim("Goodbye!"));
+      resolve();
+    });
+
+    // Start REPL
+    rl.prompt();
+  });
 }
 
 export const agentCommand = new Command("agent")
