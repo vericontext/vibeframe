@@ -265,6 +265,12 @@ All packages share the same version number. Update versions when making signific
 - `minor` (0.1.0 → 0.2.0): New features, new commands
 - `major` (0.1.0 → 1.0.0): Breaking changes, major milestones
 
+**Auto-bump rule for Claude Code:**
+After committing `feat:` or `fix:` changes, bump the version before pushing:
+- `fix:` commits → bump `patch`
+- `feat:` commits → bump `minor`
+- Multiple commits in one session → bump once based on highest level (feat > fix)
+
 **How to update:**
 ```bash
 # Update all package.json files at once
