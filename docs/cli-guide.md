@@ -83,11 +83,15 @@ Agent mode shows a welcome banner and waits for your input:
 
 you> 이미지 만들어서 영상으로 변환해줘
 
+vibe> 어떤 이미지를 만들까요? (예: 우주 풍경, 귀여운 로봇, 제품 사진 등)
+
+you> 미래 도시 야경
+
 vibe> (uses: ai_image, ai_video)
 
 완료:
-- 이미지 생성: generated-image.png
-- 영상 생성 중: task-abc123 (진행률 확인: vibe ai video-status abc123)
+- 이미지 생성: futuristic-city.png
+- 영상 생성 시작: task-abc123 (확인: vibe ai video-status abc123)
 ```
 
 **Key Points:**
