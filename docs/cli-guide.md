@@ -24,9 +24,9 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 ### Agent LLM Providers (5)
 | Provider | Model | Notes |
 |----------|-------|-------|
-| OpenAI | GPT-4 | Default provider |
-| Claude | Claude 3.5 | Best reasoning |
-| Gemini | Gemini 2.5 | Google AI |
+| OpenAI | GPT-4o | Default provider |
+| Claude | Claude Sonnet 4 | Best reasoning |
+| Gemini | Gemini 2.0 Flash | Fast, capable |
 | xAI | Grok-3 | xAI's latest |
 | Ollama | Local models | Free, no API key |
 
@@ -186,9 +186,9 @@ export XAI_API_KEY="..."                 # xAI Grok (Agent LLM + Grok Imagine)
 
 | Command | Required API Key | Model |
 |---------|-----------------|-------|
-| `vibe` / `vibe -p openai` | `OPENAI_API_KEY` | GPT-4 (Agent LLM) |
-| `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude (Agent LLM) |
-| `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini (Agent LLM) |
+| `vibe` / `vibe -p openai` | `OPENAI_API_KEY` | GPT-4o (Agent LLM) |
+| `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4 (Agent LLM) |
+| `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.0 Flash (Agent LLM) |
 | `vibe -p xai` | `XAI_API_KEY` | Grok-3 (Agent LLM) |
 | `vibe -p ollama` | (none) | Local models (Agent LLM) |
 | `vibe ai image` (default) | `GOOGLE_API_KEY` | Gemini Nano Banana |
