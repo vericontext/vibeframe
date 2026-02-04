@@ -3,7 +3,7 @@
  * Stored at ~/.vibeframe/config.yaml
  */
 
-export type LLMProvider = "claude" | "openai" | "gemini" | "ollama";
+export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai";
 
 export interface VibeConfig {
   /** Config file version */
@@ -25,6 +25,7 @@ export interface VibeConfig {
     kling?: string;
     stability?: string;
     replicate?: string;
+    xai?: string;
   };
 
   /** Default settings for new projects */
@@ -46,6 +47,7 @@ export const PROVIDER_NAMES: Record<LLMProvider, string> = {
   openai: "GPT-4 (OpenAI)",
   gemini: "Gemini (Google)",
   ollama: "Ollama (Local)",
+  xai: "Grok (xAI)",
 };
 
 /** Environment variable mappings */
@@ -58,6 +60,7 @@ export const PROVIDER_ENV_VARS: Record<string, string> = {
   kling: "KLING_API_KEY",
   stability: "STABILITY_API_KEY",
   replicate: "REPLICATE_API_TOKEN",
+  xai: "XAI_API_KEY",
 };
 
 /** Default configuration */

@@ -45,6 +45,10 @@ export async function createAdapter(provider: LLMProvider): Promise<LLMAdapter> 
       const { OllamaAdapter } = await import("./ollama.js");
       return new OllamaAdapter();
     }
+    case "xai": {
+      const { XAIAdapter } = await import("./xai.js");
+      return new XAIAdapter();
+    }
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -54,3 +58,4 @@ export { OpenAIAdapter } from "./openai.js";
 export { ClaudeAdapter } from "./claude.js";
 export { GeminiAdapter } from "./gemini.js";
 export { OllamaAdapter } from "./ollama.js";
+export { XAIAdapter } from "./xai.js";

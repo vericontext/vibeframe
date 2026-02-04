@@ -754,6 +754,7 @@ async function executeNaturalLanguageCommand(
     openai: "openai",
     gemini: "google",
     ollama: "ollama",
+    xai: "xai",
   };
 
   const apiKeyName = providerKeyMap[llmProviderType];

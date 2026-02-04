@@ -72,11 +72,12 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log(chalk.dim("   This provider handles natural language commands."));
   console.log();
 
-  const providers: LLMProvider[] = ["claude", "openai", "gemini", "ollama"];
+  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "ollama"];
   const providerDescriptions: Record<LLMProvider, string> = {
     claude: "Best understanding, most capable",
     openai: "GPT-4, reliable and fast",
     gemini: "Google AI, good for general use",
+    xai: "Grok-3, xAI's latest model",
     ollama: "Free, local, no API key needed",
   };
   const providerLabels = providers.map((p) => {
@@ -87,7 +88,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
   const currentIndex = providers.indexOf(config.llm.provider);
   const providerIndex = await promptSelect(
-    chalk.cyan("   Select [1-4]: "),
+    chalk.cyan("   Select [1-5]: "),
     providerLabels,
     currentIndex >= 0 ? currentIndex : 0
   );
@@ -159,6 +160,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
       { key: "openai", name: "OpenAI", desc: "NL Commands, DALL-E, Whisper" },
       { key: "anthropic", name: "Anthropic", desc: "Claude, NL Commands" },
       { key: "google", name: "Google", desc: "Gemini" },
+      { key: "xai", name: "xAI", desc: "Grok, NL Commands" },
       { key: "elevenlabs", name: "ElevenLabs", desc: "TTS & Voice" },
       { key: "runway", name: "Runway", desc: "Video Gen" },
       { key: "kling", name: "Kling", desc: "Video Gen" },
@@ -250,6 +252,7 @@ function getEnvVarName(provider: LLMProvider): string {
     claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
     gemini: "GOOGLE_API_KEY",
+    xai: "XAI_API_KEY",
     ollama: "",
   };
   return envVars[provider];
