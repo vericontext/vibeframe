@@ -5,11 +5,15 @@
 
 import { Command } from "commander";
 import { createInterface } from "node:readline";
+import { createRequire } from "node:module";
 import chalk from "chalk";
 import ora from "ora";
 import { AgentExecutor } from "../agent/index.js";
 import { loadConfig, getApiKeyFromConfig, type LLMProvider } from "../config/index.js";
 import { hasTTY } from "../utils/tty.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
 
 export interface StartAgentOptions {
   provider?: string;
@@ -135,22 +139,30 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
     }
   }
 
-  // Print welcome message
+  // Print welcome banner
+  const version = pkg.version;
+  const toolCount = agent.getTools().length;
+  const cwd = process.cwd().replace(process.env.HOME || "", "~");
+
   console.log();
-  console.log(chalk.bold.cyan("🤖 VibeFrame AI Agent"));
-  if (confirmMode) {
-    console.log(chalk.yellow("   (confirm mode)"));
-  }
-  console.log(chalk.dim("─".repeat(50)));
-  console.log(chalk.dim("Provider:"), chalk.white(provider));
-  if (options.model) {
-    console.log(chalk.dim("Model:"), chalk.white(options.model));
-  }
-  if (options.project) {
-    console.log(chalk.dim("Project:"), chalk.white(options.project));
-  }
+  console.log(chalk.cyan("  ██╗   ██╗██╗██████╗ ███████╗"));
+  console.log(chalk.cyan("  ██║   ██║██║██╔══██╗██╔════╝"));
+  console.log(chalk.cyan("  ██║   ██║██║██████╔╝█████╗  ") + chalk.dim(`  VibeFrame v${version}`));
+  console.log(chalk.cyan("  ╚██╗ ██╔╝██║██╔══██╗██╔══╝  ") + chalk.dim(`  ${provider}${options.model ? ` · ${options.model}` : ""}`));
+  console.log(chalk.cyan("   ╚████╔╝ ██║██████╔╝███████╗") + chalk.dim(`  ${cwd}`));
+  console.log(chalk.cyan("    ╚═══╝  ╚═╝╚═════╝ ╚══════╝"));
   console.log();
-  console.log(chalk.dim('Type "exit" to quit, "reset" to clear context, "tools" to list available tools'));
+
+  // Show status line
+  const statusParts = [
+    chalk.green(`${toolCount} tools`),
+    confirmMode ? chalk.yellow("confirm mode") : null,
+    options.project ? chalk.blue(`project: ${options.project}`) : null,
+  ].filter(Boolean);
+
+  console.log(chalk.dim("  ") + statusParts.join(chalk.dim(" · ")));
+  console.log();
+  console.log(chalk.dim("  Commands: exit · reset · tools · context"));
   console.log();
 
   // Create readline interface
