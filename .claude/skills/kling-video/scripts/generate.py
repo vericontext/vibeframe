@@ -19,8 +19,23 @@ import urllib.request
 import urllib.error
 
 BASE_URL = "https://api.klingai.com/v1"
-POLL_INTERVAL = 5  # seconds
+POLL_INTERVAL = 3  # seconds (faster for v2.x)
 MAX_WAIT = 600  # 10 minutes
+
+# Available models
+MODELS = {
+    "v1": "kling-v1",
+    "v1.5": "kling-v1-5",
+    "v1.6": "kling-v1-6",
+    "v2": "kling-v2-master",
+    "v2.1": "kling-v2-1-master",
+    "v2.5": "kling-v2-5-turbo",
+    "turbo": "kling-v2-5-turbo",
+}
+
+# Models that support std mode (faster, cheaper)
+STD_MODE_MODELS = ["kling-v1-6", "kling-v2-master", "kling-v2-1-master", "kling-v2-5-turbo"]
+DEFAULT_MODEL = "kling-v2-5-turbo"
 
 
 def generate_jwt(access_key: str, secret_key: str) -> str:
@@ -55,6 +70,7 @@ def generate_video(
     mode: str = "std",
     negative_prompt: str | None = None,
     api_key: str | None = None,
+    model: str | None = None,
 ) -> dict:
     """Generate video using Kling AI."""
 
@@ -70,11 +86,20 @@ def generate_video(
     access_key, secret_key = parts
     token = generate_jwt(access_key, secret_key)
 
+    # Resolve model name
+    model_name = MODELS.get(model, model) if model else DEFAULT_MODEL
+
+    # Auto-select mode based on model capability
+    effective_mode = mode
+    if model_name not in STD_MODE_MODELS and mode == "std":
+        effective_mode = "pro"
+        print(f"Note: {model_name} doesn't support std mode, using pro")
+
     # Build request body
     body = {
         "prompt": prompt,
-        "model_name": "kling-v1-5",
-        "mode": mode,
+        "model_name": model_name,
+        "mode": effective_mode,
         "aspect_ratio": aspect_ratio,
         "duration": duration,
     }
@@ -190,13 +215,16 @@ def main():
     parser.add_argument("-i", "--image", help="Reference image for image-to-video")
     parser.add_argument("-d", "--duration", choices=["5", "10"], default="5", help="Duration (5 or 10 seconds)")
     parser.add_argument("-r", "--ratio", choices=["16:9", "9:16", "1:1"], default="16:9", help="Aspect ratio")
-    parser.add_argument("-m", "--mode", choices=["std", "pro"], default="std", help="Quality mode")
+    parser.add_argument("-m", "--mode", choices=["std", "pro"], default="std", help="Quality mode (std=faster, pro=better)")
+    parser.add_argument("-M", "--model", choices=list(MODELS.keys()) + list(MODELS.values()),
+                        default="v2.5", help="Model version (v1, v1.5, v1.6, v2, v2.1, v2.5/turbo)")
     parser.add_argument("-n", "--negative", help="Negative prompt")
     parser.add_argument("-k", "--api-key", help="API key (ACCESS_KEY:SECRET_KEY or set KLING_API_KEY)")
 
     args = parser.parse_args()
 
     print(f"Generating video: {args.prompt}")
+    print(f"Model: {MODELS.get(args.model, args.model)}, Mode: {args.mode}")
     if args.image:
         print(f"Reference image: {args.image}")
 
@@ -209,6 +237,7 @@ def main():
         mode=args.mode,
         negative_prompt=args.negative,
         api_key=args.api_key,
+        model=args.model,
     )
 
     if result["success"]:

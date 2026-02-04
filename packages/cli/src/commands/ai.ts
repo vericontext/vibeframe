@@ -2472,29 +2472,40 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Generate video with retry logic for Kling provider
+ * Uses text2video (Kling's image2video requires URL, not base64)
  */
 async function generateVideoWithRetryKling(
   kling: KlingProvider,
   segment: StoryboardSegment,
-  referenceImage: string,
   options: {
     duration: 5 | 10;
     aspectRatio: "16:9" | "9:16" | "1:1";
+    imageUrl?: string; // Optional: public URL for image2video
   },
   maxRetries: number,
   onProgress?: (message: string) => void
-): Promise<{ taskId: string } | null> {
+): Promise<{ taskId: string; type: "text2video" | "image2video" } | null> {
+  // Build detailed prompt from storyboard segment
+  const prompt = segment.visualStyle
+    ? `${segment.visuals}. Style: ${segment.visualStyle}`
+    : segment.visuals;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await kling.generateVideo(segment.visuals, {
-        prompt: segment.visuals,
-        referenceImage,
+      const result = await kling.generateVideo(prompt, {
+        prompt,
+        // Only use referenceImage if it's a URL (not base64)
+        referenceImage: options.imageUrl,
         duration: options.duration,
         aspectRatio: options.aspectRatio,
+        mode: "std", // Use std mode for faster generation
       });
 
       if (result.status !== "failed" && result.id) {
-        return { taskId: result.id };
+        return {
+          taskId: result.id,
+          type: options.imageUrl ? "image2video" : "text2video",
+        };
       }
 
       if (attempt < maxRetries) {
@@ -2944,21 +2955,12 @@ aiCommand
           }
 
           // Submit all video generation tasks with retry logic
-          const tasks: Array<{ taskId: string; index: number; imagePath: string; referenceImage: string; segment: StoryboardSegment }> = [];
+          // Using text2video since Kling's image2video requires URL (not base64)
+          const tasks: Array<{ taskId: string; index: number; segment: StoryboardSegment; type: "text2video" | "image2video" }> = [];
 
           for (let i = 0; i < segments.length; i++) {
-            if (!imagePaths[i]) {
-              videoPaths.push("");
-              continue;
-            }
-
             const segment = segments[i] as StoryboardSegment;
             videoSpinner.text = `🎬 Submitting video task ${i + 1}/${segments.length}...`;
-
-            const imageBuffer = await readFile(imagePaths[i]);
-            const ext = extname(imagePaths[i]).toLowerCase().slice(1);
-            const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-            const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
 
             // Use 10s video if narration > 5s to avoid video ending before narration
             const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
@@ -2966,10 +2968,10 @@ aiCommand
             const result = await generateVideoWithRetryKling(
               kling,
               segment,
-              referenceImage,
               {
                 duration: videoDuration,
                 aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+                // No imageUrl - using text2video for now
               },
               maxRetries,
               (msg) => {
@@ -2978,7 +2980,9 @@ aiCommand
             );
 
             if (result) {
-              tasks.push({ taskId: result.taskId, index: i, imagePath: imagePaths[i], referenceImage, segment });
+              tasks.push({ taskId: result.taskId, index: i, segment, type: result.type });
+              // Initialize videoPaths array if needed
+              if (!videoPaths[i]) videoPaths[i] = "";
             } else {
               console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1} (after ${maxRetries} retries)`));
               videoPaths[i] = "";
@@ -2992,12 +2996,13 @@ aiCommand
           for (const task of tasks) {
             let completed = false;
             let currentTaskId = task.taskId;
+            let currentType = task.type;
 
             for (let attempt = 0; attempt <= maxRetries && !completed; attempt++) {
               try {
                 const result = await kling.waitForCompletion(
                   currentTaskId,
-                  "image2video",
+                  currentType,
                   (status) => {
                     videoSpinner.text = `🎬 Scene ${task.index + 1}: ${status.status}...`;
                   },
@@ -3020,19 +3025,16 @@ aiCommand
                   const retryResult = await generateVideoWithRetryKling(
                     kling,
                     task.segment,
-                    task.referenceImage,
                     {
                       duration: videoDuration,
                       aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
                     },
-                    0, // No nested retries
-                    (msg) => {
-                      videoSpinner.text = `🎬 Scene ${task.index + 1}: ${msg}`;
-                    }
+                    0 // No nested retries
                   );
 
                   if (retryResult) {
                     currentTaskId = retryResult.taskId;
+                    currentType = retryResult.type;
                   } else {
                     videoPaths[task.index] = "";
                     failedScenes.push(task.index + 1);
@@ -3642,18 +3644,15 @@ aiCommand
             process.exit(1);
           }
 
+          // Using text2video since Kling's image2video requires URL (not base64)
           const result = await generateVideoWithRetryKling(
             kling,
             segment,
-            referenceImage,
             {
               duration: videoDuration,
               aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
             },
-            maxRetries,
-            (msg) => {
-              videoSpinner.text = `🎬 Scene ${sceneNum}: ${msg}`;
-            }
+            maxRetries
           );
 
           if (result) {
@@ -3663,7 +3662,7 @@ aiCommand
               try {
                 const waitResult = await kling.waitForCompletion(
                   result.taskId,
-                  "image2video",
+                  result.type,
                   (status) => {
                     videoSpinner.text = `🎬 Scene ${sceneNum}: ${status.status}...`;
                   },
@@ -7065,24 +7064,19 @@ export async function executeScriptToVideo(
           }
 
           const segment = segments[i] as StoryboardSegment;
-          const imageBuffer = await readFile(imagePaths[i]);
-          const ext = extname(imagePaths[i]).toLowerCase().slice(1);
-          const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-          const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-
           const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
 
+          // Using text2video since Kling's image2video requires URL (not base64)
           const taskResult = await generateVideoWithRetryKling(
             kling,
             segment,
-            referenceImage,
             { duration: videoDuration, aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1" },
             maxRetries
           );
 
           if (taskResult) {
             try {
-              const waitResult = await kling.waitForCompletion(taskResult.taskId, "image2video", undefined, 600000);
+              const waitResult = await kling.waitForCompletion(taskResult.taskId, taskResult.type, undefined, 600000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
                 const videoPath = resolve(absOutputDir, `scene-${i + 1}.mp4`);
                 const response = await fetch(waitResult.videoUrl);

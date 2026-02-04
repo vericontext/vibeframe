@@ -8,6 +8,23 @@ import type {
 } from "../interface/types.js";
 
 /**
+ * Kling model versions
+ * - kling-v1: Original model
+ * - kling-v1-5: Improved v1.5 (pro mode only)
+ * - kling-v1-6: Latest v1 series (std/pro)
+ * - kling-v2-master: v2.0 master (std/pro, faster)
+ * - kling-v2-1-master: v2.1 master (std/pro)
+ * - kling-v2-5-turbo: v2.5 turbo (fastest, best quality/speed ratio)
+ */
+export type KlingModel =
+  | "kling-v1"
+  | "kling-v1-5"
+  | "kling-v1-6"
+  | "kling-v2-master"
+  | "kling-v2-1-master"
+  | "kling-v2-5-turbo";
+
+/**
  * Kling video generation options
  */
 export interface KlingVideoOptions {
@@ -15,11 +32,11 @@ export interface KlingVideoOptions {
   prompt: string;
   /** Negative prompt (what to avoid) */
   negativePrompt?: string;
-  /** Model name: kling-v1 or kling-v1-5 */
-  model?: "kling-v1" | "kling-v1-5";
-  /** Config for generation */
+  /** Model name */
+  model?: KlingModel;
+  /** Config for generation (0-1, controls prompt adherence) */
   cfg?: number;
-  /** Generation mode: std (standard) or pro (professional) */
+  /** Generation mode: std (standard, faster) or pro (professional, higher quality) */
   mode?: "std" | "pro";
   /** Aspect ratio */
   aspectRatio?: "16:9" | "9:16" | "1:1";
@@ -66,7 +83,14 @@ interface KlingTaskResponse {
 
 /**
  * Kling AI provider for high-quality video generation
- * Uses Kling v1.5 model with text-to-video and image-to-video
+ * Supports Kling v1, v1.5, v1.6, v2.0, and v2.1 models
+ *
+ * Model capabilities:
+ * - v1/v1.5: Original models (v1.5 pro mode only)
+ * - v1.6: Improved quality, std/pro modes
+ * - v2.0/v2.1: Fastest generation, std/pro modes
+ *
+ * Note: image2video requires image URL (not base64) for v2.x models
  */
 /**
  * Options for video extension
@@ -80,10 +104,16 @@ export interface KlingVideoExtendOptions {
   duration?: "5" | "10";
 }
 
+/** Default model for Kling - v2.5 turbo is fastest */
+const DEFAULT_MODEL: KlingModel = "kling-v2-5-turbo";
+
+/** Models that support std mode (faster, cheaper) */
+const STD_MODE_MODELS: KlingModel[] = ["kling-v1-6", "kling-v2-master", "kling-v2-1-master", "kling-v2-5-turbo"];
+
 export class KlingProvider implements AIProvider {
   id = "kling";
   name = "Kling AI";
-  description = "High-quality AI video generation with Kling v1.5";
+  description = "High-quality AI video generation with Kling v2.5 Turbo (fastest)";
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "video-extend"];
   iconUrl = "/icons/kling.svg";
   isAvailable = true;
@@ -91,7 +121,7 @@ export class KlingProvider implements AIProvider {
   private accessKey?: string;
   private secretKey?: string;
   private baseUrl = "https://api.klingai.com/v1";
-  private pollingInterval = 5000;
+  private pollingInterval = 3000; // Faster polling for v2.x
 
   async initialize(config: ProviderConfig): Promise<void> {
     // API key format: "access_key:secret_key"
@@ -139,7 +169,7 @@ export class KlingProvider implements AIProvider {
   }
 
   /**
-   * Generate video from text prompt
+   * Generate video from text prompt or image
    */
   async generateVideo(
     prompt: string,
@@ -156,6 +186,15 @@ export class KlingProvider implements AIProvider {
     try {
       const token = this.generateToken();
 
+      // Determine model - use provided or default
+      const model: KlingModel = (options?.model as KlingModel) || DEFAULT_MODEL;
+
+      // Determine mode - std only supported on newer models
+      let mode = options?.mode || "std";
+      if (!STD_MODE_MODELS.includes(model) && mode === "std") {
+        mode = "pro"; // Fallback to pro for older models
+      }
+
       // Map aspect ratio
       const aspectRatioMap: Record<string, string> = {
         "16:9": "16:9",
@@ -166,8 +205,8 @@ export class KlingProvider implements AIProvider {
 
       const body: Record<string, unknown> = {
         prompt,
-        model_name: "kling-v1-5",
-        mode: options?.mode || "pro",
+        model_name: model,
+        mode,
         aspect_ratio: aspectRatioMap[options?.aspectRatio || "16:9"] || "16:9",
         duration: options?.duration === 10 ? "10" : "5",
       };
@@ -176,13 +215,31 @@ export class KlingProvider implements AIProvider {
         body.negative_prompt = options.negativePrompt;
       }
 
+      // CFG scale (0-1)
+      if (options?.cfg !== undefined) {
+        body.cfg_scale = options.cfg;
+      }
+
       // If reference image is provided, use image-to-video endpoint
       if (options?.referenceImage) {
-        const imageData = typeof options.referenceImage === "string"
-          ? options.referenceImage
-          : await this.blobToDataUri(options.referenceImage as Blob);
+        const imageInput = options.referenceImage;
 
-        body.image = imageData;
+        // Check if it's a URL (http/https) or needs base64 conversion
+        if (typeof imageInput === "string") {
+          if (imageInput.startsWith("http://") || imageInput.startsWith("https://")) {
+            // Use URL directly for v2.x models (they prefer URLs)
+            body.image = imageInput;
+          } else if (imageInput.startsWith("data:")) {
+            // Already a data URI
+            body.image = imageInput;
+          } else {
+            // Assume it's raw base64, add data URI prefix
+            body.image = `data:image/png;base64,${imageInput}`;
+          }
+        } else {
+          // Blob - convert to data URI
+          body.image = await this.blobToDataUri(imageInput as Blob);
+        }
 
         const response = await fetch(`${this.baseUrl}/videos/image2video`, {
           method: "POST",
