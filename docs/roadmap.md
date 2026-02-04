@@ -102,6 +102,8 @@ Intelligence built into every interaction.
 - [x] **Script-to-Video** - Generate complete videos from text scripts
   - Claude storyboard analysis → ElevenLabs TTS → DALL-E visuals → Runway/Kling video
   - Full pipeline: `vibe ai script-to-video <script> -o project.vibe.json`
+  - Automatic retry on video generation failures (`--retries`)
+  - Individual scene regeneration: `vibe ai regenerate-scene <dir> --scene <n>`
 - [x] **Auto Highlights** - Extract highlights from long-form content
   - FFmpeg audio extraction → Whisper transcription → Claude highlight analysis
   - Full pipeline: `vibe ai highlights <media> -o highlights.json -p project.vibe.json`
@@ -232,7 +234,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 kling | kling-status
                 video-extend | video-upscale | video-interpolate | video-inpaint
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
-                script-to-video | highlights | b-roll | viral
+                script-to-video | regenerate-scene | highlights | b-roll | viral
                 voice-clone | music | music-status | audio-restore | dub
                 duck | grade | speed-ramp | reframe | auto-shorts
                 style-transfer | track-object

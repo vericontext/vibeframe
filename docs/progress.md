@@ -4,6 +4,92 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ---
 
+## 2026-02-04
+
+### Feature: Script-to-Video Improvements - Retry Logic & Scene Regeneration
+
+Added automatic retry logic for video generation failures and a new `regenerate-scene` command for fixing failed scenes without regenerating the entire video.
+
+**Problems Addressed:**
+1. Video generation fails silently with fallback to image - no retry attempts
+2. No way to regenerate individual failed scenes
+3. No clear feedback about which scenes failed
+
+**Solution:**
+1. Added configurable retry logic (default 2 retries) for video generation
+2. New `regenerate-scene` command for individual scene regeneration
+3. Improved completion summary with failure details and regeneration hints
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts`
+  - Added `StoryboardSegment` interface for type safety
+  - Added `sleep()`, `generateVideoWithRetryKling()`, `generateVideoWithRetryRunway()` helper functions
+  - Modified `script-to-video` command:
+    - Added `--retries <count>` option (default: 2)
+    - Tracks `failedScenes` array for summary
+    - Retry logic resubmits failed tasks with exponential backoff
+    - Enhanced completion summary shows failed scenes and regeneration hints
+  - New `regenerate-scene` command with options:
+    - `--scene <number>` (required, 1-based)
+    - `--video-only`, `--narration-only`, `--image-only`
+    - `-g, --generator <engine>` (runway | kling)
+    - `-i, --image-provider <provider>` (dalle | stability | gemini)
+    - `-v, --voice <id>` for ElevenLabs voice
+    - `--retries <count>`
+    - Updates storyboard.json and project.vibe.json automatically
+
+**Usage:**
+
+```bash
+# Script-to-video with custom retry count
+vibe ai script-to-video "my script" -o ./output/ --retries 3
+
+# Regenerate failed scene 4 (video only)
+vibe ai regenerate-scene ./output/ --scene 4 --video-only
+
+# Regenerate scene 2 with different provider
+vibe ai regenerate-scene ./output/ --scene 2 --video-only -g kling
+
+# Regenerate all assets for scene 3
+vibe ai regenerate-scene ./output/ --scene 3
+
+# Regenerate narration only
+vibe ai regenerate-scene ./output/ --scene 1 --narration-only
+```
+
+**Completion Summary Example:**
+```
+✅ Script-to-Video complete!
+────────────────────────────────────────
+  📄 Project: ./output/project.vibe.json
+  🎬 Scenes: 5
+  ⏱️  Duration: 25s
+  📁 Assets: ./output/
+  🎙️  Narrations: 5 narration-*.mp3
+  🖼️  Images: 5 scene-*.png
+  🎥 Videos: 4/5 scene-*.mp4
+     ⚠ Failed: scene 4 (fallback to image)
+
+Next steps:
+  vibe project info ./output/
+  vibe export ./output/ -o final.mp4
+
+💡 To regenerate failed scenes:
+  vibe ai regenerate-scene ./output/ --scene 4 --video-only
+```
+
+**Verification:**
+```bash
+# Check --help for new options
+vibe ai script-to-video --help
+vibe ai regenerate-scene --help
+
+# Build passes
+pnpm build
+```
+
+---
+
 ## 2026-02-03
 
 ### Feature: Scene Continuity & Narration Alignment for Script-to-Video

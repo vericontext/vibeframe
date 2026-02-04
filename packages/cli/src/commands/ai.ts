@@ -2448,6 +2448,161 @@ aiCommand
     }
   });
 
+// Helper type for storyboard segments
+interface StoryboardSegment {
+  index?: number;
+  description: string;
+  visuals: string;
+  visualStyle?: string;
+  narration?: string;
+  duration: number;
+  startTime: number;
+}
+
+// Default retry count for video generation
+const DEFAULT_VIDEO_RETRIES = 2;
+const RETRY_DELAY_MS = 5000;
+
+/**
+ * Sleep helper
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Generate video with retry logic for Kling provider
+ */
+async function generateVideoWithRetryKling(
+  kling: KlingProvider,
+  segment: StoryboardSegment,
+  referenceImage: string,
+  options: {
+    duration: 5 | 10;
+    aspectRatio: "16:9" | "9:16" | "1:1";
+  },
+  maxRetries: number,
+  onProgress?: (message: string) => void
+): Promise<{ taskId: string } | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await kling.generateVideo(segment.visuals, {
+        prompt: segment.visuals,
+        referenceImage,
+        duration: options.duration,
+        aspectRatio: options.aspectRatio,
+      });
+
+      if (result.status !== "failed" && result.id) {
+        return { taskId: result.id };
+      }
+
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(RETRY_DELAY_MS);
+      }
+    } catch (err) {
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Error, retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(RETRY_DELAY_MS);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Generate video with retry logic for Runway provider
+ */
+async function generateVideoWithRetryRunway(
+  runway: RunwayProvider,
+  segment: StoryboardSegment,
+  referenceImage: string,
+  options: {
+    duration: 5 | 10;
+    aspectRatio: "16:9" | "9:16";
+  },
+  maxRetries: number,
+  onProgress?: (message: string) => void
+): Promise<{ taskId: string } | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await runway.generateVideo(segment.visuals, {
+        prompt: segment.visuals,
+        referenceImage,
+        duration: options.duration,
+        aspectRatio: options.aspectRatio,
+      });
+
+      if (result.status !== "failed" && result.id) {
+        return { taskId: result.id };
+      }
+
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(RETRY_DELAY_MS);
+      }
+    } catch (err) {
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Error, retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(RETRY_DELAY_MS);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Wait for video completion with retry logic
+ */
+async function waitForVideoWithRetry(
+  provider: KlingProvider | RunwayProvider,
+  taskId: string,
+  providerType: "kling" | "runway",
+  maxRetries: number,
+  onProgress?: (message: string) => void,
+  timeout?: number
+): Promise<{ videoUrl: string } | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      let result;
+      if (providerType === "kling") {
+        result = await (provider as KlingProvider).waitForCompletion(
+          taskId,
+          "image2video",
+          (status) => onProgress?.(status.status || "processing"),
+          timeout || 600000
+        );
+      } else {
+        result = await (provider as RunwayProvider).waitForCompletion(
+          taskId,
+          (status) => {
+            const progress = status.progress !== undefined ? `${status.progress}%` : status.status;
+            onProgress?.(progress || "processing");
+          },
+          timeout || 300000
+        );
+      }
+
+      if (result.status === "completed" && result.videoUrl) {
+        return { videoUrl: result.videoUrl };
+      }
+
+      // If failed, try resubmitting on next attempt
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Failed, will need resubmission...`);
+        return null; // Signal need for resubmission
+      }
+    } catch (err) {
+      if (attempt < maxRetries) {
+        onProgress?.(`⚠ Error waiting, retry ${attempt + 1}/${maxRetries}...`);
+        await sleep(RETRY_DELAY_MS);
+      }
+    }
+  }
+  return null;
+}
+
 // Script-to-Video command
 aiCommand
   .command("script-to-video")
@@ -2463,6 +2618,7 @@ aiCommand
   .option("--images-only", "Generate images only, skip video generation")
   .option("--no-voiceover", "Skip voiceover generation")
   .option("--output-dir <dir>", "Directory for generated assets", "script-video-output")
+  .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
   .action(async (script: string, options) => {
     try {
       // Get all required API keys upfront
@@ -2763,6 +2919,8 @@ aiCommand
 
       // Step 4: Generate videos (if not images-only)
       const videoPaths: string[] = [];
+      const failedScenes: number[] = []; // Track failed scenes for summary
+      const maxRetries = parseInt(options.retries) || DEFAULT_VIDEO_RETRIES;
 
       if (!options.imagesOnly && videoApiKey) {
         const videoSpinner = ora(`🎬 Generating videos with ${options.generator === "kling" ? "Kling" : "Runway"}...`).start();
@@ -2776,8 +2934,8 @@ aiCommand
             process.exit(1);
           }
 
-          // Submit all video generation tasks
-          const tasks: Array<{ taskId: string; index: number; imagePath: string }> = [];
+          // Submit all video generation tasks with retry logic
+          const tasks: Array<{ taskId: string; index: number; imagePath: string; referenceImage: string; segment: StoryboardSegment }> = [];
 
           for (let i = 0; i < segments.length; i++) {
             if (!imagePaths[i]) {
@@ -2785,62 +2943,106 @@ aiCommand
               continue;
             }
 
-            const segment = segments[i];
+            const segment = segments[i] as StoryboardSegment;
             videoSpinner.text = `🎬 Submitting video task ${i + 1}/${segments.length}...`;
 
-            try {
-              const imageBuffer = await readFile(imagePaths[i]);
-              const ext = extname(imagePaths[i]).toLowerCase().slice(1);
-              const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-              const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+            const imageBuffer = await readFile(imagePaths[i]);
+            const ext = extname(imagePaths[i]).toLowerCase().slice(1);
+            const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+            const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
 
-              // Use 10s video if narration > 5s to avoid video ending before narration
-              const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
-              const result = await kling.generateVideo(segment.visuals, {
-                prompt: segment.visuals,
-                referenceImage,
+            // Use 10s video if narration > 5s to avoid video ending before narration
+            const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
+
+            const result = await generateVideoWithRetryKling(
+              kling,
+              segment,
+              referenceImage,
+              {
                 duration: videoDuration,
                 aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-              });
-
-              if (result.status !== "failed" && result.id) {
-                tasks.push({ taskId: result.id, index: i, imagePath: imagePaths[i] });
-              } else {
-                console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1}`));
-                videoPaths[i] = "";
+              },
+              maxRetries,
+              (msg) => {
+                videoSpinner.text = `🎬 Scene ${i + 1}: ${msg}`;
               }
-            } catch (err) {
-              console.log(chalk.yellow(`\n  ⚠ Error starting video for scene ${i + 1}: ${err}`));
+            );
+
+            if (result) {
+              tasks.push({ taskId: result.taskId, index: i, imagePath: imagePaths[i], referenceImage, segment });
+            } else {
+              console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1} (after ${maxRetries} retries)`));
               videoPaths[i] = "";
+              failedScenes.push(i + 1);
             }
           }
 
-          // Wait for all tasks to complete
+          // Wait for all tasks to complete with retry logic
           videoSpinner.text = `🎬 Waiting for ${tasks.length} video(s) to complete...`;
 
           for (const task of tasks) {
-            try {
-              const result = await kling.waitForCompletion(
-                task.taskId,
-                "image2video",
-                (status) => {
-                  videoSpinner.text = `🎬 Scene ${task.index + 1}: ${status.status}...`;
-                },
-                600000 // 10 minute timeout per video
-              );
+            let completed = false;
+            let currentTaskId = task.taskId;
 
-              if (result.status === "completed" && result.videoUrl) {
-                const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
-                const response = await fetch(result.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
-                await writeFile(videoPath, buffer);
-                videoPaths[task.index] = videoPath;
-              } else {
-                videoPaths[task.index] = "";
+            for (let attempt = 0; attempt <= maxRetries && !completed; attempt++) {
+              try {
+                const result = await kling.waitForCompletion(
+                  currentTaskId,
+                  "image2video",
+                  (status) => {
+                    videoSpinner.text = `🎬 Scene ${task.index + 1}: ${status.status}...`;
+                  },
+                  600000 // 10 minute timeout per video
+                );
+
+                if (result.status === "completed" && result.videoUrl) {
+                  const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
+                  const response = await fetch(result.videoUrl);
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  await writeFile(videoPath, buffer);
+                  videoPaths[task.index] = videoPath;
+                  completed = true;
+                } else if (attempt < maxRetries) {
+                  // Resubmit task on failure
+                  videoSpinner.text = `🎬 Scene ${task.index + 1}: Retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+
+                  const videoDuration = (task.segment.duration > 5 ? 10 : 5) as 5 | 10;
+                  const retryResult = await generateVideoWithRetryKling(
+                    kling,
+                    task.segment,
+                    task.referenceImage,
+                    {
+                      duration: videoDuration,
+                      aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+                    },
+                    0, // No nested retries
+                    (msg) => {
+                      videoSpinner.text = `🎬 Scene ${task.index + 1}: ${msg}`;
+                    }
+                  );
+
+                  if (retryResult) {
+                    currentTaskId = retryResult.taskId;
+                  } else {
+                    videoPaths[task.index] = "";
+                    failedScenes.push(task.index + 1);
+                    completed = true; // Exit retry loop
+                  }
+                } else {
+                  videoPaths[task.index] = "";
+                  failedScenes.push(task.index + 1);
+                }
+              } catch (err) {
+                if (attempt >= maxRetries) {
+                  console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
+                  videoPaths[task.index] = "";
+                  failedScenes.push(task.index + 1);
+                } else {
+                  videoSpinner.text = `🎬 Scene ${task.index + 1}: Error, retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+                }
               }
-            } catch (err) {
-              console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
-              videoPaths[task.index] = "";
             }
           }
         } else {
@@ -2848,8 +3050,8 @@ aiCommand
           const runway = new RunwayProvider();
           await runway.initialize({ apiKey: videoApiKey });
 
-          // Submit all video generation tasks
-          const tasks: Array<{ taskId: string; index: number; imagePath: string }> = [];
+          // Submit all video generation tasks with retry logic
+          const tasks: Array<{ taskId: string; index: number; imagePath: string; referenceImage: string; segment: StoryboardSegment }> = [];
 
           for (let i = 0; i < segments.length; i++) {
             if (!imagePaths[i]) {
@@ -2857,62 +3059,106 @@ aiCommand
               continue;
             }
 
-            const segment = segments[i];
+            const segment = segments[i] as StoryboardSegment;
             videoSpinner.text = `🎬 Submitting video task ${i + 1}/${segments.length}...`;
 
-            try {
-              const imageBuffer = await readFile(imagePaths[i]);
-              const ext = extname(imagePaths[i]).toLowerCase().slice(1);
-              const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-              const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+            const imageBuffer = await readFile(imagePaths[i]);
+            const ext = extname(imagePaths[i]).toLowerCase().slice(1);
+            const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+            const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
 
-              // Use 10s video if narration > 5s to avoid video ending before narration
-              const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
-              const result = await runway.generateVideo(segment.visuals, {
-                prompt: segment.visuals,
-                referenceImage,
+            // Use 10s video if narration > 5s to avoid video ending before narration
+            const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
+
+            const result = await generateVideoWithRetryRunway(
+              runway,
+              segment,
+              referenceImage,
+              {
                 duration: videoDuration,
                 aspectRatio: options.aspectRatio === "1:1" ? "16:9" : (options.aspectRatio as "16:9" | "9:16"),
-              });
-
-              if (result.status !== "failed" && result.id) {
-                tasks.push({ taskId: result.id, index: i, imagePath: imagePaths[i] });
-              } else {
-                console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1}`));
-                videoPaths[i] = "";
+              },
+              maxRetries,
+              (msg) => {
+                videoSpinner.text = `🎬 Scene ${i + 1}: ${msg}`;
               }
-            } catch (err) {
-              console.log(chalk.yellow(`\n  ⚠ Error starting video for scene ${i + 1}: ${err}`));
+            );
+
+            if (result) {
+              tasks.push({ taskId: result.taskId, index: i, imagePath: imagePaths[i], referenceImage, segment });
+            } else {
+              console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1} (after ${maxRetries} retries)`));
               videoPaths[i] = "";
+              failedScenes.push(i + 1);
             }
           }
 
-          // Wait for all tasks to complete
+          // Wait for all tasks to complete with retry logic
           videoSpinner.text = `🎬 Waiting for ${tasks.length} video(s) to complete...`;
 
           for (const task of tasks) {
-            try {
-              const result = await runway.waitForCompletion(
-                task.taskId,
-                (status) => {
-                  const progress = status.progress !== undefined ? `${status.progress}%` : status.status;
-                  videoSpinner.text = `🎬 Scene ${task.index + 1}: ${progress}...`;
-                },
-                300000 // 5 minute timeout per video
-              );
+            let completed = false;
+            let currentTaskId = task.taskId;
 
-              if (result.status === "completed" && result.videoUrl) {
-                const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
-                const response = await fetch(result.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
-                await writeFile(videoPath, buffer);
-                videoPaths[task.index] = videoPath;
-              } else {
-                videoPaths[task.index] = "";
+            for (let attempt = 0; attempt <= maxRetries && !completed; attempt++) {
+              try {
+                const result = await runway.waitForCompletion(
+                  currentTaskId,
+                  (status) => {
+                    const progress = status.progress !== undefined ? `${status.progress}%` : status.status;
+                    videoSpinner.text = `🎬 Scene ${task.index + 1}: ${progress}...`;
+                  },
+                  300000 // 5 minute timeout per video
+                );
+
+                if (result.status === "completed" && result.videoUrl) {
+                  const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
+                  const response = await fetch(result.videoUrl);
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  await writeFile(videoPath, buffer);
+                  videoPaths[task.index] = videoPath;
+                  completed = true;
+                } else if (attempt < maxRetries) {
+                  // Resubmit task on failure
+                  videoSpinner.text = `🎬 Scene ${task.index + 1}: Retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+
+                  const videoDuration = (task.segment.duration > 5 ? 10 : 5) as 5 | 10;
+                  const retryResult = await generateVideoWithRetryRunway(
+                    runway,
+                    task.segment,
+                    task.referenceImage,
+                    {
+                      duration: videoDuration,
+                      aspectRatio: options.aspectRatio === "1:1" ? "16:9" : (options.aspectRatio as "16:9" | "9:16"),
+                    },
+                    0, // No nested retries
+                    (msg) => {
+                      videoSpinner.text = `🎬 Scene ${task.index + 1}: ${msg}`;
+                    }
+                  );
+
+                  if (retryResult) {
+                    currentTaskId = retryResult.taskId;
+                  } else {
+                    videoPaths[task.index] = "";
+                    failedScenes.push(task.index + 1);
+                    completed = true; // Exit retry loop
+                  }
+                } else {
+                  videoPaths[task.index] = "";
+                  failedScenes.push(task.index + 1);
+                }
+              } catch (err) {
+                if (attempt >= maxRetries) {
+                  console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
+                  videoPaths[task.index] = "";
+                  failedScenes.push(task.index + 1);
+                } else {
+                  videoSpinner.text = `🎬 Scene ${task.index + 1}: Error, retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+                }
               }
-            } catch (err) {
-              console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
-              videoPaths[task.index] = "";
             }
           }
         }
@@ -3090,15 +3336,472 @@ aiCommand
       console.log(`  🖼️  Images: ${successfulImages} scene-*.png`);
       if (!options.imagesOnly) {
         const videoCount = videoPaths.filter((p) => p && p !== "").length;
-        console.log(`  🎥 Videos: ${videoCount} scene-*.mp4`);
+        console.log(`  🎥 Videos: ${videoCount}/${segments.length} scene-*.mp4`);
+        if (failedScenes.length > 0) {
+          const uniqueFailedScenes = [...new Set(failedScenes)].sort((a, b) => a - b);
+          console.log(chalk.yellow(`     ⚠ Failed: scene ${uniqueFailedScenes.join(", ")} (fallback to image)`));
+        }
       }
       console.log();
       console.log(chalk.dim("Next steps:"));
       console.log(chalk.dim(`  vibe project info ${options.output}`));
       console.log(chalk.dim(`  vibe export ${options.output} -o final.mp4`));
+
+      // Show regeneration hint if there were failures
+      if (!options.imagesOnly && failedScenes.length > 0) {
+        const uniqueFailedScenes = [...new Set(failedScenes)].sort((a, b) => a - b);
+        console.log();
+        console.log(chalk.dim("💡 To regenerate failed scenes:"));
+        for (const sceneNum of uniqueFailedScenes) {
+          console.log(chalk.dim(`  vibe ai regenerate-scene ${effectiveOutputDir}/ --scene ${sceneNum} --video-only`));
+        }
+      }
       console.log();
     } catch (error) {
       console.error(chalk.red("Script-to-Video failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+// Regenerate Scene command
+aiCommand
+  .command("regenerate-scene")
+  .description("Regenerate a specific scene in a script-to-video project")
+  .argument("<project-dir>", "Path to the script-to-video output directory")
+  .requiredOption("--scene <number>", "Scene number to regenerate (1-based)")
+  .option("--video-only", "Only regenerate video")
+  .option("--narration-only", "Only regenerate narration")
+  .option("--image-only", "Only regenerate image")
+  .option("-g, --generator <engine>", "Video generator: runway | kling", "runway")
+  .option("-i, --image-provider <provider>", "Image provider: dalle | stability | gemini", "dalle")
+  .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
+  .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
+  .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
+  .action(async (projectDir: string, options) => {
+    try {
+      const outputDir = resolve(process.cwd(), projectDir);
+      const storyboardPath = resolve(outputDir, "storyboard.json");
+      const projectPath = resolve(outputDir, "project.vibe.json");
+
+      // Validate project directory
+      if (!existsSync(outputDir)) {
+        console.error(chalk.red(`Project directory not found: ${outputDir}`));
+        process.exit(1);
+      }
+
+      if (!existsSync(storyboardPath)) {
+        console.error(chalk.red(`Storyboard not found: ${storyboardPath}`));
+        console.error(chalk.dim("This command requires a storyboard.json file from script-to-video output"));
+        process.exit(1);
+      }
+
+      // Parse scene number
+      const sceneNum = parseInt(options.scene);
+      if (isNaN(sceneNum) || sceneNum < 1) {
+        console.error(chalk.red("Scene number must be a positive integer (1-based)"));
+        process.exit(1);
+      }
+
+      // Load storyboard
+      const storyboardContent = await readFile(storyboardPath, "utf-8");
+      const segments: StoryboardSegment[] = JSON.parse(storyboardContent);
+
+      if (sceneNum > segments.length) {
+        console.error(chalk.red(`Scene ${sceneNum} does not exist. Storyboard has ${segments.length} scenes.`));
+        process.exit(1);
+      }
+
+      const segment = segments[sceneNum - 1];
+      const sceneIndex = sceneNum - 1;
+
+      // Determine what to regenerate
+      const regenerateVideo = options.videoOnly || (!options.narrationOnly && !options.imageOnly);
+      const regenerateNarration = options.narrationOnly || (!options.videoOnly && !options.imageOnly);
+      const regenerateImage = options.imageOnly || (!options.videoOnly && !options.narrationOnly);
+
+      console.log();
+      console.log(chalk.bold.cyan(`🔄 Regenerating Scene ${sceneNum}`));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log();
+      console.log(`  📁 Project: ${outputDir}`);
+      console.log(`  🎬 Scene: ${sceneNum}/${segments.length}`);
+      console.log(`  📝 Description: ${segment.description.slice(0, 50)}...`);
+      console.log();
+
+      // Get required API keys
+      let imageApiKey: string | undefined;
+      let videoApiKey: string | undefined;
+      let elevenlabsApiKey: string | undefined;
+
+      if (regenerateImage) {
+        const imageProvider = options.imageProvider || "dalle";
+        if (imageProvider === "dalle") {
+          imageApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
+          if (!imageApiKey) {
+            console.error(chalk.red("OpenAI API key required for DALL-E image generation"));
+            process.exit(1);
+          }
+        } else if (imageProvider === "stability") {
+          imageApiKey = (await getApiKey("STABILITY_API_KEY", "Stability AI")) ?? undefined;
+          if (!imageApiKey) {
+            console.error(chalk.red("Stability API key required for image generation"));
+            process.exit(1);
+          }
+        } else if (imageProvider === "gemini") {
+          imageApiKey = (await getApiKey("GOOGLE_API_KEY", "Google")) ?? undefined;
+          if (!imageApiKey) {
+            console.error(chalk.red("Google API key required for Gemini image generation"));
+            process.exit(1);
+          }
+        }
+      }
+
+      if (regenerateVideo) {
+        if (options.generator === "kling") {
+          const key = await getApiKey("KLING_API_KEY", "Kling");
+          if (!key) {
+            console.error(chalk.red("Kling API key required"));
+            process.exit(1);
+          }
+          videoApiKey = key;
+        } else {
+          const key = await getApiKey("RUNWAY_API_SECRET", "Runway");
+          if (!key) {
+            console.error(chalk.red("Runway API key required"));
+            process.exit(1);
+          }
+          videoApiKey = key;
+        }
+      }
+
+      if (regenerateNarration) {
+        const key = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs");
+        if (!key) {
+          console.error(chalk.red("ElevenLabs API key required for narration"));
+          process.exit(1);
+        }
+        elevenlabsApiKey = key;
+      }
+
+      // Step 1: Regenerate narration if needed
+      let narrationPath = resolve(outputDir, `narration-${sceneNum}.mp3`);
+      let narrationDuration = segment.duration;
+
+      if (regenerateNarration && elevenlabsApiKey) {
+        const ttsSpinner = ora(`🎙️ Regenerating narration for scene ${sceneNum}...`).start();
+
+        const elevenlabs = new ElevenLabsProvider();
+        await elevenlabs.initialize({ apiKey: elevenlabsApiKey });
+
+        const narrationText = segment.narration || segment.description;
+
+        const ttsResult = await elevenlabs.textToSpeech(narrationText, {
+          voiceId: options.voice,
+        });
+
+        if (!ttsResult.success || !ttsResult.audioBuffer) {
+          ttsSpinner.fail(chalk.red(`Failed to generate narration: ${ttsResult.error || "Unknown error"}`));
+          process.exit(1);
+        }
+
+        await writeFile(narrationPath, ttsResult.audioBuffer);
+        narrationDuration = await getAudioDuration(narrationPath);
+
+        // Update segment duration in storyboard
+        segment.duration = narrationDuration;
+
+        ttsSpinner.succeed(chalk.green(`Generated narration (${narrationDuration.toFixed(1)}s)`));
+      }
+
+      // Step 2: Regenerate image if needed
+      let imagePath = resolve(outputDir, `scene-${sceneNum}.png`);
+
+      if (regenerateImage && imageApiKey) {
+        const imageSpinner = ora(`🎨 Regenerating image for scene ${sceneNum}...`).start();
+
+        const imageProvider = options.imageProvider || "dalle";
+        const imagePrompt = segment.visualStyle
+          ? `${segment.visuals}. Style: ${segment.visualStyle}`
+          : segment.visuals;
+
+        // Determine image size/aspect ratio based on provider
+        const dalleImageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
+          "16:9": "1792x1024",
+          "9:16": "1024x1792",
+          "1:1": "1024x1024",
+        };
+        type StabilityAspectRatio = "16:9" | "1:1" | "21:9" | "2:3" | "3:2" | "4:5" | "5:4" | "9:16" | "9:21";
+        const stabilityAspectRatios: Record<string, StabilityAspectRatio> = {
+          "16:9": "16:9",
+          "9:16": "9:16",
+          "1:1": "1:1",
+        };
+
+        let imageBuffer: Buffer | undefined;
+        let imageUrl: string | undefined;
+
+        if (imageProvider === "dalle") {
+          const dalle = new DalleProvider();
+          await dalle.initialize({ apiKey: imageApiKey });
+          const imageResult = await dalle.generateImage(imagePrompt, {
+            size: dalleImageSizes[options.aspectRatio] || "1792x1024",
+            quality: "standard",
+          });
+          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+            imageUrl = imageResult.images[0].url;
+          }
+        } else if (imageProvider === "stability") {
+          const stability = new StabilityProvider();
+          await stability.initialize({ apiKey: imageApiKey });
+          const imageResult = await stability.generateImage(imagePrompt, {
+            aspectRatio: stabilityAspectRatios[options.aspectRatio] || "16:9",
+            model: "sd3.5-large",
+          });
+          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+            const img = imageResult.images[0];
+            if (img.base64) {
+              imageBuffer = Buffer.from(img.base64, "base64");
+            } else if (img.url) {
+              imageUrl = img.url;
+            }
+          }
+        } else if (imageProvider === "gemini") {
+          const gemini = new GeminiProvider();
+          await gemini.initialize({ apiKey: imageApiKey });
+          const imageResult = await gemini.generateImage(imagePrompt, {
+            aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+          });
+          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+            const img = imageResult.images[0];
+            if (img.base64) {
+              imageBuffer = Buffer.from(img.base64, "base64");
+            }
+          }
+        }
+
+        if (imageBuffer) {
+          await writeFile(imagePath, imageBuffer);
+          imageSpinner.succeed(chalk.green("Generated image"));
+        } else if (imageUrl) {
+          const response = await fetch(imageUrl);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          await writeFile(imagePath, buffer);
+          imageSpinner.succeed(chalk.green("Generated image"));
+        } else {
+          imageSpinner.fail(chalk.red("Failed to generate image"));
+          process.exit(1);
+        }
+      }
+
+      // Step 3: Regenerate video if needed
+      let videoPath = resolve(outputDir, `scene-${sceneNum}.mp4`);
+
+      if (regenerateVideo && videoApiKey) {
+        const videoSpinner = ora(`🎬 Regenerating video for scene ${sceneNum}...`).start();
+
+        // Check if image exists
+        if (!existsSync(imagePath)) {
+          videoSpinner.fail(chalk.red(`Reference image not found: ${imagePath}`));
+          console.error(chalk.dim("Generate an image first with --image-only or regenerate all assets"));
+          process.exit(1);
+        }
+
+        const imageBuffer = await readFile(imagePath);
+        const ext = extname(imagePath).toLowerCase().slice(1);
+        const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+        const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+
+        const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
+        const maxRetries = parseInt(options.retries) || DEFAULT_VIDEO_RETRIES;
+
+        let videoGenerated = false;
+
+        if (options.generator === "kling") {
+          const kling = new KlingProvider();
+          await kling.initialize({ apiKey: videoApiKey });
+
+          if (!kling.isConfigured()) {
+            videoSpinner.fail(chalk.red("Invalid Kling API key format. Use ACCESS_KEY:SECRET_KEY"));
+            process.exit(1);
+          }
+
+          const result = await generateVideoWithRetryKling(
+            kling,
+            segment,
+            referenceImage,
+            {
+              duration: videoDuration,
+              aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+            },
+            maxRetries,
+            (msg) => {
+              videoSpinner.text = `🎬 Scene ${sceneNum}: ${msg}`;
+            }
+          );
+
+          if (result) {
+            videoSpinner.text = `🎬 Waiting for video to complete...`;
+
+            for (let attempt = 0; attempt <= maxRetries && !videoGenerated; attempt++) {
+              try {
+                const waitResult = await kling.waitForCompletion(
+                  result.taskId,
+                  "image2video",
+                  (status) => {
+                    videoSpinner.text = `🎬 Scene ${sceneNum}: ${status.status}...`;
+                  },
+                  600000
+                );
+
+                if (waitResult.status === "completed" && waitResult.videoUrl) {
+                  const response = await fetch(waitResult.videoUrl);
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  await writeFile(videoPath, buffer);
+                  videoGenerated = true;
+                } else if (attempt < maxRetries) {
+                  videoSpinner.text = `🎬 Scene ${sceneNum}: Retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+                }
+              } catch (err) {
+                if (attempt >= maxRetries) {
+                  throw err;
+                }
+                videoSpinner.text = `🎬 Scene ${sceneNum}: Error, retry ${attempt + 1}/${maxRetries}...`;
+                await sleep(RETRY_DELAY_MS);
+              }
+            }
+          }
+        } else {
+          // Runway
+          const runway = new RunwayProvider();
+          await runway.initialize({ apiKey: videoApiKey });
+
+          const result = await generateVideoWithRetryRunway(
+            runway,
+            segment,
+            referenceImage,
+            {
+              duration: videoDuration,
+              aspectRatio: options.aspectRatio === "1:1" ? "16:9" : (options.aspectRatio as "16:9" | "9:16"),
+            },
+            maxRetries,
+            (msg) => {
+              videoSpinner.text = `🎬 Scene ${sceneNum}: ${msg}`;
+            }
+          );
+
+          if (result) {
+            videoSpinner.text = `🎬 Waiting for video to complete...`;
+
+            for (let attempt = 0; attempt <= maxRetries && !videoGenerated; attempt++) {
+              try {
+                const waitResult = await runway.waitForCompletion(
+                  result.taskId,
+                  (status) => {
+                    const progress = status.progress !== undefined ? `${status.progress}%` : status.status;
+                    videoSpinner.text = `🎬 Scene ${sceneNum}: ${progress}...`;
+                  },
+                  300000
+                );
+
+                if (waitResult.status === "completed" && waitResult.videoUrl) {
+                  const response = await fetch(waitResult.videoUrl);
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  await writeFile(videoPath, buffer);
+                  videoGenerated = true;
+                } else if (attempt < maxRetries) {
+                  videoSpinner.text = `🎬 Scene ${sceneNum}: Retry ${attempt + 1}/${maxRetries}...`;
+                  await sleep(RETRY_DELAY_MS);
+                }
+              } catch (err) {
+                if (attempt >= maxRetries) {
+                  throw err;
+                }
+                videoSpinner.text = `🎬 Scene ${sceneNum}: Error, retry ${attempt + 1}/${maxRetries}...`;
+                await sleep(RETRY_DELAY_MS);
+              }
+            }
+          }
+        }
+
+        if (videoGenerated) {
+          videoSpinner.succeed(chalk.green("Generated video"));
+        } else {
+          videoSpinner.fail(chalk.red("Failed to generate video after all retries"));
+          process.exit(1);
+        }
+      }
+
+      // Step 4: Update storyboard with new duration if narration was regenerated
+      if (regenerateNarration) {
+        await writeFile(storyboardPath, JSON.stringify(segments, null, 2), "utf-8");
+        console.log(chalk.dim(`  → Updated storyboard: ${storyboardPath}`));
+      }
+
+      // Step 5: Update project.vibe.json if it exists
+      if (existsSync(projectPath)) {
+        const updateSpinner = ora("📦 Updating project file...").start();
+
+        try {
+          const projectContent = await readFile(projectPath, "utf-8");
+          const projectData = JSON.parse(projectContent) as ProjectFile;
+
+          // Find and update the source for this scene
+          const sceneName = `Scene ${sceneNum}`;
+          const narrationName = `Narration ${sceneNum}`;
+
+          // Update video/image source
+          const videoSource = projectData.state.sources.find((s) => s.name === sceneName);
+          if (videoSource) {
+            const hasVideo = existsSync(videoPath);
+            videoSource.url = hasVideo ? videoPath : imagePath;
+            videoSource.type = hasVideo ? "video" : "image";
+            videoSource.duration = segment.duration;
+          }
+
+          // Update narration source
+          const narrationSource = projectData.state.sources.find((s) => s.name === narrationName);
+          if (narrationSource && regenerateNarration) {
+            narrationSource.duration = narrationDuration;
+          }
+
+          // Update clip durations if they exist
+          for (const clip of projectData.state.clips) {
+            const source = projectData.state.sources.find((s) => s.id === clip.sourceId);
+            if (source && (source.name === sceneName || source.name === narrationName)) {
+              clip.duration = source.duration;
+              clip.sourceEndOffset = source.duration;
+            }
+          }
+
+          await writeFile(projectPath, JSON.stringify(projectData, null, 2), "utf-8");
+          updateSpinner.succeed(chalk.green("Updated project file"));
+        } catch (err) {
+          updateSpinner.warn(chalk.yellow(`Could not update project file: ${err}`));
+        }
+      }
+
+      // Final summary
+      console.log();
+      console.log(chalk.bold.green(`✅ Scene ${sceneNum} regenerated successfully!`));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log();
+      if (regenerateNarration) {
+        console.log(`  🎙️  Narration: ${narrationPath}`);
+      }
+      if (regenerateImage) {
+        console.log(`  🖼️  Image: ${imagePath}`);
+      }
+      if (regenerateVideo) {
+        console.log(`  🎥 Video: ${videoPath}`);
+      }
+      console.log();
+      console.log(chalk.dim("Next steps:"));
+      console.log(chalk.dim(`  vibe export ${outputDir}/ -o final.mp4`));
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Scene regeneration failed"));
       console.error(error);
       process.exit(1);
     }
