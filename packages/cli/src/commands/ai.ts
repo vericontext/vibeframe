@@ -4383,7 +4383,7 @@ aiCommand
   .command("regenerate-scene")
   .description("Regenerate a specific scene in a script-to-video project")
   .argument("<project-dir>", "Path to the script-to-video output directory")
-  .requiredOption("--scene <number>", "Scene number to regenerate (1-based)")
+  .requiredOption("--scene <numbers>", "Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5")
   .option("--video-only", "Only regenerate video")
   .option("--narration-only", "Only regenerate narration")
   .option("--image-only", "Only regenerate image")
@@ -4410,10 +4410,10 @@ aiCommand
         process.exit(1);
       }
 
-      // Parse scene number
-      const sceneNum = parseInt(options.scene);
-      if (isNaN(sceneNum) || sceneNum < 1) {
-        console.error(chalk.red("Scene number must be a positive integer (1-based)"));
+      // Parse scene number(s) - supports "3" or "3,4,5"
+      const sceneNums = options.scene.split(",").map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n) && n >= 1);
+      if (sceneNums.length === 0) {
+        console.error(chalk.red("Scene number must be a positive integer (1-based), e.g., --scene 3 or --scene 3,4,5"));
         process.exit(1);
       }
 
@@ -4421,13 +4421,13 @@ aiCommand
       const storyboardContent = await readFile(storyboardPath, "utf-8");
       const segments: StoryboardSegment[] = JSON.parse(storyboardContent);
 
-      if (sceneNum > segments.length) {
-        console.error(chalk.red(`Scene ${sceneNum} does not exist. Storyboard has ${segments.length} scenes.`));
-        process.exit(1);
+      // Validate all scene numbers
+      for (const sceneNum of sceneNums) {
+        if (sceneNum > segments.length) {
+          console.error(chalk.red(`Scene ${sceneNum} does not exist. Storyboard has ${segments.length} scenes.`));
+          process.exit(1);
+        }
       }
-
-      const segment = segments[sceneNum - 1];
-      const sceneIndex = sceneNum - 1;
 
       // Determine what to regenerate
       const regenerateVideo = options.videoOnly || (!options.narrationOnly && !options.imageOnly);
@@ -4435,15 +4435,14 @@ aiCommand
       const regenerateImage = options.imageOnly || (!options.videoOnly && !options.narrationOnly);
 
       console.log();
-      console.log(chalk.bold.cyan(`🔄 Regenerating Scene ${sceneNum}`));
+      console.log(chalk.bold.cyan(`🔄 Regenerating Scene${sceneNums.length > 1 ? "s" : ""} ${sceneNums.join(", ")}`));
       console.log(chalk.dim("─".repeat(60)));
       console.log();
       console.log(`  📁 Project: ${outputDir}`);
-      console.log(`  🎬 Scene: ${sceneNum}/${segments.length}`);
-      console.log(`  📝 Description: ${segment.description.slice(0, 50)}...`);
+      console.log(`  🎬 Scenes: ${sceneNums.join(", ")} of ${segments.length}`);
       console.log();
 
-      // Get required API keys
+      // Get required API keys (once, before processing scenes)
       let imageApiKey: string | undefined;
       let videoApiKey: string | undefined;
       let elevenlabsApiKey: string | undefined;
@@ -4498,9 +4497,16 @@ aiCommand
         elevenlabsApiKey = key;
       }
 
-      // Step 1: Regenerate narration if needed
-      let narrationPath = resolve(outputDir, `narration-${sceneNum}.mp3`);
-      let narrationDuration = segment.duration;
+      // Process each scene
+      for (const sceneNum of sceneNums) {
+        const segment = segments[sceneNum - 1];
+
+        console.log(chalk.cyan(`\n── Scene ${sceneNum} ──`));
+        console.log(chalk.dim(`  ${segment.description.slice(0, 50)}...`));
+
+        // Step 1: Regenerate narration if needed
+        const narrationPath = resolve(outputDir, `narration-${sceneNum}.mp3`);
+        let narrationDuration = segment.duration;
 
       if (regenerateNarration && elevenlabsApiKey) {
         const ttsSpinner = ora(`🎙️ Regenerating narration for scene ${sceneNum}...`).start();
@@ -4648,13 +4654,28 @@ aiCommand
             process.exit(1);
           }
 
-          // Using text2video since Kling's image2video requires URL (not base64)
+          // Try to use image-to-video if ImgBB API key is available
+          const imgbbApiKey = await getApiKeyFromConfig("imgbb") || process.env.IMGBB_API_KEY;
+          let imageUrl: string | undefined;
+
+          if (imgbbApiKey) {
+            videoSpinner.text = `🎬 Uploading image to ImgBB...`;
+            const uploadResult = await uploadToImgbb(imageBuffer, imgbbApiKey);
+            if (uploadResult.success && uploadResult.url) {
+              imageUrl = uploadResult.url;
+              videoSpinner.text = `🎬 Starting image-to-video generation...`;
+            } else {
+              console.log(chalk.yellow(`\n  ⚠ ImgBB upload failed, falling back to text-to-video`));
+            }
+          }
+
           const result = await generateVideoWithRetryKling(
             kling,
             segment,
             {
               duration: videoDuration,
               aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+              referenceImage: imageUrl, // Use uploaded URL for image-to-video
             },
             maxRetries
           );
@@ -4801,20 +4822,13 @@ aiCommand
         }
       }
 
+        console.log(chalk.green(`  ✓ Scene ${sceneNum} done`));
+      } // End of for loop over sceneNums
+
       // Final summary
       console.log();
-      console.log(chalk.bold.green(`✅ Scene ${sceneNum} regenerated successfully!`));
+      console.log(chalk.bold.green(`✅ ${sceneNums.length} scene${sceneNums.length > 1 ? "s" : ""} regenerated successfully!`));
       console.log(chalk.dim("─".repeat(60)));
-      console.log();
-      if (regenerateNarration) {
-        console.log(`  🎙️  Narration: ${narrationPath}`);
-      }
-      if (regenerateImage) {
-        console.log(`  🖼️  Image: ${imagePath}`);
-      }
-      if (regenerateVideo) {
-        console.log(`  🎥 Video: ${videoPath}`);
-      }
       console.log();
       console.log(chalk.dim("Next steps:"));
       console.log(chalk.dim(`  vibe export ${outputDir}/ -o final.mp4`));
