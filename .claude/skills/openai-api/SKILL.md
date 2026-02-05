@@ -112,7 +112,7 @@ curl -X POST "https://api.openai.com/v1/images/generations" \
     "model": "dall-e-3",
     "prompt": "A professional YouTube thumbnail for a coding tutorial",
     "n": 1,
-    "size": "1792x1024",
+    "size": "1536x1024",
     "quality": "hd"
   }' | jq -r '.data[0].url' | xargs curl -o thumbnail.png
 ```
@@ -121,7 +121,7 @@ curl -X POST "https://api.openai.com/v1/images/generations" \
 | Parameter | Values | Description |
 |-----------|--------|-------------|
 | `model` | `dall-e-3`, `dall-e-2` | Model version |
-| `size` | `1024x1024`, `1792x1024`, `1024x1792` | Image dimensions |
+| `size` | `1024x1024`, `1536x1024`, `1024x1536` | Image dimensions |
 | `quality` | `standard`, `hd` | Quality level |
 | `style` | `natural`, `vivid` | Style preset |
 | `response_format` | `url`, `b64_json` | Response format |

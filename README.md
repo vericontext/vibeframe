@@ -89,11 +89,9 @@ pnpm build
 Generate complete videos from text using Claude + ElevenLabs + Gemini + Kling/Runway:
 
 ```bash
+# Generate 60-second vertical video for TikTok using Kling AI
 vibe ai script-to-video "A morning routine of a startup founder..." \
-  -d 60 \              # Target: 60 seconds
-  -a 9:16 \            # Vertical for TikTok
-  -g kling \           # Use Kling AI for video
-  -o startup.vibe.json
+  -d 60 -a 9:16 -g kling -o startup.vibe.json
 ```
 
 ### Auto Highlights

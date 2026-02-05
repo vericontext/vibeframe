@@ -617,7 +617,7 @@ aiCommand
   .option("-p, --provider <provider>", "Provider: gemini, openai, stability, runway (dalle is deprecated)", "gemini")
   .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, STABILITY_API_KEY)")
   .option("-o, --output <path>", "Output file path (downloads image)")
-  .option("-s, --size <size>", "Image size (openai: 1024x1024, 1792x1024, 1024x1792)", "1024x1024")
+  .option("-s, --size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
   .option("-r, --ratio <ratio>", "Aspect ratio (gemini: 1:1, 16:9, 9:16, 3:4, 4:3)", "1:1")
   .option("-q, --quality <quality>", "Quality: standard, hd (openai only)", "standard")
   .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
@@ -772,8 +772,8 @@ aiCommand
         // Map size to Stability aspect ratio
         const aspectRatioMap: Record<string, "16:9" | "1:1" | "9:16"> = {
           "1024x1024": "1:1",
-          "1792x1024": "16:9",
-          "1024x1792": "9:16",
+          "1536x1024": "16:9",
+          "1024x1536": "9:16",
         };
 
         const result = await stability.generateImage(prompt, {
@@ -2926,9 +2926,9 @@ aiCommand
       const imageSpinner = ora(`🎨 Generating visuals with ${providerNames[imageProvider]}...`).start();
 
       // Determine image size/aspect ratio based on provider
-      const dalleImageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
-        "16:9": "1792x1024",
-        "9:16": "1024x1792",
+      const dalleImageSizes: Record<string, "1536x1024" | "1024x1536" | "1024x1024"> = {
+        "16:9": "1536x1024",
+        "9:16": "1024x1536",
         "1:1": "1024x1024",
       };
       type StabilityAspectRatio = "16:9" | "1:1" | "21:9" | "2:3" | "3:2" | "4:5" | "5:4" | "9:16" | "9:21";
@@ -2971,7 +2971,7 @@ aiCommand
 
           if (imageProvider === "dalle" && dalleInstance) {
             const imageResult = await dalleInstance.generateImage(imagePrompt, {
-              size: dalleImageSizes[options.aspectRatio] || "1792x1024",
+              size: dalleImageSizes[options.aspectRatio] || "1536x1024",
               quality: "standard",
             });
             if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
@@ -3641,9 +3641,9 @@ aiCommand
           : segment.visuals;
 
         // Determine image size/aspect ratio based on provider
-        const dalleImageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
-          "16:9": "1792x1024",
-          "9:16": "1024x1792",
+        const dalleImageSizes: Record<string, "1536x1024" | "1024x1536" | "1024x1024"> = {
+          "16:9": "1536x1024",
+          "9:16": "1024x1536",
           "1:1": "1024x1024",
         };
         type StabilityAspectRatio = "16:9" | "1:1" | "21:9" | "2:3" | "3:2" | "4:5" | "5:4" | "9:16" | "9:21";
@@ -3660,7 +3660,7 @@ aiCommand
           const dalle = new DalleProvider();
           await dalle.initialize({ apiKey: imageApiKey });
           const imageResult = await dalle.generateImage(imagePrompt, {
-            size: dalleImageSizes[options.aspectRatio] || "1792x1024",
+            size: dalleImageSizes[options.aspectRatio] || "1536x1024",
             quality: "standard",
           });
           if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
@@ -7049,9 +7049,9 @@ export async function executeScriptToVideo(
     }
 
     // Step 3: Generate images
-    const dalleImageSizes: Record<string, "1792x1024" | "1024x1792" | "1024x1024"> = {
-      "16:9": "1792x1024",
-      "9:16": "1024x1792",
+    const dalleImageSizes: Record<string, "1536x1024" | "1024x1536" | "1024x1024"> = {
+      "16:9": "1536x1024",
+      "9:16": "1024x1536",
       "1:1": "1024x1024",
     };
     type StabilityAspectRatio = "16:9" | "1:1" | "21:9" | "2:3" | "3:2" | "4:5" | "5:4" | "9:16" | "9:21";
@@ -7089,7 +7089,7 @@ export async function executeScriptToVideo(
 
         if (imageProvider === "dalle" && dalleInstance) {
           const imageResult = await dalleInstance.generateImage(imagePrompt, {
-            size: dalleImageSizes[options.aspectRatio || "16:9"] || "1792x1024",
+            size: dalleImageSizes[options.aspectRatio || "16:9"] || "1536x1024",
             quality: "standard",
           });
           if (imageResult.success && imageResult.images?.[0]?.url) {

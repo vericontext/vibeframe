@@ -44,8 +44,8 @@ const imageDef: ToolDefinition = {
       },
       size: {
         type: "string",
-        description: "Image size (1024x1024, 1792x1024, 1024x1792)",
-        enum: ["1024x1024", "1792x1024", "1024x1792"],
+        description: "Image size (1024x1024, 1536x1024, 1024x1536)",
+        enum: ["1024x1024", "1536x1024", "1024x1536"],
       },
     },
     required: ["prompt"],
@@ -529,7 +529,7 @@ const generateImage: ToolHandler = async (args, context): Promise<ToolResult> =>
       await dalle.initialize({ apiKey });
 
       const result = await dalle.generateImage(prompt, {
-        size: size as "1024x1024" | "1792x1024" | "1024x1792",
+        size: size as "1024x1024" | "1536x1024" | "1024x1536",
       });
 
       if (!result.success || !result.images || result.images.length === 0) {

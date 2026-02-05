@@ -4,7 +4,7 @@ OpenAI Image Generation Script (GPT Image 1.5 / DALL-E)
 
 Usage:
     python dalle.py "mountain landscape" -o mountain.png
-    python dalle.py "YouTube thumbnail" -o thumb.png -s 1792x1024 -q high
+    python dalle.py "YouTube thumbnail" -o thumb.png -s 1536x1024 -q high
     python dalle.py "cat on windowsill" -o cat.png -m dall-e-3  # Legacy model
 """
 
@@ -114,7 +114,7 @@ def main():
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL, choices=MODELS,
                         help="Model: gpt-image-1.5 (fastest, best) or dall-e-3/dall-e-2")
     parser.add_argument("-s", "--size", default="1024x1024",
-                        choices=["1024x1024", "1792x1024", "1024x1792", "512x512", "256x256", "auto"])
+                        choices=["1024x1024", "1536x1024", "1024x1536", "512x512", "256x256", "auto"])
     parser.add_argument("-q", "--quality", default="high",
                         help="Quality: low/medium/high (gpt-image-1.5) or standard/hd (dall-e)")
     parser.add_argument("--style", default="natural", choices=["natural", "vivid"],

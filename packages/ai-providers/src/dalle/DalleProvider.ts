@@ -26,7 +26,7 @@ export interface ImageOptions {
   /** Model to use */
   model?: GPTImageModel;
   /** Image size */
-  size?: "1024x1024" | "1792x1024" | "1024x1792" | "auto";
+  size?: "1024x1024" | "1536x1024" | "1024x1536" | "auto";
   /** Quality tier (gpt-image-1.5) or standard/hd (dall-e-3) */
   quality?: GPTImageQuality | "standard" | "hd";
   /** Style (dall-e-3 only) */
@@ -196,14 +196,14 @@ export class DalleProvider implements AIProvider {
     const prompt = `Create a video thumbnail: ${description}. Style: ${styleHint}. No text in the image.`;
 
     const sizeMap: Record<string, ImageOptions["size"]> = {
-      youtube: "1792x1024",
+      youtube: "1536x1024",
       instagram: "1024x1024",
-      tiktok: "1024x1792",
-      twitter: "1792x1024",
+      tiktok: "1024x1536",
+      twitter: "1536x1024",
     };
 
     return this.generateImage(prompt, {
-      size: style ? sizeMap[style] : "1792x1024",
+      size: style ? sizeMap[style] : "1536x1024",
       quality: "high",
     });
   }
@@ -216,8 +216,8 @@ export class DalleProvider implements AIProvider {
     aspectRatio: "16:9" | "9:16" | "1:1" = "16:9"
   ): Promise<ImageResult> {
     const sizeMap: Record<string, ImageOptions["size"]> = {
-      "16:9": "1792x1024",
-      "9:16": "1024x1792",
+      "16:9": "1536x1024",
+      "9:16": "1024x1536",
       "1:1": "1024x1024",
     };
 
