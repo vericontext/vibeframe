@@ -4380,11 +4380,36 @@ aiCommand
           sourceMap.set(clip.id, source.id);
         }
 
-        // Get video track
+        // Add narration audio source if it's an audio file
+        let narrationSourceId: string | null = null;
+        if (isAudioFile && narrationFile && existsSync(narrationFile)) {
+          const narrationSource = project.addSource({
+            name: basename(narrationFile),
+            url: narrationFile,
+            type: "audio",
+            duration: totalDuration,
+          });
+          narrationSourceId = narrationSource.id;
+        }
+
+        // Get tracks
         const videoTrack = project.getTracks().find((t) => t.type === "video");
+        const audioTrack = project.getTracks().find((t) => t.type === "audio");
         if (!videoTrack) {
           projectSpinner.fail(chalk.red("Failed to create project"));
           process.exit(1);
+        }
+
+        // Add narration audio clip to audio track
+        if (narrationSourceId && audioTrack) {
+          project.addClip({
+            sourceId: narrationSourceId,
+            trackId: audioTrack.id,
+            startTime: 0,
+            duration: totalDuration,
+            sourceStartOffset: 0,
+            sourceEndOffset: totalDuration,
+          });
         }
 
         // Add clips for each match
