@@ -3,7 +3,7 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-256%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
@@ -87,7 +87,7 @@ pnpm build
 ## AI Pipelines
 
 ### Script-to-Video
-Generate complete videos from text using Claude + ElevenLabs + DALL-E + Runway/Kling:
+Generate complete videos from text using Claude + ElevenLabs + Gemini + Kling/Runway:
 
 ```bash
 vibe ai script-to-video "A morning routine of a startup founder..." \
@@ -212,12 +212,12 @@ vibe export <project> -o out.mp4 -p high
 vibe ai providers                    # List AI providers
 vibe ai transcribe <audio>           # Whisper transcription
 vibe ai edit <project> "instruction" # Natural language edit
-vibe ai tts "text" -o voice.mp3      # Text-to-speech
-vibe ai sfx "explosion" -o sfx.mp3   # Sound effects
-vibe ai image "prompt" -o img.png    # DALL-E image
-vibe ai video "prompt" -o vid.mp4    # Runway Gen-3 video
-vibe ai kling "prompt" -o vid.mp4    # Kling AI video
-vibe ai sd "prompt" -o img.png       # Stable Diffusion
+vibe ai tts "text" -o voice.mp3      # Text-to-speech (ElevenLabs)
+vibe ai sfx "explosion" -o sfx.mp3   # Sound effects (ElevenLabs)
+vibe ai image "prompt" -o img.png    # Image (Gemini default, -p openai)
+vibe ai gemini-edit img.png "edit"   # Multi-image editing (Gemini)
+vibe ai video "prompt" -o vid.mp4    # Video (Runway default)
+vibe ai kling "prompt" -o vid.mp4    # Video (Kling AI)
 
 # AI Pipelines
 vibe ai script-to-video <script>     # Full video from text
@@ -230,17 +230,16 @@ vibe ai viral <project>              # Platform optimization
 
 ## AI Providers
 
-| Provider | Capabilities | API Key |
-|----------|-------------|---------|
-| **OpenAI Whisper** | Transcription | `OPENAI_API_KEY` |
-| **OpenAI GPT** | Natural language commands | `OPENAI_API_KEY` |
-| **DALL-E** | Image generation | `OPENAI_API_KEY` |
-| **Claude** | Storyboarding, analysis | `ANTHROPIC_API_KEY` |
-| **Gemini** | Auto-edit suggestions | `GOOGLE_API_KEY` |
-| **ElevenLabs** | TTS, SFX, vocal isolation | `ELEVENLABS_API_KEY` |
-| **Runway Gen-3** | Video generation | `RUNWAY_API_SECRET` |
-| **Kling AI** | Video generation | `KLING_API_KEY` |
-| **Stability AI** | SD3.5, upscale, outpaint | `STABILITY_API_KEY` |
+> See [docs/models.md](docs/models.md) for detailed model information (SSOT).
+
+| Category | Providers | Default |
+|----------|-----------|---------|
+| **Agent LLM** | OpenAI, Claude, Gemini, xAI, Ollama | GPT-4o |
+| **Image** | Gemini, OpenAI, Stability | Gemini Nano Banana |
+| **Video** | Kling, Runway, Veo, xAI Grok | Kling v2.5 |
+| **Audio** | ElevenLabs, Whisper | - |
+
+**Required API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`, `STABILITY_API_KEY`
 
 ---
 
@@ -250,12 +249,14 @@ vibe ai viral <project>              # Platform optimization
 vibeframe/
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (220 tests)
+│   ├── cli/               # Command-line interface (256 tests, 47 tools)
 │   ├── core/              # Timeline data structures
 │   ├── ai-providers/      # AI provider plugins
 │   ├── mcp-server/        # MCP server for AI assistants
 │   └── ui/                # Shared UI components
 └── docs/
+    ├── guide.md           # CLI usage guide
+    ├── models.md          # AI models reference (SSOT)
     ├── roadmap.md         # Development roadmap
     └── progress.md        # Changelog
 ```
@@ -296,7 +297,7 @@ For teams and production workloads, **VibeFrame Cloud** (coming soon) will offer
 ```bash
 pnpm dev       # Start dev server
 pnpm build     # Build all packages
-pnpm test      # Run tests (220 passing)
+pnpm test      # Run tests (256 passing)
 pnpm lint      # Lint code
 ```
 
