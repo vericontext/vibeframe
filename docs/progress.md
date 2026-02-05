@@ -4,11 +4,11 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ---
 
-## 2026-02-05 (v0.7.1)
+## 2026-02-05 (v0.8.0)
 
 ### Feature: CLI Improvements - SSOT Docs, Gemini Edit Tool, Provider Naming
 
-Three improvements to the CLI and documentation structure.
+Five improvements to the CLI and documentation structure.
 
 #### 1. SSOT Documentation Structure
 
@@ -66,11 +66,42 @@ vibe ai image "prompt" -p dalle
 # Warning: "dalle" is deprecated. Use "openai" instead.
 ```
 
+#### 4. Rename cli-guide.md to guide.md
+
+**Changes:**
+- Renamed `docs/cli-guide.md` → `docs/guide.md` for simplicity
+- VibeFrame is CLI-first, so "guide" naturally refers to CLI usage
+- Updated all references across codebase
+
+**Files Modified:**
+- `docs/guide.md` - Renamed from cli-guide.md
+- `CLAUDE.md` - Updated references
+- `docs/progress.md` - Updated references
+- `docs/roadmap.md` - Updated references
+- `packages/cli/src/repl/prompts.ts` - Updated reference
+
+#### 5. Enforce SSOT with Rules and Code Comments
+
+**Problem:** Future Claude Code sessions might add model info to wrong places, breaking SSOT.
+
+**Solution:**
+- Added CRITICAL section in CLAUDE.md with strict SSOT rules
+- Added checklist for AI provider changes
+- Added "What Goes Where" reference table
+- Removed duplicate model tables from guide.md (replaced with links)
+- Added SSOT reference comments to source files
+
+**Files Modified:**
+- `CLAUDE.md` - Added CRITICAL section with rules and checklist
+- `docs/guide.md` - Removed duplicate tables, added links to models.md
+- `packages/cli/src/commands/ai.ts` - Added SSOT comment header
+- `packages/cli/src/agent/tools/ai.ts` - Added SSOT comment header
+- `packages/ai-providers/src/index.ts` - Added SSOT comment header
+
 **Verification:**
 ```bash
 pnpm build
 pnpm -F @vibeframe/cli test
-vibe ai image --help  # Shows "openai" option
 ```
 
 ---
