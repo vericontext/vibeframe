@@ -3,7 +3,7 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-256%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-281%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
@@ -249,7 +249,7 @@ vibe ai viral <project>              # Platform optimization
 vibeframe/
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (256 tests, 47 tools)
+│   ├── cli/               # Command-line interface (281 tests, 47 tools)
 │   ├── core/              # Timeline data structures
 │   ├── ai-providers/      # AI provider plugins
 │   ├── mcp-server/        # MCP server for AI assistants
@@ -297,7 +297,7 @@ For teams and production workloads, **VibeFrame Cloud** (coming soon) will offer
 ```bash
 pnpm dev       # Start dev server
 pnpm build     # Build all packages
-pnpm test      # Run tests (256 passing)
+pnpm test      # Run tests (281 passing)
 pnpm lint      # Lint code
 ```
 

@@ -240,7 +240,7 @@ Local-first with optional real-time sync.
 
 ## CLI Status
 
-**256 tests passing** (46 Agent tools)
+**281 tests passing** (47 Agent tools)
 
 ```
 vibe            (no args) → Start interactive REPL mode
