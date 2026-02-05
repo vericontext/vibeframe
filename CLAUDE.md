@@ -94,7 +94,7 @@ packages/cli/src/agent/
 │   ├── timeline.ts          # 11 timeline tools
 │   ├── filesystem.ts        # 4 filesystem tools
 │   ├── media.ts             # 8 media tools
-│   ├── ai.ts                # 12 AI generation tools (basic + pipeline)
+│   ├── ai.ts                # 13 AI generation tools (basic + pipeline)
 │   ├── export.ts            # 3 export tools
 │   └── batch.ts             # 3 batch tools
 ├── memory/

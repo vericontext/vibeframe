@@ -268,7 +268,7 @@ vibeframe/
 | Phase | Status | Description |
 |-------|--------|-------------|
 | 1. Foundation | ✅ | Core CLI, FFmpeg.wasm export |
-| 2. AI Providers | ✅ | 9 providers integrated |
+| 2. AI Providers | ✅ | 12 providers integrated |
 | 3. MCP Integration | ✅ | Claude Desktop & Cursor support |
 | 4. AI Pipelines | ✅ | Script-to-Video, Highlights, B-Roll, Viral |
 | 5. Server Infrastructure | 📋 | Hybrid rendering, chunked uploads |

@@ -555,6 +555,6 @@ The MCP server logs to stderr. Enable verbose logging:
 
 1. **Explore CLI commands** - Many features beyond MCP
 2. **Try AI pipelines** - Script-to-Video, Highlights, Viral Optimizer
-3. **Check AI providers** - 9 integrated providers for generation
+3. **Check AI providers** - 12 integrated providers (see [models.md](models.md))
 
 See [README.md](../README.md) for full documentation.
