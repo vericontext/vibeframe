@@ -320,13 +320,21 @@ function buildFFmpegArgs(
     return source && (source.type === "image" || source.type === "video");
   });
 
-  // Only include explicit audio clips (from audio sources on audio tracks)
-  // Video sources on video tracks should NOT contribute to audio concat
-  // This avoids mixing voiceover with embedded video audio
-  const audioClips = clips.filter((clip) => {
+  // Include audio clips from:
+  // 1. Explicit audio sources (narration, music)
+  // 2. Video sources when there are NO separate audio clips (e.g., highlight reels)
+  const explicitAudioClips = clips.filter((clip) => {
     const source = sources.find((s) => s.id === clip.sourceId);
     return source && source.type === "audio";
   });
+
+  // If no explicit audio clips, extract audio from video clips
+  const audioClips = explicitAudioClips.length > 0
+    ? explicitAudioClips
+    : clips.filter((clip) => {
+        const source = sources.find((s) => s.id === clip.sourceId);
+        return source && source.type === "video";
+      });
 
   // Get target resolution for scaling (all clips must match for concat)
   const [targetWidth, targetHeight] = presetSettings.resolution.split("x").map(Number);
