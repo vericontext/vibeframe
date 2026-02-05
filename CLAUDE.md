@@ -308,17 +308,29 @@ After committing `feat:` or `fix:` changes, bump the version before pushing:
 
 **How to update:**
 ```bash
-# Update all package.json files at once
-pnpm -r exec -- npm version patch --no-git-tag-version
+# IMPORTANT: pnpm -r exec only updates packages/*, NOT root package.json
+# You must run BOTH commands to keep versions in sync:
+
+# Step 1: Update root package.json
+npm version patch --no-git-tag-version
 # or: minor, major
 
-# Then commit with version tag
-git add -A && git commit -m "chore: bump version to X.Y.Z"
+# Step 2: Update all workspace packages to match
+pnpm -r exec -- npm version patch --no-git-tag-version
+
+# Step 3: Verify all versions match
+grep '"version"' package.json packages/*/package.json apps/*/package.json
+
+# Step 4: Commit (exclude test/temp files)
+git add package.json packages/*/package.json apps/*/package.json
+git commit -m "chore: bump version to X.Y.Z"
 git tag vX.Y.Z
 ```
 
-**Files to update:**
-- `package.json` (root)
+**⚠️ Common pitfall:** Running only `pnpm -r exec` will update workspace packages but NOT the root `package.json`, causing version mismatch. Always run both commands.
+
+**Files to update (must all have same version):**
+- `package.json` (root) ← Often forgotten!
 - `packages/cli/package.json`
 - `packages/core/package.json`
 - `packages/ai-providers/package.json`
@@ -326,7 +338,9 @@ git tag vX.Y.Z
 - `packages/ui/package.json`
 - `apps/web/package.json`
 
-**Current version:** Check with `cat package.json | grep version`
+**Current version:** Check with `grep '"version"' package.json | head -1`
+
+**Verify sync:** `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` should show only ONE version
 
 ## Environment Variables
 
