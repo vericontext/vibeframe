@@ -11,7 +11,7 @@
 
 import { Command } from "commander";
 import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
-import { resolve, dirname, basename, extname, join } from "node:path";
+import { resolve, dirname, basename, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { execSync, exec } from "node:child_process";
@@ -5307,9 +5307,12 @@ aiCommand
         console.log(chalk.green(`✔ Generated narration: ${narrateResult.audioPath}`));
 
         // Add the generated narration as a source
+        // Use relative path from project directory to audio file
+        const projectDir = dirname(filePath);
+        const relativeAudioPath = relative(projectDir, narrateResult.audioPath!);
         const newAudioSource = project.addSource({
           name: "Auto-generated narration",
-          url: basename(narrateResult.audioPath!),
+          url: relativeAudioPath,
           type: "audio",
           duration: totalDuration,
         });
