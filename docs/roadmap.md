@@ -119,6 +119,7 @@ Intelligence built into every interaction.
 - [x] Video Inpainting - Remove objects from video (`vibe ai video-inpaint`)
 - [x] Video Upscale - Low-res → 4K AI upscaling (`vibe ai video-upscale`)
 - [x] Frame Interpolation - AI slow motion (`vibe ai video-interpolate`)
+- [x] Fill Gaps - AI video generation to fill timeline gaps (`vibe ai fill-gaps`)
 
 ### Voice & Audio
 - [x] Voice Clone - Custom AI voice from samples (`vibe ai voice-clone`)
@@ -258,7 +259,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 motion | storyboard | image | thumbnail | background
                 video | video-status | video-cancel
                 kling | kling-status
-                video-extend | video-upscale | video-interpolate | video-inpaint
+                video-extend | video-upscale | video-interpolate | video-inpaint | fill-gaps
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
                 script-to-video | regenerate-scene | highlights | b-roll | viral
                 voice-clone | music | music-status | audio-restore | dub

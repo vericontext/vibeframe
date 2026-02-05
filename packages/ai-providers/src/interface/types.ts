@@ -91,6 +91,8 @@ export interface VideoResult {
   status: GenerationStatus;
   /** URL to the generated video */
   videoUrl?: string;
+  /** Video ID for extensions (Kling) */
+  videoId?: string;
   /** Thumbnail URL */
   thumbnailUrl?: string;
   /** Duration in seconds */

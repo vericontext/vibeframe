@@ -76,12 +76,20 @@ export interface ExportResult {
 }
 
 /**
+ * Gap filling strategy for timeline gaps
+ * - "black": Fill gaps with black frames (fallback)
+ * - "extend": Extend adjacent clips using source media if available
+ */
+export type GapFillStrategy = "black" | "extend";
+
+/**
  * Export options
  */
 export interface ExportOptions {
   preset?: "draft" | "standard" | "high" | "ultra";
   format?: "mp4" | "webm" | "mov";
   overwrite?: boolean;
+  gapFill?: GapFillStrategy;
 }
 
 /**
@@ -92,7 +100,7 @@ export async function runExport(
   outputPath: string,
   options: ExportOptions = {}
 ): Promise<ExportResult> {
-  const { preset = "standard", format = "mp4", overwrite = false } = options;
+  const { preset = "standard", format = "mp4", overwrite = false, gapFill = "extend" } = options;
 
   try {
     // Check if FFmpeg is installed
@@ -150,7 +158,7 @@ export async function runExport(
     }
 
     // Build FFmpeg command
-    const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, finalOutputPath, { overwrite, format }, sourceAudioMap);
+    const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, finalOutputPath, { overwrite, format, gapFill }, sourceAudioMap);
 
     // Run FFmpeg
     await runFFmpegProcess(ffmpegPath, ffmpegArgs, () => {});
@@ -180,6 +188,7 @@ export const exportCommand = new Command("export")
     "standard"
   )
   .option("-y, --overwrite", "Overwrite output file if exists", false)
+  .option("-g, --gap-fill <strategy>", "Gap filling strategy (black, extend)", "extend")
   .action(async (projectPath: string, options) => {
     const spinner = ora("Checking FFmpeg...").start();
 
@@ -246,7 +255,8 @@ export const exportCommand = new Command("export")
 
       // Build FFmpeg command
       spinner.text = "Building export command...";
-      const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, outputPath, options, sourceAudioMap);
+      const gapFillStrategy = (options.gapFill === "black" ? "black" : "extend") as GapFillStrategy;
+      const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, outputPath, { ...options, gapFill: gapFillStrategy }, sourceAudioMap);
 
       if (process.env.DEBUG) {
         console.log("\nFFmpeg command:");
@@ -339,6 +349,119 @@ function detectTimelineGaps(
 }
 
 /**
+ * Gap fill plan for a single gap
+ */
+interface GapFillPlan {
+  gap: { start: number; end: number };
+  fills: Array<{
+    type: "extend-before" | "extend-after" | "black";
+    sourceId?: string;
+    sourceUrl?: string;
+    start: number;
+    end: number;
+    sourceStart?: number;
+    sourceEnd?: number;
+  }>;
+}
+
+/**
+ * Create gap fill plans by extending adjacent clips
+ * Priority:
+ * 1. Extend clip AFTER the gap backwards (if sourceStartOffset > 0)
+ * 2. Extend clip BEFORE the gap forwards (if source has unused duration)
+ * 3. Fallback to black frames
+ */
+function createGapFillPlans(
+  gaps: Array<{ start: number; end: number }>,
+  clips: Array<{ startTime: number; duration: number; sourceId: string; sourceStartOffset: number; sourceEndOffset: number }>,
+  sources: Array<{ id: string; url: string; type: string; duration: number }>
+): GapFillPlan[] {
+  const sortedClips = [...clips].sort((a, b) => a.startTime - b.startTime);
+
+  return gaps.map((gap) => {
+    const gapDuration = gap.end - gap.start;
+    const fills: GapFillPlan["fills"] = [];
+    let remainingStart = gap.start;
+    let remainingEnd = gap.end;
+
+    // Find clip AFTER the gap (for extending backwards)
+    const clipAfter = sortedClips.find((c) => Math.abs(c.startTime - gap.end) < 0.01);
+
+    // Find clip BEFORE the gap (for extending forwards)
+    const clipBefore = sortedClips.find((c) => Math.abs((c.startTime + c.duration) - gap.start) < 0.01);
+
+    // Try extending clip after the gap backwards first
+    if (clipAfter && clipAfter.sourceStartOffset > 0.01) {
+      const source = sources.find((s) => s.id === clipAfter.sourceId);
+      if (source && source.type === "video") {
+        const availableExtension = clipAfter.sourceStartOffset;
+        const extensionDuration = Math.min(availableExtension, remainingEnd - remainingStart);
+
+        if (extensionDuration > 0.01) {
+          // Extend from the gap end backwards
+          const fillStart = remainingEnd - extensionDuration;
+          const sourceStart = clipAfter.sourceStartOffset - extensionDuration;
+          const sourceEnd = clipAfter.sourceStartOffset;
+
+          fills.push({
+            type: "extend-after",
+            sourceId: source.id,
+            sourceUrl: source.url,
+            start: fillStart,
+            end: remainingEnd,
+            sourceStart,
+            sourceEnd,
+          });
+
+          remainingEnd = fillStart;
+        }
+      }
+    }
+
+    // If there's still a gap, try extending clip before the gap forwards
+    if (remainingEnd - remainingStart > 0.01 && clipBefore) {
+      const source = sources.find((s) => s.id === clipBefore.sourceId);
+      if (source && source.type === "video") {
+        const usedEndInSource = clipBefore.sourceEndOffset;
+        const availableExtension = source.duration - usedEndInSource;
+
+        if (availableExtension > 0.01) {
+          const extensionDuration = Math.min(availableExtension, remainingEnd - remainingStart);
+
+          if (extensionDuration > 0.01) {
+            const sourceStart = usedEndInSource;
+            const sourceEnd = usedEndInSource + extensionDuration;
+
+            fills.push({
+              type: "extend-before",
+              sourceId: source.id,
+              sourceUrl: source.url,
+              start: remainingStart,
+              end: remainingStart + extensionDuration,
+              sourceStart,
+              sourceEnd,
+            });
+
+            remainingStart = remainingStart + extensionDuration;
+          }
+        }
+      }
+    }
+
+    // Fill any remaining gap with black
+    if (remainingEnd - remainingStart > 0.01) {
+      fills.push({
+        type: "black",
+        start: remainingStart,
+        end: remainingEnd,
+      });
+    }
+
+    return { gap, fills };
+  });
+}
+
+/**
  * Build FFmpeg arguments for export
  */
 function buildFFmpegArgs(
@@ -346,7 +469,7 @@ function buildFFmpegArgs(
   sources: ReturnType<Project["getSources"]>,
   presetSettings: PresetSettings,
   outputPath: string,
-  options: { overwrite?: boolean; format?: string },
+  options: { overwrite?: boolean; format?: string; gapFill?: GapFillStrategy },
   sourceAudioMap: Map<string, boolean> = new Map()
 ): string[] {
   const args: string[] = [];
@@ -412,12 +535,25 @@ function buildFFmpegArgs(
   }
   const videoGaps = detectTimelineGaps(videoClips, totalDuration);
 
-  // Build ordered list of video segments (clips and gaps interleaved)
+  // Create gap fill plans based on strategy
+  const gapFillStrategy = options.gapFill || "extend";
+  const gapFillPlans = gapFillStrategy === "extend"
+    ? createGapFillPlans(videoGaps, videoClips, sources)
+    : videoGaps.map((gap) => ({
+        gap,
+        fills: [{ type: "black" as const, start: gap.start, end: gap.end }],
+      }));
+
+  // Build ordered list of video segments (clips and gap fills interleaved)
   interface VideoSegment {
-    type: 'clip' | 'gap';
+    type: 'clip' | 'extended' | 'black';
     clip?: typeof videoClips[0];
-    gap?: { start: number; end: number };
+    sourceId?: string;
+    sourceUrl?: string;
     startTime: number;
+    duration?: number;
+    sourceStart?: number;
+    sourceEnd?: number;
   }
   const videoSegments: VideoSegment[] = [];
 
@@ -426,15 +562,34 @@ function buildFFmpegArgs(
     videoSegments.push({ type: 'clip', clip, startTime: clip.startTime });
   }
 
-  // Add gaps as segments
-  for (const gap of videoGaps) {
-    videoSegments.push({ type: 'gap', gap, startTime: gap.start });
+  // Add gap fills as segments (from gap fill plans)
+  for (const plan of gapFillPlans) {
+    for (const fill of plan.fills) {
+      if (fill.type === "black") {
+        videoSegments.push({
+          type: 'black',
+          startTime: fill.start,
+          duration: fill.end - fill.start,
+        });
+      } else {
+        // extend-before or extend-after
+        videoSegments.push({
+          type: 'extended',
+          sourceId: fill.sourceId,
+          sourceUrl: fill.sourceUrl,
+          startTime: fill.start,
+          duration: fill.end - fill.start,
+          sourceStart: fill.sourceStart,
+          sourceEnd: fill.sourceEnd,
+        });
+      }
+    }
   }
 
   // Sort by start time
   videoSegments.sort((a, b) => a.startTime - b.startTime);
 
-  // Process video segments (clips and gaps)
+  // Process video segments (clips, extended clips, and black frames)
   const videoStreams: string[] = [];
   let videoStreamIdx = 0;
 
@@ -476,10 +631,25 @@ function buildFFmpegArgs(
       filterParts.push(videoFilter);
       videoStreams.push(`[v${videoStreamIdx}]`);
       videoStreamIdx++;
-    } else if (segment.type === 'gap' && segment.gap) {
+    } else if (segment.type === 'extended' && segment.sourceId) {
+      // Extended segment - use source video to fill gap
+      const srcIdx = sourceMap.get(segment.sourceId);
+      if (srcIdx === undefined) {
+        // Fallback to black if source not found in input map
+        const gapFilter = `color=c=black:s=${targetWidth}x${targetHeight}:d=${segment.duration}:r=30,format=yuv420p[v${videoStreamIdx}]`;
+        filterParts.push(gapFilter);
+        videoStreams.push(`[v${videoStreamIdx}]`);
+        videoStreamIdx++;
+        continue;
+      }
+
+      const videoFilter = `[${srcIdx}:v]trim=start=${segment.sourceStart}:end=${segment.sourceEnd},setpts=PTS-STARTPTS,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1[v${videoStreamIdx}]`;
+      filterParts.push(videoFilter);
+      videoStreams.push(`[v${videoStreamIdx}]`);
+      videoStreamIdx++;
+    } else if (segment.type === 'black') {
       // Generate black frame for the gap duration
-      const gapDuration = segment.gap.end - segment.gap.start;
-      const gapFilter = `color=c=black:s=${targetWidth}x${targetHeight}:d=${gapDuration}:r=30,format=yuv420p[v${videoStreamIdx}]`;
+      const gapFilter = `color=c=black:s=${targetWidth}x${targetHeight}:d=${segment.duration}:r=30,format=yuv420p[v${videoStreamIdx}]`;
       filterParts.push(gapFilter);
       videoStreams.push(`[v${videoStreamIdx}]`);
       videoStreamIdx++;

@@ -4,6 +4,54 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ---
 
+## 2026-02-06
+
+### Feature: AI Video Generation to Fill Timeline Gaps
+
+Added `vibe ai fill-gaps` command to fill unfillable timeline gaps with AI-generated video using Kling image-to-video.
+
+**Problem:**
+- Export can extend adjacent clips to fill gaps if source media has unused portions
+- However, some gaps cannot be filled by extension (e.g., 14.26s gap but adjacent clips have no extra source content)
+- These gaps appear as black frames in the exported video
+
+**Solution:**
+- New `vibe ai fill-gaps` command that:
+  1. Analyzes timeline gaps and determines which can be filled by clip extension vs AI generation
+  2. For unfillable gaps: extracts last frame from preceding clip using FFmpeg
+  3. Uses Kling image-to-video to generate continuation video
+  4. If needed, extends generated video using Kling video-extend API
+  5. Adds generated video as new source and clip to the project
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts` - Added `fill-gaps` command with gap detection and AI video generation
+
+**Usage:**
+```bash
+# Dry run - analyze gaps without generating
+pnpm vibe ai fill-gaps ./project.vibe.json --dry-run
+
+# Generate videos to fill gaps (saves generated videos to ./footage/)
+pnpm vibe ai fill-gaps ./project.vibe.json
+
+# Custom options
+pnpm vibe ai fill-gaps ./project.vibe.json \
+  -d ./generated-videos \     # Output directory for generated videos
+  -o ./filled.vibe.json \     # Save to new project file
+  --prompt "Slow camera movement" \
+  -m pro \                    # Pro quality mode
+  -r 16:9                     # Aspect ratio
+```
+
+**Verification:**
+```bash
+pnpm build  # Builds successfully
+pnpm vibe ai fill-gaps ./test-broll/matched.vibe.json --dry-run
+# Shows: 1 gap needs AI generation (14.26s at 0:14.7-0:29.0)
+```
+
+---
+
 ## 2026-02-05
 
 ### Fix: Export Timeline Gap Handling

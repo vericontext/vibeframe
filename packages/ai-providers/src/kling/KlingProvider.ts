@@ -215,20 +215,26 @@ export class KlingProvider implements AIProvider {
         const imageInput = options.referenceImage;
 
         // v2.5/v2.6 models require image URL (not base64)
-        // Only URLs are supported for image-to-video
+        // Caller must provide a URL for image-to-video with v2.x models
         if (typeof imageInput === "string") {
           if (imageInput.startsWith("http://") || imageInput.startsWith("https://")) {
             // URL - works with v2.x models
             body.image = imageInput;
           } else {
-            // Base64 or data URI not supported for v2.x - skip image-to-video
-            // Fall through to text2video endpoint
+            // Base64 or data URI not supported for v2.x
+            return {
+              id: "",
+              status: "failed",
+              error: "Kling v2.5/v2.6 requires image URL, not base64. Upload image to a hosting service first.",
+            };
           }
         } else {
-          // Blob - convert to data URI, use v1.5
-          body.model_name = "kling-v1-5";
-          body.mode = "std";
-          body.image = await this.blobToDataUri(imageInput as Blob);
+          // Blob not supported for v2.x
+          return {
+            id: "",
+            status: "failed",
+            error: "Kling v2.5/v2.6 requires image URL, not Blob. Upload image to a hosting service first.",
+          };
         }
 
         const response = await fetch(`${this.baseUrl}/videos/image2video`, {
@@ -377,6 +383,7 @@ export class KlingProvider implements AIProvider {
       if (data.data.task_status === "succeed" && data.data.task_result?.videos?.length) {
         const video = data.data.task_result.videos[0];
         result.videoUrl = video.url;
+        result.videoId = video.id;
         result.duration = parseFloat(video.duration);
       }
 
@@ -429,9 +436,10 @@ export class KlingProvider implements AIProvider {
   /**
    * Extend an existing video using Kling AI
    * Uses the video-extend endpoint to continue the video
+   * @param videoId - The Kling video ID (from VideoResult.videoId)
    */
   async extendVideo(
-    videoData: string | Blob,
+    videoId: string,
     options?: KlingVideoExtendOptions
   ): Promise<VideoResult> {
     if (!this.isConfigured()) {
@@ -445,13 +453,8 @@ export class KlingProvider implements AIProvider {
     try {
       const token = this.generateToken();
 
-      // Convert video to data URI if needed
-      const videoUri = typeof videoData === "string"
-        ? videoData
-        : await this.blobToDataUri(videoData);
-
       const body: Record<string, unknown> = {
-        video: videoUri,
+        video_id: videoId,
         duration: options?.duration || "5",
       };
 
@@ -538,6 +541,7 @@ export class KlingProvider implements AIProvider {
       if (data.data.task_status === "succeed" && data.data.task_result?.videos?.length) {
         const video = data.data.task_result.videos[0];
         result.videoUrl = video.url;
+        result.videoId = video.id;
         result.duration = parseFloat(video.duration);
       }
 
