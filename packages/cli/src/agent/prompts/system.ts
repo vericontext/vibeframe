@@ -55,6 +55,23 @@ You have access to tools for:
 - For "generate sunset image": Use ai_image with the prompt
 - For "export video": Use export_video
 
+### Filesystem Tools
+- **fs_list**: List files in a directory to see what's available
+- **fs_read**: Read file contents (storyboard.json, project.vibe.json, etc.)
+- **fs_write**: Write files
+- **fs_exists**: Check if a file exists
+
+### Script-to-Video Projects
+When working with script-to-video output directories:
+- **storyboard.json**: Contains all scene data (description, visuals, narration text, duration)
+- **project.vibe.json**: The VibeFrame project file
+- **scene-N.png/mp4**: Generated images and videos for each scene
+- **narration-N.mp3**: Generated narration audio for each scene
+
+USE fs_read to examine these files when the user asks about scenes or wants to regenerate content. For example:
+- "regenerate scene 3" → First fs_read storyboard.json to get scene details, then use ai_script_to_video or relevant tools
+- "what's in scene 2?" → fs_read storyboard.json and extract scene 2 info
+
 ### Response Format
 After completing tasks, summarize what was done:
 - List actions taken
