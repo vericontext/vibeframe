@@ -243,7 +243,8 @@ Local-first with optional real-time sync.
 **281 tests passing** (47 Agent tools)
 
 ```
-vibe            (no args) → Start interactive REPL mode
+vibe            (no args) → Start Agent mode (default)
+vibe agent      Explicit agent command
 vibe setup      Configure API keys and preferences
 
 vibe project    create | info | set
@@ -265,26 +266,29 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 style-transfer | track-object
 ```
 
-### Interactive Mode (REPL)
-```
-vibe> new <name>      Create new project
-vibe> open <path>     Open project file
-vibe> save            Save current project
-vibe> add <media>     Add media to project
-vibe> info            Show project info
-vibe> list            List timeline contents
-vibe> export          Export to video
-vibe> undo            Undo last action
-vibe> help            Show help
-vibe> exit            Exit
+### Agent Mode (Default)
+```bash
+# Start Agent mode
+vibe                         # Default: OpenAI GPT-4o
+vibe -p claude               # Use Claude
+vibe -p gemini               # Use Gemini
+vibe -p xai                  # Use xAI Grok
+vibe -p ollama               # Use local Ollama
 
-# Natural language commands
-vibe> trim the clip to 5 seconds
-vibe> add fade in effect
-vibe> split at 3 seconds
-vibe> export the video
-vibe> render the project
-vibe> save as mp4
+# Natural language → autonomous tool execution
+you> create a new project called "Demo"
+[Tool: project_create] Created project: Demo.vibe.json
+
+you> add intro.mp4 to the project
+[Tool: timeline_add_source] Added source: source-abc123
+[Tool: timeline_add_clip] Added clip: clip-xyz789
+
+you> trim the clip to 5 seconds and add a fade in
+[Tool: timeline_trim_clip] Trimmed to 5s
+[Tool: timeline_add_effect] Added fadeIn effect
+
+you> generate a thumbnail image for the video
+[Tool: ai_image] Generated: thumbnail.png
 ```
 
 ---
