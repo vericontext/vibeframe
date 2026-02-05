@@ -243,9 +243,9 @@ Local-first with optional real-time sync.
 **281 tests passing** (47 Agent tools)
 
 ```
-vibe            (no args) → Start Agent mode (default)
-vibe agent      Explicit agent command
-vibe setup      Configure API keys and preferences
+vibe                      Start Agent mode (default: OpenAI)
+vibe agent -p <provider>  Start Agent with options (-p, -v, --confirm, -i)
+vibe setup                Configure API keys and preferences
 
 vibe project    create | info | set
 vibe timeline   add-source | add-clip | add-track | add-effect | trim | list
