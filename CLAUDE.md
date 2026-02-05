@@ -156,6 +156,12 @@ After completing any feature, fix, or significant change, **always update**:
    - Update provider tables, env keys, CLI options
    - Update Quick Reference section
 
+4. **README.md** - Keep in sync with CLAUDE.md for public-facing info:
+   - Tool counts (total tools, per-category counts)
+   - Test counts (run `pnpm test` to verify)
+   - Feature highlights and CLI examples
+   - Project structure description
+
 ## CRITICAL: AI Model Information Rules
 
 **`docs/models.md` is the Single Source of Truth (SSOT) for all AI model information.**
