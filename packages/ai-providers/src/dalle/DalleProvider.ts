@@ -40,9 +40,10 @@ export interface ImageOptions {
  */
 export interface ImageResult {
   success: boolean;
-  /** Generated image URLs */
+  /** Generated images (URL or base64) */
   images?: Array<{
-    url: string;
+    url?: string;
+    base64?: string;
     revisedPrompt?: string;
   }>;
   /** Error message if failed */
@@ -113,17 +114,23 @@ export class DalleProvider implements AIProvider {
         model,
         prompt,
         n: options.n || 1,
-        response_format: "url",
       };
 
       if (isGPTImage) {
-        // GPT Image 1.5 options
-        body.quality = options.quality || "high";
+        // GPT Image 1.5 options - does NOT support response_format
+        // Quality values: low, medium, high, auto
+        const qualityMap: Record<string, string> = {
+          standard: "medium",
+          hd: "high",
+        };
+        const quality = options.quality || "medium";
+        body.quality = qualityMap[quality] || quality;
         if (options.size && options.size !== "auto") {
           body.size = options.size;
         }
       } else {
         // DALL-E 3 options
+        body.response_format = "url";
         body.size = options.size || "1024x1024";
         body.quality = options.quality === "high" ? "hd" : (options.quality || "standard");
         body.style = options.style || "vivid";
@@ -149,7 +156,8 @@ export class DalleProvider implements AIProvider {
 
       const data = (await response.json()) as {
         data: Array<{
-          url: string;
+          url?: string;
+          b64_json?: string;
           revised_prompt?: string;
         }>;
       };
@@ -158,6 +166,7 @@ export class DalleProvider implements AIProvider {
         success: true,
         images: data.data.map((img) => ({
           url: img.url,
+          base64: img.b64_json,
           revisedPrompt: img.revised_prompt,
         })),
       };

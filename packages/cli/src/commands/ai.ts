@@ -671,24 +671,38 @@ aiCommand
         for (let i = 0; i < result.images.length; i++) {
           const img = result.images[i];
           console.log();
-          console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
+          if (img.url) {
+            console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
+          } else if (img.base64) {
+            console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image data)`);
+          }
           if (img.revisedPrompt) {
             console.log(chalk.dim(`    Revised: ${img.revisedPrompt.slice(0, 100)}...`));
           }
         }
         console.log();
 
-        // Download if output specified
+        // Save if output specified
         if (options.output && result.images.length > 0) {
-          const downloadSpinner = ora("Downloading image...").start();
+          const img = result.images[0];
+          const saveSpinner = ora("Saving image...").start();
           try {
-            const response = await fetch(result.images[0].url);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            let buffer: Buffer;
+            if (img.url) {
+              // Download from URL
+              const response = await fetch(img.url);
+              buffer = Buffer.from(await response.arrayBuffer());
+            } else if (img.base64) {
+              // Decode base64
+              buffer = Buffer.from(img.base64, "base64");
+            } else {
+              throw new Error("No image data available");
+            }
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
-            downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+            saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
           } catch (err) {
-            downloadSpinner.fail(chalk.red("Failed to download image"));
+            saveSpinner.fail(chalk.red("Failed to save image"));
           }
         }
       } else if (provider === "gemini") {
@@ -883,17 +897,24 @@ aiCommand
       }
       console.log();
 
-      // Download if output specified
+      // Save if output specified
       if (options.output) {
-        const downloadSpinner = ora("Downloading thumbnail...").start();
+        const saveSpinner = ora("Saving thumbnail...").start();
         try {
-          const response = await fetch(img.url);
-          const buffer = Buffer.from(await response.arrayBuffer());
+          let buffer: Buffer;
+          if (img.url) {
+            const response = await fetch(img.url);
+            buffer = Buffer.from(await response.arrayBuffer());
+          } else if (img.base64) {
+            buffer = Buffer.from(img.base64, "base64");
+          } else {
+            throw new Error("No image data available");
+          }
           const outputPath = resolve(process.cwd(), options.output);
           await writeFile(outputPath, buffer);
-          downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+          saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
         } catch (err) {
-          downloadSpinner.fail(chalk.red("Failed to download thumbnail"));
+          saveSpinner.fail(chalk.red("Failed to save thumbnail"));
         }
       }
     } catch (error) {
@@ -936,23 +957,30 @@ aiCommand
       console.log();
       console.log(chalk.bold.cyan("Generated Background"));
       console.log(chalk.dim("─".repeat(60)));
-      console.log(`URL: ${img.url}`);
+      console.log(`Image: ${img.url || "(base64 data)"}`);
       if (img.revisedPrompt) {
         console.log(chalk.dim(`Prompt: ${img.revisedPrompt.slice(0, 100)}...`));
       }
       console.log();
 
-      // Download if output specified
+      // Save if output specified
       if (options.output) {
-        const downloadSpinner = ora("Downloading background...").start();
+        const saveSpinner = ora("Saving background...").start();
         try {
-          const response = await fetch(img.url);
-          const buffer = Buffer.from(await response.arrayBuffer());
+          let buffer: Buffer;
+          if (img.url) {
+            const response = await fetch(img.url);
+            buffer = Buffer.from(await response.arrayBuffer());
+          } else if (img.base64) {
+            buffer = Buffer.from(img.base64, "base64");
+          } else {
+            throw new Error("No image data available");
+          }
           const outputPath = resolve(process.cwd(), options.output);
           await writeFile(outputPath, buffer);
-          downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+          saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
         } catch (err) {
-          downloadSpinner.fail(chalk.red("Failed to download background"));
+          saveSpinner.fail(chalk.red("Failed to save background"));
         }
       }
     } catch (error) {
