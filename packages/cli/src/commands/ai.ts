@@ -3327,9 +3327,13 @@ async function generateVideoWithRetryKling(
         await sleep(RETRY_DELAY_MS);
       }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Error, retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ Error: ${errMsg.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        // Log the final error on last attempt
+        console.error(chalk.dim(`\n  [Kling error: ${errMsg}]`));
       }
     }
   }
@@ -3368,9 +3372,12 @@ async function generateVideoWithRetryRunway(
         await sleep(RETRY_DELAY_MS);
       }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Error, retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ Error: ${errMsg.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        console.error(chalk.dim(`\n  [Runway error: ${errMsg}]`));
       }
     }
   }

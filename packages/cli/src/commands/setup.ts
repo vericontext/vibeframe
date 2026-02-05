@@ -24,7 +24,13 @@ export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
   .option("--reset", "Reset configuration to defaults")
   .option("--full", "Run full setup with all optional providers")
+  .option("--show", "Show current configuration (for debugging)")
   .action(async (options) => {
+    if (options.show) {
+      await showConfig();
+      return;
+    }
+
     if (options.reset) {
       const config = createDefaultConfig();
       await saveConfig(config);
@@ -256,4 +262,65 @@ function getEnvVarName(provider: LLMProvider): string {
     ollama: "",
   };
   return envVars[provider];
+}
+
+/**
+ * Show current configuration for debugging
+ */
+async function showConfig(): Promise<void> {
+  console.log();
+  console.log(chalk.bold.magenta("VibeFrame Configuration"));
+  console.log(chalk.dim("─".repeat(40)));
+  console.log();
+  console.log(chalk.dim(`Config file: ${CONFIG_PATH}`));
+  console.log();
+
+  const config = await loadConfig();
+
+  if (!config) {
+    console.log(chalk.yellow("No configuration found."));
+    console.log(chalk.dim("Run 'vibe setup' to configure."));
+    return;
+  }
+
+  // Show LLM provider
+  console.log(chalk.bold("LLM Provider:"));
+  console.log(`  ${PROVIDER_NAMES[config.llm.provider]}`);
+  console.log();
+
+  // Show API keys (masked)
+  console.log(chalk.bold("API Keys:"));
+  const providerKeys = [
+    { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY" },
+    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY" },
+    { key: "google", name: "Google", env: "GOOGLE_API_KEY" },
+    { key: "xai", name: "xAI", env: "XAI_API_KEY" },
+    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY" },
+    { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET" },
+    { key: "kling", name: "Kling", env: "KLING_API_KEY" },
+    { key: "stability", name: "Stability", env: "STABILITY_API_KEY" },
+    { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN" },
+  ];
+
+  for (const p of providerKeys) {
+    const configValue = config.providers[p.key as keyof typeof config.providers];
+    const envValue = process.env[p.env];
+
+    if (configValue || envValue) {
+      const source = configValue ? "config" : "env";
+      const value = configValue || envValue || "";
+      const status = chalk.green("✓");
+      console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${source})`);
+    } else {
+      const status = chalk.dim("○");
+      console.log(`  ${status} ${p.name.padEnd(12)} ${chalk.dim("not set")}`);
+    }
+  }
+  console.log();
+
+  // Show defaults
+  console.log(chalk.bold("Defaults:"));
+  console.log(`  Aspect Ratio: ${config.defaults.aspectRatio}`);
+  console.log(`  Export Quality: ${config.defaults.exportQuality}`);
+  console.log();
 }
