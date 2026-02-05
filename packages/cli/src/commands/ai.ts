@@ -53,7 +53,7 @@ import {
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { EffectType } from "@vibeframe/core/timeline";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
-import { getApiKey } from "../utils/api-key.js";
+import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { getAudioDuration } from "../utils/audio.js";
 
 const execAsync = promisify(exec);
@@ -2551,6 +2551,7 @@ interface StoryboardSegment {
   description: string;
   visuals: string;
   visualStyle?: string;
+  characterDescription?: string;
   narration?: string;
   duration: number;
   startTime: number;
@@ -2765,6 +2766,9 @@ aiCommand
   .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
   .action(async (script: string, options) => {
     try {
+      // Load environment variables from .env file
+      loadEnv();
+
       // Get all required API keys upfront
       const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
       if (!claudeApiKey) {
@@ -2996,19 +3000,30 @@ aiCommand
         await geminiInstance.initialize({ apiKey: imageApiKey });
       }
 
+      // Get character description from first segment (should be same across all)
+      const characterDescription = segments[0]?.characterDescription;
+
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         imageSpinner.text = `🎨 Generating image ${i + 1}/${segments.length}: ${segment.description.slice(0, 30)}...`;
 
-        // Combine visuals with visualStyle for consistent imagery across scenes
-        let imagePrompt = segment.visualStyle
-          ? `${segment.visuals}. Style: ${segment.visualStyle}`
-          : segment.visuals;
+        // Build comprehensive image prompt with character description
+        let imagePrompt = segment.visuals;
 
-        // For scenes after the first, add style continuity instruction (OpenAI/Stability)
+        // Add character description to ensure consistency
+        if (characterDescription) {
+          imagePrompt = `CHARACTER (must match exactly): ${characterDescription}. SCENE: ${imagePrompt}`;
+        }
+
+        // Add visual style
+        if (segment.visualStyle) {
+          imagePrompt = `${imagePrompt}. STYLE: ${segment.visualStyle}`;
+        }
+
+        // For scenes after the first, add extra continuity instruction (OpenAI/Stability)
         // Gemini uses editImage with reference instead
         if (i > 0 && firstSceneImage && imageProvider !== "gemini") {
-          imagePrompt = `${imagePrompt}. IMPORTANT: Maintain exact same character appearance, clothing, environment style, color palette, and art style as established in the first scene of this video.`;
+          imagePrompt = `${imagePrompt}. CRITICAL: The character must look IDENTICAL to the first scene - same face, hair, clothing, accessories.`;
         }
 
         try {

@@ -82,6 +82,8 @@ export interface StoryboardSegment {
   narration?: string;
   /** Consistent visual style reference for all scenes */
   visualStyle?: string;
+  /** Detailed character description for consistency across scenes */
+  characterDescription?: string;
   /** How this scene connects to the previous one */
   previousSceneLink?: string;
   /** Suggested background audio/music */
@@ -399,17 +401,24 @@ ${targetDuration ? `Target total duration: ${targetDuration} seconds` : ""}
 
 IMPORTANT GUIDELINES:
 
-1. VISUAL CONTINUITY: Maintain consistent visual style across ALL segments:
+1. CHARACTER CONSISTENCY (CRITICAL):
+   - Define ONE detailed character description in the FIRST segment's "characterDescription" field
+   - This EXACT description must be copied to ALL subsequent segments
+   - Include: gender, age range, ethnicity, hair (color, length, style), clothing (specific items and colors), body type, distinguishing features
+   - Example: "Asian male, late 20s, short black hair with slight wave, wearing navy blue henley shirt and dark gray joggers, medium build, clean-shaven, rectangular glasses"
+   - The character description must appear in EVERY segment's "visuals" field
+
+2. VISUAL CONTINUITY: Maintain consistent visual style across ALL segments:
    - Same color palette, lighting style, and art direction throughout
    - Reference elements from previous scenes when relevant
-   - Use consistent character/subject appearance across scenes
+   - ALWAYS include the character description when the person appears
 
-2. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
+3. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
    - When narration mentions something specific, the visual must show it
    - Sync action words with visual actions (e.g., "pour" should show pouring)
    - Avoid generic narration - be specific to what's on screen
 
-3. SCENE FLOW: Each segment should logically lead to the next:
+4. SCENE FLOW: Each segment should logically lead to the next:
    - Use previousSceneLink to describe how scenes connect
    - Maintain subject/location continuity unless intentionally changing
 
@@ -420,25 +429,23 @@ Respond with JSON array:
     "startTime": 0,
     "duration": 5,
     "description": "Brief description of this segment",
-    "visuals": "Detailed visual description - MUST match narration content. Include: scene setup, key objects, character actions, camera angle",
+    "visuals": "Detailed visual description INCLUDING CHARACTER DESCRIPTION. Example: 'Asian male, late 20s, short black hair, wearing navy blue henley shirt, sitting at wooden desk typing on laptop'",
     "narration": "Voiceover text that DIRECTLY describes what's shown in visuals",
     "visualStyle": "Art style for consistency (e.g., 'warm cinematic lighting, shallow depth of field, 4K professional video')",
+    "characterDescription": "DETAILED character description - SAME in every segment. Include: gender, age, ethnicity, hair color/style, specific clothing items and colors, body type, accessories",
     "previousSceneLink": "How this connects to previous scene (e.g., 'continuation of kitchen scene' or 'new location: garden')",
     "audio": "Background music/sound effects description (optional)",
     "textOverlays": ["Text to show on screen"]
   }
 ]
 
-Example of GOOD narration-visual alignment:
-- Narration: "First, gather your fresh tomatoes and place them on the cutting board"
-- Visuals: "Close-up of hands placing ripe red tomatoes on wooden cutting board, warm kitchen lighting"
+Example of GOOD character description:
+"Korean female developer, early 30s, shoulder-length straight black hair, wearing oversized cream-colored cable knit sweater and black leggings, petite build, silver hoop earrings, no glasses"
 
-Example of BAD alignment (avoid):
-- Narration: "Let's get started with cooking"
-- Visuals: "Aerial view of city at sunset" (MISMATCHED - nothing about cooking visible)
+Example of BAD character description (too vague):
+"A woman" or "developer" or "person working"
 
-Important: The "narration" field should contain actual spoken text for voiceover, not descriptions of audio.
-The "visualStyle" field should be consistent across ALL segments to maintain visual cohesion.`;
+CRITICAL: Copy the EXACT same characterDescription to ALL segments. The character must look identical in every scene.`;
 
     try {
       const response = await fetch(`${this.baseUrl}/messages`, {
