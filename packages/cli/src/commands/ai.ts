@@ -4392,6 +4392,7 @@ aiCommand
   .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
   .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
   .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
+  .option("--reference-scene <num>", "Use another scene's image as reference for character consistency")
   .action(async (projectDir: string, options) => {
     try {
       const outputDir = resolve(process.cwd(), projectDir);
@@ -4540,10 +4541,42 @@ aiCommand
       if (regenerateImage && imageApiKey) {
         const imageSpinner = ora(`🎨 Regenerating image for scene ${sceneNum}...`).start();
 
-        const imageProvider = options.imageProvider || "openai";
-        const imagePrompt = segment.visualStyle
+        const imageProvider = options.imageProvider || "gemini";
+
+        // Build prompt with character description for consistency
+        const characterDesc = segment.characterDescription || segments[0]?.characterDescription;
+        let imagePrompt = segment.visualStyle
           ? `${segment.visuals}. Style: ${segment.visualStyle}`
           : segment.visuals;
+
+        // Add character description to prompt if available
+        if (characterDesc) {
+          imagePrompt = `${imagePrompt}\n\nIMPORTANT - Character appearance must match exactly: ${characterDesc}`;
+        }
+
+        // Check if we should use reference-based generation for character consistency
+        const refSceneNum = options.referenceScene ? parseInt(options.referenceScene) : null;
+        let referenceImageBuffer: Buffer | undefined;
+
+        if (refSceneNum && refSceneNum >= 1 && refSceneNum <= segments.length && refSceneNum !== sceneNum) {
+          const refImagePath = resolve(outputDir, `scene-${refSceneNum}.png`);
+          if (existsSync(refImagePath)) {
+            referenceImageBuffer = await readFile(refImagePath);
+            imageSpinner.text = `🎨 Regenerating image for scene ${sceneNum} (using scene ${refSceneNum} as reference)...`;
+          }
+        } else if (!refSceneNum) {
+          // Auto-detect: use the first available scene image as reference
+          for (let i = 1; i <= segments.length; i++) {
+            if (i !== sceneNum) {
+              const otherImagePath = resolve(outputDir, `scene-${i}.png`);
+              if (existsSync(otherImagePath)) {
+                referenceImageBuffer = await readFile(otherImagePath);
+                imageSpinner.text = `🎨 Regenerating image for scene ${sceneNum} (using scene ${i} as reference)...`;
+                break;
+              }
+            }
+          }
+        }
 
         // Determine image size/aspect ratio based on provider
         const dalleImageSizes: Record<string, "1536x1024" | "1024x1536" | "1024x1024"> = {
@@ -4594,16 +4627,55 @@ aiCommand
         } else if (imageProvider === "gemini") {
           const gemini = new GeminiProvider();
           await gemini.initialize({ apiKey: imageApiKey });
-          const imageResult = await gemini.generateImage(imagePrompt, {
-            aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-          });
-          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
-            const img = imageResult.images[0];
-            if (img.base64) {
-              imageBuffer = Buffer.from(img.base64, "base64");
+
+          // Use editImage with reference for character consistency
+          if (referenceImageBuffer) {
+            // Extract the main action from the scene description (take first action if multiple)
+            const simplifiedVisuals = segment.visuals.split(/[,.]/).find((part: string) =>
+              part.includes("standing") || part.includes("sitting") || part.includes("walking") ||
+              part.includes("lying") || part.includes("reaching") || part.includes("looking") ||
+              part.includes("working") || part.includes("coding") || part.includes("typing")
+            ) || segment.visuals.split(".")[0];
+
+            const editPrompt = `Generate a new image showing the SAME SINGLE person from the reference image in a new scene.
+
+REFERENCE: Look at the person in the reference image - their face, hair, build, and overall appearance.
+
+NEW SCENE: ${simplifiedVisuals}
+
+CRITICAL RULES:
+1. Show ONLY ONE person - the exact same individual from the reference image
+2. The person must have the IDENTICAL face, hair style, and body type
+3. Do NOT show multiple people or duplicate the character
+4. Create a single moment in time, one pose, one action
+5. Match the art style and quality of the reference image
+
+Generate the single-person scene image now.`;
+
+            const imageResult = await gemini.editImage([referenceImageBuffer], editPrompt, {
+              aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+            });
+            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+              const img = imageResult.images[0];
+              if (img.base64) {
+                imageBuffer = Buffer.from(img.base64, "base64");
+              }
+            } else {
+              imageError = imageResult.error;
             }
           } else {
-            imageError = imageResult.error;
+            // No reference image, use regular generation
+            const imageResult = await gemini.generateImage(imagePrompt, {
+              aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+            });
+            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+              const img = imageResult.images[0];
+              if (img.base64) {
+                imageBuffer = Buffer.from(img.base64, "base64");
+              }
+            } else {
+              imageError = imageResult.error;
+            }
           }
         }
 
@@ -8425,6 +8497,8 @@ export interface RegenerateSceneOptions {
   voice?: string;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   retries?: number;
+  /** Reference scene number for character consistency (auto-detects if not specified) */
+  referenceScene?: number;
 }
 
 /**

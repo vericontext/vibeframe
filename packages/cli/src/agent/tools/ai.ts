@@ -1439,7 +1439,7 @@ const geminiEditHandler: ToolHandler = async (args, context): Promise<ToolResult
 // Regenerate Scene Tool
 const regenerateSceneDef: ToolDefinition = {
   name: "ai_regenerate_scene",
-  description: "Regenerate specific scene(s) in a script-to-video project. Use this to re-create videos for failed scenes using image-to-video (if ImgBB key available) or text-to-video.",
+  description: "Regenerate specific scene(s) in a script-to-video project. Use this to re-create videos for failed scenes using image-to-video (if ImgBB key available) or text-to-video. When regenerating images, uses reference-based generation for character consistency.",
   parameters: {
     type: "object",
     properties: {
@@ -1456,6 +1456,10 @@ const regenerateSceneDef: ToolDefinition = {
         type: "boolean",
         description: "Only regenerate videos, not images or narration (default: true)",
       },
+      imageOnly: {
+        type: "boolean",
+        description: "Only regenerate images, not videos or narration",
+      },
       generator: {
         type: "string",
         description: "Video generator: kling or runway",
@@ -1466,18 +1470,24 @@ const regenerateSceneDef: ToolDefinition = {
         description: "Aspect ratio for videos",
         enum: ["16:9", "9:16", "1:1"],
       },
+      referenceScene: {
+        type: "number",
+        description: "Scene number to use as reference for character consistency when regenerating images (auto-detects if not specified)",
+      },
     },
     required: ["projectDir", "scenes"],
   },
 };
 
 const regenerateSceneHandler: ToolHandler = async (args) => {
-  const { projectDir, scenes, videoOnly = true, generator = "kling", aspectRatio = "16:9" } = args as {
+  const { projectDir, scenes, videoOnly, imageOnly, generator = "kling", aspectRatio = "16:9", referenceScene } = args as {
     projectDir: string;
     scenes: number[];
     videoOnly?: boolean;
+    imageOnly?: boolean;
     generator?: "kling" | "runway";
     aspectRatio?: "16:9" | "9:16" | "1:1";
+    referenceScene?: number;
   };
 
   if (!projectDir) {
@@ -1498,12 +1508,17 @@ const regenerateSceneHandler: ToolHandler = async (args) => {
     };
   }
 
+  // Default to videoOnly unless imageOnly is explicitly set
+  const effectiveVideoOnly = imageOnly ? false : (videoOnly ?? true);
+
   const result = await executeRegenerateScene({
     projectDir,
     scenes,
-    videoOnly,
+    videoOnly: effectiveVideoOnly,
+    imageOnly,
     generator,
     aspectRatio,
+    referenceScene,
   });
 
   if (!result.success) {

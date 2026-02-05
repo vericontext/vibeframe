@@ -6,6 +6,50 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-06
 
+### Feature: Character Consistency for Scene Regeneration
+
+Added `--reference-scene` option to `regenerate-scene` command to maintain character consistency when regenerating scene images.
+
+**Problem:**
+- When regenerating a scene completely (with new image), the generated character looked different from other scenes
+- AI image generation would create completely different people in each scene
+- No way to ensure visual continuity across scenes in script-to-video projects
+
+**Solution:**
+- Added `--reference-scene <num>` option to use another scene's image as reference
+- When regenerating images with Gemini, uses `editImage` API with reference image
+- Auto-detects and uses first available scene image as reference if not specified
+- Improved prompt engineering to ensure single character generation (prevents duplicate characters)
+
+**Files Modified:**
+- `packages/cli/src/commands/ai.ts`:
+  - Added `--reference-scene` option to `regenerate-scene` command
+  - Added `referenceScene` field to `RegenerateSceneOptions` interface
+  - Implemented reference-based image generation with Gemini's `editImage`
+  - Improved editImage prompt to prevent multiple character generation
+- `packages/cli/src/agent/tools/ai.ts`:
+  - Added `imageOnly` and `referenceScene` parameters to `ai_regenerate_scene` tool
+
+**Usage:**
+```bash
+# Regenerate scene 4 image using scene 1 as character reference
+vibe ai regenerate-scene ./project/ --scene 4 --image-only --reference-scene 1
+
+# Auto-detect reference scene (uses first available scene image)
+vibe ai regenerate-scene ./project/ --scene 4 --image-only
+
+# In Agent mode
+> Regenerate scene 4 image with character consistency from scene 1
+```
+
+**How It Works:**
+1. Loads the reference scene's image
+2. Uses Gemini's editImage API with both reference image and scene description
+3. Prompt instructs model to maintain exact character appearance (face, hair, body type)
+4. Generates new scene with consistent character in new pose/setting
+
+---
+
 ### Feature: Auto-Narrate for Videos Without Narration
 
 Added `vibe ai narrate` command and `--auto-narrate` flag to automatically generate AI-powered narration for videos without voiceover.
