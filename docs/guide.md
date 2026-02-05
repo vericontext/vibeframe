@@ -21,42 +21,17 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 
 ## Supported Capabilities
 
-> For detailed model information, see **[models.md](models.md)** (SSOT).
+> **See [models.md](models.md) for detailed model information** (SSOT - Single Source of Truth)
 
-### Agent LLM Providers (5)
-| Provider | Model | Notes |
-|----------|-------|-------|
-| OpenAI | GPT-4o | Default provider |
-| Claude | Claude Sonnet 4 | Best reasoning |
-| Gemini | Gemini 2.0 Flash | Fast, capable |
-| xAI | Grok-3 | xAI's latest |
-| Ollama | Local models | Free, no API key |
+| Category | Providers | Default |
+|----------|-----------|---------|
+| **Agent LLM** | OpenAI, Claude, Gemini, xAI, Ollama | OpenAI GPT-4o |
+| **Image Generation** | Gemini, OpenAI, Stability | Gemini Nano Banana |
+| **Video Generation** | Kling, Runway, Veo, xAI Grok | Kling v2.5 |
+| **Audio** | ElevenLabs (TTS/SFX), Whisper (transcription) | - |
+| **Video Analysis** | Gemini | Gemini Flash |
 
-### Image Generation (3 providers)
-| Provider | Model | Notes |
-|----------|-------|-------|
-| Gemini | Nano Banana | Default, fast |
-| OpenAI | GPT Image 1.5 | Quality tiers (`-p openai`) |
-| Stability | SDXL | Image editing |
-
-### Video Generation (4 providers)
-| Provider | Model | Duration | Notes |
-|----------|-------|----------|-------|
-| Kling | v2.5/v2.6 | 5-10 sec | Default, fast |
-| Runway | Gen-4 Turbo | 5-10 sec | Top quality |
-| Google Veo | Veo 3.0/3.1 | 5-8 sec | Native audio |
-| xAI Grok | Grok Imagine | 1-15 sec | Native audio |
-
-### Audio (2 providers)
-| Provider | Capabilities |
-|----------|-------------|
-| ElevenLabs | TTS, SFX, Voice Clone |
-| OpenAI Whisper | Transcription |
-
-### Video Analysis
-| Provider | Capabilities |
-|----------|-------------|
-| Gemini | Video Q&A, Highlights, Auto-Shorts |
+For model IDs, environment variables, and CLI options → **[models.md](models.md)**
 
 ---
 
@@ -342,13 +317,7 @@ Done:
 
 ### Image Generation
 
-**Available Providers:**
-
-| Provider | Model | CLI Option | Notes |
-|----------|-------|------------|-------|
-| `gemini` (default) | Nano Banana Flash/Pro | `-p gemini` | Fast, high quality |
-| `openai` | GPT Image 1.5 | `-p openai` | Quality tiers: low/medium/high |
-| `stability` | Stable Diffusion XL | `-p stability` | Best for editing workflows |
+**Providers:** `gemini` (default), `openai`, `stability` → See [models.md](models.md) for details
 
 > Note: `dalle` is deprecated, use `openai` instead.
 
@@ -533,15 +502,7 @@ you> create subtitles for Korean audio
 
 ### Video Generation (Image-to-Video / Text-to-Video)
 
-**Available Models:**
-
-| Provider | Model | Duration | Notes |
-|----------|-------|----------|-------|
-| `runway` (default) | Gen-4.5 | 5-10 sec | Top-ranked quality |
-| `veo` | Veo 3.0/3.1/3.1-fast | 5-8 sec | Google, native audio |
-| `grok` | Grok Imagine | 1-15 sec | xAI, native audio, $4.20/min |
-| `kling` | v2.5-turbo (default) | 5-10 sec | Fast (~36s generation) |
-| `kling` | v2.6 | 5-10 sec | Higher quality |
+**Providers:** `runway` (default), `veo`, `grok`, `kling` → See [models.md](models.md) for details
 
 > **Note:** Video generation requires an image for image-to-video. Generate one first if you don't have one.
 

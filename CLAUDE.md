@@ -156,6 +156,32 @@ After completing any feature, fix, or significant change, **always update**:
    - Update provider tables, env keys, CLI options
    - Update Quick Reference section
 
+## CRITICAL: AI Model Information Rules
+
+**`docs/models.md` is the Single Source of Truth (SSOT) for all AI model information.**
+
+### Rules
+
+1. **NEVER duplicate model tables** - Other docs must link to `models.md`, not copy tables
+2. **Update models.md FIRST** - When adding/changing providers or models, update `models.md` before any code
+3. **Code comments reference models.md** - Provider files should include `// See docs/models.md`
+
+### Checklist for AI Provider Changes
+
+- [ ] Updated `docs/models.md` with new model/provider info
+- [ ] Verified no duplicate model tables in `docs/guide.md`
+- [ ] Added/updated code comments referencing `docs/models.md`
+- [ ] Updated environment variable documentation in `models.md`
+
+### What Goes Where
+
+| Information | Location | Notes |
+|-------------|----------|-------|
+| Model names, IDs, capabilities | `docs/models.md` | SSOT |
+| Environment variables | `docs/models.md` | SSOT |
+| CLI usage examples | `docs/guide.md` | Link to models.md for model info |
+| API implementation details | Code comments | Reference models.md |
+
 ## Documentation Consistency Rules
 
 When writing or updating documentation (especially `docs/guide.md`):

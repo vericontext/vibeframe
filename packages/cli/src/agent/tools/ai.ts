@@ -1,5 +1,11 @@
 /**
  * AI Generation Tools - Image, video, TTS, SFX, music generation
+ *
+ * IMPORTANT: See docs/models.md for the Single Source of Truth (SSOT) on:
+ * - Supported AI providers and models
+ * - Environment variables and API keys
+ * - Model capabilities and limitations
+ *
  * Note: These tools wrap the AI providers for agent use.
  * Some features require async polling - tool returns immediately with task status.
  */
