@@ -46,7 +46,7 @@ interface CommandIntent {
     projectDir?: string;
     regenerateType?: "video" | "image" | "narration" | "all";
     generator?: "runway" | "kling";
-    imageProvider?: "dalle" | "stability" | "gemini";
+    imageProvider?: "openai" | "stability" | "gemini";
     [key: string]: unknown;
   };
   clarification?: string;
@@ -105,7 +105,7 @@ Extract relevant parameters:
   - projectDir (optional, the project directory path, e.g., "./launch-video/")
   - regenerateType: "video" | "image" | "narration" | "all" (default: "all")
   - generator: "runway" | "kling" (optional, for video regeneration)
-  - imageProvider: "dalle" | "stability" | "gemini" (optional, for image regeneration)
+  - imageProvider: "openai" | "stability" | "gemini" (optional, for image regeneration)
 
 If the command is ambiguous, set clarification to ask for more details.
 

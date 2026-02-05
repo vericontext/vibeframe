@@ -2721,7 +2721,7 @@ aiCommand
   .option("-d, --duration <seconds>", "Target total duration in seconds")
   .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
   .option("-g, --generator <engine>", "Video generator: runway | kling", "runway")
-  .option("-i, --image-provider <provider>", "Image provider: dalle | stability | gemini", "dalle")
+  .option("-i, --image-provider <provider>", "Image provider: openai | stability | gemini", "openai")
   .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
   .option("--images-only", "Generate images only, skip video generation")
   .option("--no-voiceover", "Skip voiceover generation")
@@ -2738,9 +2738,9 @@ aiCommand
 
       // Get image provider API key
       let imageApiKey: string | undefined;
-      const imageProvider = options.imageProvider || "dalle";
+      const imageProvider = options.imageProvider || "openai";
 
-      if (imageProvider === "dalle") {
+      if (imageProvider === "openai" || imageProvider === "dalle") {
         imageApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
         if (!imageApiKey) {
           console.error(chalk.red("OpenAI API key required for DALL-E image generation"));
@@ -2759,7 +2759,7 @@ aiCommand
           process.exit(1);
         }
       } else {
-        console.error(chalk.red(`Unknown image provider: ${imageProvider}. Use dalle, stability, or gemini`));
+        console.error(chalk.red(`Unknown image provider: ${imageProvider}. Use openai, stability, or gemini`));
         process.exit(1);
       }
 
@@ -2919,7 +2919,8 @@ aiCommand
 
       // Step 3: Generate images with selected provider
       const providerNames: Record<string, string> = {
-        dalle: "DALL-E",
+        openai: "OpenAI GPT Image 1.5",
+        dalle: "OpenAI GPT Image 1.5", // backward compatibility
         stability: "Stability AI",
         gemini: "Gemini",
       };
@@ -2945,7 +2946,7 @@ aiCommand
       let stabilityInstance: StabilityProvider | undefined;
       let geminiInstance: GeminiProvider | undefined;
 
-      if (imageProvider === "dalle") {
+      if (imageProvider === "openai" || imageProvider === "dalle") {
         dalleInstance = new DalleProvider();
         await dalleInstance.initialize({ apiKey: imageApiKey });
       } else if (imageProvider === "stability") {
@@ -2970,7 +2971,7 @@ aiCommand
           let imageUrl: string | undefined;
           let imageError: string | undefined;
 
-          if (imageProvider === "dalle" && dalleInstance) {
+          if ((imageProvider === "openai" || imageProvider === "dalle") && dalleInstance) {
             const imageResult = await dalleInstance.generateImage(imagePrompt, {
               size: dalleImageSizes[options.aspectRatio] || "1536x1024",
               quality: "standard",
@@ -3497,7 +3498,7 @@ aiCommand
   .option("--narration-only", "Only regenerate narration")
   .option("--image-only", "Only regenerate image")
   .option("-g, --generator <engine>", "Video generator: runway | kling", "runway")
-  .option("-i, --image-provider <provider>", "Image provider: dalle | stability | gemini", "dalle")
+  .option("-i, --image-provider <provider>", "Image provider: openai | stability | gemini", "openai")
   .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
   .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
   .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
@@ -3558,11 +3559,11 @@ aiCommand
       let elevenlabsApiKey: string | undefined;
 
       if (regenerateImage) {
-        const imageProvider = options.imageProvider || "dalle";
-        if (imageProvider === "dalle") {
+        const imageProvider = options.imageProvider || "openai";
+        if (imageProvider === "openai" || imageProvider === "dalle") {
           imageApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
           if (!imageApiKey) {
-            console.error(chalk.red("OpenAI API key required for DALL-E image generation"));
+            console.error(chalk.red("OpenAI API key required for image generation"));
             process.exit(1);
           }
         } else if (imageProvider === "stability") {
@@ -3643,7 +3644,7 @@ aiCommand
       if (regenerateImage && imageApiKey) {
         const imageSpinner = ora(`🎨 Regenerating image for scene ${sceneNum}...`).start();
 
-        const imageProvider = options.imageProvider || "dalle";
+        const imageProvider = options.imageProvider || "openai";
         const imagePrompt = segment.visualStyle
           ? `${segment.visuals}. Style: ${segment.visualStyle}`
           : segment.visuals;
@@ -3665,7 +3666,7 @@ aiCommand
         let imageUrl: string | undefined;
         let imageError: string | undefined;
 
-        if (imageProvider === "dalle") {
+        if (imageProvider === "openai" || imageProvider === "dalle") {
           const dalle = new DalleProvider();
           await dalle.initialize({ apiKey: imageApiKey });
           const imageResult = await dalle.generateImage(imagePrompt, {
@@ -6864,7 +6865,7 @@ export interface ScriptToVideoOptions {
   duration?: number;
   voice?: string;
   generator?: "runway" | "kling";
-  imageProvider?: "dalle" | "stability" | "gemini";
+  imageProvider?: "openai" | "dalle" | "stability" | "gemini";
   aspectRatio?: "16:9" | "9:16" | "1:1";
   imagesOnly?: boolean;
   noVoiceover?: boolean;
@@ -6926,12 +6927,12 @@ export async function executeScriptToVideo(
 
     // Get image provider API key
     let imageApiKey: string | undefined;
-    const imageProvider = options.imageProvider || "dalle";
+    const imageProvider = options.imageProvider || "openai";
 
-    if (imageProvider === "dalle") {
+    if (imageProvider === "openai" || imageProvider === "dalle") {
       imageApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
       if (!imageApiKey) {
-        return { success: false, outputDir, scenes: 0, error: "OpenAI API key required for DALL-E image generation" };
+        return { success: false, outputDir, scenes: 0, error: "OpenAI API key required for image generation" };
       }
     } else if (imageProvider === "stability") {
       imageApiKey = (await getApiKey("STABILITY_API_KEY", "Stability AI")) ?? undefined;
@@ -7081,7 +7082,7 @@ export async function executeScriptToVideo(
     let stabilityInstance: StabilityProvider | undefined;
     let geminiInstance: GeminiProvider | undefined;
 
-    if (imageProvider === "dalle") {
+    if (imageProvider === "openai" || imageProvider === "dalle") {
       dalleInstance = new DalleProvider();
       await dalleInstance.initialize({ apiKey: imageApiKey! });
     } else if (imageProvider === "stability") {
@@ -7104,7 +7105,7 @@ export async function executeScriptToVideo(
         let imageUrl: string | undefined;
         let imageError: string | undefined;
 
-        if (imageProvider === "dalle" && dalleInstance) {
+        if ((imageProvider === "openai" || imageProvider === "dalle") && dalleInstance) {
           const imageResult = await dalleInstance.generateImage(imagePrompt, {
             size: dalleImageSizes[options.aspectRatio || "16:9"] || "1536x1024",
             quality: "standard",

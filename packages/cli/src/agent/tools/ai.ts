@@ -264,7 +264,7 @@ const scriptToVideoDef: ToolDefinition = {
       imageProvider: {
         type: "string",
         description: "Image provider to use",
-        enum: ["dalle", "stability", "gemini"],
+        enum: ["openai", "stability", "gemini"],
       },
       aspectRatio: {
         type: "string",
@@ -1071,7 +1071,7 @@ const scriptToVideoHandler: ToolHandler = async (args, context): Promise<ToolRes
       duration: args.duration as number | undefined,
       voice: args.voice as string | undefined,
       generator: args.generator as "runway" | "kling" | undefined,
-      imageProvider: args.imageProvider as "dalle" | "stability" | "gemini" | undefined,
+      imageProvider: args.imageProvider as "openai" | "stability" | "gemini" | undefined,
       aspectRatio: args.aspectRatio as "16:9" | "9:16" | "1:1" | undefined,
       imagesOnly: args.imagesOnly as boolean | undefined,
       noVoiceover: args.noVoiceover as boolean | undefined,

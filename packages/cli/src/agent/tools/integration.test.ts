@@ -260,7 +260,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         const imageProvider = tool!.parameters.properties.imageProvider as {
           enum?: string[];
         };
-        expect(imageProvider.enum).toContain("dalle");
+        expect(imageProvider.enum).toContain("openai");
         expect(imageProvider.enum).toContain("stability");
         expect(imageProvider.enum).toContain("gemini");
       });
