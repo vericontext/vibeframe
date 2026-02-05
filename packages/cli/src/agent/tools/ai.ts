@@ -20,6 +20,7 @@ import {
   executeHighlights,
   executeAutoShorts,
   executeGeminiVideo,
+  executeRegenerateScene,
 } from "../../commands/ai.js";
 
 // Tool Definitions
@@ -1435,6 +1436,97 @@ const geminiEditHandler: ToolHandler = async (args, context): Promise<ToolResult
   }
 };
 
+// Regenerate Scene Tool
+const regenerateSceneDef: ToolDefinition = {
+  name: "ai_regenerate_scene",
+  description: "Regenerate specific scene(s) in a script-to-video project. Use this to re-create videos for failed scenes using image-to-video (if ImgBB key available) or text-to-video.",
+  parameters: {
+    type: "object",
+    properties: {
+      projectDir: {
+        type: "string",
+        description: "Path to the script-to-video output directory (e.g., ./tiktok/)",
+      },
+      scenes: {
+        type: "array",
+        items: { type: "number", description: "Scene number (1-based)" },
+        description: "Scene numbers to regenerate (1-based), e.g., [3, 4, 5]",
+      },
+      videoOnly: {
+        type: "boolean",
+        description: "Only regenerate videos, not images or narration (default: true)",
+      },
+      generator: {
+        type: "string",
+        description: "Video generator: kling or runway",
+        enum: ["kling", "runway"],
+      },
+      aspectRatio: {
+        type: "string",
+        description: "Aspect ratio for videos",
+        enum: ["16:9", "9:16", "1:1"],
+      },
+    },
+    required: ["projectDir", "scenes"],
+  },
+};
+
+const regenerateSceneHandler: ToolHandler = async (args) => {
+  const { projectDir, scenes, videoOnly = true, generator = "kling", aspectRatio = "16:9" } = args as {
+    projectDir: string;
+    scenes: number[];
+    videoOnly?: boolean;
+    generator?: "kling" | "runway";
+    aspectRatio?: "16:9" | "9:16" | "1:1";
+  };
+
+  if (!projectDir) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: "projectDir is required",
+    };
+  }
+
+  if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: "scenes array is required (e.g., [3, 4, 5])",
+    };
+  }
+
+  const result = await executeRegenerateScene({
+    projectDir,
+    scenes,
+    videoOnly,
+    generator,
+    aspectRatio,
+  });
+
+  if (!result.success) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: result.error || "Scene regeneration failed",
+    };
+  }
+
+  let output = `Regenerated ${result.regeneratedScenes.length} scene(s): ${result.regeneratedScenes.join(", ")}`;
+  if (result.failedScenes.length > 0) {
+    output += `\nFailed scenes: ${result.failedScenes.join(", ")}`;
+  }
+
+  return {
+    toolCallId: "",
+    success: true,
+    output,
+  };
+};
+
 // Registration function
 export function registerAITools(registry: ToolRegistry): void {
   // Basic AI generation tools
@@ -1453,4 +1545,5 @@ export function registerAITools(registry: ToolRegistry): void {
   registry.register(autoShortsDef, autoShortsHandler);
   registry.register(geminiVideoDef, geminiVideoHandler);
   registry.register(geminiEditDef, geminiEditHandler);
+  registry.register(regenerateSceneDef, regenerateSceneHandler);
 }

@@ -8412,6 +8412,198 @@ export async function executeScriptToVideo(
 }
 
 /**
+ * Options for scene regeneration
+ */
+export interface RegenerateSceneOptions {
+  projectDir: string;
+  scenes: number[];
+  videoOnly?: boolean;
+  narrationOnly?: boolean;
+  imageOnly?: boolean;
+  generator?: "kling" | "runway";
+  imageProvider?: "gemini" | "openai" | "stability";
+  voice?: string;
+  aspectRatio?: "16:9" | "9:16" | "1:1";
+  retries?: number;
+}
+
+/**
+ * Result of scene regeneration
+ */
+export interface RegenerateSceneResult {
+  success: boolean;
+  regeneratedScenes: number[];
+  failedScenes: number[];
+  error?: string;
+}
+
+/**
+ * Execute scene regeneration programmatically
+ */
+export async function executeRegenerateScene(
+  options: RegenerateSceneOptions
+): Promise<RegenerateSceneResult> {
+  const result: RegenerateSceneResult = {
+    success: false,
+    regeneratedScenes: [],
+    failedScenes: [],
+  };
+
+  try {
+    const outputDir = resolve(process.cwd(), options.projectDir);
+    const storyboardPath = resolve(outputDir, "storyboard.json");
+
+    if (!existsSync(outputDir)) {
+      return { ...result, error: `Project directory not found: ${outputDir}` };
+    }
+
+    if (!existsSync(storyboardPath)) {
+      return { ...result, error: `Storyboard not found: ${storyboardPath}` };
+    }
+
+    const storyboardContent = await readFile(storyboardPath, "utf-8");
+    const segments: StoryboardSegment[] = JSON.parse(storyboardContent);
+
+    // Validate scenes
+    for (const sceneNum of options.scenes) {
+      if (sceneNum < 1 || sceneNum > segments.length) {
+        return { ...result, error: `Scene ${sceneNum} does not exist. Storyboard has ${segments.length} scenes.` };
+      }
+    }
+
+    const regenerateVideo = options.videoOnly || (!options.narrationOnly && !options.imageOnly);
+
+    // Get API keys
+    let videoApiKey: string | undefined;
+    if (regenerateVideo) {
+      if (options.generator === "kling" || !options.generator) {
+        videoApiKey = (await getApiKey("KLING_API_KEY", "Kling")) ?? undefined;
+        if (!videoApiKey) {
+          return { ...result, error: "Kling API key required" };
+        }
+      } else {
+        videoApiKey = (await getApiKey("RUNWAY_API_SECRET", "Runway")) ?? undefined;
+        if (!videoApiKey) {
+          return { ...result, error: "Runway API key required" };
+        }
+      }
+    }
+
+    // Process each scene
+    for (const sceneNum of options.scenes) {
+      const segment = segments[sceneNum - 1];
+      const imagePath = resolve(outputDir, `scene-${sceneNum}.png`);
+      const videoPath = resolve(outputDir, `scene-${sceneNum}.mp4`);
+
+      if (regenerateVideo && videoApiKey) {
+        if (!existsSync(imagePath)) {
+          result.failedScenes.push(sceneNum);
+          continue;
+        }
+
+        const imageBuffer = await readFile(imagePath);
+        const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
+        const maxRetries = options.retries ?? DEFAULT_VIDEO_RETRIES;
+
+        if (options.generator === "kling" || !options.generator) {
+          const kling = new KlingProvider();
+          await kling.initialize({ apiKey: videoApiKey });
+
+          if (!kling.isConfigured()) {
+            result.failedScenes.push(sceneNum);
+            continue;
+          }
+
+          // Try to use image-to-video if ImgBB key available
+          const imgbbApiKey = await getApiKeyFromConfig("imgbb") || process.env.IMGBB_API_KEY;
+          let imageUrl: string | undefined;
+
+          if (imgbbApiKey) {
+            const uploadResult = await uploadToImgbb(imageBuffer, imgbbApiKey);
+            if (uploadResult.success && uploadResult.url) {
+              imageUrl = uploadResult.url;
+            }
+          }
+
+          const taskResult = await generateVideoWithRetryKling(
+            kling,
+            segment,
+            {
+              duration: videoDuration,
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+              referenceImage: imageUrl,
+            },
+            maxRetries
+          );
+
+          if (taskResult) {
+            try {
+              const waitResult = await kling.waitForCompletion(taskResult.taskId, taskResult.type, undefined, 600000);
+              if (waitResult.status === "completed" && waitResult.videoUrl) {
+                const response = await fetch(waitResult.videoUrl);
+                const buffer = Buffer.from(await response.arrayBuffer());
+                await writeFile(videoPath, buffer);
+                result.regeneratedScenes.push(sceneNum);
+              } else {
+                result.failedScenes.push(sceneNum);
+              }
+            } catch {
+              result.failedScenes.push(sceneNum);
+            }
+          } else {
+            result.failedScenes.push(sceneNum);
+          }
+        } else {
+          // Runway
+          const runway = new RunwayProvider();
+          await runway.initialize({ apiKey: videoApiKey });
+
+          const ext = extname(imagePath).toLowerCase().slice(1);
+          const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+          const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+
+          const aspectRatio = options.aspectRatio === "1:1" ? "16:9" : ((options.aspectRatio || "16:9") as "16:9" | "9:16");
+
+          const taskResult = await generateVideoWithRetryRunway(
+            runway,
+            segment,
+            referenceImage,
+            { duration: videoDuration, aspectRatio },
+            maxRetries
+          );
+
+          if (taskResult) {
+            try {
+              const waitResult = await runway.waitForCompletion(taskResult.taskId, undefined, 300000);
+              if (waitResult.status === "completed" && waitResult.videoUrl) {
+                const response = await fetch(waitResult.videoUrl);
+                const buffer = Buffer.from(await response.arrayBuffer());
+                await writeFile(videoPath, buffer);
+                result.regeneratedScenes.push(sceneNum);
+              } else {
+                result.failedScenes.push(sceneNum);
+              }
+            } catch {
+              result.failedScenes.push(sceneNum);
+            }
+          } else {
+            result.failedScenes.push(sceneNum);
+          }
+        }
+      }
+    }
+
+    result.success = result.failedScenes.length === 0;
+    return result;
+  } catch (error) {
+    return {
+      ...result,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
  * Options for highlights extraction
  */
 export interface HighlightsOptions {
