@@ -166,21 +166,43 @@ fi
 
 echo ""
 
-# Create symlink
+# Create symlink - prefer ~/.local/bin (no sudo), fall back to /usr/local/bin
 step "Creating symlink..."
-BIN_PATH="/usr/local/bin/vibe"
 
-# Try to create symlink
+# Ensure ~/.local/bin exists and is in PATH
+LOCAL_BIN="$HOME/.local/bin"
+mkdir -p "$LOCAL_BIN"
+
+# Check if ~/.local/bin is in PATH
+if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+  # Add to shell rc file
+  SHELL_RC=""
+  if [ -f "$HOME/.zshrc" ]; then
+    SHELL_RC="$HOME/.zshrc"
+  elif [ -f "$HOME/.bashrc" ]; then
+    SHELL_RC="$HOME/.bashrc"
+  fi
+
+  if [ -n "$SHELL_RC" ]; then
+    if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$SHELL_RC" 2>/dev/null; then
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
+      warn "Added ~/.local/bin to PATH in $SHELL_RC"
+      echo -e "  ${DIM}Run: source $SHELL_RC${NC}"
+    fi
+  fi
+fi
+
+# Create symlink in ~/.local/bin (no sudo needed)
+BIN_PATH="$LOCAL_BIN/vibe"
+ln -sf "$VIBE_HOME/packages/cli/dist/index.js" "$BIN_PATH"
+chmod +x "$BIN_PATH"
+echo -e "  ${DIM}Linked to $BIN_PATH${NC}"
+
+# Also try /usr/local/bin if writable (for system-wide access)
 if [ -w "/usr/local/bin" ]; then
-  ln -sf "$VIBE_HOME/packages/cli/dist/index.js" "$BIN_PATH"
-  chmod +x "$BIN_PATH"
-  echo -e "  ${DIM}Linked to $BIN_PATH${NC}"
-else
-  # Need sudo - use /dev/tty to read password when stdin is piped
-  warn "Need sudo to create symlink in /usr/local/bin"
-  sudo -S ln -sf "$VIBE_HOME/packages/cli/dist/index.js" "$BIN_PATH" < /dev/tty
-  sudo chmod +x "$BIN_PATH"
-  echo -e "  ${DIM}Linked to $BIN_PATH${NC}"
+  ln -sf "$VIBE_HOME/packages/cli/dist/index.js" "/usr/local/bin/vibe"
+  chmod +x "/usr/local/bin/vibe"
+  echo -e "  ${DIM}Also linked to /usr/local/bin/vibe${NC}"
 fi
 
 echo ""
