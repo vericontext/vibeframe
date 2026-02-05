@@ -2977,7 +2977,13 @@ aiCommand
               quality: "standard",
             });
             if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
-              imageUrl = imageResult.images[0].url;
+              // GPT Image 1.5 returns base64, DALL-E 3 returns URL
+              const img = imageResult.images[0];
+              if (img.base64) {
+                imageBuffer = Buffer.from(img.base64, "base64");
+              } else if (img.url) {
+                imageUrl = img.url;
+              }
             } else {
               imageError = imageResult.error;
             }
@@ -7110,8 +7116,14 @@ export async function executeScriptToVideo(
             size: dalleImageSizes[options.aspectRatio || "16:9"] || "1536x1024",
             quality: "standard",
           });
-          if (imageResult.success && imageResult.images?.[0]?.url) {
-            imageUrl = imageResult.images[0].url;
+          if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+            // GPT Image 1.5 returns base64, DALL-E 3 returns URL
+            const img = imageResult.images[0];
+            if (img.base64) {
+              imageBuffer = Buffer.from(img.base64, "base64");
+            } else if (img.url) {
+              imageUrl = img.url;
+            }
           } else {
             imageError = imageResult.error;
           }
