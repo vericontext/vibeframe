@@ -8,12 +8,12 @@ import type {
 
 /**
  * Runway model versions
- * - gen4.5: Latest model (best quality)
+ * - gen4_turbo: Latest model (best quality)
  */
-export type RunwayModel = "gen4.5";
+export type RunwayModel = "gen4_turbo";
 
-/** Default model - Gen-4.5 */
-const DEFAULT_MODEL: RunwayModel = "gen4.5";
+/** Default model - Gen-4 Turbo */
+const DEFAULT_MODEL: RunwayModel = "gen4_turbo";
 
 /**
  * Runway video generation options
@@ -98,32 +98,38 @@ export class RunwayProvider implements AIProvider {
     try {
       // Map user-friendly aspect ratios to Runway API format
       const ratioMap: Record<string, string> = {
-        "16:9": "1280:768",
-        "9:16": "768:1280",
+        "16:9": "1280:720",
+        "9:16": "720:1280",
+        "1:1": "720:720",
       };
-      const apiRatio = ratioMap[options?.aspectRatio || "16:9"] || "1280:768";
+      const apiRatio = ratioMap[options?.aspectRatio || "16:9"] || "1280:720";
 
       // Use specified model or default
       const model = (options?.model as RunwayModel) || DEFAULT_MODEL;
 
+      // Runway requires an image for video generation
+      if (!options?.referenceImage) {
+        return {
+          id: "",
+          status: "failed",
+          error: "Runway Gen-4 requires an input image. Use -i <image> to specify an image.",
+        };
+      }
+
+      const imageData = typeof options.referenceImage === "string"
+        ? options.referenceImage
+        : await this.blobToDataUri(options.referenceImage as Blob);
+
       const body: Record<string, unknown> = {
-        promptText: prompt,
         model,
-        duration: options?.duration === 10 ? 10 : 5,
+        prompt_text: prompt,
+        prompt_image: imageData,
         ratio: apiRatio,
-        watermark: false,
+        duration: options?.duration === 10 ? 10 : 5,
       };
 
       if (options?.seed !== undefined) {
         body.seed = options.seed;
-      }
-
-      // If reference image is provided, use image-to-video
-      if (options?.referenceImage) {
-        const imageData = typeof options.referenceImage === "string"
-          ? options.referenceImage
-          : await this.blobToDataUri(options.referenceImage as Blob);
-        body.promptImage = imageData;
       }
 
       const response = await fetch(`${this.baseUrl}/image_to_video`, {
