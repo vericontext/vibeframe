@@ -4,6 +4,96 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ---
 
+## 2026-02-05 (v0.6.2)
+
+### Feature: xAI Grok LLM Provider + Documentation Update
+
+Added xAI Grok as the 5th Agent LLM provider and updated documentation with current AI models.
+
+#### 1. Feature: xAI Grok Agent Provider
+
+**Changes:**
+- Added `XAIAdapter` using OpenAI-compatible API (`https://api.x.ai/v1`)
+- Default model: `grok-3`
+- Updated `LLMProvider` type to include `xai`
+- Added `XAI_API_KEY` environment variable support
+
+**Files Created:**
+- `packages/cli/src/agent/adapters/xai.ts`
+
+**Files Modified:**
+- `packages/cli/src/agent/adapters/index.ts`
+- `packages/cli/src/agent/types.ts`
+- `packages/cli/src/config/schema.ts`
+- `packages/cli/src/commands/agent.ts`
+- `packages/cli/src/commands/setup.ts`
+- `.env.example`
+
+**Usage:**
+```bash
+vibe agent -p xai  # Use xAI Grok as Agent LLM
+```
+
+#### 2. Fix: GPT Image 1.5 API Compatibility
+
+**Problem:**
+- DALL-E integration failed with "Unknown parameter: response_format"
+- Quality parameter used wrong values for GPT Image 1.5
+
+**Solution:**
+- Removed `response_format` for GPT Image 1.5 (not supported)
+- Mapped quality values: `standard` → `medium`, `hd` → `high`
+- Added support for base64 image responses (not just URLs)
+- Updated CLI to handle both URL and base64 images
+
+**Files Modified:**
+- `packages/ai-providers/src/dalle/DalleProvider.ts`
+- `packages/cli/src/commands/ai.ts`
+
+#### 3. Fix: Runway Model Update
+
+**Problem:**
+- Runway API rejected `gen4.5` model name
+- Parameter names were incorrect
+
+**Solution:**
+- Updated model: `gen4.5` → `gen4_turbo`
+- Updated parameters: `promptText` → `prompt_text`, `promptImage` → `prompt_image`
+- Updated ratio format: `1280:768` → `1280:720`
+- Added validation: gen4 requires input image
+
+**Files Modified:**
+- `packages/ai-providers/src/runway/RunwayProvider.ts`
+- `packages/cli/src/commands/ai.test.ts`
+
+#### 4. Docs: Supported Capabilities Update
+
+**Changes:**
+- Added "Supported Capabilities" quick-reference section to cli-guide.md
+- Updated Agent LLM providers: 4 → 5 (added xAI)
+- Updated model names to actual versions:
+  - OpenAI: GPT-4 → GPT-4o
+  - Claude: Claude 3.5 → Claude Sonnet 4
+  - Gemini: Gemini 2.5 → Gemini 2.0 Flash
+- Added AI Provider Models section to CLAUDE.md
+
+**Files Modified:**
+- `docs/cli-guide.md`
+- `CLAUDE.md`
+
+#### 5. Test Results
+
+| Category | Status |
+|----------|--------|
+| Unit Tests | 256 passed, 11 skipped |
+| Agent LLM (5) | ✅ OpenAI, Claude, Gemini, xAI |
+| Image Gen (3) | ✅ Gemini, DALL-E, Stability |
+| Audio (3) | ✅ TTS, SFX, Whisper |
+| Video Analysis | ✅ Gemini |
+| Video Gen | ⚠️ API changes need verification |
+
+---
+
 ## 2026-02-04 (v0.4.1)
 
 ### Docs: CLI Guide Update & Business Direction
