@@ -2569,7 +2569,7 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Generate video with retry logic for Kling provider
- * Uses text2video (Kling's image2video requires URL, not base64)
+ * Supports image-to-video with base64 images (uses v1.5 model for base64)
  */
 async function generateVideoWithRetryKling(
   kling: KlingProvider,
@@ -2577,7 +2577,7 @@ async function generateVideoWithRetryKling(
   options: {
     duration: 5 | 10;
     aspectRatio: "16:9" | "9:16" | "1:1";
-    imageUrl?: string; // Optional: public URL for image2video
+    referenceImage?: string; // Optional: base64 or URL for image2video
   },
   maxRetries: number,
   onProgress?: (message: string) => void
@@ -2591,8 +2591,8 @@ async function generateVideoWithRetryKling(
     try {
       const result = await kling.generateVideo(prompt, {
         prompt,
-        // Only use referenceImage if it's a URL (not base64)
-        referenceImage: options.imageUrl,
+        // Pass reference image (base64 or URL) - KlingProvider handles v1.5 fallback for base64
+        referenceImage: options.referenceImage,
         duration: options.duration,
         aspectRatio: options.aspectRatio,
         mode: "std", // Use std mode for faster generation
@@ -2601,7 +2601,7 @@ async function generateVideoWithRetryKling(
       if (result.status !== "failed" && result.id) {
         return {
           taskId: result.id,
-          type: options.imageUrl ? "image2video" : "text2video",
+          type: options.referenceImage ? "image2video" : "text2video",
         };
       }
 
@@ -2941,6 +2941,9 @@ aiCommand
 
       const imagePaths: string[] = [];
 
+      // Store first scene image for style continuity
+      let firstSceneImage: Buffer | undefined;
+
       // Initialize the selected provider
       let openaiImageInstance: OpenAIImageProvider | undefined;
       let stabilityInstance: StabilityProvider | undefined;
@@ -2962,9 +2965,15 @@ aiCommand
         imageSpinner.text = `🎨 Generating image ${i + 1}/${segments.length}: ${segment.description.slice(0, 30)}...`;
 
         // Combine visuals with visualStyle for consistent imagery across scenes
-        const imagePrompt = segment.visualStyle
+        let imagePrompt = segment.visualStyle
           ? `${segment.visuals}. Style: ${segment.visualStyle}`
           : segment.visuals;
+
+        // For scenes after the first, add style continuity instruction (OpenAI/Stability)
+        // Gemini uses editImage with reference instead
+        if (i > 0 && firstSceneImage && imageProvider !== "gemini") {
+          imagePrompt = `${imagePrompt}. IMPORTANT: Maintain exact same character appearance, clothing, environment style, color palette, and art style as established in the first scene of this video.`;
+        }
 
         try {
           let imageBuffer: Buffer | undefined;
@@ -3004,17 +3013,34 @@ aiCommand
               imageError = imageResult.error;
             }
           } else if (imageProvider === "gemini" && geminiInstance) {
-            const imageResult = await geminiInstance.generateImage(imagePrompt, {
-              aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-            });
-            if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
-              const img = imageResult.images[0];
-              // Gemini only returns base64 images
-              if (img.base64) {
-                imageBuffer = Buffer.from(img.base64, "base64");
+            // Gemini: use editImage with first scene reference for subsequent scenes
+            if (i > 0 && firstSceneImage) {
+              // Use editImage to maintain style continuity with first scene
+              const editPrompt = `Create a new scene for a video: ${imagePrompt}. IMPORTANT: Maintain the exact same character appearance, clothing, environment style, color palette, and art style as the reference image.`;
+              const imageResult = await geminiInstance.editImage([firstSceneImage], editPrompt, {
+                aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+              });
+              if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+                const img = imageResult.images[0];
+                if (img.base64) {
+                  imageBuffer = Buffer.from(img.base64, "base64");
+                }
+              } else {
+                imageError = imageResult.error;
               }
             } else {
-              imageError = imageResult.error;
+              // First scene: use regular generateImage
+              const imageResult = await geminiInstance.generateImage(imagePrompt, {
+                aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+              });
+              if (imageResult.success && imageResult.images && imageResult.images.length > 0) {
+                const img = imageResult.images[0];
+                if (img.base64) {
+                  imageBuffer = Buffer.from(img.base64, "base64");
+                }
+              } else {
+                imageError = imageResult.error;
+              }
             }
           }
 
@@ -3024,11 +3050,19 @@ aiCommand
           if (imageBuffer) {
             await writeFile(imagePath, imageBuffer);
             imagePaths.push(imagePath);
+            // Store first successful image for style continuity
+            if (!firstSceneImage) {
+              firstSceneImage = imageBuffer;
+            }
           } else if (imageUrl) {
             const response = await fetch(imageUrl);
             const buffer = Buffer.from(await response.arrayBuffer());
             await writeFile(imagePath, buffer);
             imagePaths.push(imagePath);
+            // Store first successful image for style continuity
+            if (!firstSceneImage) {
+              firstSceneImage = buffer;
+            }
           } else {
             const errorMsg = imageError || "Unknown error";
             console.log(chalk.yellow(`\n  ⚠ Failed to generate image for scene ${i + 1}: ${errorMsg}`));
@@ -3067,7 +3101,7 @@ aiCommand
           }
 
           // Submit all video generation tasks with retry logic
-          // Using text2video since Kling's image2video requires URL (not base64)
+          // Use image2video when images are available (base64 supported via v1.5 fallback)
           const tasks: Array<{ taskId: string; index: number; segment: StoryboardSegment; type: "text2video" | "image2video" }> = [];
 
           for (let i = 0; i < segments.length; i++) {
@@ -3077,13 +3111,24 @@ aiCommand
             // Use 10s video if narration > 5s to avoid video ending before narration
             const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
 
+            // Read generated image as base64 for image-to-video
+            let referenceImage: string | undefined;
+            if (imagePaths[i] && imagePaths[i] !== "") {
+              try {
+                const imageBuffer = await readFile(imagePaths[i]);
+                referenceImage = imageBuffer.toString("base64");
+              } catch {
+                // Fall back to text2video if image read fails
+              }
+            }
+
             const result = await generateVideoWithRetryKling(
               kling,
               segment,
               {
                 duration: videoDuration,
                 aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-                // No imageUrl - using text2video for now
+                referenceImage, // Pass base64 image for image-to-video
               },
               maxRetries,
               (msg) => {
@@ -3134,12 +3179,25 @@ aiCommand
                   await sleep(RETRY_DELAY_MS);
 
                   const videoDuration = (task.segment.duration > 5 ? 10 : 5) as 5 | 10;
+
+                  // Re-read reference image for retry
+                  let retryReferenceImage: string | undefined;
+                  if (imagePaths[task.index] && imagePaths[task.index] !== "") {
+                    try {
+                      const imageBuffer = await readFile(imagePaths[task.index]);
+                      retryReferenceImage = imageBuffer.toString("base64");
+                    } catch {
+                      // Fall back to text2video if image read fails
+                    }
+                  }
+
                   const retryResult = await generateVideoWithRetryKling(
                     kling,
                     task.segment,
                     {
                       duration: videoDuration,
                       aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+                      referenceImage: retryReferenceImage,
                     },
                     0 // No nested retries
                   );
