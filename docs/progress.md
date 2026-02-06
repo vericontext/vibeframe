@@ -6,6 +6,40 @@ Detailed changelog of development progress. Updated after each significant chang
 
 ## 2026-02-06
 
+### Fix: Narration-Video Sync Improvements (5 fixes)
+
+Comprehensive fix for narration-video desync in `script-to-video` pipeline addressing 5 root causes.
+
+**Problem:**
+1. Freeze frames when narration is 40%+ longer than video
+2. Kling concurrent task limit (3) causing scene failures in parallel mode
+3. `regenerate-scene` not recalculating subsequent scene startTimes
+4. No speed adjustment for slightly long narrations
+
+**Solution (5 fixes):**
+
+1. **Storyboard narration length limits** — Added guidelines to Claude storyboard prompt: 12-25 words per scene, max 30 words, duration 5 or 10s
+2. **Regenerate-scene timeline recalculation** — Always recalculate all segment startTimes and update all clips in project.vibe.json (not just the regenerated scene)
+3. **Batch-based parallel mode** — Added `--concurrency` option (default 3) with batch submission instead of "submit all → wait all"
+4. **Kling video-extend API** — Uses Kling's extend API when ratio > 1.4 instead of FFmpeg freeze frame, with FFmpeg fallback
+5. **TTS speed auto-adjustment** — When narration exceeds bracket by 0-15%, auto-regenerate at slightly faster speed (up to 1.2x)
+
+**Files Modified:**
+- `packages/ai-providers/src/claude/ClaudeProvider.ts` — Narration length guidelines in storyboard prompt
+- `packages/ai-providers/src/elevenlabs/ElevenLabsProvider.ts` — Added `speed` option to TTSOptions
+- `packages/cli/src/commands/ai.ts` — All 5 fixes: storyboard, timeline recalc, concurrency, video extend, TTS speed
+
+**Usage:**
+```bash
+# Script-to-video with concurrency limit
+vibe ai script-to-video "My script" --concurrency 2
+
+# Regenerate scene (now auto-syncs all timelines)
+vibe ai regenerate-scene --scene 2 --output-dir my-project/
+```
+
+---
+
 ### Fix: Video/Narration Sync Bug in Script-to-Video
 
 Fixed a critical bug where narration would continue playing after the video ended in script-to-video exports.

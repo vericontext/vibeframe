@@ -434,12 +434,19 @@ IMPORTANT GUIDELINES:
    - Reference elements from previous scenes when relevant
    - ALWAYS include the character description when the person appears
 
-3. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
+3. NARRATION LENGTH (CRITICAL for audio-video sync):
+   - Each scene narration MUST be 12-25 words (fits within 5-10 seconds of speech)
+   - NEVER exceed 30 words per scene narration — long content MUST be split into multiple scenes
+   - Set duration to 5 for short narrations (12-18 words) or 10 for longer ones (19-25 words)
+   - If the script has a long paragraph, break it into 2-3 shorter scenes rather than one long narration
+   - This prevents freeze frames where video stops but narration continues
+
+4. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
    - When narration mentions something specific, the visual must show it
    - Sync action words with visual actions (e.g., "pour" should show pouring)
    - Avoid generic narration - be specific to what's on screen
 
-4. SCENE FLOW: Each segment should logically lead to the next:
+5. SCENE FLOW: Each segment should logically lead to the next:
    - Use previousSceneLink to describe how scenes connect
    - Maintain subject/location continuity unless intentionally changing
 

@@ -85,6 +85,8 @@ export interface TTSOptions {
   similarityBoost?: number;
   /** Style (0-1) - only for v2 models */
   style?: number;
+  /** Speed (0.7-1.2) - playback speed adjustment */
+  speed?: number;
   /** Output format */
   outputFormat?: "mp3_44100_128" | "mp3_22050_32" | "pcm_16000" | "pcm_22050";
 }
@@ -265,6 +267,7 @@ export class ElevenLabsProvider implements AIProvider {
               style: options.style ?? 0,
               use_speaker_boost: true,
             },
+            ...(options.speed !== undefined && { speed: options.speed }),
           }),
         }
       );

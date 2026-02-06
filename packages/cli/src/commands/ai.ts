@@ -3298,6 +3298,90 @@ async function uploadToImgbb(
 }
 
 /**
+ * Extend a video to target duration using Kling extend API when possible,
+ * with fallback to FFmpeg-based extendVideoNaturally.
+ *
+ * When the extension ratio > 1.4 and a Kling provider + videoId are available,
+ * uses the Kling video-extend API for natural continuation instead of freeze frames.
+ */
+async function extendVideoToTarget(
+  videoPath: string,
+  targetDuration: number,
+  outputDir: string,
+  sceneLabel: string,
+  options?: {
+    kling?: KlingProvider;
+    videoId?: string;
+    onProgress?: (message: string) => void;
+  }
+): Promise<void> {
+  const actualDuration = await getVideoDuration(videoPath);
+  if (actualDuration >= targetDuration - 0.1) return;
+
+  const ratio = targetDuration / actualDuration;
+  const extendedPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-extended.mp4`);
+
+  // Try Kling extend API for large gaps (ratio > 1.4) where freeze frames look bad
+  if (ratio > 1.4 && options?.kling && options?.videoId) {
+    try {
+      options.onProgress?.(`${sceneLabel}: Extending via Kling API...`);
+      const extendResult = await options.kling.extendVideo(options.videoId, {
+        duration: "5",
+      });
+
+      if (extendResult.status !== "failed" && extendResult.id) {
+        const waitResult = await options.kling.waitForExtendCompletion(
+          extendResult.id,
+          (status) => {
+            options.onProgress?.(`${sceneLabel}: extend ${status.status}...`);
+          },
+          600000
+        );
+
+        if (waitResult.status === "completed" && waitResult.videoUrl) {
+          // Download extended video
+          const extendedVideoPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-kling-ext.mp4`);
+          const response = await fetch(waitResult.videoUrl);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          await writeFile(extendedVideoPath, buffer);
+
+          // Concatenate original + extension
+          const concatPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-concat.mp4`);
+          const listPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-concat.txt`);
+          await writeFile(listPath, `file '${videoPath}'\nfile '${extendedVideoPath}'`, "utf-8");
+          await execAsync(`ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${concatPath}"`);
+
+          // Trim to exact target duration if concatenated video is longer
+          const concatDuration = await getVideoDuration(concatPath);
+          if (concatDuration > targetDuration + 0.5) {
+            await execAsync(`ffmpeg -y -i "${concatPath}" -t ${targetDuration.toFixed(2)} -c copy "${extendedPath}"`);
+            await unlink(concatPath);
+          } else {
+            await rename(concatPath, extendedPath);
+          }
+
+          // Cleanup temp files
+          await unlink(extendedVideoPath).catch(() => {});
+          await unlink(listPath).catch(() => {});
+          await unlink(videoPath);
+          await rename(extendedPath, videoPath);
+          return;
+        }
+      }
+      // If Kling extend failed, fall through to FFmpeg fallback
+      options.onProgress?.(`${sceneLabel}: Kling extend failed, using FFmpeg fallback...`);
+    } catch {
+      options.onProgress?.(`${sceneLabel}: Kling extend error, using FFmpeg fallback...`);
+    }
+  }
+
+  // FFmpeg-based fallback (slowdown + frame interpolation + freeze frame)
+  await extendVideoNaturally(videoPath, targetDuration, extendedPath);
+  await unlink(videoPath);
+  await rename(extendedPath, videoPath);
+}
+
+/**
  * Generate video with retry logic for Kling provider
  * Supports image-to-video with URL (v2.5/v2.6 models)
  */
@@ -3465,6 +3549,7 @@ aiCommand
   .option("--output-dir <dir>", "Directory for generated assets", "script-video-output")
   .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
   .option("--sequential", "Generate videos one at a time (slower but more reliable)")
+  .option("--concurrency <count>", "Max concurrent video tasks in parallel mode (default: 3)", "3")
   .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
   .action(async (script: string, options) => {
     try {
@@ -3623,7 +3708,7 @@ aiCommand
 
           ttsSpinner.text = `🎙️ Generating narration ${i + 1}/${segments.length}...`;
 
-          const ttsResult = await elevenlabs.textToSpeech(narrationText, {
+          let ttsResult = await elevenlabs.textToSpeech(narrationText, {
             voiceId: options.voice,
           });
 
@@ -3639,7 +3724,26 @@ aiCommand
           await writeFile(audioPath, ttsResult.audioBuffer);
 
           // Get actual audio duration using ffprobe
-          const actualDuration = await getAudioDuration(audioPath);
+          let actualDuration = await getAudioDuration(audioPath);
+
+          // Auto speed-adjust if narration slightly exceeds video bracket (5s or 10s)
+          const videoBracket = segment.duration > 5 ? 10 : 5;
+          const overageRatio = actualDuration / videoBracket;
+          if (overageRatio > 1.0 && overageRatio <= 1.15) {
+            // Narration exceeds bracket by 0-15% — regenerate slightly faster
+            const adjustedSpeed = Math.min(1.2, parseFloat(overageRatio.toFixed(2)));
+            ttsSpinner.text = `🎙️ Narration ${i + 1}: adjusting speed to ${adjustedSpeed}x...`;
+            const speedResult = await elevenlabs.textToSpeech(narrationText, {
+              voiceId: options.voice,
+              speed: adjustedSpeed,
+            });
+            if (speedResult.success && speedResult.audioBuffer) {
+              await writeFile(audioPath, speedResult.audioBuffer);
+              actualDuration = await getAudioDuration(audioPath);
+              ttsResult = speedResult;
+              console.log(chalk.dim(`  → Speed-adjusted narration ${i + 1}: ${adjustedSpeed}x → ${actualDuration.toFixed(1)}s`));
+            }
+          }
 
           // Update segment duration to match actual narration length
           segment.duration = actualDuration;
@@ -3956,16 +4060,11 @@ aiCommand
                     await writeFile(videoPath, buffer);
 
                     // Extend video to match narration duration if needed
-                    const targetDuration = segment.duration;
-                    const actualVideoDuration = await getVideoDuration(videoPath);
-
-                    if (actualVideoDuration < targetDuration - 0.1) {
-                      videoSpinner.text = `🎬 Scene ${i + 1}: Extending to match narration...`;
-                      const extendedPath = resolve(outputDir, `scene-${i + 1}-extended.mp4`);
-                      await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                      await unlink(videoPath);
-                      await rename(extendedPath, videoPath);
-                    }
+                    await extendVideoToTarget(videoPath, segment.duration, outputDir, `Scene ${i + 1}`, {
+                      kling,
+                      videoId: waitResult.videoId,
+                      onProgress: (msg) => { videoSpinner.text = `🎬 ${msg}`; },
+                    });
 
                     videoPaths[i] = videoPath;
                     completed = true;
@@ -3990,118 +4089,131 @@ aiCommand
               }
             }
           } else {
-            // Parallel mode (default): submit all tasks, then wait for all
-            const tasks: Array<{ taskId: string; index: number; segment: StoryboardSegment; type: "text2video" | "image2video" }> = [];
+            // Parallel mode (default): batch-based submission respecting concurrency limit
+            const concurrency = Math.max(1, parseInt(options.concurrency) || 3);
 
-            for (let i = 0; i < segments.length; i++) {
-              const segment = segments[i] as StoryboardSegment;
-              videoSpinner.text = `🎬 Submitting video task ${i + 1}/${segments.length}...`;
+            for (let batchStart = 0; batchStart < segments.length; batchStart += concurrency) {
+              const batchEnd = Math.min(batchStart + concurrency, segments.length);
+              const batchNum = Math.floor(batchStart / concurrency) + 1;
+              const totalBatches = Math.ceil(segments.length / concurrency);
 
-              const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
-              const referenceImage = imageUrls[i];
-
-              const result = await generateVideoWithRetryKling(
-                kling,
-                segment,
-                {
-                  duration: videoDuration,
-                  aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-                  referenceImage,
-                },
-                maxRetries,
-                (msg) => {
-                  videoSpinner.text = `🎬 Scene ${i + 1}: ${msg}`;
-                }
-              );
-
-              if (result) {
-                tasks.push({ taskId: result.taskId, index: i, segment, type: result.type });
-                if (!videoPaths[i]) videoPaths[i] = "";
-              } else {
-                console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1} (after ${maxRetries} retries)`));
-                videoPaths[i] = "";
-                failedScenes.push(i + 1);
+              if (totalBatches > 1) {
+                videoSpinner.text = `🎬 Batch ${batchNum}/${totalBatches}: submitting scenes ${batchStart + 1}-${batchEnd}...`;
               }
-            }
 
-            videoSpinner.text = `🎬 Waiting for ${tasks.length} video(s) to complete...`;
+              // Phase 1: Submit batch
+              const tasks: Array<{ taskId: string; index: number; segment: StoryboardSegment; type: "text2video" | "image2video" }> = [];
 
-            for (const task of tasks) {
-              let completed = false;
-              let currentTaskId = task.taskId;
-              let currentType = task.type;
+              for (let i = batchStart; i < batchEnd; i++) {
+                const segment = segments[i] as StoryboardSegment;
+                videoSpinner.text = `🎬 Submitting video task ${i + 1}/${segments.length}...`;
 
-              for (let attempt = 0; attempt <= maxRetries && !completed; attempt++) {
-                try {
-                  const result = await kling.waitForCompletion(
-                    currentTaskId,
-                    currentType,
-                    (status) => {
-                      videoSpinner.text = `🎬 Scene ${task.index + 1}: ${status.status}...`;
-                    },
-                    600000
-                  );
+                const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
+                const referenceImage = imageUrls[i];
 
-                  if (result.status === "completed" && result.videoUrl) {
-                    const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
-                    const response = await fetch(result.videoUrl);
-                    const buffer = Buffer.from(await response.arrayBuffer());
-                    await writeFile(videoPath, buffer);
+                const result = await generateVideoWithRetryKling(
+                  kling,
+                  segment,
+                  {
+                    duration: videoDuration,
+                    aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+                    referenceImage,
+                  },
+                  maxRetries,
+                  (msg) => {
+                    videoSpinner.text = `🎬 Scene ${i + 1}: ${msg}`;
+                  }
+                );
 
-                    // Extend video to match narration duration if needed
-                    const targetDuration = task.segment.duration;
-                    const actualVideoDuration = await getVideoDuration(videoPath);
+                if (result) {
+                  tasks.push({ taskId: result.taskId, index: i, segment, type: result.type });
+                  if (!videoPaths[i]) videoPaths[i] = "";
+                } else {
+                  console.log(chalk.yellow(`\n  ⚠ Failed to start video generation for scene ${i + 1} (after ${maxRetries} retries)`));
+                  videoPaths[i] = "";
+                  failedScenes.push(i + 1);
+                }
+              }
 
-                    if (actualVideoDuration < targetDuration - 0.1) {
-                      videoSpinner.text = `🎬 Scene ${task.index + 1}: Extending to match narration...`;
-                      const extendedPath = resolve(outputDir, `scene-${task.index + 1}-extended.mp4`);
-                      await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                      await unlink(videoPath);
-                      await rename(extendedPath, videoPath);
-                    }
+              // Phase 2: Wait for batch completion
+              videoSpinner.text = `🎬 Waiting for batch ${batchNum} (${tasks.length} video${tasks.length > 1 ? "s" : ""})...`;
 
-                    videoPaths[task.index] = videoPath;
-                    completed = true;
-                  } else if (attempt < maxRetries) {
-                    videoSpinner.text = `🎬 Scene ${task.index + 1}: Retry ${attempt + 1}/${maxRetries}...`;
-                    await sleep(RETRY_DELAY_MS);
+              for (const task of tasks) {
+                let completed = false;
+                let currentTaskId = task.taskId;
+                let currentType = task.type;
 
-                    const videoDuration = (task.segment.duration > 5 ? 10 : 5) as 5 | 10;
-                    const retryReferenceImage = imageUrls[task.index];
-
-                    const retryResult = await generateVideoWithRetryKling(
-                      kling,
-                      task.segment,
-                      {
-                        duration: videoDuration,
-                        aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
-                        referenceImage: retryReferenceImage,
+                for (let attempt = 0; attempt <= maxRetries && !completed; attempt++) {
+                  try {
+                    const result = await kling.waitForCompletion(
+                      currentTaskId,
+                      currentType,
+                      (status) => {
+                        videoSpinner.text = `🎬 Scene ${task.index + 1}: ${status.status}...`;
                       },
-                      0
+                      600000
                     );
 
-                    if (retryResult) {
-                      currentTaskId = retryResult.taskId;
-                      currentType = retryResult.type;
+                    if (result.status === "completed" && result.videoUrl) {
+                      const videoPath = resolve(outputDir, `scene-${task.index + 1}.mp4`);
+                      const response = await fetch(result.videoUrl);
+                      const buffer = Buffer.from(await response.arrayBuffer());
+                      await writeFile(videoPath, buffer);
+
+                      // Extend video to match narration duration if needed
+                      await extendVideoToTarget(videoPath, task.segment.duration, outputDir, `Scene ${task.index + 1}`, {
+                        kling,
+                        videoId: result.videoId,
+                        onProgress: (msg) => { videoSpinner.text = `🎬 ${msg}`; },
+                      });
+
+                      videoPaths[task.index] = videoPath;
+                      completed = true;
+                    } else if (attempt < maxRetries) {
+                      videoSpinner.text = `🎬 Scene ${task.index + 1}: Retry ${attempt + 1}/${maxRetries}...`;
+                      await sleep(RETRY_DELAY_MS);
+
+                      const videoDuration = (task.segment.duration > 5 ? 10 : 5) as 5 | 10;
+                      const retryReferenceImage = imageUrls[task.index];
+
+                      const retryResult = await generateVideoWithRetryKling(
+                        kling,
+                        task.segment,
+                        {
+                          duration: videoDuration,
+                          aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1",
+                          referenceImage: retryReferenceImage,
+                        },
+                        0
+                      );
+
+                      if (retryResult) {
+                        currentTaskId = retryResult.taskId;
+                        currentType = retryResult.type;
+                      } else {
+                        videoPaths[task.index] = "";
+                        failedScenes.push(task.index + 1);
+                        completed = true;
+                      }
                     } else {
                       videoPaths[task.index] = "";
                       failedScenes.push(task.index + 1);
-                      completed = true;
                     }
-                  } else {
-                    videoPaths[task.index] = "";
-                    failedScenes.push(task.index + 1);
-                  }
-                } catch (err) {
-                  if (attempt >= maxRetries) {
-                    console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
-                    videoPaths[task.index] = "";
-                    failedScenes.push(task.index + 1);
-                  } else {
-                    videoSpinner.text = `🎬 Scene ${task.index + 1}: Error, retry ${attempt + 1}/${maxRetries}...`;
-                    await sleep(RETRY_DELAY_MS);
+                  } catch (err) {
+                    if (attempt >= maxRetries) {
+                      console.log(chalk.yellow(`\n  ⚠ Error completing video for scene ${task.index + 1}: ${err}`));
+                      videoPaths[task.index] = "";
+                      failedScenes.push(task.index + 1);
+                    } else {
+                      videoSpinner.text = `🎬 Scene ${task.index + 1}: Error, retry ${attempt + 1}/${maxRetries}...`;
+                      await sleep(RETRY_DELAY_MS);
+                    }
                   }
                 }
+              }
+
+              if (totalBatches > 1 && batchEnd < segments.length) {
+                console.log(chalk.dim(`  → Batch ${batchNum}/${totalBatches} complete`));
               }
             }
           }
@@ -4178,16 +4290,9 @@ aiCommand
                   await writeFile(videoPath, buffer);
 
                   // Extend video to match narration duration if needed
-                  const targetDuration = task.segment.duration;
-                  const actualVideoDuration = await getVideoDuration(videoPath);
-
-                  if (actualVideoDuration < targetDuration - 0.1) {
-                    videoSpinner.text = `🎬 Scene ${task.index + 1}: Extending to match narration...`;
-                    const extendedPath = resolve(outputDir, `scene-${task.index + 1}-extended.mp4`);
-                    await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                    await unlink(videoPath);
-                    await rename(extendedPath, videoPath);
-                  }
+                  await extendVideoToTarget(videoPath, task.segment.duration, outputDir, `Scene ${task.index + 1}`, {
+                    onProgress: (msg) => { videoSpinner.text = `🎬 ${msg}`; },
+                  });
 
                   videoPaths[task.index] = videoPath;
                   completed = true;
@@ -4838,16 +4943,11 @@ Generate the single-person scene image now.`;
                   await writeFile(videoPath, buffer);
 
                   // Extend video to match narration duration if needed
-                  const targetDuration = segment.duration;
-                  const actualVideoDuration = await getVideoDuration(videoPath);
-
-                  if (actualVideoDuration < targetDuration - 0.1) {
-                    videoSpinner.text = `🎬 Scene ${sceneNum}: Extending video to match narration...`;
-                    const extendedPath = resolve(outputDir, `scene-${sceneNum}-extended.mp4`);
-                    await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                    await unlink(videoPath);
-                    await rename(extendedPath, videoPath);
-                  }
+                  await extendVideoToTarget(videoPath, segment.duration, outputDir, `Scene ${sceneNum}`, {
+                    kling,
+                    videoId: waitResult.videoId,
+                    onProgress: (msg) => { videoSpinner.text = `🎬 ${msg}`; },
+                  });
 
                   videoGenerated = true;
                 } else if (attempt < maxRetries) {
@@ -4901,17 +5001,10 @@ Generate the single-person scene image now.`;
                   const buffer = Buffer.from(await response.arrayBuffer());
                   await writeFile(videoPath, buffer);
 
-                  // Extend video to match narration duration if needed
-                  const targetDuration = segment.duration;
-                  const actualVideoDuration = await getVideoDuration(videoPath);
-
-                  if (actualVideoDuration < targetDuration - 0.1) {
-                    videoSpinner.text = `🎬 Scene ${sceneNum}: Extending video to match narration...`;
-                    const extendedPath = resolve(outputDir, `scene-${sceneNum}-extended.mp4`);
-                    await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                    await unlink(videoPath);
-                    await rename(extendedPath, videoPath);
-                  }
+                  // Extend video to match narration duration if needed (Runway - no Kling extend)
+                  await extendVideoToTarget(videoPath, segment.duration, outputDir, `Scene ${sceneNum}`, {
+                    onProgress: (msg) => { videoSpinner.text = `🎬 ${msg}`; },
+                  });
 
                   videoGenerated = true;
                 } else if (attempt < maxRetries) {
@@ -4937,13 +5030,18 @@ Generate the single-person scene image now.`;
         }
       }
 
-      // Step 4: Update storyboard with new duration if narration was regenerated
-      if (regenerateNarration) {
+      // Step 4: Recalculate startTime for ALL segments and re-save storyboard
+      {
+        let currentTime = 0;
+        for (const seg of segments) {
+          seg.startTime = currentTime;
+          currentTime += seg.duration;
+        }
         await writeFile(storyboardPath, JSON.stringify(segments, null, 2), "utf-8");
         console.log(chalk.dim(`  → Updated storyboard: ${storyboardPath}`));
       }
 
-      // Step 5: Update project.vibe.json if it exists
+      // Step 5: Update project.vibe.json if it exists — update ALL clips' startTime/duration
       if (existsSync(projectPath)) {
         const updateSpinner = ora("📦 Updating project file...").start();
 
@@ -4970,17 +5068,28 @@ Generate the single-person scene image now.`;
             narrationSource.duration = narrationDuration;
           }
 
-          // Update clip durations if they exist
+          // Update ALL clips' startTime and duration based on recalculated segments
           for (const clip of projectData.state.clips) {
             const source = projectData.state.sources.find((s) => s.id === clip.sourceId);
-            if (source && (source.name === sceneName || source.name === narrationName)) {
-              clip.duration = source.duration;
-              clip.sourceEndOffset = source.duration;
+            if (!source) continue;
+
+            // Match source name to segment (e.g., "Scene 1" → segment 0, "Narration 2" → segment 1)
+            const sceneMatch = source.name.match(/^Scene (\d+)$/);
+            const narrationMatch = source.name.match(/^Narration (\d+)$/);
+            const segIdx = sceneMatch ? parseInt(sceneMatch[1]) - 1 : narrationMatch ? parseInt(narrationMatch[1]) - 1 : -1;
+
+            if (segIdx >= 0 && segIdx < segments.length) {
+              const seg = segments[segIdx];
+              clip.startTime = seg.startTime;
+              clip.duration = seg.duration;
+              clip.sourceEndOffset = seg.duration;
+              // Also update the source duration to match segment
+              source.duration = seg.duration;
             }
           }
 
           await writeFile(projectPath, JSON.stringify(projectData, null, 2), "utf-8");
-          updateSpinner.succeed(chalk.green("Updated project file"));
+          updateSpinner.succeed(chalk.green("Updated project file (all clips synced)"));
         } catch (err) {
           updateSpinner.warn(chalk.yellow(`Could not update project file: ${err}`));
         }
