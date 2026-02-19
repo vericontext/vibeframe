@@ -62,7 +62,7 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-8 animate-fade-in">
             <Sparkles className="w-4 h-4" />
             <span>AI-native video editing</span>
-            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">v0.13.6</span>
+            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">v0.14.0</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
