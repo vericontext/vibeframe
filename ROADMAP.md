@@ -178,7 +178,6 @@ Intelligence built into every interaction.
 
 Overcome browser memory limits for AI-generated content.
 
-### Open Source (Self-Hosted)
 - [ ] **Hybrid rendering architecture**
   - FFmpeg.wasm for lightweight edits (draft preview, <4GB)
   - Server-side FFmpeg for final export & heavy AI content
@@ -188,61 +187,30 @@ Overcome browser memory limits for AI-generated content.
 - [ ] **Live Link**: CLI ↔ Web UI sync via WebSocket
   - CLI commands trigger real-time UI preview updates
 
-### VibeFrame Cloud (Managed Service)
-- [ ] **Hosted MCP Endpoint** - Connect Claude Desktop/Cursor without local setup
-- [ ] **Auto-scaling render queues** - No memory limits, parallel processing
-- [ ] **CDN-backed media storage** - Global low-latency asset delivery
-- [ ] **Usage-based pricing** - Pay per render minute
-
 > **Note**: AI video outputs (Runway, Kling, etc.) require server-side processing due to file size.
 
 ---
 
-## Phase 6: Sync & Collaboration 📋
+## Phase 6: Local-First Sync 📋
 
-Local-first with optional real-time sync.
+Local-first editing with offline support.
 
-### Local-First Foundation (Open Source)
 - [ ] **CRDT-based state** (Yjs or Automerge)
 - [ ] Offline-capable editing
 - [ ] Conflict-free merge on reconnect
-
-### Team Collaboration (VibeFrame Cloud)
-- [ ] **Team Workspaces** - Shared projects, role-based access
-- [ ] Real-time multiplayer editing (CRDT sync)
-- [ ] Version history & branching
-- [ ] Comments & review workflow
-- [ ] Asset libraries - Shared media, templates, presets
 
 > **Design**: Local-first by default. Collaboration is additive, not required.
 
 ---
 
-## Phase 7: Ecosystem & Scale 📋
+## Phase 7: Ecosystem 📋
 
-### Ecosystem (Open Source)
 - [ ] Plugin architecture
 - [ ] Community templates & presets
 - [ ] Effect sharing (JSON export/import)
-
-### VibeFrame Marketplace (Cloud)
-- [ ] **Template Marketplace** - Premium video templates
-- [ ] **AI Preset Store** - Curated prompts & workflows
-- [ ] **Creator monetization** - Revenue share for template creators
-
-### Developer Experience
 - [ ] REST API for automation
 - [ ] Webhooks for CI/CD pipelines
 - [ ] SDK for custom integrations
-
-### Enterprise (VibeFrame Cloud)
-- [ ] **Self-hosted option** (Docker Compose + license key)
-- [ ] S3/GCS media storage integration
-- [ ] Distributed rendering workers
-- [ ] Usage analytics dashboard
-- [ ] White-label solution
-- [ ] SSO / SAML authentication
-- [ ] SLA & priority support
 
 ---
 

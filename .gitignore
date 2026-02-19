@@ -41,3 +41,6 @@ demo-output/
 docker/test-output/
 promo/
 tiktok/
+
+# Internal docs
+ROADMAP-CLOUD.md
