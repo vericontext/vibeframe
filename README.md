@@ -263,7 +263,7 @@ vibe ai viral <project>              # Platform optimization
 |----------|-----------|---------|
 | **Agent LLM** | OpenAI, Claude, Gemini, xAI, Ollama | GPT-4o |
 | **Image** | Gemini, OpenAI, Stability | Gemini Nano Banana |
-| **Video** | Kling, Runway, Veo, xAI Grok | Kling v2.5 |
+| **Video** | Kling, Runway, Veo, xAI Grok | Kling v2.5/v2.6 |
 | **Audio** | ElevenLabs, Whisper | - |
 
 **Required API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`, `STABILITY_API_KEY`
