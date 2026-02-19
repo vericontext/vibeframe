@@ -42,10 +42,13 @@ Unified interface for AI services.
 - [x] **ElevenLabs** - Text-to-speech (`vibe ai tts`)
 - [x] **ElevenLabs** - Sound effects generation (`vibe ai sfx`)
 - [x] **ElevenLabs** - Audio isolation / vocal extraction (`vibe ai isolate`)
+- [x] **ElevenLabs** - Voice cloning (`vibe ai voice-clone`)
+- [x] **Replicate MusicGen** - Music generation (`vibe ai music`)
 - [x] Beat detection & silence detection (`vibe detect beats/silence`)
 
 ### Image
-- [x] **DALL-E** - Thumbnail generation, image editing (`vibe ai image/thumbnail/background`)
+- [x] **OpenAI GPT Image 1.5** - Image generation (`vibe ai image --provider openai`)
+- [x] **Gemini Nano Banana** - Image generation (`vibe ai image`, default provider)
 - [x] **Stability AI** - Stable Diffusion SD3.5 (`vibe ai sd/sd-upscale/sd-img2img`)
 - [x] Background removal (`vibe ai sd-remove-bg`)
 - [x] Search & replace (`vibe ai sd-replace`) - AI-powered object replacement
@@ -53,8 +56,9 @@ Unified interface for AI services.
 
 ### Video
 - [x] Scene detection & auto-cutting (`vibe detect scenes`)
-- [x] **Runway Gen-3** - Video generation (`vibe ai video`)
-- [x] **Kling** - Video generation (`vibe ai kling`)
+- [x] **Runway Gen-4** - Video generation (`vibe ai video`, default provider)
+- [x] **Kling v2.5** - Video generation (`vibe ai video --provider kling`)
+- [x] **Veo 3.1** - Video generation (`vibe ai video --provider veo`)
 - [ ] **Pika** - Video-to-video transformation
 - [ ] **HeyGen** - AI avatars, lip sync
 
@@ -115,6 +119,9 @@ Intelligence built into every interaction.
   - Full pipeline: `vibe ai viral <project> -p youtube-shorts,tiktok -o ./viral-output`
 
 ### Video Understanding & Generation
+- [x] **Gemini Video Analysis** - Summarize, Q&A, extract info (`vibe ai gemini-video`)
+- [x] **Gemini Image Edit** - Multi-image editing (`vibe ai gemini-edit`)
+- [x] **Auto Narrate** - AI narration for videos (`vibe ai narrate`)
 - [x] Video Extend - AI-powered clip extension (`vibe ai video-extend`)
 - [x] Video Inpainting - Remove objects from video (`vibe ai video-inpaint`)
 - [x] Video Upscale - Low-res → 4K AI upscaling (`vibe ai video-upscale`)
@@ -151,7 +158,7 @@ Intelligence built into every interaction.
 - [x] **Agent Mode (Default)** - Claude Code-like autonomous agent (`vibe` or `vibe agent`)
   - Default entry point: `vibe` starts Agent mode
   - Multi-turn agentic loop: LLM reasoning → tool call → result → repeat
-  - **47 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
+  - **48 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
   - Multi-provider support: OpenAI, Claude, Gemini, xAI, Ollama
   - Verbose mode for tool call visibility (`-v`)
   - Confirm mode: `--confirm` prompts before each tool execution
@@ -241,7 +248,7 @@ Local-first with optional real-time sync.
 
 ## CLI Status
 
-**281 tests passing** (47 Agent tools)
+**264 unit tests passing** | **85 E2E tests** (48 Agent tools)
 
 ```
 vibe                      Start Agent mode (default: OpenAI)
@@ -257,6 +264,7 @@ vibe export     <project> -o <output> -p <preset>
 vibe detect     scenes | silence | beats
 vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | isolate
                 motion | storyboard | image | thumbnail | background
+                gemini | gemini-edit | gemini-video | narrate
                 video | video-status | video-cancel
                 kling | kling-status
                 video-extend | video-upscale | video-interpolate | video-inpaint | fill-gaps
@@ -271,10 +279,10 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
 ```bash
 # Start Agent mode
 vibe                         # Default: OpenAI GPT-4o
-vibe -p claude               # Use Claude
-vibe -p gemini               # Use Gemini
-vibe -p xai                  # Use xAI Grok
-vibe -p ollama               # Use local Ollama
+vibe agent -p claude         # Use Claude
+vibe agent -p gemini         # Use Gemini
+vibe agent -p xai            # Use xAI Grok
+vibe agent -p ollama         # Use local Ollama
 
 # Natural language → autonomous tool execution
 you> create a new project called "Demo"
