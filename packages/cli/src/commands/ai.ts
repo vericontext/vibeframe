@@ -8139,9 +8139,19 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         let outputPath: string;
         if (shortCount === 1 && options.output) {
           outputPath = resolve(process.cwd(), options.output);
+          // Ensure .mp4 extension so FFmpeg can detect format
+          if (!extname(outputPath)) {
+            outputPath += ".mp4";
+          }
         } else {
           const baseName = basename(absPath, extname(absPath));
           outputPath = resolve(outputDir, `${baseName}-short-${i + 1}.mp4`);
+        }
+
+        // Ensure parent directory exists
+        const parentDir = dirname(outputPath);
+        if (!existsSync(parentDir)) {
+          await mkdir(parentDir, { recursive: true });
         }
 
         // Get source dimensions for reframe
