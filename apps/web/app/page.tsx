@@ -289,8 +289,8 @@ export default function LandingPage() {
             />
             <FeatureCard
               icon={<Layers className="w-6 h-6" />}
-              title="10+ AI Providers"
-              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Stability, Replicate."
+              title="12 AI Providers"
+              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Stability, Replicate, xAI Grok, Ollama."
               gradient="from-green-500 to-emerald-500"
             />
           </div>
@@ -333,7 +333,7 @@ export default function LandingPage() {
                   </span>
                 ))}
                 <span className="text-xs bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full text-primary">
-                  +44 more tools
+                  +8 more tools
                 </span>
               </div>
             </div>

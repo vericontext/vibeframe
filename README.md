@@ -9,7 +9,7 @@
 
 ```bash
 # Install VibeFrame CLI
-curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
+curl -fsSL https://vibeframe.ai/install.sh | bash
 
 # Create a TikTok video from a script
 vibe ai script-to-video "A day in the life of a developer with 5 scenes..." -a 9:16 -o ./tiktok/
@@ -52,7 +52,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 
 ```bash
 # Install VibeFrame CLI
-curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install.sh | bash
+curl -fsSL https://vibeframe.ai/install.sh | bash
 
 # Start Agent mode — talk to it in natural language
 vibe
