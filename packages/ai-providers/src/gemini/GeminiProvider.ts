@@ -118,6 +118,29 @@ export interface GeminiVideoResult {
   error?: string;
 }
 
+/**
+ * Image analysis options for Gemini vision
+ */
+export interface GeminiImageAnalysisOptions {
+  /** Model to use for analysis */
+  model?: "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro";
+  /** Use low resolution mode (fewer tokens) */
+  lowResolution?: boolean;
+}
+
+/**
+ * Image analysis result
+ */
+export interface GeminiImageAnalysisResult {
+  success: boolean;
+  response?: string;
+  model?: string;
+  promptTokens?: number;
+  responseTokens?: number;
+  totalTokens?: number;
+  error?: string;
+}
+
 const MODEL_MAP: Record<string, string> = {
   "flash": "gemini-2.5-flash-image",
   "pro": "gemini-3-pro-image-preview",
@@ -134,7 +157,7 @@ export class GeminiProvider implements AIProvider {
   id = "gemini";
   name = "Google Gemini";
   description = "AI video (Veo 3.1) and image (Nano Banana) generation";
-  capabilities: AICapability[] = ["text-to-video", "image-to-video", "text-to-image", "auto-edit"];
+  capabilities: AICapability[] = ["text-to-video", "image-to-video", "text-to-image", "auto-edit", "vision"];
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
 
@@ -780,6 +803,120 @@ export class GeminiProvider implements AIProvider {
         contents: [{
           parts: [
             videoPart,
+            { text: prompt },
+          ],
+        }],
+        generationConfig,
+      };
+
+      const response = await fetch(
+        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage: string;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error?.message || errorText;
+        } catch {
+          errorMessage = errorText;
+        }
+        return {
+          success: false,
+          error: `API error (${response.status}): ${errorMessage}`,
+        };
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
+      };
+
+      const parts = data.candidates?.[0]?.content?.parts;
+      if (!parts || parts.length === 0) {
+        return {
+          success: false,
+          error: "No response from model",
+        };
+      }
+
+      const textParts = parts.filter((p) => p.text).map((p) => p.text);
+      const responseText = textParts.join("\n");
+
+      return {
+        success: true,
+        response: responseText,
+        model: modelId,
+        promptTokens: data.usageMetadata?.promptTokenCount,
+        responseTokens: data.usageMetadata?.candidatesTokenCount,
+        totalTokens: data.usageMetadata?.totalTokenCount,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Analyze image(s) using Gemini vision
+   * Supports single or multiple images for comparison analysis
+   */
+  async analyzeImage(
+    imageData: Buffer | Buffer[],
+    prompt: string,
+    options: GeminiImageAnalysisOptions = {}
+  ): Promise<GeminiImageAnalysisResult> {
+    if (!this.apiKey) {
+      return {
+        success: false,
+        error: "Google API key not configured",
+      };
+    }
+
+    const modelId = options.model || "gemini-3-flash-preview";
+
+    try {
+      // Build image parts
+      const buffers = Array.isArray(imageData) ? imageData : [imageData];
+      const imageParts: Array<Record<string, unknown>> = buffers.map((buf) => ({
+        inline_data: {
+          mime_type: "image/png",
+          data: buf.toString("base64"),
+        },
+      }));
+
+      // Build generation config
+      const generationConfig: Record<string, unknown> = {
+        temperature: 0.4,
+        maxOutputTokens: 8192,
+      };
+
+      if (options.lowResolution) {
+        generationConfig.mediaResolution = "low";
+      }
+
+      const payload = {
+        contents: [{
+          parts: [
+            ...imageParts,
             { text: prompt },
           ],
         }],

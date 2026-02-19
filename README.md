@@ -212,6 +212,7 @@ vibe ai viral <project>              # Platform optimization
 # AI — Analysis & Status
 vibe ai providers                    # List AI providers
 vibe ai transcribe <audio>           # Whisper transcription
+vibe ai analyze <source> "prompt"     # Unified analysis (image/video/YouTube)
 vibe ai gemini-video <source> "q"    # Video analysis (Gemini)
 vibe ai video-status <task-id>       # Check Runway status
 vibe ai video-cancel <task-id>       # Cancel Runway generation
@@ -246,7 +247,7 @@ vibeframe/
 ├── MODELS.md              # AI models reference (SSOT)
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (256 tests, 50 tools)
+│   ├── cli/               # Command-line interface (256 tests, 51 tools)
 │   ├── core/              # Timeline data structures
 │   ├── ai-providers/      # AI provider plugins
 │   ├── mcp-server/        # MCP server (npm: @vibeframe/mcp-server)

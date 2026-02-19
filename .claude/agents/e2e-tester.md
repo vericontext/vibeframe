@@ -61,7 +61,7 @@ pnpm vibe setup --help
 Every `ai` subcommand must respond to `--help` (52 commands):
 
 ```bash
-for cmd in audio-restore auto-shorts b-roll background dub duck edit fill-gaps \
+for cmd in analyze audio-restore auto-shorts b-roll background dub duck edit fill-gaps \
   gemini gemini-edit gemini-video grade highlights image isolate kling kling-status \
   motion music music-status narrate providers reframe regenerate-scene review \
   script-to-video sd sd-img2img sd-outpaint sd-remove-bg sd-replace sd-upscale \
@@ -224,6 +224,8 @@ pnpm vibe ai grade test-output/video-kling.mp4 --preset cinematic-warm -o test-o
 pnpm vibe ai text-overlay test-output/video-kling.mp4 --text "Hello World" -o test-output/overlay.mp4
 pnpm vibe ai review test-output/video-kling.mp4
 pnpm vibe ai gemini-video test-output/video-kling.mp4 "what is happening?"
+pnpm vibe ai analyze test-output/video-kling.mp4 "what is happening?"
+pnpm vibe ai analyze test-output/img-test.png "describe this image"
 pnpm vibe ai narrate test-output/video-kling.mp4 -o test-output/narrated
 pnpm vibe ai speed-ramp test-output/pipeline-test/final.mp4 -o test-output/speed-ramped.mp4
 pnpm vibe ai storyboard "A 10 second ad for coffee" -o test-output/storyboard.json

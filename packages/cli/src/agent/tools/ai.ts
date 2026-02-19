@@ -20,6 +20,7 @@ import {
   executeHighlights,
   executeAutoShorts,
   executeGeminiVideo,
+  executeAnalyze,
   executeRegenerateScene,
   executeTextOverlay,
   executeReview,
@@ -452,6 +453,104 @@ const geminiVideoDef: ToolDefinition = {
     },
     required: ["source", "prompt"],
   },
+};
+
+const analyzeDef: ToolDefinition = {
+  name: "ai_analyze",
+  description:
+    "Analyze any media using Gemini: images, videos, or YouTube URLs. Auto-detects source type. Use for image description, video summarization, Q&A, content extraction, and comparison analysis.",
+  parameters: {
+    type: "object",
+    properties: {
+      source: {
+        type: "string",
+        description: "Image/video file path, image URL (http...*.png/jpg/webp), or YouTube URL",
+      },
+      prompt: {
+        type: "string",
+        description: "Analysis prompt (e.g., 'Describe this image', 'Summarize this video', 'What happens at 2:30?')",
+      },
+      model: {
+        type: "string",
+        description: "Gemini model to use",
+        enum: ["flash", "flash-2.5", "pro"],
+      },
+      fps: {
+        type: "number",
+        description: "Frames per second for video sampling (default: 1)",
+      },
+      start: {
+        type: "number",
+        description: "Start offset in seconds (video only)",
+      },
+      end: {
+        type: "number",
+        description: "End offset in seconds (video only)",
+      },
+      lowRes: {
+        type: "boolean",
+        description: "Use low resolution mode (fewer tokens, longer videos/larger images)",
+      },
+    },
+    required: ["source", "prompt"],
+  },
+};
+
+const analyzeHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  let source = args.source as string;
+
+  // Resolve local paths (not URLs)
+  if (!source.startsWith("http://") && !source.startsWith("https://")) {
+    source = resolve(context.workingDirectory, source);
+  }
+
+  try {
+    const result = await executeAnalyze({
+      source,
+      prompt: args.prompt as string,
+      model: args.model as "flash" | "flash-2.5" | "pro" | undefined,
+      fps: args.fps as number | undefined,
+      start: args.start as number | undefined,
+      end: args.end as number | undefined,
+      lowRes: args.lowRes as boolean | undefined,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: result.error || "Analysis failed",
+      };
+    }
+
+    // Build output
+    const lines: string[] = [`[${result.sourceType}] ${result.response || ""}`];
+
+    if (result.model || result.totalTokens) {
+      lines.push(``);
+      lines.push(`---`);
+      if (result.model) {
+        lines.push(`Model: ${result.model}`);
+      }
+      if (result.totalTokens) {
+        lines.push(`Tokens: ${result.totalTokens.toLocaleString()}`);
+      }
+    }
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: lines.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 };
 
 const geminiEditDef: ToolDefinition = {
@@ -1778,6 +1877,7 @@ export function registerAITools(registry: ToolRegistry): void {
   registry.register(highlightsDef, highlightsHandler);
   registry.register(autoShortsDef, autoShortsHandler);
   registry.register(geminiVideoDef, geminiVideoHandler);
+  registry.register(analyzeDef, analyzeHandler);
   registry.register(geminiEditDef, geminiEditHandler);
   registry.register(regenerateSceneDef, regenerateSceneHandler);
   registry.register(textOverlayDef, textOverlayHandler);

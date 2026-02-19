@@ -40,7 +40,8 @@ export type AICapability =
   | "auto-reframe"
   | "auto-shorts"
   | "object-tracking"
-  | "audio-ducking";
+  | "audio-ducking"
+  | "vision";
 
 /**
  * Generation status
