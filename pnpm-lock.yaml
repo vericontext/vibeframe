@@ -192,12 +192,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.25.3(hono@4.11.7)(zod@3.25.76)
-      '@vibeframe/cli':
-        specifier: workspace:*
-        version: link:../cli
-      '@vibeframe/core':
-        specifier: workspace:*
-        version: link:../core
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -205,6 +199,12 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.30
+      '@vibeframe/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@vibeframe/core':
+        specifier: workspace:*
+        version: link:../core
       esbuild:
         specifier: ^0.27.3
         version: 0.27.3
