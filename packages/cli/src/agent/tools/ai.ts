@@ -27,6 +27,10 @@ import {
   executeSilenceCut,
   executeJumpCut,
   executeCaption,
+  executeNoiseReduce,
+  executeFade,
+  executeThumbnailBestFrame,
+  executeTranslateSrt,
   type TextOverlayStyle,
   type CaptionStyle,
 } from "../../commands/ai.js";
@@ -2141,6 +2145,316 @@ const captionHandler: ToolHandler = async (args, context): Promise<ToolResult> =
   }
 };
 
+// Noise Reduce Tool
+const noiseReduceDef: ToolDefinition = {
+  name: "ai_noise_reduce",
+  description: "Remove background noise from audio/video using FFmpeg afftdn filter. No API key needed. Three strength presets: low, medium (default), high. High adds bandpass filtering.",
+  parameters: {
+    type: "object",
+    properties: {
+      inputPath: {
+        type: "string",
+        description: "Path to input audio or video file",
+      },
+      outputPath: {
+        type: "string",
+        description: "Output file path (default: <name>-denoised.<ext>)",
+      },
+      strength: {
+        type: "string",
+        description: "Noise reduction strength",
+        enum: ["low", "medium", "high"],
+      },
+      noiseFloor: {
+        type: "number",
+        description: "Custom noise floor in dB (overrides strength preset)",
+      },
+    },
+    required: ["inputPath"],
+  },
+};
+
+const noiseReduceHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const inputPath = resolve(context.workingDirectory, args.inputPath as string);
+  const ext = inputPath.split(".").pop() || "mp4";
+  const name = inputPath.replace(/\.[^.]+$/, "");
+  const outputPath = args.outputPath
+    ? resolve(context.workingDirectory, args.outputPath as string)
+    : `${name}-denoised.${ext}`;
+
+  try {
+    const result = await executeNoiseReduce({
+      inputPath,
+      outputPath,
+      strength: args.strength as "low" | "medium" | "high" | undefined,
+      noiseFloor: args.noiseFloor as number | undefined,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: result.error || "Noise reduction failed",
+      };
+    }
+
+    const lines: string[] = [];
+    lines.push(`Noise reduction applied: ${result.outputPath}`);
+    lines.push(`Input duration: ${result.inputDuration!.toFixed(1)}s`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: lines.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Noise reduction failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+// Fade Tool
+const fadeDef: ToolDefinition = {
+  name: "ai_fade",
+  description: "Apply fade in/out effects to video using FFmpeg. No API key needed. Supports video-only, audio-only, or both. Configurable fade durations.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: {
+        type: "string",
+        description: "Path to input video file",
+      },
+      outputPath: {
+        type: "string",
+        description: "Output file path (default: <name>-faded.<ext>)",
+      },
+      fadeIn: {
+        type: "number",
+        description: "Fade-in duration in seconds (default: 1)",
+      },
+      fadeOut: {
+        type: "number",
+        description: "Fade-out duration in seconds (default: 1)",
+      },
+      audioOnly: {
+        type: "boolean",
+        description: "Apply fade to audio only (default: false)",
+      },
+      videoOnly: {
+        type: "boolean",
+        description: "Apply fade to video only (default: false)",
+      },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const fadeHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const videoPath = resolve(context.workingDirectory, args.videoPath as string);
+  const ext = videoPath.split(".").pop() || "mp4";
+  const name = videoPath.replace(/\.[^.]+$/, "");
+  const outputPath = args.outputPath
+    ? resolve(context.workingDirectory, args.outputPath as string)
+    : `${name}-faded.${ext}`;
+
+  try {
+    const result = await executeFade({
+      videoPath,
+      outputPath,
+      fadeIn: args.fadeIn as number | undefined,
+      fadeOut: args.fadeOut as number | undefined,
+      audioOnly: args.audioOnly as boolean | undefined,
+      videoOnly: args.videoOnly as boolean | undefined,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: result.error || "Fade failed",
+      };
+    }
+
+    const lines: string[] = [];
+    lines.push(`Fade effects applied: ${result.outputPath}`);
+    lines.push(`Total duration: ${result.totalDuration!.toFixed(1)}s`);
+    if (result.fadeInApplied) lines.push(`Fade-in applied`);
+    if (result.fadeOutApplied) lines.push(`Fade-out applied`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: lines.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Fade failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+// Thumbnail Best Frame Tool
+const thumbnailBestFrameDef: ToolDefinition = {
+  name: "ai_thumbnail",
+  description: "Extract the best thumbnail frame from a video using Gemini AI analysis + FFmpeg frame extraction. Requires GOOGLE_API_KEY. Finds visually striking, well-composed frames.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: {
+        type: "string",
+        description: "Path to input video file",
+      },
+      outputPath: {
+        type: "string",
+        description: "Output image path (default: <name>-thumbnail.png)",
+      },
+      prompt: {
+        type: "string",
+        description: "Custom prompt for frame selection analysis",
+      },
+      model: {
+        type: "string",
+        description: "Gemini model to use",
+        enum: ["flash", "flash-2.5", "pro"],
+      },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const thumbnailBestFrameHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const videoPath = resolve(context.workingDirectory, args.videoPath as string);
+  const name = videoPath.replace(/\.[^.]+$/, "");
+  const outputPath = args.outputPath
+    ? resolve(context.workingDirectory, args.outputPath as string)
+    : `${name}-thumbnail.png`;
+
+  try {
+    const result = await executeThumbnailBestFrame({
+      videoPath,
+      outputPath,
+      prompt: args.prompt as string | undefined,
+      model: args.model as string | undefined,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: result.error || "Best frame extraction failed",
+      };
+    }
+
+    const lines: string[] = [];
+    lines.push(`Best frame extracted: ${result.outputPath}`);
+    lines.push(`Timestamp: ${result.timestamp!.toFixed(2)}s`);
+    if (result.reason) lines.push(`Reason: ${result.reason}`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: lines.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Best frame extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
+// Translate SRT Tool
+const translateSrtDef: ToolDefinition = {
+  name: "ai_translate_srt",
+  description: "Translate SRT subtitle file to another language using Claude or OpenAI. Preserves timestamps. Batches segments for efficiency.",
+  parameters: {
+    type: "object",
+    properties: {
+      srtPath: {
+        type: "string",
+        description: "Path to input SRT file",
+      },
+      outputPath: {
+        type: "string",
+        description: "Output file path (default: <name>-<target>.srt)",
+      },
+      targetLanguage: {
+        type: "string",
+        description: "Target language (e.g., ko, es, fr, ja, zh)",
+      },
+      provider: {
+        type: "string",
+        description: "Translation provider",
+        enum: ["claude", "openai"],
+      },
+      sourceLanguage: {
+        type: "string",
+        description: "Source language (auto-detected if omitted)",
+      },
+    },
+    required: ["srtPath", "targetLanguage"],
+  },
+};
+
+const translateSrtHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const srtPath = resolve(context.workingDirectory, args.srtPath as string);
+  const target = args.targetLanguage as string;
+  const ext = srtPath.split(".").pop() || "srt";
+  const name = srtPath.replace(/\.[^.]+$/, "");
+  const outputPath = args.outputPath
+    ? resolve(context.workingDirectory, args.outputPath as string)
+    : `${name}-${target}.${ext}`;
+
+  try {
+    const result = await executeTranslateSrt({
+      srtPath,
+      outputPath,
+      targetLanguage: target,
+      provider: args.provider as "claude" | "openai" | undefined,
+      sourceLanguage: args.sourceLanguage as string | undefined,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: result.error || "Translation failed",
+      };
+    }
+
+    const lines: string[] = [];
+    lines.push(`Translation complete: ${result.outputPath}`);
+    lines.push(`Segments translated: ${result.segmentCount}`);
+    lines.push(`Target language: ${result.targetLanguage}`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: lines.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Translation failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
 // Registration function
 export function registerAITools(registry: ToolRegistry): void {
   // Basic AI generation tools
@@ -2166,4 +2480,8 @@ export function registerAITools(registry: ToolRegistry): void {
   registry.register(silenceCutDef, silenceCutHandler);
   registry.register(jumpCutDef, jumpCutHandler);
   registry.register(captionDef, captionHandler);
+  registry.register(noiseReduceDef, noiseReduceHandler);
+  registry.register(fadeDef, fadeHandler);
+  registry.register(thumbnailBestFrameDef, thumbnailBestFrameHandler);
+  registry.register(translateSrtDef, translateSrtHandler);
 }

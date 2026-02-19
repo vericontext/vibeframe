@@ -119,7 +119,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Just type <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> and
-              let the AI agent handle multi-step tasks autonomously. 50 tools at your command.
+              let the AI agent handle multi-step tasks autonomously. 58 tools at your command.
             </p>
           </div>
 
@@ -467,7 +467,7 @@ function TerminalAnimation() {
   ╚═══╝  ╚═╝╚═════╝ ╚══════╝  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝`}
       </div>
       <div className="text-muted-foreground text-xs mb-4">
-        50 tools · openai<br/>
+        58 tools · openai<br/>
         Commands: exit · reset · tools · context
       </div>
 

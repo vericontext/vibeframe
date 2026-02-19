@@ -52,7 +52,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { EffectType } from "@vibeframe/core/timeline";
-import { detectFormat, formatTranscript, formatSRT } from "../utils/subtitle.js";
+import { detectFormat, formatTranscript, formatSRT, parseSRT } from "../utils/subtitle.js";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { getAudioDuration, getVideoDuration, extendVideoNaturally } from "../utils/audio.js";
@@ -1046,13 +1046,75 @@ aiCommand
 
 aiCommand
   .command("thumbnail")
-  .description("Generate video thumbnail using DALL-E")
-  .argument("<description>", "Thumbnail description")
-  .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
-  .option("-o, --output <path>", "Output file path (downloads image)")
+  .description("Generate video thumbnail (DALL-E) or extract best frame from video (Gemini)")
+  .argument("[description]", "Thumbnail description (for DALL-E generation)")
+  .option("-k, --api-key <key>", "API key (OpenAI for generation, Google for best-frame)")
+  .option("-o, --output <path>", "Output file path")
   .option("-s, --style <style>", "Platform style: youtube, instagram, tiktok, twitter")
-  .action(async (description: string, options) => {
+  .option("--best-frame <video>", "Extract best thumbnail frame from video using Gemini AI")
+  .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
+  .option("--model <model>", "Gemini model: flash, flash-2.5, pro (default: flash)", "flash")
+  .action(async (description: string | undefined, options) => {
     try {
+      // Best-frame mode: analyze video with Gemini and extract frame
+      if (options.bestFrame) {
+        const absVideoPath = resolve(process.cwd(), options.bestFrame);
+        if (!existsSync(absVideoPath)) {
+          console.error(chalk.red(`Video not found: ${absVideoPath}`));
+          process.exit(1);
+        }
+
+        try {
+          execSync("ffmpeg -version", { stdio: "ignore" });
+        } catch {
+          console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
+          process.exit(1);
+        }
+
+        const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
+        if (!apiKey) {
+          console.error(chalk.red("Google API key required for Gemini video analysis."));
+          console.error(chalk.dim("Use --api-key or set GOOGLE_API_KEY"));
+          process.exit(1);
+        }
+
+        const name = basename(options.bestFrame, extname(options.bestFrame));
+        const outputPath = options.output || `${name}-thumbnail.png`;
+
+        const spinner = ora("Analyzing video for best frame...").start();
+
+        const result = await executeThumbnailBestFrame({
+          videoPath: absVideoPath,
+          outputPath: resolve(process.cwd(), outputPath),
+          prompt: options.prompt,
+          model: options.model,
+          apiKey,
+        });
+
+        if (!result.success) {
+          spinner.fail(chalk.red(result.error || "Best frame extraction failed"));
+          process.exit(1);
+        }
+
+        spinner.succeed(chalk.green("Best frame extracted"));
+
+        console.log();
+        console.log(chalk.bold.cyan("Best Frame Result"));
+        console.log(chalk.dim("─".repeat(60)));
+        console.log(`Timestamp: ${chalk.bold(result.timestamp!.toFixed(2))}s`);
+        if (result.reason) console.log(`Reason: ${chalk.dim(result.reason)}`);
+        console.log(`Output: ${chalk.green(result.outputPath!)}`);
+        console.log();
+        return;
+      }
+
+      // Generation mode: create thumbnail with DALL-E
+      if (!description) {
+        console.error(chalk.red("Description required for thumbnail generation."));
+        console.error(chalk.dim("Usage: vibe ai thumbnail <description> or vibe ai thumbnail --best-frame <video>"));
+        process.exit(1);
+      }
+
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("OpenAI API key required. Use --api-key or set OPENAI_API_KEY"));
@@ -8792,6 +8854,205 @@ aiCommand
   });
 
 // ============================================================================
+// Noise Reduce Command
+// ============================================================================
+
+aiCommand
+  .command("noise-reduce")
+  .description("Remove background noise from audio/video using FFmpeg (no API key needed)")
+  .argument("<input>", "Audio or video file path")
+  .option("-o, --output <path>", "Output file path (default: <name>-denoised.<ext>)")
+  .option("-s, --strength <level>", "Noise reduction strength: low, medium, high (default: medium)", "medium")
+  .option("-n, --noise-floor <dB>", "Custom noise floor in dB (overrides strength preset)")
+  .action(async (inputPath: string, options) => {
+    try {
+      const absInputPath = resolve(process.cwd(), inputPath);
+      if (!existsSync(absInputPath)) {
+        console.error(chalk.red(`File not found: ${absInputPath}`));
+        process.exit(1);
+      }
+
+      try {
+        execSync("ffmpeg -version", { stdio: "ignore" });
+      } catch {
+        console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
+        process.exit(1);
+      }
+
+      const ext = extname(inputPath);
+      const name = basename(inputPath, ext);
+      const outputPath = options.output || `${name}-denoised${ext}`;
+
+      const spinner = ora("Applying noise reduction...").start();
+
+      const result = await executeNoiseReduce({
+        inputPath: absInputPath,
+        outputPath: resolve(process.cwd(), outputPath),
+        strength: options.strength as "low" | "medium" | "high",
+        noiseFloor: options.noiseFloor ? parseFloat(options.noiseFloor) : undefined,
+      });
+
+      if (!result.success) {
+        spinner.fail(chalk.red(result.error || "Noise reduction failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Noise reduction complete"));
+
+      console.log();
+      console.log(chalk.bold.cyan("Noise Reduction Result"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Input duration: ${chalk.bold(result.inputDuration!.toFixed(1))}s`);
+      console.log(`Strength: ${chalk.bold(options.strength || "medium")}`);
+      console.log(`Output: ${chalk.green(result.outputPath!)}`);
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Noise reduction failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
+// Fade Command
+// ============================================================================
+
+aiCommand
+  .command("fade")
+  .description("Apply fade in/out effects to video (FFmpeg only, no API key needed)")
+  .argument("<video>", "Video file path")
+  .option("-o, --output <path>", "Output file path (default: <name>-faded.<ext>)")
+  .option("--fade-in <seconds>", "Fade-in duration in seconds (default: 1)", "1")
+  .option("--fade-out <seconds>", "Fade-out duration in seconds (default: 1)", "1")
+  .option("--audio-only", "Apply fade to audio only (video stream copied)")
+  .option("--video-only", "Apply fade to video only (audio stream copied)")
+  .action(async (videoPath: string, options) => {
+    try {
+      const absVideoPath = resolve(process.cwd(), videoPath);
+      if (!existsSync(absVideoPath)) {
+        console.error(chalk.red(`Video not found: ${absVideoPath}`));
+        process.exit(1);
+      }
+
+      try {
+        execSync("ffmpeg -version", { stdio: "ignore" });
+      } catch {
+        console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
+        process.exit(1);
+      }
+
+      const ext = extname(videoPath);
+      const name = basename(videoPath, ext);
+      const outputPath = options.output || `${name}-faded${ext}`;
+
+      const spinner = ora("Applying fade effects...").start();
+
+      const result = await executeFade({
+        videoPath: absVideoPath,
+        outputPath: resolve(process.cwd(), outputPath),
+        fadeIn: parseFloat(options.fadeIn),
+        fadeOut: parseFloat(options.fadeOut),
+        audioOnly: options.audioOnly || false,
+        videoOnly: options.videoOnly || false,
+      });
+
+      if (!result.success) {
+        spinner.fail(chalk.red(result.error || "Fade failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Fade effects applied"));
+
+      console.log();
+      console.log(chalk.bold.cyan("Fade Result"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Total duration: ${chalk.bold(result.totalDuration!.toFixed(1))}s`);
+      if (result.fadeInApplied) console.log(`Fade-in: ${chalk.bold(options.fadeIn)}s`);
+      if (result.fadeOutApplied) console.log(`Fade-out: ${chalk.bold(options.fadeOut)}s`);
+      console.log(`Output: ${chalk.green(result.outputPath!)}`);
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Fade failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
+// Translate SRT Command
+// ============================================================================
+
+aiCommand
+  .command("translate-srt")
+  .description("Translate SRT subtitle file to another language (Claude/OpenAI)")
+  .argument("<srt>", "SRT file path")
+  .option("-t, --target <language>", "Target language (e.g., ko, es, fr, ja, zh)")
+  .option("-o, --output <path>", "Output file path (default: <name>-<target>.srt)")
+  .option("-p, --provider <provider>", "Translation provider: claude, openai (default: claude)", "claude")
+  .option("--source <language>", "Source language (auto-detected if omitted)")
+  .option("-k, --api-key <key>", "API key (or set ANTHROPIC_API_KEY / OPENAI_API_KEY env)")
+  .action(async (srtPath: string, options) => {
+    try {
+      if (!options.target) {
+        console.error(chalk.red("Target language required. Use -t or --target"));
+        process.exit(1);
+      }
+
+      const absSrtPath = resolve(process.cwd(), srtPath);
+      if (!existsSync(absSrtPath)) {
+        console.error(chalk.red(`SRT file not found: ${absSrtPath}`));
+        process.exit(1);
+      }
+
+      const provider = options.provider || "claude";
+      const envKey = provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
+      const providerName = provider === "openai" ? "OpenAI" : "Anthropic";
+
+      const apiKey = await getApiKey(envKey, providerName, options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red(`${providerName} API key required for translation.`));
+        console.error(chalk.dim(`Use --api-key or set ${envKey}`));
+        process.exit(1);
+      }
+
+      const ext = extname(srtPath);
+      const name = basename(srtPath, ext);
+      const outputPath = options.output || `${name}-${options.target}${ext}`;
+
+      const spinner = ora(`Translating to ${options.target}...`).start();
+
+      const result = await executeTranslateSrt({
+        srtPath: absSrtPath,
+        outputPath: resolve(process.cwd(), outputPath),
+        targetLanguage: options.target,
+        provider: provider as "claude" | "openai",
+        sourceLanguage: options.source,
+        apiKey,
+      });
+
+      if (!result.success) {
+        spinner.fail(chalk.red(result.error || "Translation failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Translation complete"));
+
+      console.log();
+      console.log(chalk.bold.cyan("Translation Result"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Segments translated: ${chalk.bold(String(result.segmentCount))}`);
+      if (result.sourceLanguage) console.log(`Source language: ${chalk.bold(result.sourceLanguage)}`);
+      console.log(`Target language: ${chalk.bold(result.targetLanguage!)}`);
+      console.log(`Output: ${chalk.green(result.outputPath!)}`);
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Translation failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // Exported Pipeline Functions for Agent Tools
 // ============================================================================
 
@@ -9467,6 +9728,441 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
     return {
       success: false,
       error: `Caption failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+// ============================================================================
+// Noise Reduce
+// ============================================================================
+
+export interface NoiseReduceOptions {
+  inputPath: string;
+  outputPath: string;
+  strength?: "low" | "medium" | "high";
+  noiseFloor?: number;
+}
+
+export interface NoiseReduceResult {
+  success: boolean;
+  outputPath?: string;
+  inputDuration?: number;
+  error?: string;
+}
+
+export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<NoiseReduceResult> {
+  const {
+    inputPath,
+    outputPath,
+    strength = "medium",
+    noiseFloor,
+  } = options;
+
+  if (!existsSync(inputPath)) {
+    return { success: false, error: `File not found: ${inputPath}` };
+  }
+
+  try {
+    execSync("ffmpeg -version", { stdio: "ignore" });
+  } catch {
+    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+  }
+
+  try {
+    const inputDuration = await getVideoDuration(inputPath);
+
+    // Map strength to noise floor dB value
+    const nf = noiseFloor ?? (strength === "low" ? -20 : strength === "high" ? -35 : -25);
+
+    // Build audio filter
+    let audioFilter = `afftdn=nf=${nf}`;
+    if (strength === "high") {
+      audioFilter = `${audioFilter},highpass=f=80,lowpass=f=12000`;
+    }
+
+    // Check if input has video stream
+    const probeCmd = `ffprobe -v error -select_streams v -show_entries stream=codec_type -of csv=p=0 "${inputPath}"`;
+    let hasVideo = false;
+    try {
+      const { stdout } = await execAsync(probeCmd, { maxBuffer: 10 * 1024 * 1024 });
+      hasVideo = stdout.trim().includes("video");
+    } catch {
+      // No video stream
+    }
+
+    const videoFlag = hasVideo ? "-c:v copy" : "";
+    const cmd = `ffmpeg -i "${inputPath}" -af "${audioFilter}" ${videoFlag} "${outputPath}" -y`;
+    await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+
+    return {
+      success: true,
+      outputPath,
+      inputDuration,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Noise reduction failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+// ============================================================================
+// Fade
+// ============================================================================
+
+export interface FadeOptions {
+  videoPath: string;
+  outputPath: string;
+  fadeIn?: number;
+  fadeOut?: number;
+  audioOnly?: boolean;
+  videoOnly?: boolean;
+}
+
+export interface FadeResult {
+  success: boolean;
+  outputPath?: string;
+  totalDuration?: number;
+  fadeInApplied?: boolean;
+  fadeOutApplied?: boolean;
+  error?: string;
+}
+
+export async function executeFade(options: FadeOptions): Promise<FadeResult> {
+  const {
+    videoPath,
+    outputPath,
+    fadeIn = 1,
+    fadeOut = 1,
+    audioOnly = false,
+    videoOnly = false,
+  } = options;
+
+  if (!existsSync(videoPath)) {
+    return { success: false, error: `Video not found: ${videoPath}` };
+  }
+
+  try {
+    execSync("ffmpeg -version", { stdio: "ignore" });
+  } catch {
+    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+  }
+
+  try {
+    const totalDuration = await getVideoDuration(videoPath);
+
+    const videoFilters: string[] = [];
+    const audioFilters: string[] = [];
+
+    // Video fade filters
+    if (!audioOnly) {
+      if (fadeIn > 0) {
+        videoFilters.push(`fade=t=in:st=0:d=${fadeIn}`);
+      }
+      if (fadeOut > 0) {
+        const fadeOutStart = Math.max(0, totalDuration - fadeOut);
+        videoFilters.push(`fade=t=out:st=${fadeOutStart}:d=${fadeOut}`);
+      }
+    }
+
+    // Audio fade filters
+    if (!videoOnly) {
+      if (fadeIn > 0) {
+        audioFilters.push(`afade=t=in:st=0:d=${fadeIn}`);
+      }
+      if (fadeOut > 0) {
+        const fadeOutStart = Math.max(0, totalDuration - fadeOut);
+        audioFilters.push(`afade=t=out:st=${fadeOutStart}:d=${fadeOut}`);
+      }
+    }
+
+    // Build FFmpeg command
+    const parts: string[] = [`ffmpeg -i "${videoPath}"`];
+
+    if (videoFilters.length > 0) {
+      parts.push(`-vf "${videoFilters.join(",")}"`);
+    } else if (audioOnly) {
+      parts.push("-c:v copy");
+    }
+
+    if (audioFilters.length > 0) {
+      parts.push(`-af "${audioFilters.join(",")}"`);
+    } else if (videoOnly) {
+      parts.push("-c:a copy");
+    }
+
+    parts.push(`"${outputPath}" -y`);
+
+    await execAsync(parts.join(" "), { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+
+    return {
+      success: true,
+      outputPath,
+      totalDuration,
+      fadeInApplied: fadeIn > 0,
+      fadeOutApplied: fadeOut > 0,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Fade failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+// ============================================================================
+// Thumbnail Best Frame
+// ============================================================================
+
+export interface ThumbnailBestFrameOptions {
+  videoPath: string;
+  outputPath: string;
+  prompt?: string;
+  model?: string;
+  apiKey?: string;
+}
+
+export interface ThumbnailBestFrameResult {
+  success: boolean;
+  outputPath?: string;
+  timestamp?: number;
+  reason?: string;
+  error?: string;
+}
+
+export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptions): Promise<ThumbnailBestFrameResult> {
+  const {
+    videoPath,
+    outputPath,
+    prompt,
+    model = "flash",
+    apiKey,
+  } = options;
+
+  if (!existsSync(videoPath)) {
+    return { success: false, error: `Video not found: ${videoPath}` };
+  }
+
+  try {
+    execSync("ffmpeg -version", { stdio: "ignore" });
+  } catch {
+    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+  }
+
+  const googleKey = apiKey || process.env.GOOGLE_API_KEY;
+  if (!googleKey) {
+    return { success: false, error: "Google API key required for Gemini video analysis." };
+  }
+
+  try {
+    const gemini = new GeminiProvider();
+    await gemini.initialize({ apiKey: googleKey });
+
+    const videoData = await readFile(videoPath);
+
+    const analysisPrompt = prompt ||
+      "Analyze this video and find the single best frame for a thumbnail. " +
+      "Look for frames that are visually striking, well-composed, emotionally engaging, " +
+      "and representative of the video content. Avoid blurry frames, transitions, or dark scenes. " +
+      "Return ONLY a JSON object: {\"timestamp\": <seconds as number>, \"reason\": \"<brief explanation>\"}";
+
+    const modelMap: Record<string, string> = {
+      flash: "gemini-3-flash-preview",
+      "flash-2.5": "gemini-2.5-flash",
+      pro: "gemini-2.5-pro",
+    };
+    const modelId = modelMap[model] || "gemini-3-flash-preview";
+
+    const result = await gemini.analyzeVideo(videoData, analysisPrompt, {
+      model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+      fps: 1,
+    });
+
+    if (!result.success || !result.response) {
+      return { success: false, error: result.error || "Gemini analysis failed" };
+    }
+
+    // Parse timestamp from response
+    const jsonMatch = result.response.match(/\{[\s\S]*?"timestamp"\s*:\s*([\d.]+)[\s\S]*?\}/);
+    if (!jsonMatch) {
+      return { success: false, error: `Could not parse timestamp from Gemini response: ${result.response.slice(0, 200)}` };
+    }
+
+    const timestamp = parseFloat(jsonMatch[1]);
+    let reason: string | undefined;
+    const reasonMatch = result.response.match(/"reason"\s*:\s*"([^"]+)"/);
+    if (reasonMatch) {
+      reason = reasonMatch[1];
+    }
+
+    // Extract frame with FFmpeg
+    await execAsync(
+      `ffmpeg -ss ${timestamp} -i "${videoPath}" -frames:v 1 -q:v 2 "${outputPath}" -y`,
+      { timeout: 60000, maxBuffer: 50 * 1024 * 1024 },
+    );
+
+    if (!existsSync(outputPath)) {
+      return { success: false, error: "FFmpeg failed to extract frame" };
+    }
+
+    return {
+      success: true,
+      outputPath,
+      timestamp,
+      reason,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Best frame extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+// ============================================================================
+// Translate SRT
+// ============================================================================
+
+export interface TranslateSrtOptions {
+  srtPath: string;
+  outputPath: string;
+  targetLanguage: string;
+  provider?: "claude" | "openai";
+  sourceLanguage?: string;
+  apiKey?: string;
+}
+
+export interface TranslateSrtResult {
+  success: boolean;
+  outputPath?: string;
+  segmentCount?: number;
+  sourceLanguage?: string;
+  targetLanguage?: string;
+  error?: string;
+}
+
+export async function executeTranslateSrt(options: TranslateSrtOptions): Promise<TranslateSrtResult> {
+  const {
+    srtPath,
+    outputPath,
+    targetLanguage,
+    provider = "claude",
+    sourceLanguage,
+    apiKey,
+  } = options;
+
+  if (!existsSync(srtPath)) {
+    return { success: false, error: `SRT file not found: ${srtPath}` };
+  }
+
+  try {
+    const srtContent = await readFile(srtPath, "utf-8");
+    const segments = parseSRT(srtContent);
+
+    if (segments.length === 0) {
+      return { success: false, error: "No subtitle segments found in SRT file" };
+    }
+
+    // Batch translate segments (~30 at a time)
+    const batchSize = 30;
+    const translatedSegments: { startTime: number; endTime: number; text: string }[] = [];
+
+    for (let i = 0; i < segments.length; i += batchSize) {
+      const batch = segments.slice(i, i + batchSize);
+      const textsToTranslate = batch.map((s, idx) => `[${idx}] ${s.text}`).join("\n");
+
+      const translatePrompt =
+        `Translate the following subtitle texts to ${targetLanguage}.` +
+        (sourceLanguage ? ` The source language is ${sourceLanguage}.` : "") +
+        ` Return ONLY the translated texts, one per line, preserving the [N] prefix format exactly. ` +
+        `Do not add explanations.\n\n${textsToTranslate}`;
+
+      let translatedText: string;
+
+      if (provider === "openai") {
+        const openaiKey = apiKey || process.env.OPENAI_API_KEY;
+        if (!openaiKey) {
+          return { success: false, error: "OpenAI API key required for translation." };
+        }
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: translatePrompt }],
+            temperature: 0.3,
+          }),
+        });
+        if (!response.ok) {
+          return { success: false, error: `OpenAI API error: ${response.status} ${response.statusText}` };
+        }
+        const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+        translatedText = data.choices[0]?.message?.content || "";
+      } else {
+        const claudeKey = apiKey || process.env.ANTHROPIC_API_KEY;
+        if (!claudeKey) {
+          return { success: false, error: "Anthropic API key required for translation." };
+        }
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": claudeKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6-20250514",
+            max_tokens: 4096,
+            messages: [{ role: "user", content: translatePrompt }],
+          }),
+        });
+        if (!response.ok) {
+          return { success: false, error: `Claude API error: ${response.status} ${response.statusText}` };
+        }
+        const data = await response.json() as { content: Array<{ type: string; text: string }> };
+        translatedText = data.content?.find((c) => c.type === "text")?.text || "";
+      }
+
+      // Parse translated lines
+      const translatedLines = translatedText.trim().split("\n");
+      for (let j = 0; j < batch.length; j++) {
+        const seg = batch[j];
+        // Try to match [N] prefix
+        const line = translatedLines[j];
+        let text: string;
+        if (line) {
+          text = line.replace(/^\[\d+\]\s*/, "").trim();
+        } else {
+          // Fallback: use original text if translation is missing
+          text = seg.text;
+        }
+        translatedSegments.push({
+          startTime: seg.startTime,
+          endTime: seg.endTime,
+          text,
+        });
+      }
+    }
+
+    // Format as SRT and write
+    const translatedSrt = formatSRT(translatedSegments);
+    await writeFile(outputPath, translatedSrt);
+
+    return {
+      success: true,
+      outputPath,
+      segmentCount: translatedSegments.length,
+      sourceLanguage: sourceLanguage || "auto",
+      targetLanguage,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Translation failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

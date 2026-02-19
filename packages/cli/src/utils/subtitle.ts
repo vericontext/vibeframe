@@ -115,6 +115,55 @@ export function formatVTTTime(seconds: number): string {
   return `${pad(hours, 2)}:${pad(mins, 2)}:${pad(secs, 2)}.${pad(ms, 3)}`;
 }
 
+/**
+ * Parse SRT content into SubtitleSegment array
+ *
+ * Handles standard SRT format:
+ * 1
+ * 00:00:00,000 --> 00:00:02,500
+ * Hello world
+ */
+export function parseSRT(content: string): SubtitleSegment[] {
+  const segments: SubtitleSegment[] = [];
+  const blocks = content.trim().split(/\n\s*\n/);
+
+  for (const block of blocks) {
+    const lines = block.trim().split("\n");
+    if (lines.length < 3) continue;
+
+    // Line 0: sequence number (skip)
+    // Line 1: timestamp line
+    const timeLine = lines[1].trim();
+    const timeMatch = timeLine.match(
+      /(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})/,
+    );
+    if (!timeMatch) continue;
+
+    const startTime = parseSRTTimestamp(timeMatch[1]);
+    const endTime = parseSRTTimestamp(timeMatch[2]);
+    // Lines 2+: subtitle text (may be multi-line)
+    const text = lines.slice(2).join("\n").trim();
+
+    if (text) {
+      segments.push({ startTime, endTime, text });
+    }
+  }
+
+  return segments;
+}
+
+function parseSRTTimestamp(timestamp: string): number {
+  // Accept both comma (SRT) and period (VTT) as ms separator
+  const normalized = timestamp.replace(",", ".");
+  const parts = normalized.split(":");
+  const hours = parseInt(parts[0], 10);
+  const mins = parseInt(parts[1], 10);
+  const secParts = parts[2].split(".");
+  const secs = parseInt(secParts[0], 10);
+  const ms = parseInt(secParts[1], 10);
+  return hours * 3600 + mins * 60 + secs + ms / 1000;
+}
+
 function pad(num: number, size: number): string {
   return num.toString().padStart(size, "0");
 }

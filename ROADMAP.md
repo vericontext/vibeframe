@@ -59,8 +59,6 @@ Unified interface for AI services.
 - [x] **Runway Gen-4** - Video generation (`vibe ai video`, default provider)
 - [x] **Kling v2.5** - Video generation (`vibe ai video --provider kling`)
 - [x] **Veo 3.1** - Video generation (`vibe ai video --provider veo`)
-- [ ] **Pika** - Video-to-video transformation
-- [ ] **HeyGen** - AI avatars, lip sync
 
 ---
 
@@ -149,6 +147,10 @@ Intelligence built into every interaction.
 - [x] Silence Cut - Remove silent segments from video (`vibe ai silence-cut`)
 - [x] Jump Cut - Remove filler words using Whisper word-level timestamps (`vibe ai jump-cut`)
 - [x] Auto Caption - Transcribe + burn styled captions (`vibe ai caption`)
+- [x] Noise Reduce - FFmpeg audio/video noise removal (`vibe ai noise-reduce`)
+- [x] Fade Effects - FFmpeg fade in/out for audio and video (`vibe ai fade`)
+- [x] Best-Frame Thumbnail - Gemini video analysis + FFmpeg frame extract (`vibe ai thumbnail --best-frame`)
+- [x] SRT Translation - Translate subtitle files via Claude/OpenAI (`vibe ai translate-srt`)
 
 ### Installation & Interactive Mode
 - [x] **Install Script** - One-line installation: `curl -fsSL https://vibeframe.ai/install.sh | bash`
@@ -164,7 +166,7 @@ Intelligence built into every interaction.
 - [x] **Agent Mode (Default)** - Claude Code-like autonomous agent (`vibe` or `vibe agent`)
   - Default entry point: `vibe` starts Agent mode
   - Multi-turn agentic loop: LLM reasoning → tool call → result → repeat
-  - **54 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
+  - **58 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
   - Multi-provider support: OpenAI, Claude, Gemini, xAI, Ollama
   - Verbose mode for tool call visibility (`-v`)
   - Confirm mode: `--confirm` prompts before each tool execution
@@ -223,7 +225,7 @@ Local-first editing with offline support.
 
 ## CLI Status
 
-**264 unit tests passing** | **85 E2E tests** (53 Agent tools)
+**283 unit tests passing** | **85 E2E tests** (57 Agent tools)
 
 ```
 vibe                      Start Agent mode (default: OpenAI)
@@ -248,6 +250,7 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 voice-clone | music | music-status | audio-restore | dub
                 duck | grade | speed-ramp | reframe | auto-shorts
                 style-transfer | track-object | silence-cut | jump-cut | caption
+                noise-reduce | fade | translate-srt
 ```
 
 ### Agent Mode (Default)

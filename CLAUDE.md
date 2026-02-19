@@ -11,7 +11,7 @@ VibeFrame is an AI-native video editing tool. CLI-first, MCP-ready. It uses natu
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run all tests (264 passing)
+pnpm test             # Run all tests (283 passing)
 pnpm lint             # Lint all packages
 pnpm format           # Format code with Prettier
 
@@ -98,7 +98,7 @@ Agent (vibe)              Natural language → LLM tool calling → autonomous e
 - Claude Code-like agentic loop architecture
 - Multi-turn: LLM reasoning → tool call → result → repeat until complete
 - 5 LLM providers: OpenAI, Claude, Gemini, Ollama, xAI Grok
-- 54 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
+- 58 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
 - `--confirm` flag: prompts before each tool execution
 - Example: "create project and add video" → multiple tool calls autonomously
 
@@ -125,7 +125,7 @@ packages/cli/src/agent/
 │   ├── timeline.ts          # 11 timeline tools
 │   ├── filesystem.ts        # 4 filesystem tools
 │   ├── media.ts             # 8 media tools
-│   ├── ai.ts                # 19 AI generation tools (basic + pipeline)
+│   ├── ai.ts                # 23 AI generation tools (basic + pipeline)
 │   ├── export.ts            # 3 export tools
 │   └── batch.ts             # 3 batch tools
 ├── memory/
@@ -236,7 +236,7 @@ When adding new AI CLI commands:
 - `CLAUDE.md` - Update tool counts
 - `ROADMAP.md` - Mark `[x]` and update CLI status section
 
-### Current Agent AI Tools (20)
+### Current Agent AI Tools (24)
 
 | Tool | CLI Command | Description |
 |------|-------------|-------------|
@@ -260,6 +260,10 @@ When adding new AI CLI commands:
 | `ai_silence_cut` | `vibe ai silence-cut` | Remove silent segments (FFmpeg only) |
 | `ai_jump_cut` | `vibe ai jump-cut` | Remove filler words (Whisper + FFmpeg) |
 | `ai_caption` | `vibe ai caption` | Transcribe + burn styled captions (Whisper + FFmpeg) |
+| `ai_noise_reduce` | `vibe ai noise-reduce` | Audio/video noise removal (FFmpeg) |
+| `ai_fade` | `vibe ai fade` | Fade in/out effects (FFmpeg) |
+| `ai_thumbnail` | `vibe ai thumbnail` | Generate or extract best thumbnail (Gemini + FFmpeg) |
+| `ai_translate_srt` | `vibe ai translate-srt` | Translate SRT subtitles (Claude/OpenAI) |
 
 ## Version Management
 

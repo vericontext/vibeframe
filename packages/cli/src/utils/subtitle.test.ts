@@ -6,6 +6,7 @@ import {
   formatVTT,
   formatSRTTime,
   formatVTTTime,
+  parseSRT,
 } from "./subtitle.js";
 
 describe("subtitle utilities", () => {
@@ -154,6 +155,73 @@ describe("subtitle utilities", () => {
 
       expect(formatTranscript(emptyResult, "srt")).toBe("");
       expect(formatTranscript(emptyResult, "vtt")).toBe("WEBVTT\n\n");
+    });
+  });
+
+  describe("parseSRT", () => {
+    it("parses valid SRT content", () => {
+      const srt = `1
+00:00:00,000 --> 00:00:02,500
+Hello world
+
+2
+00:00:02,500 --> 00:00:05,000
+This is a test
+`;
+      const segments = parseSRT(srt);
+
+      expect(segments).toHaveLength(2);
+      expect(segments[0].startTime).toBe(0);
+      expect(segments[0].endTime).toBe(2.5);
+      expect(segments[0].text).toBe("Hello world");
+      expect(segments[1].startTime).toBe(2.5);
+      expect(segments[1].endTime).toBe(5);
+      expect(segments[1].text).toBe("This is a test");
+    });
+
+    it("parses multi-line subtitle text", () => {
+      const srt = `1
+00:00:00,000 --> 00:00:03,000
+First line
+Second line
+`;
+      const segments = parseSRT(srt);
+
+      expect(segments).toHaveLength(1);
+      expect(segments[0].text).toBe("First line\nSecond line");
+    });
+
+    it("returns empty array for empty content", () => {
+      expect(parseSRT("")).toHaveLength(0);
+      expect(parseSRT("  \n  \n  ")).toHaveLength(0);
+    });
+
+    it("handles timestamps with hours", () => {
+      const srt = `1
+01:30:15,500 --> 02:00:00,000
+Long video subtitle
+`;
+      const segments = parseSRT(srt);
+
+      expect(segments).toHaveLength(1);
+      expect(segments[0].startTime).toBe(5415.5); // 1*3600 + 30*60 + 15 + 0.5
+      expect(segments[0].endTime).toBe(7200); // 2*3600
+    });
+
+    it("roundtrips with formatSRT", () => {
+      const original = [
+        { startTime: 0, endTime: 2.5, text: "Hello world" },
+        { startTime: 2.5, endTime: 5, text: "Second line" },
+      ];
+
+      const srtString = formatSRT(original);
+      const parsed = parseSRT(srtString);
+
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0].text).toBe("Hello world");
+      expect(parsed[1].text).toBe("Second line");
+      expect(parsed[0].startTime).toBe(0);
+      expect(parsed[0].endTime).toBe(2.5);
     });
   });
 });

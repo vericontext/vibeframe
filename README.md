@@ -3,7 +3,7 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-256%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-283%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
@@ -163,7 +163,7 @@ vibe ai sfx "explosion" -o sfx.mp3   # Sound effects (ElevenLabs)
 vibe ai music "prompt" -o bgm.mp3    # Music generation (Replicate)
 vibe ai motion "description"         # Motion graphics (Remotion)
 vibe ai storyboard "content"         # Script → storyboard (Claude)
-vibe ai thumbnail "description"      # Generate thumbnail (DALL-E)
+vibe ai thumbnail "description"      # Generate thumbnail (DALL-E / --best-frame via Gemini)
 vibe ai background "description"     # Generate background (DALL-E)
 
 # AI — Image Editing
@@ -188,6 +188,7 @@ vibe ai voices                       # List ElevenLabs voices
 vibe ai voice-clone [samples...]     # Clone voice (ElevenLabs)
 vibe ai isolate <audio>              # Isolate vocals
 vibe ai audio-restore <audio>        # Denoise & enhance audio
+vibe ai noise-reduce <media>         # Remove noise (FFmpeg)
 vibe ai duck <music>                 # Auto-duck music under voice
 vibe ai dub <media>                  # Dub to another language
 
@@ -196,6 +197,7 @@ vibe ai edit <project> "instruction" # Natural language edit
 vibe ai suggest <project> "query"    # AI edit suggestions (Gemini)
 vibe ai grade <video>                # AI color grading (Claude + FFmpeg)
 vibe ai text-overlay <video>         # Text overlays (FFmpeg drawtext)
+vibe ai fade <video>                 # Fade in/out effects (FFmpeg)
 vibe ai reframe <video>              # Auto-reframe aspect ratio
 vibe ai speed-ramp <video>           # Content-aware speed ramping
 vibe ai narrate <input>              # AI narration for video
@@ -212,6 +214,7 @@ vibe ai viral <project>              # Platform optimization
 # AI — Analysis & Status
 vibe ai providers                    # List AI providers
 vibe ai transcribe <audio>           # Whisper transcription
+vibe ai translate-srt <file>         # Translate SRT subtitles (Claude/OpenAI)
 vibe ai analyze <source> "prompt"     # Unified analysis (image/video/YouTube)
 vibe ai gemini-video <source> "q"    # Video analysis (Gemini)
 vibe ai video-status <task-id>       # Check Runway status
@@ -247,7 +250,7 @@ vibeframe/
 ├── MODELS.md              # AI models reference (SSOT)
 ├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (256 tests, 54 tools)
+│   ├── cli/               # Command-line interface (283 tests, 58 tools)
 │   ├── core/              # Timeline data structures
 │   ├── ai-providers/      # AI provider plugins
 │   ├── mcp-server/        # MCP server (npm: @vibeframe/mcp-server)
@@ -291,7 +294,7 @@ For teams and production workloads, **VibeFrame Cloud** (coming soon) will offer
 ```bash
 pnpm dev       # Start dev server
 pnpm build     # Build all packages
-pnpm test      # Run tests (256 passing)
+pnpm test      # Run tests (283 passing)
 pnpm lint      # Lint code
 ```
 

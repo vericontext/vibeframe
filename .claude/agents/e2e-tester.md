@@ -58,14 +58,14 @@ pnpm vibe agent --help
 pnpm vibe setup --help
 ```
 
-Every `ai` subcommand must respond to `--help` (52 commands):
+Every `ai` subcommand must respond to `--help` (56 commands):
 
 ```bash
-for cmd in analyze audio-restore auto-shorts b-roll background dub duck edit fill-gaps \
+for cmd in analyze audio-restore auto-shorts b-roll background dub duck edit fade fill-gaps \
   gemini gemini-edit gemini-video grade highlights image isolate kling kling-status \
-  motion music music-status narrate providers reframe regenerate-scene review \
+  motion music music-status narrate noise-reduce providers reframe regenerate-scene review \
   script-to-video sd sd-img2img sd-outpaint sd-remove-bg sd-replace sd-upscale \
-  sfx speed-ramp storyboard style-transfer suggest text-overlay thumbnail \
+  sfx speed-ramp storyboard style-transfer suggest text-overlay thumbnail translate-srt \
   silence-cut jump-cut caption track-object transcribe tts video video-cancel video-extend video-inpaint \
   video-interpolate video-status video-upscale viral voice-clone voices; do
   pnpm vibe ai $cmd --help 2>&1 | head -1
@@ -163,6 +163,7 @@ pnpm vibe ai image "a blue square on white" -o test-output/img-openai.png -p ope
 pnpm vibe ai sd "a green triangle on white" -o test-output/img-sd.png
 pnpm vibe ai gemini "a yellow star on black" -o test-output/img-gemini2.png
 pnpm vibe ai thumbnail "tech product review" -o test-output/thumbnail.png
+pnpm vibe ai thumbnail test-output/video-kling.mp4 --best-frame -o test-output/thumbnail-best.png
 pnpm vibe ai background "sunset cityscape" -o test-output/bg.png
 ```
 
@@ -225,6 +226,9 @@ pnpm vibe ai text-overlay test-output/video-kling.mp4 --text "Hello World" -o te
 pnpm vibe ai silence-cut test-output/video-kling.mp4 --analyze-only
 pnpm vibe ai jump-cut test-output/video-kling.mp4 --analyze-only
 pnpm vibe ai caption test-output/video-kling.mp4 -o test-output/captioned.mp4
+pnpm vibe ai noise-reduce test-output/video-kling.mp4 -o test-output/denoised.mp4
+pnpm vibe ai fade test-output/video-kling.mp4 --fade-in 1 --fade-out 1 -o test-output/faded.mp4
+pnpm vibe ai translate-srt test-output/captioned.srt --target-lang es -o test-output/translated.srt
 pnpm vibe ai review test-output/video-kling.mp4
 pnpm vibe ai gemini-video test-output/video-kling.mp4 "what is happening?"
 pnpm vibe ai analyze test-output/video-kling.mp4 "what is happening?"
@@ -258,6 +262,10 @@ pnpm vibe agent -i "create a project called agent-test in test-output/agent-test
 - **video-upscale/audio-restore**: Replicate requires URL for AI mode. Use `--ffmpeg` flag for local files.
 - **speed-ramp**: Requires video WITH audio track. Use pipeline-test/final.mp4 if available.
 - **dub**: Requires audio > 4.6s. Use music or longer TTS.
+- **noise-reduce**: FFmpeg-only, works on any audio/video file. No API key needed.
+- **fade**: FFmpeg-only, applies fade in/out. No API key needed.
+- **thumbnail --best-frame**: Requires `GOOGLE_API_KEY` for Gemini video analysis. Needs a video file as input.
+- **translate-srt**: Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Needs an SRT file as input (use output from caption).
 - **voice-clone, video-extend, video-inpaint, style-transfer, track-object**: Test `--help` only (need special inputs).
 - **status commands** (kling-status, video-status, music-status, video-cancel): Test `--help` only (need active task IDs).
 

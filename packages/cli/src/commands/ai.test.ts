@@ -613,4 +613,112 @@ describe("ai commands", () => {
       }
     });
   });
+
+  describe("ai noise-reduce", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai noise-reduce --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Remove background noise");
+      expect(output).toContain("--strength");
+      expect(output).toContain("--noise-floor");
+      expect(output).toContain("--output");
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai noise-reduce /tmp/nonexistent_audio_12345.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai fade", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai fade --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Apply fade in/out");
+      expect(output).toContain("--fade-in");
+      expect(output).toContain("--fade-out");
+      expect(output).toContain("--audio-only");
+      expect(output).toContain("--video-only");
+      expect(output).toContain("--output");
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai fade /tmp/nonexistent_video_12345.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai thumbnail --best-frame", () => {
+    it("shows help with best-frame option", () => {
+      const output = execSync(`${CLI} ai thumbnail --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("--best-frame");
+      expect(output).toContain("--prompt");
+      expect(output).toContain("--model");
+      expect(output).toContain("--output");
+    });
+
+    it("fails with nonexistent video for best-frame", () => {
+      expect(() => {
+        execSync(`${CLI} ai thumbnail --best-frame /tmp/nonexistent_video_12345.mp4`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, GOOGLE_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+  });
+
+  describe("ai translate-srt", () => {
+    it("shows help", () => {
+      const output = execSync(`${CLI} ai translate-srt --help`, {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Translate SRT");
+      expect(output).toContain("--target");
+      expect(output).toContain("--provider");
+      expect(output).toContain("--source");
+      expect(output).toContain("--output");
+      expect(output).toContain("--api-key");
+    });
+
+    it("fails without target language", () => {
+      expect(() => {
+        execSync(`${CLI} ai translate-srt /tmp/test.srt`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+
+    it("fails with nonexistent file", () => {
+      expect(() => {
+        execSync(`${CLI} ai translate-srt /tmp/nonexistent_12345.srt -t ko`, {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, ANTHROPIC_API_KEY: "test" },
+        });
+      }).toThrow();
+    });
+  });
 });
