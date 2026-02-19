@@ -94,7 +94,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe ai image -p openai` | `OPENAI_API_KEY` | GPT Image 1.5 |
 | `vibe ai gemini-edit` | `GOOGLE_API_KEY` | Gemini Nano Banana |
 | `vibe ai tts` | `ELEVENLABS_API_KEY` | ElevenLabs |
-| `vibe ai video` | `RUNWAY_API_SECRET` | Runway Gen-4 |
+| `vibe ai video` | `KLING_API_KEY` | Kling v2.5-turbo |
 | `vibe ai video -p veo` | `GOOGLE_API_KEY` | Veo 3.1 |
 | `vibe ai video -p grok` | `XAI_API_KEY` | Grok Imagine |
 | `vibe ai kling` | `KLING_API_KEY` | Kling v2.5-turbo |
