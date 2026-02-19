@@ -8579,6 +8579,26 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
+  // Check drawtext filter availability
+  try {
+    const { stdout } = await execAsync("ffmpeg -filters 2>/dev/null");
+    if (!stdout.includes("drawtext")) {
+      const platform = process.platform;
+      let hint = "";
+      if (platform === "darwin") {
+        hint = "\n\nFix: brew uninstall ffmpeg && brew install ffmpeg\n(The default homebrew formula includes libfreetype)";
+      } else if (platform === "linux") {
+        hint = "\n\nFix: sudo apt install ffmpeg (Ubuntu/Debian)\n     or rebuild FFmpeg with --enable-libfreetype";
+      }
+      return {
+        success: false,
+        error: `FFmpeg 'drawtext' filter not available. Your FFmpeg was built without libfreetype.${hint}`,
+      };
+    }
+  } catch {
+    // If filter check fails, continue and let FFmpeg error naturally
+  }
+
   // Get video resolution for scaling
   const { width, height } = await getVideoResolution(absVideoPath);
   const baseFontSize = customFontSize || Math.round(height / 20);
