@@ -21,6 +21,9 @@ import {
   executeAutoShorts,
   executeGeminiVideo,
   executeRegenerateScene,
+  executeTextOverlay,
+  executeReview,
+  type TextOverlayStyle,
 } from "../../commands/ai.js";
 
 // Tool Definitions
@@ -1561,6 +1564,203 @@ const regenerateSceneHandler: ToolHandler = async (args) => {
   };
 };
 
+// Text Overlay Tool
+const textOverlayDef: ToolDefinition = {
+  name: "ai_text_overlay",
+  description: "Apply text overlays to a video using FFmpeg drawtext. Supports 4 style presets: lower-third, center-bold, subtitle, minimal. Auto-detects font and scales based on video resolution.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: {
+        type: "string",
+        description: "Path to input video file",
+      },
+      texts: {
+        type: "array",
+        items: { type: "string", description: "Text line to overlay" },
+        description: "Text lines to overlay (multiple lines stack vertically)",
+      },
+      outputPath: {
+        type: "string",
+        description: "Output video file path",
+      },
+      style: {
+        type: "string",
+        description: "Overlay style preset",
+        enum: ["lower-third", "center-bold", "subtitle", "minimal"],
+      },
+      fontSize: {
+        type: "number",
+        description: "Font size in pixels (auto-calculated if omitted)",
+      },
+      fontColor: {
+        type: "string",
+        description: "Font color (default: white)",
+      },
+      fadeDuration: {
+        type: "number",
+        description: "Fade in/out duration in seconds (default: 0.3)",
+      },
+      startTime: {
+        type: "number",
+        description: "Start time for overlay in seconds (default: 0)",
+      },
+      endTime: {
+        type: "number",
+        description: "End time for overlay in seconds (default: video duration)",
+      },
+    },
+    required: ["videoPath", "texts", "outputPath"],
+  },
+};
+
+const textOverlayHandler: ToolHandler = async (args) => {
+  const { videoPath, texts, outputPath, style, fontSize, fontColor, fadeDuration, startTime, endTime } = args as {
+    videoPath: string;
+    texts: string[];
+    outputPath: string;
+    style?: TextOverlayStyle;
+    fontSize?: number;
+    fontColor?: string;
+    fadeDuration?: number;
+    startTime?: number;
+    endTime?: number;
+  };
+
+  if (!videoPath || !texts || texts.length === 0 || !outputPath) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: "videoPath, texts (non-empty array), and outputPath are required",
+    };
+  }
+
+  const result = await executeTextOverlay({
+    videoPath,
+    texts,
+    outputPath,
+    style,
+    fontSize,
+    fontColor,
+    fadeDuration,
+    startTime,
+    endTime,
+  });
+
+  if (!result.success) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: result.error || "Text overlay failed",
+    };
+  }
+
+  return {
+    toolCallId: "",
+    success: true,
+    output: `Text overlay applied: ${result.outputPath}`,
+  };
+};
+
+// Video Review Tool
+const reviewDef: ToolDefinition = {
+  name: "ai_review",
+  description: "Review video quality using Gemini AI. Analyzes pacing, color, text readability, audio-visual sync, and composition. Can auto-apply fixable corrections (color grading). Returns structured feedback with scores and recommendations.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: {
+        type: "string",
+        description: "Path to video file to review",
+      },
+      storyboardPath: {
+        type: "string",
+        description: "Optional path to storyboard JSON for context",
+      },
+      autoApply: {
+        type: "boolean",
+        description: "Automatically apply fixable corrections (default: false)",
+      },
+      verify: {
+        type: "boolean",
+        description: "Run verification pass after applying fixes (default: false)",
+      },
+      model: {
+        type: "string",
+        description: "Gemini model: flash (default), flash-2.5, pro",
+        enum: ["flash", "flash-2.5", "pro"],
+      },
+      outputPath: {
+        type: "string",
+        description: "Output path for corrected video (when autoApply is true)",
+      },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const reviewHandler: ToolHandler = async (args) => {
+  const { videoPath, storyboardPath, autoApply, verify, model, outputPath } = args as {
+    videoPath: string;
+    storyboardPath?: string;
+    autoApply?: boolean;
+    verify?: boolean;
+    model?: "flash" | "flash-2.5" | "pro";
+    outputPath?: string;
+  };
+
+  if (!videoPath) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: "videoPath is required",
+    };
+  }
+
+  const result = await executeReview({
+    videoPath,
+    storyboardPath,
+    autoApply,
+    verify,
+    model,
+    outputPath,
+  });
+
+  if (!result.success) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: result.error || "Video review failed",
+    };
+  }
+
+  const fb = result.feedback!;
+  let output = `Video Review: ${fb.overallScore}/10\n`;
+  output += `Pacing: ${fb.categories.pacing.score}/10, Color: ${fb.categories.color.score}/10, `;
+  output += `Text: ${fb.categories.textReadability.score}/10, AV Sync: ${fb.categories.audioVisualSync.score}/10, `;
+  output += `Composition: ${fb.categories.composition.score}/10\n`;
+
+  if (result.appliedFixes && result.appliedFixes.length > 0) {
+    output += `Applied fixes: ${result.appliedFixes.join("; ")}\n`;
+  }
+  if (result.verificationScore !== undefined) {
+    output += `Verification score: ${result.verificationScore}/10\n`;
+  }
+  if (fb.recommendations.length > 0) {
+    output += `Recommendations: ${fb.recommendations.join("; ")}`;
+  }
+
+  return {
+    toolCallId: "",
+    success: true,
+    output,
+  };
+};
+
 // Registration function
 export function registerAITools(registry: ToolRegistry): void {
   // Basic AI generation tools
@@ -1580,4 +1780,6 @@ export function registerAITools(registry: ToolRegistry): void {
   registry.register(geminiVideoDef, geminiVideoHandler);
   registry.register(geminiEditDef, geminiEditHandler);
   registry.register(regenerateSceneDef, regenerateSceneHandler);
+  registry.register(textOverlayDef, textOverlayHandler);
+  registry.register(reviewDef, reviewHandler);
 }

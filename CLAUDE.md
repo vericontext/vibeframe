@@ -98,7 +98,7 @@ Agent (vibe)              Natural language → LLM tool calling → autonomous e
 - Claude Code-like agentic loop architecture
 - Multi-turn: LLM reasoning → tool call → result → repeat until complete
 - 5 LLM providers: OpenAI, Claude, Gemini, Ollama, xAI Grok
-- 48 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
+- 50 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
 - `--confirm` flag: prompts before each tool execution
 - Example: "create project and add video" → multiple tool calls autonomously
 
@@ -125,7 +125,7 @@ packages/cli/src/agent/
 │   ├── timeline.ts          # 11 timeline tools
 │   ├── filesystem.ts        # 4 filesystem tools
 │   ├── media.ts             # 8 media tools
-│   ├── ai.ts                # 14 AI generation tools (basic + pipeline)
+│   ├── ai.ts                # 16 AI generation tools (basic + pipeline)
 │   ├── export.ts            # 3 export tools
 │   └── batch.ts             # 3 batch tools
 ├── memory/
@@ -236,7 +236,7 @@ When adding new AI CLI commands:
 - `CLAUDE.md` - Update tool counts
 - `ROADMAP.md` - Mark `[x]` and update CLI status section
 
-### Current Agent AI Tools (14)
+### Current Agent AI Tools (16)
 
 | Tool | CLI Command | Description |
 |------|-------------|-------------|
@@ -254,6 +254,8 @@ When adding new AI CLI commands:
 | `ai_gemini_video` | `vibe ai gemini-video` | Video analysis (Gemini) |
 | `ai_gemini_edit` | `vibe ai gemini-edit` | Multi-image editing (Gemini) |
 | `ai_regenerate_scene` | `vibe ai regenerate-scene` | Regenerate specific scene(s) |
+| `ai_text_overlay` | `vibe ai text-overlay` | Apply text overlays (FFmpeg drawtext) |
+| `ai_review` | `vibe ai review` | AI video review & auto-fix (Gemini) |
 
 Format for progress.md entries:
 ```markdown

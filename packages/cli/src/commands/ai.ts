@@ -3240,6 +3240,99 @@ aiCommand
     }
   });
 
+// AI Video Review (Gemini)
+aiCommand
+  .command("review")
+  .description("Review video quality using Gemini AI and optionally auto-fix issues")
+  .argument("<video>", "Video file path")
+  .option("-s, --storyboard <path>", "Storyboard JSON file for context")
+  .option("--auto-apply", "Automatically apply fixable corrections")
+  .option("--verify", "Run verification pass after applying fixes")
+  .option("-m, --model <model>", "Gemini model: flash (default), flash-2.5, pro", "flash")
+  .option("-o, --output <path>", "Output video file path (for auto-apply)")
+  .action(async (videoPath: string, options) => {
+    try {
+      loadEnv();
+
+      const spinner = ora("Reviewing video with Gemini...").start();
+
+      const result = await executeReview({
+        videoPath,
+        storyboardPath: options.storyboard,
+        autoApply: options.autoApply,
+        verify: options.verify,
+        model: options.model,
+        outputPath: options.output,
+      });
+
+      if (!result.success) {
+        spinner.fail(chalk.red(result.error || "Video review failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Video review complete"));
+      console.log();
+
+      const fb = result.feedback!;
+      console.log(chalk.bold.cyan("Video Review"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Overall Score: ${chalk.bold(fb.overallScore >= 7 ? chalk.green(String(fb.overallScore)) : fb.overallScore >= 5 ? chalk.yellow(String(fb.overallScore)) : chalk.red(String(fb.overallScore)))}/10`);
+      console.log();
+
+      // Category scores table
+      const categories = [
+        ["Pacing", fb.categories.pacing],
+        ["Color", fb.categories.color],
+        ["Text Readability", fb.categories.textReadability],
+        ["Audio-Visual Sync", fb.categories.audioVisualSync],
+        ["Composition", fb.categories.composition],
+      ] as const;
+
+      for (const [name, cat] of categories) {
+        const scoreColor = cat.score >= 7 ? chalk.green : cat.score >= 5 ? chalk.yellow : chalk.red;
+        const fixable = cat.fixable ? chalk.dim(" [fixable]") : "";
+        console.log(`  ${name.padEnd(20)} ${scoreColor(String(cat.score).padStart(2))}/10${fixable}`);
+        if (cat.issues.length > 0) {
+          for (const issue of cat.issues) {
+            console.log(chalk.dim(`    - ${issue}`));
+          }
+        }
+      }
+
+      // Applied fixes
+      if (result.appliedFixes && result.appliedFixes.length > 0) {
+        console.log();
+        console.log(chalk.bold.green("Applied Fixes:"));
+        for (const fix of result.appliedFixes) {
+          console.log(chalk.green(`  + ${fix}`));
+        }
+        if (result.outputPath) {
+          console.log(chalk.green(`  Output: ${result.outputPath}`));
+        }
+      }
+
+      // Verification
+      if (result.verificationScore !== undefined) {
+        console.log();
+        console.log(chalk.bold(`Verification Score: ${result.verificationScore}/10`));
+      }
+
+      // Recommendations
+      if (fb.recommendations.length > 0) {
+        console.log();
+        console.log(chalk.bold("Recommendations:"));
+        for (const rec of fb.recommendations) {
+          console.log(chalk.dim(`  * ${rec}`));
+        }
+      }
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Video review failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
 // Helper type for storyboard segments
 interface StoryboardSegment {
   index?: number;
@@ -3247,7 +3340,10 @@ interface StoryboardSegment {
   visuals: string;
   visualStyle?: string;
   characterDescription?: string;
+  previousSceneLink?: string;
   narration?: string;
+  audio?: string;
+  textOverlays?: string[];
   duration: number;
   startTime: number;
 }
@@ -3553,6 +3649,10 @@ aiCommand
   .option("--sequential", "Generate videos one at a time (slower but more reliable)")
   .option("--concurrency <count>", "Max concurrent video tasks in parallel mode (default: 3)", "3")
   .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
+  .option("--no-text-overlay", "Skip text overlay step")
+  .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
+  .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
+  .option("--review-auto-apply", "Auto-apply fixable issues from AI review")
   .action(async (script: string, options) => {
     try {
       // Load environment variables from .env file
@@ -4348,8 +4448,41 @@ aiCommand
         console.log();
       }
 
+      // Step 4.5: Apply text overlays (if segments have textOverlays)
+      if (options.textOverlay !== false) {
+        const overlaySegments = segments.filter(
+          (s: StoryboardSegment, i: number) => s.textOverlays && s.textOverlays.length > 0 && videoPaths[i] && videoPaths[i] !== ""
+        );
+        if (overlaySegments.length > 0) {
+          const overlaySpinner = ora(`Applying text overlays to ${overlaySegments.length} scene(s)...`).start();
+          let overlayCount = 0;
+          for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i] as StoryboardSegment;
+            if (segment.textOverlays && segment.textOverlays.length > 0 && videoPaths[i] && videoPaths[i] !== "") {
+              try {
+                const overlayOutput = videoPaths[i].replace(/(\.[^.]+)$/, "-overlay$1");
+                const overlayResult = await applyTextOverlays({
+                  videoPath: videoPaths[i],
+                  texts: segment.textOverlays,
+                  outputPath: overlayOutput,
+                  style: (options.textStyle as TextOverlayStyle) || "lower-third",
+                });
+                if (overlayResult.success && overlayResult.outputPath) {
+                  videoPaths[i] = overlayResult.outputPath;
+                  overlayCount++;
+                }
+              } catch {
+                // Silent fallback: keep original video
+              }
+            }
+          }
+          overlaySpinner.succeed(chalk.green(`Applied text overlays to ${overlayCount} scene(s)`));
+          console.log();
+        }
+      }
+
       // Step 5: Assemble project
-      const assembleSpinner = ora("📦 Assembling project...").start();
+      const assembleSpinner = ora("Assembling project...").start();
 
       const project = new Project("Script-to-Video Output");
       project.setAspectRatio(options.aspectRatio as "16:9" | "9:16" | "1:1");
@@ -4501,9 +4634,47 @@ aiCommand
 
       assembleSpinner.succeed(chalk.green("Project assembled"));
 
+      // Step 6: AI Review (optional)
+      if (options.review) {
+        const reviewSpinner = ora("Reviewing video with Gemini AI...").start();
+        try {
+          const reviewTarget = videoPaths.find((p) => p && p !== "");
+          if (reviewTarget) {
+            const storyboardFile = resolve(effectiveOutputDir, "storyboard.json");
+            const reviewResult = await executeReview({
+              videoPath: reviewTarget,
+              storyboardPath: existsSync(storyboardFile) ? storyboardFile : undefined,
+              autoApply: options.reviewAutoApply,
+              model: "flash",
+            });
+
+            if (reviewResult.success && reviewResult.feedback) {
+              reviewSpinner.succeed(chalk.green(`AI Review: ${reviewResult.feedback.overallScore}/10`));
+              if (reviewResult.appliedFixes && reviewResult.appliedFixes.length > 0) {
+                for (const fix of reviewResult.appliedFixes) {
+                  console.log(chalk.green(`  + ${fix}`));
+                }
+              }
+              if (reviewResult.feedback.recommendations.length > 0) {
+                for (const rec of reviewResult.feedback.recommendations) {
+                  console.log(chalk.dim(`  * ${rec}`));
+                }
+              }
+            } else {
+              reviewSpinner.warn(chalk.yellow("AI review completed but no actionable feedback"));
+            }
+          } else {
+            reviewSpinner.warn(chalk.yellow("No videos available for review"));
+          }
+        } catch {
+          reviewSpinner.warn(chalk.yellow("AI review skipped (non-critical error)"));
+        }
+        console.log();
+      }
+
       // Final summary
       console.log();
-      console.log(chalk.bold.green("✅ Script-to-Video complete!"));
+      console.log(chalk.bold.green("Script-to-Video complete!"));
       console.log(chalk.dim("─".repeat(60)));
       console.log();
       console.log(`  📄 Project: ${chalk.cyan(outputPath)}`);
@@ -7330,6 +7501,75 @@ aiCommand
     }
   });
 
+// Text Overlay
+aiCommand
+  .command("text-overlay")
+  .description("Apply text overlays to video (FFmpeg drawtext)")
+  .argument("<video>", "Video file path")
+  .option("-t, --text <texts...>", "Text lines to overlay (repeat for multiple)")
+  .option("-s, --style <style>", "Overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
+  .option("--font-size <size>", "Font size in pixels (auto-calculated if omitted)")
+  .option("--font-color <color>", "Font color (default: white)", "white")
+  .option("--fade <seconds>", "Fade in/out duration in seconds", "0.3")
+  .option("--start <seconds>", "Start time in seconds", "0")
+  .option("--end <seconds>", "End time in seconds (default: video duration)")
+  .option("-o, --output <path>", "Output video file path")
+  .action(async (videoPath: string, options) => {
+    try {
+      if (!options.text || options.text.length === 0) {
+        console.error(chalk.red("At least one --text option is required"));
+        console.log(chalk.dim("Example:"));
+        console.log(chalk.dim('  pnpm vibe ai text-overlay video.mp4 -t "NEXUS AI" -t "Intelligence, Unleashed" --style center-bold'));
+        process.exit(1);
+      }
+
+      // Check FFmpeg
+      try {
+        execSync("ffmpeg -version", { stdio: "ignore" });
+      } catch {
+        console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
+        process.exit(1);
+      }
+
+      const absPath = resolve(process.cwd(), videoPath);
+      const outputPath = options.output
+        ? resolve(process.cwd(), options.output)
+        : absPath.replace(/(\.[^.]+)$/, "-overlay$1");
+
+      const spinner = ora("Applying text overlays...").start();
+
+      const result = await applyTextOverlays({
+        videoPath: absPath,
+        texts: options.text,
+        outputPath,
+        style: options.style as TextOverlayStyle,
+        fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
+        fontColor: options.fontColor,
+        fadeDuration: parseFloat(options.fade),
+        startTime: parseFloat(options.start),
+        endTime: options.end ? parseFloat(options.end) : undefined,
+      });
+
+      if (!result.success) {
+        spinner.fail(chalk.red(result.error || "Text overlay failed"));
+        process.exit(1);
+      }
+
+      spinner.succeed(chalk.green("Text overlays applied"));
+      console.log();
+      console.log(chalk.bold.cyan("Text Overlay"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Style: ${options.style}`);
+      console.log(`Texts: ${options.text.join(", ")}`);
+      console.log(`Output: ${result.outputPath}`);
+      console.log();
+    } catch (error) {
+      console.error(chalk.red("Text overlay failed"));
+      console.error(error);
+      process.exit(1);
+    }
+  });
+
 // Speed Ramping
 aiCommand
   .command("speed-ramp")
@@ -8224,6 +8464,429 @@ aiCommand
 // Exported Pipeline Functions for Agent Tools
 // ============================================================================
 
+// ============================================================================
+// Text Overlay
+// ============================================================================
+
+export type TextOverlayStyle = "lower-third" | "center-bold" | "subtitle" | "minimal";
+
+export interface TextOverlayOptions {
+  videoPath: string;
+  texts: string[];
+  outputPath: string;
+  style?: TextOverlayStyle;
+  fontSize?: number;
+  fontColor?: string;
+  fadeDuration?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+export interface TextOverlayResult {
+  success: boolean;
+  outputPath?: string;
+  error?: string;
+}
+
+/**
+ * Detect system font path for FFmpeg drawtext
+ */
+function detectSystemFont(): string | null {
+  const platform = process.platform;
+  if (platform === "darwin") {
+    const candidates = [
+      "/System/Library/Fonts/Helvetica.ttc",
+      "/System/Library/Fonts/HelveticaNeue.ttc",
+      "/Library/Fonts/Arial.ttf",
+    ];
+    for (const f of candidates) {
+      if (existsSync(f)) return f;
+    }
+  } else if (platform === "linux") {
+    const candidates = [
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    ];
+    for (const f of candidates) {
+      if (existsSync(f)) return f;
+    }
+  } else if (platform === "win32") {
+    const candidates = [
+      "C:\\Windows\\Fonts\\arial.ttf",
+      "C:\\Windows\\Fonts\\segoeui.ttf",
+    ];
+    for (const f of candidates) {
+      if (existsSync(f)) return f;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get video resolution via ffprobe
+ */
+async function getVideoResolution(videoPath: string): Promise<{ width: number; height: number }> {
+  const { stdout } = await execAsync(
+    `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${videoPath}"`
+  );
+  const [w, h] = stdout.trim().split(",").map(Number);
+  return { width: w || 1920, height: h || 1080 };
+}
+
+/**
+ * Escape text for FFmpeg drawtext filter
+ */
+function escapeDrawtext(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\\\\\")
+    .replace(/'/g, "'\\\\\\''")
+    .replace(/:/g, "\\\\:")
+    .replace(/%/g, "\\\\%");
+}
+
+/**
+ * Apply text overlays to a video using FFmpeg drawtext filter
+ */
+export async function applyTextOverlays(options: TextOverlayOptions): Promise<TextOverlayResult> {
+  const {
+    videoPath,
+    texts,
+    outputPath,
+    style = "lower-third",
+    fontSize: customFontSize,
+    fontColor = "white",
+    fadeDuration = 0.3,
+    startTime = 0,
+  } = options;
+
+  if (!texts || texts.length === 0) {
+    return { success: false, error: "No texts provided" };
+  }
+
+  const absVideoPath = resolve(process.cwd(), videoPath);
+  const absOutputPath = resolve(process.cwd(), outputPath);
+
+  // Check video exists
+  if (!existsSync(absVideoPath)) {
+    return { success: false, error: `Video not found: ${absVideoPath}` };
+  }
+
+  // Check FFmpeg
+  try {
+    execSync("ffmpeg -version", { stdio: "ignore" });
+  } catch {
+    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+  }
+
+  // Get video resolution for scaling
+  const { width, height } = await getVideoResolution(absVideoPath);
+  const baseFontSize = customFontSize || Math.round(height / 20);
+
+  // Get video duration for endTime default
+  const videoDuration = await getVideoDuration(absVideoPath);
+  const endTime = options.endTime ?? videoDuration;
+
+  // Detect font
+  const fontPath = detectSystemFont();
+  const fontFile = fontPath ? `fontfile=${fontPath}:` : "";
+
+  // Build drawtext filters based on style
+  const filters: string[] = [];
+
+  for (let i = 0; i < texts.length; i++) {
+    const escaped = escapeDrawtext(texts[i]);
+    let x: string;
+    let y: string;
+    let fs: number;
+    let fc: string = fontColor;
+    let boxEnabled = 0;
+    let boxColor = "black@0.5";
+    let borderW = 0;
+
+    switch (style) {
+      case "center-bold":
+        x = "(w-text_w)/2";
+        y = `(h-text_h)/2+${i * Math.round(baseFontSize * 1.4)}`;
+        fs = Math.round(baseFontSize * 1.5);
+        borderW = 3;
+        break;
+      case "subtitle":
+        x = "(w-text_w)/2";
+        y = `h-${Math.round(height * 0.12)}+${i * Math.round(baseFontSize * 1.3)}`;
+        fs = baseFontSize;
+        boxEnabled = 1;
+        boxColor = "black@0.6";
+        break;
+      case "minimal":
+        x = `${Math.round(width * 0.05)}`;
+        y = `${Math.round(height * 0.05)}+${i * Math.round(baseFontSize * 1.3)}`;
+        fs = Math.round(baseFontSize * 0.8);
+        fc = "white@0.85";
+        break;
+      case "lower-third":
+      default:
+        x = `${Math.round(width * 0.05)}`;
+        y = `h-${Math.round(height * 0.18)}+${i * Math.round(baseFontSize * 1.3)}`;
+        fs = i === 0 ? Math.round(baseFontSize * 1.2) : baseFontSize;
+        boxEnabled = 1;
+        boxColor = "black@0.5";
+        break;
+    }
+
+    // Build alpha expression for fade in/out
+    const fadeIn = `if(lt(t-${startTime}\\,${fadeDuration})\\,(t-${startTime})/${fadeDuration}\\,1)`;
+    const fadeOut = `if(gt(t\\,${endTime - fadeDuration})\\,( ${endTime}-t)/${fadeDuration}\\,1)`;
+    const alpha = `min(${fadeIn}\\,${fadeOut})`;
+
+    let filter = `drawtext=${fontFile}text='${escaped}':fontsize=${fs}:fontcolor=${fc}:x=${x}:y=${y}:borderw=${borderW}:enable='between(t\\,${startTime}\\,${endTime})'`;
+    filter += `:alpha='${alpha}'`;
+    if (boxEnabled) {
+      filter += `:box=1:boxcolor=${boxColor}:boxborderw=8`;
+    }
+
+    filters.push(filter);
+  }
+
+  const filterChain = filters.join(",");
+  const cmd = `ffmpeg -i "${absVideoPath}" -vf "${filterChain}" -c:a copy "${absOutputPath}" -y`;
+
+  try {
+    await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+    return { success: true, outputPath: absOutputPath };
+  } catch (error) {
+    return {
+      success: false,
+      error: `FFmpeg failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * Execute text overlay for CLI/Agent usage
+ */
+export async function executeTextOverlay(options: TextOverlayOptions): Promise<TextOverlayResult> {
+  return applyTextOverlays(options);
+}
+
+// ============================================================================
+// Video Review (Gemini)
+// ============================================================================
+
+export interface AutoFix {
+  type: "color_grade" | "text_overlay_adjust" | "speed_adjust" | "crop";
+  description: string;
+  ffmpegFilter?: string;
+}
+
+export interface VideoReviewCategory {
+  score: number;
+  issues: string[];
+  fixable: boolean;
+  suggestedFilter?: string;
+  suggestions?: string[];
+}
+
+export interface VideoReviewFeedback {
+  overallScore: number;
+  categories: {
+    pacing: VideoReviewCategory;
+    color: VideoReviewCategory;
+    textReadability: VideoReviewCategory;
+    audioVisualSync: VideoReviewCategory;
+    composition: VideoReviewCategory;
+  };
+  autoFixable: AutoFix[];
+  recommendations: string[];
+}
+
+export interface ReviewOptions {
+  videoPath: string;
+  storyboardPath?: string;
+  autoApply?: boolean;
+  verify?: boolean;
+  model?: "flash" | "flash-2.5" | "pro";
+  outputPath?: string;
+}
+
+export interface ReviewResult {
+  success: boolean;
+  feedback?: VideoReviewFeedback;
+  appliedFixes?: string[];
+  verificationScore?: number;
+  outputPath?: string;
+  error?: string;
+}
+
+/**
+ * Parse review feedback JSON from Gemini response
+ */
+function parseReviewFeedback(response: string): VideoReviewFeedback | null {
+  // Strip markdown fences if present
+  let cleaned = response.trim();
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.slice(7);
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.slice(3);
+  }
+  if (cleaned.endsWith("```")) {
+    cleaned = cleaned.slice(0, -3);
+  }
+  cleaned = cleaned.trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    // Validate structure
+    if (typeof parsed.overallScore !== "number" || !parsed.categories) {
+      return null;
+    }
+    return parsed as VideoReviewFeedback;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Execute video review using Gemini
+ */
+export async function executeReview(options: ReviewOptions): Promise<ReviewResult> {
+  const { videoPath, storyboardPath, autoApply = false, verify = false, model = "flash" } = options;
+
+  const absVideoPath = resolve(process.cwd(), videoPath);
+  if (!existsSync(absVideoPath)) {
+    return { success: false, error: `Video not found: ${absVideoPath}` };
+  }
+
+  // Get Google API key
+  const apiKey = process.env.GOOGLE_API_KEY || (await getApiKey("GOOGLE_API_KEY", "Google"));
+  if (!apiKey) {
+    return { success: false, error: "Google API key required for Gemini video review" };
+  }
+
+  // Load storyboard context if provided
+  let storyboardContext = "";
+  if (storyboardPath) {
+    const absStoryboardPath = resolve(process.cwd(), storyboardPath);
+    if (existsSync(absStoryboardPath)) {
+      const content = await readFile(absStoryboardPath, "utf-8");
+      storyboardContext = `\n\nOriginal storyboard for reference:\n${content}`;
+    }
+  }
+
+  const modelMap: Record<string, string> = {
+    flash: "gemini-3-flash-preview",
+    "flash-2.5": "gemini-2.5-flash",
+    pro: "gemini-2.5-pro",
+  };
+  const modelId = modelMap[model] || modelMap.flash;
+
+  const reviewPrompt = `You are a professional video editor reviewing this video for quality. Analyze the video and return a JSON review with the following structure. Return ONLY valid JSON, no extra text.
+
+{
+  "overallScore": <number 1-10>,
+  "categories": {
+    "pacing": { "score": <1-10>, "issues": ["..."], "fixable": <boolean> },
+    "color": { "score": <1-10>, "issues": ["..."], "fixable": <boolean>, "suggestedFilter": "<ffmpeg filter or null>" },
+    "textReadability": { "score": <1-10>, "issues": ["..."], "fixable": <boolean>, "suggestions": ["..."] },
+    "audioVisualSync": { "score": <1-10>, "issues": ["..."], "fixable": <boolean> },
+    "composition": { "score": <1-10>, "issues": ["..."], "fixable": <boolean> }
+  },
+  "autoFixable": [
+    { "type": "color_grade"|"text_overlay_adjust"|"speed_adjust"|"crop", "description": "...", "ffmpegFilter": "..." }
+  ],
+  "recommendations": ["..."]
+}
+
+Score each category 1-10. For fixable issues, provide an FFmpeg filter in autoFixable. Be specific and practical.${storyboardContext}`;
+
+  // Analyze video with Gemini
+  const gemini = new GeminiProvider();
+  await gemini.initialize({ apiKey });
+
+  const videoData = await readFile(absVideoPath);
+  const analysisResult = await gemini.analyzeVideo(videoData, reviewPrompt, {
+    model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+  });
+
+  if (!analysisResult.success || !analysisResult.response) {
+    return { success: false, error: analysisResult.error || "Gemini video analysis failed" };
+  }
+
+  const feedback = parseReviewFeedback(analysisResult.response);
+  if (!feedback) {
+    return {
+      success: false,
+      error: "Failed to parse review feedback from Gemini response",
+    };
+  }
+
+  const result: ReviewResult = {
+    success: true,
+    feedback,
+    appliedFixes: [],
+  };
+
+  // Auto-apply fixable issues
+  if (autoApply && feedback.autoFixable.length > 0) {
+    let currentInput = absVideoPath;
+    const outputBase = options.outputPath
+      ? resolve(process.cwd(), options.outputPath)
+      : absVideoPath.replace(/(\.[^.]+)$/, "-reviewed$1");
+
+    for (const fix of feedback.autoFixable) {
+      if (fix.type === "color_grade" && fix.ffmpegFilter) {
+        try {
+          const tempOutput = outputBase.replace(/(\.[^.]+)$/, `-fix-${result.appliedFixes!.length}$1`);
+          const cmd = `ffmpeg -i "${currentInput}" -vf "${fix.ffmpegFilter}" -c:a copy "${tempOutput}" -y`;
+          await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+          currentInput = tempOutput;
+          result.appliedFixes!.push(`${fix.type}: ${fix.description}`);
+        } catch {
+          // Skip failed fix, continue with others
+        }
+      } else if (fix.type === "text_overlay_adjust") {
+        result.appliedFixes!.push(`${fix.type}: ${fix.description} (manual adjustment recommended)`);
+      }
+    }
+
+    // Rename final output
+    if (currentInput !== absVideoPath) {
+      const finalOutput = outputBase;
+      try {
+        await rename(currentInput, finalOutput);
+        result.outputPath = finalOutput;
+      } catch {
+        result.outputPath = currentInput;
+      }
+    }
+  }
+
+  // Verification pass
+  if (verify && result.outputPath) {
+    const verifyVideoData = await readFile(result.outputPath);
+    const verifyResult = await gemini.analyzeVideo(
+      verifyVideoData,
+      "Rate this video overall quality on a scale of 1-10. Return ONLY a JSON object: {\"score\": <number>}",
+      { model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro" }
+    );
+
+    if (verifyResult.success && verifyResult.response) {
+      try {
+        let cleaned = verifyResult.response.trim();
+        if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);
+        if (cleaned.startsWith("```")) cleaned = cleaned.slice(3);
+        if (cleaned.endsWith("```")) cleaned = cleaned.slice(0, -3);
+        const parsed = JSON.parse(cleaned.trim());
+        result.verificationScore = parsed.score;
+      } catch {
+        // Verification parse failed, not critical
+      }
+    }
+  }
+
+  return result;
+}
+
 /**
  * Options for script-to-video pipeline
  */
@@ -8240,6 +8903,14 @@ export interface ScriptToVideoOptions {
   retries?: number;
   /** Creativity level for storyboard generation: low (default, consistent) or high (varied, unexpected) */
   creativity?: "low" | "high";
+  /** Skip text overlay step */
+  noTextOverlay?: boolean;
+  /** Text overlay style preset */
+  textStyle?: TextOverlayStyle;
+  /** Enable AI review after assembly */
+  review?: boolean;
+  /** Auto-apply fixable issues from review */
+  reviewAutoApply?: boolean;
 }
 
 /**
@@ -8278,6 +8949,12 @@ export interface ScriptToVideoResult {
   /** Failed narration scene numbers (1-indexed) */
   failedNarrations?: number[];
   error?: string;
+  /** Review feedback from Gemini (when --review is used) */
+  reviewFeedback?: VideoReviewFeedback;
+  /** List of auto-applied fixes (when --review-auto-apply is used) */
+  appliedFixes?: string[];
+  /** Path to reviewed/fixed video (when review auto-applied) */
+  reviewedVideoPath?: string;
 }
 
 /**
@@ -8680,6 +9357,30 @@ export async function executeScriptToVideo(
       }
     }
 
+    // Step 4.5: Apply text overlays (if segments have textOverlays)
+    if (!options.noTextOverlay) {
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        if (segment.textOverlays && segment.textOverlays.length > 0 && videoPaths[i] && videoPaths[i] !== "") {
+          try {
+            const overlayOutput = videoPaths[i].replace(/(\.[^.]+)$/, "-overlay$1");
+            const overlayResult = await applyTextOverlays({
+              videoPath: videoPaths[i],
+              texts: segment.textOverlays,
+              outputPath: overlayOutput,
+              style: options.textStyle || "lower-third",
+            });
+            if (overlayResult.success && overlayResult.outputPath) {
+              videoPaths[i] = overlayResult.outputPath;
+            }
+            // Silent fallback: keep original on failure
+          } catch {
+            // Silent fallback: keep original video
+          }
+        }
+      }
+    }
+
     // Step 5: Create project file
     const project = new Project("Script-to-Video Output");
     project.setAspectRatio((options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1");
@@ -8779,6 +9480,31 @@ export async function executeScriptToVideo(
     await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
     result.projectPath = projectPath;
     result.totalDuration = currentTime;
+
+    // Step 6: AI Review & Auto-fix (optional, --review flag)
+    if (options.review) {
+      try {
+        const storyboardFile = resolve(absOutputDir, "storyboard.json");
+        // Export project to temp MP4 for review (use first valid video as proxy)
+        const reviewTarget = videoPaths.find((p) => p && p !== "") || imagePaths.find((p) => p && p !== "");
+        if (reviewTarget) {
+          const reviewResult = await executeReview({
+            videoPath: reviewTarget,
+            storyboardPath: existsSync(storyboardFile) ? storyboardFile : undefined,
+            autoApply: options.reviewAutoApply,
+            model: "flash",
+          });
+
+          if (reviewResult.success) {
+            result.reviewFeedback = reviewResult.feedback;
+            result.appliedFixes = reviewResult.appliedFixes;
+            result.reviewedVideoPath = reviewResult.outputPath;
+          }
+        }
+      } catch {
+        // Review is non-critical, continue with result
+      }
+    }
 
     return result;
   } catch (error) {

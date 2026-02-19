@@ -143,6 +143,8 @@ Intelligence built into every interaction.
 - [x] Auto-generate Shorts - From long-form with captions (`vibe ai auto-shorts`)
 - [x] Video Style Transfer - Artistic style for videos (`vibe ai style-transfer`)
 - [x] Object Tracking - SAM-2/co-tracker tracking (`vibe ai track-object`)
+- [x] Text Overlay - Auto-compose text overlays on video (`vibe ai text-overlay`)
+- [x] AI Video Review - Gemini-powered quality review & auto-fix (`vibe ai review`)
 
 ### Installation & Interactive Mode
 - [x] **Install Script** - One-line installation: `curl -fsSL https://vibeframe.ai/install.sh | bash`
@@ -158,7 +160,7 @@ Intelligence built into every interaction.
 - [x] **Agent Mode (Default)** - Claude Code-like autonomous agent (`vibe` or `vibe agent`)
   - Default entry point: `vibe` starts Agent mode
   - Multi-turn agentic loop: LLM reasoning → tool call → result → repeat
-  - **48 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
+  - **50 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
   - Multi-provider support: OpenAI, Claude, Gemini, xAI, Ollama
   - Verbose mode for tool call visibility (`-v`)
   - Confirm mode: `--confirm` prompts before each tool execution
