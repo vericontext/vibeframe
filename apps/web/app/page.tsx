@@ -139,26 +139,26 @@ export default function LandingPage() {
             <div className="space-y-6">
               <FeatureItem
                 icon={<Wand2 className="w-5 h-5" />}
-                title="Natural Language Commands"
-                description="Say 'trim the clip to 5 seconds' instead of memorizing flags"
+                title="Natural Language"
+                description="'Trim the clip to 5 seconds and add a fade' — no flags needed"
                 gradient="from-blue-500 to-cyan-500"
               />
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
-                title="Auto-Save & Undo"
-                description="Every change is saved. Undo anytime with a simple command"
+                title="5 LLM Providers"
+                description="OpenAI, Claude, Gemini, xAI Grok, Ollama — swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
               <FeatureItem
                 icon={<Sparkles className="w-5 h-5" />}
-                title="AI-Powered Parsing"
-                description="GPT understands your intent and executes the right actions"
+                title="48 Tools"
+                description="Project, timeline, AI generation, media, export, batch, filesystem"
                 gradient="from-purple-500 to-pink-500"
               />
               <FeatureItem
                 icon={<Terminal className="w-5 h-5" />}
-                title="Built-in Commands"
-                description="new, open, save, info, list, add, export, undo, help"
+                title="Multi-Turn Agentic"
+                description="Autonomous reasoning → tool calls → results → repeat until done"
                 gradient="from-green-500 to-emerald-500"
               />
             </div>
@@ -178,7 +178,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <PipelineCard
               icon={<Film className="w-6 h-6" />}
               title="Script to Video"
@@ -197,7 +197,7 @@ export default function LandingPage() {
               icon={<Image className="w-6 h-6" />}
               title="B-Roll Matcher"
               command="vibe ai b-roll"
-              description="Narration → Semantic match → Auto-cut"
+              description="Narration → Vision analysis → Auto-cut"
               gradient="from-pink-500 to-red-500"
             />
             <PipelineCard
@@ -206,6 +206,20 @@ export default function LandingPage() {
               command="vibe ai viral"
               description="One video → TikTok, Shorts, Reels"
               gradient="from-orange-500 to-yellow-500"
+            />
+            <PipelineCard
+              icon={<MessageSquare className="w-6 h-6" />}
+              title="Auto Narrate"
+              command="vibe ai narrate"
+              description="Video → Claude Vision → ElevenLabs TTS"
+              gradient="from-cyan-500 to-blue-500"
+            />
+            <PipelineCard
+              icon={<Wand2 className="w-6 h-6" />}
+              title="Auto Dub"
+              command="vibe ai dub"
+              description="Transcribe → Translate → TTS in any language"
+              gradient="from-green-500 to-emerald-500"
             />
           </div>
         </div>
@@ -222,18 +236,20 @@ export default function LandingPage() {
               <span className="ml-2 text-sm text-muted-foreground">terminal</span>
             </div>
             <pre className="p-6 text-sm overflow-x-auto">
-              <code className="text-muted-foreground"># Create a TikTok video from a script{"\n"}</code>
+              <code className="text-muted-foreground"># Create a video from a script{"\n"}</code>
               <code className="text-foreground">vibe ai script-to-video "A day in the life of a developer..." \{"\n"}</code>
               <code className="text-foreground">  -a 9:16 -o project.vibe.json{"\n\n"}</code>
 
-              <code className="text-muted-foreground"># Extract highlights from a podcast{"\n"}</code>
-              <code className="text-foreground">vibe ai highlights podcast.mp4 -d 60 -p highlights.vibe.json{"\n\n"}</code>
+              <code className="text-muted-foreground"># Auto-narrate and dub to Korean{"\n"}</code>
+              <code className="text-foreground">vibe ai narrate video.mp4 -o narrated/{"\n"}</code>
+              <code className="text-foreground">vibe ai dub narrated/auto-narration.mp3 --language ko{"\n\n"}</code>
 
-              <code className="text-muted-foreground"># Optimize for multiple platforms{"\n"}</code>
+              <code className="text-muted-foreground"># Reframe 16:9 → 9:16 and optimize for TikTok{"\n"}</code>
+              <code className="text-foreground">vibe ai reframe video.mp4 --aspect 9:16{"\n"}</code>
               <code className="text-foreground">vibe ai viral project.vibe.json -p tiktok,youtube-shorts{"\n\n"}</code>
 
-              <code className="text-green-400">✓ Generated: tiktok.vibe.json (0:45, 9:16){"\n"}</code>
-              <code className="text-green-400">✓ Generated: youtube-shorts.vibe.json (0:58, 9:16)</code>
+              <code className="text-green-400">✓ Generated: tiktok (0:45, 9:16){"\n"}</code>
+              <code className="text-green-400">✓ Generated: youtube-shorts (0:58, 9:16)</code>
             </pre>
           </div>
         </div>
@@ -256,7 +272,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Terminal className="w-6 h-6" />}
               title="CLI-First"
-              description="Full video editing from the command line. 256 tests. Zero GUI required."
+              description="Full video editing from the command line. 264 tests. Zero GUI required."
               gradient="from-blue-500 to-cyan-500"
             />
             <FeatureCard
@@ -268,13 +284,13 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="AI Pipelines"
-              description="Script-to-Video, Auto Highlights, B-Roll Matching, Viral Optimizer."
+              description="Script-to-Video, Highlights, B-Roll, Viral, Narrate, Dub, Reframe."
               gradient="from-orange-500 to-red-500"
             />
             <FeatureCard
               icon={<Layers className="w-6 h-6" />}
-              title="12 AI Providers"
-              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Stability AI."
+              title="10+ AI Providers"
+              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Stability, Replicate."
               gradient="from-green-500 to-emerald-500"
             />
           </div>
