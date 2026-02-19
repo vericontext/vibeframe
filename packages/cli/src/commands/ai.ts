@@ -9149,7 +9149,7 @@ async function transcribeWithWords(
 /**
  * Detect filler word ranges and merge adjacent ones with padding.
  */
-function detectFillerRanges(
+export function detectFillerRanges(
   words: { word: string; start: number; end: number }[],
   fillers: string[],
   padding: number,
