@@ -223,29 +223,43 @@ const storyboardDef: ToolDefinition = {
 
 const motionDef: ToolDefinition = {
   name: "ai_motion",
-  description: "Generate motion graphics using Remotion",
+  description:
+    "Generate motion graphics using Claude + Remotion. Can render to video and composite onto existing footage. " +
+    "Without --video: generates and renders a standalone motion graphic. With --video: renders and composites onto the base video.",
   parameters: {
     type: "object",
     properties: {
-      type: {
+      description: {
         type: "string",
-        description: "Motion type (intro, outro, title, lower-third)",
-        enum: ["intro", "outro", "title", "lower-third"],
+        description: "Natural language description of the motion graphic (e.g., 'cinematic title card with fade-in')",
       },
-      text: {
+      video: {
         type: "string",
-        description: "Text content",
+        description: "Base video path to composite the motion graphic onto (triggers render + composite)",
       },
       output: {
         type: "string",
-        description: "Output video file path",
+        description: "Output file path (.mp4 if compositing, .webm if render-only, .tsx if code-only)",
       },
       duration: {
         type: "number",
-        description: "Duration in seconds",
+        description: "Duration in seconds (default: 5)",
+      },
+      width: {
+        type: "number",
+        description: "Width in pixels (default: 1920)",
+      },
+      height: {
+        type: "number",
+        description: "Height in pixels (default: 1080)",
+      },
+      style: {
+        type: "string",
+        description: "Style preset",
+        enum: ["minimal", "corporate", "playful", "cinematic"],
       },
     },
-    required: ["type", "text"],
+    required: ["description"],
   },
 };
 
@@ -1168,14 +1182,55 @@ const generateStoryboard: ToolHandler = async (args, context): Promise<ToolResul
   }
 };
 
-const generateMotion: ToolHandler = async (_args, _context): Promise<ToolResult> => {
-  // Motion graphics generation would typically use Remotion
-  return {
-    toolCallId: "",
-    success: false,
-    output: "",
-    error: "Motion graphics generation requires Remotion setup. Use 'vibe ai motion' CLI command directly.",
-  };
+const generateMotion: ToolHandler = async (args, context): Promise<ToolResult> => {
+  try {
+    const { executeMotion } = await import("../../commands/ai.js");
+
+    const video = args.video
+      ? resolve(context.workingDirectory, args.video as string)
+      : undefined;
+    const output = args.output
+      ? resolve(context.workingDirectory, args.output as string)
+      : undefined;
+
+    const result = await executeMotion({
+      description: args.description as string,
+      duration: args.duration as number | undefined,
+      width: args.width as number | undefined,
+      height: args.height as number | undefined,
+      style: args.style as string | undefined,
+      render: true, // Always render in agent mode
+      video,
+      output,
+    });
+
+    if (!result.success) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: result.codePath ? `TSX code saved to: ${result.codePath}` : "",
+        error: result.error || "Motion generation failed",
+      };
+    }
+
+    const parts: string[] = [];
+    if (result.codePath) parts.push(`Code: ${result.codePath}`);
+    if (result.renderedPath) parts.push(`Rendered: ${result.renderedPath}`);
+    if (result.compositedPath) parts.push(`Composited: ${result.compositedPath}`);
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: parts.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Motion generation failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 };
 
 // Pipeline Tool Handlers

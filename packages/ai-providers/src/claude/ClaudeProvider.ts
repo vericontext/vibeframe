@@ -292,9 +292,20 @@ Or if clarification needed:
 Requirements:
 - Use Remotion's useCurrentFrame(), useVideoConfig(), interpolate(), spring() hooks
 - Component should be self-contained with inline styles
-- Use TypeScript
+- Use TypeScript with named export (export const ComponentName: React.FC = () => { ... })
 - Canvas size: ${width}x${height}, ${fps}fps, ${durationInFrames} frames (${duration}s)
 - Style: ${options.style || "modern and clean"}
+
+CRITICAL — Compositing Rules:
+- Background MUST be transparent (no background color on root). The component will be overlaid on video.
+- Use <AbsoluteFill> as root wrapper with NO backgroundColor.
+- Never use CSS animations or transitions — only useCurrentFrame() + interpolate()/spring().
+
+Animation Best Practices:
+- Always use extrapolateLeft: "clamp" and extrapolateRight: "clamp" in interpolate() to prevent values overshooting.
+- spring() config guide: { damping: 200 } = smooth/no bounce, { damping: 10-15 } = gentle bounce, { damping: 5-8 } = bouncy.
+- Use <Sequence from={frame} durationInFrames={n}> to stagger elements.
+- For enter/exit animations, calculate exit start frame from durationInFrames.
 
 Available Remotion imports:
 - useCurrentFrame, useVideoConfig, interpolate, spring, Easing from 'remotion'

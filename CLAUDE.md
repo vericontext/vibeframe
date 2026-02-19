@@ -247,7 +247,7 @@ When adding new AI CLI commands:
 | `ai_sfx` | `vibe ai sfx` | Sound effects (ElevenLabs) |
 | `ai_music` | `vibe ai music` | Music generation (Replicate) |
 | `ai_storyboard` | `vibe ai storyboard` | Script → storyboard (Claude) |
-| `ai_motion` | `vibe ai motion` | Motion graphics (Remotion) |
+| `ai_motion` | `vibe ai motion` | Motion graphics render & composite (Remotion) |
 | `ai_script_to_video` | `vibe ai script-to-video` | Full video pipeline |
 | `ai_highlights` | `vibe ai highlights` | Extract highlights |
 | `ai_auto_shorts` | `vibe ai auto-shorts` | Generate shorts |

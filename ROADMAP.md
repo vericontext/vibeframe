@@ -30,7 +30,7 @@ Unified interface for AI services.
 - [x] **OpenAI GPT** - Natural language timeline commands (`vibe ai edit`)
 - [x] **Gemini** - Multimodal understanding, auto-edit suggestions
 - [x] **Claude** - AI-powered content creation
-  - Natural language → Remotion motion graphics (`vibe ai motion`)
+  - Natural language → Remotion motion graphics with auto-render & composite (`vibe ai motion --render --video`)
   - Long-form content analysis & storyboarding (`vibe ai storyboard`)
   - Timeline planning with AI suggestions
 - [x] **Ollama** - Local LLM for natural language commands (no API key required)

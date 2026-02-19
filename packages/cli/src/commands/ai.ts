@@ -632,63 +632,169 @@ aiCommand
     }
   });
 
+// ── Motion: exported function for Agent tool ────────────────────────────────
+
+export interface MotionCommandOptions {
+  description: string;
+  duration?: number;
+  width?: number;
+  height?: number;
+  fps?: number;
+  style?: string;
+  /** If set, render the generated code with Remotion */
+  render?: boolean;
+  /** Base video to composite the motion graphic onto */
+  video?: string;
+  /** Output path (TSX if code-only, WebM/MP4 if rendered) */
+  output?: string;
+}
+
+export interface MotionCommandResult {
+  success: boolean;
+  codePath?: string;
+  renderedPath?: string;
+  compositedPath?: string;
+  componentName?: string;
+  error?: string;
+}
+
+export async function executeMotion(options: MotionCommandOptions): Promise<MotionCommandResult> {
+  const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
+  if (!apiKey) {
+    return { success: false, error: "Anthropic API key required (set ANTHROPIC_API_KEY)" };
+  }
+
+  const width = options.width || 1920;
+  const height = options.height || 1080;
+  const fps = options.fps || 30;
+  const duration = options.duration || 5;
+
+  const claude = new ClaudeProvider();
+  await claude.initialize({ apiKey });
+
+  const result = await claude.generateMotion(options.description, {
+    duration,
+    width,
+    height,
+    fps,
+    style: options.style as "minimal" | "corporate" | "playful" | "cinematic" | undefined,
+  });
+
+  if (!result.success || !result.component) {
+    return { success: false, error: result.error || "Motion generation failed" };
+  }
+
+  const { component } = result;
+  const defaultOutput = options.video ? "motion-output.mp4" : options.render ? "motion.webm" : "motion.tsx";
+  const outputPath = resolve(process.cwd(), options.output || defaultOutput);
+
+  // Save TSX code
+  const codePath = outputPath.replace(/\.\w+$/, ".tsx");
+  await writeFile(codePath, component.code, "utf-8");
+
+  const shouldRender = options.render || !!options.video;
+  if (!shouldRender) {
+    return { success: true, codePath, componentName: component.name };
+  }
+
+  // Render (and optionally composite)
+  const { ensureRemotionInstalled, renderAndComposite } = await import("../utils/remotion.js");
+
+  const notInstalled = await ensureRemotionInstalled();
+  if (notInstalled) {
+    return { success: false, codePath, componentName: component.name, error: notInstalled };
+  }
+
+  const baseVideo = options.video ? resolve(process.cwd(), options.video) : undefined;
+  const renderResult = await renderAndComposite(
+    {
+      componentCode: component.code,
+      componentName: component.name,
+      width,
+      height,
+      fps,
+      durationInFrames: component.durationInFrames,
+      outputPath,
+    },
+    baseVideo,
+    baseVideo ? outputPath : undefined,
+  );
+
+  if (!renderResult.success) {
+    return { success: false, codePath, componentName: component.name, error: renderResult.error };
+  }
+
+  return {
+    success: true,
+    codePath,
+    componentName: component.name,
+    renderedPath: baseVideo ? undefined : renderResult.outputPath,
+    compositedPath: baseVideo ? renderResult.outputPath : undefined,
+  };
+}
+
 aiCommand
   .command("motion")
-  .description("Generate motion graphics using Claude + Remotion")
+  .description("Generate motion graphics using Claude + Remotion (render & composite)")
   .argument("<description>", "Natural language description of the motion graphic")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
-  .option("-o, --output <path>", "Output file path for generated code", "motion.tsx")
+  .option("-o, --output <path>", "Output file path", "motion.tsx")
   .option("-d, --duration <sec>", "Duration in seconds", "5")
   .option("-w, --width <px>", "Width in pixels", "1920")
   .option("-h, --height <px>", "Height in pixels", "1080")
   .option("--fps <fps>", "Frame rate", "30")
   .option("-s, --style <style>", "Style preset: minimal, corporate, playful, cinematic")
+  .option("--render", "Render the generated code with Remotion (output .webm)")
+  .option("--video <path>", "Base video to composite the motion graphic onto")
   .action(async (description: string, options) => {
     try {
-      const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
-      if (!apiKey) {
-        console.error(chalk.red("Anthropic API key required. Use --api-key or set ANTHROPIC_API_KEY"));
-        process.exit(1);
-      }
+      const shouldRender = options.render || !!options.video;
 
       const spinner = ora("Generating motion graphic...").start();
 
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey });
-
-      const result = await claude.generateMotion(description, {
+      const result = await executeMotion({
+        description,
         duration: parseFloat(options.duration),
         width: parseInt(options.width),
         height: parseInt(options.height),
         fps: parseInt(options.fps),
         style: options.style,
+        render: options.render,
+        video: options.video,
+        output: options.output !== "motion.tsx" ? options.output : undefined,
       });
 
-      if (!result.success || !result.component) {
+      if (!result.success) {
         spinner.fail(chalk.red(result.error || "Motion generation failed"));
+        if (result.codePath) {
+          console.log(chalk.dim(`TSX code saved to: ${result.codePath}`));
+        }
         process.exit(1);
       }
 
-      const { component } = result;
       spinner.succeed(chalk.green("Motion graphic generated"));
 
       console.log();
-      console.log(chalk.bold.cyan("Generated Component"));
+      console.log(chalk.bold.cyan("Motion Graphics Pipeline"));
       console.log(chalk.dim("─".repeat(60)));
-      console.log(`Name: ${chalk.bold(component.name)}`);
-      console.log(`Size: ${component.width}x${component.height} @ ${component.fps}fps`);
-      console.log(`Duration: ${component.durationInFrames} frames (${options.duration}s)`);
-      console.log(`Description: ${component.description}`);
-      console.log();
 
-      // Save the component code
-      const outputPath = resolve(process.cwd(), options.output);
-      await writeFile(outputPath, component.code, "utf-8");
-      console.log(chalk.green(`Saved to: ${outputPath}`));
+      if (result.codePath) {
+        console.log(chalk.green(`  Code: ${result.codePath}`));
+      }
+      if (result.renderedPath) {
+        console.log(chalk.green(`  Rendered: ${result.renderedPath}`));
+      }
+      if (result.compositedPath) {
+        console.log(chalk.green(`  Composited: ${result.compositedPath}`));
+      }
 
-      console.log();
-      console.log(chalk.dim("To render, use Remotion CLI:"));
-      console.log(chalk.dim(`  npx remotion render ${options.output} ${component.name} out.mp4`));
+      if (!shouldRender) {
+        console.log();
+        console.log(chalk.dim("To render, add --render flag or --video <path>:"));
+        console.log(chalk.dim(`  vibe ai motion "${description}" --render -o motion.webm`));
+        console.log(chalk.dim(`  vibe ai motion "${description}" --video input.mp4 -o output.mp4`));
+      }
+
       console.log();
     } catch (error) {
       console.error(chalk.red("Motion generation failed"));
