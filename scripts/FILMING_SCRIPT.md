@@ -52,7 +52,7 @@ After install completes, verify:
 vibe --version
 ```
 
-> Shows `0.19.0`. Pause 2s.
+> Shows `0.19.2`. Pause 2s.
 
 ---
 
