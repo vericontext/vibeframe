@@ -7,6 +7,8 @@
 #   ./scripts/demo.sh              # dry-run (safe, no API keys needed)
 #   ./scripts/demo.sh --live       # live mode (needs API keys + FFmpeg)
 #   ./scripts/demo.sh --dry-run    # explicit dry-run
+#   ./scripts/demo.sh --act 4      # run only Act 4
+#   ./scripts/demo.sh --live --act 2  # live mode, Act 2 only
 #
 
 set -e
@@ -18,18 +20,30 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DEMO_DIR="$PROJECT_ROOT/demo-output"
 VIBE="pnpm vibe"
 MODE="dry-run"
+ACT=""
 
 # Parse args
-for arg in "$@"; do
-  case $arg in
-    --live)  MODE="live" ;;
-    --dry-run) MODE="dry-run" ;;
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --live)  MODE="live"; shift ;;
+    --dry-run) MODE="dry-run"; shift ;;
+    --act)
+      ACT="$2"; shift 2
+      ;;
     -h|--help)
-      echo "Usage: $0 [--dry-run|--live]"
-      echo "  --dry-run  Print commands with commentary (default)"
-      echo "  --live     Actually run commands (needs API keys)"
+      echo "Usage: $0 [--dry-run|--live] [--act N]"
+      echo "  --dry-run    Print commands with commentary (default)"
+      echo "  --live       Actually run commands (needs API keys)"
+      echo "  --act N      Run only Act N (1-4)"
+      echo ""
+      echo "Acts:"
+      echo "  1  One Command Video Production (script-to-video)"
+      echo "  2  Post-Production Combo (noise → silence → caption → fade)"
+      echo "  3  Let the Agent Handle It (autonomous multi-tool)"
+      echo "  4  Motion Graphics Pipeline (natural language → Remotion)"
       exit 0
       ;;
+    *) shift ;;
   esac
 done
 
@@ -152,19 +166,19 @@ act1() {
   local script_text="A 30-second product launch video for an AI video editor. Scene 1: A developer types a single command in a dark terminal. Scene 2: AI generates stunning visuals in real-time. Scene 3: The finished video plays — professional quality, zero manual editing. Tone: futuristic, empowering."
 
   printf "${GREEN}\$ vibe ai script-to-video \\\\${NC}\n"
-  printf "${GREEN}    --script \"%.60s...\" \\\\${NC}\n" "$script_text"
-  printf "${GREEN}    --voice \"rachel\" \\\\${NC}\n"
+  printf "${GREEN}    \"%.60s...\" \\\\${NC}\n" "$script_text"
+  printf "${GREEN}    --voice rachel \\\\${NC}\n"
   printf "${GREEN}    --image-provider gemini \\\\${NC}\n"
-  printf "${GREEN}    --video-provider kling${NC}\n"
+  printf "${GREEN}    --generator kling${NC}\n"
   echo ""
 
   if [ "$MODE" = "live" ]; then
     sleep 0.5
     $VIBE ai script-to-video \
-      --script "$script_text" \
+      "$script_text" \
       --voice "rachel" \
       --image-provider gemini \
-      --video-provider kling
+      --generator kling
   else
     comment "Pipeline 실행 중..."
     echo ""
@@ -226,7 +240,7 @@ act2() {
 
   # Step 2: Silence Cut
   comment "Step 2: 무음 구간 자동 제거"
-  run_cmd "vibe ai silence-cut $step1 -o $step2 --threshold -35dB --min-duration 0.5"
+  run_cmd "vibe ai silence-cut $step1 -o $step2 --noise -35 --min-duration 0.5"
   if [ "$MODE" = "dry-run" ]; then
     fake_output "  Detected 12 silent segments (total: 18.4s)"
     fake_output "  Removed 12 segments, saved 18.4s"
@@ -320,6 +334,87 @@ act3() {
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
+# ACT 4: Motion Graphics Pipeline
+# ═════════════════════════════════════════════════════════════════════════════
+
+act4() {
+  banner "ACT 4: Motion Graphics Pipeline"
+
+  comment "자연어로 모션 그래픽 생성 — Claude가 Remotion TSX 코드를 작성하고 렌더링합니다"
+  echo ""
+  pause
+
+  # Step 1: Standalone motion graphic
+  comment "Step 1: 자연어 한 줄로 타이틀 카드 생성"
+  echo ""
+
+  local motion_prompt="cinematic title card with 'VIBEFRAME' text, spring bounce from zero to full size, gold gradient color, particle effects in background"
+
+  printf "${GREEN}\$ vibe ai motion \\\\${NC}\n"
+  printf "${GREEN}    \"%s\" \\\\${NC}\n" "$motion_prompt"
+  printf "${GREEN}    --render -o demo-output/title.webm${NC}\n"
+  echo ""
+
+  if [ "$MODE" = "live" ]; then
+    sleep 0.5
+    $VIBE ai motion "$motion_prompt" --render -o demo-output/title.webm
+  else
+    comment "모션 그래픽 생성 중..."
+    echo ""
+    printf "${DIM}  [Claude] Generating Remotion TSX component...${NC}\n"
+    sleep 0.8
+    printf "${DIM}          import { spring, useCurrentFrame } from 'remotion';${NC}\n"
+    printf "${DIM}          // 47 lines of React motion graphics code${NC}\n"
+    sleep 0.5
+    printf "${DIM}  [Render] Scaffolding temp project...${NC}\n"
+    sleep 0.6
+    printf "${DIM}  [Render] npx remotion render → title.webm (1920x1080, 5s, 30fps)${NC}\n"
+    sleep 0.8
+    echo ""
+    result "  Motion graphic rendered: demo-output/title.webm"
+  fi
+
+  echo ""
+  pause
+
+  # Step 2: Composite onto video
+  comment "Step 2: 영상 위에 하단 자막 모션 합성"
+  echo ""
+
+  local overlay_prompt="lower-third title: 'Kiyeon, CEO' with smooth slide-in from left, semi-transparent dark background bar"
+
+  printf "${GREEN}\$ vibe ai motion \\\\${NC}\n"
+  printf "${GREEN}    \"%s\" \\\\${NC}\n" "$overlay_prompt"
+  printf "${GREEN}    --video demo-output/sample.mp4 -o demo-output/with-title.mp4${NC}\n"
+  echo ""
+
+  if [ "$MODE" = "live" ]; then
+    sleep 0.5
+    $VIBE ai motion "$overlay_prompt" --video demo-output/sample.mp4 -o demo-output/with-title.mp4
+  else
+    comment "오버레이 합성 중..."
+    echo ""
+    printf "${DIM}  [Claude] Generating Remotion TSX component...${NC}\n"
+    sleep 0.8
+    printf "${DIM}          // Lower-third with slide-in animation${NC}\n"
+    sleep 0.5
+    printf "${DIM}  [Render] Rendering transparent overlay (1920x1080, 3s)...${NC}\n"
+    sleep 0.6
+    printf "${DIM}  [Composite] Overlaying on sample.mp4 via FFmpeg...${NC}\n"
+    sleep 0.8
+    printf "${DIM}          ffmpeg -i sample.mp4 -i overlay.webm -filter_complex overlay${NC}\n"
+    sleep 0.5
+    echo ""
+    result "  Composited: demo-output/with-title.mp4"
+  fi
+
+  echo ""
+  comment "자연어 → Claude 코드 생성 → Remotion 렌더 → FFmpeg 합성"
+  comment "After Effects 없이, 터미널에서 모션 그래픽 완성"
+  pause 2
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Epilog
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -328,13 +423,13 @@ epilog() {
   echo ""
   printf "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
   echo ""
-  printf "${BOLD}${WHITE}  VibeFrame${NC}  ${DIM}v0.16.1${NC}\n"
+  printf "${BOLD}${WHITE}  VibeFrame${NC}  ${DIM}v0.17.1${NC}\n"
   printf "${DIM}  AI-native video editing in the terminal${NC}\n"
   echo ""
   printf "  ${CYAN}58${NC} agent tools  ${DIM}|${NC}  ${CYAN}24${NC} AI commands  ${DIM}|${NC}  ${CYAN}10${NC} providers\n"
   echo ""
-  printf "  ${DIM}Install:${NC}  curl -fsSL https://vibeframe.ai/install.sh | bash\n"
-  printf "  ${DIM}GitHub:${NC}   https://github.com/vibeframe/vibeframe\n"
+  printf "  ${DIM}Install:${NC}  curl -fsSL https://vibeframe.dev/install.sh | bash\n"
+  printf "  ${DIM}GitHub:${NC}   https://github.com/kiyeonj51/vibeframe\n"
   echo ""
   printf "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
   echo ""
@@ -369,9 +464,24 @@ LOGO
 
   preflight
 
-  act1
-  act2
-  act3
+  if [ -n "$ACT" ]; then
+    case $ACT in
+      1) act1 ;;
+      2) act2 ;;
+      3) act3 ;;
+      4) act4 ;;
+      *)
+        printf "${RED}Invalid act: $ACT (valid: 1-4)${NC}\n"
+        exit 1
+        ;;
+    esac
+  else
+    act1
+    act2
+    act3
+    act4
+  fi
+
   epilog
 }
 
