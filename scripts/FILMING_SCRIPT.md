@@ -18,7 +18,11 @@ rm -rf ~/.vibeframe ~/.local/bin/vibe
 # 4. Create a fresh demo folder and go there
 mkdir -p ~/vibeframe-demo && cd ~/vibeframe-demo
 
-# 5. Clear terminal
+# 5. Copy .env with API keys to the demo folder
+#    Agent mode and AI commands look for .env in the working directory
+cp ~/.vibeframe/.env ~/vibeframe-demo/.env  # or create manually
+
+# 6. Clear terminal
 clear
 ```
 
@@ -48,7 +52,7 @@ After install completes, verify:
 vibe --version
 ```
 
-> Shows `0.17.1`. Pause 2s.
+> Shows `0.19.0`. Pause 2s.
 
 ---
 
@@ -78,7 +82,7 @@ vibe ai script-to-video \
 
 Then export to a final video:
 ```bash
-vibe export script-video.vibe.json final.mp4 -p high
+vibe export script-video.vibe.json -o final.mp4 -p high
 ```
 
 > Merges all scenes into one MP4. Wait for completion.
@@ -164,7 +168,7 @@ clear
 ```bash
 vibe ai motion \
   "cinematic title card with 'VIBEFRAME' text, spring bounce animation, gold gradient" \
-  --render -o title.webm
+  --render -o title.mp4
 ```
 
 > Claude writes TSX → Remotion renders. Wait for output.
