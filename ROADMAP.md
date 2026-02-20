@@ -144,7 +144,7 @@ Intelligence built into every interaction.
 - [x] ~~Object Tracking~~ - Deprecated (requires public URL, not local files)
 - [x] Text Overlay - Auto-compose text overlays on video (`vibe ai text-overlay`)
 - [x] AI Video Review - Gemini-powered quality review & auto-fix (`vibe ai review`)
-- [x] Silence Cut - Remove silent segments from video (`vibe ai silence-cut`)
+- [x] Silence Cut - Remove silent segments from video (`vibe ai silence-cut`, `--use-gemini` for smart detection)
 - [x] Jump Cut - Remove filler words using Whisper word-level timestamps (`vibe ai jump-cut`)
 - [x] Auto Caption - Transcribe + burn styled captions (`vibe ai caption`)
   - FFmpeg subtitles (fast path) or Remotion overlay fallback (no libass/freetype required)

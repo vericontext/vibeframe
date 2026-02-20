@@ -8806,13 +8806,17 @@ aiCommand
 
 aiCommand
   .command("silence-cut")
-  .description("Remove silent segments from video (FFmpeg only, no API key needed)")
+  .description("Remove silent segments from video (FFmpeg default, or Gemini for smart detection)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-cut.<ext>)")
   .option("-n, --noise <dB>", "Silence threshold in dB (default: -30)", "-30")
   .option("-d, --min-duration <seconds>", "Minimum silence duration to cut (default: 0.5)", "0.5")
   .option("-p, --padding <seconds>", "Padding around non-silent segments (default: 0.1)", "0.1")
   .option("--analyze-only", "Only detect silence, don't cut")
+  .option("--use-gemini", "Use Gemini Video Understanding for context-aware silence detection")
+  .option("-m, --model <model>", "Gemini model (default: flash)")
+  .option("--low-res", "Low resolution mode for longer videos (Gemini only)")
+  .option("-k, --api-key <key>", "Google API key override (or set GOOGLE_API_KEY env)")
   .action(async (videoPath: string, options) => {
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
@@ -8833,7 +8837,11 @@ aiCommand
       const name = basename(videoPath, ext);
       const outputPath = options.output || `${name}-cut${ext}`;
 
-      const spinner = ora("Detecting silence...").start();
+      const useGemini = options.useGemini || false;
+      const spinnerText = useGemini
+        ? "Analyzing video with Gemini (visual + audio)..."
+        : "Detecting silence...";
+      const spinner = ora(spinnerText).start();
 
       const result = await executeSilenceCut({
         videoPath: absVideoPath,
@@ -8842,6 +8850,10 @@ aiCommand
         minDuration: parseFloat(options.minDuration),
         padding: parseFloat(options.padding),
         analyzeOnly: options.analyzeOnly || false,
+        useGemini,
+        model: options.model,
+        lowRes: options.lowRes,
+        apiKey: options.apiKey,
       });
 
       if (!result.success) {
@@ -8854,6 +8866,7 @@ aiCommand
       console.log();
       console.log(chalk.bold.cyan("Silence Analysis"));
       console.log(chalk.dim("─".repeat(60)));
+      console.log(`Detection method: ${chalk.bold(result.method === "gemini" ? "Gemini Video Understanding" : "FFmpeg silencedetect")}`);
       console.log(`Total duration: ${chalk.bold(result.totalDuration!.toFixed(1))}s`);
       console.log(`Silent periods: ${chalk.bold(String(result.silentPeriods!.length))}`);
       console.log(`Silent duration: ${chalk.bold(result.silentDuration!.toFixed(1))}s`);
@@ -9179,6 +9192,10 @@ export interface SilenceCutOptions {
   minDuration?: number;
   padding?: number;
   analyzeOnly?: boolean;
+  useGemini?: boolean;
+  model?: string;
+  lowRes?: boolean;
+  apiKey?: string;
 }
 
 export interface SilenceCutResult {
@@ -9187,6 +9204,7 @@ export interface SilenceCutResult {
   totalDuration?: number;
   silentPeriods?: SilencePeriod[];
   silentDuration?: number;
+  method?: "ffmpeg" | "gemini";
   error?: string;
 }
 
@@ -9228,6 +9246,106 @@ async function detectSilencePeriods(
 }
 
 /**
+ * Detect silent/dead segments using Gemini Video Understanding (multimodal analysis)
+ */
+async function detectSilencePeriodsWithGemini(
+  videoPath: string,
+  minDuration: number,
+  options: { model?: string; lowRes?: boolean; apiKey?: string },
+): Promise<{ periods: SilencePeriod[]; totalDuration: number }> {
+  const totalDuration = await getVideoDuration(videoPath);
+
+  const geminiApiKey = options.apiKey || await getApiKey("GOOGLE_API_KEY", "Google");
+  if (!geminiApiKey) {
+    throw new Error("Google API key required for Gemini Video Understanding. Set GOOGLE_API_KEY or use --api-key");
+  }
+
+  const gemini = new GeminiProvider();
+  await gemini.initialize({ apiKey: geminiApiKey });
+
+  const videoBuffer = await readFile(videoPath);
+
+  // Map model shorthand to full model ID
+  const modelMap: Record<string, string> = {
+    flash: "gemini-3-flash-preview",
+    "flash-2.5": "gemini-2.5-flash",
+    pro: "gemini-2.5-pro",
+  };
+  const modelId = options.model ? (modelMap[options.model] || modelMap.flash) : undefined;
+
+  const prompt = `Analyze this video and identify all silent or dead segments where there is NO meaningful content.
+
+Detect these as silent/dead segments:
+- Complete silence (no audio at all)
+- Dead air / ambient noise with no speech or meaningful sound
+- Long pauses between speakers or topics (${minDuration}+ seconds)
+- Technical silence (e.g., blank screen with no audio)
+- Sections with only background noise and no intentional content
+
+Do NOT mark these as silent (keep them):
+- Intentional dramatic pauses (short, part of storytelling)
+- Music-only sections (background music, intros, outros)
+- Natural breathing pauses within sentences (under ${minDuration} seconds)
+- Applause, laughter, or audience reactions
+- Sound effects or ambient audio that is part of the content
+
+Only include segments that are at least ${minDuration} seconds long.
+The video total duration is ${totalDuration.toFixed(1)} seconds.
+
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
+{
+  "silentSegments": [
+    {
+      "start": 5.2,
+      "end": 8.7,
+      "reason": "Dead air between speakers"
+    }
+  ]
+}
+
+If there are no silent segments, return: { "silentSegments": [] }`;
+
+  const result = await gemini.analyzeVideo(videoBuffer, prompt, {
+    fps: 1,
+    lowResolution: options.lowRes,
+    ...(modelId ? { model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro" } : {}),
+  });
+
+  if (!result.success || !result.response) {
+    throw new Error(`Gemini analysis failed: ${result.error || "No response"}`);
+  }
+
+  // Parse JSON from Gemini response
+  let jsonStr = result.response;
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) jsonStr = jsonMatch[1];
+  const objectMatch = jsonStr.match(/\{[\s\S]*"silentSegments"[\s\S]*\}/);
+  if (objectMatch) jsonStr = objectMatch[0];
+
+  const parsed = JSON.parse(jsonStr);
+
+  const periods: SilencePeriod[] = [];
+  if (parsed.silentSegments && Array.isArray(parsed.silentSegments)) {
+    for (const seg of parsed.silentSegments) {
+      const start = Number(seg.start);
+      const end = Number(seg.end);
+      if (!isNaN(start) && !isNaN(end) && end > start && (end - start) >= minDuration) {
+        periods.push({
+          start: Math.max(0, start),
+          end: Math.min(end, totalDuration),
+          duration: Math.min(end, totalDuration) - Math.max(0, start),
+        });
+      }
+    }
+  }
+
+  // Sort by start time
+  periods.sort((a, b) => a.start - b.start);
+
+  return { periods, totalDuration };
+}
+
+/**
  * Remove silent segments from a video using FFmpeg
  */
 export async function executeSilenceCut(options: SilenceCutOptions): Promise<SilenceCutResult> {
@@ -9238,6 +9356,7 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
     minDuration = 0.5,
     padding = 0.1,
     analyzeOnly = false,
+    useGemini = false,
   } = options;
 
   if (!existsSync(videoPath)) {
@@ -9250,8 +9369,16 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
+  const method = useGemini ? "gemini" : "ffmpeg";
+
   try {
-    const { periods, totalDuration } = await detectSilencePeriods(videoPath, noiseThreshold, minDuration);
+    const { periods, totalDuration } = useGemini
+      ? await detectSilencePeriodsWithGemini(videoPath, minDuration, {
+          model: options.model,
+          lowRes: options.lowRes,
+          apiKey: options.apiKey,
+        })
+      : await detectSilencePeriods(videoPath, noiseThreshold, minDuration);
     const silentDuration = periods.reduce((sum, p) => sum + p.duration, 0);
 
     if (analyzeOnly || periods.length === 0) {
@@ -9260,6 +9387,7 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
         totalDuration,
         silentPeriods: periods,
         silentDuration,
+        method,
       };
     }
 
@@ -9301,6 +9429,7 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
       totalDuration,
       silentPeriods: periods,
       silentDuration,
+      method,
     };
   } catch (error) {
     return {

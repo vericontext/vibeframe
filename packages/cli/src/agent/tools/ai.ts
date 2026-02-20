@@ -1926,7 +1926,7 @@ const reviewHandler: ToolHandler = async (args) => {
 // Silence Cut Tool
 const silenceCutDef: ToolDefinition = {
   name: "ai_silence_cut",
-  description: "Remove silent segments from a video using FFmpeg. No API key needed. Detects silence and concatenates non-silent parts with stream copy (fast, no re-encode). Use --analyze-only to just detect silence without cutting.",
+  description: "Remove silent segments from a video. Default uses FFmpeg silencedetect (free, no API key). Use useGemini=true for smart context-aware detection via Gemini Video Understanding — distinguishes dead air from intentional pauses using visual+audio analysis.",
   parameters: {
     type: "object",
     properties: {
@@ -1940,7 +1940,7 @@ const silenceCutDef: ToolDefinition = {
       },
       noiseThreshold: {
         type: "number",
-        description: "Silence threshold in dB (default: -30). Lower = more sensitive",
+        description: "Silence threshold in dB (default: -30). Lower = more sensitive. FFmpeg mode only.",
       },
       minDuration: {
         type: "number",
@@ -1953,6 +1953,18 @@ const silenceCutDef: ToolDefinition = {
       analyzeOnly: {
         type: "boolean",
         description: "Only detect silence without cutting (default: false)",
+      },
+      useGemini: {
+        type: "boolean",
+        description: "Use Gemini Video Understanding for context-aware silence detection (default: false). Requires GOOGLE_API_KEY.",
+      },
+      model: {
+        type: "string",
+        description: "Gemini model to use (default: flash). Options: flash, flash-2.5, pro",
+      },
+      lowRes: {
+        type: "boolean",
+        description: "Low resolution mode for longer videos (Gemini only)",
       },
     },
     required: ["videoPath"],
@@ -1975,6 +1987,9 @@ const silenceCutHandler: ToolHandler = async (args, context): Promise<ToolResult
       minDuration: args.minDuration as number | undefined,
       padding: args.padding as number | undefined,
       analyzeOnly: args.analyzeOnly as boolean | undefined,
+      useGemini: args.useGemini as boolean | undefined,
+      model: args.model as string | undefined,
+      lowRes: args.lowRes as boolean | undefined,
     });
 
     if (!result.success) {
@@ -1987,6 +2002,7 @@ const silenceCutHandler: ToolHandler = async (args, context): Promise<ToolResult
     }
 
     const lines: string[] = [];
+    lines.push(`Detection method: ${result.method === "gemini" ? "Gemini Video Understanding" : "FFmpeg silencedetect"}`);
     lines.push(`Total duration: ${result.totalDuration!.toFixed(1)}s`);
     lines.push(`Silent periods: ${result.silentPeriods!.length}`);
     lines.push(`Silent duration: ${result.silentDuration!.toFixed(1)}s`);

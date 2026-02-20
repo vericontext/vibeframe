@@ -257,7 +257,7 @@ When adding new AI CLI commands:
 | `ai_regenerate_scene` | `vibe ai regenerate-scene` | Regenerate specific scene(s) |
 | `ai_text_overlay` | `vibe ai text-overlay` | Apply text overlays (FFmpeg drawtext) |
 | `ai_review` | `vibe ai review` | AI video review & auto-fix (Gemini) |
-| `ai_silence_cut` | `vibe ai silence-cut` | Remove silent segments (FFmpeg only) |
+| `ai_silence_cut` | `vibe ai silence-cut` | Remove silent segments (FFmpeg or Gemini smart detection) |
 | `ai_jump_cut` | `vibe ai jump-cut` | Remove filler words (Whisper + FFmpeg) |
 | `ai_caption` | `vibe ai caption` | Transcribe + burn styled captions (Whisper + FFmpeg) |
 | `ai_noise_reduce` | `vibe ai noise-reduce` | Audio/video noise removal (FFmpeg) |
