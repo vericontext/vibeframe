@@ -9344,14 +9344,15 @@ If there are no silent segments, return: { "silentSegments": [] }`;
   const periods: SilencePeriod[] = [];
   if (parsed.silentSegments && Array.isArray(parsed.silentSegments)) {
     for (const seg of parsed.silentSegments) {
-      const start = Number(seg.start);
-      const end = Number(seg.end);
-      if (!isNaN(start) && !isNaN(end) && end > start && (end - start) >= minDuration) {
-        periods.push({
-          start: Math.max(0, start),
-          end: Math.min(end, totalDuration),
-          duration: Math.min(end, totalDuration) - Math.max(0, start),
-        });
+      const rawStart = Number(seg.start);
+      const rawEnd = Number(seg.end);
+      if (isNaN(rawStart) || isNaN(rawEnd)) continue;
+      // Clamp to video duration, then validate
+      const start = Math.max(0, rawStart);
+      const end = Math.min(rawEnd, totalDuration);
+      const duration = end - start;
+      if (duration >= minDuration) {
+        periods.push({ start, end, duration });
       }
     }
   }
