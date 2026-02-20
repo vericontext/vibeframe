@@ -9428,15 +9428,29 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
       return { success: false, error: "No non-silent segments found" };
     }
 
-    // Build select/aselect filter expression for non-silent segments
-    // This re-encodes in a single pass — no keyframe alignment issues
-    const selectParts = segments.map(
-      (seg) => `between(t,${seg.start.toFixed(4)},${seg.end.toFixed(4)})`,
-    );
-    const selectExpr = selectParts.join("+");
+    // Build filter_complex with trim+concat per segment.
+    // aselect is broken on FFmpeg 8.x (audio duration unchanged), so we use
+    // atrim/trim per segment and concat them all.
+    const vParts: string[] = [];
+    const aParts: string[] = [];
+    const concatInputs: string[] = [];
+
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i].start.toFixed(4);
+      const e = segments[i].end.toFixed(4);
+      vParts.push(`[0:v]trim=${s}:${e},setpts=PTS-STARTPTS[v${i}]`);
+      aParts.push(`[0:a]atrim=${s}:${e},asetpts=PTS-STARTPTS[a${i}]`);
+      concatInputs.push(`[v${i}][a${i}]`);
+    }
+
+    const filterComplex = [
+      ...vParts,
+      ...aParts,
+      `${concatInputs.join("")}concat=n=${segments.length}:v=1:a=1[outv][outa]`,
+    ].join(";");
 
     await execAsync(
-      `ffmpeg -i "${videoPath}" -vf "select='${selectExpr}',setpts=N/FRAME_RATE/TB" -af "aselect='${selectExpr}',asetpts=N/SR/TB" -c:v libx264 -preset fast -crf 18 -c:a aac -b:a 192k "${outputPath}" -y`,
+      `ffmpeg -i "${videoPath}" -filter_complex "${filterComplex}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 18 -c:a aac -b:a 192k "${outputPath}" -y`,
       { timeout: 600000, maxBuffer: 50 * 1024 * 1024 },
     );
 
