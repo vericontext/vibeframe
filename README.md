@@ -161,7 +161,7 @@ vibe ai kling "prompt" -o vid.mp4    # Video (Kling AI)
 vibe ai tts "text" -o voice.mp3      # Text-to-speech (ElevenLabs)
 vibe ai sfx "explosion" -o sfx.mp3   # Sound effects (ElevenLabs)
 vibe ai music "prompt" -o bgm.mp3    # Music generation (Replicate)
-vibe ai motion "description"         # Motion graphics (Remotion)
+vibe ai motion "description"         # Motion graphics (Remotion, --render --video)
 vibe ai storyboard "content"         # Script → storyboard (Claude)
 vibe ai thumbnail "description"      # Generate thumbnail (DALL-E / --best-frame via Gemini)
 vibe ai background "description"     # Generate background (DALL-E)
@@ -176,18 +176,14 @@ vibe ai sd-outpaint <image>          # Extend image canvas (Stability)
 
 # AI — Video Tools
 vibe ai video-extend <video-id>      # Extend video duration (Kling)
-vibe ai video-upscale <video>        # Upscale video resolution
+vibe ai video-upscale <video>        # Upscale video resolution (FFmpeg)
 vibe ai video-interpolate <video>    # Slow motion / frame interpolation
-vibe ai video-inpaint <video>        # Remove objects from video
 vibe ai fill-gaps <project>          # Fill timeline gaps with AI video
-vibe ai style-transfer <video>       # Artistic style transfer (Replicate)
-vibe ai track-object <video>         # Object tracking (Replicate SAM-2)
 
 # AI — Audio Tools
 vibe ai voices                       # List ElevenLabs voices
 vibe ai voice-clone [samples...]     # Clone voice (ElevenLabs)
 vibe ai isolate <audio>              # Isolate vocals
-vibe ai audio-restore <audio>        # Denoise & enhance audio
 vibe ai noise-reduce <media>         # Remove noise (FFmpeg)
 vibe ai duck <music>                 # Auto-duck music under voice
 vibe ai dub <media>                  # Dub to another language
@@ -198,6 +194,9 @@ vibe ai suggest <project> "query"    # AI edit suggestions (Gemini)
 vibe ai grade <video>                # AI color grading (Claude + FFmpeg)
 vibe ai text-overlay <video>         # Text overlays (FFmpeg drawtext)
 vibe ai fade <video>                 # Fade in/out effects (FFmpeg)
+vibe ai silence-cut <video>          # Remove silent segments (FFmpeg)
+vibe ai jump-cut <video>             # Remove filler words (Whisper + FFmpeg)
+vibe ai caption <video>              # Transcribe + burn styled captions
 vibe ai reframe <video>              # Auto-reframe aspect ratio
 vibe ai speed-ramp <video>           # Content-aware speed ramping
 vibe ai narrate <input>              # AI narration for video

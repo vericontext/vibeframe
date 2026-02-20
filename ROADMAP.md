@@ -122,7 +122,7 @@ Intelligence built into every interaction.
 - [x] **Gemini Image Edit** - Multi-image editing (`vibe ai gemini-edit`)
 - [x] **Auto Narrate** - AI narration for videos (`vibe ai narrate`)
 - [x] Video Extend - AI-powered clip extension (`vibe ai video-extend`)
-- [x] Video Inpainting - Remove objects from video (`vibe ai video-inpaint`)
+- [x] ~~Video Inpainting~~ - Deprecated (requires public URL, not local files)
 - [x] Video Upscale - Low-res → 4K AI upscaling (`vibe ai video-upscale`)
 - [x] Frame Interpolation - AI slow motion (`vibe ai video-interpolate`)
 - [x] Fill Gaps - AI video generation to fill timeline gaps (`vibe ai fill-gaps`)
@@ -131,7 +131,7 @@ Intelligence built into every interaction.
 - [x] Voice Clone - Custom AI voice from samples (`vibe ai voice-clone`)
 - [x] AI Dubbing - Automatic multilingual dubbing (`vibe ai dub`)
 - [x] Music Generation - Generate background music from prompts (`vibe ai music`)
-- [x] Audio Restoration - Noise removal, quality enhancement (`vibe ai audio-restore`)
+- [x] ~~Audio Restoration~~ - Deprecated (use `vibe ai noise-reduce` instead)
 
 ### Smart Editing
 - [x] Audio Ducking - Auto-duck music when voice is present (`vibe ai duck`)
@@ -140,8 +140,8 @@ Intelligence built into every interaction.
 - [x] Natural Language Timeline - Extended with speed/reverse/crop/position actions
 - [x] Auto Reframe - Smart 16:9 → 9:16 conversion (`vibe ai reframe`)
 - [x] Auto-generate Shorts - From long-form with captions (`vibe ai auto-shorts`)
-- [x] Video Style Transfer - Artistic style for videos (`vibe ai style-transfer`)
-- [x] Object Tracking - SAM-2/co-tracker tracking (`vibe ai track-object`)
+- [x] ~~Video Style Transfer~~ - Deprecated (requires public URL, not local files)
+- [x] ~~Object Tracking~~ - Deprecated (requires public URL, not local files)
 - [x] Text Overlay - Auto-compose text overlays on video (`vibe ai text-overlay`)
 - [x] AI Video Review - Gemini-powered quality review & auto-fix (`vibe ai review`)
 - [x] Silence Cut - Remove silent segments from video (`vibe ai silence-cut`)
@@ -244,12 +244,12 @@ vibe ai         providers | transcribe | suggest | edit | tts | voices | sfx | i
                 gemini | gemini-edit | gemini-video | analyze | narrate
                 video | video-status | video-cancel
                 kling | kling-status
-                video-extend | video-upscale | video-interpolate | video-inpaint | fill-gaps
+                video-extend | video-upscale | video-interpolate | fill-gaps
                 sd | sd-upscale | sd-remove-bg | sd-img2img | sd-replace | sd-outpaint
                 script-to-video | regenerate-scene | highlights | b-roll | viral
-                voice-clone | music | music-status | audio-restore | dub
+                voice-clone | music | music-status | dub
                 duck | grade | speed-ramp | reframe | auto-shorts
-                style-transfer | track-object | silence-cut | jump-cut | caption
+                silence-cut | jump-cut | caption
                 noise-reduce | fade | translate-srt
 ```
 
