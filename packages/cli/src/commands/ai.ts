@@ -9771,11 +9771,37 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
       const { height } = await getVideoResolution(videoPath);
       const fontSize = customFontSize || Math.round(height / 18);
 
-      // Step 5: Burn captions with FFmpeg subtitles filter + force_style
+      // Step 5: Check FFmpeg subtitle filter support
+      const { stdout: filterList } = await execAsync("ffmpeg -filters 2>/dev/null", { maxBuffer: 10 * 1024 * 1024 });
+      const hasSubtitles = filterList.includes("subtitles");
+      const hasDrawtext = filterList.includes("drawtext");
+
+      if (!hasSubtitles && !hasDrawtext) {
+        // Save SRT even though burn failed — user can still use it
+        const outputDir = dirname(outputPath);
+        const outputSrtPath = join(outputDir, basename(outputPath, extname(outputPath)) + ".srt");
+        await writeFile(outputSrtPath, srtContent);
+
+        const isM = process.platform === "darwin";
+        const fix = isM
+          ? "brew uninstall ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass --with-freetype"
+          : "sudo apt install libass-dev && sudo apt install --reinstall ffmpeg";
+        return {
+          success: false,
+          error: `FFmpeg missing subtitle support (libass/freetype).\nSRT saved to: ${outputSrtPath}\nFix: ${fix}`,
+        };
+      }
+
+      // Step 6: Burn captions with FFmpeg
       const forceStyle = getCaptionForceStyle(style, fontSize, fontColor, position);
-      // Escape colons and backslashes in srtPath for FFmpeg filter syntax
       const escapedSrtPath = srtPath.replace(/\\/g, "/").replace(/:/g, "\\:");
-      const cmd = `ffmpeg -i "${videoPath}" -vf "subtitles=${escapedSrtPath}:force_style='${forceStyle}'" -c:a copy "${outputPath}" -y`;
+      let cmd: string;
+      if (hasSubtitles) {
+        cmd = `ffmpeg -i "${videoPath}" -vf "subtitles=${escapedSrtPath}:force_style='${forceStyle}'" -c:a copy "${outputPath}" -y`;
+      } else {
+        // Fallback: drawtext filter reads SRT line by line (simpler styling)
+        cmd = `ffmpeg -i "${videoPath}" -vf "drawtext=textfile='${escapedSrtPath}':fontsize=${fontSize}:fontcolor=white:x=(w-text_w)/2:y=h-th-${position === "top" ? "h*0.85" : "30"}:borderw=3:bordercolor=black" -c:a copy "${outputPath}" -y`;
+      }
       await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
 
       // Copy SRT to output directory for user reference

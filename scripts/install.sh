@@ -121,9 +121,22 @@ echo -e "  ${DIM}Git $(git --version | cut -d' ' -f3)${NC}"
 # FFmpeg (optional but recommended)
 if check_cmd ffmpeg; then
   echo -e "  ${DIM}FFmpeg $(ffmpeg -version 2>&1 | head -1 | cut -d' ' -f3)${NC}"
+  # Check for subtitle/text support (needed for caption command)
+  if ! ffmpeg -filters 2>/dev/null | grep -q "subtitles"; then
+    warn "FFmpeg missing subtitle support (libass). Caption command won't work."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      echo -e "  ${DIM}Fix: brew uninstall ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass --with-freetype${NC}"
+    else
+      echo -e "  ${DIM}Fix: sudo apt install libass-dev && sudo apt install --reinstall ffmpeg${NC}"
+    fi
+  fi
 else
   warn "FFmpeg not found. Some features may not work."
-  echo -e "  ${DIM}Install: brew install ffmpeg (macOS) or apt install ffmpeg (Ubuntu)${NC}"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo -e "  ${DIM}Install: brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass --with-freetype${NC}"
+  else
+    echo -e "  ${DIM}Install: sudo apt install ffmpeg${NC}"
+  fi
 fi
 
 echo ""
