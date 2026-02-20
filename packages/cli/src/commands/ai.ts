@@ -9283,54 +9283,25 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
       return { success: false, error: "No non-silent segments found" };
     }
 
-    // Extract segments and concat using FFmpeg concat demuxer
-    const tmpDir = `/tmp/vibe_silence_${Date.now()}`;
-    await mkdir(tmpDir, { recursive: true });
+    // Build select/aselect filter expression for non-silent segments
+    // This re-encodes in a single pass — no keyframe alignment issues
+    const selectParts = segments.map(
+      (seg) => `between(t,${seg.start.toFixed(4)},${seg.end.toFixed(4)})`,
+    );
+    const selectExpr = selectParts.join("+");
 
-    try {
-      // Extract each non-silent segment with stream copy (no re-encode)
-      const segmentPaths: string[] = [];
-      for (let i = 0; i < segments.length; i++) {
-        const seg = segments[i];
-        const segPath = join(tmpDir, `seg-${i.toString().padStart(4, "0")}.ts`);
-        const duration = seg.end - seg.start;
-        await execAsync(
-          `ffmpeg -i "${videoPath}" -ss ${seg.start} -t ${duration} -c copy -avoid_negative_ts make_zero "${segPath}" -y`,
-          { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-        );
-        segmentPaths.push(segPath);
-      }
+    await execAsync(
+      `ffmpeg -i "${videoPath}" -vf "select='${selectExpr}',setpts=N/FRAME_RATE/TB" -af "aselect='${selectExpr}',asetpts=N/SR/TB" -c:v libx264 -preset fast -crf 18 -c:a aac -b:a 192k "${outputPath}" -y`,
+      { timeout: 600000, maxBuffer: 50 * 1024 * 1024 },
+    );
 
-      // Create concat list
-      const concatList = segmentPaths.map((p) => `file '${p}'`).join("\n");
-      const listPath = join(tmpDir, "concat.txt");
-      await writeFile(listPath, concatList);
-
-      // Concat segments
-      await execAsync(
-        `ffmpeg -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}" -y`,
-        { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-      );
-
-      return {
-        success: true,
-        outputPath,
-        totalDuration,
-        silentPeriods: periods,
-        silentDuration,
-      };
-    } finally {
-      // Cleanup temp files
-      try {
-        const files = await readdir(tmpDir);
-        for (const f of files) {
-          await unlink(join(tmpDir, f));
-        }
-        await execAsync(`rmdir "${tmpDir}"`);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
+    return {
+      success: true,
+      outputPath,
+      totalDuration,
+      silentPeriods: periods,
+      silentDuration,
+    };
   } catch (error) {
     return {
       success: false,
