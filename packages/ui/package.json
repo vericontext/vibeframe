@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/ui",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "description": "VibeFrame UI - shared React components (Radix UI + Tailwind)",
   "private": true,
   "license": "MIT",
