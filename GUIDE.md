@@ -41,7 +41,7 @@ For model IDs, environment variables, and CLI options → **[models.md](MODELS.m
 
 ```bash
 vibe --version
-# Expected: 0.4.x
+# Expected: 0.19.x
 
 vibe --help
 # Shows all available commands
@@ -558,6 +558,123 @@ you> convert sunset.png to video using kling
 # Agent will use Kling v2.5-turbo
 
 you> check video generation status
+```
+
+---
+
+### Motion Graphics (Remotion)
+
+Generate animated overlays on images or videos using Claude/Gemini + Remotion.
+
+```bash
+# Standalone motion graphic (renders .mp4 directly)
+vibe ai motion "cinematic title card: 'VibeFrame'" --render -o title.mp4
+
+# Composite onto an image (Gemini analyzes image → Claude generates overlay)
+vibe ai motion "warm beach title card, slow fade-in" \
+  --image photo.png -o photo-motion.mp4 -d 5 -s cinematic
+
+# Composite onto a video (Gemini analyzes video → Claude generates lower-third)
+vibe ai motion "lower third: 'John Doe — CEO'" \
+  --video interview.mp4 -o interview-overlay.mp4 -s minimal
+
+# Refine an existing motion graphic without regenerating
+vibe ai motion "make the text larger and add gold glow" \
+  --from-tsx interview-overlay.tsx \
+  --video interview.mp4 -o interview-overlay-v2.mp4
+```
+
+**Style presets** (`-s` / `--style`):
+
+| Style | Description |
+|-------|-------------|
+| `minimal` | Center-aligned typography, thin lines, no panels (Apple Keynote) |
+| `corporate` | Data bar + counters, brand stripe (Bloomberg/CNBC) |
+| `playful` | Bounce animations, bright colors (YouTube/TikTok) |
+| `cinematic` | Glass lower-third + typewriter (Netflix/ESPN) |
+| `fullscreen` | Full-screen title card, particle field (film opening) |
+| `hud` | HUD data overlay, corner brackets, scan line (sci-fi) |
+| `split` | Diagonal split, dual-panel (sports matchup) |
+
+**Model options** (`-m` / `--model`):
+
+| Alias | Model | Notes |
+|-------|-------|-------|
+| `sonnet` (default) | `claude-sonnet-4-6` | Best for motion graphics |
+| `opus` | `claude-opus-4-6` | Highest quality |
+| `gemini` | `gemini-2.5-pro` | Fast Gemini alternative |
+| `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini alternative |
+
+---
+
+### Color Grading
+
+Apply cinematic color grades to videos using FFmpeg (Claude generates the filter).
+
+```bash
+# Preset-based grading
+vibe ai grade video.mp4 -p cinematic-warm -o graded.mp4
+
+# Presets: cinematic-warm, cinematic-cool, vintage, high-contrast
+vibe ai grade video.mp4 -p vintage -o vintage.mp4
+
+# Free-text style description
+vibe ai grade video.mp4 --style "dark moody horror, desaturated blues" -o moody.mp4
+```
+
+---
+
+### Auto-Editing
+
+AI-powered post-production editing commands (FFmpeg, no video generation cost).
+
+```bash
+# Remove silent segments
+vibe ai silence-cut video.mp4 -o cut.mp4
+
+# Remove filler words (um, uh, like…) using Whisper
+vibe ai jump-cut video.mp4 -o clean.mp4
+
+# Burn styled captions (Whisper transcription → FFmpeg drawtext)
+vibe ai caption video.mp4 -s bold -o captioned.mp4
+
+# Reframe 16:9 → 9:16 (Claude detects subject position)
+vibe ai reframe video.mp4 --aspect 9:16 -o vertical.mp4
+
+# Noise reduction
+vibe ai noise-reduce video.mp4 -o denoised.mp4
+
+# Fade in/out
+vibe ai fade video.mp4 --fade-in 1.5 --fade-out 1.5 -o faded.mp4
+```
+
+---
+
+### Auto Narrate & Dub
+
+```bash
+# Auto-generate narration from video content (Gemini Vision → ElevenLabs TTS)
+vibe ai narrate video.mp4 -l ko -s energetic -o narrated/
+
+# Dub audio to another language (Whisper → translation → TTS)
+vibe ai dub narration.mp3 -l en -o dubbed-en.mp3
+```
+
+---
+
+### Viral Optimizer & B-Roll Matcher
+
+```bash
+# Optimize for multiple platforms (Whisper + Claude + FFmpeg)
+vibe ai viral project.vibe.json -p youtube-shorts,tiktok -o viral-out/
+vibe export viral-out/youtube-shorts.vibe.json -o youtube-shorts.mp4 -y
+vibe export viral-out/tiktok.vibe.json -o tiktok.mp4 -y
+
+# Match B-roll to narration segments (Whisper + Claude)
+vibe ai b-roll narration.mp3 \
+  --broll clip1.mp4,clip2.mp4,clip3.mp4 \
+  -o broll-project.vibe.json
+vibe export broll-project.vibe.json -o broll-result.mp4 -y
 ```
 
 ---
