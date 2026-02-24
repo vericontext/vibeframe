@@ -77,9 +77,9 @@ export default function LandingPage() {
 
           {/* Install Command */}
           <div className="bg-gradient-to-r from-secondary to-secondary/50 rounded-xl p-1 max-w-xl mx-auto mb-8 animate-fade-in-up delay-200 shadow-xl">
-            <div className="flex items-center gap-2 px-4 py-3 bg-background rounded-lg font-mono text-sm">
-              <span className="text-primary">$</span>
-              <span className="text-foreground">curl -fsSL https://vibeframe.ai/install.sh | bash</span>
+            <div className="flex items-center gap-2 px-4 py-3 bg-background rounded-lg font-mono text-xs sm:text-sm overflow-x-auto">
+              <span className="text-primary flex-shrink-0">$</span>
+              <span className="text-foreground whitespace-nowrap">curl -fsSL https://vibeframe.ai/install.sh | bash</span>
               <CopyButton text="curl -fsSL https://vibeframe.ai/install.sh | bash" />
             </div>
           </div>
@@ -129,7 +129,7 @@ export default function LandingPage() {
               <div className="w-3 h-3 rounded-full bg-green-500/80" />
               <span className="ml-2 text-sm text-muted-foreground">terminal</span>
             </div>
-            <pre className="p-6 text-sm overflow-x-auto">
+            <pre className="p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto">
               <code className="text-muted-foreground"># Remove silence from an interview{"\n"}</code>
               <code className="text-foreground">vibe ai silence-cut interview.mp4 -o clean.mp4{"\n"}</code>
               <code className="text-green-400">{"✓ Removed 12 silent segments (saved 47s)\n\n"}</code>
@@ -482,13 +482,13 @@ function CopyButton({ text }: { text: string }) {
 function ClaudeCodeExample({ input, command }: { input: string; command: string }) {
   return (
     <div className="grid md:grid-cols-2 gap-3">
-      <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl px-5 py-4 flex items-center gap-3">
+      <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3">
         <MessageSquare className="w-4 h-4 text-orange-400 flex-shrink-0" />
-        <span className="text-sm text-foreground">&ldquo;{input}&rdquo;</span>
+        <span className="text-xs sm:text-sm text-foreground">&ldquo;{input}&rdquo;</span>
       </div>
-      <div className="bg-secondary/50 border border-border/50 rounded-xl px-5 py-4 flex items-center gap-3">
-        <Terminal className="w-4 h-4 text-green-400 flex-shrink-0" />
-        <code className="text-sm text-foreground font-mono break-all">{command}</code>
+      <div className="bg-secondary/50 border border-border/50 rounded-xl px-4 sm:px-5 py-3 sm:py-4 flex items-start gap-3 overflow-hidden">
+        <Terminal className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+        <code className="text-xs sm:text-sm text-foreground font-mono break-words min-w-0">{command}</code>
       </div>
     </div>
   );
@@ -521,15 +521,19 @@ function TerminalAnimation() {
   }, []);
 
   return (
-    <div className="p-4 font-mono text-sm min-h-[320px]">
-      {/* ASCII Logo */}
-      <div className="text-purple-400 text-[10px] leading-tight mb-4 whitespace-pre">
+    <div className="p-4 font-mono text-xs sm:text-sm min-h-[280px] sm:min-h-[320px]">
+      {/* ASCII Logo - hidden on mobile */}
+      <div className="hidden sm:block text-purple-400 text-[10px] leading-tight mb-4 whitespace-pre">
 {`██╗   ██╗██╗██████╗ ███████╗  ███████╗██████╗  █████╗ ███╗   ███╗███████╗
 ██║   ██║██║██╔══██╗██╔════╝  ██╔════╝██╔══██╗██╔══██╗████╗ ████║██╔════╝
 ██║   ██║██║██████╔╝█████╗    █████╗  ██████╔╝███████║██╔████╔██║█████╗
 ╚██╗ ██╔╝██║██╔══██╗██╔══╝    ██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝
  ╚████╔╝ ██║██████╔╝███████╗  ██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗
   ╚═══╝  ╚═╝╚═════╝ ╚══════╝  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝`}
+      </div>
+      {/* Compact logo for mobile */}
+      <div className="sm:hidden text-purple-400 font-bold text-lg mb-2">
+        VibeFrame
       </div>
       <div className="text-muted-foreground text-xs mb-4">
         58 tools · openai<br/>
