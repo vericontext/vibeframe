@@ -31,7 +31,7 @@ import type { TimelineCommand } from "@vibeframe/ai-providers";
 // Module registrations
 import { registerAudioCommands } from "./ai-audio.js";
 import { registerImageCommands } from "./ai-image.js";
-import { registerEditCommands } from "./ai-edit.js";
+import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerVideoCommands } from "./ai-video.js";
 import { registerAnalyzeCommands } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
