@@ -4,6 +4,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
+import { resolve } from "node:path";
+import { access } from "node:fs/promises";
 import {
   loadConfig,
   saveConfig,
@@ -19,6 +21,7 @@ import {
   closeTTYStream,
   hasTTY,
 } from "../utils/tty.js";
+import { loadEnv } from "../utils/api-key.js";
 
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
@@ -269,27 +272,44 @@ function getEnvVarName(provider: LLMProvider): string {
  * Show current configuration for debugging
  */
 async function showConfig(): Promise<void> {
+  // Load CWD .env before showing config
+  loadEnv();
+
+  const cwdEnvPath = resolve(process.cwd(), ".env");
+  let hasCwdEnv = false;
+  try {
+    await access(cwdEnvPath);
+    hasCwdEnv = true;
+  } catch {
+    // no .env in CWD
+  }
+
   console.log();
   console.log(chalk.bold.magenta("VibeFrame Configuration"));
   console.log(chalk.dim("─".repeat(40)));
   console.log();
   console.log(chalk.dim(`Config file: ${CONFIG_PATH}`));
+  if (hasCwdEnv) {
+    console.log(chalk.dim(`Project .env: ${cwdEnvPath}`));
+  }
   console.log();
 
   const config = await loadConfig();
 
-  if (!config) {
+  if (!config && !hasCwdEnv) {
     console.log(chalk.yellow("No configuration found."));
-    console.log(chalk.dim("Run 'vibe setup' to configure."));
+    console.log(chalk.dim("Run 'vibe setup' or create .env in your project directory."));
     return;
   }
 
   // Show LLM provider
-  console.log(chalk.bold("LLM Provider:"));
-  console.log(`  ${PROVIDER_NAMES[config.llm.provider]}`);
-  console.log();
+  if (config) {
+    console.log(chalk.bold("LLM Provider:"));
+    console.log(`  ${PROVIDER_NAMES[config.llm.provider]}`);
+    console.log();
+  }
 
-  // Show API keys (masked)
+  // Show API keys (masked) with source priority
   console.log(chalk.bold("API Keys:"));
   const providerKeys = [
     { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY" },
@@ -305,11 +325,26 @@ async function showConfig(): Promise<void> {
   ];
 
   for (const p of providerKeys) {
-    const configValue = config.providers[p.key as keyof typeof config.providers];
+    const configValue = config?.providers[p.key as keyof typeof config.providers];
     const envValue = process.env[p.env];
 
     if (configValue || envValue) {
-      const source = configValue ? "config" : "env";
+      // Determine source: if env value matches config value, it's config.
+      // If env is set and differs from config (or no config), it's from .env
+      let source: string;
+      if (configValue && envValue && configValue === envValue) {
+        source = "config";
+      } else if (configValue && !envValue) {
+        source = "config";
+      } else if (envValue && !configValue) {
+        source = ".env";
+      } else if (envValue && configValue && envValue !== configValue) {
+        // Both set but different — env was loaded from .env, config exists too
+        // Show the effective value (config takes priority in getApiKey)
+        source = "config";
+      } else {
+        source = "env";
+      }
       const value = configValue || envValue || "";
       const status = chalk.green("✓");
       console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${source})`);
@@ -321,8 +356,18 @@ async function showConfig(): Promise<void> {
   console.log();
 
   // Show defaults
-  console.log(chalk.bold("Defaults:"));
-  console.log(`  Aspect Ratio: ${config.defaults.aspectRatio}`);
-  console.log(`  Export Quality: ${config.defaults.exportQuality}`);
+  if (config) {
+    console.log(chalk.bold("Defaults:"));
+    console.log(`  Aspect Ratio: ${config.defaults.aspectRatio}`);
+    console.log(`  Export Quality: ${config.defaults.exportQuality}`);
+    console.log();
+  }
+
+  // Show resolution order
+  console.log(chalk.bold("Resolution order:"));
+  console.log(chalk.dim("  1. --api-key CLI option"));
+  console.log(chalk.dim(`  2. ${CONFIG_PATH}`));
+  console.log(chalk.dim("  3. .env in current directory"));
+  console.log(chalk.dim("  4. Shell environment variables"));
   console.log();
 }
