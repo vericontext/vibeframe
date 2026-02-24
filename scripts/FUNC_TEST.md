@@ -65,7 +65,7 @@ pip install yt-dlp
 
 **Download TED Talk** (Robert Waldinger — "What makes a good life?", ~12 min)
 ```bash
-yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4" \
+yt-dlp -f "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/mp4" \
   --merge-output-format mp4 \
   -o "test-results/ted-talk.mp4" \
   "https://www.youtube.com/watch?v=8KkKuTCFvzI"
