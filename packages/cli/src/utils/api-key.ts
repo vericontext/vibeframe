@@ -5,10 +5,25 @@ import { config } from "dotenv";
 import chalk from "chalk";
 import { getApiKeyFromConfig } from "../config/index.js";
 
-// Load .env from project root (where package.json is)
-function findProjectRoot(): string {
+/**
+ * Load environment variables from .env files.
+ * Priority: CWD .env (project-scoped) > monorepo root .env (development)
+ * Later loads don't override earlier values, so CWD takes precedence.
+ */
+export function loadEnv(): void {
+  // 1. Load from current working directory (project-scoped, highest priority)
+  config({ path: resolve(process.cwd(), ".env") });
+
+  // 2. Load from monorepo root if in development (won't override existing vars)
+  const monorepoRoot = findMonorepoRoot();
+  if (monorepoRoot && monorepoRoot !== process.cwd()) {
+    config({ path: resolve(monorepoRoot, ".env") });
+  }
+}
+
+// Find monorepo root for development environments
+function findMonorepoRoot(): string | null {
   let dir = process.cwd();
-  // Walk up to find the monorepo root (where pnpm-workspace.yaml is)
   while (dir !== "/") {
     try {
       require.resolve(resolve(dir, "pnpm-workspace.yaml"));
@@ -17,15 +32,7 @@ function findProjectRoot(): string {
       dir = resolve(dir, "..");
     }
   }
-  return process.cwd();
-}
-
-/**
- * Load environment variables from .env file
- */
-export function loadEnv(): void {
-  const projectRoot = findProjectRoot();
-  config({ path: resolve(projectRoot, ".env") });
+  return null;
 }
 
 /**
@@ -127,7 +134,7 @@ export async function getApiKey(
   // 5. Prompt for API key
   console.log();
   console.log(chalk.yellow(`${providerName} API key not found.`));
-  console.log(chalk.dim(`Set ${envVar} in .env, run 'vibe setup', or enter below.`));
+  console.log(chalk.dim(`Set ${envVar} in .env (current directory), run 'vibe setup', or enter below.`));
   console.log();
 
   const apiKey = await prompt(chalk.cyan(`Enter ${providerName} API key: `), true);
@@ -151,8 +158,7 @@ export async function getApiKey(
  * Save API key to .env file
  */
 async function saveApiKeyToEnv(envVar: string, apiKey: string): Promise<void> {
-  const projectRoot = findProjectRoot();
-  const envPath = resolve(projectRoot, ".env");
+  const envPath = resolve(process.cwd(), ".env");
 
   let content = "";
 
