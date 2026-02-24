@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/mcp-server",
-  "version": "0.19.4",
+  "version": "0.20.0",
   "description": "VibeFrame MCP Server - AI-native video editing via Model Context Protocol",
   "type": "module",
   "bin": {
@@ -50,9 +50,15 @@
     "openai": ">=4.0.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": { "optional": true },
-    "@google/generative-ai": { "optional": true },
-    "openai": { "optional": true }
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
