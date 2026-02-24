@@ -14,6 +14,8 @@ import {
   GEMINI_MOTION_MODELS,
 } from "./gemini-motion.js";
 import type { GeminiMotionOptions, GeminiMotionResult } from "./gemini-motion.js";
+import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
+import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 
 /**
  * Gemini model types for image generation
@@ -1192,6 +1194,19 @@ Respond with ONLY the JSON array, no other text.`;
       return { success: false, error: "Google API key not configured" };
     }
     return refineMotionImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, existingCode, instructions, options);
+  }
+
+  /**
+   * Generate a storyboard from script content using Gemini 2.5 Flash.
+   * Alternative to ClaudeProvider.analyzeContent for when Claude is unavailable.
+   */
+  async analyzeContent(
+    content: string,
+    targetDuration?: number,
+    options?: { creativity?: "low" | "high" }
+  ): Promise<StoryboardSegment[]> {
+    if (!this.apiKey) return [];
+    return analyzeContentImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, content, targetDuration, options);
   }
 }
 

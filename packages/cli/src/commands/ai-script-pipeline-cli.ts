@@ -13,6 +13,7 @@ import chalk from "chalk";
 import ora from "ora";
 import {
   GeminiProvider,
+  OpenAIProvider,
   OpenAIImageProvider,
   ClaudeProvider,
   ElevenLabsProvider,
@@ -57,6 +58,7 @@ aiCommand
   .option("--sequential", "Generate videos one at a time (slower but more reliable)")
   .option("--concurrency <count>", "Max concurrent video tasks in parallel mode (default: 3)", "3")
   .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
+  .option("-s, --storyboard-provider <provider>", "Storyboard provider: claude (default), openai, or gemini", "claude")
   .option("--no-text-overlay", "Skip text overlay step")
   .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
   .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
@@ -66,10 +68,30 @@ aiCommand
       // Load environment variables from .env file
       loadEnv();
 
-      // Get all required API keys upfront
-      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-      if (!claudeApiKey) {
-        console.error(chalk.red("Anthropic API key required for storyboard generation"));
+      // Get storyboard provider API key
+      const storyboardProvider = (options.storyboardProvider || "claude") as "claude" | "openai" | "gemini";
+      let storyboardApiKey: string | undefined;
+
+      if (storyboardProvider === "openai") {
+        storyboardApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
+        if (!storyboardApiKey) {
+          console.error(chalk.red("OpenAI API key required for storyboard generation (-s openai)"));
+          process.exit(1);
+        }
+      } else if (storyboardProvider === "gemini") {
+        storyboardApiKey = (await getApiKey("GOOGLE_API_KEY", "Google")) ?? undefined;
+        if (!storyboardApiKey) {
+          console.error(chalk.red("Google API key required for storyboard generation (-s gemini)"));
+          process.exit(1);
+        }
+      } else if (storyboardProvider === "claude") {
+        storyboardApiKey = (await getApiKey("ANTHROPIC_API_KEY", "Anthropic")) ?? undefined;
+        if (!storyboardApiKey) {
+          console.error(chalk.red("Anthropic API key required for storyboard generation"));
+          process.exit(1);
+        }
+      } else {
+        console.error(chalk.red(`Unknown storyboard provider: ${storyboardProvider}. Use claude, openai, or gemini`));
         process.exit(1);
       }
 
@@ -169,20 +191,30 @@ aiCommand
       }
       console.log();
 
-      // Step 1: Generate storyboard with Claude
+      // Step 1: Generate storyboard
+      const providerLabel = storyboardProvider.charAt(0).toUpperCase() + storyboardProvider.slice(1);
       const storyboardSpinnerText = creativity === "high"
-        ? "📝 Analyzing script with Claude (high creativity)..."
-        : "📝 Analyzing script with Claude...";
+        ? `Analyzing script with ${providerLabel} (high creativity)...`
+        : `Analyzing script with ${providerLabel}...`;
       const storyboardSpinner = ora(storyboardSpinnerText).start();
 
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey: claudeApiKey });
+      let segments: StoryboardSegment[];
+      const creativityOpts = { creativity: creativity as "low" | "high" | undefined };
+      const durationOpt = options.duration ? parseFloat(options.duration) : undefined;
 
-      const segments = await claude.analyzeContent(
-        scriptContent,
-        options.duration ? parseFloat(options.duration) : undefined,
-        { creativity: creativity as "low" | "high" | undefined }
-      );
+      if (storyboardProvider === "openai") {
+        const openai = new OpenAIProvider();
+        await openai.initialize({ apiKey: storyboardApiKey! });
+        segments = await openai.analyzeContent(scriptContent, durationOpt, creativityOpts);
+      } else if (storyboardProvider === "gemini") {
+        const gemini = new GeminiProvider();
+        await gemini.initialize({ apiKey: storyboardApiKey! });
+        segments = await gemini.analyzeContent(scriptContent, durationOpt, creativityOpts);
+      } else {
+        const claude = new ClaudeProvider();
+        await claude.initialize({ apiKey: storyboardApiKey! });
+        segments = await claude.analyzeContent(scriptContent, durationOpt, creativityOpts);
+      }
 
       if (segments.length === 0) {
         storyboardSpinner.fail(chalk.red("Failed to generate storyboard (check API key and error above)"));

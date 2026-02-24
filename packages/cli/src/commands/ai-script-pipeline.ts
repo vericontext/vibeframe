@@ -24,6 +24,7 @@ import { promisify } from "node:util";
 import chalk from "chalk";
 import {
   GeminiProvider,
+  OpenAIProvider,
   OpenAIImageProvider,
   ClaudeProvider,
   ElevenLabsProvider,
@@ -373,6 +374,8 @@ export interface ScriptToVideoOptions {
   retries?: number;
   /** Creativity level for storyboard generation: low (default, consistent) or high (varied, unexpected) */
   creativity?: "low" | "high";
+  /** Provider for storyboard generation: claude (default), openai, or gemini */
+  storyboardProvider?: "claude" | "openai" | "gemini";
   /** Skip text overlay step */
   noTextOverlay?: boolean;
   /** Text overlay style preset */
@@ -456,10 +459,26 @@ export async function executeScriptToVideo(
   const outputDir = options.outputDir || "script-video-output";
 
   try {
-    // Get all required API keys
-    const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-    if (!claudeApiKey) {
-      return { success: false, outputDir, scenes: 0, error: "Anthropic API key required for storyboard generation" };
+    // Get storyboard provider API key
+    const storyboardProvider = options.storyboardProvider || "claude";
+    let storyboardApiKey: string | undefined;
+
+    if (storyboardProvider === "openai") {
+      storyboardApiKey = (await getApiKey("OPENAI_API_KEY", "OpenAI")) ?? undefined;
+      if (!storyboardApiKey) {
+        return { success: false, outputDir, scenes: 0, error: "OpenAI API key required for storyboard generation (--storyboard-provider openai)" };
+      }
+    } else if (storyboardProvider === "gemini") {
+      storyboardApiKey = (await getApiKey("GOOGLE_API_KEY", "Google")) ?? undefined;
+      if (!storyboardApiKey) {
+        return { success: false, outputDir, scenes: 0, error: "Google API key required for storyboard generation (--storyboard-provider gemini)" };
+      }
+    } else {
+      // Default: Claude
+      storyboardApiKey = (await getApiKey("ANTHROPIC_API_KEY", "Anthropic")) ?? undefined;
+      if (!storyboardApiKey) {
+        return { success: false, outputDir, scenes: 0, error: "Anthropic API key required for storyboard generation" };
+      }
     }
 
     // Get image provider API key
@@ -512,15 +531,24 @@ export async function executeScriptToVideo(
       await mkdir(absOutputDir, { recursive: true });
     }
 
-    // Step 1: Generate storyboard with Claude
-    const claude = new ClaudeProvider();
-    await claude.initialize({ apiKey: claudeApiKey });
+    // Step 1: Generate storyboard
+    let segments: StoryboardSegment[];
+    const creativityOpts = { creativity: options.creativity };
 
-    const segments = await claude.analyzeContent(
-      options.script,
-      options.duration,
-      { creativity: options.creativity }
-    );
+    if (storyboardProvider === "openai") {
+      const openai = new OpenAIProvider();
+      await openai.initialize({ apiKey: storyboardApiKey! });
+      segments = await openai.analyzeContent(options.script, options.duration, creativityOpts);
+    } else if (storyboardProvider === "gemini") {
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey: storyboardApiKey! });
+      segments = await gemini.analyzeContent(options.script, options.duration, creativityOpts);
+    } else {
+      const claude = new ClaudeProvider();
+      await claude.initialize({ apiKey: storyboardApiKey! });
+      segments = await claude.analyzeContent(options.script, options.duration, creativityOpts);
+    }
+
     if (segments.length === 0) {
       return { success: false, outputDir, scenes: 0, error: "Failed to generate storyboard" };
     }

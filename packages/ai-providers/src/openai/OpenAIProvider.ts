@@ -6,6 +6,8 @@ import type {
   CommandParseResult,
   TimelineCommand,
 } from "../interface/types.js";
+import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
+import { analyzeContent as analyzeContentImpl } from "./openai-storyboard.js";
 
 /**
  * OpenAI GPT provider for natural language timeline commands
@@ -440,6 +442,19 @@ Each segment should be 3-10 seconds long.`;
         error: error instanceof Error ? error.message : "Failed to generate narration script",
       };
     }
+  }
+
+  /**
+   * Generate a storyboard from script content using GPT-4o.
+   * Alternative to ClaudeProvider.analyzeContent for when Claude is unavailable.
+   */
+  async analyzeContent(
+    content: string,
+    targetDuration?: number,
+    options?: { creativity?: "low" | "high" }
+  ): Promise<StoryboardSegment[]> {
+    if (!this.apiKey) return [];
+    return analyzeContentImpl(this.apiKey, content, targetDuration, options);
   }
 }
 

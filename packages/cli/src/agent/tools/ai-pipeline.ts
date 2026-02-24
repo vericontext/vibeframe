@@ -36,7 +36,7 @@ function getTimestamp(): string {
 const scriptToVideoDef: ToolDefinition = {
   name: "ai_script_to_video",
   description:
-    "Generate complete video from text script. Full pipeline: Claude storyboard → ElevenLabs TTS → Image gen (DALL-E/Stability/Gemini) → Video gen (Runway/Kling). Creates project file with all assets.",
+    "Generate complete video from text script. Full pipeline: storyboard (Claude/OpenAI/Gemini) → ElevenLabs TTS → Image gen (DALL-E/Stability/Gemini) → Video gen (Runway/Kling). Creates project file with all assets.",
   parameters: {
     type: "object",
     properties: {
@@ -87,6 +87,11 @@ const scriptToVideoDef: ToolDefinition = {
         type: "string",
         description: "Creativity level for storyboard: 'low' (default, consistent scenes) or 'high' (varied, unexpected scenes)",
         enum: ["low", "high"],
+      },
+      storyboardProvider: {
+        type: "string",
+        description: "Provider for storyboard generation: 'claude' (default), 'openai', or 'gemini'",
+        enum: ["claude", "openai", "gemini"],
       },
     },
     required: ["script"],
@@ -398,6 +403,7 @@ const scriptToVideoHandler: ToolHandler = async (args, context): Promise<ToolRes
       noVoiceover: args.noVoiceover as boolean | undefined,
       retries: args.retries as number | undefined,
       creativity: args.creativity as "low" | "high" | undefined,
+      storyboardProvider: args.storyboardProvider as "claude" | "openai" | "gemini" | undefined,
     });
 
     if (!result.success) {
