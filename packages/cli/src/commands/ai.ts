@@ -36,7 +36,7 @@ import { registerVideoCommands } from "./ai-video.js";
 import { registerAnalyzeCommands } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
-import { registerScriptPipelineCommands } from "./ai-script-pipeline.js";
+import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerMotionCommand } from "./ai-motion.js";
 import { registerSuggestEditCommands } from "./ai-suggest-edit.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
