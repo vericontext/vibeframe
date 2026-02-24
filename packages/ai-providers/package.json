@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/ai-providers",
-  "version": "0.19.4",
+  "version": "0.20.0",
   "description": "VibeFrame AI Providers - pluggable AI integrations (OpenAI, Claude, Gemini, etc.)",
   "private": true,
   "license": "MIT",
@@ -8,6 +8,9 @@
     "type": "git",
     "url": "https://github.com/vericontext/vibeframe.git",
     "directory": "packages/ai-providers"
+  },
+  "bugs": {
+    "url": "https://github.com/vericontext/vibeframe/issues"
   },
   "keywords": [
     "vibeframe",
