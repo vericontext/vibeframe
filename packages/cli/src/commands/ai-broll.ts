@@ -1,11 +1,14 @@
 /**
- * ai-broll.ts — B-Roll Matcher command (vibe ai b-roll).
+ * @module ai-broll
+ * @description B-Roll Matcher command. Matches B-roll footage to narration
+ * content using Whisper transcription and Claude Vision analysis.
  *
- * Matches B-roll footage to narration content using Whisper transcription
- * and Claude Vision analysis.
+ * ## Commands: vibe ai b-roll
+ * ## Dependencies: Whisper, Claude
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerBrollCommand(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from "commander";

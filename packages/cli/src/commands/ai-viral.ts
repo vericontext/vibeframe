@@ -1,8 +1,12 @@
 /**
- * AI Viral Optimizer Command
+ * @module ai-viral
+ * @description AI Viral Optimizer. Optimizes video for viral potential across
+ * platforms (YouTube, TikTok, Instagram, Twitter). Analyzes content with
+ * Whisper + Claude, generates platform-specific cuts and captions.
  *
- * Optimizes video for viral potential across platforms (YouTube, TikTok, Instagram, Twitter).
- * Analyzes content with Whisper + Claude, generates platform-specific cuts and captions.
+ * ## Commands: vibe ai viral
+ * ## Dependencies: Whisper, Claude, FFmpeg
+ * @see MODELS.md for AI model configuration
  */
 
 import { Command } from "commander";

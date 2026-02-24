@@ -1,10 +1,13 @@
 /**
- * ai-suggest-edit.ts — Suggest, edit, and storyboard commands for the VibeFrame CLI.
+ * @module ai-suggest-edit
+ * @description AI suggest, edit, and storyboard CLI commands.
  *
- * Commands: suggest, edit, storyboard
+ * ## Commands: vibe ai suggest, vibe ai edit, vibe ai storyboard
+ * ## Dependencies: Gemini, OpenAI, Claude
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerSuggestEditCommands(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

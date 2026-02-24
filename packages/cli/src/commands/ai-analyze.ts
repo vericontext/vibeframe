@@ -1,3 +1,17 @@
+/**
+ * @module ai-analyze
+ *
+ * Media analysis execute functions using Gemini multimodal AI.
+ *
+ * CLI commands: gemini-video, analyze
+ *
+ * Execute functions:
+ *   executeGeminiVideo - Analyze video files or YouTube URLs with Gemini
+ *   executeAnalyze     - Unified analysis for images, videos, and YouTube URLs
+ *
+ * @dependencies Gemini (Google)
+ */
+
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
@@ -7,26 +21,51 @@ import ora from "ora";
 import { GeminiProvider } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 
+/** Options for {@link executeGeminiVideo}. */
 export interface GeminiVideoOptions {
+  /** Video file path or YouTube URL */
   source: string;
+  /** Analysis prompt (e.g. "Summarize this video") */
   prompt: string;
+  /** Gemini model shorthand (default: "flash") */
   model?: "flash" | "flash-2.5" | "pro";
+  /** Frames per second for video sampling (default: 1) */
   fps?: number;
+  /** Start offset in seconds for clipping */
   start?: number;
+  /** End offset in seconds for clipping */
   end?: number;
+  /** Use low-resolution mode (fewer tokens, longer videos) */
   lowRes?: boolean;
 }
 
+/** Result from {@link executeGeminiVideo}. */
 export interface GeminiVideoResult {
+  /** Whether the analysis succeeded */
   success: boolean;
+  /** Gemini's text response */
   response?: string;
+  /** Model used for analysis */
   model?: string;
+  /** Total tokens consumed */
   totalTokens?: number;
+  /** Prompt tokens consumed */
   promptTokens?: number;
+  /** Response tokens generated */
   responseTokens?: number;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Analyze a video file or YouTube URL using Gemini multimodal AI.
+ *
+ * Supports local video files and YouTube URLs. Provides structured responses
+ * with optional token usage reporting.
+ *
+ * @param options - Video analysis configuration
+ * @returns Result with Gemini's response text and token usage
+ */
 export async function executeGeminiVideo(
   options: GeminiVideoOptions
 ): Promise<GeminiVideoResult> {
@@ -87,27 +126,53 @@ export async function executeGeminiVideo(
   }
 }
 
+/** Options for {@link executeAnalyze}. */
 export interface AnalyzeOptions {
+  /** Image/video file path, image URL, or YouTube URL */
   source: string;
+  /** Analysis prompt (e.g. "Describe this image") */
   prompt: string;
+  /** Gemini model shorthand (default: "flash") */
   model?: "flash" | "flash-2.5" | "pro";
+  /** Frames per second for video sampling (default: 1) */
   fps?: number;
+  /** Start offset in seconds (video only) */
   start?: number;
+  /** End offset in seconds (video only) */
   end?: number;
+  /** Use low-resolution mode (fewer tokens) */
   lowRes?: boolean;
 }
 
+/** Result from {@link executeAnalyze}. */
 export interface AnalyzeResult {
+  /** Whether the analysis succeeded */
   success: boolean;
+  /** Gemini's text response */
   response?: string;
+  /** Model used for analysis */
   model?: string;
+  /** Detected source media type */
   sourceType?: "image" | "video" | "youtube";
+  /** Total tokens consumed */
   totalTokens?: number;
+  /** Prompt tokens consumed */
   promptTokens?: number;
+  /** Response tokens generated */
   responseTokens?: number;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Analyze any media source (image, video, or YouTube URL) using Gemini.
+ *
+ * Auto-detects source type from file extension or URL pattern. Supports
+ * local files, remote URLs, and YouTube links.
+ *
+ * @param options - Unified analysis configuration
+ * @returns Result with Gemini's response, detected source type, and token usage
+ */
 export async function executeAnalyze(
   options: AnalyzeOptions
 ): Promise<AnalyzeResult> {

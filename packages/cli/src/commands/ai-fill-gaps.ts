@@ -1,10 +1,13 @@
 /**
- * ai-fill-gaps.ts — Fill timeline gaps with AI-generated video (Kling image-to-video).
+ * @module ai-fill-gaps
+ * @description Fill timeline gaps with AI-generated video (Kling image-to-video).
  *
- * Commands: fill-gaps
+ * ## Commands: vibe ai fill-gaps
+ * ## Dependencies: Kling
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerFillGapsCommand(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

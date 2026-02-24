@@ -1,3 +1,17 @@
+/**
+ * @module ai-highlights
+ *
+ * Highlight extraction and auto-shorts generation for long-form content.
+ *
+ * CLI commands: highlights, auto-shorts
+ *
+ * Execute functions:
+ *   executeHighlights  - Extract best moments from video/audio (Whisper+Claude or Gemini)
+ *   executeAutoShorts   - Generate short-form vertical clips from long-form video
+ *
+ * @dependencies Whisper (OpenAI), Claude (Anthropic), Gemini (Google), FFmpeg
+ */
+
 import { Command } from "commander";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename, extname } from "node:path";
@@ -73,29 +87,58 @@ function truncate(text: string, maxLength: number): string {
 // Exported execute functions (used by agent tools)
 // ============================================================================
 
+/** Options for {@link executeHighlights}. */
 export interface HighlightsOptions {
+  /** Path to the video or audio file */
   media: string;
+  /** Path for the output JSON with highlight data */
   output?: string;
+  /** Path for a .vibe.json project with highlight clips */
   project?: string;
+  /** Target highlight reel duration in seconds */
   duration?: number;
+  /** Maximum number of highlights to return */
   count?: number;
+  /** Minimum confidence threshold 0-1 (default: 0.7) */
   threshold?: number;
+  /** Selection criteria filter */
   criteria?: "emotional" | "informative" | "funny" | "all";
+  /** Language code for Whisper transcription */
   language?: string;
+  /** Use Gemini multimodal analysis instead of Whisper+Claude */
   useGemini?: boolean;
+  /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
 }
 
+/** Result from {@link executeHighlights}. */
 export interface HighlightsExtractResult {
+  /** Whether the extraction succeeded */
   success: boolean;
+  /** Detected and filtered highlights */
   highlights: Highlight[];
+  /** Total source media duration in seconds */
   totalDuration: number;
+  /** Combined duration of all returned highlights in seconds */
   totalHighlightDuration: number;
+  /** Path to the output JSON (if --output specified) */
   outputPath?: string;
+  /** Path to the generated project file (if --project specified) */
   projectPath?: string;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Extract the best highlights from a video or audio file.
+ *
+ * Supports two analysis backends:
+ * - Whisper + Claude (default): transcribe audio, then analyze text for highlights
+ * - Gemini (--useGemini): multimodal visual+audio analysis for richer detection
+ *
+ * @param options - Highlight extraction configuration
+ * @returns Result with filtered highlights sorted by time
+ */
 export async function executeHighlights(
   options: HighlightsOptions
 ): Promise<HighlightsExtractResult> {
@@ -338,34 +381,66 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
   }
 }
 
+/** Options for {@link executeAutoShorts}. */
 export interface AutoShortsOptions {
+  /** Path to the source video file */
   video: string;
+  /** Output directory for generated short clips */
   outputDir?: string;
+  /** Target duration per short in seconds (default: 60) */
   duration?: number;
+  /** Number of shorts to generate (default: 1) */
   count?: number;
+  /** Output aspect ratio (default: "9:16") */
   aspect?: "9:16" | "1:1";
+  /** Add auto-generated captions to shorts */
   addCaptions?: boolean;
+  /** Caption visual style preset */
   captionStyle?: "minimal" | "bold" | "animated";
+  /** If true, only analyze without extracting clips */
   analyzeOnly?: boolean;
+  /** Language code for Whisper transcription */
   language?: string;
+  /** Use Gemini multimodal analysis instead of Whisper+Claude */
   useGemini?: boolean;
+  /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
 }
 
+/** Result from {@link executeAutoShorts}. */
 export interface AutoShortsResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Generated short clips with metadata */
   shorts: Array<{
+    /** 1-based index */
     index: number;
+    /** Start time in the source video (seconds) */
     startTime: number;
+    /** End time in the source video (seconds) */
     endTime: number;
+    /** Duration of the short (seconds) */
     duration: number;
+    /** Confidence/virality score 0-1 */
     confidence: number;
+    /** Why this moment was selected */
     reason: string;
+    /** Path to the extracted clip (undefined in analyze-only mode) */
     outputPath?: string;
   }>;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Auto-generate short-form vertical clips from a long-form video.
+ *
+ * Finds the best viral-worthy moments using Whisper+Claude or Gemini analysis,
+ * then extracts and crops them to the target aspect ratio using FFmpeg.
+ *
+ * @param options - Auto-shorts generation configuration
+ * @returns Result with extracted short clips and metadata
+ */
 export async function executeAutoShorts(
   options: AutoShortsOptions
 ): Promise<AutoShortsResult> {

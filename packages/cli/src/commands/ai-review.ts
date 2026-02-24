@@ -1,3 +1,16 @@
+/**
+ * @module ai-review
+ *
+ * AI-powered video quality review and auto-fix using Gemini.
+ *
+ * CLI command: review
+ *
+ * Execute function:
+ *   executeReview - Analyze video quality across 5 categories and optionally auto-fix
+ *
+ * @dependencies Gemini (Google), FFmpeg (auto-fix filters)
+ */
+
 import { Command } from "commander";
 import { readFile, rename } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -12,21 +25,35 @@ import type { VideoReviewFeedback } from "./ai-edit.js";
 
 const execAsync = promisify(exec);
 
+/** Options for {@link executeReview}. */
 export interface ReviewOptions {
+  /** Path to the video file to review */
   videoPath: string;
+  /** Optional storyboard JSON for context-aware review */
   storyboardPath?: string;
+  /** Automatically apply fixable corrections via FFmpeg */
   autoApply?: boolean;
+  /** Run a verification pass after applying fixes */
   verify?: boolean;
+  /** Gemini model shorthand (default: "flash") */
   model?: "flash" | "flash-2.5" | "pro";
+  /** Output path for the fixed video (auto-apply mode) */
   outputPath?: string;
 }
 
+/** Result from {@link executeReview}. */
 export interface ReviewResult {
+  /** Whether the review completed successfully */
   success: boolean;
+  /** Structured review feedback with per-category scores */
   feedback?: VideoReviewFeedback;
+  /** Descriptions of fixes that were auto-applied */
   appliedFixes?: string[];
+  /** Post-fix verification quality score 1-10 */
   verificationScore?: number;
+  /** Path to the reviewed/fixed output video */
   outputPath?: string;
+  /** Error message on failure */
   error?: string;
 }
 
@@ -53,6 +80,16 @@ function parseReviewFeedback(response: string): VideoReviewFeedback | null {
   }
 }
 
+/**
+ * Review video quality using Gemini AI and optionally auto-fix issues.
+ *
+ * Analyzes 5 quality categories (pacing, color, text readability, audio-visual
+ * sync, composition) and returns scored feedback. When auto-apply is enabled,
+ * applies fixable corrections via FFmpeg filters.
+ *
+ * @param options - Review configuration
+ * @returns Result with structured feedback and optional fix details
+ */
 export async function executeReview(options: ReviewOptions): Promise<ReviewResult> {
   const { videoPath, storyboardPath, autoApply = false, verify = false, model = "flash" } = options;
 

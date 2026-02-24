@@ -1,8 +1,13 @@
 /**
- * ai-video-fx.ts — Video FX commands (upscale, interpolate, inpaint, track-object).
+ * @module ai-video-fx
+ * @description Video FX commands (upscale, interpolate, inpaint, track-object).
+ *
+ * ## Commands: vibe ai upscale, vibe ai interpolate, vibe ai inpaint, vibe ai track-object
+ * ## Dependencies: Replicate
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts re-exports all public types and functions from this module.
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from "commander";

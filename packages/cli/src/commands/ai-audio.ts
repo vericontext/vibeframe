@@ -1,11 +1,15 @@
 /**
- * ai-audio.ts — Audio commands for the VibeFrame CLI.
+ * @module ai-audio
+ * @description Audio commands for the VibeFrame CLI.
  *
- * Commands: transcribe, tts, voices, sfx, isolate,
- *           voice-clone, music, music-status, audio-restore, dub, duck
+ * ## Commands: vibe ai transcribe, vibe ai tts, vibe ai voices, vibe ai sfx,
+ *             vibe ai isolate, vibe ai voice-clone, vibe ai music,
+ *             vibe ai music-status, vibe ai audio-restore, vibe ai dub, vibe ai duck
+ * ## Dependencies: Whisper, ElevenLabs, Replicate, FFmpeg
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerAudioCommands(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

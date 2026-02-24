@@ -1,3 +1,16 @@
+/**
+ * @module ai-video
+ * @description Video generation and management commands for the VibeFrame CLI.
+ *
+ * ## Commands: vibe ai video, vibe ai video-status, vibe ai video-cancel,
+ *             vibe ai kling, vibe ai kling-status, vibe ai video-extend
+ * ## Dependencies: Runway, Kling, Veo (Gemini)
+ *
+ * Extracted from ai.ts as part of modularisation.
+ * ai.ts calls registerVideoCommands(aiCommand).
+ * @see MODELS.md for AI model configuration
+ */
+
 import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";

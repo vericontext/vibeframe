@@ -1,5 +1,10 @@
 /**
- * ai-edit.ts — Video/audio editing types, helpers, and execute functions.
+ * @module ai-edit
+ *
+ * Video/audio editing execute functions and supporting types.
+ *
+ * CLI commands: silence-cut, jump-cut, caption, noise-reduce, fade,
+ *               translate-srt, text-overlay
  *
  * Execute functions (also used by agent tools via ai.ts re-exports):
  *   executeSilenceCut, executeJumpCut, executeCaption, executeNoiseReduce,
@@ -7,6 +12,8 @@
  *
  * CLI command registrations live in ai-edit-cli.ts (registerEditCommands).
  * Extracted from ai.ts as part of modularisation.
+ *
+ * @dependencies FFmpeg, Whisper (OpenAI), Gemini (Google), Claude/OpenAI (translation)
  */
 
 import { resolve, dirname, basename, extname, join } from 'node:path';
@@ -31,32 +38,55 @@ const execAsync = promisify(exec);
 // Silence Cut
 // ============================================================================
 
+/** A detected silent segment within a media file. */
 export interface SilencePeriod {
+  /** Start time in seconds */
   start: number;
+  /** End time in seconds */
   end: number;
+  /** Duration of the silent period in seconds */
   duration: number;
 }
 
+/** Options for {@link executeSilenceCut}. */
 export interface SilenceCutOptions {
+  /** Path to the input video file */
   videoPath: string;
+  /** Path for the output video (silent segments removed) */
   outputPath: string;
+  /** FFmpeg noise threshold in dB (default: -30) */
   noiseThreshold?: number;
+  /** Minimum silence duration in seconds to detect (default: 0.5) */
   minDuration?: number;
+  /** Padding in seconds kept around cuts (default: 0.1) */
   padding?: number;
+  /** If true, only analyze without producing output video */
   analyzeOnly?: boolean;
+  /** Use Gemini multimodal analysis instead of FFmpeg silencedetect */
   useGemini?: boolean;
+  /** Gemini model shorthand: "flash", "flash-2.5", "pro" */
   model?: string;
+  /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
+  /** Override API key (Google for Gemini mode) */
   apiKey?: string;
 }
 
+/** Result from {@link executeSilenceCut}. */
 export interface SilenceCutResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the output video (undefined in analyze-only mode) */
   outputPath?: string;
+  /** Total duration of the source video in seconds */
   totalDuration?: number;
+  /** Detected silent periods */
   silentPeriods?: SilencePeriod[];
+  /** Total silent duration removed in seconds */
   silentDuration?: number;
+  /** Detection method used */
   method?: "ffmpeg" | "gemini";
+  /** Error message on failure */
   error?: string;
 }
 
@@ -199,7 +229,13 @@ If there are no silent segments, return: { "silentSegments": [] }`;
 }
 
 /**
- * Remove silent segments from a video using FFmpeg
+ * Remove silent segments from a video using FFmpeg or Gemini detection.
+ *
+ * Detects silence via FFmpeg silencedetect (default) or Gemini multimodal
+ * analysis, then trims and concatenates the non-silent segments.
+ *
+ * @param options - Silence cut configuration
+ * @returns Result with output path and detected silent periods
  */
 export async function executeSilenceCut(options: SilenceCutOptions): Promise<SilenceCutResult> {
   const {
@@ -310,32 +346,53 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
 // Jump Cut (Filler Word Removal)
 // ============================================================================
 
+/** A detected filler word with its time range. */
 export interface FillerWord {
+  /** The filler word or merged phrase */
   word: string;
+  /** Start time in seconds */
   start: number;
+  /** End time in seconds */
   end: number;
 }
 
+/** Options for {@link executeJumpCut}. */
 export interface JumpCutOptions {
+  /** Path to the input video file */
   videoPath: string;
+  /** Path for the output video (filler words removed) */
   outputPath: string;
+  /** Custom filler words to detect (default: {@link DEFAULT_FILLER_WORDS}) */
   fillers?: string[];
+  /** Padding in seconds around filler cuts (default: 0.05) */
   padding?: number;
+  /** Language code for Whisper transcription */
   language?: string;
+  /** If true, only analyze without producing output video */
   analyzeOnly?: boolean;
+  /** Override OpenAI API key */
   apiKey?: string;
 }
 
+/** Result from {@link executeJumpCut}. */
 export interface JumpCutResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the output video (undefined in analyze-only mode) */
   outputPath?: string;
+  /** Total duration of the source video in seconds */
   totalDuration?: number;
+  /** Number of filler word occurrences detected */
   fillerCount?: number;
+  /** Total duration of filler words in seconds */
   fillerDuration?: number;
+  /** Detected filler word ranges */
   fillers?: FillerWord[];
+  /** Error message on failure */
   error?: string;
 }
 
+/** Default set of filler words detected by jump-cut. */
 export const DEFAULT_FILLER_WORDS = [
   "um", "uh", "uh-huh", "hmm", "like", "you know", "so",
   "basically", "literally", "right", "okay", "well", "i mean", "actually",
@@ -388,7 +445,12 @@ async function transcribeWithWords(
 }
 
 /**
- * Detect filler word ranges and merge adjacent ones with padding.
+ * Detect filler word ranges and merge adjacent ones within padding distance.
+ *
+ * @param words - Word-level transcript with timestamps
+ * @param fillers - List of filler words/phrases to match
+ * @param padding - Maximum gap in seconds to merge adjacent fillers
+ * @returns Merged filler word ranges sorted by start time
  */
 export function detectFillerRanges(
   words: { word: string; start: number; end: number }[],
@@ -424,7 +486,13 @@ export function detectFillerRanges(
 }
 
 /**
- * Remove filler words from video using Whisper word-level timestamps + FFmpeg concat.
+ * Remove filler words from a video using Whisper word-level timestamps + FFmpeg concat.
+ *
+ * Pipeline: extract audio -> Whisper transcription (word-level) -> detect fillers ->
+ * invert to keep-segments -> FFmpeg stream-copy concat.
+ *
+ * @param options - Jump cut configuration
+ * @returns Result with output path and detected fillers
  */
 export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutResult> {
   const {
@@ -563,24 +631,40 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
 // Caption
 // ============================================================================
 
+/** Visual style preset for burned-in captions. */
 export type CaptionStyle = "minimal" | "bold" | "outline" | "karaoke";
 
+/** Options for {@link executeCaption}. */
 export interface CaptionOptions {
+  /** Path to the input video file */
   videoPath: string;
+  /** Path for the output video with burned-in captions */
   outputPath: string;
+  /** Caption visual style preset (default: "bold") */
   style?: CaptionStyle;
+  /** Font size override (auto-calculated from video height if omitted) */
   fontSize?: number;
+  /** Font color name (default: "white") */
   fontColor?: string;
+  /** Language code for Whisper transcription */
   language?: string;
+  /** Vertical position of captions (default: "bottom") */
   position?: "top" | "center" | "bottom";
+  /** Override OpenAI API key */
   apiKey?: string;
 }
 
+/** Result from {@link executeCaption}. */
 export interface CaptionResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the output video with captions */
   outputPath?: string;
+  /** Path to the generated SRT file */
   srtPath?: string;
+  /** Number of transcript segments */
   segmentCount?: number;
+  /** Error message on failure */
   error?: string;
 }
 
@@ -612,7 +696,13 @@ function getCaptionForceStyle(
 }
 
 /**
- * Transcribe video and burn styled captions using Whisper + FFmpeg
+ * Transcribe video audio and burn styled captions using Whisper + FFmpeg.
+ *
+ * Pipeline: extract audio -> Whisper transcription -> generate SRT ->
+ * burn captions via FFmpeg subtitles filter (or Remotion fallback).
+ *
+ * @param options - Caption configuration
+ * @returns Result with output video path and SRT path
  */
 export async function executeCaption(options: CaptionOptions): Promise<CaptionResult> {
   const {
@@ -774,20 +864,39 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
 // Noise Reduce
 // ============================================================================
 
+/** Options for {@link executeNoiseReduce}. */
 export interface NoiseReduceOptions {
+  /** Path to the input audio or video file */
   inputPath: string;
+  /** Path for the noise-reduced output file */
   outputPath: string;
+  /** Reduction strength preset (default: "medium") */
   strength?: "low" | "medium" | "high";
+  /** Custom noise floor in dB (overrides strength preset) */
   noiseFloor?: number;
 }
 
+/** Result from {@link executeNoiseReduce}. */
 export interface NoiseReduceResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the noise-reduced output file */
   outputPath?: string;
+  /** Duration of the input file in seconds */
   inputDuration?: number;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Reduce audio noise in a video or audio file using FFmpeg afftdn filter.
+ *
+ * Supports three strength presets (low/medium/high) with optional highpass/lowpass
+ * for the "high" setting. Video streams are copied without re-encoding.
+ *
+ * @param options - Noise reduction configuration
+ * @returns Result with output path and input duration
+ */
 export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<NoiseReduceResult> {
   const {
     inputPath,
@@ -849,24 +958,44 @@ export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<N
 // Fade
 // ============================================================================
 
+/** Options for {@link executeFade}. */
 export interface FadeOptions {
+  /** Path to the input video file */
   videoPath: string;
+  /** Path for the output video with fade effects */
   outputPath: string;
+  /** Fade-in duration in seconds (default: 1) */
   fadeIn?: number;
+  /** Fade-out duration in seconds (default: 1) */
   fadeOut?: number;
+  /** Apply fade to audio only (video copied) */
   audioOnly?: boolean;
+  /** Apply fade to video only (audio copied) */
   videoOnly?: boolean;
 }
 
+/** Result from {@link executeFade}. */
 export interface FadeResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the output video */
   outputPath?: string;
+  /** Total duration of the source video in seconds */
   totalDuration?: number;
+  /** Whether fade-in was applied */
   fadeInApplied?: boolean;
+  /** Whether fade-out was applied */
   fadeOutApplied?: boolean;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Apply fade-in and/or fade-out effects to video and/or audio using FFmpeg.
+ *
+ * @param options - Fade configuration
+ * @returns Result with output path and which fades were applied
+ */
 export async function executeFade(options: FadeOptions): Promise<FadeResult> {
   const {
     videoPath,
@@ -952,24 +1081,47 @@ export async function executeFade(options: FadeOptions): Promise<FadeResult> {
 // Translate SRT
 // ============================================================================
 
+/** Options for {@link executeTranslateSrt}. */
 export interface TranslateSrtOptions {
+  /** Path to the source SRT subtitle file */
   srtPath: string;
+  /** Path for the translated SRT output */
   outputPath: string;
+  /** Target language name (e.g. "Korean", "Spanish") */
   targetLanguage: string;
+  /** LLM provider for translation (default: "claude") */
   provider?: "claude" | "openai";
+  /** Source language hint (auto-detected if omitted) */
   sourceLanguage?: string;
+  /** Override API key for the chosen provider */
   apiKey?: string;
 }
 
+/** Result from {@link executeTranslateSrt}. */
 export interface TranslateSrtResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Path to the translated SRT file */
   outputPath?: string;
+  /** Number of subtitle segments translated */
   segmentCount?: number;
+  /** Detected or specified source language */
   sourceLanguage?: string;
+  /** Target language used for translation */
   targetLanguage?: string;
+  /** Error message on failure */
   error?: string;
 }
 
+/**
+ * Translate an SRT subtitle file to a target language using Claude or OpenAI.
+ *
+ * Segments are batched (~30 at a time) for efficient API usage. Preserves
+ * original timestamps; only text content is translated.
+ *
+ * @param options - Translation configuration
+ * @returns Result with output path and segment count
+ */
 export async function executeTranslateSrt(options: TranslateSrtOptions): Promise<TranslateSrtResult> {
   const {
     srtPath,
@@ -1099,23 +1251,38 @@ export async function executeTranslateSrt(options: TranslateSrtOptions): Promise
 // Text Overlay
 // ============================================================================
 
+/** Visual style preset for text overlays. */
 export type TextOverlayStyle = "lower-third" | "center-bold" | "subtitle" | "minimal";
 
+/** Options for {@link applyTextOverlays} and {@link executeTextOverlay}. */
 export interface TextOverlayOptions {
+  /** Path to the input video file */
   videoPath: string;
+  /** Array of text lines to overlay */
   texts: string[];
+  /** Path for the output video */
   outputPath: string;
+  /** Text overlay style preset (default: "lower-third") */
   style?: TextOverlayStyle;
+  /** Font size override (auto-calculated from video height if omitted) */
   fontSize?: number;
+  /** Font color name (default: "white") */
   fontColor?: string;
+  /** Fade in/out duration for text in seconds (default: 0.3) */
   fadeDuration?: number;
+  /** Start time for text display in seconds (default: 0) */
   startTime?: number;
+  /** End time for text display in seconds (default: video duration) */
   endTime?: number;
 }
 
+/** Result from {@link applyTextOverlays} and {@link executeTextOverlay}. */
 export interface TextOverlayResult {
+  /** Whether the operation succeeded */
   success: boolean;
+  /** Absolute path to the output video */
   outputPath?: string;
+  /** Error message on failure */
   error?: string;
 }
 
@@ -1177,7 +1344,13 @@ function escapeDrawtext(text: string): string {
 }
 
 /**
- * Apply text overlays to a video using FFmpeg drawtext filter
+ * Apply text overlays to a video using FFmpeg drawtext filter.
+ *
+ * Supports multiple text lines with configurable style, position, font,
+ * and fade-in/out. Auto-detects system fonts across macOS, Linux, and Windows.
+ *
+ * @param options - Text overlay configuration
+ * @returns Result with absolute output path
  */
 export async function applyTextOverlays(options: TextOverlayOptions): Promise<TextOverlayResult> {
   const {
@@ -1314,7 +1487,10 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
 }
 
 /**
- * Execute text overlay for CLI/Agent usage
+ * Execute text overlay for CLI/Agent usage. Delegates to {@link applyTextOverlays}.
+ *
+ * @param options - Text overlay configuration
+ * @returns Result with absolute output path
  */
 export async function executeTextOverlay(options: TextOverlayOptions): Promise<TextOverlayResult> {
   return applyTextOverlays(options);
@@ -1324,22 +1500,35 @@ export async function executeTextOverlay(options: TextOverlayOptions): Promise<T
 // Video Review (Gemini)
 // ============================================================================
 
+/** A single auto-fixable issue identified during video review. */
 export interface AutoFix {
+  /** Category of the fix */
   type: "color_grade" | "text_overlay_adjust" | "speed_adjust" | "crop";
+  /** Human-readable description of the issue */
   description: string;
+  /** FFmpeg filter string to apply the fix (if applicable) */
   ffmpegFilter?: string;
 }
 
+/** Scored review for a single quality category. */
 export interface VideoReviewCategory {
+  /** Quality score from 1-10 */
   score: number;
+  /** List of identified issues */
   issues: string[];
+  /** Whether the issues can be auto-fixed */
   fixable: boolean;
+  /** Suggested FFmpeg filter for fixing (color category) */
   suggestedFilter?: string;
+  /** Improvement suggestions (text readability category) */
   suggestions?: string[];
 }
 
+/** Complete AI video review feedback from Gemini analysis. */
 export interface VideoReviewFeedback {
+  /** Overall quality score from 1-10 */
   overallScore: number;
+  /** Per-category quality assessments */
   categories: {
     pacing: VideoReviewCategory;
     color: VideoReviewCategory;
@@ -1347,6 +1536,8 @@ export interface VideoReviewFeedback {
     audioVisualSync: VideoReviewCategory;
     composition: VideoReviewCategory;
   };
+  /** List of auto-fixable issues with FFmpeg filter suggestions */
   autoFixable: AutoFix[];
+  /** General improvement recommendations */
   recommendations: string[];
 }

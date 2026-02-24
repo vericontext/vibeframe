@@ -1,10 +1,18 @@
 /**
- * ai-narrate.ts — Auto-narrate types/function + providers & narrate commands.
+ * @module ai-narrate
  *
- * Commands: providers, narrate
+ * Auto-narration pipeline and provider listing.
+ *
+ * CLI commands: narrate, providers
+ *
+ * Execute function:
+ *   autoNarrate - Analyze video -> generate script -> TTS voiceover
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerNarrateCommands(aiCommand).
+ *
+ * @dependencies Gemini (video analysis), Claude/OpenAI (script generation),
+ *              ElevenLabs (TTS), FFmpeg (duration probe)
  */
 
 import { type Command } from "commander";
@@ -43,9 +51,7 @@ const execAsync = promisify(exec);
 // Auto-Narrate Feature Types and Functions
 // ==========================================
 
-/**
- * Options for auto-narrate feature
- */
+/** Options for {@link autoNarrate}. */
 export interface AutoNarrateOptions {
   /** Path to video file */
   videoPath: string;
@@ -63,9 +69,7 @@ export interface AutoNarrateOptions {
   scriptProvider?: "claude" | "openai";
 }
 
-/**
- * Result from auto-narrate
- */
+/** Result from {@link autoNarrate}. */
 export interface AutoNarrateResult {
   success: boolean;
   /** Path to generated audio file */
@@ -87,8 +91,13 @@ export interface AutoNarrateResult {
  *
  * Pipeline:
  * 1. Analyze video with Gemini Video Understanding
- * 2. Generate narration script with Claude
+ * 2. Generate narration script with Claude (fallback to OpenAI on 529)
  * 3. Convert to speech with ElevenLabs TTS
+ *
+ * Saves both the audio file and script text to the output directory.
+ *
+ * @param options - Auto-narrate configuration
+ * @returns Result with audio path, script text, and timed segments
  */
 export async function autoNarrate(options: AutoNarrateOptions): Promise<AutoNarrateResult> {
   const {

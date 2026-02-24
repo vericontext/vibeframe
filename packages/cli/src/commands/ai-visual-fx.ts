@@ -1,10 +1,13 @@
 /**
- * ai-visual-fx.ts — Visual effects commands for the VibeFrame CLI.
+ * @module ai-visual-fx
+ * @description Visual effects commands for the VibeFrame CLI.
  *
- * Commands: grade, text-overlay, speed-ramp, reframe, style-transfer
+ * ## Commands: vibe ai grade, vibe ai text-overlay, vibe ai speed-ramp, vibe ai reframe, vibe ai style-transfer
+ * ## Dependencies: Whisper, Claude, FFmpeg
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerVisualFxCommands(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

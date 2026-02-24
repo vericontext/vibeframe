@@ -1,10 +1,12 @@
 /**
- * AI Generation Tools - Image, video, TTS, SFX, music, storyboard, motion
+ * @module ai-generation
+ * @description Agent tools for AI asset generation (image, video, TTS, SFX, music,
+ * storyboard, motion). Wraps providers for agent use. Some features require
+ * async polling -- tool returns immediately with task status.
  *
- * Basic AI asset generation tools that wrap providers for agent use.
- * Some features require async polling - tool returns immediately with task status.
- *
- * See MODELS.md for the Single Source of Truth (SSOT) on supported providers/models.
+ * ## Tools: ai_image, ai_video, ai_kling, ai_tts, ai_sfx, ai_music, ai_storyboard, ai_motion
+ * ## Dependencies: OpenAI, Gemini, Stability, Runway, Kling, ElevenLabs, Replicate, Claude, Remotion
+ * @see MODELS.md for the Single Source of Truth (SSOT) on supported providers/models
  */
 
 import { writeFile, readFile } from "node:fs/promises";

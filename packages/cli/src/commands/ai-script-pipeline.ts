@@ -1,3 +1,21 @@
+/**
+ * @module ai-script-pipeline
+ *
+ * Script-to-video pipeline and scene regeneration execute functions.
+ *
+ * CLI commands: script-to-video, regenerate-scene
+ *
+ * Execute functions:
+ *   executeScriptToVideo  - Full pipeline: storyboard -> TTS -> images -> videos -> project
+ *   executeRegenerateScene - Re-generate specific scene(s) in an existing project
+ *
+ * Also exports shared helpers: uploadToImgbb, extendVideoToTarget,
+ * generateVideoWithRetryKling, generateVideoWithRetryRunway, waitForVideoWithRetry
+ *
+ * @dependencies Claude (storyboard), ElevenLabs (TTS), OpenAI/Gemini/Stability (images),
+ *              Kling/Runway (video), FFmpeg (assembly/extension)
+ */
+
 import { readFile, writeFile, mkdir, unlink, rename } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
@@ -22,23 +40,35 @@ import { executeReview } from "./ai-review.js";
 
 const execAsync = promisify(exec);
 
-// Helper type for storyboard segments
+/** A single scene segment from the Claude-generated storyboard. */
 export interface StoryboardSegment {
+  /** 1-based scene index (assigned during generation) */
   index?: number;
+  /** Narrative description of the scene */
   description: string;
+  /** Visual prompt for image/video generation */
   visuals: string;
+  /** Art style directive (e.g. "cinematic", "anime") */
   visualStyle?: string;
+  /** Character appearance description for consistency */
   characterDescription?: string;
+  /** Reference to previous scene for continuity */
   previousSceneLink?: string;
+  /** Voiceover narration text */
   narration?: string;
+  /** Audio direction (e.g. "upbeat music") */
   audio?: string;
+  /** Text lines to overlay on the video */
   textOverlays?: string[];
+  /** Scene duration in seconds (updated to match narration) */
   duration: number;
+  /** Cumulative start time in seconds */
   startTime: number;
 }
 
-// Default retry count for video generation
+/** Default retry count for video generation API calls. */
 export const DEFAULT_VIDEO_RETRIES = 2;
+/** Delay between retries in milliseconds. */
 export const RETRY_DELAY_MS = 5000;
 
 /**
@@ -319,16 +349,27 @@ export async function waitForVideoWithRetry(
   return null;
 }
 
+/** Options for {@link executeScriptToVideo}. */
 export interface ScriptToVideoOptions {
+  /** Raw script or concept text for the video */
   script: string;
+  /** Output directory (default: "script-video-output") */
   outputDir?: string;
+  /** Target total duration in seconds */
   duration?: number;
+  /** ElevenLabs voice name or ID */
   voice?: string;
+  /** Video generation provider */
   generator?: "runway" | "kling";
+  /** Image generation provider */
   imageProvider?: "openai" | "dalle" | "stability" | "gemini";
+  /** Video aspect ratio */
   aspectRatio?: "16:9" | "9:16" | "1:1";
+  /** Stop after image generation (skip video) */
   imagesOnly?: boolean;
+  /** Skip voiceover generation */
   noVoiceover?: boolean;
+  /** Max retries per video generation call */
   retries?: number;
   /** Creativity level for storyboard generation: low (default, consistent) or high (varied, unexpected) */
   creativity?: "low" | "high";
@@ -358,25 +399,33 @@ export interface NarrationEntry {
   error?: string;
 }
 
-/**
- * Result of script-to-video pipeline
- */
+/** Result from {@link executeScriptToVideo}. */
 export interface ScriptToVideoResult {
+  /** Whether the pipeline completed successfully */
   success: boolean;
+  /** Absolute path to the output directory */
   outputDir: string;
+  /** Total number of storyboard scenes */
   scenes: number;
+  /** Path to the generated storyboard JSON */
   storyboardPath?: string;
+  /** Path to the generated .vibe.json project file */
   projectPath?: string;
   /** @deprecated Use narrationEntries for proper segment tracking */
   narrations?: string[];
   /** Narration entries with segment index tracking */
   narrationEntries?: NarrationEntry[];
+  /** Paths to generated scene images */
   images?: string[];
+  /** Paths to generated scene videos */
   videos?: string[];
+  /** Total video duration in seconds */
   totalDuration?: number;
+  /** 1-indexed scene numbers that failed to generate */
   failedScenes?: number[];
   /** Failed narration scene numbers (1-indexed) */
   failedNarrations?: number[];
+  /** Error message on failure */
   error?: string;
   /** Review feedback from Gemini (when --review is used) */
   reviewFeedback?: VideoReviewFeedback;
@@ -387,7 +436,19 @@ export interface ScriptToVideoResult {
 }
 
 /**
- * Execute the script-to-video pipeline programmatically
+ * Execute the full script-to-video pipeline programmatically.
+ *
+ * Pipeline stages:
+ * 1. Generate storyboard with Claude
+ * 2. Generate per-scene voiceovers with ElevenLabs TTS
+ * 3. Generate scene images (OpenAI/Gemini/Stability)
+ * 4. Generate scene videos (Kling/Runway) with extension to match narration
+ * 4.5. Apply text overlays if present in storyboard
+ * 5. Assemble .vibe.json project file
+ * 6. Optional AI review and auto-fix (Gemini)
+ *
+ * @param options - Pipeline configuration
+ * @returns Result with paths to all generated assets and project file
  */
 export async function executeScriptToVideo(
   options: ScriptToVideoOptions
@@ -946,36 +1007,53 @@ export async function executeScriptToVideo(
   }
 }
 
-/**
- * Options for scene regeneration
- */
+/** Options for {@link executeRegenerateScene}. */
 export interface RegenerateSceneOptions {
+  /** Path to the project output directory containing storyboard.json */
   projectDir: string;
+  /** 1-indexed scene numbers to regenerate */
   scenes: number[];
+  /** Only regenerate video (keep existing image) */
   videoOnly?: boolean;
+  /** Only regenerate narration audio */
   narrationOnly?: boolean;
+  /** Only regenerate scene image */
   imageOnly?: boolean;
+  /** Video generation provider */
   generator?: "kling" | "runway";
+  /** Image generation provider */
   imageProvider?: "gemini" | "openai" | "stability";
+  /** ElevenLabs voice name or ID */
   voice?: string;
+  /** Video aspect ratio */
   aspectRatio?: "16:9" | "9:16" | "1:1";
+  /** Max retries per video generation call */
   retries?: number;
   /** Reference scene number for character consistency (auto-detects if not specified) */
   referenceScene?: number;
 }
 
-/**
- * Result of scene regeneration
- */
+/** Result from {@link executeRegenerateScene}. */
 export interface RegenerateSceneResult {
+  /** Whether all requested scenes were regenerated */
   success: boolean;
+  /** 1-indexed scene numbers successfully regenerated */
   regeneratedScenes: number[];
+  /** 1-indexed scene numbers that failed to regenerate */
   failedScenes: number[];
+  /** Error message on failure */
   error?: string;
 }
 
 /**
- * Execute scene regeneration programmatically
+ * Regenerate specific scene(s) in an existing script-to-video project.
+ *
+ * Reads the storyboard.json from the project directory, then regenerates
+ * the requested scenes using the specified video/image provider. Supports
+ * image-to-video via ImgBB URL upload for Kling.
+ *
+ * @param options - Scene regeneration configuration
+ * @returns Result with lists of regenerated and failed scene numbers
  */
 export async function executeRegenerateScene(
   options: RegenerateSceneOptions

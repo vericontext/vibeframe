@@ -1,10 +1,13 @@
 /**
- * AI Pipeline Tools - Script-to-video, highlights, auto-shorts, analysis, editing, regeneration
+ * @module ai-pipeline
+ * @description Agent tools for advanced multi-step AI pipelines (script-to-video,
+ * highlights, auto-shorts, analysis, editing, regeneration). Orchestrates
+ * multiple AI providers via execute functions from CLI commands.
  *
- * Advanced multi-step pipeline tools that orchestrate multiple AI providers.
- * These tools wrap the execute functions from commands for agent use.
- *
- * See MODELS.md for the Single Source of Truth (SSOT) on supported providers/models.
+ * ## Tools: ai_script_to_video, ai_highlights, ai_auto_shorts, ai_gemini_video,
+ *          ai_analyze, ai_gemini_edit, ai_regenerate_scene, ai_review
+ * ## Dependencies: Claude, Gemini, OpenAI, Whisper, ElevenLabs, Kling
+ * @see MODELS.md for the Single Source of Truth (SSOT) on supported providers/models
  */
 
 import { writeFile, readFile } from "node:fs/promises";

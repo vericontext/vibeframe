@@ -1,12 +1,16 @@
 /**
- * ai-image.ts — Image generation and editing commands for the VibeFrame CLI.
+ * @module ai-image
+ * @description Image generation and editing commands for the VibeFrame CLI.
  *
- * Commands: image, thumbnail, background,
- *           sd, sd-upscale, sd-remove-bg, sd-img2img, sd-replace, sd-outpaint,
- *           gemini, gemini-edit
+ * ## Commands: vibe ai image, vibe ai thumbnail, vibe ai background,
+ *             vibe ai sd, vibe ai sd-upscale, vibe ai sd-remove-bg,
+ *             vibe ai sd-img2img, vibe ai sd-replace, vibe ai sd-outpaint,
+ *             vibe ai gemini, vibe ai gemini-edit
+ * ## Dependencies: OpenAI, Gemini, Stability, FFmpeg
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts calls registerImageCommands(aiCommand).
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

@@ -1,8 +1,13 @@
 /**
- * ai-motion.ts — Motion graphics command (vibe ai motion).
+ * @module ai-motion
+ * @description Motion graphics render and composite command.
+ *
+ * ## Commands: vibe ai motion
+ * ## Dependencies: Claude, Gemini, Remotion
  *
  * Extracted from ai.ts as part of modularisation.
  * ai.ts re-exports all public types and functions from this module.
+ * @see MODELS.md for AI model configuration
  */
 
 import { type Command } from 'commander';

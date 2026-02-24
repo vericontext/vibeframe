@@ -1,10 +1,23 @@
+/**
+ * @module types
+ * @description Shared types for the AI provider system.
+ *
+ * Defines capability enums, generation options and results, transcription types,
+ * edit suggestions, natural language command parsing, highlight detection,
+ * B-roll matching, viral optimization, and the core {@link AIProvider} and
+ * {@link AIProviderRegistry} interfaces.
+ */
+
 import type { Clip, TimeSeconds } from "@vibeframe/core";
 
-// Re-export TimeSeconds for use by consumers
+/** Re-export TimeSeconds for use by consumers. */
 export type { TimeSeconds } from "@vibeframe/core";
 
 /**
- * AI Provider capabilities
+ * Capabilities that an AI provider can declare support for.
+ *
+ * Used by the {@link AIProviderRegistry} to find providers that match
+ * a requested operation (e.g., `"text-to-video"`, `"vision"`).
  */
 export type AICapability =
   | "text-to-video"
@@ -44,7 +57,9 @@ export type AICapability =
   | "vision";
 
 /**
- * Generation status
+ * Lifecycle status of an asynchronous generation job.
+ *
+ * Transitions: `pending` -> `queued` -> `processing` -> `completed` | `failed` | `cancelled`.
  */
 export type GenerationStatus =
   | "pending"
@@ -55,7 +70,9 @@ export type GenerationStatus =
   | "cancelled";
 
 /**
- * Common options for video generation
+ * Common options passed to {@link AIProvider.generateVideo}.
+ *
+ * All fields except `prompt` are optional; providers ignore unsupported options.
  */
 export interface GenerateOptions {
   /** Prompt for generation */
@@ -85,10 +102,15 @@ export interface GenerateOptions {
 }
 
 /**
- * Result of video generation
+ * Result returned by {@link AIProvider.generateVideo} or {@link AIProvider.getGenerationStatus}.
+ *
+ * Contains the generated video URL (when complete), progress information,
+ * and optional metadata such as dimensions and duration.
  */
 export interface VideoResult {
+  /** Provider-assigned generation job ID */
   id: string;
+  /** Current status of the generation job */
   status: GenerationStatus;
   /** URL to the generated video */
   videoUrl?: string;
@@ -111,9 +133,13 @@ export interface VideoResult {
 }
 
 /**
- * Transcript segment
+ * A single time-aligned segment within a transcription result.
+ *
+ * Each segment represents a continuous stretch of speech with timestamps,
+ * optional speaker identification, and a confidence score.
  */
 export interface TranscriptSegment {
+  /** Unique segment identifier */
   id: string;
   /** Start time in seconds */
   startTime: TimeSeconds;
@@ -130,10 +156,15 @@ export interface TranscriptSegment {
 }
 
 /**
- * Result of speech-to-text transcription
+ * Result returned by {@link AIProvider.transcribe}.
+ *
+ * Contains the full transcript text, individual time-aligned segments,
+ * and the detected language.
  */
 export interface TranscriptResult {
+  /** Provider-assigned transcription job ID */
   id: string;
+  /** Current status of the transcription job */
   status: GenerationStatus;
   /** Full transcript text */
   fullText?: string;
@@ -146,9 +177,13 @@ export interface TranscriptResult {
 }
 
 /**
- * Suggested edit operation
+ * An AI-suggested edit operation returned by {@link AIProvider.autoEdit}.
+ *
+ * Each suggestion targets one or more clips and includes a confidence score
+ * indicating how strongly the AI recommends the edit.
  */
 export interface EditSuggestion {
+  /** Unique suggestion identifier */
   id: string;
   /** Type of edit operation */
   type: "trim" | "cut" | "add-effect" | "reorder" | "delete" | "split" | "merge";
@@ -165,7 +200,10 @@ export interface EditSuggestion {
 }
 
 /**
- * Timeline command parsed from natural language
+ * A single timeline operation parsed from a natural language instruction.
+ *
+ * Returned within {@link CommandParseResult.commands} by
+ * {@link AIProvider.parseCommand}.
  */
 export interface TimelineCommand {
   /** Command type */
@@ -195,7 +233,10 @@ export interface TimelineCommand {
 }
 
 /**
- * Result of parsing natural language command
+ * Result of parsing a natural language command via {@link AIProvider.parseCommand}.
+ *
+ * On success, contains one or more {@link TimelineCommand} objects to execute.
+ * On failure or ambiguity, provides an error or clarification question.
  */
 export interface CommandParseResult {
   /** Whether parsing was successful */
@@ -209,12 +250,17 @@ export interface CommandParseResult {
 }
 
 /**
- * Highlight detection criteria
+ * Criteria used to filter which types of highlights to extract from media.
+ *
+ * Use `"all"` to include every category.
  */
 export type HighlightCriteria = "emotional" | "informative" | "funny" | "all";
 
 /**
- * Highlight segment identified from content
+ * A single highlight segment identified within media content.
+ *
+ * Includes time boundaries, the transcript excerpt, a category label,
+ * and an AI-generated confidence score and explanation.
  */
 export interface Highlight {
   /** Index of this highlight */
@@ -236,7 +282,10 @@ export interface Highlight {
 }
 
 /**
- * Result of highlight extraction
+ * Aggregate result of a highlight extraction operation.
+ *
+ * Contains the source metadata, the criteria and threshold used,
+ * and the ordered list of extracted {@link Highlight} segments.
  */
 export interface HighlightsResult {
   /** Source file path */
@@ -256,7 +305,10 @@ export interface HighlightsResult {
 }
 
 /**
- * B-roll clip information with visual analysis
+ * Metadata for a B-roll clip, including an AI-generated description and tags.
+ *
+ * Used by the B-roll matching pipeline to semantically pair clips with
+ * narration segments.
  */
 export interface BrollClipInfo {
   /** Unique identifier */
@@ -274,7 +326,10 @@ export interface BrollClipInfo {
 }
 
 /**
- * Narration segment with visual suggestions
+ * A narration segment enriched with AI-suggested visual descriptions and tags.
+ *
+ * Generated by analyzing the narration transcript to recommend B-roll footage
+ * that complements the spoken content.
  */
 export interface NarrationSegment {
   /** Segment index */
@@ -292,7 +347,10 @@ export interface NarrationSegment {
 }
 
 /**
- * Match between a narration segment and a B-roll clip
+ * A semantic match pairing a {@link NarrationSegment} with a {@link BrollClipInfo}.
+ *
+ * Includes a confidence score and suggested timing for placing the B-roll
+ * on the timeline.
  */
 export interface BrollMatch {
   /** Index of the narration segment */
@@ -310,7 +368,10 @@ export interface BrollMatch {
 }
 
 /**
- * Result of B-roll matching pipeline
+ * Complete result of the B-roll matching pipeline.
+ *
+ * Contains analyzed clips, parsed narration segments, their matches,
+ * and indices of any unmatched segments that may need manual assignment.
  */
 export interface BrollMatchResult {
   /** Source narration file path */
@@ -328,7 +389,10 @@ export interface BrollMatchResult {
 }
 
 /**
- * Platform specification for viral optimization
+ * Platform-specific constraints for viral content optimization.
+ *
+ * Defines aspect ratio, duration limits, and feature support for a given
+ * social media platform (e.g., TikTok, YouTube Shorts, Instagram Reels).
  */
 export interface PlatformSpec {
   /** Platform identifier */
@@ -346,7 +410,10 @@ export interface PlatformSpec {
 }
 
 /**
- * Emotional peak detected in content
+ * An emotional peak detected during content analysis.
+ *
+ * Represents a specific moment where emotional intensity spikes,
+ * useful for hook selection and viral optimization.
  */
 export interface EmotionalPeak {
   /** Timestamp in seconds */
@@ -358,7 +425,7 @@ export interface EmotionalPeak {
 }
 
 /**
- * Suggested cut for viral content
+ * A time range suggested for removal or rearrangement during viral optimization.
  */
 export interface SuggestedCut {
   /** Start time in seconds */
@@ -370,7 +437,7 @@ export interface SuggestedCut {
 }
 
 /**
- * Platform-specific suitability score
+ * Suitability assessment of content for a specific platform.
  */
 export interface PlatformSuitability {
   /** Suitability score 0-1 */
@@ -380,7 +447,10 @@ export interface PlatformSuitability {
 }
 
 /**
- * Result of viral potential analysis
+ * Comprehensive viral potential analysis for a piece of content.
+ *
+ * Scores hook strength, pacing, emotional peaks, and platform-specific
+ * suitability to guide content optimization.
  */
 export interface ViralAnalysis {
   /** Overall viral potential score 0-100 */
@@ -405,7 +475,7 @@ export interface ViralAnalysis {
 }
 
 /**
- * Segment for platform-specific cut
+ * A single segment selected from the source timeline for a platform-specific cut.
  */
 export interface PlatformCutSegment {
   /** Source clip ID */
@@ -419,7 +489,10 @@ export interface PlatformCutSegment {
 }
 
 /**
- * Platform-specific video cut
+ * A complete video cut optimized for a specific platform.
+ *
+ * Composed of one or more {@link PlatformCutSegment} entries arranged
+ * to fit the platform's duration and aspect ratio constraints.
  */
 export interface PlatformCut {
   /** Target platform */
@@ -431,7 +504,10 @@ export interface PlatformCut {
 }
 
 /**
- * Result of viral optimization pipeline
+ * Complete result of the viral optimization pipeline.
+ *
+ * Includes the analysis, generated per-platform cuts, and paths to the
+ * resulting platform-specific project files.
  */
 export interface ViralOptimizationResult {
   /** Source project file path */
@@ -450,20 +526,30 @@ export interface ViralOptimizationResult {
 }
 
 /**
- * Provider configuration
+ * Configuration passed to {@link AIProvider.initialize} to set up a provider instance.
  */
 export interface ProviderConfig {
+  /** API key for authentication with the provider */
   apiKey?: string;
+  /** Custom base URL (overrides the provider's default endpoint) */
   baseUrl?: string;
+  /** Request timeout in milliseconds */
   timeout?: number;
+  /** Maximum number of retry attempts on transient failures */
   maxRetries?: number;
+  /** Additional HTTP headers sent with every request */
   customHeaders?: Record<string, string>;
   /** Override the default model for this provider instance */
   model?: string;
 }
 
 /**
- * Main AI Provider interface
+ * Main AI Provider interface that all VibeFrame providers must implement.
+ *
+ * A provider declares its {@link capabilities} and implements the corresponding
+ * optional methods (e.g., `generateVideo` for `"text-to-video"`).
+ * Providers are registered in the {@link AIProviderRegistry} and looked up
+ * by capability at runtime.
  */
 export interface AIProvider {
   /** Unique identifier for this provider */
@@ -480,52 +566,79 @@ export interface AIProvider {
   isAvailable: boolean;
 
   /**
-   * Initialize the provider with configuration
+   * Initialize the provider with configuration.
+   * @param config - Provider configuration (API key, base URL, etc.)
+   * @returns Resolves when the provider is ready for use.
    */
   initialize(config: ProviderConfig): Promise<void>;
 
   /**
-   * Check if provider is properly configured
+   * Check if the provider is properly configured (e.g., API key is set).
+   * @returns `true` if the provider can accept requests.
    */
   isConfigured(): boolean;
 
   /**
-   * Generate video from prompt
+   * Generate a video from a text prompt (capability: `"text-to-video"`).
+   * @param prompt - Descriptive text prompt for the video.
+   * @param options - Additional generation options (duration, aspect ratio, seed, etc.).
+   * @returns The generation result with status and video URL when complete.
    */
   generateVideo?(prompt: string, options?: GenerateOptions): Promise<VideoResult>;
 
   /**
-   * Get status of ongoing generation
+   * Poll the status of an ongoing generation job.
+   * @param id - The generation job ID returned by {@link generateVideo}.
+   * @returns Current status, progress, and video URL when complete.
    */
   getGenerationStatus?(id: string): Promise<VideoResult>;
 
   /**
-   * Cancel ongoing generation
+   * Cancel an ongoing generation job.
+   * @param id - The generation job ID to cancel.
+   * @returns `true` if the cancellation succeeded.
    */
   cancelGeneration?(id: string): Promise<boolean>;
 
   /**
-   * Transcribe audio to text
+   * Transcribe audio to text (capability: `"speech-to-text"`).
+   * @param audio - Audio data as a Blob.
+   * @param language - Optional BCP-47 language code hint (e.g., `"en"`, `"ko"`).
+   * @returns Transcription result with full text and time-aligned segments.
    */
   transcribe?(audio: Blob, language?: string): Promise<TranscriptResult>;
 
   /**
-   * Get auto-edit suggestions based on clips and instruction
+   * Get AI-generated edit suggestions based on clips and a natural language instruction
+   * (capability: `"auto-edit"`).
+   * @param clips - The clips to analyze.
+   * @param instruction - Natural language editing instruction (e.g., "make it shorter").
+   * @returns Array of suggested edit operations ranked by confidence.
    */
   autoEdit?(clips: Clip[], instruction: string): Promise<EditSuggestion[]>;
 
   /**
-   * Apply style transfer to video
+   * Apply a visual style transfer to a video (capability: `"style-transfer"`).
+   * @param video - Source video data as a Blob.
+   * @param style - Style preset name or description.
+   * @returns The styled video result.
    */
   applyStyle?(video: Blob, style: string): Promise<VideoResult>;
 
   /**
-   * Upscale video resolution
+   * Upscale video to a higher resolution (capability: `"upscale"`).
+   * @param video - Source video data as a Blob.
+   * @param targetResolution - Target resolution string (e.g., `"4k"`, `"1080p"`).
+   * @returns The upscaled video result.
    */
   upscale?(video: Blob, targetResolution: string): Promise<VideoResult>;
 
   /**
-   * Parse natural language command into timeline operations
+   * Parse a natural language command into executable timeline operations
+   * (capability: `"natural-language-command"`).
+   * @param instruction - Free-form text instruction (e.g., "trim the first clip to 10 seconds").
+   * @param context - Current timeline context including available clips and track IDs.
+   * @returns Parsed commands or a clarification question if the instruction is ambiguous.
    */
   parseCommand?(
     instruction: string,
@@ -534,31 +647,42 @@ export interface AIProvider {
 }
 
 /**
- * Provider registry for managing multiple AI providers
+ * Registry for managing multiple {@link AIProvider} instances.
+ *
+ * Allows registration, lookup by ID, and capability-based discovery
+ * of providers at runtime.
  */
 export interface AIProviderRegistry {
   /**
-   * Register a new provider
+   * Register a new provider (overwrites if the same ID already exists).
+   * @param provider - The provider instance to register.
    */
   register(provider: AIProvider): void;
 
   /**
-   * Get provider by ID
+   * Get a provider by its unique identifier.
+   * @param id - Provider ID (e.g., `"openai"`, `"runway"`).
+   * @returns The matching provider, or `undefined` if not found.
    */
   get(id: string): AIProvider | undefined;
 
   /**
-   * Get all registered providers
+   * Get all registered providers.
+   * @returns Array of all provider instances.
    */
   getAll(): AIProvider[];
 
   /**
-   * Get providers with specific capability
+   * Get providers that declare a specific capability.
+   * @param capability - The capability to filter by.
+   * @returns Array of providers that support the given capability.
    */
   getByCapability(capability: AICapability): AIProvider[];
 
   /**
-   * Unregister a provider
+   * Remove a provider from the registry.
+   * @param id - Provider ID to remove.
+   * @returns `true` if the provider was found and removed.
    */
   unregister(id: string): boolean;
 }

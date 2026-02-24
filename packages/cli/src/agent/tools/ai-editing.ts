@@ -1,11 +1,14 @@
 /**
- * AI Editing Tools - Post-production editing tools (text overlay, review, silence cut,
- * jump cut, captions, noise reduction, fade, thumbnail, SRT translation)
+ * @module ai-editing
+ * @description Agent tools for post-production editing (text overlay, review,
+ * silence cut, jump cut, captions, noise reduction, fade, thumbnail,
+ * SRT translation). FFmpeg-based and AI-assisted editing tools for agent use.
+ * Most tools work without API keys (FFmpeg-only), some use Gemini or OpenAI.
  *
- * FFmpeg-based and AI-assisted editing tools for agent use.
- * Most tools work without API keys (FFmpeg-only), some use Gemini or OpenAI for analysis.
- *
- * See MODELS.md for the Single Source of Truth (SSOT) on supported providers/models.
+ * ## Tools: ai_text_overlay, ai_silence_cut, ai_jump_cut, ai_caption,
+ *          ai_noise_reduce, ai_fade, ai_thumbnail, ai_translate_srt
+ * ## Dependencies: FFmpeg, Gemini (optional), OpenAI/Whisper (optional)
+ * @see MODELS.md for the Single Source of Truth (SSOT) on supported providers/models
  */
 
 import { resolve } from "node:path";
