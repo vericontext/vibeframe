@@ -1,7 +1,14 @@
 {
   "name": "@vibeframe/web",
   "version": "0.19.3",
+  "description": "VibeFrame Web - Next.js preview UI for video editing",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vericontext/vibeframe.git",
+    "directory": "apps/web"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "cp ../../scripts/install.sh ./public/install.sh",

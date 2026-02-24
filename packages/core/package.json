@@ -1,7 +1,22 @@
 {
   "name": "@vibeframe/core",
   "version": "0.19.3",
+  "description": "VibeFrame Core - timeline data structures, effects, and FFmpeg export",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vericontext/vibeframe.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "vibeframe",
+    "video-editing",
+    "timeline",
+    "ffmpeg",
+    "zustand",
+    "immer"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

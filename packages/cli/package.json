@@ -1,7 +1,22 @@
 {
   "name": "@vibeframe/cli",
   "version": "0.19.3",
+  "description": "VibeFrame CLI - natural language video editing from the terminal",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vericontext/vibeframe.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "vibeframe",
+    "cli",
+    "video-editing",
+    "ai",
+    "ffmpeg",
+    "commander"
+  ],
   "type": "module",
   "bin": {
     "vibe": "./dist/index.js"
