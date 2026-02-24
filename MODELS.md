@@ -8,13 +8,37 @@
 
 Used for natural language processing in Agent mode (`vibe` command).
 
-| Provider | Model | Env Key | CLI Option |
-|----------|-------|---------|------------|
-| OpenAI | GPT-4o | `OPENAI_API_KEY` | `-p openai` |
-| Claude | Sonnet 4 | `ANTHROPIC_API_KEY` | `-p claude` |
-| Gemini | 2.0 Flash | `GOOGLE_API_KEY` | `-p gemini` |
-| xAI | Grok-3 | `XAI_API_KEY` | `-p xai` |
-| Ollama | Local models | - | `-p ollama` |
+| Provider | Model | API Model ID | Env Key | CLI Option |
+|----------|-------|-------------|---------|------------|
+| OpenAI | GPT-4.5 | `gpt-4.5` | `OPENAI_API_KEY` | `-p openai` |
+| Claude | Sonnet 4.6 | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` | `-p claude` |
+| Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
+| xAI | Grok-4 | `grok-4` | `XAI_API_KEY` | `-p xai` |
+| Ollama | Local models | user-configured | - | `-p ollama` |
+
+**Why Gemini 2.5 Flash, not 3.1 Pro?**
+
+Agent mode runs an agentic loop — the LLM is called repeatedly (potentially dozens of times per task) to reason and call tools. For this use case:
+
+- **Speed matters**: Flash responds ~3–5× faster than Pro, keeping the interactive session snappy
+- **Tool calling stability**: `gemini-2.5-flash` has well-tested, stable function calling support; `gemini-3.1-pro-preview` is a preview model with potentially unstable behavior in multi-turn tool calling loops
+- **Cost**: Flash is significantly cheaper per token — important when a single agent task may trigger 20+ LLM calls
+- **Preview models in production**: Preview models can change response format or have stricter rate limits unsuitable for agentic loops
+
+`gemini-3.1-pro-preview` is available for **motion graphics code generation** (`vibe ai motion -m gemini-3.1-pro`) where its superior creative reasoning matters for a single, expensive generation call.
+
+---
+
+## Motion Graphics LLM (vibe ai motion)
+
+Used for Remotion component code generation (`vibe ai motion`).
+
+| Alias | Model | Provider | Env Key | CLI Option | Notes |
+|-------|-------|----------|---------|------------|-------|
+| `sonnet` | `claude-sonnet-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
+| `opus` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality |
+| `gemini` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Fast alternative |
+| `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini | `GOOGLE_API_KEY` | `-m gemini-3.1-pro` | Gemini 3.1 Pro |
 
 ---
 
@@ -86,10 +110,10 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 
 | Command | Required API Key | Model |
 |---------|-----------------|-------|
-| `vibe` (default) | `OPENAI_API_KEY` | GPT-4o (Agent LLM) |
-| `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4 (Agent LLM) |
-| `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.0 Flash (Agent LLM) |
-| `vibe -p xai` | `XAI_API_KEY` | Grok-3 (Agent LLM) |
+| `vibe` (default) | `OPENAI_API_KEY` | GPT-4.5 (Agent LLM) |
+| `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 (Agent LLM) |
+| `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
+| `vibe -p xai` | `XAI_API_KEY` | Grok-4 (Agent LLM) |
 | `vibe ai image` | `GOOGLE_API_KEY` | Gemini Nano Banana |
 | `vibe ai image -p openai` | `OPENAI_API_KEY` | GPT Image 1.5 |
 | `vibe ai gemini-edit` | `GOOGLE_API_KEY` | Gemini Nano Banana |

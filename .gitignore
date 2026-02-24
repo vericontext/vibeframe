@@ -38,6 +38,10 @@ pnpm-debug.log*
 samples/
 # Generated outputs
 demo-output/
+test-results/
+
+# Test artifacts
+project.vibe.json
 docker/test-output/
 promo/
 tiktok/
@@ -55,3 +59,4 @@ docs/*.mp4
 
 # Internal docs
 ROADMAP-CLOUD.md
+scripts/DEV_GUIDE.md

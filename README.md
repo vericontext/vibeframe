@@ -27,7 +27,7 @@ vibe ai viral project.vibe.json -p tiktok,youtube-shorts,instagram-reels
 
 ## Why VibeFrame?
 
-Traditional video editors are built for **clicking buttons**. VibeFrame is built for **AI agents**.
+Traditional video editors are built for **clicking buttons**. VibeFrame is built for **AI-powered workflows**.
 
 | Traditional Editor | VibeFrame |
 |-------------------|----------|
@@ -49,14 +49,16 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 **Prerequisites:** Node.js 18+, FFmpeg
 
 ```bash
-# Install & start Agent mode
+# Install VibeFrame
 curl -fsSL https://vibeframe.ai/install.sh | bash
-vibe
 
-# Or run commands directly
+# Run commands directly
 vibe project create "My First Video" -o my-video.vibe.json
 vibe timeline add-source my-video.vibe.json ./intro.mp4
 vibe export my-video.vibe.json -o output.mp4
+
+# Or start an interactive natural language session
+vibe
 ```
 
 For development:
@@ -114,10 +116,15 @@ Config file locations:
 ## CLI Reference
 
 ```bash
-# Agent (default entry point)
-vibe                                 # Start Agent mode (natural language)
+# Direct commands (primary workflow)
+vibe ai script-to-video "..."        # Run any AI command directly
+vibe project create "name"           # Manage projects
+vibe export project.vibe.json        # Export to MP4
+
+# Interactive session (natural language, no-args)
+vibe                                 # Start interactive CLI session
 vibe agent -p claude                 # Use specific LLM provider
-vibe setup                           # Configure LLM provider & API keys
+vibe setup                           # Configure API keys
 
 # Project
 vibe project create <name>           # Create project

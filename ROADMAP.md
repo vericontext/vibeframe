@@ -31,6 +31,7 @@ Unified interface for AI services.
 - [x] **Gemini** - Multimodal understanding, auto-edit suggestions
 - [x] **Claude** - AI-powered content creation
   - Natural language → Remotion motion graphics with auto-render & composite (`vibe ai motion --render --video`)
+  - Gemini video-aware motion: analyzes base video for style/layout context before code generation
   - Long-form content analysis & storyboarding (`vibe ai storyboard`)
   - Timeline planning with AI suggestions
 - [x] **Ollama** - Local LLM for natural language commands (no API key required)

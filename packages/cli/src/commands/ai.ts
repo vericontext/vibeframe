@@ -56,6 +56,7 @@ import { detectFormat, formatTranscript, formatSRT, parseSRT } from "../utils/su
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { getAudioDuration, getVideoDuration, extendVideoNaturally } from "../utils/audio.js";
+import { formatTime, applySuggestion } from "./ai-helpers.js";
 
 const execAsync = promisify(exec);
 
@@ -12772,42 +12773,6 @@ aiCommand
     }
   });
 
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = (seconds % 60).toFixed(1);
-  return `${mins}:${secs.padStart(4, "0")}`;
-}
-
-function applySuggestion(project: Project, suggestion: any): boolean {
-  const { type, clipIds, params } = suggestion;
-
-  if (clipIds.length === 0) return false;
-  const clipId = clipIds[0];
-
-  switch (type) {
-    case "trim":
-      if (params.newDuration) {
-        return project.trimClipEnd(clipId, params.newDuration);
-      }
-      break;
-    case "add-effect":
-      if (params.effectType) {
-        const effect = project.addEffect(clipId, {
-          type: params.effectType,
-          startTime: params.startTime || 0,
-          duration: params.duration || 1,
-          params: params.effectParams || {},
-        });
-        return effect !== null;
-      }
-      break;
-    case "delete":
-      return project.removeClip(clipId);
-  }
-
-  return false;
-}
-
 export function executeCommand(project: Project, cmd: TimelineCommand): boolean {
   const { action, clipIds, params } = cmd;
 
@@ -12866,11 +12831,11 @@ export function executeCommand(project: Project, cmd: TimelineCommand): boolean 
         return true;
 
       case "remove-effect":
-        // TODO: Implement effect removal
+        console.warn("remove-effect is not yet supported. Use the timeline UI to remove effects.");
         return false;
 
       case "set-volume":
-        // TODO: Implement volume control
+        console.warn("set-volume is not yet supported. Audio ducking via 'vibe ai duck' can adjust levels.");
         return false;
 
       case "add-track": {

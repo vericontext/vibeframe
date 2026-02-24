@@ -98,7 +98,7 @@ export async function getApiKey(
     OPENAI_API_KEY: "openai",
     GOOGLE_API_KEY: "google",
     ELEVENLABS_API_KEY: "elevenlabs",
-    RUNWAY_API_KEY: "runway",
+    RUNWAY_API_SECRET: "runway",
     KLING_API_KEY: "kling",
     IMGBB_API_KEY: "imgbb",
     STABILITY_API_KEY: "stability",

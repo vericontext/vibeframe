@@ -458,6 +458,8 @@ export interface ProviderConfig {
   timeout?: number;
   maxRetries?: number;
   customHeaders?: Record<string, string>;
+  /** Override the default model for this provider instance */
+  model?: string;
 }
 
 /**

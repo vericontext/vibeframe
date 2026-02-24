@@ -2,12 +2,18 @@
  * Remotion rendering and compositing utilities.
  *
  * Uses `npx remotion` on-demand — Remotion is NOT a package dependency.
- * Scaffolds a temporary project, renders transparent WebM, and composites with FFmpeg.
+ * Scaffolds a temporary project, renders H264 MP4, and muxes audio separately.
+ *
+ * Strategy:
+ * - Images/Videos are embedded NATIVELY inside the Remotion component using
+ *   <Img> / <Video> from Remotion (copied to public/).
+ * - No transparent WebM rendering. No FFmpeg overlay compositing.
+ * - Final output is always a standard H264 MP4.
  */
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { writeFile, mkdir, rm, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -67,27 +73,42 @@ export async function ensureRemotionInstalled(): Promise<string | null> {
 /**
  * Create a minimal Remotion project in a temp directory.
  * Returns the directory path.
+ *
+ * @param useMediaPackage - Include @remotion/media for <Video> support (default: false)
  */
 export async function scaffoldRemotionProject(
   componentCode: string,
   componentName: string,
-  opts: { width: number; height: number; fps: number; durationInFrames: number },
+  opts: {
+    width: number;
+    height: number;
+    fps: number;
+    durationInFrames: number;
+    useMediaPackage?: boolean;
+  },
 ): Promise<string> {
   const dir = join(tmpdir(), `vibe_motion_${Date.now()}`);
   await mkdir(dir, { recursive: true });
 
   // package.json — remotion + react deps
+  const deps: Record<string, string> = {
+    remotion: "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    react: "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.0.0",
+  };
+
+  // @remotion/media is needed for the <Video> component (per Remotion docs)
+  if (opts.useMediaPackage) {
+    deps["@remotion/media"] = "^4.0.0";
+  }
+
   const packageJson = {
     name: "vibe-motion-render",
     version: "1.0.0",
     private: true,
-    dependencies: {
-      remotion: "^4.0.0",
-      "@remotion/cli": "^4.0.0",
-      react: "^18.0.0",
-      "react-dom": "^18.0.0",
-      "@types/react": "^18.0.0",
-    },
+    dependencies: deps,
   };
   await writeFile(join(dir, "package.json"), JSON.stringify(packageJson, null, 2));
 
@@ -105,7 +126,7 @@ export async function scaffoldRemotionProject(
   };
   await writeFile(join(dir, "tsconfig.json"), JSON.stringify(tsconfig, null, 2));
 
-  // Component.tsx — the AI-generated component
+  // Component.tsx — the AI-generated (and optionally wrapped) component
   await writeFile(join(dir, "Component.tsx"), componentCode);
 
   // Root.tsx — Remotion entry point
@@ -129,26 +150,27 @@ registerRoot(Root);
 `;
   await writeFile(join(dir, "Root.tsx"), rootCode);
 
-  // Install deps (first render will be slow, subsequent cached)
+  // Install deps
   if (!existsSync(join(dir, "node_modules"))) {
     await execAsync("npm install --prefer-offline --no-audit --no-fund", {
       cwd: dir,
-      timeout: 120_000,
+      timeout: 180_000,
     });
   }
 
   return dir;
 }
 
+// ── Standalone Motion Render ───────────────────────────────────────────────
+
 /**
- * Render a Remotion composition to video.
- * When transparent: tries VP8, then VP9 (both support alpha). Fails if neither works.
+ * Render a standalone Remotion composition to video (no base media).
+ * When transparent: tries VP8 then VP9.
  * When opaque: renders H264 MP4.
  */
 export async function renderMotion(options: RenderMotionOptions): Promise<RenderResult> {
   const transparent = options.transparent !== false;
 
-  // 1. Scaffold project
   const dir = await scaffoldRemotionProject(
     options.componentCode,
     options.componentName,
@@ -166,7 +188,6 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
     if (transparent) {
       const webmOut = options.outputPath.replace(/\.\w+$/, ".webm");
 
-      // Try VP8 with alpha (best Remotion support)
       try {
         const cmd = [
           "npx remotion render",
@@ -184,7 +205,6 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
         // VP8 failed, try VP9
       }
 
-      // Try VP9 with alpha as fallback
       try {
         const cmd = [
           "npx remotion render",
@@ -221,33 +241,289 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
     const msg = error instanceof Error ? error.message : String(error);
     return { success: false, error: `Remotion render failed: ${msg}` };
   } finally {
-    // Cleanup temp project
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
+// ── Pre-render code validator & auto-fixer ────────────────────────────────
+
 /**
- * Composite a transparent overlay on top of a base video using FFmpeg.
+ * Validates and auto-fixes common LLM-generated Remotion code bugs before
+ * attempting to render. Returns fixed code and a list of applied fixes.
+ *
+ * Known patterns fixed:
+ *  1. interpolate(x, [a,b], scalar, num) → interpolate(x, [a,b], [scalar, num])
+ *     Cause: outputRange must be an array, not a bare scalar.
+ *  2. interpolate(x, [a,b], scalar) where scalar is a variable name
+ *     Cause: same — LLM passes a single number variable instead of [from, to].
  */
-export async function compositeOverlay(options: CompositeOptions): Promise<RenderResult> {
+export function validateAndFixMotionCode(code: string): { code: string; fixes: string[] } {
+  const fixes: string[] = [];
+  let fixed = code;
+
+  // Pattern 1: interpolate(expr, [a, b], varName, numericLiteral)
+  // where varName is a JS identifier and numericLiteral is a number
+  // This is the exact bug seen in practice: interpolate(exitEase, [0, 1], barH, 0)
+  const pattern1 = /interpolate\(([^,]+),\s*(\[[^\]]+\]),\s*([a-zA-Z_$][a-zA-Z0-9_$.]*),\s*(-?[\d.]+)\s*\)/g;
+  fixed = fixed.replace(pattern1, (_match, val, inputRange, outVar, outNum) => {
+    const fix = `interpolate(${val}, ${inputRange}, [${outVar}, ${outNum}])`;
+    fixes.push(`Fixed scalar outputRange: interpolate(..., ${outVar}, ${outNum}) → [..., [${outVar}, ${outNum}]]`);
+    return fix;
+  });
+
+  // Pattern 2: interpolate(expr, [a, b], singleIdentifier) — no options arg
+  // e.g. interpolate(frame, [0, 30], progress) where progress is not an array
+  // Heuristic: if the third arg is a plain identifier (not starting with [) and
+  // there's no fourth arg, we can't safely auto-fix without knowing the intent,
+  // so just log a warning in the fixes list for visibility.
+  const pattern2 = /interpolate\(([^,]+),\s*(\[[^\]]+\]),\s*([a-zA-Z_$][a-zA-Z0-9_$.]*)\s*\)/g;
+  let p2match;
+  while ((p2match = pattern2.exec(fixed)) !== null) {
+    // Only warn if the identifier doesn't look like an array variable name
+    const varName = p2match[3];
+    if (!varName.includes("[")) {
+      fixes.push(`Warning: interpolate third arg "${varName}" may not be an array — verify outputRange is [from, to]`);
+    }
+  }
+
+  return { code: fixed, fixes };
+}
+
+// ── Import injection helper ────────────────────────────────────────────────
+
+/**
+ * Inject additional named imports into the existing `from 'remotion'`
+ * import statement in the component code.
+ * Avoids duplicate identifier errors when the component already imports
+ * some of the same names (e.g. AbsoluteFill).
+ */
+function injectRemotionImports(code: string, additions: string[]): string {
+  return code.replace(
+    /import\s*\{([^}]+)\}\s*from\s*['"]remotion['"]/,
+    (match, imports) => {
+      const existing = imports
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const toAdd = additions.filter((a) => !existing.includes(a));
+      if (toAdd.length === 0) return match;
+      return `import { ${[...existing, ...toAdd].join(", ")} } from "remotion"`;
+    },
+  );
+}
+
+// ── Native Image Embed ─────────────────────────────────────────────────────
+
+/**
+ * Wrap an overlay component to embed a static image as background.
+ * Uses Remotion's <Img> component (required per Remotion docs — ensures
+ * image is fully loaded before each frame renders).
+ *
+ * Injects Img and staticFile into the component's existing remotion import
+ * to avoid duplicate identifier errors.
+ */
+export function wrapComponentWithImage(
+  componentCode: string,
+  componentName: string,
+  imageFileName: string,
+): { code: string; name: string } {
+  const wrappedName = "ImageComposite";
+
+  // Inject Img and staticFile into the existing remotion import
+  const modifiedCode = injectRemotionImports(componentCode, ["Img", "staticFile"]);
+
+  const code = `${modifiedCode}
+
+export const ${wrappedName}: React.FC = () => {
+  return (
+    <AbsoluteFill>
+      <Img
+        src={staticFile("${imageFileName}")}
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
+      <AbsoluteFill>
+        <${componentName} />
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+`;
+
+  return { code, name: wrappedName };
+}
+
+/**
+ * Render a Remotion component that embeds a static image as background.
+ * Copies image to public/, renders H264 MP4 directly — no transparency needed.
+ */
+export async function renderWithEmbeddedImage(options: {
+  componentCode: string;
+  componentName: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+  imagePath: string;
+  imageFileName: string;
+  outputPath: string;
+}): Promise<RenderResult> {
+  const dir = await scaffoldRemotionProject(
+    options.componentCode,
+    options.componentName,
+    {
+      width: options.width,
+      height: options.height,
+      fps: options.fps,
+      durationInFrames: options.durationInFrames,
+      useMediaPackage: false,
+    },
+  );
+
   try {
-    const cmd = [
-      "ffmpeg -y",
-      `-i "${options.baseVideo}"`,
-      `-i "${options.overlayPath}"`,
-      '-filter_complex "[0:v][1:v]overlay=0:0:shortest=1[out]"',
-      '-map "[out]"',
-      "-map 0:a?",
-      "-c:a copy",
-      "-c:v libx264 -crf 18",
-      `"${options.outputPath}"`,
+    // Copy image to public/ so staticFile() can access it
+    const publicDir = join(dir, "public");
+    await mkdir(publicDir, { recursive: true });
+    await copyFile(options.imagePath, join(publicDir, options.imageFileName));
+
+    const entryPoint = join(dir, "Root.tsx");
+    const mp4Out = options.outputPath.replace(/\.\w+$/, ".mp4");
+
+    const renderCmd = [
+      "npx remotion render",
+      `"${entryPoint}"`,
+      options.componentName,
+      `"${mp4Out}"`,
+      "--codec h264",
+      "--crf 18",
     ].join(" ");
 
-    await execAsync(cmd, { timeout: 300_000 });
-    return { success: true, outputPath: options.outputPath };
+    await execAsync(renderCmd, { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
+
+    return { success: true, outputPath: mp4Out };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: `FFmpeg composite failed: ${msg}` };
+    return { success: false, error: `Remotion image embed render failed: ${msg}` };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+// ── Native Video Embed ─────────────────────────────────────────────────────
+
+/**
+ * Wrap an overlay component to embed a video as background.
+ * Uses <Video> from @remotion/media (required per Remotion docs).
+ * Video is muted — audio is muxed back via FFmpeg after rendering.
+ *
+ * Injects staticFile into the component's existing remotion import to avoid
+ * duplicate identifier errors. Video is imported from @remotion/media
+ * (different module — no conflict).
+ */
+export function wrapComponentWithVideo(
+  componentCode: string,
+  componentName: string,
+  videoFileName: string,
+): { code: string; name: string } {
+  const wrappedName = "VideoComposite";
+
+  // Inject staticFile into the existing remotion import
+  const modifiedCode = injectRemotionImports(componentCode, ["staticFile"]);
+
+  // Prepend @remotion/media import (different module, no conflict)
+  const code = `import { Video } from "@remotion/media";
+${modifiedCode}
+
+export const ${wrappedName}: React.FC = () => {
+  return (
+    <AbsoluteFill>
+      <Video
+        src={staticFile("${videoFileName}")}
+        style={{ width: "100%", height: "100%" }}
+        muted
+      />
+      <AbsoluteFill>
+        <${componentName} />
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+`;
+
+  return { code, name: wrappedName };
+}
+
+/**
+ * Render a Remotion component that embeds the video directly.
+ * Uses @remotion/media's <Video> component (official Remotion approach).
+ * After rendering, muxes audio from the original video back into the output.
+ */
+export async function renderWithEmbeddedVideo(options: {
+  componentCode: string;
+  componentName: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+  videoPath: string;
+  videoFileName: string;
+  outputPath: string;
+}): Promise<RenderResult> {
+  const dir = await scaffoldRemotionProject(
+    options.componentCode,
+    options.componentName,
+    {
+      width: options.width,
+      height: options.height,
+      fps: options.fps,
+      durationInFrames: options.durationInFrames,
+      useMediaPackage: true,
+    },
+  );
+
+  try {
+    // Copy video to public/ so staticFile() can access it
+    const publicDir = join(dir, "public");
+    await mkdir(publicDir, { recursive: true });
+    await copyFile(options.videoPath, join(publicDir, options.videoFileName));
+
+    const entryPoint = join(dir, "Root.tsx");
+    const mp4VideoOnly = options.outputPath.replace(/\.\w+$/, "_video_only.mp4");
+
+    // Render H264 (video-only, audio muted inside component)
+    const renderCmd = [
+      "npx remotion render",
+      `"${entryPoint}"`,
+      options.componentName,
+      `"${mp4VideoOnly}"`,
+      "--codec h264",
+      "--crf 18",
+    ].join(" ");
+
+    await execAsync(renderCmd, { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
+
+    // Mux: rendered video + original audio
+    const mp4Out = options.outputPath.replace(/\.\w+$/, ".mp4");
+    const muxCmd = [
+      "ffmpeg -y",
+      `-i "${mp4VideoOnly}"`,
+      `-i "${options.videoPath}"`,
+      "-map 0:v:0",
+      "-map 1:a:0?",
+      "-c:v copy",
+      "-c:a copy",
+      "-shortest",
+      `"${mp4Out}"`,
+    ].join(" ");
+
+    await execAsync(muxCmd, { timeout: 120_000 });
+    await rm(mp4VideoOnly, { force: true }).catch(() => {});
+
+    return { success: true, outputPath: mp4Out };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Remotion video embed render failed: ${msg}` };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -284,12 +560,10 @@ export function generateCaptionComponent(options: GenerateCaptionComponentOption
   const { segments, style, fontSize, fontColor, position, width, height, videoFileName } = options;
   const name = videoFileName ? "VideoCaptioned" : "CaptionOverlay";
 
-  // Serialize segments as a JSON array embedded in the TSX
   const segmentsJSON = JSON.stringify(
     segments.map((s) => ({ start: s.start, end: s.end, text: s.text })),
   );
 
-  // Build CSS styles per preset
   const styleMap: Record<CaptionStylePreset, string> = {
     bold: `
       fontWeight: "bold" as const,
@@ -320,18 +594,16 @@ export function generateCaptionComponent(options: GenerateCaptionComponentOption
   const paddingDir = position === "top" ? "paddingTop" : position === "bottom" ? "paddingBottom" : "";
   const paddingVal = position === "center" ? "" : `${paddingDir}: 40,`;
 
-  // Video import line (only when embedding video)
-  const videoImport = videoFileName
-    ? `, Video, staticFile`
-    : "";
-
-  // Video background element
+  const videoImport = videoFileName ? `, staticFile` : "";
   const videoElement = videoFileName
-    ? `<Video src={staticFile("${videoFileName}")} style={{ width: "100%", height: "100%" }} />`
+    ? `<Video src={staticFile("${videoFileName}")} style={{ width: "100%", height: "100%" }} muted />`
+    : "";
+  const videoMediaImport = videoFileName
+    ? `import { Video } from "@remotion/media";\n`
     : "";
 
   const code = `import { AbsoluteFill, useCurrentFrame, useVideoConfig${videoImport} } from "remotion";
-
+${videoMediaImport}
 interface Segment {
   start: number;
   end: number;
@@ -384,16 +656,75 @@ export const ${name} = () => {
   return { code, name };
 }
 
+// ── Legacy composite helpers (kept for backward compat) ───────────────────
+
+/**
+ * Composite a transparent overlay on top of a base video using FFmpeg.
+ * @deprecated Use renderWithEmbeddedVideo() for new code.
+ */
+export async function compositeOverlay(options: CompositeOptions): Promise<RenderResult> {
+  try {
+    const cmd = [
+      "ffmpeg -y",
+      `-i "${options.baseVideo}"`,
+      `-i "${options.overlayPath}"`,
+      '-filter_complex "[0:v][1:v]overlay=0:0:shortest=1[out]"',
+      '-map "[out]"',
+      "-map 0:a?",
+      "-c:a copy",
+      "-c:v libx264 -crf 18 -pix_fmt yuv420p",
+      `"${options.outputPath}"`,
+    ].join(" ");
+
+    await execAsync(cmd, { timeout: 300_000 });
+    return { success: true, outputPath: options.outputPath };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `FFmpeg composite failed: ${msg}` };
+  }
+}
+
+/**
+ * Composite a transparent overlay on top of a static image using FFmpeg.
+ * @deprecated Use renderWithEmbeddedImage() for new code.
+ */
+export async function compositeWithImage(options: {
+  baseImage: string;
+  overlayPath: string;
+  outputPath: string;
+  durationSeconds: number;
+  fps?: number;
+}): Promise<RenderResult> {
+  try {
+    const fps = options.fps || 30;
+    const cmd = [
+      "ffmpeg -y",
+      `-loop 1 -framerate ${fps} -i "${options.baseImage}"`,
+      `-i "${options.overlayPath}"`,
+      `-filter_complex "[0:v]scale=iw:ih[base];[base][1:v]overlay=0:0:shortest=1[out]"`,
+      `-map "[out]"`,
+      "-c:v libx264 -crf 18 -pix_fmt yuv420p",
+      `-t ${options.durationSeconds}`,
+      `"${options.outputPath}"`,
+    ].join(" ");
+
+    await execAsync(cmd, { timeout: 300_000 });
+    return { success: true, outputPath: options.outputPath };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `FFmpeg image composite failed: ${msg}` };
+  }
+}
+
 /**
  * Full pipeline: render motion graphic → composite onto base video.
- * If no base video, just renders the motion graphic.
+ * @deprecated Use renderWithEmbeddedVideo() for new code.
  */
 export async function renderAndComposite(
   motionOpts: RenderMotionOptions,
   baseVideo?: string,
   finalOutput?: string,
 ): Promise<RenderResult> {
-  // Step 1: Render motion graphic (transparent if compositing)
   const renderOpts = {
     ...motionOpts,
     transparent: !!baseVideo,
@@ -407,12 +738,10 @@ export async function renderAndComposite(
     return renderResult;
   }
 
-  // Step 2: If no base video, we're done
   if (!baseVideo) {
     return renderResult;
   }
 
-  // Step 3: Composite overlay onto base video
   const output = finalOutput || motionOpts.outputPath;
   const compositeResult = await compositeOverlay({
     baseVideo,
@@ -420,114 +749,6 @@ export async function renderAndComposite(
     outputPath: output,
   });
 
-  // Cleanup overlay file
   await rm(renderResult.outputPath, { force: true }).catch(() => {});
-
   return compositeResult;
-}
-
-/**
- * Wrap any Remotion component code to embed a video as background.
- * Adds `<Video src={staticFile(videoFileName)}>` behind the existing component.
- * Returns wrapped code with a new component name (prefixed with "VideoWrapped_").
- */
-export function wrapComponentWithVideo(
-  componentCode: string,
-  componentName: string,
-  videoFileName: string,
-): { code: string; name: string } {
-  const wrappedName = "VideoComposite";
-
-  const code = `import { AbsoluteFill, Video, staticFile } from "remotion";
-${componentCode}
-
-export const ${wrappedName}: React.FC = () => {
-  return (
-    <AbsoluteFill>
-      <Video src={staticFile("${videoFileName}")} style={{ width: "100%", height: "100%" }} />
-      <AbsoluteFill>
-        <${componentName} />
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-};
-`;
-
-  return { code, name: wrappedName };
-}
-
-/**
- * Render a Remotion component that embeds the video directly.
- * No transparency needed — the component includes <Video> + overlay content.
- * After rendering, copies audio from the original video to the output.
- */
-export async function renderWithEmbeddedVideo(options: {
-  componentCode: string;
-  componentName: string;
-  width: number;
-  height: number;
-  fps: number;
-  durationInFrames: number;
-  videoPath: string;
-  videoFileName: string;
-  outputPath: string;
-}): Promise<RenderResult> {
-  const dir = await scaffoldRemotionProject(
-    options.componentCode,
-    options.componentName,
-    {
-      width: options.width,
-      height: options.height,
-      fps: options.fps,
-      durationInFrames: options.durationInFrames,
-    },
-  );
-
-  try {
-    // Copy video to public/ so Remotion's staticFile() can access it
-    const publicDir = join(dir, "public");
-    await mkdir(publicDir, { recursive: true });
-    const { copyFile } = await import("node:fs/promises");
-    await copyFile(options.videoPath, join(publicDir, options.videoFileName));
-
-    const entryPoint = join(dir, "Root.tsx");
-    const mp4Out = options.outputPath.replace(/\.\w+$/, "_video_only.mp4");
-
-    // Render H264 (video-only from Remotion, no audio)
-    const renderCmd = [
-      "npx remotion render",
-      `"${entryPoint}"`,
-      options.componentName,
-      `"${mp4Out}"`,
-      "--codec h264",
-      "--crf 18",
-    ].join(" ");
-
-    await execAsync(renderCmd, { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
-
-    // Mux: take video from Remotion render, audio from original video
-    const muxCmd = [
-      "ffmpeg -y",
-      `-i "${mp4Out}"`,
-      `-i "${options.videoPath}"`,
-      "-map 0:v:0",
-      "-map 1:a:0?",
-      "-c:v copy",
-      "-c:a copy",
-      "-shortest",
-      `"${options.outputPath}"`,
-    ].join(" ");
-
-    await execAsync(muxCmd, { timeout: 120_000 });
-
-    // Cleanup temp video-only file
-    await rm(mp4Out, { force: true }).catch(() => {});
-
-    return { success: true, outputPath: options.outputPath };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: `Remotion embedded video render failed: ${msg}` };
-  } finally {
-    await rm(dir, { recursive: true, force: true }).catch(() => {});
-  }
 }

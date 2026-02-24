@@ -100,7 +100,7 @@ export class RunwayProvider implements AIProvider {
       const ratioMap: Record<string, string> = {
         "16:9": "1280:720",
         "9:16": "720:1280",
-        "1:1": "720:720",
+        "1:1": "960:960",
       };
       const apiRatio = ratioMap[options?.aspectRatio || "16:9"] || "1280:720";
 
@@ -122,8 +122,8 @@ export class RunwayProvider implements AIProvider {
 
       const body: Record<string, unknown> = {
         model,
-        prompt_text: prompt,
-        prompt_image: imageData,
+        promptText: prompt,
+        promptImage: imageData,
         ratio: apiRatio,
         duration: options?.duration === 10 ? 10 : 5,
       };

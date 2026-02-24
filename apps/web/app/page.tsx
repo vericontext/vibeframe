@@ -10,7 +10,6 @@ import {
   Layers,
   Github,
   ArrowRight,
-  Play,
   MessageSquare,
   Wand2,
   Film,
@@ -31,9 +30,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/25">
-              <Play className="w-4 h-4 text-primary-foreground fill-current" />
-            </div>
+            <img src="/logo.svg" alt="VibeFrame" className="w-8 h-8" />
             <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">VibeFrame</span>
           </div>
           <div className="flex items-center gap-4">
@@ -71,9 +68,9 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            CLI-first video editor built for AI agents.
-            Edit with natural language. Automate with MCP.
-            No timeline dragging required.
+            CLI-first video editing for AI agents.
+            Use directly, via MCP in Claude Desktop & Cursor,
+            or through Claude Code — no GUI required.
           </p>
 
           {/* Install Command */}
@@ -100,7 +97,7 @@ export default function LandingPage() {
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary hover:border-primary/30 transition-all"
             >
               <Terminal className="w-5 h-5" />
-              Try Agent Mode
+              See it in action
             </Link>
           </div>
         </div>
@@ -112,14 +109,14 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/5 px-4 py-1.5 text-sm text-purple-400 mb-4">
               <Terminal className="w-4 h-4" />
-              <span>Default Mode</span>
+              <span>Interactive CLI</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Agent Mode
+              Natural Language CLI
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Just type <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> and
-              let the AI agent handle multi-step tasks autonomously. 58 tools at your command.
+              Type <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> for an interactive session,
+              or run any command directly. 58 tools across project, timeline, AI generation, and export.
             </p>
           </div>
 
@@ -157,8 +154,8 @@ export default function LandingPage() {
               />
               <FeatureItem
                 icon={<Terminal className="w-5 h-5" />}
-                title="Multi-Turn Agentic"
-                description="Autonomous reasoning → tool calls → results → repeat until done"
+                title="MCP + Claude Code"
+                description="Use via MCP in Claude Desktop & Cursor, or let Claude Code run CLI commands directly"
                 gradient="from-green-500 to-emerald-500"
               />
             </div>
@@ -377,9 +374,7 @@ export default function LandingPage() {
       <footer className="border-t border-border/50 py-8 px-4">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-              <Play className="w-3 h-3 text-primary-foreground fill-current" />
-            </div>
+            <img src="/logo.svg" alt="VibeFrame" className="w-6 h-6" />
             <span>VibeFrame</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

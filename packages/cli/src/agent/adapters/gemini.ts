@@ -15,7 +15,7 @@ import type {
 export class GeminiAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "gemini";
   private client: GoogleGenerativeAI | null = null;
-  private model: string = "gemini-2.0-flash";
+  private model: string = "gemini-2.5-flash";
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new GoogleGenerativeAI(apiKey);
@@ -102,7 +102,7 @@ export class GeminiAdapter implements LLMAdapter {
           role: "user",
           parts: [{
             functionResponse: {
-              name: msg.toolCallId!.split("-")[0] || "unknown", // Extract function name from id
+              name: msg.toolCallId!.split(":::")[0] || "unknown", // Extract function name from id
               response: { result: msg.content },
             },
           }],
@@ -135,7 +135,7 @@ export class GeminiAdapter implements LLMAdapter {
       } else if ("functionCall" in part && part.functionCall) {
         const fc = part.functionCall;
         toolCalls.push({
-          id: `${fc.name}-${Date.now()}`,
+          id: `${fc.name}:::${Date.now()}`,
           name: fc.name,
           arguments: (fc.args || {}) as Record<string, unknown>,
         });

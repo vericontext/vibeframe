@@ -92,15 +92,17 @@ Agent (vibe)              Natural language → LLM tool calling → autonomous e
 - Calls Python helper scripts or implements providers directly
 - Supports `--provider` option for multi-provider commands (image, video, etc.)
 
-**Agent** (`packages/cli/src/agent/`) - **Default entry point**:
-- Users install via `curl -fsSL .../install.sh | bash`
-- `vibe` starts Agent mode by default
-- Claude Code-like agentic loop architecture
+**Agent** (`packages/cli/src/agent/`) - **Interactive CLI / Onboarding entry point**:
+- `vibe` (no args) starts an interactive natural language session
+- Useful when working standalone (no Claude Code or MCP client available)
+- In Claude Code or Cursor+MCP environments, prefer running CLI commands directly
 - Multi-turn: LLM reasoning → tool call → result → repeat until complete
 - 5 LLM providers: OpenAI, Claude, Gemini, Ollama, xAI Grok
 - 58 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
 - `--confirm` flag: prompts before each tool execution
 - Example: "create project and add video" → multiple tool calls autonomously
+
+> **Priority note**: CLI commands are the core. MCP is the primary integration path for Claude Desktop/Cursor. Agent mode is best for onboarding and environments without Claude Code or MCP.
 
 **REPL** (deprecated):
 - Legacy single-command mode, replaced by Agent mode
@@ -247,7 +249,7 @@ When adding new AI CLI commands:
 | `ai_sfx` | `vibe ai sfx` | Sound effects (ElevenLabs) |
 | `ai_music` | `vibe ai music` | Music generation (Replicate) |
 | `ai_storyboard` | `vibe ai storyboard` | Script → storyboard (Claude) |
-| `ai_motion` | `vibe ai motion` | Motion graphics render & composite (Remotion) |
+| `ai_motion` | `vibe ai motion` | Motion graphics render & composite (Remotion, Gemini video-aware) |
 | `ai_script_to_video` | `vibe ai script-to-video` | Full video pipeline |
 | `ai_highlights` | `vibe ai highlights` | Extract highlights |
 | `ai_auto_shorts` | `vibe ai auto-shorts` | Generate shorts |
@@ -333,7 +335,7 @@ Copy `.env.example` to `.env`. Each AI provider has its own API key:
 See **[MODELS.md](MODELS.md)** for the complete SSOT (Single Source of Truth) on all AI models.
 
 Quick summary:
-- **Agent LLM**: OpenAI GPT-4o, Claude Sonnet 4.6, Gemini 2.0 Flash, xAI Grok-3, Ollama
+- **Agent LLM**: OpenAI GPT-4.5, Claude Sonnet 4.6, Gemini 2.5 Flash, xAI Grok-4, Ollama
 - **Text-to-Image**: OpenAI GPT Image 1.5, Gemini Nano Banana (Flash/Pro), Stability SDXL
 - **Text-to-Video**: Kling v2.5/v2.6, Veo 3.0/3.1, Runway Gen-4, xAI Grok Imagine
 - **Audio**: ElevenLabs (TTS, SFX), Whisper (transcription), Replicate (music)

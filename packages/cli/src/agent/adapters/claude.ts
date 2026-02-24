@@ -15,7 +15,7 @@ import type {
 export class ClaudeAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "claude";
   private client: Anthropic | null = null;
-  private model: string = "claude-sonnet-4-20250514";
+  private model: string = "claude-sonnet-4-6";
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new Anthropic({ apiKey });

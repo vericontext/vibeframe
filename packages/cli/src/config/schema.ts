@@ -57,7 +57,7 @@ export const PROVIDER_ENV_VARS: Record<string, string> = {
   openai: "OPENAI_API_KEY",
   google: "GOOGLE_API_KEY",
   elevenlabs: "ELEVENLABS_API_KEY",
-  runway: "RUNWAY_API_KEY",
+  runway: "RUNWAY_API_SECRET",
   kling: "KLING_API_KEY",
   imgbb: "IMGBB_API_KEY",
   stability: "STABILITY_API_KEY",

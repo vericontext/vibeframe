@@ -52,7 +52,7 @@ describe("Config Schema", () => {
       expect(PROVIDER_ENV_VARS.openai).toBe("OPENAI_API_KEY");
       expect(PROVIDER_ENV_VARS.google).toBe("GOOGLE_API_KEY");
       expect(PROVIDER_ENV_VARS.elevenlabs).toBe("ELEVENLABS_API_KEY");
-      expect(PROVIDER_ENV_VARS.runway).toBe("RUNWAY_API_KEY");
+      expect(PROVIDER_ENV_VARS.runway).toBe("RUNWAY_API_SECRET");
       expect(PROVIDER_ENV_VARS.kling).toBe("KLING_API_KEY");
       expect(PROVIDER_ENV_VARS.stability).toBe("STABILITY_API_KEY");
       expect(PROVIDER_ENV_VARS.replicate).toBe("REPLICATE_API_TOKEN");
