@@ -23,9 +23,6 @@ import { detectCommand } from "./commands/detect.js";
 import { setupCommand } from "./commands/setup.js";
 import { agentCommand, startAgent } from "./commands/agent.js";
 
-// Re-export repl and config for library usage
-/** @deprecated Use startAgent from commands/agent.js instead */
-export { startRepl, Session, executeReplCommand } from "./repl/index.js";
 export { startAgent } from "./commands/agent.js";
 export { loadConfig, saveConfig, isConfigured, type VibeConfig } from "./config/index.js";
 export { AgentExecutor, ToolRegistry, ConversationMemory } from "./agent/index.js";
