@@ -243,6 +243,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log(chalk.dim(`Config: ${CONFIG_PATH}`));
   console.log();
   console.log(`Run ${chalk.cyan("vibe")} to start editing`);
+  console.log(`Run ${chalk.cyan("vibe setup --show")} to verify your configuration`);
   console.log(`Run ${chalk.cyan("vibe setup --full")} to configure more providers`);
   console.log();
 }
