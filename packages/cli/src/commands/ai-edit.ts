@@ -19,8 +19,6 @@
 import { resolve, dirname, basename, extname, join } from 'node:path';
 import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { exec, execSync } from 'node:child_process';
-import { promisify } from 'node:util';
 import {
   GeminiProvider,
   WhisperProvider,
@@ -28,8 +26,7 @@ import {
 import { getApiKey } from '../utils/api-key.js';
 import { getVideoDuration } from '../utils/audio.js';
 import { formatSRT, parseSRT } from '../utils/subtitle.js';
-
-const execAsync = promisify(exec);
+import { execSafe, commandExists } from '../utils/exec-safe.js';
 
 
 // ── Exported types and execute functions ────────────────────────────────────
@@ -102,8 +99,18 @@ async function detectSilencePeriods(
   const totalDuration = await getVideoDuration(videoPath);
 
   // Run silence detection
-  const cmd = `ffmpeg -i "${videoPath}" -af "silencedetect=noise=${noiseThreshold}dB:d=${minDuration}" -f null - 2>&1`;
-  const { stdout } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+  const { stdout, stderr } = await execSafe("ffmpeg", [
+    "-i", videoPath,
+    "-af", `silencedetect=noise=${noiseThreshold}dB:d=${minDuration}`,
+    "-f", "null", "-",
+  ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
+    // ffmpeg writes filter output to stderr and exits non-zero with -f null
+    if (err.stdout !== undefined || err.stderr !== undefined) {
+      return { stdout: err.stdout || "", stderr: err.stderr || "" };
+    }
+    throw err;
+  });
+  const silenceOutput = stdout + stderr;
 
   const periods: SilencePeriod[] = [];
   const startRegex = /silence_start: (\d+\.?\d*)/g;
@@ -111,12 +118,12 @@ async function detectSilencePeriods(
 
   const starts: number[] = [];
   let match;
-  while ((match = startRegex.exec(stdout)) !== null) {
+  while ((match = startRegex.exec(silenceOutput)) !== null) {
     starts.push(parseFloat(match[1]));
   }
 
   let i = 0;
-  while ((match = endRegex.exec(stdout)) !== null) {
+  while ((match = endRegex.exec(silenceOutput)) !== null) {
     const end = parseFloat(match[1]);
     const duration = parseFloat(match[2]);
     const start = i < starts.length ? starts[i] : end - duration;
@@ -252,9 +259,7 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
     return { success: false, error: `Video not found: ${videoPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -321,10 +326,14 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
       `${concatInputs.join("")}concat=n=${segments.length}:v=1:a=1[outv][outa]`,
     ].join(";");
 
-    await execAsync(
-      `ffmpeg -i "${videoPath}" -filter_complex "${filterComplex}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 18 -c:a aac -b:a 192k "${outputPath}" -y`,
-      { timeout: 600000, maxBuffer: 50 * 1024 * 1024 },
-    );
+    await execSafe("ffmpeg", [
+      "-i", videoPath,
+      "-filter_complex", filterComplex,
+      "-map", "[outv]", "-map", "[outa]",
+      "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+      "-c:a", "aac", "-b:a", "192k",
+      outputPath, "-y",
+    ], { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
 
     return {
       success: true,
@@ -509,9 +518,7 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
     return { success: false, error: `Video not found: ${videoPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -527,10 +534,9 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
 
     try {
       // Step 1: Extract audio
-      await execAsync(
-        `ffmpeg -i "${videoPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${audioPath}" -y`,
-        { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-      );
+      await execSafe("ffmpeg", [
+        "-i", videoPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audioPath, "-y",
+      ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
 
       // Step 2: Transcribe with word-level timestamps
       const { words } = await transcribeWithWords(audioPath, openaiKey, language);
@@ -581,10 +587,10 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
         const seg = segments[i];
         const segPath = join(tmpDir, `seg-${i.toString().padStart(4, "0")}.ts`);
         const duration = seg.end - seg.start;
-        await execAsync(
-          `ffmpeg -i "${videoPath}" -ss ${seg.start} -t ${duration} -c copy -avoid_negative_ts make_zero "${segPath}" -y`,
-          { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-        );
+        await execSafe("ffmpeg", [
+          "-i", videoPath, "-ss", String(seg.start), "-t", String(duration),
+          "-c", "copy", "-avoid_negative_ts", "make_zero", segPath, "-y",
+        ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
         segmentPaths.push(segPath);
       }
 
@@ -594,10 +600,9 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
       await writeFile(listPath, concatList);
 
       // Concat segments
-      await execAsync(
-        `ffmpeg -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}" -y`,
-        { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-      );
+      await execSafe("ffmpeg", [
+        "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", outputPath, "-y",
+      ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
 
       return {
         success: true,
@@ -610,11 +615,8 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
     } finally {
       // Cleanup temp files
       try {
-        const files = await readdir(tmpDir);
-        for (const f of files) {
-          await unlink(join(tmpDir, f));
-        }
-        await execAsync(`rmdir "${tmpDir}"`);
+        const { rm } = await import("node:fs/promises");
+        await rm(tmpDir, { recursive: true, force: true });
       } catch {
         // Ignore cleanup errors
       }
@@ -720,9 +722,7 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
     return { success: false, error: `Video not found: ${videoPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -739,10 +739,9 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
     const srtPath = join(tmpDir, "captions.srt");
 
     try {
-      await execAsync(
-        `ffmpeg -i "${videoPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${audioPath}" -y`,
-        { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
-      );
+      await execSafe("ffmpeg", [
+        "-i", videoPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audioPath, "-y",
+      ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
 
       // Step 2: Transcribe with Whisper
       const whisper = new WhisperProvider();
@@ -765,16 +764,23 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
       const fontSize = customFontSize || Math.round(height / 18);
 
       // Step 5: Check FFmpeg subtitle filter support
-      const { stdout: filterList } = await execAsync("ffmpeg -filters 2>/dev/null", { maxBuffer: 10 * 1024 * 1024 });
-      const hasSubtitles = filterList.includes("subtitles");
+      let hasSubtitles = false;
+      try {
+        const { stdout: filterList } = await execSafe("ffmpeg", ["-filters"], { maxBuffer: 10 * 1024 * 1024 });
+        hasSubtitles = filterList.includes("subtitles");
+      } catch {
+        // If filter check fails, continue and let FFmpeg error naturally
+      }
 
       // Step 6: Burn captions
       if (hasSubtitles) {
         // Fast path: FFmpeg subtitles filter (requires libass)
         const forceStyle = getCaptionForceStyle(style, fontSize, fontColor, position);
         const escapedSrtPath = srtPath.replace(/\\/g, "/").replace(/:/g, "\\:");
-        const cmd = `ffmpeg -i "${videoPath}" -vf "subtitles=${escapedSrtPath}:force_style='${forceStyle}'" -c:a copy "${outputPath}" -y`;
-        await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+        await execSafe("ffmpeg", [
+          "-i", videoPath, "-vf", `subtitles=${escapedSrtPath}:force_style='${forceStyle}'`,
+          "-c:a", "copy", outputPath, "-y",
+        ], { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
       } else {
         // Remotion fallback: embed video + captions in a single Remotion composition
         console.log("FFmpeg missing subtitles filter (libass) — using Remotion fallback...");
@@ -843,11 +849,8 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
     } finally {
       // Cleanup temp files
       try {
-        const files = await readdir(tmpDir);
-        for (const f of files) {
-          await unlink(join(tmpDir, f));
-        }
-        await execAsync(`rmdir "${tmpDir}"`);
+        const { rm } = await import("node:fs/promises");
+        await rm(tmpDir, { recursive: true, force: true });
       } catch {
         // Ignore cleanup errors
       }
@@ -909,9 +912,7 @@ export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<N
     return { success: false, error: `File not found: ${inputPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -928,18 +929,20 @@ export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<N
     }
 
     // Check if input has video stream
-    const probeCmd = `ffprobe -v error -select_streams v -show_entries stream=codec_type -of csv=p=0 "${inputPath}"`;
     let hasVideo = false;
     try {
-      const { stdout } = await execAsync(probeCmd, { maxBuffer: 10 * 1024 * 1024 });
+      const { stdout } = await execSafe("ffprobe", [
+        "-v", "error", "-select_streams", "v", "-show_entries", "stream=codec_type", "-of", "csv=p=0", inputPath,
+      ], { maxBuffer: 10 * 1024 * 1024 });
       hasVideo = stdout.trim().includes("video");
     } catch {
       // No video stream
     }
 
-    const videoFlag = hasVideo ? "-c:v copy" : "";
-    const cmd = `ffmpeg -i "${inputPath}" -af "${audioFilter}" ${videoFlag} "${outputPath}" -y`;
-    await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+    const args = ["-i", inputPath, "-af", audioFilter];
+    if (hasVideo) args.push("-c:v", "copy");
+    args.push(outputPath, "-y");
+    await execSafe("ffmpeg", args, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
 
     return {
       success: true,
@@ -1010,9 +1013,7 @@ export async function executeFade(options: FadeOptions): Promise<FadeResult> {
     return { success: false, error: `Video not found: ${videoPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -1045,23 +1046,23 @@ export async function executeFade(options: FadeOptions): Promise<FadeResult> {
     }
 
     // Build FFmpeg command
-    const parts: string[] = [`ffmpeg -i "${videoPath}"`];
+    const ffmpegArgs: string[] = ["-i", videoPath];
 
     if (videoFilters.length > 0) {
-      parts.push(`-vf "${videoFilters.join(",")}"`);
+      ffmpegArgs.push("-vf", videoFilters.join(","));
     } else if (audioOnly) {
-      parts.push("-c:v copy");
+      ffmpegArgs.push("-c:v", "copy");
     }
 
     if (audioFilters.length > 0) {
-      parts.push(`-af "${audioFilters.join(",")}"`);
+      ffmpegArgs.push("-af", audioFilters.join(","));
     } else if (videoOnly) {
-      parts.push("-c:a copy");
+      ffmpegArgs.push("-c:a", "copy");
     }
 
-    parts.push(`"${outputPath}" -y`);
+    ffmpegArgs.push(outputPath, "-y");
 
-    await execAsync(parts.join(" "), { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+    await execSafe("ffmpeg", ffmpegArgs, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
 
     return {
       success: true,
@@ -1325,9 +1326,9 @@ function detectSystemFont(): string | null {
  * Get video resolution via ffprobe
  */
 async function getVideoResolution(videoPath: string): Promise<{ width: number; height: number }> {
-  const { stdout } = await execAsync(
-    `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${videoPath}"`
-  );
+  const { stdout } = await execSafe("ffprobe", [
+    "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", videoPath,
+  ]);
   const [w, h] = stdout.trim().split(",").map(Number);
   return { width: w || 1920, height: h || 1080 };
 }
@@ -1377,15 +1378,13 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
   }
 
   // Check FFmpeg
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
   // Check drawtext filter availability
   try {
-    const { stdout } = await execAsync("ffmpeg -filters 2>/dev/null");
+    const { stdout } = await execSafe("ffmpeg", ["-filters"]);
     if (!stdout.includes("drawtext")) {
       const platform = process.platform;
       let hint = "";
@@ -1473,10 +1472,10 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
   }
 
   const filterChain = filters.join(",");
-  const cmd = `ffmpeg -i "${absVideoPath}" -vf "${filterChain}" -c:a copy "${absOutputPath}" -y`;
-
   try {
-    await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+    await execSafe("ffmpeg", [
+      "-i", absVideoPath, "-vf", filterChain, "-c:a", "copy", absOutputPath, "-y",
+    ], { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
     return { success: true, outputPath: absOutputPath };
   } catch (error) {
     return {

@@ -14,16 +14,13 @@ import { type Command } from 'commander';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import chalk from 'chalk';
 import ora from 'ora';
 import { KlingProvider } from '@vibeframe/ai-providers';
 import { Project, type ProjectFile } from '../engine/index.js';
 import { getApiKey } from '../utils/api-key.js';
+import { execSafe, ffprobeDuration } from '../utils/exec-safe.js';
 import { formatTime } from './ai-helpers.js';
-
-const execAsync = promisify(exec);
 
 
 // ── Helper functions (module-private) ────────────────────────────────────────
@@ -299,9 +296,7 @@ aiCommand
         const framePath = resolve(footageDir, `frame-${gap.start.toFixed(2)}.png`);
 
         try {
-          await execAsync(
-            `ffmpeg -i "${sourceBefore.url}" -ss ${frameOffset} -vframes 1 -f image2 -y "${framePath}"`
-          );
+          await execSafe("ffmpeg", ["-i", sourceBefore.url, "-ss", String(frameOffset), "-vframes", "1", "-f", "image2", "-y", framePath]);
         } catch (err) {
           spinner.fail(chalk.red("Failed to extract frame"));
           console.error(err);
@@ -417,15 +412,15 @@ aiCommand
           const lastFramePath = resolve(footageDir, `frame-extend-${gap.start.toFixed(2)}-${segmentIndex}.png`);
           try {
             // Get video duration first
-            const { stdout: durationOut } = await execAsync(
-              `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`
-            );
-            const videoDur = parseFloat(durationOut.trim()) || generatedDuration;
+            let videoDur: number;
+            try {
+              videoDur = await ffprobeDuration(videoPath);
+            } catch {
+              videoDur = generatedDuration;
+            }
             const lastFrameTime = Math.max(0, videoDur - 0.1);
 
-            await execAsync(
-              `ffmpeg -i "${videoPath}" -ss ${lastFrameTime} -vframes 1 -f image2 -y "${lastFramePath}"`
-            );
+            await execSafe("ffmpeg", ["-i", videoPath, "-ss", String(lastFrameTime), "-vframes", "1", "-f", "image2", "-y", lastFramePath]);
           } catch (err) {
             spinner.fail(chalk.yellow("Failed to extract frame for continuation"));
             break;
@@ -497,11 +492,10 @@ aiCommand
 
           const concatOutputPath = resolve(footageDir, `gap-fill-${gap.start.toFixed(2)}-${gap.end.toFixed(2)}-merged.mp4`);
           try {
-            await execAsync(
-              `ffmpeg -f concat -safe 0 -i "${concatListPath}" -c copy -y "${concatOutputPath}"`
-            );
+            await execSafe("ffmpeg", ["-f", "concat", "-safe", "0", "-i", concatListPath, "-c", "copy", "-y", concatOutputPath]);
             // Replace main video with concatenated version
-            await execAsync(`mv "${concatOutputPath}" "${videoPath}"`);
+            const { rename: renameFs } = await import("node:fs/promises");
+            await renameFs(concatOutputPath, videoPath);
           } catch (err) {
             spinner.fail(chalk.yellow("Failed to concatenate videos"));
             break;
@@ -521,10 +515,7 @@ aiCommand
         // Get video info for source
         let videoDuration = generatedDuration;
         try {
-          const { stdout } = await execAsync(
-            `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`
-          );
-          videoDuration = parseFloat(stdout.trim()) || generatedDuration;
+          videoDuration = await ffprobeDuration(videoPath);
         } catch {
           // Use estimated duration
         }

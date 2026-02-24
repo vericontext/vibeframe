@@ -15,8 +15,6 @@ import { type Command } from "commander";
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
-import { execSync, exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import {
@@ -28,9 +26,8 @@ import {
 } from "@vibeframe/ai-providers";
 import { Project } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
+import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
-
-const execAsync = promisify(exec);
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
@@ -89,12 +86,10 @@ async function discoverBrollFiles(
  */
 async function extractKeyFrame(videoPath: string, timestamp: number): Promise<string> {
   const tempPath = `/tmp/vibe_frame_${Date.now()}.jpg`;
-  await execAsync(
-    `ffmpeg -ss ${timestamp} -i "${videoPath}" -frames:v 1 -q:v 2 "${tempPath}" -y`,
-    { maxBuffer: 10 * 1024 * 1024 }
-  );
+  await execSafe("ffmpeg", ["-ss", String(timestamp), "-i", videoPath, "-frames:v", "1", "-q:v", "2", tempPath, "-y"], { maxBuffer: 10 * 1024 * 1024 });
   const buffer = await readFile(tempPath);
-  await execAsync(`rm "${tempPath}"`).catch(() => {});
+  const { unlink } = await import("node:fs/promises");
+  await unlink(tempPath).catch(() => {});
   return buffer.toString("base64");
 }
 
@@ -136,9 +131,7 @@ export function registerBrollCommand(ai: Command): void {
         }
 
         // Check FFmpeg availability
-        try {
-          execSync("ffmpeg -version", { stdio: "ignore" });
-        } catch {
+        if (!commandExists("ffmpeg")) {
           console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
           process.exit(1);
         }
@@ -191,10 +184,7 @@ export function registerBrollCommand(ai: Command): void {
           if (videoExtensions.includes(ext)) {
             narrationSpinner.text = "📝 Extracting audio from video...";
             tempAudioPath = `/tmp/vibe_broll_audio_${Date.now()}.wav`;
-            await execAsync(
-              `ffmpeg -i "${narrationFile}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
-              { maxBuffer: 50 * 1024 * 1024 }
-            );
+            await execSafe("ffmpeg", ["-i", narrationFile, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y"], { maxBuffer: 50 * 1024 * 1024 });
             audioPath = tempAudioPath;
           }
 
@@ -206,7 +196,8 @@ export function registerBrollCommand(ai: Command): void {
 
           // Cleanup temp file
           if (tempAudioPath && existsSync(tempAudioPath)) {
-            await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+            const { unlink } = await import("node:fs/promises");
+            await unlink(tempAudioPath).catch(() => {});
           }
 
           if (transcriptResult.status === "failed" || !transcriptResult.segments) {
@@ -278,10 +269,7 @@ export function registerBrollCommand(ai: Command): void {
 
           try {
             // Get video duration
-            const { stdout: durationOut } = await execAsync(
-              `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-            );
-            const duration = parseFloat(durationOut.trim());
+            const duration = await ffprobeDuration(filePath);
 
             // Extract a key frame (middle of video)
             const frameTime = Math.min(duration / 2, 5);

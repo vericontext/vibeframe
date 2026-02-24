@@ -13,8 +13,6 @@ import { Command } from "commander";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename, relative } from "node:path";
 import { existsSync } from "node:fs";
-import { execSync, exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import {
@@ -25,10 +23,9 @@ import {
 } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
+import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
 import { autoNarrate } from "./ai-narrate.js";
-
-const execAsync = promisify(exec);
 
 // Platform specifications for viral optimization
 export const PLATFORM_SPECS: Record<string, PlatformSpec> = {
@@ -261,9 +258,7 @@ export function registerViralCommand(ai: Command): void {
         }
 
         // Check FFmpeg availability
-        try {
-          execSync("ffmpeg -version", { stdio: "ignore" });
-        } catch {
+        if (!commandExists("ffmpeg")) {
           console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
           process.exit(1);
         }
@@ -277,10 +272,7 @@ export function registerViralCommand(ai: Command): void {
         if (mediaSource.type === "video") {
           transcribeSpinner.text = "🎵 Extracting audio from video...";
           tempAudioPath = `/tmp/vibe_viral_audio_${Date.now()}.wav`;
-          await execAsync(
-            `ffmpeg -i "${audioPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
-            { maxBuffer: 50 * 1024 * 1024 }
-          );
+          await execSafe("ffmpeg", ["-i", audioPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y"], { maxBuffer: 50 * 1024 * 1024 });
           audioPath = tempAudioPath;
         }
 
@@ -296,7 +288,8 @@ export function registerViralCommand(ai: Command): void {
 
         // Cleanup temp file
         if (tempAudioPath && existsSync(tempAudioPath)) {
-          await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+          const { unlink } = await import("node:fs/promises");
+          await unlink(tempAudioPath).catch(() => {});
         }
 
         if (transcriptResult.status === "failed" || !transcriptResult.segments) {

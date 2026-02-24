@@ -13,14 +13,11 @@
 import { type Command } from "commander";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import { ReplicateProvider } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
-
-const execAsync = promisify(exec);
+import { execSafe } from "../utils/exec-safe.js";
 
 // ── Register all video FX commands ───────────────────────────────────────────
 
@@ -55,17 +52,15 @@ export function registerVideoFxCommands(ai: Command): void {
 
           try {
             // Get original dimensions
-            const { stdout: probeOut } = await execAsync(
-              `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${absPath}"`
-            );
+            const { stdout: probeOut } = await execSafe("ffprobe", [
+              "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
+            ]);
             const [width, height] = probeOut.trim().split(",").map(Number);
             const newWidth = width * scale;
             const newHeight = height * scale;
 
             // Use lanczos scaling
-            await execAsync(
-              `ffmpeg -i "${absPath}" -vf "scale=${newWidth}:${newHeight}:flags=lanczos" -c:a copy "${outputPath}" -y`
-            );
+            await execSafe("ffmpeg", ["-i", absPath, "-vf", `scale=${newWidth}:${newHeight}:flags=lanczos`, "-c:a", "copy", outputPath, "-y"]);
 
             spinner.succeed(chalk.green(`Upscaled to ${newWidth}x${newHeight}`));
             console.log(`Output: ${outputPath}`);
@@ -137,9 +132,9 @@ export function registerVideoFxCommands(ai: Command): void {
 
         try {
           // Get original FPS
-          const { stdout: fpsOut } = await execAsync(
-            `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "${absPath}"`
-          );
+          const { stdout: fpsOut } = await execSafe("ffprobe", [
+            "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "default=noprint_wrappers=1:nokey=1", absPath,
+          ]);
           const [num, den] = fpsOut.trim().split("/").map(Number);
           const originalFps = num / (den || 1);
 
@@ -152,10 +147,7 @@ export function registerVideoFxCommands(ai: Command): void {
           spinner.text = `Interpolating frames (${originalFps.toFixed(1)} → ${targetFps}fps)...`;
 
           // First interpolate frames, then slow down
-          await execAsync(
-            `ffmpeg -i "${absPath}" -filter:v "minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS" -an "${outputPath}" -y`,
-            { timeout: 600000 } // 10 minute timeout
-          );
+          await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS`, "-an", outputPath, "-y"], { timeout: 600000 });
 
           spinner.succeed(chalk.green(`Created ${factor}x slow motion`));
           console.log();

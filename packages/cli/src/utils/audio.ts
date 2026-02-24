@@ -1,7 +1,4 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
-
-const execAsync = promisify(exec);
+import { execSafe, ffprobeDuration } from "./exec-safe.js";
 
 /**
  * Get the duration of an audio file using ffprobe
@@ -10,14 +7,7 @@ const execAsync = promisify(exec);
  */
 export async function getAudioDuration(filePath: string): Promise<number> {
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-    );
-    const duration = parseFloat(stdout.trim());
-    if (isNaN(duration)) {
-      throw new Error(`Invalid duration value: ${stdout}`);
-    }
-    return duration;
+    return await ffprobeDuration(filePath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to get audio duration: ${message}`);
@@ -31,14 +21,7 @@ export async function getAudioDuration(filePath: string): Promise<number> {
  */
 export async function getVideoDuration(filePath: string): Promise<number> {
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-    );
-    const duration = parseFloat(stdout.trim());
-    if (isNaN(duration)) {
-      throw new Error(`Invalid duration value: ${stdout}`);
-    }
-    return duration;
+    return await ffprobeDuration(filePath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to get video duration: ${message}`);
@@ -73,16 +56,12 @@ export async function extendVideoNaturally(
     // 0-15% extension: Simple slowdown using setpts
     // setpts factor = 1/ratio to slow down the video
     const slowFactor = (1 / ratio).toFixed(4);
-    await execAsync(
-      `ffmpeg -y -i "${videoPath}" -filter:v "setpts=${slowFactor}*PTS" -an "${outputPath}"`
-    );
+    await execSafe("ffmpeg", ["-y", "-i", videoPath, "-filter:v", `setpts=${slowFactor}*PTS`, "-an", outputPath]);
   } else if (ratio <= 1.4) {
     // 15-40% extension: Frame interpolation + slowdown
     // minterpolate creates smooth slow-motion effect
     const slowFactor = (1 / ratio).toFixed(4);
-    await execAsync(
-      `ffmpeg -y -i "${videoPath}" -filter:v "minterpolate=fps=60:mi_mode=mci,setpts=${slowFactor}*PTS" -an "${outputPath}"`
-    );
+    await execSafe("ffmpeg", ["-y", "-i", videoPath, "-filter:v", `minterpolate=fps=60:mi_mode=mci,setpts=${slowFactor}*PTS`, "-an", outputPath]);
   } else {
     // 40%+ extension: Slowdown to 0.7x speed + freeze last frame for remainder
     // First, slow down to get ~43% extension
@@ -93,16 +72,12 @@ export async function extendVideoNaturally(
     if (freezeDuration <= 0) {
       // Can achieve target with slowdown alone
       const slowFactor = (1 / ratio).toFixed(4);
-      await execAsync(
-        `ffmpeg -y -i "${videoPath}" -filter:v "minterpolate=fps=60:mi_mode=mci,setpts=${slowFactor}*PTS" -an "${outputPath}"`
-      );
+      await execSafe("ffmpeg", ["-y", "-i", videoPath, "-filter:v", `minterpolate=fps=60:mi_mode=mci,setpts=${slowFactor}*PTS`, "-an", outputPath]);
     } else {
       // Need slowdown + freeze frame
       // Use tpad to extend the last frame
       const slowFactor = (1 / slowRatio).toFixed(4); // ~1.43 for 0.7x speed
-      await execAsync(
-        `ffmpeg -y -i "${videoPath}" -filter:v "setpts=${slowFactor}*PTS,tpad=stop_mode=clone:stop_duration=${freezeDuration.toFixed(2)}" -an "${outputPath}"`
-      );
+      await execSafe("ffmpeg", ["-y", "-i", videoPath, "-filter:v", `setpts=${slowFactor}*PTS,tpad=stop_mode=clone:stop_duration=${freezeDuration.toFixed(2)}`, "-an", outputPath]);
     }
   }
 }

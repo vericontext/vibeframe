@@ -19,8 +19,6 @@ import { type Command } from "commander";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename } from "node:path";
 import { existsSync } from "node:fs";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import {
@@ -42,10 +40,9 @@ import {
 } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
+import { ffprobeDuration } from "../utils/exec-safe.js";
 import { getAudioDuration } from "../utils/audio.js";
 import { formatTime } from "./ai-helpers.js";
-
-const execAsync = promisify(exec);
 
 // ==========================================
 // Auto-Narrate Feature Types and Functions
@@ -344,9 +341,7 @@ ai
       const durationSpinner = ora("📊 Analyzing video...").start();
       let duration: number;
       try {
-        const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`;
-        const { stdout } = await execAsync(durationCmd);
-        duration = parseFloat(stdout.trim());
+        duration = await ffprobeDuration(videoPath);
         durationSpinner.succeed(chalk.green(`Duration: ${formatTime(duration)}`));
       } catch {
         durationSpinner.fail(chalk.red("Failed to get video duration"));

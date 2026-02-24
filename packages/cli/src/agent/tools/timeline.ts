@@ -4,14 +4,11 @@
 
 import { readFile, writeFile, stat } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult, AgentContext } from "../types.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-
-const execAsync = promisify(exec);
+import { ffprobeDuration } from "../../utils/exec-safe.js";
 
 // Helper to detect media type from file extension
 function detectMediaType(path: string): MediaType {
@@ -33,11 +30,7 @@ async function getMediaDuration(filePath: string, mediaType: MediaType): Promise
   }
 
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-    );
-    const duration = parseFloat(stdout.trim());
-    return isNaN(duration) ? 5 : duration;
+    return await ffprobeDuration(filePath);
   } catch {
     return 5;
   }

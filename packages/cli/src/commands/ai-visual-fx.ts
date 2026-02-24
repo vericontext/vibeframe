@@ -14,8 +14,6 @@ import { type Command } from 'commander';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { execSync, exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import chalk from 'chalk';
 import ora from 'ora';
 import {
@@ -24,10 +22,9 @@ import {
   ReplicateProvider,
 } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
+import { execSafe, commandExists, ffprobeDuration } from '../utils/exec-safe.js';
 import { formatTime } from './ai-helpers.js';
 import { applyTextOverlays, type TextOverlayStyle } from './ai-edit.js';
-
-const execAsync = promisify(exec);
 
 export function registerVisualFxCommands(ai: Command): void {
 
@@ -54,9 +51,7 @@ ai
       }
 
       // Check FFmpeg
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -99,8 +94,7 @@ ai
 
       spinner.start("Applying color grade...");
 
-      const cmd = `ffmpeg -i "${absPath}" -vf "${gradeResult.ffmpegFilter}" -c:a copy "${outputPath}" -y`;
-      await execAsync(cmd, { timeout: 600000 });
+      await execSafe("ffmpeg", ["-i", absPath, "-vf", gradeResult.ffmpegFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
 
       spinner.succeed(chalk.green("Color grade applied"));
       console.log(chalk.green(`Output: ${outputPath}`));
@@ -135,9 +129,7 @@ ai
       }
 
       // Check FFmpeg
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -196,9 +188,7 @@ ai
   .action(async (videoPath: string, options) => {
     try {
       // Check FFmpeg
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -220,9 +210,9 @@ ai
       // Step 1: Check for audio stream
       const spinner = ora("Extracting audio...").start();
 
-      const { stdout: speedRampProbe } = await execAsync(
-        `ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "${absPath}"`
-      );
+      const { stdout: speedRampProbe } = await execSafe("ffprobe", [
+        "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
+      ]);
       if (!speedRampProbe.trim()) {
         spinner.fail(chalk.yellow("Video has no audio track — cannot use Whisper transcription"));
         console.log(chalk.yellow("\n⚠ This video has no audio stream."));
@@ -233,7 +223,7 @@ ai
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
 
-      await execAsync(`ffmpeg -i "${absPath}" -vn -acodec libmp3lame -q:a 2 "${tempAudio}" -y`);
+      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
       // Step 2: Transcribe
       spinner.text = "Transcribing audio...";
@@ -264,7 +254,8 @@ ai
 
       // Clean up temp file
       try {
-        await execAsync(`rm "${tempAudio}"`);
+        const { unlink } = await import("node:fs/promises");
+        await unlink(tempAudio);
       } catch { /* ignore cleanup errors */ }
 
       spinner.succeed(chalk.green(`Found ${speedResult.keyframes.length} speed keyframes`));
@@ -307,14 +298,11 @@ ai
       const setpts = `setpts=${(1 / avgSpeed).toFixed(3)}*PTS`;
       const atempo = avgSpeed >= 0.5 && avgSpeed <= 2.0 ? `atempo=${avgSpeed.toFixed(3)}` : "";
 
-      let cmd: string;
       if (atempo) {
-        cmd = `ffmpeg -i "${absPath}" -filter_complex "[0:v]${setpts}[v];[0:a]${atempo}[a]" -map "[v]" -map "[a]" "${outputPath}" -y`;
+        await execSafe("ffmpeg", ["-i", absPath, "-filter_complex", `[0:v]${setpts}[v];[0:a]${atempo}[a]`, "-map", "[v]", "-map", "[a]", outputPath, "-y"], { timeout: 600000 });
       } else {
-        cmd = `ffmpeg -i "${absPath}" -vf "${setpts}" -an "${outputPath}" -y`;
+        await execSafe("ffmpeg", ["-i", absPath, "-vf", setpts, "-an", outputPath, "-y"], { timeout: 600000 });
       }
-
-      await execAsync(cmd, { timeout: 600000 });
 
       spinner.succeed(chalk.green("Speed ramp applied"));
       console.log(chalk.green(`Output: ${outputPath}`));
@@ -341,9 +329,7 @@ ai
   .action(async (videoPath: string, options) => {
     try {
       // Check FFmpeg
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -353,9 +339,9 @@ ai
       // Get video dimensions
       const spinner = ora("Analyzing video...").start();
 
-      const { stdout: probeOut } = await execAsync(
-        `ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of csv=p=0 "${absPath}"`
-      );
+      const { stdout: probeOut } = await execSafe("ffprobe", [
+        "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0", absPath,
+      ]);
       const [width, height, durationStr] = probeOut.trim().split(",");
       const sourceWidth = parseInt(width);
       const sourceHeight = parseInt(height);
@@ -367,11 +353,10 @@ ai
       const keyframeInterval = 2;
       const numKeyframes = Math.ceil(duration / keyframeInterval);
       const tempDir = `/tmp/vibe-reframe-${Date.now()}`;
-      await execAsync(`mkdir -p "${tempDir}"`);
+      const { mkdir: mkdirFs } = await import("node:fs/promises");
+      await mkdirFs(tempDir, { recursive: true });
 
-      await execAsync(
-        `ffmpeg -i "${absPath}" -vf "fps=1/${keyframeInterval}" -frame_pts 1 "${tempDir}/frame-%04d.jpg" -y`
-      );
+      await execSafe("ffmpeg", ["-i", absPath, "-vf", `fps=1/${keyframeInterval}`, "-frame_pts", "1", `${tempDir}/frame-%04d.jpg`, "-y"]);
 
       // Get API key
       const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
@@ -422,7 +407,8 @@ ai
 
       // Clean up temp files
       try {
-        await execAsync(`rm -rf "${tempDir}"`);
+        const { rm: rmFs } = await import("node:fs/promises");
+        await rmFs(tempDir, { recursive: true, force: true });
       } catch { /* ignore cleanup errors */ }
 
       spinner.succeed(chalk.green(`Analyzed ${cropKeyframes.length} keyframes`));
@@ -473,8 +459,7 @@ ai
 
       spinner.start("Applying reframe...");
 
-      const cmd = `ffmpeg -i "${absPath}" -vf "crop=${cropWidth}:${cropHeight}:${avgCropX}:${avgCropY}" -c:a copy "${outputPath}" -y`;
-      await execAsync(cmd, { timeout: 600000 });
+      await execSafe("ffmpeg", ["-i", absPath, "-vf", `crop=${cropWidth}:${cropHeight}:${avgCropX}:${avgCropY}`, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
 
       spinner.succeed(chalk.green("Reframe applied"));
       console.log(chalk.green(`Output: ${outputPath}`));

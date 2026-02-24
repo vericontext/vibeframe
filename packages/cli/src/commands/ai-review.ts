@@ -15,15 +15,12 @@ import { Command } from "commander";
 import { readFile, rename } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import { GeminiProvider } from "@vibeframe/ai-providers";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
+import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
-
-const execAsync = promisify(exec);
 
 /** Options for {@link executeReview}. */
 export interface ReviewOptions {
@@ -174,8 +171,7 @@ Score each category 1-10. For fixable issues, provide an FFmpeg filter in autoFi
       if (fix.type === "color_grade" && fix.ffmpegFilter) {
         try {
           const tempOutput = outputBase.replace(/(\.[^.]+)$/, `-fix-${result.appliedFixes!.length}$1`);
-          const cmd = `ffmpeg -i "${currentInput}" -vf "${fix.ffmpegFilter}" -c:a copy "${tempOutput}" -y`;
-          await execAsync(cmd, { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
+          await execSafe("ffmpeg", ["-i", currentInput, "-vf", fix.ffmpegFilter, "-c:a", "copy", tempOutput, "-y"], { timeout: 600000, maxBuffer: 50 * 1024 * 1024 });
           currentInput = tempOutput;
           result.appliedFixes!.push(`${fix.type}: ${fix.description}`);
         } catch {

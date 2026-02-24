@@ -16,8 +16,6 @@ import { type Command } from 'commander';
 import { resolve, dirname, basename, extname } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { execSync, exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import chalk from 'chalk';
 import ora from 'ora';
 import {
@@ -29,11 +27,10 @@ import {
   KNOWN_VOICES,
 } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
+import { execSafe, execSafeSync, commandExists } from '../utils/exec-safe.js';
 import { detectFormat, formatTranscript } from '../utils/subtitle.js';
 import { getAudioDuration } from '../utils/audio.js';
 import { formatTime } from './ai-helpers.js';
-
-const execAsync = promisify(exec);
 
 function _registerAudioCommands(aiCommand: Command): void {
 
@@ -577,10 +574,13 @@ aiCommand
             filters.push("loudnorm=I=-16:TP=-1.5:LRA=11");
           }
 
-          const filterArg = filters.length > 0 ? `-af "${filters.join(",")}"` : "";
-          const cmd = `ffmpeg -i "${absPath}" ${filterArg} -y "${outputPath}"`;
+          const ffmpegArgs = ["-i", absPath];
+          if (filters.length > 0) {
+            ffmpegArgs.push("-af", filters.join(","));
+          }
+          ffmpegArgs.push("-y", outputPath);
 
-          execSync(cmd, { stdio: "pipe" });
+          execSafeSync("ffmpeg", ffmpegArgs);
 
           spinner.succeed(chalk.green("Audio restored with FFmpeg"));
           console.log(`Saved to: ${chalk.bold(outputPath)}`);
@@ -675,7 +675,7 @@ aiCommand
       if (isVideo) {
         const tempAudioPath = resolve(dirname(absPath), `temp-audio-${Date.now()}.mp3`);
         try {
-          execSync(`ffmpeg -i "${absPath}" -vn -acodec mp3 -y "${tempAudioPath}"`, { stdio: "pipe" });
+          execSafeSync("ffmpeg", ["-i", absPath, "-vn", "-acodec", "mp3", "-y", tempAudioPath]);
           audioPath = tempAudioPath;
         } catch (error) {
           spinner.fail(chalk.red("Failed to extract audio from video"));
@@ -887,9 +887,7 @@ aiCommand
       }
 
       // Check FFmpeg availability
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -913,9 +911,7 @@ aiCommand
       // FFmpeg sidechain compress filter
       const filterComplex = `[0:a][1:a]sidechaincompress=threshold=${thresholdLinear}:ratio=${ratio}:attack=${attack}:release=${release}[out]`;
 
-      const cmd = `ffmpeg -i "${absMusic}" -i "${absVoice}" -filter_complex "${filterComplex}" -map "[out]" "${outputPath}" -y`;
-
-      await execAsync(cmd);
+      await execSafe("ffmpeg", ["-i", absMusic, "-i", absVoice, "-filter_complex", filterComplex, "-map", "[out]", outputPath, "-y"]);
 
       spinner.succeed(chalk.green("Audio ducking complete"));
       console.log();

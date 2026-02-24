@@ -1,13 +1,11 @@
 import { Command } from "commander";
 import { readFile, access, stat } from "node:fs/promises";
 import { resolve, basename } from "node:path";
-import { spawn, exec } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-
-const execAsync = promisify(exec);
+import { execSafe, ffprobeDuration } from "../utils/exec-safe.js";
 
 /**
  * Resolve project file path - handles both file paths and directory paths
@@ -42,11 +40,7 @@ export async function getMediaDuration(
   }
 
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-    );
-    const duration = parseFloat(stdout.trim());
-    return isNaN(duration) ? defaultImageDuration : duration;
+    return await ffprobeDuration(filePath);
   } catch {
     return defaultImageDuration;
   }
@@ -57,9 +51,9 @@ export async function getMediaDuration(
  */
 export async function checkHasAudio(filePath: string): Promise<boolean> {
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -select_streams a -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
-    );
+    const { stdout } = await execSafe("ffprobe", [
+      "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", filePath,
+    ]);
     return stdout.trim().length > 0;
   } catch {
     return false;
@@ -296,15 +290,16 @@ export const exportCommand = new Command("export")
  * Find FFmpeg executable
  */
 async function findFFmpeg(): Promise<string | null> {
-  const { exec } = await import("node:child_process");
-  const { promisify } = await import("node:util");
-  const execAsync = promisify(exec);
-
   try {
-    const { stdout } = await execAsync("which ffmpeg || where ffmpeg 2>/dev/null");
+    const { stdout } = await execSafe("which", ["ffmpeg"]);
     return stdout.trim().split("\n")[0];
   } catch {
-    return null;
+    try {
+      const { stdout } = await execSafe("where", ["ffmpeg"]);
+      return stdout.trim().split("\n")[0];
+    } catch {
+      return null;
+    }
   }
 }
 

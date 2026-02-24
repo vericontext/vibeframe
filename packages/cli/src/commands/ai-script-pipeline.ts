@@ -19,8 +19,6 @@
 import { readFile, writeFile, mkdir, unlink, rename } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import {
   GeminiProvider,
@@ -38,8 +36,7 @@ import { Project } from "../engine/index.js";
 import { getAudioDuration, getVideoDuration, extendVideoNaturally } from "../utils/audio.js";
 import { applyTextOverlays, type TextOverlayStyle, type VideoReviewFeedback } from "./ai-edit.js";
 import { executeReview } from "./ai-review.js";
-
-const execAsync = promisify(exec);
+import { execSafe } from "../utils/exec-safe.js";
 
 /** A single scene segment from the Claude-generated storyboard. */
 export interface StoryboardSegment {
@@ -167,12 +164,12 @@ export async function extendVideoToTarget(
           const concatPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-concat.mp4`);
           const listPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-concat.txt`);
           await writeFile(listPath, `file '${videoPath}'\nfile '${extendedVideoPath}'`, "utf-8");
-          await execAsync(`ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${concatPath}"`);
+          await execSafe("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", concatPath]);
 
           // Trim to exact target duration if concatenated video is longer
           const concatDuration = await getVideoDuration(concatPath);
           if (concatDuration > targetDuration + 0.5) {
-            await execAsync(`ffmpeg -y -i "${concatPath}" -t ${targetDuration.toFixed(2)} -c copy "${extendedPath}"`);
+            await execSafe("ffmpeg", ["-y", "-i", concatPath, "-t", targetDuration.toFixed(2), "-c", "copy", extendedPath]);
             await unlink(concatPath);
           } else {
             await rename(concatPath, extendedPath);

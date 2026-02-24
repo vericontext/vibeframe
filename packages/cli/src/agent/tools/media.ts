@@ -4,13 +4,10 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-
-const execAsync = promisify(exec);
+import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
 
 // Tool Definitions
 const mediaInfoDef: ToolDefinition = {
@@ -135,8 +132,7 @@ const mediaInfo: ToolHandler = async (args, context): Promise<ToolResult> => {
     const absPath = resolve(context.workingDirectory, mediaPath);
 
     // Get detailed info using ffprobe
-    const cmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${absPath}"`;
-    const { stdout } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
+    const { stdout } = await execSafe("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", absPath], { maxBuffer: 10 * 1024 * 1024 });
 
     const info = JSON.parse(stdout);
     const format = info.format || {};
@@ -199,8 +195,7 @@ const detectScenes: ToolHandler = async (args, context): Promise<ToolResult> => 
     const absPath = resolve(context.workingDirectory, videoPath);
 
     // Detect scenes using FFmpeg
-    const cmd = `ffmpeg -i "${absPath}" -filter:v "select='gt(scene,${threshold})',showinfo" -f null - 2>&1`;
-    const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    const { stdout, stderr } = await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `select='gt(scene,${threshold})',showinfo`, "-f", "null", "-"], { maxBuffer: 50 * 1024 * 1024 });
     const output = stdout + stderr;
 
     // Parse scene timestamps
@@ -214,9 +209,7 @@ const detectScenes: ToolHandler = async (args, context): Promise<ToolResult> => 
     }
 
     // Get duration
-    const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-    const { stdout: durationOut } = await execAsync(durationCmd);
-    const totalDuration = parseFloat(durationOut.trim());
+    const totalDuration = await ffprobeDuration(absPath);
 
     // Format output
     const sceneList = scenes.map((s, i) => {
@@ -264,8 +257,7 @@ const detectSilence: ToolHandler = async (args, context): Promise<ToolResult> =>
   try {
     const absPath = resolve(context.workingDirectory, mediaPath);
 
-    const cmd = `ffmpeg -i "${absPath}" -af "silencedetect=noise=${noise}dB:d=${duration}" -f null - 2>&1`;
-    const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    const { stdout, stderr } = await execSafe("ffmpeg", ["-i", absPath, "-af", `silencedetect=noise=${noise}dB:d=${duration}`, "-f", "null", "-"], { maxBuffer: 50 * 1024 * 1024 });
     const output = stdout + stderr;
 
     // Parse silence periods
@@ -331,9 +323,7 @@ const detectBeats: ToolHandler = async (args, context): Promise<ToolResult> => {
     const absPath = resolve(context.workingDirectory, audioPath);
 
     // Get duration
-    const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-    const { stdout: durationOut } = await execAsync(durationCmd);
-    const totalDuration = parseFloat(durationOut.trim());
+    const totalDuration = await ffprobeDuration(absPath);
 
     // Use interval-based detection (120 BPM default)
     const estimatedBPM = 120;
@@ -549,15 +539,7 @@ const compress: ToolHandler = async (args, context): Promise<ToolResult> => {
     };
     const crf = crfValues[quality] || 23;
 
-    let cmd: string;
-    if (maxSize) {
-      // Two-pass encoding for target size
-      cmd = `ffmpeg -i "${absInput}" -c:v libx264 -crf ${crf} -preset medium -c:a aac -b:a 128k "${outputPath}" -y`;
-    } else {
-      cmd = `ffmpeg -i "${absInput}" -c:v libx264 -crf ${crf} -preset medium -c:a aac -b:a 128k "${outputPath}" -y`;
-    }
-
-    const { stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    await execSafe("ffmpeg", ["-i", absInput, "-c:v", "libx264", "-crf", String(crf), "-preset", "medium", "-c:a", "aac", "-b:a", "128k", outputPath, "-y"], { maxBuffer: 50 * 1024 * 1024 });
 
     // Get file sizes for comparison
     const inputStats = await readFile(absInput);
@@ -592,8 +574,8 @@ const convert: ToolHandler = async (args, context): Promise<ToolResult> => {
     const absOutput = resolve(context.workingDirectory, outputPath);
 
     // Build codec options
-    let videoOpt = "-c:v copy";
-    let audioOpt = "-c:a copy";
+    let videoCodecName = "copy";
+    let audioCodecName = "copy";
 
     if (codec) {
       const codecMap: Record<string, string> = {
@@ -602,7 +584,7 @@ const convert: ToolHandler = async (args, context): Promise<ToolResult> => {
         vp9: "libvpx-vp9",
         av1: "libaom-av1",
       };
-      videoOpt = `-c:v ${codecMap[codec] || codec}`;
+      videoCodecName = codecMap[codec] || codec;
     }
 
     if (audioCodec) {
@@ -611,11 +593,10 @@ const convert: ToolHandler = async (args, context): Promise<ToolResult> => {
         mp3: "libmp3lame",
         opus: "libopus",
       };
-      audioOpt = `-c:a ${audioCodecMap[audioCodec] || audioCodec}`;
+      audioCodecName = audioCodecMap[audioCodec] || audioCodec;
     }
 
-    const cmd = `ffmpeg -i "${absInput}" ${videoOpt} ${audioOpt} "${absOutput}" -y`;
-    await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    await execSafe("ffmpeg", ["-i", absInput, "-c:v", videoCodecName, "-c:a", audioCodecName, absOutput, "-y"], { maxBuffer: 50 * 1024 * 1024 });
 
     return {
       toolCallId: "",
@@ -651,12 +632,13 @@ const concat: ToolHandler = async (args, context): Promise<ToolResult> => {
 
     if (reencode) {
       // Re-encode method - works with different codecs
-      const inputArgs = inputs
-        .map((i) => `-i "${resolve(context.workingDirectory, i)}"`)
-        .join(" ");
+      const ffmpegArgs: string[] = [];
+      for (const i of inputs) {
+        ffmpegArgs.push("-i", resolve(context.workingDirectory, i));
+      }
       const filterComplex = inputs.map((_, i) => `[${i}:v][${i}:a]`).join("");
-      const cmd = `ffmpeg ${inputArgs} -filter_complex "${filterComplex}concat=n=${inputs.length}:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" "${absOutput}" -y`;
-      await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+      ffmpegArgs.push("-filter_complex", `${filterComplex}concat=n=${inputs.length}:v=1:a=1[outv][outa]`, "-map", "[outv]", "-map", "[outa]", absOutput, "-y");
+      await execSafe("ffmpeg", ffmpegArgs, { maxBuffer: 100 * 1024 * 1024 });
     } else {
       // Concat demuxer method - fast but requires same codec
       const tempList = resolve(context.workingDirectory, `concat-list-${Date.now()}.txt`);
@@ -665,8 +647,7 @@ const concat: ToolHandler = async (args, context): Promise<ToolResult> => {
         .join("\n");
       await writeFile(tempList, listContent, "utf-8");
 
-      const cmd = `ffmpeg -f concat -safe 0 -i "${tempList}" -c copy "${absOutput}" -y`;
-      await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+      await execSafe("ffmpeg", ["-f", "concat", "-safe", "0", "-i", tempList, "-c", "copy", absOutput, "-y"], { maxBuffer: 100 * 1024 * 1024 });
 
       // Clean up temp file
       const { unlink } = await import("node:fs/promises");

@@ -1,13 +1,10 @@
 import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, basename } from "node:path";
-import { execSync, exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-
-const execAsync = promisify(exec);
+import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 
 export const detectCommand = new Command("detect")
   .description("Auto-detect scenes, beats, and silences in media");
@@ -27,9 +24,7 @@ detectCommand
 
     try {
       // Check if FFmpeg is available
-      try {
-        execSync("ffmpeg -version", { stdio: "ignore" });
-      } catch {
+      if (!commandExists("ffmpeg")) {
         spinner.fail(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
       }
@@ -38,12 +33,20 @@ detectCommand
       const threshold = parseFloat(options.threshold);
 
       // Use FFmpeg to detect scene changes
-      const cmd = `ffmpeg -i "${absPath}" -filter:v "select='gt(scene,${threshold})',showinfo" -f null - 2>&1`;
-
       spinner.text = "Analyzing video...";
 
-      const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
-      const output = stdout + stderr;
+      const { stdout: sceneStdout, stderr: sceneStderr } = await execSafe("ffmpeg", [
+        "-i", absPath,
+        "-filter:v", `select='gt(scene,${threshold})',showinfo`,
+        "-f", "null", "-",
+      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
+        // ffmpeg writes filter output to stderr and exits non-zero with -f null
+        if (err.stdout !== undefined || err.stderr !== undefined) {
+          return { stdout: err.stdout || "", stderr: err.stderr || "" };
+        }
+        throw err;
+      });
+      const output = sceneStdout + sceneStderr;
 
       // Parse scene change timestamps from showinfo output
       const scenes: { timestamp: number; score: number }[] = [];
@@ -59,9 +62,7 @@ detectCommand
       }
 
       // Get video duration
-      const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-      const { stdout: durationOut } = await execAsync(durationCmd);
-      const totalDuration = parseFloat(durationOut.trim());
+      const totalDuration = await ffprobeDuration(absPath);
 
       spinner.succeed(chalk.green(`Detected ${scenes.length} scenes`));
 
@@ -160,10 +161,17 @@ detectCommand
       const noise = options.noise;
       const duration = options.duration;
 
-      const cmd = `ffmpeg -i "${absPath}" -af "silencedetect=noise=${noise}dB:d=${duration}" -f null - 2>&1`;
-
-      const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
-      const output = stdout + stderr;
+      const { stdout: silStdout, stderr: silStderr } = await execSafe("ffmpeg", [
+        "-i", absPath,
+        "-af", `silencedetect=noise=${noise}dB:d=${duration}`,
+        "-f", "null", "-",
+      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
+        if (err.stdout !== undefined || err.stderr !== undefined) {
+          return { stdout: err.stdout || "", stderr: err.stderr || "" };
+        }
+        throw err;
+      });
+      const output = silStdout + silStderr;
 
       // Parse silence periods
       const silences: { start: number; end: number; duration: number }[] = [];
@@ -235,10 +243,17 @@ detectCommand
 
       // Use FFmpeg's ebur128 filter for loudness analysis
       // This gives us a rough approximation of beat positions
-      const cmd = `ffmpeg -i "${absPath}" -af "aresample=16000,ebur128=peak=true" -f null - 2>&1`;
-
-      const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
-      const output = stdout + stderr;
+      const { stdout: beatStdout, stderr: beatStderr } = await execSafe("ffmpeg", [
+        "-i", absPath,
+        "-af", "aresample=16000,ebur128=peak=true",
+        "-f", "null", "-",
+      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
+        if (err.stdout !== undefined || err.stderr !== undefined) {
+          return { stdout: err.stdout || "", stderr: err.stderr || "" };
+        }
+        throw err;
+      });
+      const beatOutput = beatStdout + beatStderr;
 
       // Extract peak moments as approximate beats
       const beats: number[] = [];
@@ -247,7 +262,7 @@ detectCommand
       let match;
       let lastBeatTime = -0.5;
 
-      while ((match = peakRegex.exec(output)) !== null) {
+      while ((match = peakRegex.exec(beatOutput)) !== null) {
         const time = parseFloat(match[1]);
         const peak = parseFloat(match[2]);
 
@@ -263,9 +278,7 @@ detectCommand
         spinner.text = "Using interval-based detection...";
 
         // Get duration
-        const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-        const { stdout: durationOut } = await execAsync(durationCmd);
-        const totalDuration = parseFloat(durationOut.trim());
+        const totalDuration = await ffprobeDuration(absPath);
 
         // Estimate BPM from audio length (rough approximation)
         const estimatedBPM = 120;

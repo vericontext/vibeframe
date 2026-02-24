@@ -11,14 +11,11 @@
  * - Final output is always a standard H264 MP4.
  */
 
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { writeFile, mkdir, rm, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-
-const execAsync = promisify(exec);
+import { execSafe } from "./exec-safe.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +56,7 @@ export interface RenderResult {
  */
 export async function ensureRemotionInstalled(): Promise<string | null> {
   try {
-    await execAsync("npx remotion --help", { timeout: 30_000 });
+    await execSafe("npx", ["remotion", "--help"], { timeout: 30_000 });
     return null;
   } catch {
     return [
@@ -152,7 +149,11 @@ registerRoot(Root);
 
   // Install deps
   if (!existsSync(join(dir, "node_modules"))) {
-    await execAsync("npm install --prefer-offline --no-audit --no-fund", {
+    // npm install needs to run in the scaffolded directory
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+    await execFileAsync("npm", ["install", "--prefer-offline", "--no-audit", "--no-fund"], {
       cwd: dir,
       timeout: 180_000,
     });
@@ -185,38 +186,28 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
   try {
     const entryPoint = join(dir, "Root.tsx");
 
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+
     if (transparent) {
       const webmOut = options.outputPath.replace(/\.\w+$/, ".webm");
 
       try {
-        const cmd = [
-          "npx remotion render",
-          `"${entryPoint}"`,
-          options.componentName,
-          `"${webmOut}"`,
-          "--codec vp8",
-          "--image-format png",
-          "--pixel-format yuva420p",
-        ].join(" ");
-
-        await execAsync(cmd, { cwd: dir, timeout: 300_000 });
+        await execFileAsync("npx", [
+          "remotion", "render", entryPoint, options.componentName, webmOut,
+          "--codec", "vp8", "--image-format", "png", "--pixel-format", "yuva420p",
+        ], { cwd: dir, timeout: 300_000 });
         return { success: true, outputPath: webmOut };
       } catch {
         // VP8 failed, try VP9
       }
 
       try {
-        const cmd = [
-          "npx remotion render",
-          `"${entryPoint}"`,
-          options.componentName,
-          `"${webmOut}"`,
-          "--codec vp9",
-          "--image-format png",
-          "--pixel-format yuva420p",
-        ].join(" ");
-
-        await execAsync(cmd, { cwd: dir, timeout: 300_000 });
+        await execFileAsync("npx", [
+          "remotion", "render", entryPoint, options.componentName, webmOut,
+          "--codec", "vp9", "--image-format", "png", "--pixel-format", "yuva420p",
+        ], { cwd: dir, timeout: 300_000 });
         return { success: true, outputPath: webmOut };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -226,16 +217,10 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
 
     // Non-transparent: H264 MP4
     const mp4Out = options.outputPath.replace(/\.\w+$/, ".mp4");
-    const cmd = [
-      "npx remotion render",
-      `"${entryPoint}"`,
-      options.componentName,
-      `"${mp4Out}"`,
-      "--codec h264",
-      "--crf 18",
-    ].join(" ");
-
-    await execAsync(cmd, { cwd: dir, timeout: 300_000 });
+    await execFileAsync("npx", [
+      "remotion", "render", entryPoint, options.componentName, mp4Out,
+      "--codec", "h264", "--crf", "18",
+    ], { cwd: dir, timeout: 300_000 });
     return { success: true, outputPath: mp4Out };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -388,16 +373,13 @@ export async function renderWithEmbeddedImage(options: {
     const entryPoint = join(dir, "Root.tsx");
     const mp4Out = options.outputPath.replace(/\.\w+$/, ".mp4");
 
-    const renderCmd = [
-      "npx remotion render",
-      `"${entryPoint}"`,
-      options.componentName,
-      `"${mp4Out}"`,
-      "--codec h264",
-      "--crf 18",
-    ].join(" ");
-
-    await execAsync(renderCmd, { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
+    const { execFile: execFileImg } = await import("node:child_process");
+    const { promisify: promisifyImg } = await import("node:util");
+    const execFileAsyncImg = promisifyImg(execFileImg);
+    await execFileAsyncImg("npx", [
+      "remotion", "render", entryPoint, options.componentName, mp4Out,
+      "--codec", "h264", "--crf", "18",
+    ], { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
 
     return { success: true, outputPath: mp4Out };
   } catch (error) {
@@ -490,32 +472,20 @@ export async function renderWithEmbeddedVideo(options: {
     const mp4VideoOnly = options.outputPath.replace(/\.\w+$/, "_video_only.mp4");
 
     // Render H264 (video-only, audio muted inside component)
-    const renderCmd = [
-      "npx remotion render",
-      `"${entryPoint}"`,
-      options.componentName,
-      `"${mp4VideoOnly}"`,
-      "--codec h264",
-      "--crf 18",
-    ].join(" ");
-
-    await execAsync(renderCmd, { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
+    const { execFile: execFileVid } = await import("node:child_process");
+    const { promisify: promisifyVid } = await import("node:util");
+    const execFileAsyncVid = promisifyVid(execFileVid);
+    await execFileAsyncVid("npx", [
+      "remotion", "render", entryPoint, options.componentName, mp4VideoOnly,
+      "--codec", "h264", "--crf", "18",
+    ], { cwd: dir, timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
 
     // Mux: rendered video + original audio
     const mp4Out = options.outputPath.replace(/\.\w+$/, ".mp4");
-    const muxCmd = [
-      "ffmpeg -y",
-      `-i "${mp4VideoOnly}"`,
-      `-i "${options.videoPath}"`,
-      "-map 0:v:0",
-      "-map 1:a:0?",
-      "-c:v copy",
-      "-c:a copy",
-      "-shortest",
-      `"${mp4Out}"`,
-    ].join(" ");
-
-    await execAsync(muxCmd, { timeout: 120_000 });
+    await execSafe("ffmpeg", [
+      "-y", "-i", mp4VideoOnly, "-i", options.videoPath,
+      "-map", "0:v:0", "-map", "1:a:0?", "-c:v", "copy", "-c:a", "copy", "-shortest", mp4Out,
+    ], { timeout: 120_000 });
     await rm(mp4VideoOnly, { force: true }).catch(() => {});
 
     return { success: true, outputPath: mp4Out };
@@ -664,19 +634,13 @@ export const ${name} = () => {
  */
 export async function compositeOverlay(options: CompositeOptions): Promise<RenderResult> {
   try {
-    const cmd = [
-      "ffmpeg -y",
-      `-i "${options.baseVideo}"`,
-      `-i "${options.overlayPath}"`,
-      '-filter_complex "[0:v][1:v]overlay=0:0:shortest=1[out]"',
-      '-map "[out]"',
-      "-map 0:a?",
-      "-c:a copy",
-      "-c:v libx264 -crf 18 -pix_fmt yuv420p",
-      `"${options.outputPath}"`,
-    ].join(" ");
-
-    await execAsync(cmd, { timeout: 300_000 });
+    await execSafe("ffmpeg", [
+      "-y", "-i", options.baseVideo, "-i", options.overlayPath,
+      "-filter_complex", "[0:v][1:v]overlay=0:0:shortest=1[out]",
+      "-map", "[out]", "-map", "0:a?", "-c:a", "copy",
+      "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
+      options.outputPath,
+    ], { timeout: 300_000 });
     return { success: true, outputPath: options.outputPath };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -697,18 +661,15 @@ export async function compositeWithImage(options: {
 }): Promise<RenderResult> {
   try {
     const fps = options.fps || 30;
-    const cmd = [
-      "ffmpeg -y",
-      `-loop 1 -framerate ${fps} -i "${options.baseImage}"`,
-      `-i "${options.overlayPath}"`,
-      `-filter_complex "[0:v]scale=iw:ih[base];[base][1:v]overlay=0:0:shortest=1[out]"`,
-      `-map "[out]"`,
-      "-c:v libx264 -crf 18 -pix_fmt yuv420p",
-      `-t ${options.durationSeconds}`,
-      `"${options.outputPath}"`,
-    ].join(" ");
-
-    await execAsync(cmd, { timeout: 300_000 });
+    await execSafe("ffmpeg", [
+      "-y", "-loop", "1", "-framerate", String(fps), "-i", options.baseImage,
+      "-i", options.overlayPath,
+      "-filter_complex", "[0:v]scale=iw:ih[base];[base][1:v]overlay=0:0:shortest=1[out]",
+      "-map", "[out]",
+      "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
+      "-t", String(options.durationSeconds),
+      options.outputPath,
+    ], { timeout: 300_000 });
     return { success: true, outputPath: options.outputPath };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

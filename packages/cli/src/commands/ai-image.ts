@@ -18,8 +18,6 @@ import { resolve, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { exec, execSync } from 'node:child_process';
-import { promisify } from 'node:util';
 import chalk from 'chalk';
 import ora from 'ora';
 import {
@@ -31,9 +29,8 @@ import {
   stabilityProvider,
 } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
+import { execSafe, commandExists } from '../utils/exec-safe.js';
 import { getVideoDuration } from '../utils/audio.js';
-
-const execAsync = promisify(exec);
 
 function _registerImageCommands(aiCommand: Command): void {
 
@@ -323,9 +320,7 @@ aiCommand
           process.exit(1);
         }
 
-        try {
-          execSync("ffmpeg -version", { stdio: "ignore" });
-        } catch {
+        if (!commandExists("ffmpeg")) {
           console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
           process.exit(1);
         }
@@ -1019,9 +1014,7 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
     return { success: false, error: `Video not found: ${videoPath}` };
   }
 
-  try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
-  } catch {
+  if (!commandExists("ffmpeg")) {
     return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
   }
 
@@ -1072,10 +1065,7 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
     }
 
     // Extract frame with FFmpeg
-    await execAsync(
-      `ffmpeg -ss ${timestamp} -i "${videoPath}" -frames:v 1 -q:v 2 "${outputPath}" -y`,
-      { timeout: 60000, maxBuffer: 50 * 1024 * 1024 },
-    );
+    await execSafe("ffmpeg", ["-ss", String(timestamp), "-i", videoPath, "-frames:v", "1", "-q:v", "2", outputPath, "-y"], { timeout: 60000, maxBuffer: 50 * 1024 * 1024 });
 
     if (!existsSync(outputPath)) {
       return { success: false, error: "FFmpeg failed to extract frame" };

@@ -16,8 +16,6 @@ import { Command } from "commander";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
-import { execSync, exec } from "node:child_process";
-import { promisify } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import {
@@ -31,8 +29,7 @@ import {
 import { Project } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
-
-const execAsync = promisify(exec);
+import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 
 // ============================================================================
 // Shared helpers
@@ -165,9 +162,7 @@ export async function executeHighlights(
         return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "Google API key required for Gemini Video Understanding" };
       }
 
-      const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-      const { stdout: durationOut } = await execAsync(durationCmd);
-      sourceDuration = parseFloat(durationOut.trim());
+      sourceDuration = await ffprobeDuration(absPath);
 
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: geminiApiKey });
@@ -264,22 +259,17 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
       let tempAudioPath: string | null = null;
 
       if (isVideo) {
-        try {
-          execSync("ffmpeg -version", { stdio: "ignore" });
-        } catch {
+        if (!commandExists("ffmpeg")) {
           return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "FFmpeg not found" };
         }
 
         tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
-        await execAsync(
-          `ffmpeg -i "${absPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
-          { maxBuffer: 50 * 1024 * 1024 }
-        );
+        await execSafe("ffmpeg", [
+          "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
+        ], { maxBuffer: 50 * 1024 * 1024 });
         audioPath = tempAudioPath;
 
-        const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-        const { stdout: durationOut } = await execAsync(durationCmd);
-        sourceDuration = parseFloat(durationOut.trim());
+        sourceDuration = await ffprobeDuration(absPath);
       }
 
       const whisper = new WhisperProvider();
@@ -290,7 +280,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
       const transcriptResult = await whisper.transcribe(audioBlob, options.language);
 
       if (tempAudioPath && existsSync(tempAudioPath)) {
-        await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+        const { unlink: unlinkFile } = await import("node:fs/promises");
+        await unlinkFile(tempAudioPath).catch(() => {});
       }
 
       if (transcriptResult.status === "failed" || !transcriptResult.segments) {
@@ -445,9 +436,7 @@ export async function executeAutoShorts(
   options: AutoShortsOptions
 ): Promise<AutoShortsResult> {
   try {
-    try {
-      execSync("ffmpeg -version", { stdio: "ignore" });
-    } catch {
+    if (!commandExists("ffmpeg")) {
       return { success: false, shorts: [], error: "FFmpeg not found" };
     }
 
@@ -558,7 +547,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       }
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-      await execAsync(`ffmpeg -i "${absPath}" -vn -acodec libmp3lame -q:a 2 "${tempAudio}" -y`);
+      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
       const whisper = new WhisperProvider();
       await whisper.initialize({ apiKey: openaiApiKey });
@@ -568,7 +557,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       const transcript = await whisper.transcribe(audioBlob, options.language);
 
       try {
-        await execAsync(`rm "${tempAudio}"`);
+        const { unlink: unlinkFile } = await import("node:fs/promises");
+        await unlinkFile(tempAudio);
       } catch { /* ignore */ }
 
       if (!transcript.segments || transcript.segments.length === 0) {
@@ -625,9 +615,9 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       const baseName = basename(absPath, extname(absPath));
       const outputPath = resolve(outputDir, `${baseName}-short-${i + 1}.mp4`);
 
-      const { stdout: probeOut } = await execAsync(
-        `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${absPath}"`
-      );
+      const { stdout: probeOut } = await execSafe("ffprobe", [
+        "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
+      ]);
       const [width, height] = probeOut.trim().split(",").map(Number);
 
       const aspect = options.aspect || "9:16";
@@ -649,9 +639,10 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       }
 
       const vf = `crop=${cropW}:${cropH}:${cropX}:${cropY}`;
-      const cmd = `ffmpeg -ss ${h.startTime} -i "${absPath}" -t ${h.duration} -vf "${vf}" -c:a aac -b:a 128k "${outputPath}" -y`;
-
-      await execAsync(cmd, { timeout: 300000 });
+      await execSafe("ffmpeg", [
+        "-ss", String(h.startTime), "-i", absPath, "-t", String(h.duration),
+        "-vf", vf, "-c:a", "aac", "-b:a", "128k", outputPath, "-y",
+      ], { timeout: 300000 });
 
       result.shorts.push({
         index: i + 1,
@@ -730,9 +721,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
 
           const durationSpinner = ora("📊 Analyzing video metadata...").start();
           try {
-            const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-            const { stdout: durationOut } = await execAsync(durationCmd);
-            sourceDuration = parseFloat(durationOut.trim());
+            sourceDuration = await ffprobeDuration(absPath);
             durationSpinner.succeed(chalk.green(`Video duration: ${formatTime(sourceDuration)}`));
           } catch {
             durationSpinner.fail(chalk.red("Failed to get video duration"));
@@ -843,16 +832,14 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           if (isVideo) {
             const audioSpinner = ora("🎵 Extracting audio from video...").start();
             try {
-              try {
-                execSync("ffmpeg -version", { stdio: "ignore" });
-              } catch {
+              if (!commandExists("ffmpeg")) {
                 audioSpinner.fail(chalk.red("FFmpeg not found. Please install FFmpeg."));
                 process.exit(1);
               }
 
-              const { stdout: probeOut } = await execAsync(
-                `ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "${absPath}"`
-              );
+              const { stdout: probeOut } = await execSafe("ffprobe", [
+                "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
+              ]);
               const hasAudio = probeOut.trim().length > 0;
 
               if (!hasAudio) {
@@ -862,16 +849,13 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
                 process.exit(1);
               } else {
                 tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
-                await execAsync(
-                  `ffmpeg -i "${absPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempAudioPath}" -y`,
-                  { maxBuffer: 50 * 1024 * 1024 }
-                );
+                await execSafe("ffmpeg", [
+                  "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
+                ], { maxBuffer: 50 * 1024 * 1024 });
                 audioPath = tempAudioPath;
               }
 
-              const durationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${absPath}"`;
-              const { stdout: durationOut } = await execAsync(durationCmd);
-              sourceDuration = parseFloat(durationOut.trim());
+              sourceDuration = await ffprobeDuration(absPath);
 
               if (hasAudio) {
                 audioSpinner.succeed(chalk.green(`Extracted audio (${formatTime(sourceDuration)} total duration)`));
@@ -895,7 +879,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           if (transcriptResult.status === "failed" || !transcriptResult.segments) {
             transcribeSpinner.fail(chalk.red(`Transcription failed: ${transcriptResult.error}`));
             if (tempAudioPath && existsSync(tempAudioPath)) {
-              await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+              const { unlink: unlinkFile } = await import("node:fs/promises");
+              await unlinkFile(tempAudioPath).catch(() => {});
             }
             process.exit(1);
           }
@@ -903,7 +888,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           transcribeSpinner.succeed(chalk.green(`Transcribed ${transcriptResult.segments.length} segments`));
 
           if (tempAudioPath && existsSync(tempAudioPath)) {
-            await execAsync(`rm "${tempAudioPath}"`).catch(() => {});
+            const { unlink: unlinkFile } = await import("node:fs/promises");
+            await unlinkFile(tempAudioPath).catch(() => {});
           }
 
           if (transcriptResult.segments.length > 0) {
@@ -1040,9 +1026,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
     .action(async (videoPath: string, options) => {
       try {
-        try {
-          execSync("ffmpeg -version", { stdio: "ignore" });
-        } catch {
+        if (!commandExists("ffmpeg")) {
           console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
           process.exit(1);
         }
@@ -1173,9 +1157,9 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
           const spinner = ora("Extracting audio...").start();
 
-          const { stdout: autoShortsProbe } = await execAsync(
-            `ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "${absPath}"`
-          );
+          const { stdout: autoShortsProbe } = await execSafe("ffprobe", [
+            "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
+          ]);
           if (!autoShortsProbe.trim()) {
             spinner.fail(chalk.yellow("Video has no audio track — cannot use Whisper transcription"));
             console.log(chalk.yellow("\n⚠ This video has no audio stream."));
@@ -1184,7 +1168,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           }
 
           const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-          await execAsync(`ffmpeg -i "${absPath}" -vn -acodec libmp3lame -q:a 2 "${tempAudio}" -y`);
+          await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
           spinner.text = "Transcribing audio...";
 
@@ -1196,7 +1180,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           const transcript = await whisper.transcribe(audioBlob, options.language);
 
           try {
-            await execAsync(`rm "${tempAudio}"`);
+            const { unlink: unlinkFile } = await import("node:fs/promises");
+            await unlinkFile(tempAudio);
           } catch { /* ignore cleanup errors */ }
 
           if (!transcript.segments || transcript.segments.length === 0) {
@@ -1275,9 +1260,9 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
             await mkdir(parentDir, { recursive: true });
           }
 
-          const { stdout: probeOut } = await execAsync(
-            `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${absPath}"`
-          );
+          const { stdout: probeOut } = await execSafe("ffprobe", [
+            "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
+          ]);
           const [width, height] = probeOut.trim().split(",").map(Number);
 
           const [targetW, targetH] = options.aspect.split(":").map(Number);
@@ -1298,9 +1283,10 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           }
 
           const vf = `crop=${cropW}:${cropH}:${cropX}:${cropY}`;
-          const cmd = `ffmpeg -ss ${h.startTime} -i "${absPath}" -t ${h.duration} -vf "${vf}" -c:a aac -b:a 128k "${outputPath}" -y`;
-
-          await execAsync(cmd, { timeout: 300000 });
+          await execSafe("ffmpeg", [
+            "-ss", String(h.startTime), "-i", absPath, "-t", String(h.duration),
+            "-vf", vf, "-c:a", "aac", "-b:a", "128k", outputPath, "-y",
+          ], { timeout: 300000 });
           shortSpinner.succeed(chalk.green(`Short ${i + 1}: ${outputPath}`));
         }
 
