@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="grad-a" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark terminal background -->
+  <rect width="100" height="100" rx="20" fill="#0d0d1a"/>
+
+  <!-- Film perforations — left -->
+  <rect x="5" y="17" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="5" y="33" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="5" y="56" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="5" y="72" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+
+  <!-- Film perforations — right -->
+  <rect x="87" y="17" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="87" y="33" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="87" y="56" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+  <rect x="87" y="72" width="8" height="11" rx="2.5" fill="#6366f1" opacity="0.65"/>
+
+  <!-- Strip divider lines -->
+  <line x1="17" y1="4" x2="17" y2="96" stroke="#6366f1" stroke-width="0.5" opacity="0.18"/>
+  <line x1="83" y1="4" x2="83" y2="96" stroke="#6366f1" stroke-width="0.5" opacity="0.18"/>
+
+  <!-- > chevron prompt -->
+  <path d="M26,36 L46,50 L26,64" stroke="url(#grad-a)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- _ cursor -->
+  <rect x="52" y="59" width="22" height="5.5" rx="2.75" fill="url(#grad-a)"/>
+</svg>
