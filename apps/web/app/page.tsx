@@ -201,7 +201,7 @@ export default function LandingPage() {
                   <MessageSquare className="w-6 h-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full align-middle">beta</span></h2>
                   <p className="text-muted-foreground">
                     28 tools in Claude Desktop and Cursor — add one JSON config and go
                   </p>
@@ -378,7 +378,7 @@ export default function LandingPage() {
             />
             <FeatureCard
               icon={<MessageSquare className="w-6 h-6" />}
-              title="MCP Native"
+              title="MCP Native (beta)"
               description="28 tools in Claude Desktop and Cursor. Let AI control your edits."
               gradient="from-purple-500 to-pink-500"
             />

@@ -4,8 +4,9 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolve } from "node:path";
-import { access, readFile } from "node:fs/promises";
+import { resolve, dirname } from "node:path";
+import { access, readFile, mkdir, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { parse as parseDotenv } from "dotenv";
 import {
   loadConfig,
@@ -29,7 +30,13 @@ export const setupCommand = new Command("setup")
   .option("--reset", "Reset configuration to defaults")
   .option("--full", "Run full setup with all optional providers")
   .option("--show", "Show current configuration (for debugging)")
+  .option("--claude-code", "Set up Claude Code integration (.claude/rules/) in current directory")
   .action(async (options) => {
+    if (options.claudeCode) {
+      await setupClaudeCode();
+      return;
+    }
+
     if (options.show) {
       await showConfig();
       return;
@@ -245,7 +252,129 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log(`Run ${chalk.cyan("vibe")} to start editing`);
   console.log(`Run ${chalk.cyan("vibe setup --show")} to verify your configuration`);
   console.log(`Run ${chalk.cyan("vibe setup --full")} to configure more providers`);
+  console.log(`Run ${chalk.cyan("vibe setup --claude-code")} to set up Claude Code integration`);
   console.log();
+}
+
+/**
+ * Set up Claude Code integration in current directory
+ */
+async function setupClaudeCode(): Promise<void> {
+  const targetDir = resolve(process.cwd(), ".claude", "rules");
+  const targetFile = resolve(targetDir, "cli-reference.md");
+
+  // Check if already exists
+  try {
+    await access(targetFile);
+    console.log();
+    console.log(chalk.yellow("! .claude/rules/cli-reference.md already exists."));
+    console.log(chalk.dim("  Overwriting with latest version..."));
+    console.log();
+  } catch {
+    // doesn't exist yet, fresh install
+  }
+
+  // Read the bundled CLI reference from the package
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  // In built dist: packages/cli/dist/commands/setup.js
+  // Source reference: .claude/rules/cli-reference.md (relative to repo root)
+  // We'll embed it directly since the file ships with the npm package
+
+  const cliReference = await getCliReference();
+
+  await mkdir(targetDir, { recursive: true });
+  await writeFile(targetFile, cliReference, "utf-8");
+
+  console.log();
+  console.log(chalk.green("✓ Claude Code integration set up!"));
+  console.log();
+  console.log(chalk.dim(`  Created: ${targetFile}`));
+  console.log();
+  console.log("  Claude Code now knows all VibeFrame commands.");
+  console.log("  It will use " + chalk.cyan("vibe") + " commands directly without running --help.");
+  console.log();
+}
+
+/**
+ * Get CLI reference content (embedded)
+ */
+async function getCliReference(): Promise<string> {
+  // Try to read from the repo's .claude/rules/ first (dev mode)
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+
+  // Walk up to find the repo root or package root
+  const possiblePaths = [
+    // Dev mode: repo root
+    resolve(__dirname, "..", "..", "..", "..", ".claude", "rules", "cli-reference.md"),
+    // Built CLI (dist/commands/setup.js): packages/cli/.claude/rules/cli-reference.md
+    resolve(__dirname, "..", "..", ".claude", "rules", "cli-reference.md"),
+    // Installed via curl (~/.vibeframe/): .claude/rules/cli-reference.md
+    resolve(__dirname, "..", "..", "..", "..", ".claude", "rules", "cli-reference.md"),
+  ];
+
+  for (const p of possiblePaths) {
+    try {
+      return await readFile(p, "utf-8");
+    } catch {
+      // try next
+    }
+  }
+
+  // Fallback: generate a minimal reference
+  return generateMinimalReference();
+}
+
+/**
+ * Generate minimal CLI reference if bundled file not found
+ */
+function generateMinimalReference(): string {
+  return `# VibeFrame CLI Reference
+
+> Use these commands directly — no need to run \`--help\` first.
+
+## Quick Reference
+
+\`\`\`bash
+# Image
+vibe ai image "<prompt>" -o out.png
+vibe ai gemini-edit <image> "<instruction>" -o out.png
+
+# Video
+vibe ai video "<prompt>" -o out.mp4 -d 5
+vibe ai kling "<prompt>" -o out.mp4 -d 5
+
+# Audio
+vibe ai tts "<text>" -o out.mp3
+vibe ai transcribe <audio> -o out.srt
+
+# Editing
+vibe ai silence-cut <video> -o out.mp4
+vibe ai caption <video> -o out.mp4 -s bold
+vibe ai noise-reduce <input> -o out.mp4
+vibe ai fade <video> -o out.mp4 --fade-in 1 --fade-out 1
+vibe ai grade <video> -o out.mp4 -p cinematic-warm
+vibe ai jump-cut <video> -o out.mp4
+
+# Analysis
+vibe ai analyze <source> "<prompt>"
+vibe ai gemini-video <video> "<prompt>"
+
+# Pipeline
+vibe ai script-to-video "<script>" -o output-dir/ -g runway
+vibe ai highlights <video> -d 60
+vibe ai auto-shorts <video> -o shorts/ -n 3
+
+# Project
+vibe project create <name> -o project.vibe.json
+vibe timeline add-source <project> <media>
+vibe timeline add-clip <project> <source-id>
+vibe export <project> -o output.mp4 -y
+\`\`\`
+
+Run \`vibe ai --help\` for full command list with all options.
+`;
 }
 
 /**
