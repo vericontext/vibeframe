@@ -30,15 +30,29 @@
     "cursor"
   ],
   "license": "MIT",
+  "author": "VibeFrame Contributors",
   "repository": {
     "type": "git",
     "url": "https://github.com/vericontext/vibeframe.git",
     "directory": "packages/mcp-server"
   },
+  "bugs": {
+    "url": "https://github.com/vericontext/vibeframe/issues"
+  },
   "homepage": "https://github.com/vericontext/vibeframe#mcp-integration",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.4"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.39.0",
+    "@google/generative-ai": ">=0.21.0",
+    "openai": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "@google/generative-ai": { "optional": true },
+    "openai": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

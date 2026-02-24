@@ -73,7 +73,7 @@ Model Context Protocol for extensible AI workflows.
 
 ### Implementation
 - [x] MCP server implementation (`packages/mcp-server/`)
-- [x] Tool definitions (12 tools for timeline, project, effects)
+- [x] Tool definitions (28 tools: project, timeline, export, AI editing, AI analysis, AI pipelines)
 - [x] Resource providers (project state, clips, sources, tracks, settings)
 - [x] Prompt templates (7 prompts for common editing tasks)
 - [x] Claude Desktop / Cursor configuration
@@ -181,7 +181,7 @@ Intelligence built into every interaction.
     - `ai_gemini_video` - Analyze video with Gemini
     - `ai_analyze` - Unified media analysis (image/video/YouTube)
 - [x] **Config System** - YAML config at `~/.vibeframe/config.yaml`
-- [x] **CLI Guide** - Comprehensive documentation at `GUIDE.md`
+- [x] **CLI Guide** - CLI reference in README.md + per-command `--help`
 
 ---
 
@@ -227,7 +227,7 @@ Local-first editing with offline support.
 
 ## CLI Status
 
-**283 unit tests passing** | **85 E2E tests** (57 Agent tools)
+**240+ unit tests passing** | **85 E2E tests** (57 Agent tools)
 
 ```
 vibe                      Start Agent mode (default: OpenAI)

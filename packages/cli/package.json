@@ -9,6 +9,9 @@
     "url": "https://github.com/vericontext/vibeframe.git",
     "directory": "packages/cli"
   },
+  "bugs": {
+    "url": "https://github.com/vericontext/vibeframe/issues"
+  },
   "keywords": [
     "vibeframe",
     "cli",
@@ -31,6 +34,38 @@
     "./engine": {
       "import": "./src/engine/index.ts",
       "types": "./src/engine/index.ts"
+    },
+    "./commands/export": {
+      "import": "./src/commands/export.ts",
+      "types": "./src/commands/export.ts"
+    },
+    "./commands/ai-edit": {
+      "import": "./src/commands/ai-edit.ts",
+      "types": "./src/commands/ai-edit.ts"
+    },
+    "./commands/ai-analyze": {
+      "import": "./src/commands/ai-analyze.ts",
+      "types": "./src/commands/ai-analyze.ts"
+    },
+    "./commands/ai-review": {
+      "import": "./src/commands/ai-review.ts",
+      "types": "./src/commands/ai-review.ts"
+    },
+    "./commands/ai-image": {
+      "import": "./src/commands/ai-image.ts",
+      "types": "./src/commands/ai-image.ts"
+    },
+    "./commands/ai-script-pipeline": {
+      "import": "./src/commands/ai-script-pipeline.ts",
+      "types": "./src/commands/ai-script-pipeline.ts"
+    },
+    "./commands/ai-highlights": {
+      "import": "./src/commands/ai-highlights.ts",
+      "types": "./src/commands/ai-highlights.ts"
+    },
+    "./commands/ai-narrate": {
+      "import": "./src/commands/ai-narrate.ts",
+      "types": "./src/commands/ai-narrate.ts"
     }
   },
   "scripts": {

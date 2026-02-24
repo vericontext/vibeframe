@@ -3,7 +3,7 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-283%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-240%2B%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
 
@@ -36,11 +36,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 | Export for each platform | `vibe ai viral project.vibe.json` |
 | Click through menus | MCP → Claude does it for you |
 
-**Design Principles:**
-- **Headless First** - CLI/API before UI
-- **AI-Native** - AI is the interface, not a feature
-- **MCP Compatible** - Works with Claude Desktop & Cursor
-- **Provider Agnostic** - Swap AI providers freely
+**Design Principles:** Headless First — AI-Native — MCP Compatible — Provider Agnostic
 
 ---
 
@@ -49,10 +45,9 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 **Prerequisites:** Node.js 18+, FFmpeg
 
 ```bash
-# Install VibeFrame
+# Install & run
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
-# Run commands directly
 vibe project create "My First Video" -o my-video.vibe.json
 vibe timeline add-source my-video.vibe.json ./intro.mp4
 vibe export my-video.vibe.json -o output.mp4
@@ -76,11 +71,9 @@ pnpm install && pnpm build
 End-to-end workflows powered by multiple AI providers (Claude + ElevenLabs + Gemini + Kling/Runway):
 
 ```bash
-# Script → storyboard → TTS → images → video
 vibe ai script-to-video "A morning routine of a startup founder..." \
   -d 60 -a 9:16 -g kling -o startup.vibe.json
 
-# Extract highlights, generate shorts, match B-roll, optimize for platforms
 vibe ai highlights interview.mp4 -d 90 --criteria emotional
 vibe ai auto-shorts podcast.mp4
 vibe ai b-roll podcast.mp3 --broll-dir ./footage
@@ -109,125 +102,30 @@ Config file locations:
 - **Claude Desktop (Windows):** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Cursor:** `.cursor/mcp.json` in your workspace
 
-**12 Tools** | **5 Resources** | **7 Prompts** — see [packages/mcp-server/README.md](packages/mcp-server/README.md) for details.
+**28 Tools** | **5 Resources** | **7 Prompts** — see [packages/mcp-server/README.md](packages/mcp-server/README.md) for details.
 
 ---
 
 ## CLI Reference
 
-```bash
-# Direct commands (primary workflow)
-vibe ai script-to-video "..."        # Run any AI command directly
-vibe project create "name"           # Manage projects
-vibe export project.vibe.json        # Export to MP4
+Every command supports `--help`. Run `vibe ai --help` for a full list.
 
-# Interactive session (natural language, no-args)
-vibe                                 # Start interactive CLI session
-vibe agent -p claude                 # Use specific LLM provider
-vibe setup                           # Configure API keys
+| Category | Commands | Examples |
+|----------|----------|---------|
+| **Pipelines** | `script-to-video`, `highlights`, `auto-shorts`, `b-roll`, `viral` | `vibe ai script-to-video "..." -a 9:16` |
+| **Generation** | `image`, `video`, `kling`, `tts`, `sfx`, `music`, `motion`, `storyboard`, `thumbnail`, `background` | `vibe ai image "prompt" -o img.png` |
+| **Image Editing** | `gemini-edit`, `sd-upscale`, `sd-remove-bg`, `sd-img2img`, `sd-replace`, `sd-outpaint` | `vibe ai gemini-edit img.png "make it blue"` |
+| **Video Tools** | `video-extend`, `video-upscale`, `video-interpolate`, `fill-gaps` | `vibe ai video-upscale input.mp4` |
+| **Audio Tools** | `voices`, `voice-clone`, `isolate`, `noise-reduce`, `duck`, `dub` | `vibe ai noise-reduce input.mp4` |
+| **Post-Production** | `edit`, `suggest`, `grade`, `text-overlay`, `fade`, `silence-cut`, `jump-cut`, `caption`, `reframe`, `speed-ramp`, `narrate`, `review`, `regenerate-scene` | `vibe ai caption video.mp4` |
+| **Analysis** | `analyze`, `gemini-video`, `transcribe`, `translate-srt`, `providers` | `vibe ai analyze video.mp4 "summarize"` |
+| **Project** | `project create/info/set`, `timeline add-source/add-clip/split/trim/move/delete/list` | `vibe project create "name"` |
+| **Batch** | `batch import/concat/apply-effect/remove-clips/info` | `vibe batch import project dir/` |
+| **Detection** | `detect scenes/silence/beats` | `vibe detect scenes video.mp4` |
+| **Export** | `export` | `vibe export project.vibe.json -o out.mp4` |
+| **Agent** | `agent`, `setup` | `vibe agent -p claude` |
 
-# Project
-vibe project create <name>           # Create project
-vibe project info <file>             # Show info
-vibe project set <file>              # Update settings
-
-# Timeline
-vibe timeline add-source <project> <media>
-vibe timeline add-clip <project> <source-id>
-vibe timeline split <project> <clip-id> -t <time>
-vibe timeline trim <project> <clip-id>
-vibe timeline move <project> <clip-id> -t <time>
-vibe timeline delete <project> <clip-id>
-vibe timeline list <project>
-
-# Media
-vibe media info <file>               # Media file information
-vibe media duration <file>           # Media duration in seconds
-
-# Batch
-vibe batch import <project> <dir>    # Import directory
-vibe batch concat <project> --all    # Concatenate clips
-vibe batch apply-effect <project> fadeIn --all
-vibe batch remove-clips <project>    # Remove multiple clips
-vibe batch info <project>            # Batch processing stats
-
-# Detection (FFmpeg-based, no API needed)
-vibe detect scenes <video>           # Scene detection
-vibe detect silence <audio>          # Silence detection
-vibe detect beats <audio>            # Beat detection
-
-# Export
-vibe export <project> -o out.mp4 -p high
-
-# AI — Generation
-vibe ai image "prompt" -o img.png    # Image (Gemini default, -p openai/stability)
-vibe ai gemini "prompt" -o img.png   # Image (Gemini Nano Banana)
-vibe ai sd "prompt" -o img.png       # Image (Stable Diffusion)
-vibe ai video "prompt" -o vid.mp4    # Video (Kling default, -p runway/veo)
-vibe ai kling "prompt" -o vid.mp4    # Video (Kling AI)
-vibe ai tts "text" -o voice.mp3      # Text-to-speech (ElevenLabs)
-vibe ai sfx "explosion" -o sfx.mp3   # Sound effects (ElevenLabs)
-vibe ai music "prompt" -o bgm.mp3    # Music generation (Replicate)
-vibe ai motion "description"         # Motion graphics (Remotion, --render --video)
-vibe ai storyboard "content"         # Script → storyboard (Claude)
-vibe ai thumbnail "description"      # Generate thumbnail (DALL-E / --best-frame via Gemini)
-vibe ai background "description"     # Generate background (DALL-E)
-
-# AI — Image Editing
-vibe ai gemini-edit img.png "edit"   # Multi-image editing (Gemini)
-vibe ai sd-upscale <image>           # Upscale image (Stability)
-vibe ai sd-remove-bg <image>         # Remove background (Stability)
-vibe ai sd-img2img <image> "prompt"  # Image-to-image (Stability)
-vibe ai sd-replace <img> <s> <r>     # Search & replace objects (Stability)
-vibe ai sd-outpaint <image>          # Extend image canvas (Stability)
-
-# AI — Video Tools
-vibe ai video-extend <video-id>      # Extend video duration (Kling)
-vibe ai video-upscale <video>        # Upscale video resolution (FFmpeg)
-vibe ai video-interpolate <video>    # Slow motion / frame interpolation
-vibe ai fill-gaps <project>          # Fill timeline gaps with AI video
-
-# AI — Audio Tools
-vibe ai voices                       # List ElevenLabs voices
-vibe ai voice-clone [samples...]     # Clone voice (ElevenLabs)
-vibe ai isolate <audio>              # Isolate vocals
-vibe ai noise-reduce <media>         # Remove noise (FFmpeg)
-vibe ai duck <music>                 # Auto-duck music under voice
-vibe ai dub <media>                  # Dub to another language
-
-# AI — Video Post-Production
-vibe ai edit <project> "instruction" # Natural language edit
-vibe ai suggest <project> "query"    # AI edit suggestions (Gemini)
-vibe ai grade <video>                # AI color grading (Claude + FFmpeg)
-vibe ai text-overlay <video>         # Text overlays (FFmpeg drawtext)
-vibe ai fade <video>                 # Fade in/out effects (FFmpeg)
-vibe ai silence-cut <video>          # Remove silent segments (FFmpeg, or --use-gemini for smart detection)
-vibe ai jump-cut <video>             # Remove filler words (Whisper + FFmpeg)
-vibe ai caption <video>              # Transcribe + burn captions (Remotion fallback, no libass needed)
-vibe ai reframe <video>              # Auto-reframe aspect ratio
-vibe ai speed-ramp <video>           # Content-aware speed ramping
-vibe ai narrate <input>              # AI narration for video
-vibe ai review <video>               # AI video review & auto-fix (Gemini)
-vibe ai regenerate-scene <dir>       # Regenerate scene in project
-
-# AI — Pipelines
-vibe ai script-to-video <script>     # Full video from text
-vibe ai highlights <media>           # Extract highlights
-vibe ai auto-shorts <video>          # Auto-generate shorts
-vibe ai b-roll <narration>           # Match B-roll to narration
-vibe ai viral <project>              # Platform optimization
-
-# AI — Analysis & Status
-vibe ai providers                    # List AI providers
-vibe ai transcribe <audio>           # Whisper transcription
-vibe ai translate-srt <file>         # Translate SRT subtitles (Claude/OpenAI)
-vibe ai analyze <source> "prompt"     # Unified analysis (image/video/YouTube)
-vibe ai gemini-video <source> "q"    # Video analysis (Gemini)
-vibe ai video-status <task-id>       # Check Runway status
-vibe ai video-cancel <task-id>       # Cancel Runway generation
-vibe ai kling-status <task-id>       # Check Kling status
-vibe ai music-status <task-id>       # Check music generation status
-```
+**56+ AI commands** across 11 providers. Every command supports `--help`.
 
 ---
 
@@ -250,18 +148,15 @@ vibe ai music-status <task-id>       # Check music generation status
 
 ```
 vibeframe/
-├── README.md              # Quick start (CLI + MCP)
-├── GUIDE.md               # CLI usage guide
-├── ROADMAP.md             # Development roadmap
-├── MODELS.md              # AI models reference (SSOT)
-├── apps/web/              # Next.js web app (preview UI)
 ├── packages/
-│   ├── cli/               # Command-line interface (283 tests, 58 tools)
-│   ├── core/              # Timeline data structures
-│   ├── ai-providers/      # AI provider plugins
+│   ├── cli/               # CLI + Agent (58 tools, 240+ tests)
+│   ├── core/              # Timeline engine (Zustand + Immer + FFmpeg)
+│   ├── ai-providers/      # Pluggable AI providers
 │   ├── mcp-server/        # MCP server (npm: @vibeframe/mcp-server)
-│   └── ui/                # Shared UI components
-└── docs/                  # Media assets (demo.gif)
+│   └── ui/                # Shared React components
+├── apps/web/              # Next.js landing & preview UI
+├── MODELS.md              # AI models reference (SSOT)
+└── ROADMAP.md             # Development roadmap
 ```
 
 ---
@@ -270,12 +165,12 @@ vibeframe/
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1. Foundation | ✅ | Core CLI, FFmpeg.wasm export |
-| 2. AI Providers | ✅ | 11 providers integrated |
-| 3. MCP Integration | ✅ | Claude Desktop & Cursor support |
-| 4. AI Pipelines | ✅ | Script-to-Video, Highlights, B-Roll, Viral |
-| 5. Server Infrastructure | 📋 | Hybrid rendering, chunked uploads |
-| 6. Collaboration | 📋 | CRDT-based local-first sync |
+| 1. Foundation | Done | Core CLI, FFmpeg.wasm export |
+| 2. AI Providers | Done | 11 providers integrated |
+| 3. MCP Integration | Done | Claude Desktop & Cursor support |
+| 4. AI Pipelines | Done | Script-to-Video, Highlights, B-Roll, Viral |
+| 5. Server Infrastructure | Planned | Hybrid rendering, chunked uploads |
+| 6. Collaboration | Planned | CRDT-based local-first sync |
 
 See [ROADMAP.md](ROADMAP.md) for details.
 
@@ -285,11 +180,7 @@ See [ROADMAP.md](ROADMAP.md) for details.
 
 **VibeFrame Core is 100% open source** (MIT License).
 
-For teams and production workloads, **VibeFrame Cloud** (coming soon) will offer:
-- 🚀 **Distributed Rendering** - Auto-scaling render queues, no memory limits
-- 👥 **Team Workspaces** - Real-time collaboration, version history, comments
-- 🌐 **Hosted MCP Endpoint** - Connect Claude/Cursor without local setup
-- 📦 **Template Marketplace** - Premium templates and AI presets
+**VibeFrame Cloud** (coming soon) will add distributed rendering, team workspaces, hosted MCP endpoint, and a template marketplace.
 
 > Core features will always remain free and open source.
 
@@ -298,13 +189,12 @@ For teams and production workloads, **VibeFrame Cloud** (coming soon) will offer
 ## Contributing
 
 ```bash
-pnpm dev       # Start dev server
 pnpm build     # Build all packages
-pnpm test      # Run tests (283 passing)
+pnpm test      # Run tests (240+ passing)
 pnpm lint      # Lint code
 ```
 
-Contributions welcome — AI provider integrations, CLI improvements, docs, bug fixes & tests.
+Contributions welcome — AI provider integrations, CLI improvements, docs, bug fixes & tests. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

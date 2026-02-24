@@ -16,6 +16,10 @@ describe("@vibeframe/mcp-server", () => {
       expect(tools.length).toBeGreaterThan(0);
     });
 
+    it("should have 28 tools total", () => {
+      expect(tools.length).toBe(28);
+    });
+
     it("should have correct tool structure", () => {
       const tool = tools[0];
       expect(tool.name).toBeDefined();
@@ -37,6 +41,44 @@ describe("@vibeframe/mcp-server", () => {
       expect(toolNames).toContain("timeline_add_source");
       expect(toolNames).toContain("timeline_add_clip");
       expect(toolNames).toContain("timeline_list");
+    });
+
+    it("should have export tool", () => {
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain("export_video");
+    });
+
+    it("should have AI editing tools", () => {
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain("edit_silence_cut");
+      expect(toolNames).toContain("edit_caption");
+      expect(toolNames).toContain("edit_fade");
+      expect(toolNames).toContain("edit_noise_reduce");
+      expect(toolNames).toContain("edit_jump_cut");
+      expect(toolNames).toContain("edit_text_overlay");
+      expect(toolNames).toContain("edit_translate_srt");
+    });
+
+    it("should have AI analysis tools", () => {
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain("ai_analyze");
+      expect(toolNames).toContain("ai_gemini_video");
+      expect(toolNames).toContain("ai_review");
+      expect(toolNames).toContain("ai_thumbnail");
+    });
+
+    it("should have AI pipeline tools", () => {
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain("ai_script_to_video");
+      expect(toolNames).toContain("ai_highlights");
+      expect(toolNames).toContain("ai_auto_shorts");
+      expect(toolNames).toContain("ai_narrate");
+    });
+
+    it("should have unique tool names", () => {
+      const toolNames = tools.map((t) => t.name);
+      const uniqueNames = new Set(toolNames);
+      expect(uniqueNames.size).toBe(toolNames.length);
     });
   });
 
