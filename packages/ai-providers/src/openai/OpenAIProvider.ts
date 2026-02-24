@@ -340,6 +340,107 @@ Or if clarification needed:
 
     return { success: true, commands };
   }
+
+  async generateNarrationScript(
+    videoAnalysis: string,
+    duration: number,
+    style: "informative" | "energetic" | "calm" | "dramatic" = "informative",
+    language: string = "en"
+  ): Promise<{
+    success: boolean;
+    script?: string;
+    segments?: Array<{ startTime: number; endTime: number; text: string }>;
+    error?: string;
+  }> {
+    if (!this.apiKey) {
+      return { success: false, error: "OpenAI API key not configured" };
+    }
+
+    const styleGuides: Record<string, string> = {
+      informative: "Clear, educational, and objective. Focus on facts and explanations. Professional but accessible tone.",
+      energetic: "Enthusiastic, dynamic, and engaging. Use active language and build excitement. Great for action content.",
+      calm: "Soothing, gentle, and peaceful. Measured pace with thoughtful pauses. Ideal for nature or meditation content.",
+      dramatic: "Cinematic and emotional. Build tension and create impact. Use powerful language and evocative descriptions.",
+    };
+
+    const languageInstructions = language === "en"
+      ? ""
+      : `IMPORTANT: Write the narration script in ${language} language.`;
+
+    const systemPrompt = `You are an expert video narrator creating voiceover scripts.
+
+Target duration: ${duration} seconds (approximately ${Math.round(duration * 2.5)} words at normal speaking pace)
+Style: ${style} - ${styleGuides[style]}
+${languageInstructions}
+
+Based on the video analysis provided, write a narration script that:
+1. Matches the visual content timing
+2. Enhances viewer understanding without being redundant
+3. Maintains the specified style throughout
+4. Is the right length for the duration (2-3 words per second)
+5. Has natural flow and rhythm for voiceover delivery
+
+IMPORTANT: Respond with JSON only:
+{
+  "script": "The complete narration script as a single string...",
+  "segments": [
+    {"startTime": 0, "endTime": 5.5, "text": "First segment of narration..."},
+    {"startTime": 5.5, "endTime": 12.0, "text": "Second segment..."}
+  ]
+}
+
+The segments should divide the script into natural phrases that align with video scenes.
+Each segment should be 3-10 seconds long.`;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          max_tokens: 4096,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Create a narration script for this video:\n\n${videoAnalysis}` },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return { success: false, error: `API error: ${response.status} ${error}` };
+      }
+
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        return { success: false, error: "No response from OpenAI" };
+      }
+
+      const result = JSON.parse(content) as {
+        script: string;
+        segments?: Array<{ startTime: number; endTime: number; text: string }>;
+      };
+
+      return {
+        success: true,
+        script: result.script,
+        segments: result.segments || [],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate narration script",
+      };
+    }
+  }
 }
 
 export const openaiProvider = new OpenAIProvider();

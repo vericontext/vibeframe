@@ -7,10 +7,11 @@
 
 import { type Command } from 'commander';
 import { resolve } from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import chalk from 'chalk';
 import ora from 'ora';
-import { ClaudeProvider } from '@vibeframe/ai-providers';
+import { ClaudeProvider, GeminiProvider } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
 
 // ── Motion: exported function for Agent tool ────────────────────────────────
@@ -26,6 +27,15 @@ export interface MotionCommandOptions {
   render?: boolean;
   /** Base video to composite the motion graphic onto */
   video?: string;
+  /** Image to analyze with Gemini — color/mood/composition fed into Claude prompt */
+  image?: string;
+  /** Path to existing TSX file to refine instead of generating from scratch */
+  fromTsx?: string;
+  /**
+   * LLM model alias for code generation.
+   * sonnet (default) | opus | gemini | gemini-3.1-pro
+   */
+  model?: string;
   /** Output path (TSX if code-only, WebM/MP4 if rendered) */
   output?: string;
 }
@@ -39,47 +49,136 @@ export interface MotionCommandResult {
   error?: string;
 }
 
+// Map model alias → { provider, modelId }
+const MODEL_MAP: Record<string, { provider: "claude" | "gemini"; modelId: string }> = {
+  sonnet:          { provider: "claude",  modelId: "claude-sonnet-4-6" },
+  opus:            { provider: "claude",  modelId: "claude-opus-4-6" },
+  gemini:          { provider: "gemini",  modelId: "gemini-2.5-pro" },
+  "gemini-3.1-pro": { provider: "gemini", modelId: "gemini-3.1-pro-preview" },
+};
+
 export async function executeMotion(options: MotionCommandOptions): Promise<MotionCommandResult> {
-  const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-  if (!apiKey) {
-    return { success: false, error: "Anthropic API key required (set ANTHROPIC_API_KEY)" };
-  }
+  const modelAlias = options.model || "sonnet";
+  const modelConfig = MODEL_MAP[modelAlias] ?? MODEL_MAP["sonnet"];
+  const useGemini = modelConfig.provider === "gemini";
 
   const width = options.width || 1920;
   const height = options.height || 1080;
   const fps = options.fps || 30;
   const duration = options.duration || 5;
 
-  const claude = new ClaudeProvider();
-  await claude.initialize({ apiKey });
+  // Resolve API key based on provider
+  let apiKey: string | null;
+  if (useGemini) {
+    apiKey = await getApiKey("GOOGLE_API_KEY", "Google");
+    if (!apiKey) return { success: false, error: "GOOGLE_API_KEY required for Gemini motion generation" };
+  } else {
+    apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
+    if (!apiKey) return { success: false, error: "ANTHROPIC_API_KEY required for Claude motion generation" };
+  }
 
-  const result = await claude.generateMotion(options.description, {
-    duration,
-    width,
-    height,
-    fps,
-    style: options.style as "minimal" | "corporate" | "playful" | "cinematic" | undefined,
-  });
+  // Step 0 (optional): Analyze image with Gemini, inject into description
+  let enrichedDescription = options.description;
+  if (options.image) {
+    const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
+    if (!geminiApiKey) {
+      return { success: false, error: "GOOGLE_API_KEY required for image analysis (--image)" };
+    }
+
+    const imagePath = resolve(process.cwd(), options.image);
+    const imageBuffer = await readFile(imagePath);
+
+    const gemini = new GeminiProvider();
+    await gemini.initialize({ apiKey: geminiApiKey });
+
+    const analysisResult = await gemini.analyzeImage(imageBuffer, `Analyze this image for motion graphics design purposes. Describe:
+1. Dominant color palette (exact hex values if possible)
+2. Subject placement and safe zones (where NOT to put text/graphics)
+3. Overall mood and atmosphere
+4. Lighting style (warm/cool, bright/dark, dramatic/soft)
+5. Key visual elements and their positions
+
+Be specific and concise — this analysis will guide a Remotion animation generator.`);
+
+    if (analysisResult.success && analysisResult.response) {
+      enrichedDescription = `${options.description}
+
+[Image Analysis Context]
+${analysisResult.response}
+
+Use this image analysis to inform the color palette, typography placement, and overall aesthetic of the motion graphic.`;
+    }
+  }
+
+  type MotionResult = Awaited<ReturnType<InstanceType<typeof ClaudeProvider>["generateMotion"]>>;
+  let result: MotionResult;
+
+  if (options.fromTsx) {
+    // Refine mode: modify existing TSX instead of generating from scratch
+    const tsxPath = resolve(process.cwd(), options.fromTsx);
+    if (!existsSync(tsxPath)) {
+      return { success: false, error: `TSX file not found: ${tsxPath}` };
+    }
+    const existingCode = await readFile(tsxPath, "utf-8");
+
+    if (useGemini) {
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey });
+      result = await gemini.refineMotion(existingCode, options.description, {
+        duration, width, height, fps, model: modelConfig.modelId,
+      });
+    } else {
+      const claude = new ClaudeProvider();
+      await claude.initialize({ apiKey });
+      result = await claude.refineMotion(existingCode, options.description, {
+        duration, width, height, fps,
+      });
+    }
+  } else {
+    if (useGemini) {
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey });
+      result = await gemini.generateMotion(enrichedDescription, {
+        duration, width, height, fps,
+        style: options.style,
+        model: modelConfig.modelId,
+      });
+    } else {
+      const claude = new ClaudeProvider();
+      await claude.initialize({ apiKey });
+      result = await claude.generateMotion(enrichedDescription, {
+        duration, width, height, fps,
+        style: options.style as "minimal" | "corporate" | "playful" | "cinematic" | undefined,
+      });
+    }
+  }
 
   if (!result.success || !result.component) {
     return { success: false, error: result.error || "Motion generation failed" };
   }
 
   const { component } = result;
-  const defaultOutput = options.video ? "motion-output.mp4" : options.render ? "motion.webm" : "motion.tsx";
+  const defaultOutput = (options.video || options.image) ? "motion-output.mp4" : options.render ? "motion.webm" : "motion.tsx";
   const outputPath = resolve(process.cwd(), options.output || defaultOutput);
 
   // Save TSX code
   const codePath = outputPath.replace(/\.\w+$/, ".tsx");
   await writeFile(codePath, component.code, "utf-8");
 
-  const shouldRender = options.render || !!options.video;
+  const shouldRender = options.render || !!options.video || !!options.image;
   if (!shouldRender) {
     return { success: true, codePath, componentName: component.name };
   }
 
   // Render (and optionally composite onto video)
-  const { ensureRemotionInstalled, renderMotion, wrapComponentWithVideo, renderWithEmbeddedVideo } = await import("../utils/remotion.js");
+  const {
+    ensureRemotionInstalled,
+    renderMotion,
+    wrapComponentWithVideo,
+    renderWithEmbeddedVideo,
+    wrapComponentWithImage,
+    renderWithEmbeddedImage,
+  } = await import("../utils/remotion.js");
 
   const notInstalled = await ensureRemotionInstalled();
   if (notInstalled) {
@@ -87,6 +186,7 @@ export async function executeMotion(options: MotionCommandOptions): Promise<Moti
   }
 
   const baseVideo = options.video ? resolve(process.cwd(), options.video) : undefined;
+  const baseImage = options.image ? resolve(process.cwd(), options.image) : undefined;
 
   if (baseVideo) {
     // Embed video inside the component (no transparency needed)
@@ -112,7 +212,32 @@ export async function executeMotion(options: MotionCommandOptions): Promise<Moti
     return { success: true, codePath, componentName: component.name, compositedPath: renderResult.outputPath };
   }
 
-  // No base video — render standalone
+  if (baseImage) {
+    // Embed image as background — motion graphic overlaid on top
+    const ext = baseImage.split(".").pop() || "png";
+    const imageFileName = `source_image.${ext}`;
+    const wrapped = wrapComponentWithImage(component.code, component.name, imageFileName);
+
+    const renderResult = await renderWithEmbeddedImage({
+      componentCode: wrapped.code,
+      componentName: wrapped.name,
+      width,
+      height,
+      fps,
+      durationInFrames: component.durationInFrames,
+      imagePath: baseImage,
+      imageFileName,
+      outputPath,
+    });
+
+    if (!renderResult.success) {
+      return { success: false, codePath, componentName: component.name, error: renderResult.error };
+    }
+
+    return { success: true, codePath, componentName: component.name, compositedPath: renderResult.outputPath };
+  }
+
+  // No base media — render standalone
   const renderResult = await renderMotion({
     componentCode: component.code,
     componentName: component.name,
@@ -149,11 +274,17 @@ export function registerMotionCommand(aiCommand: Command): void {
     .option("-s, --style <style>", "Style preset: minimal, corporate, playful, cinematic")
     .option("--render", "Render the generated code with Remotion (output .webm)")
     .option("--video <path>", "Base video to composite the motion graphic onto")
+    .option("--image <path>", "Image to analyze with Gemini — color/mood fed into Claude prompt")
+    .option("--from-tsx <path>", "Refine an existing TSX file instead of generating from scratch")
+    .option("-m, --model <alias>", "LLM model: sonnet (default), opus, gemini, gemini-3.1-pro", "sonnet")
     .action(async (description: string, options) => {
       try {
-        const shouldRender = options.render || !!options.video;
+        const shouldRender = options.render || !!options.video || !!options.image;
 
         const spinner = ora("Generating motion graphic...").start();
+        if (options.image) {
+          spinner.text = "Analyzing image with Gemini...";
+        }
 
         const result = await executeMotion({
           description,
@@ -164,6 +295,9 @@ export function registerMotionCommand(aiCommand: Command): void {
           style: options.style,
           render: options.render,
           video: options.video,
+          image: options.image,
+          fromTsx: options.fromTsx,
+          model: options.model,
           output: options.output !== "motion.tsx" ? options.output : undefined,
         });
 

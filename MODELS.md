@@ -10,11 +10,25 @@ Used for natural language processing in Agent mode (`vibe` command).
 
 | Provider | Model | API Model ID | Env Key | CLI Option |
 |----------|-------|-------------|---------|------------|
-| OpenAI | GPT-4.5 | `gpt-4.5` | `OPENAI_API_KEY` | `-p openai` |
+| OpenAI | GPT-4o | `gpt-4o` | `OPENAI_API_KEY` | `-p openai` |
 | Claude | Sonnet 4.6 | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` | `-p claude` |
 | Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
 | xAI | Grok-4 | `grok-4` | `XAI_API_KEY` | `-p xai` |
 | Ollama | Local models | user-configured | - | `-p ollama` |
+
+**OpenAI model options:**
+
+`gpt-4o` is the default — widely available, strong function calling, cost-effective for agentic loops. You can override per-session:
+
+| Model ID | Variant | Notes |
+|----------|---------|-------|
+| `gpt-4o` | Standard | **Default**. Best balance of speed, cost, and tool calling stability |
+| `gpt-5.2-chat-latest` | GPT-5.2 Instant | Latest/fastest. Chat Completions API ✓. Pricing: $1.75/M input, $14/M output |
+| `gpt-5.2` | GPT-5.2 Thinking | More capable reasoning. Chat Completions API ✓. Same pricing as Instant |
+
+> `gpt-5.2-pro` is **not** available via Chat Completions (Responses API only) — not usable for Agent mode.
+
+To use GPT-5.2 in agent mode: `vibe agent -p openai --model gpt-5.2-chat-latest`
 
 **Why Gemini 2.5 Flash, not 3.1 Pro?**
 
@@ -110,7 +124,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 
 | Command | Required API Key | Model |
 |---------|-----------------|-------|
-| `vibe` (default) | `OPENAI_API_KEY` | GPT-4.5 (Agent LLM) |
+| `vibe` (default) | `OPENAI_API_KEY` | GPT-4o (Agent LLM) |
 | `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 (Agent LLM) |
 | `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
 | `vibe -p xai` | `XAI_API_KEY` | Grok-4 (Agent LLM) |
