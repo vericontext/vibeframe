@@ -24,13 +24,9 @@ import {
   GeminiProvider,
   OpenAIImageProvider,
   StabilityProvider,
-  RunwayProvider,
-  openaiImageProvider,
-  stabilityProvider,
 } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
 import { execSafe, commandExists } from '../utils/exec-safe.js';
-import { getVideoDuration } from '../utils/audio.js';
 
 function _registerImageCommands(aiCommand: Command): void {
 
@@ -48,7 +44,7 @@ aiCommand
   .option("-n, --count <n>", "Number of images to generate", "1")
   .action(async (prompt: string, options) => {
     try {
-      let provider = options.provider.toLowerCase();
+      const provider = options.provider.toLowerCase();
       const validProviders = ["openai", "dalle", "gemini", "stability", "runway"];
       if (!validProviders.includes(provider)) {
         console.error(chalk.red(`Invalid provider: ${provider}`));
@@ -141,6 +137,7 @@ aiCommand
               throw new Error("No image data available");
             }
             const outputPath = resolve(process.cwd(), options.output);
+            await mkdir(dirname(outputPath), { recursive: true });
             await writeFile(outputPath, buffer);
             saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
           } catch (err) {
@@ -181,6 +178,7 @@ aiCommand
             const img = result.images[0];
             const buffer = Buffer.from(img.base64, "base64");
             const outputPath = resolve(process.cwd(), options.output);
+            await mkdir(dirname(outputPath), { recursive: true });
             await writeFile(outputPath, buffer);
             saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
           } catch (err) {
@@ -233,6 +231,7 @@ aiCommand
             }
             const buffer = Buffer.from(img.base64, "base64");
             const outputPath = resolve(process.cwd(), options.output);
+            await mkdir(dirname(outputPath), { recursive: true });
             await writeFile(outputPath, buffer);
             saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
           } catch (err) {
@@ -413,6 +412,7 @@ aiCommand
             throw new Error("No image data available");
           }
           const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
           await writeFile(outputPath, buffer);
           saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
         } catch (err) {
@@ -479,6 +479,7 @@ aiCommand
             throw new Error("No image data available");
           }
           const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
           await writeFile(outputPath, buffer);
           saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
         } catch (err) {
@@ -541,6 +542,7 @@ aiCommand
       // Save the image
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -595,6 +597,7 @@ aiCommand
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -643,6 +646,7 @@ aiCommand
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -700,6 +704,7 @@ aiCommand
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -759,6 +764,7 @@ aiCommand
       }
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -834,6 +840,7 @@ aiCommand
       }
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -892,6 +899,7 @@ aiCommand
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -965,6 +973,7 @@ aiCommand
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
+        await mkdir(dirname(outputPath), { recursive: true });
         const buffer = Buffer.from(img.base64, "base64");
         await writeFile(outputPath, buffer);
         console.log(chalk.green(`Saved to: ${outputPath}`));
