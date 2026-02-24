@@ -5,7 +5,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { resolve } from "node:path";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
+import { parse as parseDotenv } from "dotenv";
 import {
   loadConfig,
   saveConfig,
@@ -296,6 +297,17 @@ async function showConfig(): Promise<void> {
 
   const config = await loadConfig();
 
+  // Parse .env file directly to know which keys are in it
+  let dotenvKeys: Record<string, string> = {};
+  if (hasCwdEnv) {
+    try {
+      const envContent = await readFile(cwdEnvPath, "utf-8");
+      dotenvKeys = parseDotenv(Buffer.from(envContent));
+    } catch {
+      // ignore parse errors
+    }
+  }
+
   if (!config && !hasCwdEnv) {
     console.log(chalk.yellow("No configuration found."));
     console.log(chalk.dim("Run 'vibe setup' or create .env in your project directory."));
@@ -309,7 +321,7 @@ async function showConfig(): Promise<void> {
     console.log();
   }
 
-  // Show API keys (masked) with source priority
+  // Show API keys (masked) with accurate source detection
   console.log(chalk.bold("API Keys:"));
   const providerKeys = [
     { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY" },
@@ -326,28 +338,16 @@ async function showConfig(): Promise<void> {
 
   for (const p of providerKeys) {
     const configValue = config?.providers[p.key as keyof typeof config.providers];
-    const envValue = process.env[p.env];
+    const dotenvValue = dotenvKeys[p.env];
 
-    if (configValue || envValue) {
-      // Determine source: if env value matches config value, it's config.
-      // If env is set and differs from config (or no config), it's from .env
-      let source: string;
-      if (configValue && envValue && configValue === envValue) {
-        source = "config";
-      } else if (configValue && !envValue) {
-        source = "config";
-      } else if (envValue && !configValue) {
-        source = ".env";
-      } else if (envValue && configValue && envValue !== configValue) {
-        // Both set but different — env was loaded from .env, config exists too
-        // Show the effective value (config takes priority in getApiKey)
-        source = "config";
-      } else {
-        source = "env";
-      }
-      const value = configValue || envValue || "";
+    if (configValue || dotenvValue) {
+      // Show effective value (config wins) and all sources
+      const sources: string[] = [];
+      if (configValue) sources.push("config");
+      if (dotenvValue) sources.push(".env");
+      const value = configValue || dotenvValue;
       const status = chalk.green("✓");
-      console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${source})`);
+      console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${sources.join(" + ")})`);
     } else {
       const status = chalk.dim("○");
       console.log(`  ${status} ${p.name.padEnd(12)} ${chalk.dim("not set")}`);

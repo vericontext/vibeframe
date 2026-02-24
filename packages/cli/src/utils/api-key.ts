@@ -12,12 +12,12 @@ import { getApiKeyFromConfig } from "../config/index.js";
  */
 export function loadEnv(): void {
   // 1. Load from current working directory (project-scoped, highest priority)
-  config({ path: resolve(process.cwd(), ".env") });
+  config({ path: resolve(process.cwd(), ".env"), debug: false });
 
   // 2. Load from monorepo root if in development (won't override existing vars)
   const monorepoRoot = findMonorepoRoot();
   if (monorepoRoot && monorepoRoot !== process.cwd()) {
-    config({ path: resolve(monorepoRoot, ".env") });
+    config({ path: resolve(monorepoRoot, ".env"), debug: false });
   }
 }
 
