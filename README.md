@@ -3,9 +3,17 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-240%2B%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-262%2B%20passing-brightgreen.svg)]()
 
-> Edit videos with natural language. No timeline clicking. No export dialogs. Just tell the AI what you want.
+> Edit videos with natural language. Every edit is a command. Every workflow is scriptable.
+
+---
+
+## Demo
+
+**CLI walkthrough** → https://youtu.be/EJUUpPp2d_8
+
+**Claude Code integration** → https://youtu.be/sdf930sZ7co
 
 ---
 
@@ -15,7 +23,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 
 | Traditional Editor | VibeFrame |
 |-------------------|----------|
-| Import → Drag → Trim → Export | `vibe ai edit "trim intro to 3s"` |
+| Import → Drag → Trim → Export | `vibe ai silence-cut interview.mp4 -o clean.mp4` |
 | Manual scene detection | `vibe detect scenes video.mp4` |
 | Export for each platform | `vibe ai viral project.vibe.json` |
 | Click through menus | Natural language → CLI → done |
@@ -133,7 +141,7 @@ Every command supports `--help`. Run `vibe ai --help` for a full list.
 | **Export** | `export` | `vibe export project.vibe.json -o out.mp4` |
 | **Agent** | `agent`, `setup` | `vibe agent -p claude` |
 
-**56+ AI commands** across 11 providers. Every command supports `--help`.
+**58+ AI commands** across 11 providers. Every command supports `--help`.
 
 ---
 
@@ -173,7 +181,7 @@ vibe agent -p ollama           # Use local Ollama
 ```
 vibeframe/
 ├── packages/
-│   ├── cli/               # CLI + Agent (58 tools, 240+ tests)
+│   ├── cli/               # CLI + Agent (58 tools, 262+ tests)
 │   ├── core/              # Timeline engine (Zustand + Immer + FFmpeg)
 │   ├── ai-providers/      # Pluggable AI providers
 │   ├── mcp-server/        # MCP server (npm: @vibeframe/mcp-server)
@@ -202,11 +210,7 @@ See [ROADMAP.md](ROADMAP.md) for details.
 
 ## Open Core Model
 
-**VibeFrame Core is 100% open source** (MIT License).
-
-**VibeFrame Cloud** (coming soon) will add distributed rendering, team workspaces, hosted MCP endpoint, and a template marketplace.
-
-> Core features will always remain free and open source.
+**VibeFrame Core is 100% open source** (MIT License). Core features will always remain free and open source.
 
 ---
 
@@ -214,7 +218,7 @@ See [ROADMAP.md](ROADMAP.md) for details.
 
 ```bash
 pnpm build     # Build all packages
-pnpm test      # Run tests (240+ passing)
+pnpm test      # Run tests (262+ passing)
 pnpm lint      # Lint code
 ```
 
