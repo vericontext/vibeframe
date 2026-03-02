@@ -1,3 +1,6 @@
+# Secrets / local config
+.mcp.json
+
 # Dependencies
 node_modules
 .pnpm-store
