@@ -19,6 +19,28 @@ import ora from "ora";
 import { GeminiProvider, KlingProvider, RunwayProvider } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 
+/**
+ * Download video from URL with appropriate auth headers.
+ * Veo (Google) URIs require x-goog-api-key header.
+ */
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+
+  // Veo returns URIs under generativelanguage.googleapis.com that need API key auth
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      headers["x-goog-api-key"] = apiKey;
+    }
+  }
+
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
 function getStatusColor(status: string): string {
   switch (status) {
     case "completed":
@@ -304,8 +326,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && finalResult.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(finalResult.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(finalResult.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
@@ -375,8 +396,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && result.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(result.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(result.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
@@ -537,8 +557,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && finalResult.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(finalResult.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(finalResult.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
@@ -610,8 +629,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && result.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(result.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(result.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
@@ -712,8 +730,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && finalResult.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(finalResult.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(finalResult.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
@@ -810,8 +827,7 @@ export function registerVideoCommands(aiCommand: Command): void {
         if (options.output && finalResult.videoUrl) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(finalResult.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(finalResult.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));

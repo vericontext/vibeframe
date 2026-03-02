@@ -20,6 +20,22 @@ function getTimestamp(): string {
   return Date.now().toString();
 }
 
+// Download video with auth headers for Veo (Google) URIs
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      headers["x-goog-api-key"] = apiKey;
+    }
+  }
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
 // ============================================================================
 // Tool Definitions
 // ============================================================================
@@ -494,8 +510,7 @@ const generateVideo: ToolHandler = async (args, context): Promise<ToolResult> =>
       // Download and save video
       if (finalResult.videoUrl) {
         const outputPath = resolve(context.workingDirectory, output);
-        const response = await fetch(finalResult.videoUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = await downloadVideo(finalResult.videoUrl);
         await writeFile(outputPath, buffer);
       }
     }
@@ -587,8 +602,7 @@ const generateKling: ToolHandler = async (args, context): Promise<ToolResult> =>
 
       if (finalResult.videoUrl) {
         const outputPath = resolve(context.workingDirectory, output);
-        const response = await fetch(finalResult.videoUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = await downloadVideo(finalResult.videoUrl);
         await writeFile(outputPath, buffer);
       }
     }
@@ -681,8 +695,7 @@ const generateVeo: ToolHandler = async (args, context): Promise<ToolResult> => {
 
       if (finalResult.videoUrl) {
         const outputPath = resolve(context.workingDirectory, output);
-        const response = await fetch(finalResult.videoUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = await downloadVideo(finalResult.videoUrl);
         await writeFile(outputPath, buffer);
       }
     }

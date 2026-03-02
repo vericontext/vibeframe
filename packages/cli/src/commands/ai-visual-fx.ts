@@ -26,6 +26,17 @@ import { execSafe, commandExists } from '../utils/exec-safe.js';
 import { formatTime } from './ai-helpers.js';
 import { applyTextOverlays, type TextOverlayStyle } from './ai-edit.js';
 
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) { headers["x-goog-api-key"] = apiKey; }
+  }
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 export function registerVisualFxCommands(ai: Command): void {
 
 // ============================================================================
@@ -581,8 +592,7 @@ ai
         if (options.output) {
           const downloadSpinner = ora("Downloading video...").start();
           try {
-            const response = await fetch(finalResult.videoUrl);
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const buffer = await downloadVideo(finalResult.videoUrl);
             const outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));

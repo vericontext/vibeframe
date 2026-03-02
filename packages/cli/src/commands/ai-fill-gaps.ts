@@ -23,6 +23,18 @@ import { execSafe, ffprobeDuration } from '../utils/exec-safe.js';
 import { formatTime } from './ai-helpers.js';
 
 
+// Download video with auth headers for Veo (Google) URIs
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) { headers["x-goog-api-key"] = apiKey; }
+  }
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 // ── Helper functions (module-private) ────────────────────────────────────────
 
 /**
@@ -481,8 +493,7 @@ aiCommand
 
           // Download new segment
           const segVideoPath = resolve(footageDir, `gap-fill-${gap.start.toFixed(2)}-${gap.end.toFixed(2)}-seg${segmentIndex}.mp4`);
-          const segResponse = await fetch(segFinalResult.videoUrl);
-          const segVideoBuffer = Buffer.from(await segResponse.arrayBuffer());
+          const segVideoBuffer = await downloadVideo(segFinalResult.videoUrl);
           await writeFile(segVideoPath, segVideoBuffer);
 
           // Concatenate videos

@@ -38,6 +38,25 @@ import { applyTextOverlays, type TextOverlayStyle, type VideoReviewFeedback } fr
 import { executeReview } from "./ai-review.js";
 import { execSafe } from "../utils/exec-safe.js";
 
+/**
+ * Download video from URL with appropriate auth headers.
+ * Veo (Google) URIs require x-goog-api-key header.
+ */
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      headers["x-goog-api-key"] = apiKey;
+    }
+  }
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
 /** A single scene segment from the Claude-generated storyboard. */
 export interface StoryboardSegment {
   /** 1-based scene index (assigned during generation) */
@@ -156,8 +175,7 @@ export async function extendVideoToTarget(
         if (waitResult.status === "completed" && waitResult.videoUrl) {
           // Download extended video
           const extendedVideoPath = resolve(outputDir, `${basename(videoPath, ".mp4")}-kling-ext.mp4`);
-          const response = await fetch(waitResult.videoUrl);
-          const buffer = Buffer.from(await response.arrayBuffer());
+          const buffer = await downloadVideo(waitResult.videoUrl);
           await writeFile(extendedVideoPath, buffer);
 
           // Concatenate original + extension
@@ -824,8 +842,7 @@ export async function executeScriptToVideo(
               const waitResult = await kling.waitForCompletion(taskResult.taskId, taskResult.type, undefined, 600000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
                 const videoPath = resolve(absOutputDir, `scene-${i + 1}.mp4`);
-                const response = await fetch(waitResult.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
+                const buffer = await downloadVideo(waitResult.videoUrl);
                 await writeFile(videoPath, buffer);
 
                 // Extend video to match narration duration if needed
@@ -881,8 +898,7 @@ export async function executeScriptToVideo(
               const waitResult = await veo.waitForVideoCompletion(taskResult.operationName, undefined, 300000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
                 const videoPath = resolve(absOutputDir, `scene-${i + 1}.mp4`);
-                const response = await fetch(waitResult.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
+                const buffer = await downloadVideo(waitResult.videoUrl);
                 await writeFile(videoPath, buffer);
 
                 // Extend video to match narration duration if needed
@@ -944,8 +960,7 @@ export async function executeScriptToVideo(
               const waitResult = await runway.waitForCompletion(taskResult.taskId, undefined, 300000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
                 const videoPath = resolve(absOutputDir, `scene-${i + 1}.mp4`);
-                const response = await fetch(waitResult.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
+                const buffer = await downloadVideo(waitResult.videoUrl);
                 await writeFile(videoPath, buffer);
 
                 // Extend video to match narration duration if needed
@@ -1285,8 +1300,7 @@ export async function executeRegenerateScene(
             try {
               const waitResult = await kling.waitForCompletion(taskResult.taskId, taskResult.type, undefined, 600000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
-                const response = await fetch(waitResult.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
+                const buffer = await downloadVideo(waitResult.videoUrl);
                 await writeFile(videoPath, buffer);
 
                 // Extend video to match narration duration if needed
@@ -1333,8 +1347,7 @@ export async function executeRegenerateScene(
             try {
               const waitResult = await runway.waitForCompletion(taskResult.taskId, undefined, 300000);
               if (waitResult.status === "completed" && waitResult.videoUrl) {
-                const response = await fetch(waitResult.videoUrl);
-                const buffer = Buffer.from(await response.arrayBuffer());
+                const buffer = await downloadVideo(waitResult.videoUrl);
                 await writeFile(videoPath, buffer);
 
                 // Extend video to match narration duration if needed

@@ -19,6 +19,17 @@ import { ReplicateProvider } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 
+async function downloadVideo(url: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (url.includes("generativelanguage.googleapis.com")) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (apiKey) { headers["x-goog-api-key"] = apiKey; }
+  }
+  const response = await fetch(url, { headers, redirect: "follow" });
+  if (!response.ok) throw new Error(`Download failed (${response.status}): ${response.statusText}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 // ── Register all video FX commands ───────────────────────────────────────────
 
 export function registerVideoFxCommands(ai: Command): void {
@@ -280,8 +291,7 @@ export function registerVideoFxCommands(ai: Command): void {
           if (options.output) {
             const downloadSpinner = ora("Downloading video...").start();
             try {
-              const response = await fetch(finalResult.videoUrl);
-              const buffer = Buffer.from(await response.arrayBuffer());
+              const buffer = await downloadVideo(finalResult.videoUrl);
               const outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
               downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
