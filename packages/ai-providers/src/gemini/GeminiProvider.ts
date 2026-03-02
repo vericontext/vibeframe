@@ -699,14 +699,23 @@ export class GeminiProvider implements AIProvider {
               };
             }>;
           };
+          finishReason?: string;
         }>;
+        promptFeedback?: { blockReason?: string };
       };
 
       const parts = data.candidates?.[0]?.content?.parts;
       if (!parts || parts.length === 0) {
+        const finishReason = data.candidates?.[0]?.finishReason;
+        const blockReason = data.promptFeedback?.blockReason;
+        const detail = blockReason
+          ? `Blocked by safety filter: ${blockReason}`
+          : finishReason
+            ? `Model returned no image (finishReason: ${finishReason})`
+            : "No content in response";
         return {
           success: false,
-          error: "No content in response",
+          error: detail,
         };
       }
 
@@ -850,14 +859,23 @@ export class GeminiProvider implements AIProvider {
               };
             }>;
           };
+          finishReason?: string;
         }>;
+        promptFeedback?: { blockReason?: string };
       };
 
       const responseParts = data.candidates?.[0]?.content?.parts;
       if (!responseParts || responseParts.length === 0) {
+        const finishReason = data.candidates?.[0]?.finishReason;
+        const blockReason = data.promptFeedback?.blockReason;
+        const detail = blockReason
+          ? `Blocked by safety filter: ${blockReason}`
+          : finishReason
+            ? `Model returned no image (finishReason: ${finishReason})`
+            : "No content in response";
         return {
           success: false,
-          error: "No content in response",
+          error: detail,
         };
       }
 

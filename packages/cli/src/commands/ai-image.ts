@@ -157,17 +157,29 @@ aiCommand
         };
         const modelLabel = geminiModelNames[options.model] || "Nano Banana";
 
-        const result = await gemini.generateImage(prompt, {
+        let result = await gemini.generateImage(prompt, {
           model: options.model,
           aspectRatio: options.ratio as "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9",
         });
+
+        // Auto-fallback: if latest/3.1-flash fails, retry with flash
+        let usedLabel = modelLabel;
+        const fallbackModels = ["latest", "3.1-flash"];
+        if (!result.success && options.model && fallbackModels.includes(options.model)) {
+          spinner.text = "Retrying with Nano Banana (flash)...";
+          result = await gemini.generateImage(prompt, {
+            model: "flash",
+            aspectRatio: options.ratio as "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9",
+          });
+          usedLabel = "Nano Banana (fallback)";
+        }
 
         if (!result.success || !result.images) {
           spinner.fail(chalk.red(result.error || "Image generation failed"));
           process.exit(1);
         }
 
-        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini (${modelLabel})`));
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini (${usedLabel})`));
 
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));
@@ -896,7 +908,7 @@ aiCommand
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
 
-      const result = await gemini.generateImage(prompt, {
+      let result = await gemini.generateImage(prompt, {
         model: options.model,
         aspectRatio: options.ratio,
         resolution: options.size,
@@ -904,6 +916,17 @@ aiCommand
         thinkingConfig: options.thinking ? { thinkingLevel: options.thinking } : undefined,
         imageSearchGrounding: options.imageSearch,
       });
+
+      // Auto-fallback: if latest/3.1-flash fails, retry with flash
+      const fallbackModels = ["latest", "3.1-flash"];
+      if (!result.success && fallbackModels.includes(options.model)) {
+        spinner.text = `${modelName} failed, retrying with flash...`;
+        result = await gemini.generateImage(prompt, {
+          model: "flash",
+          aspectRatio: options.ratio,
+          resolution: options.size,
+        });
+      }
 
       if (!result.success || !result.images || result.images.length === 0) {
         spinner.fail(chalk.red(result.error || "Image generation failed"));
@@ -979,11 +1002,22 @@ aiCommand
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
 
-      const result = await gemini.editImage(imageBuffers, prompt, {
+      let result = await gemini.editImage(imageBuffers, prompt, {
         model: options.model,
         aspectRatio: options.ratio,
         resolution: options.size,
       });
+
+      // Auto-fallback: if latest/3.1-flash fails, retry with flash
+      const fallbackModels = ["latest", "3.1-flash"];
+      if (!result.success && fallbackModels.includes(options.model)) {
+        spinner.text = `${editModelName} failed, retrying with flash...`;
+        result = await gemini.editImage(imageBuffers, prompt, {
+          model: "flash",
+          aspectRatio: options.ratio,
+          resolution: options.size,
+        });
+      }
 
       if (!result.success || !result.images || result.images.length === 0) {
         spinner.fail(chalk.red(result.error || "Image editing failed"));
