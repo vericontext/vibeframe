@@ -30,6 +30,7 @@ import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { registerViralCommand } from "./ai-viral.js";
 import { registerBrollCommand } from "./ai-broll.js";
+import { isJsonMode, outputResult } from "./output.js";
 
 export const pipelineCommand = new Command("pipeline").description(
   "AI video pipelines (script-to-video, highlights, shorts, viral)"
@@ -63,12 +64,18 @@ pipelineCommand
   .option("-l, --language <lang>", "Language code (e.g., en, ko)", "en")
   .option("-p, --provider <name>", "LLM for script generation: claude (default), openai", "claude")
   .option("--add-to-project", "Add narration to project (only for .vibe.json input)")
+  .option("--dry-run", "Preview pipeline parameters without executing")
   .action(async (inputPath: string, options) => {
     try {
       const absPath = resolve(process.cwd(), inputPath);
       if (!existsSync(absPath)) {
         console.error(chalk.red(`File not found: ${absPath}`));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "pipeline narrate", params: { inputPath, voice: options.voice, style: options.style, language: options.language, provider: options.provider } });
+        return;
       }
 
       console.log();
@@ -150,6 +157,11 @@ pipelineCommand
       }
 
       generateSpinner.succeed(chalk.green("Narration generated successfully"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, audioPath: result.audioPath, segments: result.segments?.map(s => ({ startTime: s.startTime, endTime: s.endTime, text: s.text })) });
+        return;
+      }
 
       // Display result
       console.log();

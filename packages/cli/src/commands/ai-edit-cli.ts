@@ -26,6 +26,7 @@ import {
   executeJumpCut,
   type CaptionStyle,
 } from './ai-edit.js';
+import { isJsonMode, outputResult } from "./output.js";
 
 // ── Command registrations ───────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ aiCommand
   .option("-m, --model <model>", "Gemini model (default: flash)")
   .option("--low-res", "Low resolution mode for longer videos (Gemini only)")
   .option("-k, --api-key <key>", "Google API key override (or set GOOGLE_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
@@ -64,6 +66,23 @@ aiCommand
       const outputPath = options.output || `${name}-cut${ext}`;
 
       const useGemini = options.useGemini || false;
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit silence-cut",
+          params: {
+            videoPath: absVideoPath,
+            noiseThreshold: parseFloat(options.noise),
+            minDuration: parseFloat(options.minDuration),
+            padding: parseFloat(options.padding),
+            useGemini,
+            analyzeOnly: options.analyzeOnly || false,
+          },
+        });
+        return;
+      }
+
       const spinnerText = useGemini
         ? "Analyzing video with Gemini (visual + audio)..."
         : "Detecting silence...";
@@ -88,6 +107,18 @@ aiCommand
       }
 
       spinner.succeed(chalk.green("Silence detection complete"));
+
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          method: result.method,
+          totalDuration: result.totalDuration,
+          silentPeriods: result.silentPeriods,
+          silentDuration: result.silentDuration,
+          outputPath: result.outputPath,
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Silence Analysis"));
@@ -134,6 +165,7 @@ aiCommand
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
   .option("--position <pos>", "Caption position: top, center, bottom (default: bottom)", "bottom")
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
@@ -146,6 +178,22 @@ aiCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit caption",
+          params: {
+            videoPath: absVideoPath,
+            style: options.style,
+            fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
+            fontColor: options.color,
+            language: options.language,
+            position: options.position,
+          },
+        });
+        return;
       }
 
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
@@ -179,6 +227,17 @@ aiCommand
 
       spinner.succeed(chalk.green("Captions applied"));
 
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          segmentCount: result.segmentCount,
+          style: options.style || "bold",
+          outputPath: result.outputPath,
+          srtPath: result.srtPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Caption Result"));
       console.log(chalk.dim("─".repeat(60)));
@@ -207,6 +266,7 @@ aiCommand
   .option("-o, --output <path>", "Output file path (default: <name>-denoised.<ext>)")
   .option("-s, --strength <level>", "Noise reduction strength: low, medium, high (default: medium)", "medium")
   .option("-n, --noise-floor <dB>", "Custom noise floor in dB (overrides strength preset)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (inputPath: string, options) => {
     try {
       const absInputPath = resolve(process.cwd(), inputPath);
@@ -218,6 +278,19 @@ aiCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit noise-reduce",
+          params: {
+            inputPath: absInputPath,
+            strength: options.strength,
+            noiseFloor: options.noiseFloor ? parseFloat(options.noiseFloor) : undefined,
+          },
+        });
+        return;
       }
 
       const ext = extname(inputPath);
@@ -239,6 +312,16 @@ aiCommand
       }
 
       spinner.succeed(chalk.green("Noise reduction complete"));
+
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          inputDuration: result.inputDuration,
+          strength: options.strength || "medium",
+          outputPath: result.outputPath,
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Noise Reduction Result"));
@@ -267,6 +350,7 @@ aiCommand
   .option("--fade-out <seconds>", "Fade-out duration in seconds (default: 1)", "1")
   .option("--audio-only", "Apply fade to audio only (video stream copied)")
   .option("--video-only", "Apply fade to video only (audio stream copied)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
@@ -278,6 +362,21 @@ aiCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit fade",
+          params: {
+            videoPath: absVideoPath,
+            fadeIn: parseFloat(options.fadeIn),
+            fadeOut: parseFloat(options.fadeOut),
+            audioOnly: options.audioOnly || false,
+            videoOnly: options.videoOnly || false,
+          },
+        });
+        return;
       }
 
       const ext = extname(videoPath);
@@ -301,6 +400,17 @@ aiCommand
       }
 
       spinner.succeed(chalk.green("Fade effects applied"));
+
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          totalDuration: result.totalDuration,
+          fadeInApplied: result.fadeInApplied,
+          fadeOutApplied: result.fadeOutApplied,
+          outputPath: result.outputPath,
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Fade Result"));
@@ -330,6 +440,7 @@ aiCommand
   .option("-p, --provider <provider>", "Translation provider: claude, openai (default: claude)", "claude")
   .option("--source <language>", "Source language (auto-detected if omitted)")
   .option("-k, --api-key <key>", "API key (or set ANTHROPIC_API_KEY / OPENAI_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (srtPath: string, options) => {
     try {
       if (!options.target) {
@@ -341,6 +452,20 @@ aiCommand
       if (!existsSync(absSrtPath)) {
         console.error(chalk.red(`SRT file not found: ${absSrtPath}`));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit translate-srt",
+          params: {
+            srtPath: absSrtPath,
+            targetLanguage: options.target,
+            provider: options.provider || "claude",
+            sourceLanguage: options.source,
+          },
+        });
+        return;
       }
 
       const provider = options.provider || "claude";
@@ -376,6 +501,17 @@ aiCommand
 
       spinner.succeed(chalk.green("Translation complete"));
 
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          segmentCount: result.segmentCount,
+          sourceLanguage: result.sourceLanguage,
+          targetLanguage: result.targetLanguage,
+          outputPath: result.outputPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Translation Result"));
       console.log(chalk.dim("─".repeat(60)));
@@ -405,6 +541,7 @@ aiCommand
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
   .option("--analyze-only", "Only detect fillers, don't cut")
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
@@ -417,6 +554,24 @@ aiCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        const fillers = options.fillers
+          ? options.fillers.split(",").map((f: string) => f.trim())
+          : undefined;
+        outputResult({
+          dryRun: true,
+          command: "edit jump-cut",
+          params: {
+            videoPath: absVideoPath,
+            fillers,
+            padding: parseFloat(options.padding),
+            language: options.language,
+            analyzeOnly: options.analyzeOnly || false,
+          },
+        });
+        return;
       }
 
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
@@ -452,6 +607,18 @@ aiCommand
       }
 
       spinner.succeed(chalk.green("Filler detection complete"));
+
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          totalDuration: result.totalDuration,
+          fillerCount: result.fillerCount,
+          fillerDuration: result.fillerDuration,
+          fillers: result.fillers,
+          outputPath: result.outputPath,
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Filler Word Analysis"));

@@ -43,6 +43,7 @@ import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
+import { isJsonMode, outputResult } from "./output.js";
 
 export const editCommand = new Command("edit").description(
   "Edit and post-process media (silence-cut, caption, grade, reframe, upscale...)"
@@ -67,6 +68,7 @@ editCommand
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show filter without applying")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (!options.style && !options.preset) {
@@ -81,6 +83,19 @@ editCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit grade",
+          params: {
+            videoPath: resolve(process.cwd(), videoPath),
+            style: options.style || options.preset,
+            analyzeOnly: options.analyzeOnly || false,
+          },
+        });
+        return;
       }
 
       const spinner = ora("Analyzing color grade...").start();
@@ -99,6 +114,22 @@ editCommand
       }
 
       spinner.succeed(chalk.green("Color grade analyzed"));
+
+      if (isJsonMode()) {
+        const absPath = resolve(process.cwd(), videoPath);
+        const gradeOutputPath = options.output
+          ? resolve(process.cwd(), options.output)
+          : absPath.replace(/(\.[^.]+)$/, "-graded$1");
+        outputResult({
+          success: true,
+          style: options.preset || options.style,
+          description: gradeResult.description,
+          ffmpegFilter: gradeResult.ffmpegFilter,
+          outputPath: options.analyzeOnly ? undefined : gradeOutputPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Color Grade"));
       console.log(chalk.dim("─".repeat(60)));
@@ -147,6 +178,7 @@ editCommand
   .option("--start <seconds>", "Start time in seconds", "0")
   .option("--end <seconds>", "End time in seconds (default: video duration)")
   .option("-o, --output <path>", "Output video file path")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (!options.text || options.text.length === 0) {
@@ -160,6 +192,24 @@ editCommand
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit text-overlay",
+          params: {
+            videoPath: resolve(process.cwd(), videoPath),
+            texts: options.text,
+            style: options.style,
+            fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
+            fontColor: options.fontColor,
+            fade: parseFloat(options.fade),
+            start: parseFloat(options.start),
+            end: options.end ? parseFloat(options.end) : undefined,
+          },
+        });
+        return;
       }
 
       const absPath = resolve(process.cwd(), videoPath);
@@ -187,6 +237,17 @@ editCommand
       }
 
       spinner.succeed(chalk.green("Text overlays applied"));
+
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          style: options.style,
+          texts: options.text,
+          outputPath: result.outputPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Text Overlay"));
       console.log(chalk.dim("─".repeat(60)));
@@ -214,12 +275,28 @@ editCommand
   .option("--analyze-only", "Show keyframes without applying")
   .option("-l, --language <lang>", "Language code for transcription")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       // Check FFmpeg
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit speed-ramp",
+          params: {
+            videoPath: resolve(process.cwd(), videoPath),
+            style: options.style,
+            minSpeed: parseFloat(options.minSpeed),
+            maxSpeed: parseFloat(options.maxSpeed),
+            analyzeOnly: options.analyzeOnly || false,
+          },
+        });
+        return;
       }
 
       const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
@@ -289,6 +366,20 @@ editCommand
 
       spinner.succeed(chalk.green(`Found ${speedResult.keyframes.length} speed keyframes`));
 
+      if (isJsonMode()) {
+        const avgSpeed = speedResult.keyframes.reduce((sum, kf) => sum + kf.speed, 0) / speedResult.keyframes.length;
+        const speedRampOutputPath = options.output
+          ? resolve(process.cwd(), options.output)
+          : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
+        outputResult({
+          success: true,
+          keyframes: speedResult.keyframes,
+          avgSpeed,
+          outputPath: options.analyzeOnly ? undefined : speedRampOutputPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Speed Ramp Keyframes"));
       console.log(chalk.dim("─".repeat(60)));
@@ -356,12 +447,27 @@ editCommand
   .option("--analyze-only", "Show crop regions without applying")
   .option("--keyframes <path>", "Export keyframes to JSON file")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       // Check FFmpeg
       if (!commandExists("ffmpeg")) {
         console.error(chalk.red("FFmpeg not found. Please install FFmpeg."));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit reframe",
+          params: {
+            videoPath: resolve(process.cwd(), videoPath),
+            aspect: options.aspect,
+            focus: options.focus,
+            analyzeOnly: options.analyzeOnly || false,
+          },
+        });
+        return;
       }
 
       const absPath = resolve(process.cwd(), videoPath);
@@ -443,6 +549,21 @@ editCommand
 
       spinner.succeed(chalk.green(`Analyzed ${cropKeyframes.length} keyframes`));
 
+      if (isJsonMode()) {
+        const reframeOutputPath = options.output
+          ? resolve(process.cwd(), options.output)
+          : absPath.replace(/(\.[^.]+)$/, `-${options.aspect.replace(":", "x")}$1`);
+        outputResult({
+          success: true,
+          sourceWidth,
+          sourceHeight,
+          aspect: options.aspect,
+          cropKeyframes,
+          outputPath: options.analyzeOnly ? undefined : reframeOutputPath,
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Reframe Analysis"));
       console.log(chalk.dim("─".repeat(60)));
@@ -513,6 +634,7 @@ editCommand
   .option("-m, --model <model>", "Model: flash (max 3 images), 3.1-flash / latest (max 3 images), pro (max 14 images)", "flash")
   .option("-r, --ratio <ratio>", "Output aspect ratio")
   .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Pro model only)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (args: string[], options) => {
     try {
       // Last argument is the prompt, rest are image paths
@@ -523,6 +645,21 @@ editCommand
 
       const prompt = args[args.length - 1];
       const imagePaths = args.slice(0, -1);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit image",
+          params: {
+            imagePaths: imagePaths.map((p: string) => resolve(process.cwd(), p)),
+            prompt,
+            model: options.model,
+            ratio: options.ratio,
+            size: options.size,
+          },
+        });
+        return;
+      }
 
       const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
       if (!apiKey) {
@@ -576,6 +713,23 @@ editCommand
 
       spinner.succeed(chalk.green("Image edited"));
 
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          model: result.model || options.model,
+          outputPath: resolve(process.cwd(), options.output),
+        });
+        // Still save the file before returning
+        const img = result.images![0];
+        if (img.base64) {
+          const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          const buffer = Buffer.from(img.base64, "base64");
+          await writeFile(outputPath, buffer);
+        }
+        return;
+      }
+
       if (result.model) {
         console.log(chalk.dim(`Model: ${result.model}`));
       }
@@ -606,8 +760,23 @@ editCommand
   .option("-t, --type <type>", "Upscale type: fast, conservative, creative", "fast")
   .option("-c, --creativity <value>", "Creativity (0-0.35, for creative upscale)")
   .option("-f, --format <format>", "Output format: png, jpeg, webp", "png")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (imagePath: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit upscale",
+          params: {
+            imagePath: resolve(process.cwd(), imagePath),
+            type: options.type,
+            creativity: options.creativity ? parseFloat(options.creativity) : undefined,
+            format: options.format,
+          },
+        });
+        return;
+      }
+
       const apiKey = await getApiKey("STABILITY_API_KEY", "Stability AI", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("Stability AI API key required"));
@@ -637,6 +806,21 @@ editCommand
 
       spinner.succeed(chalk.green("Image upscaled"));
 
+      if (isJsonMode()) {
+        const img = result.images[0];
+        if (img.base64) {
+          const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          const buffer = Buffer.from(img.base64, "base64");
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({
+          success: true,
+          outputPath: resolve(process.cwd(), options.output),
+        });
+        return;
+      }
+
       const img = result.images[0];
       if (img.base64) {
         const outputPath = resolve(process.cwd(), options.output);
@@ -661,8 +845,21 @@ editCommand
   .option("-k, --api-key <key>", "Stability AI API key (or set STABILITY_API_KEY env)")
   .option("-o, --output <path>", "Output file path", "no-bg.png")
   .option("-f, --format <format>", "Output format: png, webp", "png")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (imagePath: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit remove-bg",
+          params: {
+            imagePath: resolve(process.cwd(), imagePath),
+            format: options.format,
+          },
+        });
+        return;
+      }
+
       const apiKey = await getApiKey("STABILITY_API_KEY", "Stability AI", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("Stability AI API key required"));
@@ -687,6 +884,21 @@ editCommand
       }
 
       spinner.succeed(chalk.green("Background removed"));
+
+      if (isJsonMode()) {
+        const img = result.images[0];
+        if (img.base64) {
+          const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          const buffer = Buffer.from(img.base64, "base64");
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({
+          success: true,
+          outputPath: resolve(process.cwd(), options.output),
+        });
+        return;
+      }
 
       const img = result.images[0];
       if (img.base64) {
@@ -718,21 +930,39 @@ editCommand
   .option("--prompt <text>", "Prompt for the extended area")
   .option("-c, --creativity <value>", "Creativity level (0-1, default: 0.5)")
   .option("-f, --format <format>", "Output format: png, jpeg, webp", "png")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (imagePath: string, options) => {
     try {
-      const apiKey = await getApiKey("STABILITY_API_KEY", "Stability AI", options.apiKey);
-      if (!apiKey) {
-        console.error(chalk.red("Stability AI API key required"));
-        process.exit(1);
-      }
-
       const left = options.left ? parseInt(options.left) : 0;
       const right = options.right ? parseInt(options.right) : 0;
       const up = options.up ? parseInt(options.up) : 0;
       const down = options.down ? parseInt(options.down) : 0;
 
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit outpaint",
+          params: {
+            imagePath: resolve(process.cwd(), imagePath),
+            left,
+            right,
+            up,
+            down,
+            prompt: options.prompt,
+            creativity: options.creativity ? parseFloat(options.creativity) : undefined,
+          },
+        });
+        return;
+      }
+
       if (left === 0 && right === 0 && up === 0 && down === 0) {
         console.error(chalk.red("At least one direction (--left, --right, --up, --down) must be specified"));
+        process.exit(1);
+      }
+
+      const apiKey = await getApiKey("STABILITY_API_KEY", "Stability AI", options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red("Stability AI API key required"));
         process.exit(1);
       }
 
@@ -762,6 +992,22 @@ editCommand
       }
 
       spinner.succeed(chalk.green("Image extended"));
+
+      if (isJsonMode()) {
+        const img = result.images![0];
+        if (img.base64) {
+          const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          const buffer = Buffer.from(img.base64, "base64");
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({
+          success: true,
+          seed: result.images![0]?.seed,
+          outputPath: resolve(process.cwd(), options.output),
+        });
+        return;
+      }
 
       const img = result.images[0];
       if (img.seed) {
@@ -794,8 +1040,24 @@ editCommand
   .option("-n, --negative <prompt>", "Negative prompt (what to avoid)")
   .option("-s, --seed <number>", "Random seed for reproducibility")
   .option("-f, --format <format>", "Output format: png, jpeg, webp", "png")
-  .action(async (imagePath: string, search: string, replace: string, options) => {
+  .option("--dry-run", "Preview parameters without executing")
+  .action(async (imagePath: string, search: string, replaceText: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit replace",
+          params: {
+            imagePath: resolve(process.cwd(), imagePath),
+            search,
+            replace: replaceText,
+            negative: options.negative,
+            seed: options.seed ? parseInt(options.seed) : undefined,
+          },
+        });
+        return;
+      }
+
       const apiKey = await getApiKey("STABILITY_API_KEY", "Stability AI", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("Stability AI API key required"));
@@ -812,7 +1074,7 @@ editCommand
       const stability = new StabilityProvider();
       await stability.initialize({ apiKey });
 
-      const result = await stability.searchAndReplace(imageBuffer, search, replace, {
+      const result = await stability.searchAndReplace(imageBuffer, search, replaceText, {
         negativePrompt: options.negative,
         seed: options.seed ? parseInt(options.seed) : undefined,
         outputFormat: options.format,
@@ -824,6 +1086,22 @@ editCommand
       }
 
       spinner.succeed(chalk.green("Objects replaced"));
+
+      if (isJsonMode()) {
+        const img = result.images![0];
+        if (img.base64) {
+          const outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          const buffer = Buffer.from(img.base64, "base64");
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({
+          success: true,
+          seed: result.images![0]?.seed,
+          outputPath: resolve(process.cwd(), options.output),
+        });
+        return;
+      }
 
       const img = result.images[0];
       if (img.seed) {
@@ -853,6 +1131,7 @@ editCommand
   .option("-f, --factor <number>", "Slow motion factor: 2, 4, or 8", "2")
   .option("--fps <number>", "Target output FPS")
   .option("-q, --quality <mode>", "Quality: fast or quality", "quality")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absPath = resolve(process.cwd(), videoPath);
@@ -861,6 +1140,20 @@ editCommand
       if (![2, 4, 8].includes(factor)) {
         console.error(chalk.red("Factor must be 2, 4, or 8"));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit interpolate",
+          params: {
+            videoPath: absPath,
+            factor,
+            fps: options.fps ? parseInt(options.fps) : undefined,
+            quality: options.quality,
+          },
+        });
+        return;
       }
 
       const outputPath = options.output
@@ -889,6 +1182,18 @@ editCommand
         await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS`, "-an", outputPath, "-y"], { timeout: 600000 });
 
         spinner.succeed(chalk.green(`Created ${factor}x slow motion`));
+
+        if (isJsonMode()) {
+          outputResult({
+            success: true,
+            originalFps,
+            targetFps,
+            factor,
+            outputPath,
+          });
+          return;
+        }
+
         console.log();
         console.log(chalk.dim("─".repeat(60)));
         console.log(`Original FPS: ${originalFps.toFixed(1)}`);
@@ -924,6 +1229,7 @@ editCommand
   .option("--ffmpeg", "Use FFmpeg lanczos (free, no API)")
   .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
   .option("--no-wait", "Start processing and return task ID without waiting")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       const absPath = resolve(process.cwd(), videoPath);
@@ -932,6 +1238,20 @@ editCommand
       if (scale !== 2 && scale !== 4) {
         console.error(chalk.red("Scale must be 2 or 4"));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "edit upscale-video",
+          params: {
+            videoPath: absPath,
+            scale,
+            model: options.model,
+            ffmpeg: options.ffmpeg || false,
+          },
+        });
+        return;
       }
 
       // Use FFmpeg if requested (free fallback)
@@ -955,6 +1275,16 @@ editCommand
           await execSafe("ffmpeg", ["-i", absPath, "-vf", `scale=${newWidth}:${newHeight}:flags=lanczos`, "-c:a", "copy", outputPath, "-y"]);
 
           spinner.succeed(chalk.green(`Upscaled to ${newWidth}x${newHeight}`));
+
+          if (isJsonMode()) {
+            outputResult({
+              success: true,
+              dimensions: `${newWidth}x${newHeight}`,
+              outputPath,
+            });
+            return;
+          }
+
           console.log(`Output: ${outputPath}`);
         } catch (err) {
           spinner.fail(chalk.red("FFmpeg upscaling failed"));

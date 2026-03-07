@@ -40,6 +40,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
+import { isJsonMode, outputResult, log, spinner as createSpinner } from "./output.js";
 import { commandExists } from "../utils/exec-safe.js";
 import { uploadToImgbb } from "./ai-script-pipeline.js";
 import { downloadVideo, formatTime } from "./ai-helpers.js";
@@ -87,6 +88,7 @@ generateCommand
   .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
   .option("-n, --count <n>", "Number of images to generate", "1")
   .option("-m, --model <model>", "Gemini model: flash, 3.1-flash, latest (Nano Banana 2), pro (4K)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       const provider = options.provider.toLowerCase();
@@ -100,6 +102,12 @@ generateCommand
       // Show deprecation warning for "dalle"
       if (provider === "dalle") {
         console.log(chalk.yellow('Warning: "dalle" is deprecated. Use "openai" instead.'));
+      }
+
+      // Dry-run check
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate image", params: { prompt, provider, model: options.model, ratio: options.ratio, size: options.size, quality: options.quality, count: options.count, output: options.output } });
+        return;
       }
 
       // Get API key based on provider
@@ -146,6 +154,27 @@ generateCommand
         }
 
         spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with OpenAI GPT Image 1.5`));
+
+        if (isJsonMode()) {
+          const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+          // Still save the file in JSON mode
+          if (outputPath && result.images.length > 0) {
+            const img = result.images[0];
+            let buffer: Buffer;
+            if (img.url) {
+              const response = await fetch(img.url);
+              buffer = Buffer.from(await response.arrayBuffer());
+            } else if (img.base64) {
+              buffer = Buffer.from(img.base64, "base64");
+            } else {
+              throw new Error("No image data available");
+            }
+            await mkdir(dirname(outputPath), { recursive: true });
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, provider: "openai", images: result.images.map(img => ({ url: img.url, revisedPrompt: img.revisedPrompt })), outputPath });
+          return;
+        }
 
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));
@@ -237,6 +266,18 @@ generateCommand
 
         spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Gemini (${usedLabel})`));
 
+        if (isJsonMode()) {
+          const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+          if (outputPath && result.images.length > 0) {
+            const img = result.images[0];
+            const buffer = Buffer.from(img.base64, "base64");
+            await mkdir(dirname(outputPath), { recursive: true });
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, provider: "gemini", images: result.images.map((img: { mimeType?: string }) => ({ mimeType: img.mimeType })), outputPath });
+          return;
+        }
+
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));
         console.log(chalk.dim("─".repeat(60)));
@@ -286,6 +327,20 @@ generateCommand
         }
 
         spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with Stability AI`));
+
+        if (isJsonMode()) {
+          const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+          if (outputPath && result.images.length > 0) {
+            const img = result.images[0];
+            if (img.base64) {
+              const buffer = Buffer.from(img.base64, "base64");
+              await mkdir(dirname(outputPath), { recursive: true });
+              await writeFile(outputPath, buffer);
+            }
+          }
+          outputResult({ success: true, provider: "stability", images: result.images.map(() => ({ format: "base64" })), outputPath });
+          return;
+        }
 
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));
@@ -352,8 +407,12 @@ generateCommand
 
           proc.on("close", (code) => {
             if (code === 0) {
-              spinner.succeed(chalk.green("Generated image with Runway"));
-              console.log(chalk.dim(stdout.trim()));
+              if (isJsonMode()) {
+                outputResult({ success: true, provider: "runway", images: [{ format: "file" }], outputPath });
+              } else {
+                spinner.succeed(chalk.green("Generated image with Runway"));
+                console.log(chalk.dim(stdout.trim()));
+              }
               resolvePromise();
             } else {
               spinner.fail(chalk.red("Runway image generation failed"));
@@ -398,6 +457,7 @@ generateCommand
   .option("--person <mode>", "Person generation: allow_all, allow_adult (Veo only)")
   .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
   .option("--no-wait", "Start generation and return task ID without waiting")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       const provider = options.provider.toLowerCase();
@@ -406,6 +466,11 @@ generateCommand
         console.error(chalk.red(`Invalid provider: ${provider}`));
         console.error(chalk.dim(`Available providers: ${validProviders.join(", ")}`));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate video", params: { prompt, provider, duration: options.duration, ratio: options.ratio, image: options.image, mode: options.mode, negative: options.negative, resolution: options.resolution, veoModel: options.veoModel } });
+        return;
       }
 
       const envKeyMap: Record<string, string> = {
@@ -671,6 +736,17 @@ generateCommand
 
       spinner.succeed(chalk.green("Video generated"));
 
+      if (isJsonMode()) {
+        let outputPath: string | undefined;
+        if (options.output && finalResult.videoUrl) {
+          const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
+          outputPath = resolve(process.cwd(), options.output);
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({ success: true, provider, taskId: result?.id, videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath });
+        return;
+      }
+
       console.log();
       if (finalResult.videoUrl) {
         console.log(`Video URL: ${finalResult.videoUrl}`);
@@ -710,8 +786,14 @@ generateCommand
   .option("-o, --output <path>", "Output audio file path", "output.mp3")
   .option("-v, --voice <id>", "Voice ID (default: Rachel)", "21m00Tcm4TlvDq8ikWAM")
   .option("--list-voices", "List available voices")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (text: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate speech", params: { text, voice: options.voice, output: options.output } });
+        return;
+      }
+
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("ElevenLabs API key required. Use --api-key or set ELEVENLABS_API_KEY"));
@@ -761,6 +843,12 @@ generateCommand
       await writeFile(outputPath, result.audioBuffer);
 
       spinner.succeed(chalk.green("Speech generated"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, characterCount: result.characterCount, outputPath });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim(`Characters: ${result.characterCount}`));
       console.log(chalk.green(`Saved to: ${outputPath}`));
@@ -785,8 +873,14 @@ generateCommand
   .option("-o, --output <path>", "Output audio file path", "sound-effect.mp3")
   .option("-d, --duration <seconds>", "Duration in seconds (0.5-22, default: auto)")
   .option("--prompt-influence <value>", "Prompt influence (0-1, default: 0.3)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate sound-effect", params: { prompt, duration: options.duration, promptInfluence: options.promptInfluence, output: options.output } });
+        return;
+      }
+
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("ElevenLabs API key required. Use --api-key or set ELEVENLABS_API_KEY"));
@@ -812,6 +906,12 @@ generateCommand
       await writeFile(outputPath, result.audioBuffer);
 
       spinner.succeed(chalk.green("Sound effect generated"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, outputPath });
+        return;
+      }
+
       console.log(chalk.green(`Saved to: ${outputPath}`));
       console.log();
     } catch (error) {
@@ -835,8 +935,14 @@ generateCommand
   .option("--model <model>", "Model variant: large, stereo-large, melody-large, stereo-melody-large", "stereo-large")
   .option("-o, --output <path>", "Output audio file path", "music.mp3")
   .option("--no-wait", "Don't wait for generation to complete (async mode)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate music", params: { prompt, duration: options.duration, model: options.model, output: options.output } });
+        return;
+      }
+
       const apiKey = await getApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("Replicate API token required. Use --api-key or set REPLICATE_API_TOKEN"));
@@ -907,6 +1013,12 @@ generateCommand
       await writeFile(outputPath, audioBuffer);
 
       spinner.succeed(chalk.green("Music generated successfully"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, taskId: result.taskId, audioUrl: finalResult.audioUrl, outputPath });
+        return;
+      }
+
       console.log();
       console.log(`Saved to: ${chalk.bold(outputPath)}`);
       console.log(`Duration: ${duration}s`);
@@ -940,6 +1052,12 @@ generateCommand
       await replicate.initialize({ apiKey });
 
       const result = await replicate.getMusicStatus(taskId);
+
+      if (isJsonMode()) {
+        const status = result.audioUrl ? "completed" : result.error ? "failed" : "processing";
+        outputResult({ success: true, taskId, status, audioUrl: result.audioUrl, error: result.error });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Music Generation Status"));
@@ -976,14 +1094,9 @@ generateCommand
   .option("-d, --duration <sec>", "Target total duration in seconds")
   .option("-f, --file", "Treat content argument as file path")
   .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (content: string, options) => {
     try {
-      const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
-      if (!apiKey) {
-        console.error(chalk.red("Anthropic API key required. Use --api-key or set ANTHROPIC_API_KEY"));
-        process.exit(1);
-      }
-
       // Validate creativity level
       const creativity = options.creativity?.toLowerCase();
       if (creativity && creativity !== "low" && creativity !== "high") {
@@ -995,6 +1108,17 @@ generateCommand
       if (options.file) {
         const filePath = resolve(process.cwd(), content);
         textContent = await readFile(filePath, "utf-8");
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate storyboard", params: { content: textContent.substring(0, 200), duration: options.duration, creativity } });
+        return;
+      }
+
+      const apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
+      if (!apiKey) {
+        console.error(chalk.red("Anthropic API key required. Use --api-key or set ANTHROPIC_API_KEY"));
+        process.exit(1);
       }
 
       const spinnerText = creativity === "high"
@@ -1018,6 +1142,18 @@ generateCommand
 
       spinner.succeed(chalk.green(`Generated ${segments.length} segments`));
 
+      if (options.output) {
+        const outputPath = resolve(process.cwd(), options.output);
+        await writeFile(outputPath, JSON.stringify(segments, null, 2), "utf-8");
+        if (isJsonMode()) {
+          outputResult({ success: true, segmentCount: segments.length, segments, outputPath });
+          return;
+        }
+      } else if (isJsonMode()) {
+        outputResult({ success: true, segmentCount: segments.length, segments });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Storyboard"));
       console.log(chalk.dim("─".repeat(60)));
@@ -1037,9 +1173,7 @@ generateCommand
       console.log();
 
       if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        await writeFile(outputPath, JSON.stringify(segments, null, 2), "utf-8");
-        console.log(chalk.green(`Saved to: ${outputPath}`));
+        console.log(chalk.green(`Saved to: ${resolve(process.cwd(), options.output)}`));
       }
     } catch (error) {
       console.error(chalk.red("Storyboard generation failed"));
@@ -1110,6 +1244,11 @@ generateCommand
 
         spinner.succeed(chalk.green("Best frame extracted"));
 
+        if (isJsonMode()) {
+          outputResult({ success: true, timestamp: result.timestamp, reason: result.reason, outputPath: result.outputPath });
+          return;
+        }
+
         console.log();
         console.log(chalk.bold.cyan("Best Frame Result"));
         console.log(chalk.dim("─".repeat(60)));
@@ -1148,6 +1287,27 @@ generateCommand
       spinner.succeed(chalk.green("Thumbnail generated"));
 
       const img = result.images[0];
+
+      if (isJsonMode()) {
+        let outputPath: string | undefined;
+        if (options.output) {
+          let buffer: Buffer;
+          if (img.url) {
+            const response = await fetch(img.url);
+            buffer = Buffer.from(await response.arrayBuffer());
+          } else if (img.base64) {
+            buffer = Buffer.from(img.base64, "base64");
+          } else {
+            throw new Error("No image data available");
+          }
+          outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({ success: true, imageUrl: img.url, outputPath });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Generated Thumbnail"));
       console.log(chalk.dim("─".repeat(60)));
@@ -1196,8 +1356,14 @@ generateCommand
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
   .option("-o, --output <path>", "Output file path (downloads image)")
   .option("-a, --aspect <ratio>", "Aspect ratio: 16:9, 9:16, 1:1", "16:9")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (description: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate background", params: { description, aspect: options.aspect, output: options.output } });
+        return;
+      }
+
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("OpenAI API key required. Use --api-key or set OPENAI_API_KEY"));
@@ -1219,6 +1385,27 @@ generateCommand
       spinner.succeed(chalk.green("Background generated"));
 
       const img = result.images[0];
+
+      if (isJsonMode()) {
+        let outputPath: string | undefined;
+        if (options.output) {
+          let buffer: Buffer;
+          if (img.url) {
+            const response = await fetch(img.url);
+            buffer = Buffer.from(await response.arrayBuffer());
+          } else if (img.base64) {
+            buffer = Buffer.from(img.base64, "base64");
+          } else {
+            throw new Error("No image data available");
+          }
+          outputPath = resolve(process.cwd(), options.output);
+          await mkdir(dirname(outputPath), { recursive: true });
+          await writeFile(outputPath, buffer);
+        }
+        outputResult({ success: true, imageUrl: img.url, outputPath });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Generated Background"));
       console.log(chalk.dim("─".repeat(60)));
@@ -1301,6 +1488,17 @@ generateCommand
 
         spinner.stop();
 
+        if (isJsonMode()) {
+          let outputPath: string | undefined;
+          if (options.output && result.videoUrl) {
+            const buffer = await downloadVideo(result.videoUrl, apiKey);
+            outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, taskId, provider: "runway", status: result.status, videoUrl: result.videoUrl, progress: result.progress, error: result.error, outputPath });
+          return;
+        }
+
         console.log();
         console.log(chalk.bold.cyan("Generation Status"));
         console.log(chalk.dim("─".repeat(60)));
@@ -1356,6 +1554,17 @@ generateCommand
         }
 
         spinner.stop();
+
+        if (isJsonMode()) {
+          let outputPath: string | undefined;
+          if (options.output && result.videoUrl) {
+            const buffer = await downloadVideo(result.videoUrl, apiKey);
+            outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, taskId, provider: "kling", status: result.status, videoUrl: result.videoUrl, duration: result.duration, error: result.error, outputPath });
+          return;
+        }
 
         console.log();
         console.log(chalk.bold.cyan("Generation Status"));
@@ -1423,6 +1632,10 @@ generateCommand
 
       if (success) {
         spinner.succeed(chalk.green("Generation cancelled"));
+        if (isJsonMode()) {
+          outputResult({ success: true, taskId, cancelled: true });
+          return;
+        }
       } else {
         spinner.fail(chalk.red("Failed to cancel generation"));
         process.exit(1);
@@ -1451,9 +1664,15 @@ generateCommand
   .option("-n, --negative <prompt>", "Negative prompt (what to avoid, Kling only)")
   .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast", "3.1")
   .option("--no-wait", "Start extension and return task ID without waiting")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (id: string, options) => {
     try {
       const provider = (options.provider || "kling").toLowerCase();
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "generate video-extend", params: { id, provider, prompt: options.prompt, duration: options.duration, negative: options.negative, veoModel: options.veoModel } });
+        return;
+      }
 
       if (provider === "kling") {
         const apiKey = await getApiKey("KLING_API_KEY", "Kling", options.apiKey);
@@ -1518,6 +1737,17 @@ generateCommand
         }
 
         spinner.succeed(chalk.green("Video extended"));
+
+        if (isJsonMode()) {
+          let outputPath: string | undefined;
+          if (options.output && finalResult.videoUrl) {
+            const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
+            outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, provider: "kling", taskId: result.id, videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath });
+          return;
+        }
 
         console.log();
         if (finalResult.videoUrl) {
@@ -1601,6 +1831,17 @@ generateCommand
         }
 
         spinner.succeed(chalk.green("Video extended"));
+
+        if (isJsonMode()) {
+          let outputPath: string | undefined;
+          if (options.output && finalResult.videoUrl) {
+            const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
+            outputPath = resolve(process.cwd(), options.output);
+            await writeFile(outputPath, buffer);
+          }
+          outputResult({ success: true, provider: "veo", taskId: result.id, videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath });
+          return;
+        }
 
         console.log();
         if (finalResult.videoUrl) {

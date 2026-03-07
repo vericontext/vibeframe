@@ -29,6 +29,7 @@ import { getApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists, execSafeSync } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { formatTime } from "./ai-helpers.js";
+import { isJsonMode, outputResult } from "./output.js";
 
 export const audioCommand = new Command("audio").description(
   "Audio operations (transcribe, TTS, voice clone, ducking)"
@@ -71,6 +72,11 @@ audioCommand
       }
 
       spinner.succeed(chalk.green("Transcription complete"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, fullText: result.fullText, segments: result.segments, language: result.detectedLanguage, outputPath: options.output ? resolve(process.cwd(), options.output) : undefined });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Transcript"));
@@ -123,6 +129,11 @@ audioCommand
       const voices = await elevenlabs.getVoices();
       spinner.succeed(chalk.green(`Found ${voices.length} voices`));
 
+      if (isJsonMode()) {
+        outputResult({ success: true, voices: voices.map(v => ({ name: v.name, voiceId: v.voice_id, category: v.category, labels: v.labels })) });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Available Voices"));
       console.log(chalk.dim("─".repeat(60)));
@@ -148,8 +159,14 @@ audioCommand
   .argument("<audio>", "Input audio file path")
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
   .option("-o, --output <path>", "Output audio file path", "vocals.mp3")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "audio isolate", audioPath });
+        return;
+      }
+
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("ElevenLabs API key required. Use --api-key or set ELEVENLABS_API_KEY"));
@@ -177,6 +194,12 @@ audioCommand
       await writeFile(outputPath, result.audioBuffer);
 
       spinner.succeed(chalk.green("Vocals isolated"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, outputPath });
+        return;
+      }
+
       console.log(chalk.green(`Saved to: ${outputPath}`));
       console.log();
     } catch (error) {
@@ -198,8 +221,14 @@ audioCommand
   .option("--labels <json>", "Labels as JSON (e.g., '{\"accent\": \"american\"}')")
   .option("--remove-noise", "Remove background noise from samples")
   .option("--list", "List all available voices")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (samples: string[], options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "audio voice-clone", samples: samples?.length, name: options.name });
+        return;
+      }
+
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
       if (!apiKey) {
         console.error(chalk.red("ElevenLabs API key required. Use --api-key or set ELEVENLABS_API_KEY"));
@@ -272,6 +301,12 @@ audioCommand
       }
 
       spinner.succeed(chalk.green("Voice cloned successfully"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, name: options.name, voiceId: result.voiceId });
+        return;
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Voice Details"));
       console.log(chalk.dim("─".repeat(60)));
@@ -299,8 +334,14 @@ audioCommand
   .option("-v, --voice <id>", "ElevenLabs voice ID for output")
   .option("--analyze-only", "Only analyze and show timing, don't generate audio")
   .option("-o, --output <path>", "Output file path")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (mediaPath: string, options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "audio dub", mediaPath, targetLanguage: options.language, sourceLanguage: options.source, voice: options.voice });
+        return;
+      }
+
       if (!options.language) {
         console.error(chalk.red("Target language is required. Use -l or --language"));
         process.exit(1);
@@ -502,6 +543,12 @@ audioCommand
       await writeFile(finalOutputPath, combinedBuffer);
 
       spinner.succeed(chalk.green("Dubbing complete"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, sourceLanguage: transcriptResult.detectedLanguage || options.source || "auto", targetLanguage: options.language, segmentCount: translatedSegments.length, outputPath: finalOutputPath });
+        return;
+      }
+
       console.log();
       console.log(`Saved to: ${chalk.bold(finalOutputPath)}`);
       console.log();
@@ -534,8 +581,18 @@ audioCommand
   .option("-r, --ratio <ratio>", "Compression ratio", "3")
   .option("-a, --attack <ms>", "Attack time in ms", "20")
   .option("-l, --release <ms>", "Release time in ms", "200")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (musicPath: string, options) => {
     try {
+      if (options.dryRun) {
+        const threshold = parseFloat(options.threshold);
+        const ratio = parseFloat(options.ratio);
+        const attack = parseFloat(options.attack);
+        const release = parseFloat(options.release);
+        outputResult({ dryRun: true, command: "audio duck", musicPath, voicePath: options.voice, threshold, ratio, attack, release });
+        return;
+      }
+
       if (!options.voice) {
         console.error(chalk.red("Voice track required. Use --voice <path>"));
         process.exit(1);
@@ -569,6 +626,12 @@ audioCommand
       await execSafe("ffmpeg", ["-i", absMusic, "-i", absVoice, "-filter_complex", filterComplex, "-map", "[out]", outputPath, "-y"]);
 
       spinner.succeed(chalk.green("Audio ducking complete"));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, musicPath: absMusic, voicePath: options.voice, threshold: thresholdDb, ratio, outputPath });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("─".repeat(60)));
       console.log(`Music: ${musicPath}`);

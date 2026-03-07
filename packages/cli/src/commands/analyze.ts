@@ -23,6 +23,7 @@ import { getApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze, executeGeminiVideo } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
+import { isJsonMode, outputResult } from "./output.js";
 
 export const analyzeCommand = new Command("analyze").description(
   "Analyze media using AI (images, videos, YouTube URLs)"
@@ -42,6 +43,7 @@ analyzeCommand
   .option("--end <seconds>", "End offset in seconds (video only)")
   .option("--low-res", "Use low resolution mode (fewer tokens)")
   .option("-v, --verbose", "Show token usage")
+  .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
   .action(async (source: string, prompt: string, options) => {
     try {
       if (options.apiKey) {
@@ -72,6 +74,20 @@ analyzeCommand
       }
 
       spinner.succeed(chalk.green("Analysis complete"));
+
+      if (isJsonMode()) {
+        let result_obj: Record<string, unknown> = { success: true, response: result.response, sourceType: result.sourceType, model: result.model };
+        if (result.totalTokens) {
+          result_obj = { ...result_obj, promptTokens: result.promptTokens, responseTokens: result.responseTokens, totalTokens: result.totalTokens };
+        }
+        if (options.fields) {
+          const fields = options.fields.split(",").map((f: string) => f.trim());
+          result_obj = Object.fromEntries(Object.entries(result_obj).filter(([k]) => fields.includes(k) || k === "success"));
+        }
+        outputResult(result_obj);
+        return;
+      }
+
       console.log();
       console.log(result.response);
       console.log();
@@ -109,6 +125,7 @@ analyzeCommand
   .option("--end <seconds>", "End offset in seconds (for clipping)")
   .option("--low-res", "Use low resolution mode (fewer tokens, longer videos)")
   .option("-v, --verbose", "Show token usage")
+  .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
   .action(async (source: string, prompt: string, options) => {
     try {
       if (options.apiKey) {
@@ -139,6 +156,20 @@ analyzeCommand
       }
 
       spinner.succeed(chalk.green("Video analyzed"));
+
+      if (isJsonMode()) {
+        let result_obj: Record<string, unknown> = { success: true, response: result.response, model: result.model };
+        if (result.totalTokens) {
+          result_obj = { ...result_obj, promptTokens: result.promptTokens, responseTokens: result.responseTokens, totalTokens: result.totalTokens };
+        }
+        if (options.fields) {
+          const fields = options.fields.split(",").map((f: string) => f.trim());
+          result_obj = Object.fromEntries(Object.entries(result_obj).filter(([k]) => fields.includes(k) || k === "success"));
+        }
+        outputResult(result_obj);
+        return;
+      }
+
       console.log();
       console.log(result.response);
       console.log();
@@ -197,6 +228,11 @@ analyzeCommand
       const suggestions = await gemini.autoEdit(clips, instruction);
 
       spinner.succeed(chalk.green(`Found ${suggestions.length} suggestion(s)`));
+
+      if (isJsonMode()) {
+        outputResult({ success: true, suggestions: suggestions.map(s => ({ type: s.type, description: s.description, confidence: s.confidence, clipIds: s.clipIds, params: s.params })) });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Edit Suggestions"));
