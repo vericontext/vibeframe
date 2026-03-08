@@ -57,6 +57,17 @@ git tag vX.Y.Z
 
 **Verify sync:** `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` should show only ONE version
 
+## SSOT Sync Checklist (before push)
+
+A `PreToolUse` hook (`.claude/hooks/pre-push-validate.sh`) automatically validates before `git push`. Manual checks:
+
+1. **Version**: `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` → should show only 1 version
+2. **Model IDs**: `grep -rn "claude-opus-4-5\|claude-sonnet-4-20\|kling-v1" .claude/skills/` → should return nothing
+3. **Landing page**: `apps/web/app/page.tsx` version badge, tool counts match actual
+4. **README.md**: test count, provider count, CLI command list are current
+
+> Use `version-checker` agent for comprehensive automated report, or `/sync-check` for quick inline check.
+
 ## Documentation
 
 Root-level docs:
