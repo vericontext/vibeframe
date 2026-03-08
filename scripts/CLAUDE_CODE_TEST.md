@@ -57,7 +57,7 @@ Ask Claude Code:
 
 **Expected result:**
 - `pnpm build` — Completes without errors
-- `pnpm -F @vibeframe/cli exec vitest run` — 240+ tests passing
+- `pnpm -F @vibeframe/cli exec vitest run` — 225+ tests passing
 - `pnpm -F @vibeframe/core exec vitest run` — 8 tests passing
 
 ```bash

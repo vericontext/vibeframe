@@ -31,7 +31,7 @@ cp .env.example .env  # Edit .env and add API keys
 | Step | Feature | Required API Key |
 |------|---------|-----------------|
 | F0 | TED Talk download | None (`yt-dlp` required) |
-| F1 | Agent Mode | `OPENAI_API_KEY` (default: GPT-4o) |
+| F1 | Agent Mode | `OPENAI_API_KEY` (default: GPT-5-mini) |
 | F2 | Auto Narrate | `GOOGLE_API_KEY` + `ELEVENLABS_API_KEY` |
 | F3 | Auto Dub | `OPENAI_API_KEY` + `ELEVENLABS_API_KEY` |
 | F4 | Reframe (vertical) | `ANTHROPIC_API_KEY` |
@@ -81,7 +81,7 @@ Pass: `test-results/ted-talk.mp4` — ~12 minute talk video (reused in F5, F6, F
 
 > Landing page hero section: *"Just type `vibe` and let the AI agent handle multi-step tasks autonomously. 58 tools at your command."*
 
-> **Model**: OpenAI GPT-4o (default)
+> **Model**: OpenAI GPT-5-mini (default)
 > **How it works**: Natural language input → LLM plans tool call sequence → Auto-executes tools iteratively → Complete
 > **Other options**: `-p claude` (Claude Sonnet), `-p gemini` (Gemini 2.5 Flash), `-p xai` (Grok-4), `-p ollama` (local model)
 > **Required API key**: `OPENAI_API_KEY` — `-p claude` needs `ANTHROPIC_API_KEY`, `-p gemini` needs `GOOGLE_API_KEY`, `-p xai` needs `XAI_API_KEY`, `-p ollama` needs none

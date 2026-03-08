@@ -57,16 +57,11 @@ Copy `.env.example` to `.env`. Each AI provider has its own API key:
 
 ## AI Provider Models
 
-See **[MODELS.md](MODELS.md)** for the complete SSOT (Single Source of Truth) on all AI models.
-
-Quick summary:
-- **Agent LLM**: OpenAI GPT-5-mini, Claude Sonnet 4.6, Gemini 2.5 Flash, xAI Grok 4.1, Ollama
-- **Text-to-Image**: OpenAI GPT Image 1.5, Gemini Nano Banana (Flash/Pro), xAI Grok Imagine
-- **Text-to-Video**: xAI Grok Imagine (default), Kling v2.5/v2.6/3.0, Veo 3.0/3.1, Runway Gen-4.5
-- **Audio**: ElevenLabs (TTS, SFX), Whisper (transcription), Replicate (music)
+See **[MODELS.md](MODELS.md)** for the complete SSOT (Single Source of Truth) on all AI models. Do not duplicate model lists here.
 
 @.claude/rules/architecture.md
 @.claude/rules/agent-tools.md
+@.claude/rules/agents.md
 @.claude/rules/versioning.md
 @.claude/rules/mcp-server.md
 @MODELS.md

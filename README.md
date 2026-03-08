@@ -3,7 +3,7 @@
 **AI-native video editing. CLI-first. MCP-ready.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-262%2B%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-248%2B%20passing-brightgreen.svg)]()
 
 > Edit videos with natural language. Every edit is a command. Every workflow is scriptable.
 
@@ -34,7 +34,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 
 ## Quick Start (CLI)
 
-**Prerequisites:** Node.js 18+, FFmpeg
+**Prerequisites:** Node.js 20+, FFmpeg
 
 CLI-first. Every video edit is a command.
 
@@ -165,7 +165,7 @@ vibe agent -p ollama           # Use local Ollama
 
 | Category | Providers | Default |
 |----------|-----------|---------|
-| **Agent LLM** | OpenAI, Claude, Gemini, xAI, Ollama | GPT-4o |
+| **Agent LLM** | OpenAI, Claude, Gemini, xAI, Ollama | GPT-5-mini |
 | **Image** | Gemini, OpenAI, xAI Grok | Gemini Nano Banana |
 | **Video** | xAI Grok, Kling, Runway, Veo | Grok Imagine |
 | **Audio** | ElevenLabs, Whisper | - |

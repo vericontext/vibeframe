@@ -1,4 +1,11 @@
-# AGENTS.md — Agent Invariants for VibeFrame CLI
+---
+description: Invariant rules for AI agents invoking VibeFrame CLI commands
+globs:
+  - "packages/cli/src/agent/**"
+  - "packages/mcp-server/src/**"
+---
+
+# Agent Invariants for VibeFrame CLI
 
 > Rules that AI agents (Claude Code, Cursor, MCP clients) **must** follow when invoking VibeFrame CLI commands.
 
