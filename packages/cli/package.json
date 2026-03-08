@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.23.2",
+  "version": "0.23.3",
   "description": "VibeFrame CLI - natural language video editing from the terminal",
   "private": true,
   "license": "MIT",
@@ -96,6 +96,6 @@
     "vitest": "^1.2.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }
