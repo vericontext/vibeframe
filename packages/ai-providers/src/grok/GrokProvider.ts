@@ -30,14 +30,22 @@ export interface GrokVideoOptions {
 }
 
 /**
- * Grok task response
+ * Grok video creation response
  */
-interface GrokTaskResponse {
-  id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  video_url?: string;
-  audio_url?: string;
-  error?: string;
+interface GrokCreateResponse {
+  request_id: string;
+}
+
+/**
+ * Grok video status response
+ */
+interface GrokStatusResponse {
+  status: "pending" | "done" | "expired";
+  video?: {
+    url: string;
+    duration?: number;
+  };
+  model?: string;
 }
 
 /**
@@ -102,7 +110,7 @@ export class GrokProvider implements AIProvider {
         }
       }
 
-      const response = await fetch(`${this.baseUrl}/video/generations`, {
+      const response = await fetch(`${this.baseUrl}/videos/generations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,12 +128,11 @@ export class GrokProvider implements AIProvider {
         };
       }
 
-      const data = (await response.json()) as GrokTaskResponse;
+      const data = (await response.json()) as GrokCreateResponse;
 
       return {
-        id: data.id,
-        status: data.status === "completed" ? "completed" : "pending",
-        videoUrl: data.video_url,
+        id: data.request_id,
+        status: "pending",
       };
     } catch (error) {
       return {
@@ -149,7 +156,7 @@ export class GrokProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/video/generations/${id}`, {
+      const response = await fetch(`${this.baseUrl}/videos/${id}`, {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
         },
@@ -164,20 +171,19 @@ export class GrokProvider implements AIProvider {
         };
       }
 
-      const data = (await response.json()) as GrokTaskResponse;
+      const data = (await response.json()) as GrokStatusResponse;
 
       const statusMap: Record<string, VideoResult["status"]> = {
         pending: "pending",
-        processing: "processing",
-        completed: "completed",
-        failed: "failed",
+        done: "completed",
+        expired: "failed",
       };
 
       return {
-        id: data.id,
+        id,
         status: statusMap[data.status] || "pending",
-        videoUrl: data.video_url,
-        error: data.error,
+        videoUrl: data.video?.url,
+        error: data.status === "expired" ? "Generation expired" : undefined,
       };
     } catch (error) {
       return {
@@ -226,7 +232,7 @@ export class GrokProvider implements AIProvider {
     if (!this.apiKey) return false;
 
     try {
-      const response = await fetch(`${this.baseUrl}/video/generations/${id}`, {
+      const response = await fetch(`${this.baseUrl}/videos/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
