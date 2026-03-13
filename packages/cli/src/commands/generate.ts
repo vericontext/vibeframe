@@ -891,6 +891,7 @@ generateCommand
   .option("-o, --output <path>", "Output audio file path", "output.mp3")
   .option("-v, --voice <id>", "Voice ID (default: Rachel)", "21m00Tcm4TlvDq8ikWAM")
   .option("--list-voices", "List available voices")
+  .option("--fit-duration <seconds>", "Speed up audio to fit target duration (via FFmpeg atempo)", parseFloat)
   .option("--dry-run", "Preview parameters without executing")
   .action(async (text: string, options) => {
     try {
@@ -950,6 +951,36 @@ generateCommand
       await writeFile(outputPath, result.audioBuffer);
 
       spinner.succeed(chalk.green("Speech generated"));
+
+      // Post-process: fit to target duration via atempo
+      if (options.fitDuration && options.fitDuration > 0) {
+        const { ffprobeDuration, execSafe } = await import("../utils/exec-safe.js");
+        const actualDuration = await ffprobeDuration(outputPath);
+
+        if (actualDuration > options.fitDuration) {
+          const tempo = actualDuration / options.fitDuration;
+          if (tempo > 2.0) {
+            log(chalk.yellow(`Warning: Audio is ${tempo.toFixed(1)}x longer than target — would sound unnatural. Skipping tempo adjustment.`));
+          } else {
+            const fitSpinner = ora(`Adjusting tempo (${tempo.toFixed(3)}x) to fit ${options.fitDuration}s...`).start();
+            const tempPath = outputPath.replace(/(\.\w+)$/, `.tempo$1`);
+            try {
+              await execSafe("ffmpeg", [
+                "-y", "-i", outputPath,
+                "-filter:a", `atempo=${tempo.toFixed(4)}`,
+                "-vn", tempPath,
+              ]);
+              const { rename } = await import("node:fs/promises");
+              await rename(tempPath, outputPath);
+              fitSpinner.succeed(chalk.green(`Adjusted to fit ${options.fitDuration}s (${tempo.toFixed(3)}x speed)`));
+            } catch (err) {
+              fitSpinner.fail(chalk.yellow("Tempo adjustment failed — keeping original audio"));
+            }
+          }
+        } else {
+          log(chalk.dim(`Audio (${actualDuration.toFixed(2)}s) already fits within ${options.fitDuration}s`));
+        }
+      }
 
       if (isJsonMode()) {
         outputResult({ success: true, characterCount: result.characterCount, outputPath });

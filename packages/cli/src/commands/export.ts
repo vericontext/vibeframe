@@ -693,10 +693,25 @@ function buildFFmpegArgs(
 
       let audioFilter: string;
       if (hasAudio) {
-        // Source has audio - extract and trim it
         const audioTrimStart = clip.sourceStartOffset;
         const audioTrimEnd = clip.sourceStartOffset + clip.duration;
-        audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+        const sourceDuration = source.duration || 0;
+        const clipDuration = clip.duration;
+
+        if (source.type === "audio" && sourceDuration > clipDuration && audioTrimStart === 0) {
+          // Audio source is longer than clip slot — speed up to fit instead of truncating
+          const tempo = sourceDuration / clipDuration;
+          if (tempo <= 2.0) {
+            // atempo sounds natural up to ~1.3x, acceptable up to 2x
+            audioFilter = `[${srcIdx}:a]atempo=${tempo.toFixed(4)},asetpts=PTS-STARTPTS`;
+          } else {
+            // Too fast would sound bad — fall back to trim
+            audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+          }
+        } else {
+          // Normal trim for video-embedded audio, audio that fits, or offset clips
+          audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+        }
       } else {
         // Source has no audio - generate silence for the clip duration
         audioFilter = `anullsrc=r=48000:cl=stereo,atrim=0:${clip.duration},asetpts=PTS-STARTPTS`;
