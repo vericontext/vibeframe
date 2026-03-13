@@ -298,13 +298,9 @@ export class GrokProvider implements AIProvider {
       };
 
       // Add reference image for image-to-video
+      // xAI API requires image as object: { url: "..." } (works for both URLs and data URIs)
       if (options?.referenceImage) {
-        const imageData = options.referenceImage as string;
-        if (imageData.startsWith("http")) {
-          body.image_url = imageData;
-        } else if (imageData.startsWith("data:")) {
-          body.image = imageData;
-        }
+        body.image = { url: options.referenceImage as string };
       }
 
       const response = await fetch(`${this.baseUrl}/videos/generations`, {
