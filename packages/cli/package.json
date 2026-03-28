@@ -2,7 +2,7 @@
   "name": "@vibeframe/cli",
   "version": "0.27.0",
   "description": "VibeFrame CLI - natural language video editing from the terminal",
-  "private": true,
+  "private": false,
   "license": "MIT",
   "repository": {
     "type": "git",
