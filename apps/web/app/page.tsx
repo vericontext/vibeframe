@@ -36,7 +36,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/demo"
-              className="text-muted-foreground hover:text-foreground transition-colors hidden sm:inline"
+              className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Demo
             </Link>
