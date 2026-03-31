@@ -10,10 +10,13 @@ export const metadata: Metadata = {
   title: "VibeFrame - AI-Native Video Editing",
   description: "CLI-first video editor built for AI agents. Edit with natural language. Automate with MCP. Ship videos, not clicks.",
   keywords: ["video editor", "AI", "CLI", "MCP", "automation", "open source"],
+  metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
     title: "VibeFrame - AI-Native Video Editing",
     description: "CLI-first video editor built for AI agents. Ship videos, not clicks.",
     type: "website",
+    url: "https://vibeframe.ai",
+    siteName: "VibeFrame",
   },
   twitter: {
     card: "summary_large_image",

@@ -249,7 +249,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               No Claude Code or MCP? Type <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> for a built-in natural language session.
-              5 LLM providers, 58 tools, command aliases, fully autonomous.
+              6 LLM providers, 58 tools, command aliases, fully autonomous.
             </p>
           </div>
 
@@ -275,7 +275,7 @@ export default function LandingPage() {
               />
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
-                title="5 LLM Providers"
+                title="6 LLM Providers"
                 description="OpenAI, Claude, Gemini, xAI Grok, Ollama — swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
