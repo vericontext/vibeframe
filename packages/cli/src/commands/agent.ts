@@ -85,6 +85,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
     gemini: "google",
     ollama: "ollama", // Ollama doesn't need API key
     xai: "xai",
+    openrouter: "openrouter",
   };
 
   if (provider !== "ollama") {
@@ -317,7 +318,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
 
 export const agentCommand = new Command("agent")
   .description("Start the AI agent with natural language interface")
-  .option("-p, --provider <provider>", "LLM provider (openai, claude, gemini, ollama, xai)", "openai")
+  .option("-p, --provider <provider>", "LLM provider (openai, claude, gemini, ollama, xai, openrouter)", "openai")
   .option("-m, --model <model>", "Model to use (provider-specific)")
   .option("--project <path>", "Project file to load")
   .option("-v, --verbose", "Show verbose output including tool calls")
@@ -335,6 +336,7 @@ function getEnvVar(provider: string): string {
     gemini: "GOOGLE_API_KEY",
     ollama: "(no API key needed)",
     xai: "XAI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
   };
   return envVars[provider] || "API_KEY";
 }
