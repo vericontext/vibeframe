@@ -48,7 +48,7 @@ export interface AgentConfig {
   verbose?: boolean;
 }
 
-export type LLMProvider = "openai" | "claude" | "gemini" | "ollama" | "xai";
+export type LLMProvider = "openai" | "claude" | "gemini" | "ollama" | "xai" | "openrouter";
 
 export interface LLMResponse {
   content: string;

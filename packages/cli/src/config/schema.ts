@@ -3,7 +3,7 @@
  * Stored at ~/.vibeframe/config.yaml
  */
 
-export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai";
+export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai" | "openrouter";
 
 export interface VibeConfig {
   /** Config file version */
@@ -26,6 +26,7 @@ export interface VibeConfig {
     imgbb?: string;
     replicate?: string;
     xai?: string;
+    openrouter?: string;
   };
 
   /** Default settings for new projects */
@@ -48,6 +49,7 @@ export const PROVIDER_NAMES: Record<LLMProvider, string> = {
   gemini: "Gemini (Google)",
   ollama: "Ollama (Local)",
   xai: "Grok (xAI)",
+  openrouter: "OpenRouter",
 };
 
 /** Environment variable mappings */
@@ -61,6 +63,7 @@ export const PROVIDER_ENV_VARS: Record<string, string> = {
   imgbb: "IMGBB_API_KEY",
   replicate: "REPLICATE_API_TOKEN",
   xai: "XAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 /** Default configuration */

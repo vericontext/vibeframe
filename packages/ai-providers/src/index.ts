@@ -31,6 +31,7 @@ export { GrokProvider, grokProvider } from "./grok/index.js";
 export type { GrokModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
 export { ReplicateProvider, replicateProvider } from "./replicate/index.js";
 export type { ReplicateUpscaleOptions, ReplicateUpscaleResult, ReplicateInpaintOptions, MusicGenerationOptions, MusicGenerationResult, AudioRestorationOptions, AudioRestorationResult } from "./replicate/index.js";
+export { OpenRouterProvider, openRouterProvider } from "./openrouter/index.js";
 
 // Re-export commonly used types
 export type {

@@ -4,7 +4,7 @@
 
 ---
 
-## Agent LLM Providers (5)
+## Agent LLM Providers (6)
 
 Used for natural language processing in Agent mode (`vibe` command).
 
@@ -14,6 +14,7 @@ Used for natural language processing in Agent mode (`vibe` command).
 | Claude | Sonnet 4.6 | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` | `-p claude` |
 | Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
 | xAI | Grok 4.1 Fast | `grok-4-1-fast-reasoning` | `XAI_API_KEY` | `-p xai` |
+| OpenRouter | Auto (300+ models) | `openrouter/auto` | `OPENROUTER_API_KEY` | `-p openrouter` |
 | Ollama | Local models | user-configured | - | `-p ollama` |
 
 **OpenAI model options:**
@@ -52,6 +53,23 @@ To use Opus in agent mode: `vibe agent -p claude --model claude-opus-4-6`
 | `grok-4-1-fast-non-reasoning` | Grok 4.1 Fast (non-reasoning) | Faster responses, no chain-of-thought. $0.20/M input, $0.50/M output |
 
 To use Grok 4 in agent mode: `vibe agent -p xai --model grok-4`
+
+**OpenRouter model options:**
+
+`openrouter/auto` is the default — automatically routes to the best available model. You can specify any model available on OpenRouter:
+
+| Model ID | Provider | Notes |
+|----------|----------|-------|
+| `openrouter/auto` | Auto | **Default**. Automatically selects best model |
+| `anthropic/claude-sonnet-4-6` | Anthropic | Claude Sonnet via OpenRouter |
+| `openai/gpt-5-mini` | OpenAI | GPT-5 Mini via OpenRouter |
+| `google/gemini-2.5-flash` | Google | Gemini Flash via OpenRouter |
+| `meta-llama/llama-4-scout` | Meta | Llama 4 Scout (open-weight) |
+| `deepseek/deepseek-r1` | DeepSeek | DeepSeek R1 reasoning model |
+
+To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonnet-4-6`
+
+> See [openrouter.ai/models](https://openrouter.ai/models) for the full list of 300+ available models.
 
 **Why Gemini 2.5 Flash, not 3.1 Pro?**
 
@@ -184,6 +202,7 @@ export OPENAI_API_KEY="sk-..."        # GPT, Whisper, GPT Image 1.5
 export ANTHROPIC_API_KEY="sk-ant-..." # Claude
 export GOOGLE_API_KEY="AIza..."       # Gemini (image, Veo video)
 export XAI_API_KEY="xai-..."          # xAI Grok
+export OPENROUTER_API_KEY="sk-or-..." # OpenRouter (300+ models)
 
 # Media Providers
 export ELEVENLABS_API_KEY="..."       # TTS, SFX
@@ -200,6 +219,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 (Agent LLM) |
 | `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
 | `vibe -p xai` | `XAI_API_KEY` | Grok 4.1 Fast (Agent LLM) |
+| `vibe -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
 | `vibe generate image` | `GOOGLE_API_KEY` | Gemini Nano Banana |
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | GPT Image 1.5 |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |

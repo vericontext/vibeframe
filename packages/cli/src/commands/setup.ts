@@ -89,12 +89,13 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log(chalk.dim("   This provider handles natural language commands."));
   console.log();
 
-  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "ollama"];
+  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "ollama"];
   const providerDescriptions: Record<LLMProvider, string> = {
     claude: "Best understanding, most capable",
     openai: "GPT-5-mini, reliable and fast",
     gemini: "Google AI, good for general use",
     xai: "Grok 4.1, optimized for tool calling",
+    openrouter: "300+ models, unified API",
     ollama: "Free, local, no API key needed",
   };
   const providerLabels = providers.map((p) => {
@@ -105,7 +106,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
   const currentIndex = providers.indexOf(config.llm.provider);
   const providerIndex = await promptSelect(
-    chalk.cyan("   Select [1-5]: "),
+    chalk.cyan("   Select [1-6]: "),
     providerLabels,
     currentIndex >= 0 ? currentIndex : 0
   );
@@ -401,6 +402,7 @@ function getEnvVarName(provider: LLMProvider): string {
     openai: "OPENAI_API_KEY",
     gemini: "GOOGLE_API_KEY",
     xai: "XAI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
     ollama: "",
   };
   return envVars[provider];
@@ -470,6 +472,7 @@ async function showConfig(): Promise<void> {
     { key: "kling", name: "Kling", env: "KLING_API_KEY" },
     { key: "imgbb", name: "ImgBB", env: "IMGBB_API_KEY" },
     { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN" },
+    { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY" },
   ];
 
   for (const p of providerKeys) {
