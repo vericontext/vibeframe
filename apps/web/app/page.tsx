@@ -208,7 +208,7 @@ export default function LandingPage() {
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full align-middle">beta</span></h2>
                   <p className="text-muted-foreground">
-                    43 tools in Claude Desktop and Cursor — add one JSON config and go
+                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools in Claude Desktop and Cursor — add one JSON config and go
                   </p>
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               No Claude Code or MCP? Type <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> for a built-in natural language session.
-              6 LLM providers, 58 tools, command aliases, fully autonomous.
+              {process.env.NEXT_PUBLIC_LLM_PROVIDERS} LLM providers, {process.env.NEXT_PUBLIC_AGENT_TOOLS} tools, command aliases, fully autonomous.
             </p>
           </div>
 
@@ -275,13 +275,13 @@ export default function LandingPage() {
               />
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
-                title="6 LLM Providers"
+                title={`${process.env.NEXT_PUBLIC_LLM_PROVIDERS} LLM Providers`}
                 description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama — swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
               <FeatureItem
                 icon={<Sparkles className="w-5 h-5" />}
-                title="58 Tools"
+                title={`${process.env.NEXT_PUBLIC_AGENT_TOOLS} Tools`}
                 description="Project, timeline, AI generation, media, export, batch, filesystem"
                 gradient="from-purple-500 to-pink-500"
               />
@@ -377,7 +377,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<MessageSquare className="w-6 h-6" />}
               title="MCP Native (beta)"
-              description="43 tools in Claude Desktop and Cursor. Let AI control your edits."
+              description={`${process.env.NEXT_PUBLIC_MCP_TOOLS} tools in Claude Desktop and Cursor. Let AI control your edits.`}
               gradient="from-purple-500 to-pink-500"
             />
             <FeatureCard
@@ -534,7 +534,7 @@ function TerminalAnimation() {
         VibeFrame
       </div>
       <div className="text-muted-foreground text-xs mb-4">
-        58 tools · openai · aliases: gen, ed, az, au, pipe<br/>
+        {process.env.NEXT_PUBLIC_AGENT_TOOLS} tools · openai · aliases: gen, ed, az, au, pipe<br/>
         Commands: exit · reset · tools · context
       </div>
 
