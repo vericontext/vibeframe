@@ -104,7 +104,7 @@ Config file locations:
 - **Claude Desktop (Windows):** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Cursor:** `.cursor/mcp.json` in your workspace
 
-**28 Tools** | **5 Resources** | **7 Prompts** — see [packages/mcp-server/README.md](packages/mcp-server/README.md) for details.
+See [packages/mcp-server/README.md](packages/mcp-server/README.md) for full tool, resource, and prompt reference.
 
 ---
 
@@ -141,7 +141,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe detect`** | `scenes`, `silence`, `beats` | `vibe detect scenes video.mp4` |
 | **`vibe export`** | - | `vibe export project.vibe.json -o out.mp4` |
 
-**43 AI commands** across 5 groups and 11 providers. Every command supports `--help`, `--json`, and `--dry-run`.
+Every command supports `--help`, `--json`, and `--dry-run`. Run `vibe schema --list` for a full machine-readable command index.
 
 ---
 
@@ -157,7 +157,7 @@ vibe agent -p xai              # Use xAI Grok
 vibe agent -p ollama           # Use local Ollama
 ```
 
-58 tools across project, timeline, AI generation, media, export, batch, and filesystem. The LLM reasons, calls tools, and executes autonomously.
+Tools across project, timeline, AI generation, media, export, batch, and filesystem. The LLM reasons, calls tools, and executes autonomously.
 
 ---
 
@@ -198,7 +198,7 @@ vibeframe/
 | Phase | Status | Description |
 |-------|--------|-------------|
 | 1. Foundation | Done | Core CLI, FFmpeg.wasm export |
-| 2. AI Providers | Done | 11 providers integrated |
+| 2. AI Providers | Done | Multi-provider integrated |
 | 3. MCP Integration | Done | Claude Desktop & Cursor support |
 | 4. AI Pipelines | Done | Script-to-Video, Highlights, B-Roll, Viral |
 | 5. Server Infrastructure | Planned | Hybrid rendering, chunked uploads |
