@@ -182,7 +182,7 @@ All text-to-video providers also support image-to-video. Key differences per pro
 
 ---
 
-## Audio (2)
+## Audio (3)
 
 | Provider | Capability | Env Key | Notes |
 |----------|------------|---------|-------|
