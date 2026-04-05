@@ -5,7 +5,7 @@ if (process.env.VIBE_DEBUG === "1") {
   console.log("[CLI] Script started, loading modules...");
 }
 
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { createRequire } from "module";
 import chalk from "chalk";
 
@@ -60,10 +60,17 @@ program
   .option("-q, --quiet", "Output only the primary result value (path, URL, or ID)")
   .option("--fields <fields>", "Limit JSON output to specific fields (comma-separated)")
   .option("--stdin", "Read options from stdin as JSON (for agent/script use)")
+  .exitOverride() // Throw instead of calling process.exit, so we can catch and format
   .configureOutput({
     outputError: (str, write) => {
-      write(chalk.red(str.trim()) + "\n");
-      write(chalk.dim("Run with --help for full options.\n"));
+      // In JSON mode, output structured error to stderr
+      if (process.env.VIBE_JSON_OUTPUT === "1" || process.argv.includes("--json")) {
+        const err = { success: false, error: str.trim(), code: "USAGE_ERROR", exitCode: 2, retryable: false };
+        process.stderr.write(JSON.stringify(err, null, 2) + "\n");
+      } else {
+        write(chalk.red(str.trim()) + "\n");
+        write(chalk.dim("Run with --help for full options.\n"));
+      }
     },
   })
   .addHelpText(
@@ -181,6 +188,27 @@ program.addCommand(exportCommand, { hidden: true });
 program.addCommand(batchCommand, { hidden: true });
 program.addCommand(detectCommand, { hidden: true });
 
+// Propagate exitOverride and JSON-aware error output to all subcommands
+// Commander.js doesn't inherit these settings from the parent program
+function propagateErrorHandling(cmd: Command): void {
+  for (const sub of cmd.commands) {
+    sub.exitOverride();
+    sub.configureOutput({
+      outputError: (str, write) => {
+        if (process.env.VIBE_JSON_OUTPUT === "1" || process.argv.includes("--json")) {
+          const err = { success: false, error: str.trim(), code: "USAGE_ERROR", exitCode: 2, retryable: false };
+          process.stderr.write(JSON.stringify(err, null, 2) + "\n");
+        } else {
+          write(chalk.red(str.trim()) + "\n");
+          write(chalk.dim("Run with --help for full options.\n"));
+        }
+      },
+    });
+    propagateErrorHandling(sub);
+  }
+}
+propagateErrorHandling(program);
+
 // Check if any arguments provided
 if (process.argv.length <= 2) {
   // No arguments - start Agent mode
@@ -197,6 +225,12 @@ if (process.argv.length <= 2) {
     try {
       await program.parseAsync();
     } catch (err) {
+      if (err instanceof CommanderError) {
+        // Commander errors (missing args, unknown options, --help, --version)
+        // configureOutput.outputError already formatted the message
+        const code = err.exitCode === 0 ? 0 : 2; // 0 for --help/--version, 2 for usage errors
+        process.exit(code);
+      }
       if (err instanceof ApiKeyError) {
         exitWithError(err.toStructured());
       }

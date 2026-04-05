@@ -137,12 +137,10 @@ Examples:
         if (hasTTY()) {
           prompt = await promptText(chalk.cyan("What would you like to generate? "));
           if (!prompt?.trim()) {
-            console.error(chalk.red("Prompt is required."));
-            return;
+            exitWithError(usageError("Prompt is required."));
           }
         } else {
-          console.error(chalk.red("Prompt argument is required."));
-          return;
+          exitWithError(usageError("Prompt argument is required.", "Usage: vibe generate image <prompt>"));
         }
       }
       rejectControlChars(prompt);
@@ -548,12 +546,10 @@ Examples:
         if (hasTTY()) {
           prompt = await promptText(chalk.cyan("Describe your video: "));
           if (!prompt?.trim()) {
-            console.error(chalk.red("Prompt is required."));
-            return;
+            exitWithError(usageError("Prompt is required."));
           }
         } else {
-          console.error(chalk.red("Prompt argument is required."));
-          return;
+          exitWithError(usageError("Prompt argument is required.", "Usage: vibe generate video <prompt>"));
         }
       }
       rejectControlChars(prompt);
@@ -957,12 +953,10 @@ generateCommand
         if (hasTTY()) {
           text = await promptText(chalk.cyan("What text to speak? "));
           if (!text?.trim()) {
-            console.error(chalk.red("Text is required."));
-            return;
+            exitWithError(usageError("Text is required."));
           }
         } else {
-          console.error(chalk.red("Text argument is required."));
-          return;
+          exitWithError(usageError("Text argument is required.", "Usage: vibe generate speech <text>"));
         }
       }
       rejectControlChars(text);
