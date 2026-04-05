@@ -96,8 +96,8 @@ const AI_FEATURES: AIFeature[] = [
     tryCommand: 'vibe generate speech "Hello world" -o hello.mp3',
   },
   {
-    label: "Smart editing",
-    desc: "captions, grade, reframe, speed-ramp (Whisper + Claude)",
+    label: "AI editing + motion",
+    desc: "captions, grade, reframe, motion graphics (Whisper + Claude)",
     keys: [
       { configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI" },
       { configKey: "anthropic", envVar: "ANTHROPIC_API_KEY", name: "Anthropic" },
