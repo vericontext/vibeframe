@@ -1,101 +1,56 @@
 ---
 paths:
   - "packages/cli/src/agent/**"
+  - "packages/cli/src/commands/**"
   - "packages/cli/src/index.ts"
   - "packages/core/src/**"
   - "packages/ai-providers/src/**"
+  - "packages/mcp-server/src/**"
 ---
 
-# Architecture Details
-
-## CLI → Agent Workflow
-
-```
-packages/cli/             CLI implementation (TypeScript/Commander.js)
-       ↓
-scripts/install.sh        User installation via curl | bash
-       ↓
-Agent (vibe)              Natural language → LLM tool calling → autonomous execution
-```
-
-**CLI** (`packages/cli/`):
-- Production commands built in TypeScript using Commander.js
-- Supports `--provider` option for multi-provider commands (image, video, etc.)
-- Command aliases: `gen`, `ed`, `az`, `au`, `pipe`
-
-**Agent** (`packages/cli/src/agent/`) - **Interactive CLI / Onboarding entry point**:
-- `vibe` (no args) starts an interactive natural language session
-- Useful when working standalone (no Claude Code or MCP client available)
-- In Claude Code or Cursor+MCP environments, prefer running CLI commands directly
-- Multi-turn: LLM reasoning → tool call → result → repeat until complete
-- 5 LLM providers: OpenAI, Claude, Gemini, Ollama, xAI Grok
-- 57 tools across 7 categories (project, timeline, filesystem, media, AI, export, batch)
-- `--confirm` flag: prompts before each tool execution
-- Example: "create project and add video" → multiple tool calls autonomously
-
-> **Priority note**: CLI commands are the core. MCP is the primary integration path for Claude Desktop/Cursor. Agent mode is best for onboarding and environments without Claude Code or MCP.
-
-**REPL** (deprecated):
-- Legacy single-command mode, replaced by Agent mode
-- Code kept in `src/repl/` for library usage (marked `@deprecated`)
-
-## Agent Architecture
-
-```
-packages/cli/src/agent/
-├── index.ts                 # AgentExecutor - main agentic loop
-├── types.ts                 # ToolDefinition, ToolCall, AgentMessage, etc.
-├── adapters/
-│   ├── index.ts             # LLMAdapter interface + factory
-│   ├── openai.ts            # OpenAI Function Calling
-│   ├── claude.ts            # Claude tool_use
-│   ├── gemini.ts            # Gemini Function Calling
-│   ├── ollama.ts            # Ollama JSON parsing
-│   └── xai.ts               # xAI Grok (OpenAI-compatible)
-├── tools/
-│   ├── index.ts             # ToolRegistry
-│   ├── project.ts           # 5 project tools
-│   ├── timeline.ts          # 11 timeline tools
-│   ├── filesystem.ts        # 4 filesystem tools
-│   ├── media.ts             # 8 media tools
-│   ├── ai.ts                # AI tools barrel (imports ai-generation, ai-editing, ai-pipeline)
-│   ├── ai-generation.ts     # 8 generate_* tools
-│   ├── ai-editing.ts        # 8 edit_* + 1 analyze_review + 1 generate_thumbnail tools
-│   ├── ai-pipeline.ts       # 4 pipeline_* + 2 analyze_* + 1 edit_image tools
-│   ├── export.ts            # 3 export tools
-│   └── batch.ts             # 3 batch tools
-├── memory/
-│   └── index.ts             # ConversationMemory
-└── prompts/
-    └── system.ts            # System prompt generation
-```
-
-**Usage:**
-```bash
-vibe agent                     # Start Agent mode (default: OpenAI)
-vibe agent -p claude           # Use Claude
-vibe agent -p gemini           # Use Gemini
-vibe agent -p ollama           # Use local Ollama
-vibe agent -p xai              # Use xAI Grok
-vibe agent --confirm           # Confirm before each tool execution
-vibe agent -i "query" -v       # Non-interactive mode with verbose output
-```
+# Architecture & Agent Rules
 
 ## Package Structure
 
-- **.claude/skills/** - Workflow skills: `/test`, `/release`, `/sync-check`.
-- **packages/cli** - Main CLI interface. Entry: `src/index.ts`. Commands in `src/commands/`. Agent in `src/agent/`. Config schema in `src/config/schema.ts`.
-- **packages/core** - Timeline data structures (`src/timeline/`), effects (`src/effects/`), FFmpeg export (`src/export/`). State managed with Zustand + Immer.
-- **packages/ai-providers** - Pluggable AI providers. Abstract interface in `src/interface/`. Registry for capability matching. Each provider in its own directory.
-- **packages/mcp-server** - MCP server for Claude Desktop/Cursor. Published as `@vibeframe/mcp-server` on npm. Bundled with esbuild (single file, workspace deps inlined). Tools, resources, and prompts in respective directories.
-- **packages/ui** - Shared React components (Radix UI + Tailwind).
-- **apps/web** - Next.js 14 preview UI.
+- **packages/cli** — CLI + Agent mode. Entry: `src/index.ts`. Commands: `src/commands/`. Agent: `src/agent/`.
+- **packages/core** — Timeline, effects, FFmpeg export. Zustand + Immer.
+- **packages/ai-providers** — Pluggable AI providers. Each in its own directory.
+- **packages/mcp-server** — MCP server for Claude Desktop/Cursor. Bundled with esbuild.
+- **packages/ui** — Shared React components. **apps/web** — Next.js landing page.
 
-## Key Conventions
+## CLI ↔ Agent Tool Sync
 
-- **Monorepo**: Turborepo + pnpm workspaces. Use `workspace:*` for internal deps.
-- **ESM**: All packages use ES modules (`packages/ui` and `apps/web` rely on bundler/framework ESM handling).
-- **TypeScript**: Strict mode. Run `pnpm build` to compile.
-- **Project files**: `.vibe.json` format stores project state (sources, tracks, clips, effects).
-- **Time units**: All times in seconds (floats allowed).
-- **IDs**: `source-{id}`, `clip-{id}`, `track-{id}`, `effect-{id}`.
+When adding CLI commands, expose as Agent tools if useful for natural language invocation.
+
+**Naming:** `vibe <group> <action>` → `<group>_<action>` (snake_case)
+
+**Pattern:**
+1. Extract `execute*()` function in `src/commands/ai-<module>.ts`
+2. Create tool in `src/agent/tools/ai-generation.ts` (or `ai-editing.ts`, `ai-pipeline.ts`)
+3. Register via `registry.register(def, handler)`
+
+## Agent Invariants
+
+When invoking CLI commands from agent context:
+
+1. Always `--json` for structured output
+2. Always `--dry-run` before mutating operations (84 commands support it)
+3. Use `vibe schema <command>` to discover parameters — never guess
+4. Confirm with user before `pipeline` commands (high cost: $5-$50+)
+5. Use `--stdin` for complex options: `echo '{...}' | vibe <cmd> --stdin --json`
+
+## API Cost Tiers
+
+| Tier | Commands | Est. Cost |
+|------|----------|-----------|
+| Free | `detect *`, `edit silence-cut/noise-reduce/fade`, `schema`, `project`, `timeline` | $0 |
+| Low | `analyze *`, `audio transcribe`, `generate image` | $0.01-$0.10 |
+| High | `generate video`, `edit image` | $1-$5 |
+| Very High | `pipeline *` | $5-$50+ |
+
+## Error Handling
+
+- Use `exitWithError()` from `commands/output.ts` — not `console.error` + `process.exit(1)`
+- Use `requireApiKey()` from `utils/api-key.ts` — not manual checks
+- Exit codes: 0=success, 2=usage, 3=not-found, 4=auth, 5=api-error, 6=network
+- JSON errors go to **stderr**: `{ success, error, code, exitCode, suggestion, retryable }`

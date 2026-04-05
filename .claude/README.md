@@ -12,12 +12,9 @@ This directory configures Claude Code for the VibeFrame project.
 │   ├── pre-push-validate.sh   # Blocks git push on SSOT violations
 │   └── post-edit-lint.sh      # Auto-lints TypeScript files after edits
 ├── rules/                     # ALL path-scoped (load on-demand, not at startup)
-│   ├── architecture.md        # Package structure, agent design (packages/**)
-│   ├── agents.md              # Agent invariants (agent/mcp code)
+│   ├── architecture.md        # Architecture, agent rules, error handling (cli/core/ai-providers/**)
 │   ├── versioning.md          # Version management (package.json files)
 │   ├── code-quality.md        # Code standards (cli/core src)
-│   ├── cli-reference.md       # CLI command reference (packages/cli/**)
-│   ├── agent-tools.md         # CLI ↔ Agent tool sync (agent/commands code)
 │   └── mcp-server.md          # MCP setup (packages/mcp-server/**)
 ├── agents/                    # Specialized sub-agents
 │   ├── code-reviewer.md       # Post-change code review (haiku, memory:project)
@@ -47,7 +44,7 @@ This directory configures Claude Code for the VibeFrame project.
 ## How It Works
 
 ### Rules
-- All 7 rules have `paths:` frontmatter — **none load at session start**
+- All 4 rules have `paths:` frontmatter — **none load at session start**
 - Rules load on-demand when Claude reads files matching the path patterns
 - Rules frontmatter supports only `paths` (no other fields)
 - This keeps initial context lean (~50 lines from CLAUDE.md only)
