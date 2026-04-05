@@ -5,7 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-import { exitWithError, generalError, usageError } from "./output.js";
+import { exitWithError, generalError, outputResult, usageError } from "./output.js";
 
 export const batchCommand = new Command("batch")
   .description("Batch operations for processing multiple items");
@@ -48,10 +48,26 @@ batchCommand
   .option("-r, --recursive", "Search subdirectories", false)
   .option("-d, --duration <seconds>", "Default duration for images", "5")
   .option("--filter <pattern>", "Filter files by extension (e.g., '.mp4,.mov')")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, directory: string, options) => {
     const spinner = ora("Scanning directory...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "batch import",
+          params: {
+            project: projectPath,
+            directory,
+            recursive: options.recursive,
+            duration: options.duration,
+            filter: options.filter || null,
+          },
+        });
+        return;
+      }
+
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
@@ -142,10 +158,27 @@ batchCommand
   .option("--track <track-id>", "Track to place clips on")
   .option("--start <seconds>", "Starting time", "0")
   .option("--gap <seconds>", "Gap between clips", "0")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, sourceIds: string[], options) => {
     const spinner = ora("Creating clips...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "batch concat",
+          params: {
+            project: projectPath,
+            sourceIds,
+            all: options.all,
+            track: options.track || null,
+            start: options.start,
+            gap: options.gap,
+          },
+        });
+        return;
+      }
+
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
@@ -232,6 +265,7 @@ batchCommand
   .option("-d, --duration <seconds>", "Effect duration", "1")
   .option("-s, --start <seconds>", "Effect start time (relative to clip)", "0")
   .option("--intensity <value>", "Effect intensity (0-1)", "1")
+  .option("--dry-run", "Preview parameters without executing")
   .action(
     async (
       projectPath: string,
@@ -242,6 +276,23 @@ batchCommand
       const spinner = ora("Applying effects...").start();
 
       try {
+        if (options.dryRun) {
+          outputResult({
+            dryRun: true,
+            command: "batch apply-effect",
+            params: {
+              project: projectPath,
+              effectType,
+              clipIds,
+              all: options.all,
+              duration: options.duration,
+              start: options.start,
+              intensity: options.intensity,
+            },
+          });
+          return;
+        }
+
         const filePath = resolve(process.cwd(), projectPath);
         const content = await readFile(filePath, "utf-8");
         const data: ProjectFile = JSON.parse(content);
@@ -312,10 +363,25 @@ batchCommand
   .argument("[clip-ids...]", "Clip IDs to remove")
   .option("--all", "Remove all clips", false)
   .option("--track <track-id>", "Remove clips from specific track only")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipIds: string[], options) => {
     const spinner = ora("Removing clips...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "batch remove-clips",
+          params: {
+            project: projectPath,
+            clipIds,
+            all: options.all,
+            track: options.track || null,
+          },
+        });
+        return;
+      }
+
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);

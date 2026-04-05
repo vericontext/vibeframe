@@ -30,7 +30,7 @@ import { Project } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, authError, notFoundError, apiError, generalError } from "./output.js";
+import { exitWithError, outputResult, authError, notFoundError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ============================================================================
@@ -685,6 +685,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
     .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (mediaPath: string, options) => {
       try {
         if (options.output) {
@@ -694,6 +695,26 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         const absPath = resolve(process.cwd(), mediaPath);
         if (!existsSync(absPath)) {
           exitWithError(notFoundError(absPath));
+        }
+
+        if (options.dryRun) {
+          outputResult({
+            dryRun: true,
+            command: "ai highlights",
+            params: {
+              mediaPath,
+              output: options.output,
+              project: options.project,
+              duration: options.duration,
+              count: options.count,
+              threshold: options.threshold,
+              criteria: options.criteria,
+              language: options.language,
+              useGemini: options.useGemini ?? false,
+              lowRes: options.lowRes ?? false,
+            },
+          });
+          return;
         }
 
         const ext = extname(absPath).toLowerCase();
@@ -1019,19 +1040,42 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
     .option("-l, --language <lang>", "Language code for transcription")
     .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
         if (options.output) {
           validateOutputPath(options.output);
         }
 
-        if (!commandExists("ffmpeg")) {
-          exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
-        }
-
         const absPath = resolve(process.cwd(), videoPath);
         if (!existsSync(absPath)) {
           exitWithError(notFoundError(absPath));
+        }
+
+        if (options.dryRun) {
+          outputResult({
+            dryRun: true,
+            command: "ai auto-shorts",
+            params: {
+              videoPath,
+              output: options.output,
+              duration: options.duration,
+              count: options.count,
+              aspect: options.aspect,
+              outputDir: options.outputDir,
+              addCaptions: options.addCaptions ?? false,
+              captionStyle: options.captionStyle,
+              analyzeOnly: options.analyzeOnly ?? false,
+              language: options.language,
+              useGemini: options.useGemini ?? false,
+              lowRes: options.lowRes ?? false,
+            },
+          });
+          return;
+        }
+
+        if (!commandExists("ffmpeg")) {
+          exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
         }
 
         const targetDuration = parseInt(options.duration);

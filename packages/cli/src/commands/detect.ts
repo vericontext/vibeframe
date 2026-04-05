@@ -5,7 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError } from "./output.js";
+import { exitWithError, generalError, outputResult } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 export const detectCommand = new Command("detect")
@@ -21,12 +21,27 @@ detectCommand
   .option("-t, --threshold <value>", "Scene change threshold (0-1)", "0.3")
   .option("-o, --output <path>", "Output JSON file with timestamps")
   .option("-p, --project <path>", "Add scenes as clips to project")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const spinner = ora("Detecting scenes...").start();
 
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "detect scenes",
+          params: {
+            video: videoPath,
+            threshold: options.threshold,
+            output: options.output || null,
+            project: options.project || null,
+          },
+        });
+        return;
       }
 
       // Check if FFmpeg is available
@@ -159,12 +174,27 @@ detectCommand
   .option("-n, --noise <dB>", "Noise threshold in dB", "-30")
   .option("-d, --duration <sec>", "Minimum silence duration", "0.5")
   .option("-o, --output <path>", "Output JSON file with timestamps")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (mediaPath: string, options) => {
     const spinner = ora("Detecting silence...").start();
 
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "detect silence",
+          params: {
+            media: mediaPath,
+            noise: options.noise,
+            duration: options.duration,
+            output: options.output || null,
+          },
+        });
+        return;
       }
 
       const absPath = resolve(process.cwd(), mediaPath);
@@ -245,12 +275,25 @@ detectCommand
   .description("Detect beats in audio (for music sync)")
   .argument("<audio>", "Audio file path")
   .option("-o, --output <path>", "Output JSON file with timestamps")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     const spinner = ora("Detecting beats...").start();
 
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "detect beats",
+          params: {
+            audio: audioPath,
+            output: options.output || null,
+          },
+        });
+        return;
       }
 
       const absPath = resolve(process.cwd(), audioPath);

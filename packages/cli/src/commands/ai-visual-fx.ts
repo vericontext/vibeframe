@@ -25,7 +25,7 @@ import { getApiKey } from '../utils/api-key.js';
 import { execSafe, commandExists } from '../utils/exec-safe.js';
 import { formatTime, downloadVideo } from './ai-helpers.js';
 import { applyTextOverlays, type TextOverlayStyle } from './ai-edit.js';
-import { exitWithError, usageError, authError, apiError, generalError } from './output.js';
+import { exitWithError, usageError, authError, apiError, generalError, outputResult } from './output.js';
 import { validateOutputPath } from "./validate.js";
 
 export function registerVisualFxCommands(ai: Command): void {
@@ -42,6 +42,7 @@ ai
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show filter without applying")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (options.output) {
@@ -50,6 +51,11 @@ ai
 
       if (!options.style && !options.preset) {
         exitWithError(usageError("Either --style or --preset is required", 'Examples: vibe edit grade video.mp4 --style "warm sunset" or --preset cinematic-warm'));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai grade", params: { video: videoPath, output: options.output, style: options.style, preset: options.preset, analyzeOnly: options.analyzeOnly } });
+        return;
       }
 
       // Check FFmpeg
@@ -119,6 +125,7 @@ ai
   .option("--start <seconds>", "Start time in seconds", "0")
   .option("--end <seconds>", "End time in seconds (default: video duration)")
   .option("-o, --output <path>", "Output video file path")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (options.output) {
@@ -127,6 +134,11 @@ ai
 
       if (!options.text || options.text.length === 0) {
         exitWithError(usageError("At least one --text option is required", 'Example: vibe edit text-overlay video.mp4 -t "NEXUS AI" --style center-bold'));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai text-overlay", params: { video: videoPath, output: options.output, text: options.text, style: options.style, fontSize: options.fontSize, fontColor: options.fontColor, fade: options.fade, start: options.start, end: options.end } });
+        return;
       }
 
       // Check FFmpeg
@@ -184,10 +196,16 @@ ai
   .option("--analyze-only", "Show keyframes without applying")
   .option("-l, --language <lang>", "Language code for transcription")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai speed-ramp", params: { video: videoPath, output: options.output, style: options.style, minSpeed: options.minSpeed, maxSpeed: options.maxSpeed, analyzeOnly: options.analyzeOnly, language: options.language } });
+        return;
       }
 
       // Check FFmpeg
@@ -322,10 +340,16 @@ ai
   .option("--analyze-only", "Show crop regions without applying")
   .option("--keyframes <path>", "Export keyframes to JSON file")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai reframe", params: { video: videoPath, output: options.output, aspect: options.aspect, focus: options.focus, analyzeOnly: options.analyzeOnly, keyframes: options.keyframes } });
+        return;
       }
 
       // Check FFmpeg
@@ -480,6 +504,7 @@ ai
   .option("--strength <value>", "Transfer strength (0-1)", "0.5")
   .option("--no-wait", "Start processing without waiting")
   .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     try {
       if (options.output) {
@@ -488,6 +513,11 @@ ai
 
       if (!options.style) {
         exitWithError(usageError("Style required. Use --style <image-path> or --style <prompt>"));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai style-transfer", params: { video: videoPath, output: options.output, style: options.style, strength: options.strength } });
+        return;
       }
 
       const apiKey = await getApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);

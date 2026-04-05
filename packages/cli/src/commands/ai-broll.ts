@@ -28,7 +28,7 @@ import { Project } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
-import { exitWithError, authError, notFoundError, apiError, usageError, generalError } from "./output.js";
+import { exitWithError, outputResult, authError, notFoundError, apiError, usageError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 function truncate(text: string, maxLength: number): string {
@@ -109,6 +109,7 @@ export function registerBrollCommand(ai: Command): void {
     .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
     .option("-f, --file", "Treat narration as file path (script file)")
     .option("--analyze-only", "Only analyze, don't create project")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (narration: string, options) => {
       try {
         if (options.output) {
@@ -122,6 +123,24 @@ export function registerBrollCommand(ai: Command): void {
         // Validate B-roll input
         if (!options.broll && !options.brollDir) {
           exitWithError(usageError("B-roll files required. Use -b or --broll-dir"));
+        }
+
+        if (options.dryRun) {
+          outputResult({
+            dryRun: true,
+            command: "ai b-roll",
+            params: {
+              narration: narration.slice(0, 200),
+              broll: options.broll,
+              brollDir: options.brollDir,
+              output: options.output,
+              threshold: options.threshold,
+              language: options.language,
+              file: options.file ?? false,
+              analyzeOnly: options.analyzeOnly ?? false,
+            },
+          });
+          return;
         }
 
         // Check API keys

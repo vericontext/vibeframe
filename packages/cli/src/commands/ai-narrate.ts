@@ -42,7 +42,7 @@ import { getApiKey } from "../utils/api-key.js";
 import { ffprobeDuration } from "../utils/exec-safe.js";
 import { getAudioDuration } from "../utils/audio.js";
 import { formatTime } from "./ai-helpers.js";
-import { exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { exitWithError, notFoundError, usageError, apiError, generalError, outputResult } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ==========================================
@@ -289,10 +289,16 @@ ai
   .option("-l, --language <lang>", "Language code (e.g., en, ko)", "en")
   .option("-p, --provider <name>", "LLM for script generation: claude (default), openai", "claude")
   .option("--add-to-project", "Add narration to project (only for .vibe.json input)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (inputPath: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai narrate", params: { input: inputPath, output: options.output, voice: options.voice, style: options.style, language: options.language, provider: options.provider, addToProject: options.addToProject } });
+        return;
       }
 
       const absPath = resolve(process.cwd(), inputPath);

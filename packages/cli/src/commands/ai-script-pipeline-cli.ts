@@ -38,7 +38,7 @@ import {
   generateVideoWithRetryRunway,
 } from "./ai-script-pipeline.js";
 import { downloadVideo } from "./ai-helpers.js";
-import { exitWithError, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { exitWithError, outputResult, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 export function registerScriptPipelineCommands(aiCommand: Command): void {
@@ -67,10 +67,36 @@ aiCommand
   .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
   .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
   .option("--review-auto-apply", "Auto-apply fixable issues from AI review")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (script: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "pipeline script-to-video",
+          params: {
+            script: script.slice(0, 200),
+            file: options.file ?? false,
+            output: options.output,
+            duration: options.duration,
+            generator: options.generator,
+            imageProvider: options.imageProvider,
+            aspectRatio: options.aspectRatio,
+            imagesOnly: options.imagesOnly ?? false,
+            voiceover: options.voiceover,
+            outputDir: options.outputDir,
+            creativity: options.creativity,
+            storyboardProvider: options.storyboardProvider,
+            textOverlay: options.textOverlay,
+            textStyle: options.textStyle,
+            review: options.review ?? false,
+          },
+        });
+        return;
       }
 
       // Load environment variables from .env file
@@ -1159,6 +1185,7 @@ aiCommand
   .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
   .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
   .option("--reference-scene <num>", "Use another scene's image as reference for character consistency")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectDir: string, options) => {
     try {
       const outputDir = resolve(process.cwd(), projectDir);
@@ -1178,6 +1205,26 @@ aiCommand
       const sceneNums = options.scene.split(",").map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n) && n >= 1);
       if (sceneNums.length === 0) {
         exitWithError(usageError("Scene number must be a positive integer (1-based)", "e.g., --scene 3 or --scene 3,4,5"));
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "pipeline regenerate-scene",
+          params: {
+            projectDir,
+            scene: sceneNums,
+            videoOnly: options.videoOnly ?? false,
+            narrationOnly: options.narrationOnly ?? false,
+            imageOnly: options.imageOnly ?? false,
+            generator: options.generator,
+            imageProvider: options.imageProvider,
+            aspectRatio: options.aspectRatio,
+            retries: options.retries,
+            referenceScene: options.referenceScene,
+          },
+        });
+        return;
       }
 
       // Load storyboard

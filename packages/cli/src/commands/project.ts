@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import { exitWithError, generalError } from "./output.js";
+import { exitWithError, generalError, outputResult } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -44,12 +44,27 @@ projectCommand
   .option("-o, --output <path>", "Output file path (overrides name-based path)")
   .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)", "16:9")
   .option("-f, --fps <fps>", "Frame rate", "30")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (name: string, options) => {
     const spinner = ora("Creating project...").start();
 
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "project create",
+          params: {
+            name,
+            output: options.output || null,
+            aspectRatio: options.ratio,
+            frameRate: options.fps,
+          },
+        });
+        return;
       }
 
       // If name contains a path separator, treat it as a directory path
@@ -133,10 +148,25 @@ projectCommand
   .option("-n, --name <name>", "Project name")
   .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)")
   .option("-f, --fps <fps>", "Frame rate")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (file: string, options) => {
     const spinner = ora("Updating project...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "project set",
+          params: {
+            file,
+            name: options.name || null,
+            ratio: options.ratio || null,
+            fps: options.fps || null,
+          },
+        });
+        return;
+      }
+
       const filePath = await resolveProjectPath(file);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);

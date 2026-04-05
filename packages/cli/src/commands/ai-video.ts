@@ -21,7 +21,7 @@ import { getApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { uploadToImgbb } from "./ai-script-pipeline.js";
 import { downloadVideo } from "./ai-helpers.js";
-import { exitWithError, authError, usageError, apiError, generalError } from "./output.js";
+import { exitWithError, authError, usageError, apiError, generalError, outputResult } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 function getStatusColor(status: string): string {
@@ -61,6 +61,7 @@ export function registerVideoCommands(aiCommand: Command): void {
     .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
     .option("--runway-model <model>", "Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)", "gen4.5")
     .option("--no-wait", "Start generation and return task ID without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {
       try {
         if (options.output) {
@@ -71,6 +72,11 @@ export function registerVideoCommands(aiCommand: Command): void {
         const validProviders = ["grok", "runway", "kling", "veo"];
         if (!validProviders.includes(provider)) {
           exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video", params: { prompt, provider, output: options.output, image: options.image, duration: options.duration, ratio: options.ratio, mode: options.mode, runwayModel: options.runwayModel, veoModel: options.veoModel } });
+          return;
         }
 
         const envKeyMap: Record<string, string> = {
@@ -462,8 +468,14 @@ export function registerVideoCommands(aiCommand: Command): void {
     .description("Cancel Runway video generation")
     .argument("<task-id>", "Task ID to cancel")
     .option("-k, --api-key <key>", "Runway API key (or set RUNWAY_API_SECRET env)")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (taskId: string, options) => {
       try {
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video-cancel", params: { taskId } });
+          return;
+        }
+
         const apiKey = await getApiKey("RUNWAY_API_SECRET", "Runway", options.apiKey);
         if (!apiKey) {
           exitWithError(authError("RUNWAY_API_SECRET", "Runway"));
@@ -499,10 +511,16 @@ export function registerVideoCommands(aiCommand: Command): void {
     .option("-m, --mode <mode>", "Generation mode: std (standard) or pro", "pro")
     .option("-n, --negative <prompt>", "Negative prompt (what to avoid)")
     .option("--no-wait", "Start generation and return task ID without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {
       try {
         if (options.output) {
           validateOutputPath(options.output);
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai kling", params: { prompt, output: options.output, image: options.image, duration: options.duration, ratio: options.ratio, mode: options.mode, negative: options.negative } });
+          return;
         }
 
         const apiKey = await getApiKey("KLING_API_KEY", "Kling", options.apiKey);
@@ -716,10 +734,16 @@ export function registerVideoCommands(aiCommand: Command): void {
     .option("-d, --duration <sec>", "Duration: 5 or 10 seconds", "5")
     .option("-n, --negative <prompt>", "Negative prompt (what to avoid)")
     .option("--no-wait", "Start generation and return task ID without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoId: string, options) => {
       try {
         if (options.output) {
           validateOutputPath(options.output);
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video-extend", params: { videoId, output: options.output, prompt: options.prompt, duration: options.duration, negative: options.negative } });
+          return;
         }
 
         const apiKey = await getApiKey("KLING_API_KEY", "Kling", options.apiKey);
@@ -816,10 +840,16 @@ export function registerVideoCommands(aiCommand: Command): void {
     .option("-d, --duration <sec>", "Duration: 4, 6, or 8 seconds", "6")
     .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast", "3.1")
     .option("--no-wait", "Start extension and return operation name without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (operationName: string, options) => {
       try {
         if (options.output) {
           validateOutputPath(options.output);
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai veo-extend", params: { operationName, output: options.output, prompt: options.prompt, duration: options.duration, veoModel: options.veoModel } });
+          return;
         }
 
         const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);

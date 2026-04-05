@@ -19,7 +19,7 @@ import { ReplicateProvider } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import { downloadVideo } from "./ai-helpers.js";
-import { exitWithError, usageError, authError, apiError, generalError } from "./output.js";
+import { exitWithError, usageError, authError, apiError, generalError, outputResult } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ── Register all video FX commands ───────────────────────────────────────────
@@ -35,6 +35,7 @@ export function registerVideoFxCommands(ai: Command): void {
     .option("--ffmpeg", "Use FFmpeg lanczos (free, no API)")
     .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
     .option("--no-wait", "Start processing and return task ID without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
         if (options.output) {
@@ -46,6 +47,11 @@ export function registerVideoFxCommands(ai: Command): void {
 
         if (scale !== 2 && scale !== 4) {
           exitWithError(usageError("Scale must be 2 or 4"));
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video-upscale", params: { video: videoPath, output: options.output, scale: options.scale, model: options.model, ffmpeg: options.ffmpeg } });
+          return;
         }
 
         // Use FFmpeg if requested (free fallback)
@@ -110,6 +116,7 @@ export function registerVideoFxCommands(ai: Command): void {
     .option("-f, --factor <number>", "Slow motion factor: 2, 4, or 8", "2")
     .option("--fps <number>", "Target output FPS")
     .option("-q, --quality <mode>", "Quality: fast or quality", "quality")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
         if (options.output) {
@@ -121,6 +128,11 @@ export function registerVideoFxCommands(ai: Command): void {
 
         if (![2, 4, 8].includes(factor)) {
           exitWithError(usageError("Factor must be 2, 4, or 8"));
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video-interpolate", params: { video: videoPath, output: options.output, factor: options.factor, fps: options.fps, quality: options.quality } });
+          return;
         }
 
         const outputPath = options.output
@@ -181,6 +193,7 @@ export function registerVideoFxCommands(ai: Command): void {
     .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
     .option("--provider <name>", "Provider: replicate", "replicate")
     .option("--no-wait", "Start processing and return task ID without waiting")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
         if (options.output) {
@@ -189,6 +202,11 @@ export function registerVideoFxCommands(ai: Command): void {
 
         if (!options.target && !options.mask) {
           exitWithError(usageError("Either --target or --mask is required", 'Example: vibe ai video-inpaint video.mp4 --target "watermark"'));
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai video-inpaint", params: { video: videoPath, output: options.output, target: options.target, mask: options.mask, provider: options.provider } });
+          return;
         }
 
         const apiKey = await getApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
@@ -299,6 +317,7 @@ export function registerVideoFxCommands(ai: Command): void {
     .option("-v, --visualize", "Output video with tracking overlay")
     .option("--no-wait", "Start processing without waiting")
     .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
+    .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
         if (options.output) {
@@ -307,6 +326,11 @@ export function registerVideoFxCommands(ai: Command): void {
 
         if (!options.point && !options.box && !options.prompt) {
           exitWithError(usageError("Tracking target required. Use --point, --box, or --prompt"));
+        }
+
+        if (options.dryRun) {
+          outputResult({ dryRun: true, command: "ai track-object", params: { video: videoPath, output: options.output, point: options.point, box: options.box, prompt: options.prompt, visualize: options.visualize } });
+          return;
         }
 
         const apiKey = await getApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);

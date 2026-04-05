@@ -28,7 +28,7 @@ import { getApiKey } from '../utils/api-key.js';
 import { execSafe, execSafeSync, commandExists } from '../utils/exec-safe.js';
 import { detectFormat, formatTranscript } from '../utils/subtitle.js';
 import { formatTime } from './ai-helpers.js';
-import { exitWithError, authError, notFoundError, apiError, usageError, generalError } from './output.js';
+import { exitWithError, authError, notFoundError, apiError, usageError, generalError, outputResult } from './output.js';
 import { validateOutputPath } from "./validate.js";
 
 function _registerAudioCommands(aiCommand: Command): void {
@@ -41,10 +41,16 @@ aiCommand
   .option("-l, --language <lang>", "Language code (e.g., en, ko)")
   .option("-o, --output <path>", "Output file path")
   .option("-f, --format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai transcribe", params: { audio: audioPath, output: options.output, language: options.language, format: options.format } });
+        return;
       }
 
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
@@ -108,10 +114,16 @@ aiCommand
   .option("-o, --output <path>", "Output audio file path", "output.mp3")
   .option("-v, --voice <id>", "Voice ID (default: Rachel)", "21m00Tcm4TlvDq8ikWAM")
   .option("--list-voices", "List available voices")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (text: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai tts", params: { text, output: options.output, voice: options.voice } });
+        return;
       }
 
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
@@ -212,10 +224,16 @@ aiCommand
   .option("-o, --output <path>", "Output audio file path", "sound-effect.mp3")
   .option("-d, --duration <seconds>", "Duration in seconds (0.5-22, default: auto)")
   .option("--prompt-influence <value>", "Prompt influence (0-1, default: 0.3)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai sfx", params: { prompt, output: options.output, duration: options.duration, promptInfluence: options.promptInfluence } });
+        return;
       }
 
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
@@ -255,10 +273,16 @@ aiCommand
   .argument("<audio>", "Input audio file path")
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
   .option("-o, --output <path>", "Output audio file path", "vocals.mp3")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai isolate", params: { audio: audioPath, output: options.output } });
+        return;
       }
 
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
@@ -305,8 +329,14 @@ aiCommand
   .option("--labels <json>", "Labels as JSON (e.g., '{\"accent\": \"american\"}')")
   .option("--remove-noise", "Remove background noise from samples")
   .option("--list", "List all available voices")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (samples: string[], options) => {
     try {
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai voice-clone", params: { samples, name: options.name, description: options.description, removeNoise: options.removeNoise } });
+        return;
+      }
+
       const apiKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
       if (!apiKey) {
         exitWithError(authError("ELEVENLABS_API_KEY", "ElevenLabs"));
@@ -400,10 +430,16 @@ aiCommand
   .option("--model <model>", "Model variant: large, stereo-large, melody-large, stereo-melody-large", "stereo-large")
   .option("-o, --output <path>", "Output audio file path", "music.mp3")
   .option("--no-wait", "Don't wait for generation to complete (async mode)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai music", params: { prompt, output: options.output, duration: options.duration, model: options.model, melody: options.melody } });
+        return;
       }
 
       const apiKey = await getApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
@@ -531,6 +567,7 @@ aiCommand
   .option("--no-denoise", "Disable noise reduction")
   .option("--enhance", "Enable audio enhancement")
   .option("--noise-floor <dB>", "FFmpeg noise floor threshold", "-30")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     try {
       if (options.output) {
@@ -540,6 +577,11 @@ aiCommand
       const absPath = resolve(process.cwd(), audioPath);
       if (!existsSync(absPath)) {
         exitWithError(notFoundError(audioPath));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai audio-restore", params: { audio: audioPath, output: options.output, ffmpeg: options.ffmpeg, denoise: options.denoise, enhance: options.enhance, noiseFloor: options.noiseFloor } });
+        return;
       }
 
       // Default output path
@@ -612,6 +654,7 @@ aiCommand
   .option("-v, --voice <id>", "ElevenLabs voice ID for output")
   .option("--analyze-only", "Only analyze and show timing, don't generate audio")
   .option("-o, --output <path>", "Output file path")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (mediaPath: string, options) => {
     try {
       if (options.output) {
@@ -620,6 +663,11 @@ aiCommand
 
       if (!options.language) {
         exitWithError(usageError("Target language is required. Use -l or --language"));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai dub", params: { media: mediaPath, output: options.output, language: options.language, source: options.source, voice: options.voice, analyzeOnly: options.analyzeOnly } });
+        return;
       }
 
       const absPath = resolve(process.cwd(), mediaPath);
@@ -857,6 +905,7 @@ aiCommand
   .option("-r, --ratio <ratio>", "Compression ratio", "3")
   .option("-a, --attack <ms>", "Attack time in ms", "20")
   .option("-l, --release <ms>", "Release time in ms", "200")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (musicPath: string, options) => {
     try {
       if (options.output) {
@@ -865,6 +914,11 @@ aiCommand
 
       if (!options.voice) {
         exitWithError(usageError("Voice track required. Use --voice <path>"));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai duck", params: { music: musicPath, output: options.output, voice: options.voice, threshold: options.threshold, ratio: options.ratio, attack: options.attack, release: options.release } });
+        return;
       }
 
       // Check FFmpeg availability

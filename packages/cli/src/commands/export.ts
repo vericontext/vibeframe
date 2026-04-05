@@ -6,7 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, notFoundError, usageError } from "./output.js";
+import { exitWithError, generalError, notFoundError, outputResult, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -185,6 +185,7 @@ export const exportCommand = new Command("export")
   )
   .option("-y, --overwrite", "Overwrite output file if exists", false)
   .option("-g, --gap-fill <strategy>", "Gap filling strategy (black, extend)", "extend")
+  .option("--dry-run", "Preview parameters without executing")
   .addHelpText("after", `
 Examples:
   $ vibe export project.vibe.json -o output.mp4
@@ -198,6 +199,22 @@ No API keys needed. Requires FFmpeg.`)
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "export",
+          params: {
+            project: projectPath,
+            output: options.output || null,
+            format: options.format,
+            preset: options.preset,
+            overwrite: options.overwrite,
+            gapFill: options.gapFill,
+          },
+        });
+        return;
       }
 
       // Check if FFmpeg is installed

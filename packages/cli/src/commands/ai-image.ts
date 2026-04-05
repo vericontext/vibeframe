@@ -24,7 +24,7 @@ import {
 } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
 import { execSafe, commandExists } from '../utils/exec-safe.js';
-import { exitWithError, authError, notFoundError, apiError, usageError, generalError } from './output.js';
+import { exitWithError, authError, notFoundError, apiError, usageError, generalError, outputResult } from './output.js';
 import { validateOutputPath } from "./validate.js";
 
 function _registerImageCommands(aiCommand: Command): void {
@@ -42,6 +42,7 @@ aiCommand
   .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
   .option("-n, --count <n>", "Number of images to generate", "1")
   .option("-m, --model <model>", "Gemini model: flash, 3.1-flash, latest (Nano Banana 2), pro (4K)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       if (options.output) {
@@ -52,6 +53,11 @@ aiCommand
       const validProviders = ["openai", "dalle", "gemini", "runway"];
       if (!validProviders.includes(provider)) {
         exitWithError(usageError(`Invalid provider: ${provider}`, "Available providers: openai, gemini, runway"));
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai image", params: { prompt, provider, output: options.output, size: options.size, ratio: options.ratio, quality: options.quality, style: options.style, count: options.count, model: options.model } });
+        return;
       }
 
       // Show deprecation warning for "dalle"
@@ -286,10 +292,16 @@ aiCommand
   .option("--best-frame <video>", "Extract best thumbnail frame from video using Gemini AI")
   .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
   .option("--model <model>", "Gemini model: flash, latest, pro (default: flash)", "flash")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (description: string | undefined, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai thumbnail", params: { description, output: options.output, style: options.style, bestFrame: options.bestFrame, prompt: options.prompt, model: options.model } });
+        return;
       }
 
       // Best-frame mode: analyze video with Gemini and extract frame
@@ -405,10 +417,16 @@ aiCommand
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
   .option("-o, --output <path>", "Output file path (downloads image)")
   .option("-a, --aspect <ratio>", "Aspect ratio: 16:9, 9:16, 1:1", "16:9")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (description: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai background", params: { description, output: options.output, aspect: options.aspect } });
+        return;
       }
 
       const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
@@ -478,10 +496,16 @@ aiCommand
   .option("--grounding", "Enable Google Search grounding (Pro only)")
   .option("--thinking <level>", "Enable thinking mode: minimal or high")
   .option("--image-search", "Enable Image Search grounding (3.1 Flash only)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai gemini", params: { prompt, output: options.output, model: options.model, ratio: options.ratio, size: options.size, grounding: options.grounding, thinking: options.thinking, imageSearch: options.imageSearch } });
+        return;
       }
 
       const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
@@ -554,6 +578,7 @@ aiCommand
   .option("-m, --model <model>", "Model: flash (max 3 images), 3.1-flash / latest (max 3 images), pro (max 14 images)", "flash")
   .option("-r, --ratio <ratio>", "Output aspect ratio")
   .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Pro model only)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (args: string[], options) => {
     try {
       if (options.output) {
@@ -567,6 +592,11 @@ aiCommand
 
       const prompt = args[args.length - 1];
       const imagePaths = args.slice(0, -1);
+
+      if (options.dryRun) {
+        outputResult({ dryRun: true, command: "ai gemini-edit", params: { images: imagePaths, prompt, output: options.output, model: options.model, ratio: options.ratio, size: options.size } });
+        return;
+      }
 
       const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
       if (!apiKey) {

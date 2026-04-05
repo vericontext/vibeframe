@@ -6,7 +6,7 @@ import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
-import { exitWithError, generalError, notFoundError, usageError } from "./output.js";
+import { exitWithError, generalError, notFoundError, outputResult, usageError } from "./output.js";
 
 export const timelineCommand = new Command("timeline")
   .description("Timeline editing commands")
@@ -30,10 +30,26 @@ timelineCommand
   .option("-n, --name <name>", "Source name (defaults to filename)")
   .option("-t, --type <type>", "Media type (video, audio, image)")
   .option("-d, --duration <seconds>", "Duration in seconds (required for images)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, mediaPath: string, options) => {
     const spinner = ora("Adding source...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline add-source",
+          params: {
+            project: projectPath,
+            media: mediaPath,
+            name: options.name || null,
+            type: options.type || null,
+            duration: options.duration || null,
+          },
+        });
+        return;
+      }
+
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
@@ -75,12 +91,29 @@ timelineCommand
   .option("-s, --start <seconds>", "Start time in timeline", "0")
   .option("-d, --duration <seconds>", "Clip duration (defaults to source duration)")
   .option("--offset <seconds>", "Source start offset", "0")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, sourceId: string, options) => {
     const spinner = ora("Adding clip...").start();
 
     try {
       validateResourceId(sourceId);
       if (options.track) validateResourceId(options.track);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline add-clip",
+          params: {
+            project: projectPath,
+            sourceId,
+            track: options.track || null,
+            start: options.start,
+            duration: options.duration || null,
+            offset: options.offset,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -139,10 +172,24 @@ timelineCommand
   .argument("<project>", "Project file path")
   .argument("<type>", "Track type (video, audio)")
   .option("-n, --name <name>", "Track name")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, type: string, options) => {
     const spinner = ora("Adding track...").start();
 
     try {
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline add-track",
+          params: {
+            project: projectPath,
+            type,
+            name: options.name || null,
+          },
+        });
+        return;
+      }
+
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
@@ -183,11 +230,28 @@ timelineCommand
   .option("-s, --start <seconds>", "Effect start time (relative to clip)", "0")
   .option("-d, --duration <seconds>", "Effect duration (defaults to clip duration)")
   .option("-p, --params <json>", "Effect parameters as JSON", "{}")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, effectType: string, options) => {
     const spinner = ora("Adding effect...").start();
 
     try {
       validateResourceId(clipId);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline add-effect",
+          params: {
+            project: projectPath,
+            clipId,
+            effectType,
+            start: options.start,
+            duration: options.duration || null,
+            params: options.params,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -237,11 +301,26 @@ timelineCommand
   .argument("<clip-id>", "Clip ID")
   .option("--start <seconds>", "New start time")
   .option("--duration <seconds>", "New duration")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const spinner = ora("Trimming clip...").start();
 
     try {
       validateResourceId(clipId);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline trim",
+          params: {
+            project: projectPath,
+            clipId,
+            start: options.start || null,
+            duration: options.duration || null,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -354,11 +433,25 @@ timelineCommand
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to split")
   .option("-t, --time <seconds>", "Split time relative to clip start", "0")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const spinner = ora("Splitting clip...").start();
 
     try {
       validateResourceId(clipId);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline split",
+          params: {
+            project: projectPath,
+            clipId,
+            time: options.time,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -403,11 +496,25 @@ timelineCommand
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to duplicate")
   .option("-t, --time <seconds>", "Start time for duplicate (default: after original)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const spinner = ora("Duplicating clip...").start();
 
     try {
       validateResourceId(clipId);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline duplicate",
+          params: {
+            project: projectPath,
+            clipId,
+            time: options.time || null,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -446,11 +553,24 @@ timelineCommand
   .description("Delete a clip from the timeline")
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to delete")
-  .action(async (projectPath: string, clipId: string) => {
+  .option("--dry-run", "Preview parameters without executing")
+  .action(async (projectPath: string, clipId: string, options: { dryRun?: boolean }) => {
     const spinner = ora("Deleting clip...").start();
 
     try {
       validateResourceId(clipId);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline delete",
+          params: {
+            project: projectPath,
+            clipId,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -486,12 +606,27 @@ timelineCommand
   .argument("<clip-id>", "Clip ID to move")
   .option("-t, --time <seconds>", "New start time")
   .option("--track <track-id>", "Move to different track")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const spinner = ora("Moving clip...").start();
 
     try {
       validateResourceId(clipId);
       if (options.track) validateResourceId(options.track);
+
+      if (options.dryRun) {
+        outputResult({
+          dryRun: true,
+          command: "timeline move",
+          params: {
+            project: projectPath,
+            clipId,
+            time: options.time || null,
+            track: options.track || null,
+          },
+        });
+        return;
+      }
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
