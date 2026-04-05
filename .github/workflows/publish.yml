@@ -38,6 +38,16 @@ jobs:
         env:
           CI: true
 
+      # Dry-run both packages first to catch errors before any real publish
+      - name: Validate publish (dry-run)
+        run: |
+          pnpm -F @vibeframe/mcp-server publish --access public --no-git-checks --dry-run
+          pnpm -F @vibeframe/cli publish --access public --no-git-checks --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish both — if one fails, the other may have succeeded.
+      # Re-running the workflow is safe: npm ignores already-published versions.
       - name: Publish @vibeframe/mcp-server
         run: pnpm -F @vibeframe/mcp-server publish --access public --no-git-checks
         env:
