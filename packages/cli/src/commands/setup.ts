@@ -78,26 +78,26 @@ interface AIFeature {
 
 const AI_FEATURES: AIFeature[] = [
   {
-    label: "Generate images",
-    desc: "Gemini, OpenAI, Grok",
+    label: "Images",
+    desc: "generate + edit (Gemini, OpenAI, Grok)",
     keys: [{ configKey: "google", envVar: "GOOGLE_API_KEY", name: "Google" }],
     tryCommand: 'vibe generate image "a sunset over mountains" -o test.png',
   },
   {
-    label: "Generate videos",
-    desc: "Grok, Kling, Runway, Veo",
+    label: "Videos",
+    desc: "generate + extend (Grok, Kling, Runway, Veo)",
     keys: [{ configKey: "xai", envVar: "XAI_API_KEY", name: "xAI" }],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',
   },
   {
-    label: "Text-to-speech & music",
-    desc: "ElevenLabs TTS, SFX, music",
+    label: "Audio",
+    desc: "TTS, SFX, music, voice clone (ElevenLabs)",
     keys: [{ configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs" }],
     tryCommand: 'vibe generate speech "Hello world" -o hello.mp3',
   },
   {
-    label: "AI editing",
-    desc: "captions, color grade, reframe, speed-ramp",
+    label: "Smart editing",
+    desc: "captions, grade, reframe, speed-ramp (Whisper + Claude)",
     keys: [
       { configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI" },
       { configKey: "anthropic", envVar: "ANTHROPIC_API_KEY", name: "Anthropic" },
