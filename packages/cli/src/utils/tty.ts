@@ -161,18 +161,80 @@ export async function promptHidden(question: string): Promise<string> {
  * Prompt for selection from a list (1-based index)
  */
 export async function promptSelect(
-  question: string,
+  _question: string,
   options: string[],
   defaultIndex = 0
 ): Promise<number> {
-  // Display options
+  const input = getTTYInputStream() as ReadStream;
+
+  // Try interactive arrow-key mode if raw mode is available
+  if (typeof input.setRawMode === "function") {
+    return new Promise((resolve) => {
+      let selected = defaultIndex;
+
+      const render = () => {
+        // Move cursor up to overwrite previous render (except first time)
+        if (renderCount > 0) {
+          process.stdout.write(`\x1b[${options.length}A`);
+        }
+        for (let i = 0; i < options.length; i++) {
+          const marker = i === selected ? "\x1b[36m❯\x1b[0m" : " ";
+          const text = i === selected ? `\x1b[1m${options[i]}\x1b[0m` : options[i];
+          process.stdout.write(`\x1b[2K   ${marker} ${text}\n`);
+        }
+        renderCount++;
+      };
+
+      let renderCount = 0;
+      render();
+
+      input.setRawMode(true);
+      input.resume();
+      input.setEncoding("utf8");
+
+      const onData = (char: string) => {
+        if (char === "\r" || char === "\n") {
+          // Enter — confirm selection
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          process.stdout.write("\n");
+          resolve(selected);
+        } else if (char === "\u0003") {
+          // Ctrl+C
+          input.setRawMode(false);
+          process.stdout.write("\n");
+          process.exit(1);
+        } else if (char === "\x1b[A" || char === "k") {
+          // Up arrow or k
+          selected = (selected - 1 + options.length) % options.length;
+          render();
+        } else if (char === "\x1b[B" || char === "j") {
+          // Down arrow or j
+          selected = (selected + 1) % options.length;
+          render();
+        } else if (char >= "1" && char <= String(options.length)) {
+          // Number key — direct select
+          selected = parseInt(char, 10) - 1;
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          render();
+          process.stdout.write("\n");
+          resolve(selected);
+        }
+      };
+
+      input.on("data", onData);
+    });
+  }
+
+  // Fallback: number input for non-TTY
   for (let i = 0; i < options.length; i++) {
     const marker = i === defaultIndex ? "→" : " ";
     console.log(`   ${marker} ${i + 1}. ${options[i]}`);
   }
   console.log();
 
-  const answer = await prompt(question);
+  const answer = await prompt(_question);
   const index = parseInt(answer, 10) - 1;
 
   if (isNaN(index) || index < 0 || index >= options.length) {
