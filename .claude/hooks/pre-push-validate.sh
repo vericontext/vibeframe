@@ -51,12 +51,19 @@ if ! (cd "$PROJECT_DIR" && bash scripts/sync-counts.sh --check > /dev/null 2>&1)
   ERRORS+=("SSOT count mismatch. Run 'bash scripts/sync-counts.sh' for actual values. $SYNC_MSG")
 fi
 
-# 6. Lint check
+# 6. CHANGELOG sync — if version changed since last tag, CHANGELOG must contain it
+if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
+  if ! grep -q "\[$ROOT_VERSION\]" "$PROJECT_DIR/CHANGELOG.md" 2>/dev/null; then
+    ERRORS+=("CHANGELOG.md missing entry for v$ROOT_VERSION. Fix: git-cliff --tag v$ROOT_VERSION -o CHANGELOG.md")
+  fi
+fi
+
+# 7. Lint check
 if ! (cd "$PROJECT_DIR" && pnpm lint > /dev/null 2>&1); then
   ERRORS+=("Lint failed. Fix: pnpm lint")
 fi
 
-# 7. Build check
+# 8. Build check
 if ! (cd "$PROJECT_DIR" && pnpm build > /dev/null 2>&1); then
   ERRORS+=("Build failed. Fix: pnpm build")
 fi
