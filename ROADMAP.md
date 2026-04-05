@@ -35,6 +35,8 @@ Unified interface for AI services.
   - Long-form content analysis & storyboarding (`vibe generate storyboard`)
   - Timeline planning with AI suggestions
 - [x] **xAI Grok** - Agent LLM (`vibe agent -p xai`) + Grok Imagine image/video generation
+- [x] **OpenRouter** - 300+ models via unified API (`vibe agent -p openrouter`)
+  - Access to Claude, GPT, Gemini, Llama, Mistral and more through one API key
 - [x] **Ollama** - Local LLM for natural language commands (no API key required)
   - Default: llama3.2 (2GB), also supports mistral (4GB), phi (1.6GB), tinyllama (0.6GB)
   - Offline-capable natural language timeline control
@@ -173,7 +175,7 @@ Intelligence built into every interaction.
   - Default entry point: `vibe` starts Agent mode
   - Multi-turn agentic loop: LLM reasoning → tool call → result → repeat
   - **57 tools** across 7 categories (project, timeline, filesystem, media, AI, export, batch)
-  - Multi-provider support: OpenAI, Claude, Gemini, xAI, Ollama
+  - Multi-provider support: OpenAI, Claude, Gemini, xAI, OpenRouter, Ollama
   - Verbose mode for tool call visibility (`-v`)
   - Confirm mode: `--confirm` prompts before each tool execution
   - Non-interactive mode: `-i "query"` for single query execution

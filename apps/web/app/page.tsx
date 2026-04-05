@@ -276,7 +276,7 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
                 title="6 LLM Providers"
-                description="OpenAI, Claude, Gemini, xAI Grok, Ollama — swap with -p flag"
+                description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama — swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
               <FeatureItem
@@ -382,8 +382,8 @@ export default function LandingPage() {
             />
             <FeatureCard
               icon={<Layers className="w-6 h-6" />}
-              title="10 AI Providers"
-              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Replicate, xAI Grok, Ollama."
+              title="11 AI Providers"
+              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Replicate, xAI Grok, OpenRouter, Ollama."
               gradient="from-green-500 to-emerald-500"
             />
           </div>
