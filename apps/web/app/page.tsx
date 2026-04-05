@@ -281,7 +281,7 @@ export default function LandingPage() {
               />
               <FeatureItem
                 icon={<Sparkles className="w-5 h-5" />}
-                title="57 Tools"
+                title="58 Tools"
                 description="Project, timeline, AI generation, media, export, batch, filesystem"
                 gradient="from-purple-500 to-pink-500"
               />

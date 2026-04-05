@@ -45,12 +45,18 @@ if [ -n "$STALE" ]; then
   ERRORS+=("Stale model IDs in .claude/skills/. Update to match MODELS.md: $STALE")
 fi
 
-# 5. Lint check
+# 5. SSOT count sync — tool/provider counts in docs must match source
+if ! (cd "$PROJECT_DIR" && bash scripts/sync-counts.sh --check > /dev/null 2>&1); then
+  SYNC_MSG=$(cd "$PROJECT_DIR" && bash scripts/sync-counts.sh --check 2>&1 || true)
+  ERRORS+=("SSOT count mismatch. Run 'bash scripts/sync-counts.sh' for actual values. $SYNC_MSG")
+fi
+
+# 6. Lint check
 if ! (cd "$PROJECT_DIR" && pnpm lint > /dev/null 2>&1); then
   ERRORS+=("Lint failed. Fix: pnpm lint")
 fi
 
-# 6. Build check
+# 7. Build check
 if ! (cd "$PROJECT_DIR" && pnpm build > /dev/null 2>&1); then
   ERRORS+=("Build failed. Fix: pnpm build")
 fi

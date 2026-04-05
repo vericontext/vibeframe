@@ -157,7 +157,7 @@ vibe agent -p xai              # Use xAI Grok
 vibe agent -p ollama           # Use local Ollama
 ```
 
-57 tools across project, timeline, AI generation, media, export, batch, and filesystem. The LLM reasons, calls tools, and executes autonomously.
+58 tools across project, timeline, AI generation, media, export, batch, and filesystem. The LLM reasons, calls tools, and executes autonomously.
 
 ---
 
@@ -181,7 +181,7 @@ vibe agent -p ollama           # Use local Ollama
 ```
 vibeframe/
 ├── packages/
-│   ├── cli/               # CLI + Agent (57 tools, 248+ tests)
+│   ├── cli/               # CLI + Agent (58 tools, 225+ tests)
 │   ├── core/              # Timeline engine (Zustand + Immer + FFmpeg)
 │   ├── ai-providers/      # Pluggable AI providers
 │   ├── mcp-server/        # MCP server (npm: @vibeframe/mcp-server)
@@ -218,7 +218,7 @@ See [ROADMAP.md](ROADMAP.md) for details.
 
 ```bash
 pnpm build     # Build all packages
-pnpm test      # Run tests (248+ passing)
+pnpm test      # Run tests (225+ passing)
 pnpm lint      # Lint code
 ```
 
