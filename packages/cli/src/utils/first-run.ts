@@ -40,13 +40,12 @@ export async function isFirstRun(): Promise<boolean> {
 export function showFirstRunBanner(): void {
   console.log();
   console.log(chalk.cyan.bold("  Welcome to VibeFrame!"));
+  console.log(chalk.dim("  AI-native video editing from your terminal."));
   console.log();
-  console.log(`  Get started:`);
-  console.log(`    ${chalk.green("vibe setup")}        Configure API keys ${chalk.dim("(1 min)")}`);
-  console.log(`    ${chalk.green("vibe doctor")}       Check what's ready`);
-  console.log(`    ${chalk.green("vibe --help")}       See all commands`);
+  console.log(`  ${chalk.white("1.")} ${chalk.green("vibe setup")}         Configure API keys ${chalk.dim("(1 min)")}`);
+  console.log(`  ${chalk.white("2.")} ${chalk.green("vibe doctor")}        Check what's ready`);
+  console.log(`  ${chalk.white("3.")} ${chalk.green("vibe")}               Start editing with natural language`);
   console.log();
-  console.log(chalk.dim("  Tip: some commands work without API keys (silence-cut, fade, noise-reduce)."));
-  console.log(chalk.dim("  Run 'vibe doctor' to see everything available."));
+  console.log(chalk.dim("  No API keys? These work offline: silence-cut, fade, noise-reduce, detect."));
   console.log();
 }

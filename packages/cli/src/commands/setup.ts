@@ -4,9 +4,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolve, dirname } from "node:path";
-import { access, readFile, mkdir, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { access, readFile } from "node:fs/promises";
 import { parse as parseDotenv } from "dotenv";
 import {
   loadConfig,
@@ -268,120 +267,23 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 }
 
 /**
- * Set up Claude Code integration in current directory
+ * Show Claude Code integration instructions
  */
 async function setupClaudeCode(): Promise<void> {
-  const targetDir = resolve(process.cwd(), ".claude", "rules");
-  const targetFile = resolve(targetDir, "cli-reference.md");
-
-  // Check if already exists
-  let isUpdate = false;
-  try {
-    await access(targetFile);
-    isUpdate = true;
-  } catch {
-    // doesn't exist yet, fresh install
-  }
-
-  // Read the bundled CLI reference from the package
-  // In built dist: packages/cli/dist/commands/setup.js
-  // Source reference: .claude/rules/cli-reference.md (relative to repo root)
-  // We'll embed it directly since the file ships with the npm package
-
-  const cliReference = await getCliReference();
-
-  await mkdir(targetDir, { recursive: true });
-  await writeFile(targetFile, cliReference, "utf-8");
-
   console.log();
-  console.log(chalk.green(`✓ Claude Code integration ${isUpdate ? "updated" : "set up"}!`));
+  console.log(chalk.bold.cyan("Claude Code Integration"));
+  console.log(chalk.dim("─".repeat(40)));
   console.log();
-  console.log(chalk.dim(`  ${isUpdate ? "Updated" : "Created"}: ${targetFile}`));
+  console.log("  VibeFrame CLI is self-discoverable — no extra setup needed.");
+  console.log("  Claude Code can use these commands to understand the CLI:");
   console.log();
-  console.log("  Claude Code now knows all VibeFrame commands.");
-  console.log("  It will use " + chalk.cyan("vibe") + " commands directly without running --help.");
+  console.log(`  ${chalk.green("vibe --help")}                  All command groups`);
+  console.log(`  ${chalk.green("vibe schema --list --json")}    Full command catalog`);
+  console.log(`  ${chalk.green("vibe schema generate.video")}   JSON Schema for any command`);
+  console.log(`  ${chalk.green("vibe doctor --json")}           Available providers`);
   console.log();
-}
-
-/**
- * Get CLI reference content (embedded)
- */
-async function getCliReference(): Promise<string> {
-  // Try to read from the repo's .claude/rules/ first (dev mode)
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  // Walk up to find the repo root or package root
-  const possiblePaths = [
-    // Dev mode: repo root
-    resolve(__dirname, "..", "..", "..", "..", ".claude", "rules", "cli-reference.md"),
-    // Built CLI (dist/commands/setup.js): packages/cli/.claude/rules/cli-reference.md
-    resolve(__dirname, "..", "..", ".claude", "rules", "cli-reference.md"),
-    // Installed via curl (~/.vibeframe/): .claude/rules/cli-reference.md
-    resolve(__dirname, "..", "..", "..", "..", ".claude", "rules", "cli-reference.md"),
-  ];
-
-  for (const p of possiblePaths) {
-    try {
-      return await readFile(p, "utf-8");
-    } catch {
-      // try next
-    }
-  }
-
-  // Fallback: generate a minimal reference
-  return generateMinimalReference();
-}
-
-/**
- * Generate minimal CLI reference if bundled file not found
- */
-function generateMinimalReference(): string {
-  return `# VibeFrame CLI Reference
-
-> Use these commands directly — no need to run \`--help\` first.
-
-## Quick Reference
-
-\`\`\`bash
-# Image
-vibe ai image "<prompt>" -o out.png
-vibe ai gemini-edit <image> "<instruction>" -o out.png
-
-# Video
-vibe ai video "<prompt>" -o out.mp4 -d 5
-vibe ai kling "<prompt>" -o out.mp4 -d 5
-
-# Audio
-vibe ai tts "<text>" -o out.mp3
-vibe ai transcribe <audio> -o out.srt
-
-# Editing
-vibe ai silence-cut <video> -o out.mp4
-vibe ai caption <video> -o out.mp4 -s bold
-vibe ai noise-reduce <input> -o out.mp4
-vibe ai fade <video> -o out.mp4 --fade-in 1 --fade-out 1
-vibe ai grade <video> -o out.mp4 -p cinematic-warm
-vibe ai jump-cut <video> -o out.mp4
-
-# Analysis
-vibe ai analyze <source> "<prompt>"
-vibe ai gemini-video <video> "<prompt>"
-
-# Pipeline
-vibe ai script-to-video "<script>" -o output-dir/ -g runway
-vibe ai highlights <video> -d 60
-vibe ai auto-shorts <video> -o shorts/ -n 3
-
-# Project
-vibe project create <name> -o project.vibe.json
-vibe timeline add-source <project> <media>
-vibe timeline add-clip <project> <source-id>
-vibe export <project> -o output.mp4 -y
-\`\`\`
-
-Run \`vibe ai --help\` for full command list with all options.
-`;
+  console.log(chalk.dim("  Global flags: --json, --dry-run, --stdin, --fields"));
+  console.log();
 }
 
 /**
