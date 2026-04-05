@@ -26,6 +26,10 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "import": "./src/index.ts",
@@ -73,7 +77,8 @@
     "dev": "tsc --watch",
     "start": "tsx src/index.ts",
     "lint": "eslint --ext .ts,.tsx src/",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "tsc"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
