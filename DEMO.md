@@ -1,187 +1,189 @@
-# VibeFrame CLI Demo
+# VibeFrame Demo
 
-Step-by-step demonstration matching the setup wizard use-cases.
+From install to "wow" in 5 minutes.
 
-## Prerequisites
+---
+
+## 0. Install + Setup (30 sec)
 
 ```bash
-# Install VibeFrame
+# One-line install
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
-# Create test media (5s color bars with tone)
-mkdir -p demo
-ffmpeg -y -f lavfi -i "testsrc2=duration=5:size=1280x720:rate=30" \
-  -f lavfi -i "sine=frequency=440:duration=5" \
-  -c:v libx264 -c:a aac -shortest demo/input.mp4
+# Setup wizard — pick what you need
+vibe setup
 
-# Silent + speech simulation (3s silence + 2s tone + 3s silence)
-ffmpeg -y -f lavfi -i "anullsrc=r=44100:cl=mono" -t 3 \
-  -f lavfi -i "sine=frequency=440:duration=2" \
-  -f lavfi -i "anullsrc=r=44100:cl=mono" -t 3 \
-  -filter_complex "[0][1][2]concat=n=3:v=0:a=1" \
-  -c:a aac demo/silence-test.mp4
+#   1. Edit videos offline (FREE)
+#   2. AI features (images, videos, audio, editing)
+#   3. Full AI pipeline
+#   4. Custom setup
+
+# Verify
+vibe doctor
 ```
 
 ---
 
-## 1. Discovery (no API keys needed)
+## 1. Edit Right Now (no API keys)
 
-An AI agent can fully discover the CLI without any documentation.
+Grab any video you have. No setup, no API keys, no waiting.
 
 ```bash
-# Top-level help
-vibe --help
+# Remove dead air from an interview
+vibe edit silence-cut interview.mp4 -o clean.mp4
 
-# All 107 commands as JSON
-vibe schema --list --json
+# Add fade in/out
+vibe edit fade clean.mp4 -o faded.mp4 --fade-in 1 --fade-out 1
 
-# JSON Schema for any command (types, enums, defaults, required)
-vibe schema generate.video --json
-vibe schema edit.caption --json
+# Remove background noise
+vibe edit noise-reduce noisy-recording.mp4 -o clean.mp4 -s high
 
-# System health — shows which providers are configured
-vibe doctor --json
+# Burn a title into the video
+vibe edit text-overlay faded.mp4 -t "My First Edit" -s center-bold -o titled.mp4
 
-# Command group help with examples
-vibe generate --help
-vibe edit --help
-vibe pipeline --help
+# Detect scene changes
+vibe detect scenes video.mp4 --json
+
+# Detect silent gaps
+vibe detect silence video.mp4 --json
 ```
 
 ---
 
-## 2. Edit Videos (FREE — no API keys)
+## 2. One Key, Big Impact
+
+Each section needs just one API key. Set up only what you use.
+
+### Images (GOOGLE_API_KEY)
 
 ```bash
-# Remove silence
-vibe edit silence-cut demo/silence-test.mp4 -o demo/no-silence.mp4
+# Generate an image
+vibe generate image "a cozy coffee shop in the rain, cinematic lighting" -o coffee.png
 
-# Fade in/out
-vibe edit fade demo/input.mp4 -o demo/faded.mp4 --fade-in 1 --fade-out 1
+# Edit it
+vibe edit image coffee.png "add steam rising from a cup" -o coffee-steam.png
 
-# Noise reduction
-vibe edit noise-reduce demo/input.mp4 -o demo/clean.mp4 -s medium
-
-# Text overlay
-vibe edit text-overlay demo/input.mp4 -t "VibeFrame Demo" -s center-bold -o demo/titled.mp4
-
-# Scene & silence detection
-vibe detect scenes demo/input.mp4 --json
-vibe detect silence demo/silence-test.mp4 --json
+# Turn it into a video
+vibe generate video "camera slowly pushes into the coffee shop" -i coffee-steam.png -o coffee.mp4
 ```
 
----
-
-## 3. Generate Images (requires GOOGLE_API_KEY)
+### Videos (XAI_API_KEY)
 
 ```bash
-# Default: Gemini Nano Banana
-vibe generate image "a sunset over mountains, cinematic" -o demo/sunset.png
-
-# OpenAI GPT Image
-vibe generate image "a cute robot waving" -p openai -o demo/robot.png
-
-# Grok Imagine
-vibe generate image "neon city at night" -p grok -o demo/city.png
-
-# Edit existing image
-vibe edit image demo/sunset.png "add a bird flying in the sky" -o demo/sunset-bird.png
-```
-
----
-
-## 4. Generate Videos (requires XAI_API_KEY)
-
-```bash
-# Default: Grok Imagine Video (with native audio)
-vibe generate video "ocean waves crashing on rocks" -o demo/waves.mp4 -d 5
-
-# Preview without executing
-vibe generate video "timelapse of a blooming flower" --dry-run --json
+# Text-to-video with native audio
+vibe generate video "ocean waves crashing on rocks at golden hour" -o waves.mp4 -d 5
 
 # Image-to-video
-vibe generate video "the sunset comes alive" -i demo/sunset.png -o demo/sunset-alive.mp4
-
-# Other providers
-vibe generate video "aerial city view" -p kling -o demo/city.mp4
-vibe generate video "epic landscape" -p runway -o demo/landscape.mp4
-vibe generate video "underwater scene" -p veo -o demo/underwater.mp4
+vibe generate video "the city wakes up at dawn" -i skyline.png -o dawn.mp4
 ```
 
----
-
-## 5. Text-to-Speech & Music (requires ELEVENLABS_API_KEY)
+### Audio (ELEVENLABS_API_KEY)
 
 ```bash
-# Text-to-speech
-vibe generate speech "Welcome to VibeFrame, the AI-native video editor." -o demo/welcome.mp3
+# Narration
+vibe generate speech "Every great story starts with a single frame." -o narration.mp3
 
 # Sound effects
-vibe generate sound-effect "thunderstorm with rain" -o demo/thunder.mp3 -d 5
+vibe generate sound-effect "gentle rain on a window" -o rain.mp3 -d 10
 
-# Music generation
-vibe generate music "upbeat electronic background music" -o demo/bgm.mp3 -d 30
+# Background music
+vibe generate music "lo-fi chill beat, relaxing" -o bgm.mp3 -d 30
+```
+
+### AI Editing (OPENAI_API_KEY + ANTHROPIC_API_KEY)
+
+```bash
+# Auto-transcribe and burn captions
+vibe edit caption video.mp4 -o captioned.mp4 -s bold
+
+# Cinematic color grade
+vibe edit grade video.mp4 -o graded.mp4 --preset cinematic-warm
+
+# Smart reframe: landscape → vertical
+vibe edit reframe video.mp4 -o vertical.mp4 -a 9:16
+
+# Motion graphics overlay
+vibe generate motion "minimal lower-third with the text 'VibeFrame Demo'" \
+  --render --video video.mp4 -o with-graphics.mp4
 ```
 
 ---
 
-## 6. Full AI Pipeline (requires 3-4 keys)
+## 3. Compose: Chain Commands
+
+Build a complete video by chaining CLI commands. This is exactly what Claude Code or Codex would do.
 
 ```bash
-# Script-to-video: script → storyboard → images → video → TTS → assembly
-vibe pipeline script-to-video \
-  "A morning routine of a startup founder. Scene 1: Alarm rings at 5am. Scene 2: Coffee and code review. Scene 3: Team standup meeting." \
-  -o demo/startup/ -a 9:16 -d 60
+# 1. Generate a hero image
+vibe generate image "a startup founder coding at sunrise" -o hero.png
 
-# Extract highlights from long video
-vibe pipeline highlights demo/input.mp4 -d 30 --json
+# 2. Bring it to life as video
+vibe generate video "the founder types code, sun rises through the window" \
+  -i hero.png -o hero.mp4 -d 5
+
+# 3. Add narration
+vibe generate speech "Building the future, one line at a time." -o voice.mp3
+
+# 4. Add background music
+vibe generate music "inspiring ambient, minimal" -o bgm.mp3 -d 10
+
+# 5. Assemble into a project
+vibe project create "Startup Intro" -o project.vibe.json
+vibe timeline add-source project.vibe.json hero.mp4
+vibe timeline add-source project.vibe.json voice.mp3
+vibe timeline add-source project.vibe.json bgm.mp3
+
+# 6. Export
+vibe export project.vibe.json -o startup-intro.mp4 -y
+```
+
+---
+
+## 4. Full Pipeline: Script to Video
+
+One command. Complete video. This is the "wow" moment.
+
+```bash
+vibe pipeline script-to-video \
+  "Scene 1: A developer wakes up at 5am, alarm buzzing.
+   Scene 2: Coffee brewing while reviewing pull requests on a laptop.
+   Scene 3: Team standup — everyone shares progress on the product launch." \
+  -o ./startup-video/ -a 9:16 -d 60
+
+# Review what was generated
+ls ./startup-video/
+
+# Regenerate a specific scene if needed
+vibe pipeline regenerate-scene ./startup-video/ --scene 2
+
+# Extract highlights from any long video
+vibe pipeline highlights long-interview.mp4 -d 60
 
 # Auto-generate vertical shorts
-vibe pipeline auto-shorts demo/input.mp4 -o demo/shorts/ -n 2 -d 30
+vibe pipeline auto-shorts podcast.mp4 -o ./shorts/ -n 3 -d 30
 ```
 
 ---
 
-## 7. Project Workflow
+## 5. For AI Agents
+
+The CLI is fully self-discoverable. No docs needed.
 
 ```bash
-# Create project
-vibe project create "My Demo" -o demo/project.vibe.json
+# Discover all commands
+vibe schema --list --json
 
-# Add sources
-vibe timeline add-source demo/project.vibe.json demo/input.mp4
-# → returns source-id
+# Get JSON Schema for any command
+vibe schema generate.video --json
 
-# Add clip (use source-id from above)
-vibe timeline add-clip demo/project.vibe.json <source-id>
+# Preview before executing
+vibe generate video "test" --dry-run --json
 
-# View timeline
-vibe timeline list demo/project.vibe.json
+# Pipe options as JSON
+echo '{"provider":"kling","duration":5}' | vibe generate video "sunset" --stdin --json
 
-# Export
-vibe export demo/project.vibe.json -o demo/final.mp4 -y
-```
-
----
-
-## 8. Agent & Agentic Features
-
-```bash
-# Interactive natural language session
-vibe
-# > "remove silence from demo/input.mp4 and add captions"
-
-# Non-interactive single query
-vibe agent -i "what commands can edit video?" -p openai
-
-# Stdin JSON input (for agent/script integration)
-echo '{"provider":"kling","duration":5,"ratio":"9:16"}' | \
-  vibe generate video "a cat on a rooftop" --stdin --dry-run --json
-
-# Output modes
-vibe doctor --json                                    # JSON output
-vibe doctor --json --fields "readyCount,totalCount"   # Field filtering
-vibe detect silence demo/silence-test.mp4 --quiet     # Value only
+# Check available providers
+vibe doctor --json
 ```
 
 ---
@@ -189,5 +191,8 @@ vibe detect silence demo/silence-test.mp4 --quiet     # Value only
 ## Cleanup
 
 ```bash
-rm -rf demo/
+rm -f coffee.png coffee-steam.png coffee.mp4 waves.mp4 dawn.mp4
+rm -f narration.mp3 rain.mp3 bgm.mp3 voice.mp3 hero.png hero.mp4
+rm -f project.vibe.json startup-intro.mp4
+rm -rf ./startup-video/ ./shorts/
 ```
