@@ -188,6 +188,62 @@ vibe doctor --json
 
 ---
 
+## 6. AI Agent Integration
+
+The CLI is designed for any AI coding agent — Claude Code, Codex, OpenCode, Cursor, etc. Open your agent of choice in a project directory and give it natural language instructions.
+
+### Claude Code
+
+```bash
+# Open Claude Code in your project
+claude
+
+# Then just describe what you want:
+```
+
+Example prompts to try:
+
+```
+"Remove silence from interview.mp4 and add captions"
+
+"Generate a 9:16 TikTok video about morning coffee routine
+ with narration and background music"
+
+"Take product-photo.png, edit it to add a gradient background,
+ then create a 5-second video with zoom effect"
+
+"Detect scenes in long-video.mp4, extract the 3 best moments
+ as 30-second highlights, and add animated captions"
+
+"Create a project, add all mp4 files from ./footage/,
+ trim each to 10 seconds, and export as a montage"
+```
+
+The agent will discover commands via `vibe --help` and `vibe schema`, use `--dry-run` to preview, and execute with `--json` for structured output.
+
+### Any Agent (Codex, OpenCode, etc.)
+
+The same works with any AI agent that can run shell commands:
+
+```bash
+# The agent discovers the CLI
+vibe --help
+vibe schema --list --json
+vibe doctor --json
+
+# Then executes commands with structured I/O
+vibe generate image "prompt" -o out.png --json
+vibe edit silence-cut video.mp4 -o clean.mp4 --json
+
+# Complex options via stdin
+echo '{"provider":"kling","duration":5,"ratio":"9:16"}' | \
+  vibe generate video "sunset" --stdin --json
+```
+
+No CLAUDE.md, no special configuration. The CLI is the interface.
+
+---
+
 ## Cleanup
 
 ```bash
