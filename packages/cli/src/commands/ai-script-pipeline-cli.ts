@@ -159,19 +159,22 @@ aiCommand
 
       let videoApiKey: string | undefined;
       if (!options.imagesOnly) {
-        if (options.generator === "kling") {
-          const key = await getApiKey("KLING_API_KEY", "Kling");
-          if (!key) {
-            exitWithError(authError("KLING_API_KEY", "Kling"));
-          }
-          videoApiKey = key;
-        } else {
-          const key = await getApiKey("RUNWAY_API_SECRET", "Runway");
-          if (!key) {
-            exitWithError(authError("RUNWAY_API_SECRET", "Runway"));
-          }
-          videoApiKey = key;
+        const generatorKeyMap: Record<string, { envVar: string; name: string }> = {
+          grok: { envVar: "XAI_API_KEY", name: "xAI" },
+          kling: { envVar: "KLING_API_KEY", name: "Kling" },
+          runway: { envVar: "RUNWAY_API_SECRET", name: "Runway" },
+          veo: { envVar: "GOOGLE_API_KEY", name: "Google" },
+        };
+        const generator = options.generator || "grok";
+        const genInfo = generatorKeyMap[generator];
+        if (!genInfo) {
+          exitWithError(usageError(`Invalid generator: ${generator}`, `Available: ${Object.keys(generatorKeyMap).join(", ")}`));
         }
+        const key = await getApiKey(genInfo.envVar, genInfo.name);
+        if (!key) {
+          exitWithError(authError(genInfo.envVar, genInfo.name));
+        }
+        videoApiKey = key;
       }
 
       // Read script content
@@ -1277,19 +1280,22 @@ aiCommand
       }
 
       if (regenerateVideo) {
-        if (options.generator === "kling") {
-          const key = await getApiKey("KLING_API_KEY", "Kling");
-          if (!key) {
-            exitWithError(authError("KLING_API_KEY", "Kling"));
-          }
-          videoApiKey = key;
-        } else {
-          const key = await getApiKey("RUNWAY_API_SECRET", "Runway");
-          if (!key) {
-            exitWithError(authError("RUNWAY_API_SECRET", "Runway"));
-          }
-          videoApiKey = key;
+        const generatorKeyMap: Record<string, { envVar: string; name: string }> = {
+          grok: { envVar: "XAI_API_KEY", name: "xAI" },
+          kling: { envVar: "KLING_API_KEY", name: "Kling" },
+          runway: { envVar: "RUNWAY_API_SECRET", name: "Runway" },
+          veo: { envVar: "GOOGLE_API_KEY", name: "Google" },
+        };
+        const generator = options.generator || "grok";
+        const genInfo = generatorKeyMap[generator];
+        if (!genInfo) {
+          exitWithError(usageError(`Invalid generator: ${generator}`, `Available: ${Object.keys(generatorKeyMap).join(", ")}`));
         }
+        const key = await getApiKey(genInfo.envVar, genInfo.name);
+        if (!key) {
+          exitWithError(authError(genInfo.envVar, genInfo.name));
+        }
+        videoApiKey = key;
       }
 
       if (regenerateNarration) {

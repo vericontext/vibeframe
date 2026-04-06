@@ -1319,16 +1319,20 @@ export async function executeRegenerateScene(
     // Get API keys
     let videoApiKey: string | undefined;
     if (regenerateVideo) {
-      if (options.generator === "kling" || !options.generator) {
-        videoApiKey = (await getApiKey("KLING_API_KEY", "Kling")) ?? undefined;
-        if (!videoApiKey) {
-          return { ...result, error: "Kling API key required. Run 'vibe setup' or set KLING_API_KEY in .env" };
-        }
-      } else {
-        videoApiKey = (await getApiKey("RUNWAY_API_SECRET", "Runway")) ?? undefined;
-        if (!videoApiKey) {
-          return { ...result, error: "Runway API key required. Run 'vibe setup' or set RUNWAY_API_SECRET in .env" };
-        }
+      const generatorKeyMap: Record<string, { envVar: string; name: string }> = {
+        grok: { envVar: "XAI_API_KEY", name: "xAI (Grok)" },
+        kling: { envVar: "KLING_API_KEY", name: "Kling" },
+        runway: { envVar: "RUNWAY_API_SECRET", name: "Runway" },
+        veo: { envVar: "GOOGLE_API_KEY", name: "Google (Veo)" },
+      };
+      const generator = options.generator || "grok";
+      const genInfo = generatorKeyMap[generator];
+      if (!genInfo) {
+        return { ...result, error: `Invalid generator: ${generator}. Available: ${Object.keys(generatorKeyMap).join(", ")}` };
+      }
+      videoApiKey = (await getApiKey(genInfo.envVar, genInfo.name)) ?? undefined;
+      if (!videoApiKey) {
+        return { ...result, error: `${genInfo.name} API key required. Run 'vibe setup' or set ${genInfo.envVar} in .env` };
       }
     }
 
