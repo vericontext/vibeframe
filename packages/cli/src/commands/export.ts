@@ -133,14 +133,20 @@ export async function runExport(
     const clips = project.getClips().sort((a, b) => a.startTime - b.startTime);
     const sources = project.getSources();
 
-    // Verify source files exist and check for audio streams
+    // Verify source files exist, check audio streams, and measure actual durations
     const sourceAudioMap = new Map<string, boolean>();
+    const sourceActualDurationMap = new Map<string, number>();
     for (const clip of clips) {
       const source = sources.find((s) => s.id === clip.sourceId);
       if (source) {
         try {
           await access(source.url);
-          // Check if video source has audio
+          if (!sourceActualDurationMap.has(source.id)) {
+            try {
+              const dur = await getMediaDuration(source.url, source.type as "video" | "audio" | "image");
+              if (dur > 0) sourceActualDurationMap.set(source.id, dur);
+            } catch { /* fall back to metadata */ }
+          }
           if (source.type === "video" && !sourceAudioMap.has(source.id)) {
             sourceAudioMap.set(source.id, await checkHasAudio(source.url));
           }
@@ -154,7 +160,7 @@ export async function runExport(
     }
 
     // Build FFmpeg command
-    const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, finalOutputPath, { overwrite, format, gapFill }, sourceAudioMap);
+    const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, finalOutputPath, { overwrite, format, gapFill }, sourceAudioMap, sourceActualDurationMap);
 
     // Run FFmpeg
     await runFFmpegProcess(ffmpegPath, ffmpegArgs, () => {});
@@ -253,15 +259,21 @@ No API keys needed. Requires FFmpeg.`)
       const clips = project.getClips().sort((a, b) => a.startTime - b.startTime);
       const sources = project.getSources();
 
-      // Verify source files exist and check for audio streams
+      // Verify source files exist, check audio streams, and measure actual durations
       spinner.text = "Verifying source files...";
       const sourceAudioMap = new Map<string, boolean>();
+      const sourceActualDurationMap = new Map<string, number>();
       for (const clip of clips) {
         const source = sources.find((s) => s.id === clip.sourceId);
         if (source) {
           try {
             await access(source.url);
-            // Check if video source has audio
+            if (!sourceActualDurationMap.has(source.id)) {
+              try {
+                const dur = await getMediaDuration(source.url, source.type as "video" | "audio" | "image");
+                if (dur > 0) sourceActualDurationMap.set(source.id, dur);
+              } catch { /* fall back to metadata */ }
+            }
             if (source.type === "video" && !sourceAudioMap.has(source.id)) {
               sourceAudioMap.set(source.id, await checkHasAudio(source.url));
             }
@@ -275,7 +287,7 @@ No API keys needed. Requires FFmpeg.`)
       // Build FFmpeg command
       spinner.text = "Building export command...";
       const gapFillStrategy = (options.gapFill === "black" ? "black" : "extend") as GapFillStrategy;
-      const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, outputPath, { ...options, gapFill: gapFillStrategy }, sourceAudioMap);
+      const ffmpegArgs = buildFFmpegArgs(clips, sources, presetSettings, outputPath, { ...options, gapFill: gapFillStrategy }, sourceAudioMap, sourceActualDurationMap);
 
       if (process.env.DEBUG) {
         console.log("\nFFmpeg command:");
@@ -484,7 +496,8 @@ function buildFFmpegArgs(
   presetSettings: PresetSettings,
   outputPath: string,
   options: { overwrite?: boolean; format?: string; gapFill?: GapFillStrategy },
-  sourceAudioMap: Map<string, boolean> = new Map()
+  sourceAudioMap: Map<string, boolean> = new Map(),
+  sourceActualDurationMap: Map<string, number> = new Map()
 ): string[] {
   const args: string[] = [];
 
@@ -629,7 +642,8 @@ function buildFFmpegArgs(
 
         // If video source is shorter than clip duration, freeze last frame to fill
         // This prevents black frames when narration is longer than generated video
-        const sourceDuration = source.duration || 0;
+        // Use actual measured duration (ffprobe) over project metadata (may be stale)
+        const sourceDuration = sourceActualDurationMap.get(source.id) || source.duration || 0;
         const availableDuration = sourceDuration - clip.sourceStartOffset;
         if (availableDuration > 0 && availableDuration < clip.duration - 0.1) {
           const padDuration = clip.duration - availableDuration;
