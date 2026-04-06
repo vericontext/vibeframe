@@ -670,94 +670,132 @@ function buildFFmpegArgs(
     }
   }
 
-  // Detect gaps in audio timeline (use same totalDuration for consistency)
-  const audioGaps = detectTimelineGaps(audioClips, totalDuration);
+  // ── Multi-track audio processing ────────────────────────────────────
+  // Group audio clips by trackId, build each track as a separate stream,
+  // then mix all tracks together with amix.
 
-  // Build ordered list of audio segments
-  interface AudioSegment {
-    type: 'clip' | 'gap';
-    clip?: typeof audioClips[0];
-    gap?: { start: number; end: number };
-    startTime: number;
-  }
-  const audioSegments: AudioSegment[] = [];
-
-  // Add audio clips as segments
+  // Step 1: Group audio clips by track
+  const audioTrackMap = new Map<string, typeof audioClips>();
   for (const clip of audioClips) {
-    audioSegments.push({ type: 'clip', clip, startTime: clip.startTime });
+    const trackId = clip.trackId || "audio-track-1";
+    if (!audioTrackMap.has(trackId)) {
+      audioTrackMap.set(trackId, []);
+    }
+    audioTrackMap.get(trackId)!.push(clip);
   }
 
-  // Add gaps as segments
-  for (const gap of audioGaps) {
-    audioSegments.push({ type: 'gap', gap, startTime: gap.start });
-  }
+  // Compute total timeline duration for gap detection
+  const videoDuration = videoClips.length > 0
+    ? Math.max(...videoClips.map(c => c.startTime + c.duration))
+    : 0;
+  const audioDuration = audioClips.length > 0
+    ? Math.max(...audioClips.map(c => c.startTime + c.duration))
+    : 0;
+  const timelineDuration = totalDuration || Math.max(videoDuration, audioDuration);
 
-  // Sort by start time
-  audioSegments.sort((a, b) => a.startTime - b.startTime);
-
-  // Process audio segments (clips and gaps)
-  const audioStreams: string[] = [];
+  // Step 2: Build each track as a concat stream
+  const trackOutputLabels: string[] = [];
   let audioStreamIdx = 0;
 
-  for (const segment of audioSegments) {
-    if (segment.type === 'clip' && segment.clip) {
-      const clip = segment.clip;
-      const source = sources.find((s) => s.id === clip.sourceId);
-      if (!source) continue;
+  for (const [, trackClips] of audioTrackMap) {
+    const sorted = [...trackClips].sort((a, b) => a.startTime - b.startTime);
+    const trackGaps = detectTimelineGaps(sorted, timelineDuration);
 
-      const srcIdx = sourceMap.get(source.id);
-      if (srcIdx === undefined) continue;
+    // Build segments for this track (clips + gaps, sorted by time)
+    interface AudioSegment {
+      type: 'clip' | 'gap';
+      clip?: typeof audioClips[0];
+      gap?: { start: number; end: number };
+      startTime: number;
+    }
+    const segments: AudioSegment[] = [];
+    for (const clip of sorted) {
+      segments.push({ type: 'clip', clip, startTime: clip.startTime });
+    }
+    for (const gap of trackGaps) {
+      segments.push({ type: 'gap', gap, startTime: gap.start });
+    }
+    segments.sort((a, b) => a.startTime - b.startTime);
 
-      // Check if source has audio (audio sources always have audio, video sources need to be checked)
-      const hasAudio = source.type === "audio" || sourceAudioMap.get(source.id) === true;
+    // Process segments into filter chains
+    const segmentLabels: string[] = [];
 
-      let audioFilter: string;
-      if (hasAudio) {
-        const audioTrimStart = clip.sourceStartOffset;
-        const audioTrimEnd = clip.sourceStartOffset + clip.duration;
-        const sourceDuration = source.duration || 0;
-        const clipDuration = clip.duration;
+    for (const segment of segments) {
+      if (segment.type === 'clip' && segment.clip) {
+        const clip = segment.clip;
+        const source = sources.find((s) => s.id === clip.sourceId);
+        if (!source) continue;
 
-        if (source.type === "audio" && sourceDuration > clipDuration && audioTrimStart === 0) {
-          // Audio source is longer than clip slot — speed up to fit instead of truncating
-          const tempo = sourceDuration / clipDuration;
-          if (tempo <= 2.0) {
-            // atempo sounds natural up to ~1.3x, acceptable up to 2x
-            audioFilter = `[${srcIdx}:a]atempo=${tempo.toFixed(4)},asetpts=PTS-STARTPTS`;
+        const srcIdx = sourceMap.get(source.id);
+        if (srcIdx === undefined) continue;
+
+        const hasAudio = source.type === "audio" || sourceAudioMap.get(source.id) === true;
+
+        let audioFilter: string;
+        if (hasAudio) {
+          const audioTrimStart = clip.sourceStartOffset;
+          const audioTrimEnd = clip.sourceStartOffset + clip.duration;
+          const sourceDuration = source.duration || 0;
+          const clipDuration = clip.duration;
+
+          if (source.type === "audio" && sourceDuration > clipDuration && audioTrimStart === 0) {
+            const tempo = sourceDuration / clipDuration;
+            if (tempo <= 2.0) {
+              audioFilter = `[${srcIdx}:a]atempo=${tempo.toFixed(4)},asetpts=PTS-STARTPTS`;
+            } else {
+              audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+            }
           } else {
-            // Too fast would sound bad — fall back to trim
             audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
           }
         } else {
-          // Normal trim for video-embedded audio, audio that fits, or offset clips
-          audioFilter = `[${srcIdx}:a]atrim=start=${audioTrimStart}:end=${audioTrimEnd},asetpts=PTS-STARTPTS`;
+          audioFilter = `anullsrc=r=48000:cl=stereo,atrim=0:${clip.duration},asetpts=PTS-STARTPTS`;
         }
-      } else {
-        // Source has no audio - generate silence for the clip duration
-        audioFilter = `anullsrc=r=48000:cl=stereo,atrim=0:${clip.duration},asetpts=PTS-STARTPTS`;
-      }
 
-      // Apply audio effects
-      for (const effect of clip.effects || []) {
-        if (effect.type === "fadeIn") {
-          audioFilter += `,afade=t=in:st=0:d=${effect.duration}`;
-        } else if (effect.type === "fadeOut") {
-          const fadeStart = clip.duration - effect.duration;
-          audioFilter += `,afade=t=out:st=${fadeStart}:d=${effect.duration}`;
+        // Apply per-clip volume (0.0-1.0)
+        const clipVolume = (clip as unknown as Record<string, unknown>).volume as number | undefined;
+        if (clipVolume !== undefined && clipVolume !== 1.0) {
+          audioFilter += `,volume=${clipVolume.toFixed(2)}`;
+        }
+
+        // Apply audio effects (fade, volume effect)
+        for (const effect of clip.effects || []) {
+          if (effect.type === "fadeIn") {
+            audioFilter += `,afade=t=in:st=0:d=${effect.duration}`;
+          } else if (effect.type === "fadeOut") {
+            const fadeStart = clip.duration - effect.duration;
+            audioFilter += `,afade=t=out:st=${fadeStart}:d=${effect.duration}`;
+          } else if (effect.type === "volume" && effect.params?.level !== undefined) {
+            audioFilter += `,volume=${effect.params.level}`;
+          }
+        }
+
+        const label = `a${audioStreamIdx}`;
+        audioFilter += `[${label}]`;
+        filterParts.push(audioFilter);
+        segmentLabels.push(`[${label}]`);
+        audioStreamIdx++;
+      } else if (segment.type === 'gap' && segment.gap) {
+        const gapDuration = segment.gap.end - segment.gap.start;
+        if (gapDuration > 0.001) {
+          const label = `a${audioStreamIdx}`;
+          filterParts.push(`anullsrc=r=48000:cl=stereo,atrim=0:${gapDuration.toFixed(4)},asetpts=PTS-STARTPTS[${label}]`);
+          segmentLabels.push(`[${label}]`);
+          audioStreamIdx++;
         }
       }
+    }
 
-      audioFilter += `[a${audioStreamIdx}]`;
-      filterParts.push(audioFilter);
-      audioStreams.push(`[a${audioStreamIdx}]`);
-      audioStreamIdx++;
-    } else if (segment.type === 'gap' && segment.gap) {
-      // Generate silence for the gap duration
-      const gapDuration = segment.gap.end - segment.gap.start;
-      const audioGapFilter = `anullsrc=r=48000:cl=stereo,atrim=0:${gapDuration},asetpts=PTS-STARTPTS[a${audioStreamIdx}]`;
-      filterParts.push(audioGapFilter);
-      audioStreams.push(`[a${audioStreamIdx}]`);
-      audioStreamIdx++;
+    // Concat this track's segments into one stream
+    if (segmentLabels.length > 1) {
+      const trackLabel = `atrack${trackOutputLabels.length}`;
+      filterParts.push(`${segmentLabels.join("")}concat=n=${segmentLabels.length}:v=0:a=1[${trackLabel}]`);
+      trackOutputLabels.push(`[${trackLabel}]`);
+    } else if (segmentLabels.length === 1) {
+      // Single segment — rename to track label
+      const trackLabel = `atrack${trackOutputLabels.length}`;
+      filterParts.push(`${segmentLabels[0]}acopy[${trackLabel}]`);
+      trackOutputLabels.push(`[${trackLabel}]`);
     }
   }
 
@@ -767,18 +805,17 @@ function buildFFmpegArgs(
       `${videoStreams.join("")}concat=n=${videoStreams.length}:v=1:a=0[outv]`
     );
   } else if (videoStreams.length === 1) {
-    // Single video clip - just copy
     filterParts.push(`${videoStreams[0]}copy[outv]`);
   }
 
-  // Concatenate or mix audio clips
-  if (audioStreams.length > 1) {
+  // Step 3: Mix all audio tracks together
+  // amix with normalize=0 prevents auto-volume reduction
+  if (trackOutputLabels.length > 1) {
     filterParts.push(
-      `${audioStreams.join("")}concat=n=${audioStreams.length}:v=0:a=1[outa]`
+      `${trackOutputLabels.join("")}amix=inputs=${trackOutputLabels.length}:duration=longest:normalize=0[outa]`
     );
-  } else if (audioStreams.length === 1) {
-    // Single audio clip - just copy
-    filterParts.push(`${audioStreams[0]}acopy[outa]`);
+  } else if (trackOutputLabels.length === 1) {
+    filterParts.push(`${trackOutputLabels[0]}acopy[outa]`);
   }
 
   // Add filter complex
@@ -786,7 +823,7 @@ function buildFFmpegArgs(
 
   // Map outputs
   args.push("-map", "[outv]");
-  if (audioStreams.length > 0) {
+  if (trackOutputLabels.length > 0) {
     args.push("-map", "[outa]");
   }
 
