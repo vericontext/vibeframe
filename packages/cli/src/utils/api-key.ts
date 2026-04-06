@@ -104,9 +104,11 @@ export async function getApiKey(
     ANTHROPIC_API_KEY: "anthropic",
     OPENAI_API_KEY: "openai",
     GOOGLE_API_KEY: "google",
+    XAI_API_KEY: "xai",
     ELEVENLABS_API_KEY: "elevenlabs",
     RUNWAY_API_SECRET: "runway",
     KLING_API_KEY: "kling",
+    OPENROUTER_API_KEY: "openrouter",
     IMGBB_API_KEY: "imgbb",
     REPLICATE_API_TOKEN: "replicate",
   };
