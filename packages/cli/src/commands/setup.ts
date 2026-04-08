@@ -146,6 +146,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   }
 
   // Step 1: What do you want to do?
+  console.log(chalk.dim("Step 1 of 2"));
   console.log(chalk.bold("What would you like to do?"));
   console.log();
 
@@ -182,6 +183,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
       { configKey: "xai", envVar: "XAI_API_KEY", name: "xAI", url: "https://console.x.ai", what: "Grok — video generation with native audio" },
     ];
 
+    console.log(chalk.dim("Step 2 of 2"));
     console.log(chalk.bold("Pipeline requires these API keys:"));
     console.log(chalk.dim("  Saved locally, never shared. Press Enter to skip."));
     console.log();
@@ -194,6 +196,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   }
 
   // ── AI generation (mix and match) ──────────────────────────────────
+  console.log(chalk.dim("Step 2 of 2"));
   console.log(chalk.bold("Which AI features do you need?"));
   console.log(chalk.dim("  Select each one you want to use."));
   console.log();
@@ -410,9 +413,10 @@ function showComplete(
     console.log(`  Try: ${chalk.cyan(defaultTryCommand)}`);
   }
   console.log();
-  console.log(chalk.dim("  vibe doctor         Check what's ready"));
-  console.log(chalk.dim("  vibe setup --show   Verify configuration"));
-  console.log(chalk.dim("  vibe setup          Re-run setup anytime"));
+  console.log(chalk.bold("  Next steps:"));
+  console.log(chalk.dim("    vibe doctor         Check system health + available commands"));
+  console.log(chalk.dim("    vibe schema --list  Discover all 69 commands"));
+  console.log(chalk.dim("    vibe setup          Re-run setup anytime"));
   console.log();
 }
 

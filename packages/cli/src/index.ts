@@ -30,7 +30,7 @@ import { setupCommand } from "./commands/setup.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { agentCommand } from "./commands/agent.js";
 import { ApiKeyError } from "./utils/api-key.js";
-import { isFirstRun, showFirstRunBanner } from "./utils/first-run.js";
+import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
 import { exitWithError, usageError } from "./commands/output.js";
 import { rejectControlChars } from "./utils/input-validation.js";
 
@@ -170,6 +170,7 @@ program.hook("preAction", async (thisCommand, actionCommand) => {
     try {
       if (await isFirstRun()) {
         showFirstRunBanner();
+        await markBannerShown();
       }
     } catch {
       // Don't block on first-run check failure

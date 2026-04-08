@@ -158,14 +158,28 @@ export async function getApiKey(
 /**
  * Error thrown when a required API key is missing (non-interactive mode)
  */
+/** URLs where users can obtain API keys */
+const API_KEY_URLS: Record<string, string> = {
+  GOOGLE_API_KEY: "https://aistudio.google.com/apikey",
+  OPENAI_API_KEY: "https://platform.openai.com/api-keys",
+  ANTHROPIC_API_KEY: "https://console.anthropic.com/settings/keys",
+  XAI_API_KEY: "https://console.x.ai",
+  ELEVENLABS_API_KEY: "https://elevenlabs.io/app/settings/api-keys",
+  RUNWAY_API_SECRET: "https://app.runwayml.com/settings/api-keys",
+  KLING_API_KEY: "https://klingai.com/dev",
+  REPLICATE_API_TOKEN: "https://replicate.com/account/api-tokens",
+};
+
 export class ApiKeyError extends Error {
   public envVar: string;
   public providerName: string;
 
   constructor(envVar: string, providerName: string) {
+    const keyUrl = API_KEY_URLS[envVar];
+    const urlHint = keyUrl ? `\n  Get key: ${keyUrl}` : "";
     super(
       `${providerName} API key required.\n` +
-        `  Set ${envVar} in .env, or run: vibe setup`
+        `  Set ${envVar} in .env, or run: vibe setup${urlHint}`
     );
     this.name = "ApiKeyError";
     this.envVar = envVar;
@@ -180,12 +194,14 @@ export class ApiKeyError extends Error {
     suggestion: string;
     retryable: false;
   } {
+    const keyUrl = API_KEY_URLS[this.envVar];
+    const urlHint = keyUrl ? ` Get key: ${keyUrl}` : "";
     return {
       success: false as const,
       error: `${this.providerName} API key required.`,
       code: "API_KEY_MISSING",
       exitCode: 4,
-      suggestion: `Set ${this.envVar} in .env, or run: vibe setup`,
+      suggestion: `Set ${this.envVar} in .env, or run: vibe setup. Check available features: vibe doctor --json.${urlHint}`,
       retryable: false as const,
     };
   }
