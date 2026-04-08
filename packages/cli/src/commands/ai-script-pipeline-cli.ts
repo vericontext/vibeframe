@@ -273,6 +273,13 @@ aiCommand
 
           if (!narrationText) continue;
 
+          // Pre-TTS word count validation
+          const wordCount = narrationText.split(/\s+/).filter(Boolean).length;
+          const maxWords = segment.duration > 5 ? 24 : 12;
+          if (wordCount > maxWords * 1.3) {
+            console.log(chalk.yellow(`  ⚠ Scene ${i + 1} narration too long: ${wordCount} words (max ~${maxWords} for ${segment.duration}s). Trimming may cause rushed speech.`));
+          }
+
           ttsSpinner.text = `🎙️ Generating narration ${i + 1}/${segments.length}...`;
 
           let ttsResult = await elevenlabs.textToSpeech(narrationText, {
@@ -293,12 +300,12 @@ aiCommand
           // Get actual audio duration using ffprobe
           let actualDuration = await getAudioDuration(audioPath);
 
-          // Auto speed-adjust if narration slightly exceeds video bracket (5s or 10s)
+          // Auto speed-adjust if narration exceeds video bracket (5s or 10s)
           const videoBracket = segment.duration > 5 ? 10 : 5;
           const overageRatio = actualDuration / videoBracket;
-          if (overageRatio > 1.0 && overageRatio <= 1.15) {
-            // Narration exceeds bracket by 0-15% — regenerate slightly faster
-            const adjustedSpeed = Math.min(1.2, parseFloat(overageRatio.toFixed(2)));
+          if (overageRatio > 1.0 && overageRatio <= 1.35) {
+            // Narration exceeds bracket by 0-35% — regenerate at faster speed
+            const adjustedSpeed = Math.min(1.35, parseFloat(overageRatio.toFixed(2)));
             ttsSpinner.text = `🎙️ Narration ${i + 1}: adjusting speed to ${adjustedSpeed}x...`;
             const speedResult = await elevenlabs.textToSpeech(narrationText, {
               voiceId: options.voice,
@@ -310,6 +317,9 @@ aiCommand
               ttsResult = speedResult;
               console.log(chalk.dim(`  → Speed-adjusted narration ${i + 1}: ${adjustedSpeed}x → ${actualDuration.toFixed(1)}s`));
             }
+          } else if (overageRatio > 1.35) {
+            // Narration way too long — warn user
+            console.log(chalk.yellow(`  ⚠ Narration ${i + 1} is ${((overageRatio - 1) * 100).toFixed(0)}% over target (${actualDuration.toFixed(1)}s vs ${videoBracket}s bracket)`));
           }
 
           // Update segment duration to match actual narration length

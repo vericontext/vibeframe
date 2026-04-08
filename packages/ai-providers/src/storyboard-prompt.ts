@@ -49,11 +49,14 @@ IMPORTANT GUIDELINES:
    - ALWAYS include the character description when the person appears
 
 3. NARRATION LENGTH (CRITICAL for audio-video sync):
-   - Each scene narration MUST be 12-25 words (fits within 5-10 seconds of speech)
-   - NEVER exceed 30 words per scene narration — long content MUST be split into multiple scenes
-   - Set duration to 5 for short narrations (12-18 words) or 10 for longer ones (19-25 words)
+   - Average TTS speaking rate is ~2.5 words/second
+   - For duration=5: narration MUST be 10-12 words (4-5 seconds of speech)
+   - For duration=10: narration MUST be 20-24 words (8-10 seconds of speech)
+   - NEVER exceed the word limit — count every word before finalizing
+   - ALWAYS leave 0.5-1s buffer (narration should be slightly shorter than video)
    - If the script has a long paragraph, break it into 2-3 shorter scenes rather than one long narration
    - This prevents freeze frames where video stops but narration continues
+   - VALIDATION: After writing each narration, count the words. If over limit, shorten it.
 
 4. NARRATION-VISUAL ALIGNMENT: The narration must directly describe what's visible:
    - When narration mentions something specific, the visual must show it

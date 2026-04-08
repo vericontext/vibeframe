@@ -129,9 +129,16 @@ vibe generate music "inspiring ambient, minimal" -o bgm.mp3 -d 10
 
 # 5. Assemble into a project
 vibe project create "Startup Intro" -o project.vibe.json
+
+# Add sources (returns source IDs)
 vibe timeline add-source project.vibe.json hero.mp4
 vibe timeline add-source project.vibe.json voice.mp3
 vibe timeline add-source project.vibe.json bgm.mp3
+
+# Add clips to timeline (use source IDs from above)
+vibe timeline add-clip project.vibe.json <hero-source-id>
+vibe timeline add-clip project.vibe.json <voice-source-id>
+vibe timeline add-clip project.vibe.json <bgm-source-id>
 
 # 6. Export
 vibe export project.vibe.json -o startup-intro.mp4 -y

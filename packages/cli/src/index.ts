@@ -141,9 +141,9 @@ program.hook("preAction", async (thisCommand, actionCommand) => {
       for (const [key, value] of Object.entries(json)) {
         // Convert kebab-case to camelCase (e.g., "api-key" → "apiKey")
         const camelKey = key.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-        // Only set if not already specified via CLI flag
-        const existing = actionCommand.getOptionValue(camelKey);
-        if (existing === undefined || existing === actionCommand.getOptionValue(camelKey + "_default")) {
+        // Only set if not already explicitly specified via CLI flag
+        const source = actionCommand.getOptionValueSource(camelKey);
+        if (source === undefined || source === "default") {
           actionCommand.setOptionValueWithSource(camelKey, value, "stdin");
         }
       }

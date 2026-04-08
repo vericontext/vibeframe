@@ -96,11 +96,57 @@ Examples:
     printReport(results);
   });
 
+/** FFmpeg filters required by offline commands */
+const REQUIRED_FFMPEG_FILTERS: Record<string, { commands: string[]; fix: Record<string, string> }> = {
+  drawtext: {
+    commands: ["edit text-overlay", "edit caption"],
+    fix: {
+      darwin: "brew uninstall ffmpeg && brew install ffmpeg",
+      linux: "sudo apt install ffmpeg (or rebuild with --enable-libfreetype)",
+    },
+  },
+  subtitles: {
+    commands: ["edit caption"],
+    fix: {
+      darwin: "brew uninstall ffmpeg && brew install ffmpeg",
+      linux: "sudo apt install ffmpeg (or rebuild with --enable-libass)",
+    },
+  },
+  afftdn: {
+    commands: ["edit noise-reduce"],
+    fix: {
+      darwin: "brew uninstall ffmpeg && brew install ffmpeg",
+      linux: "sudo apt install ffmpeg (or rebuild with --enable-libfftw3)",
+    },
+  },
+};
+
+/** Optional external tools for advanced commands */
+const OPTIONAL_TOOLS: Record<string, { commands: string[]; install: string }> = {
+  remotion: {
+    commands: ["generate motion", "edit caption (fallback)"],
+    install: "npm install -g @remotion/cli",
+  },
+};
+
+interface FFmpegFilterStatus {
+  available: boolean;
+  commands: string[];
+  fix?: string;
+}
+
+interface OptionalToolStatus {
+  installed: boolean;
+  commands: string[];
+  install: string;
+}
+
 interface DiagnosticResults {
   system: {
     node: { version: string; ok: boolean };
-    ffmpeg: { version: string | null; ok: boolean };
+    ffmpeg: { version: string | null; ok: boolean; filters?: Record<string, FFmpegFilterStatus> };
     config: { path: string; ok: boolean };
+    optionalTools?: Record<string, OptionalToolStatus>;
   };
   providers: Record<
     string,
@@ -126,6 +172,49 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
     } catch {
       ffmpegVersion = "unknown";
     }
+  }
+
+  // FFmpeg filter checks
+  let ffmpegFilters: Record<string, FFmpegFilterStatus> | undefined;
+  if (ffmpegExists) {
+    try {
+      const filtersResult = await execSafe("ffmpeg", ["-filters"]);
+      const filtersOutput = filtersResult.stdout;
+      const platform = process.platform;
+      ffmpegFilters = {};
+      for (const [filterName, info] of Object.entries(REQUIRED_FFMPEG_FILTERS)) {
+        const available = filtersOutput.includes(filterName);
+        ffmpegFilters[filterName] = {
+          available,
+          commands: info.commands,
+          ...(!available && info.fix[platform] ? { fix: info.fix[platform] } : {}),
+        };
+      }
+    } catch {
+      // filter check failed, skip
+    }
+  }
+
+  // Optional tools check
+  const optionalTools: Record<string, OptionalToolStatus> = {};
+  for (const [toolName, info] of Object.entries(OPTIONAL_TOOLS)) {
+    let installed = false;
+    if (toolName === "remotion") {
+      // Check global install without triggering npx download
+      try {
+        await execSafe("npx", ["--no", "remotion", "--version"], { timeout: 5000 });
+        installed = true;
+      } catch {
+        installed = false;
+      }
+    } else {
+      installed = commandExists(toolName);
+    }
+    optionalTools[toolName] = {
+      installed,
+      commands: info.commands,
+      install: info.install,
+    };
   }
 
   let configExists = false;
@@ -156,8 +245,9 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   return {
     system: {
       node: { version: nodeVersion, ok: true },
-      ffmpeg: { version: ffmpegVersion, ok: ffmpegExists },
+      ffmpeg: { version: ffmpegVersion, ok: ffmpegExists, ...(ffmpegFilters ? { filters: ffmpegFilters } : {}) },
       config: { path: CONFIG_PATH, ok: configExists },
+      ...(Object.keys(optionalTools).length > 0 ? { optionalTools } : {}),
     },
     providers,
     readyCount,
@@ -180,6 +270,38 @@ function printReport(results: DiagnosticResults): void {
     );
   } else {
     console.log(`    FFmpeg     ${chalk.red("NOT FOUND")}  ${chalk.dim("Install: brew install ffmpeg")}`);
+  }
+
+  // FFmpeg filters
+  if (results.system.ffmpeg.ok && results.system.ffmpeg.filters) {
+    const filters = results.system.ffmpeg.filters;
+    const missingFilters = Object.entries(filters).filter(([, f]) => !f.available);
+    if (missingFilters.length > 0) {
+      for (const [name, info] of missingFilters) {
+        console.log(
+          `    Filter     ${chalk.yellow(`${name} MISSING`)}  ${chalk.dim(`needed by: ${info.commands.join(", ")}`)}`
+        );
+        if (info.fix) {
+          console.log(`               ${chalk.dim(`Fix: ${info.fix}`)}`);
+        }
+      }
+    } else {
+      console.log(`    Filters    ${chalk.green("OK")}  ${chalk.dim("drawtext, subtitles, afftdn")}`);
+    }
+  }
+
+  // Optional tools
+  if (results.system.optionalTools) {
+    for (const [name, info] of Object.entries(results.system.optionalTools)) {
+      if (info.installed) {
+        console.log(`    ${name.padEnd(11)}${chalk.green("OK")}  ${chalk.dim(info.commands.join(", "))}`);
+      } else {
+        console.log(
+          `    ${name.padEnd(11)}${chalk.yellow("MISSING")}  ${chalk.dim(`needed by: ${info.commands.join(", ")}`)}`
+        );
+        console.log(`               ${chalk.dim(`Install: ${info.install}`)}`);
+      }
+    }
   }
 
   // Config
