@@ -5,10 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0] - 2026-04-08
+
+### Added
+
+- improve CLI UX for agentic use — discoverability, safety, context
+
+### Fixed
+
+- improve narration-video sync and add FFmpeg filter checks to doctor
+
 ## [0.33.1] - 2026-04-06
 
 ### Fixed
 
+- use ffprobe actual duration for freeze-frame detection
 - freeze last frame when video is shorter than clip duration
 
 ## [0.33.0] - 2026-04-06
