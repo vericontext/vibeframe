@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-04-08
+
+### Added
+
+- add speech/sound-effect/music MCP tools + execute functions (33→36)
+- add detection MCP tools + extract execute functions (30→33)
+- add 3 MCP tools — motion, animated caption, regenerate scene (27→30)
+
+### Maintenance
+
+- add workflow_dispatch trigger to publish workflow
+
 ## [0.35.0] - 2026-04-08
 
 ### Added
