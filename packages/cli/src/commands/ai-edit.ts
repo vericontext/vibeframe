@@ -1383,9 +1383,21 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
   }
 
   // Check drawtext filter availability
+  let hasDrawtext = true;
   try {
     const { stdout } = await execSafe("ffmpeg", ["-filters"]);
-    if (!stdout.includes("drawtext")) {
+    hasDrawtext = stdout.includes("drawtext");
+  } catch {
+    // If filter check fails, assume available and let FFmpeg error naturally
+  }
+
+  if (!hasDrawtext) {
+    // Remotion fallback: render text overlay without libfreetype
+    console.log("FFmpeg missing drawtext filter (libfreetype) — using Remotion fallback...");
+    const { generateTextOverlayComponent, renderWithEmbeddedVideo, ensureRemotionInstalled } = await import("../utils/remotion.js");
+
+    const remotionErr = await ensureRemotionInstalled();
+    if (remotionErr) {
       const platform = process.platform;
       let hint = "";
       if (platform === "darwin") {
@@ -1395,11 +1407,46 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
       }
       return {
         success: false,
-        error: `FFmpeg 'drawtext' filter not available. Your FFmpeg was built without libfreetype.${hint}`,
+        error: `FFmpeg 'drawtext' filter not available and Remotion fallback unavailable.\n${remotionErr}${hint}`,
       };
     }
-  } catch {
-    // If filter check fails, continue and let FFmpeg error naturally
+
+    const { width, height } = await getVideoResolution(absVideoPath);
+    const videoDuration = await getVideoDuration(absVideoPath);
+    const baseFontSize = customFontSize || Math.round(height / 20);
+    const endTime = options.endTime ?? videoDuration;
+    const fps = 30;
+    const durationInFrames = Math.ceil(videoDuration * fps);
+    const videoFileName = "source_video.mp4";
+
+    const { code, name } = generateTextOverlayComponent({
+      texts,
+      style,
+      fontSize: baseFontSize,
+      fontColor,
+      startTime,
+      endTime,
+      fadeDuration,
+      width,
+      height,
+      videoFileName,
+    });
+
+    const renderResult = await renderWithEmbeddedVideo({
+      componentCode: code,
+      componentName: name,
+      width,
+      height,
+      fps,
+      durationInFrames,
+      videoPath: absVideoPath,
+      videoFileName,
+      outputPath: absOutputPath,
+    });
+
+    return renderResult.success
+      ? { success: true, outputPath: renderResult.outputPath || absOutputPath }
+      : { success: false, error: renderResult.error || "Remotion render failed" };
   }
 
   // Get video resolution for scaling

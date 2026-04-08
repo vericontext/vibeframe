@@ -15,7 +15,14 @@ import { writeFile, mkdir, rm, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { execSafe } from "./exec-safe.js";
+
+/** Pinned Remotion version for reproducible renders */
+const REMOTION_VERSION = "4.0.447";
+
+/** Cached node_modules directory to avoid repeated npm install */
+const REMOTION_CACHE_DIR = join(tmpdir(), "vibe_remotion_cache");
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,13 +63,16 @@ export interface RenderResult {
  */
 export async function ensureRemotionInstalled(): Promise<string | null> {
   try {
-    await execSafe("npx", ["remotion", "--help"], { timeout: 30_000 });
+    await execSafe("npx", ["--yes", "remotion", "--help"], { timeout: 60_000 });
     return null;
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[Remotion] ensureRemotionInstalled failed: ${detail.slice(0, 300)}`);
     return [
-      "Remotion CLI not found. Install it with:",
-      "  npm install -g @remotion/cli",
-      "Or ensure npx is available and can download @remotion/cli on demand.",
+      "Remotion CLI not found or failed to initialize.",
+      `  Debug: ${detail.slice(0, 200)}`,
+      "  Fix: npm install -g @remotion/cli",
+      "  Or ensure npx is available and can download @remotion/cli on demand.",
     ].join("\n");
   }
 }
@@ -87,10 +97,10 @@ export async function scaffoldRemotionProject(
   const dir = join(tmpdir(), `vibe_motion_${Date.now()}`);
   await mkdir(dir, { recursive: true });
 
-  // package.json — remotion + react deps
+  // package.json — remotion + react deps (pinned versions)
   const deps: Record<string, string> = {
-    remotion: "^4.0.0",
-    "@remotion/cli": "^4.0.0",
+    remotion: REMOTION_VERSION,
+    "@remotion/cli": REMOTION_VERSION,
     react: "^18.0.0",
     "react-dom": "^18.0.0",
     "@types/react": "^18.0.0",
@@ -98,7 +108,7 @@ export async function scaffoldRemotionProject(
 
   // @remotion/media is needed for the <Video> component (per Remotion docs)
   if (opts.useMediaPackage) {
-    deps["@remotion/media"] = "^4.0.0";
+    deps["@remotion/media"] = REMOTION_VERSION;
   }
 
   const packageJson = {
@@ -107,7 +117,8 @@ export async function scaffoldRemotionProject(
     private: true,
     dependencies: deps,
   };
-  await writeFile(join(dir, "package.json"), JSON.stringify(packageJson, null, 2));
+  const packageJsonStr = JSON.stringify(packageJson, null, 2);
+  await writeFile(join(dir, "package.json"), packageJsonStr);
 
   // tsconfig.json — minimal config for TSX
   const tsconfig = {
@@ -147,19 +158,57 @@ registerRoot(Root);
 `;
   await writeFile(join(dir, "Root.tsx"), rootCode);
 
-  // Install deps
-  if (!existsSync(join(dir, "node_modules"))) {
-    // npm install needs to run in the scaffolded directory
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    const execFileAsync = promisify(execFile);
+  // Install deps — use cached node_modules if deps match
+  const depsHash = createHash("md5").update(packageJsonStr).digest("hex").slice(0, 12);
+  const cacheMarker = join(REMOTION_CACHE_DIR, `.deps-${depsHash}`);
+  const cachedModules = join(REMOTION_CACHE_DIR, "node_modules");
+
+  if (existsSync(cacheMarker) && existsSync(cachedModules)) {
+    // Symlink cached node_modules to avoid re-install
+    const { symlink } = await import("node:fs/promises");
+    try {
+      await symlink(cachedModules, join(dir, "node_modules"), "dir");
+    } catch {
+      // Symlink failed (e.g., cross-device), fall back to npm install
+      await this_npmInstall(dir);
+    }
+  } else {
+    // Install fresh and cache
+    await this_npmInstall(dir);
+    // Cache the node_modules for future renders
+    try {
+      await mkdir(REMOTION_CACHE_DIR, { recursive: true });
+      // Copy package.json to cache for reference, then move node_modules
+      await writeFile(join(REMOTION_CACHE_DIR, "package.json"), packageJsonStr);
+      if (existsSync(join(dir, "node_modules"))) {
+        // Move node_modules to cache, then symlink back
+        const { rename, symlink } = await import("node:fs/promises");
+        await rename(join(dir, "node_modules"), cachedModules).catch(() => {});
+        await symlink(cachedModules, join(dir, "node_modules"), "dir").catch(() => {});
+        await writeFile(cacheMarker, depsHash);
+      }
+    } catch {
+      // Caching is best-effort, don't fail the render
+    }
+  }
+
+  return dir;
+}
+
+async function this_npmInstall(dir: string): Promise<void> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execFileAsync = promisify(execFile);
+  try {
     await execFileAsync("npm", ["install", "--prefer-offline", "--no-audit", "--no-fund"], {
       cwd: dir,
       timeout: 180_000,
     });
+  } catch (error) {
+    const msg = error instanceof Error ? (error as NodeJS.ErrnoException & { stderr?: string }).stderr || error.message : String(error);
+    console.error(`[Remotion] npm install failed: ${msg.slice(0, 300)}`);
+    throw error;
   }
-
-  return dir;
 }
 
 // ── Standalone Motion Render ───────────────────────────────────────────────
@@ -223,7 +272,10 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
     ], { cwd: dir, timeout: 300_000 });
     return { success: true, outputPath: mp4Out };
   } catch (error) {
+    const errObj = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+    const stderr = errObj.stderr?.slice(0, 500) || "";
     const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[Remotion] Render failed:\n  ${msg.slice(0, 300)}${stderr ? `\n  stderr: ${stderr}` : ""}`);
     return { success: false, error: `Remotion render failed: ${msg}` };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -517,6 +569,127 @@ export interface GenerateCaptionComponentOptions {
   height: number;
   /** When set, embed the video inside the component (no transparency needed) */
   videoFileName?: string;
+}
+
+// ── Text Overlay Component Generator ────────────────────────────────────
+
+export type TextOverlayStyle = "lower-third" | "center-bold" | "subtitle" | "minimal";
+
+export interface GenerateTextOverlayComponentOptions {
+  texts: string[];
+  style: TextOverlayStyle;
+  fontSize: number;
+  fontColor: string;
+  startTime: number;
+  endTime: number;
+  fadeDuration: number;
+  width: number;
+  height: number;
+  videoFileName: string;
+}
+
+/**
+ * Generate a Remotion TSX component for text overlays.
+ * Fallback for when FFmpeg drawtext filter (libfreetype) is unavailable.
+ */
+export function generateTextOverlayComponent(options: GenerateTextOverlayComponentOptions): {
+  code: string;
+  name: string;
+} {
+  const { texts, style, fontSize, fontColor, startTime, endTime, fadeDuration, width, height, videoFileName } = options;
+  const name = "TextOverlay";
+  const textsJSON = JSON.stringify(texts);
+
+  const styleMap: Record<TextOverlayStyle, { justify: string; align: string; padding: string; extraCss: string }> = {
+    "lower-third": {
+      justify: "flex-end",
+      align: "flex-start",
+      padding: `paddingBottom: ${Math.round(height * 0.12)}, paddingLeft: ${Math.round(width * 0.05)},`,
+      extraCss: `backgroundColor: "rgba(0,0,0,0.5)", padding: "8px 20px", borderRadius: 4,`,
+    },
+    "center-bold": {
+      justify: "center",
+      align: "center",
+      padding: "",
+      extraCss: `fontWeight: "bold" as const, textShadow: "3px 3px 6px rgba(0,0,0,0.9)",`,
+    },
+    "subtitle": {
+      justify: "flex-end",
+      align: "center",
+      padding: `paddingBottom: ${Math.round(height * 0.08)},`,
+      extraCss: `backgroundColor: "rgba(0,0,0,0.6)", padding: "6px 16px", borderRadius: 4,`,
+    },
+    "minimal": {
+      justify: "flex-start",
+      align: "flex-start",
+      padding: `paddingTop: ${Math.round(height * 0.05)}, paddingLeft: ${Math.round(width * 0.05)},`,
+      extraCss: `opacity: 0.85,`,
+    },
+  };
+
+  const s = styleMap[style];
+  const scaledFontSize = style === "center-bold" ? Math.round(fontSize * 1.5) : fontSize;
+
+  const code = `import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, staticFile } from "remotion";
+import { Video } from "@remotion/media";
+
+const texts: string[] = ${textsJSON};
+const START_TIME = ${startTime};
+const END_TIME = ${endTime};
+const FADE_DURATION = ${fadeDuration};
+
+export const ${name} = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const currentTime = frame / fps;
+
+  const visible = currentTime >= START_TIME && currentTime <= END_TIME;
+
+  const opacity = visible
+    ? interpolate(
+        currentTime,
+        [START_TIME, START_TIME + FADE_DURATION, END_TIME - FADE_DURATION, END_TIME],
+        [0, 1, 1, 0],
+        { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+      )
+    : 0;
+
+  return (
+    <AbsoluteFill>
+      <Video src={staticFile("${videoFileName}")} style={{ width: "100%", height: "100%" }} muted />
+      {visible && (
+        <AbsoluteFill
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "${s.justify}",
+            alignItems: "${s.align}",
+            ${s.padding}
+            opacity,
+          }}
+        >
+          <div
+            style={{
+              fontSize: ${scaledFontSize},
+              fontFamily: "Arial, Helvetica, sans-serif",
+              color: "${fontColor}",
+              lineHeight: 1.4,
+              maxWidth: "${Math.round(width * 0.9)}px",
+              ${s.extraCss}
+            }}
+          >
+            {texts.map((text, i) => (
+              <div key={i}>{text}</div>
+            ))}
+          </div>
+        </AbsoluteFill>
+      )}
+    </AbsoluteFill>
+  );
+};
+`;
+
+  return { code, name };
 }
 
 /**

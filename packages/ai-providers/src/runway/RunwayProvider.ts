@@ -66,6 +66,8 @@ export class RunwayProvider implements AIProvider {
   iconUrl = "/icons/runway.svg";
   isAvailable = true;
 
+  private static readonly API_VERSION = "2024-11-06";
+  private static readonly MAX_RETRIES = 3;
   private apiKey?: string;
   private baseUrl = "https://api.dev.runwayml.com/v1";
   private pollingInterval = 5000; // 5 seconds
@@ -140,12 +142,12 @@ export class RunwayProvider implements AIProvider {
         body.seed = options.seed;
       }
 
-      const response = await fetch(`${this.baseUrl}/${endpoint}`, {
+      const response = await this.fetchWithRetry(`${this.baseUrl}/${endpoint}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "X-Runway-Version": "2024-11-06",
+          "X-Runway-Version": RunwayProvider.API_VERSION,
         },
         body: JSON.stringify(body),
       });
@@ -159,6 +161,7 @@ export class RunwayProvider implements AIProvider {
         } catch {
           errorMessage = errorText;
         }
+        console.error(`[Runway] POST /${endpoint} -> ${response.status} ${response.statusText}\n  Model: ${model}, Ratio: ${apiRatio}, Duration: ${body.duration}\n  Response: ${errorText.slice(0, 500)}`);
         return {
           id: "",
           status: "failed",
@@ -219,7 +222,7 @@ export class RunwayProvider implements AIProvider {
       const response = await fetch(`${this.baseUrl}/tasks/${id}`, {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": "2024-11-06",
+          "X-Runway-Version": RunwayProvider.API_VERSION,
         },
       });
 
@@ -281,7 +284,7 @@ export class RunwayProvider implements AIProvider {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": "2024-11-06",
+          "X-Runway-Version": RunwayProvider.API_VERSION,
         },
       });
 
@@ -304,7 +307,7 @@ export class RunwayProvider implements AIProvider {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": "2024-11-06",
+          "X-Runway-Version": RunwayProvider.API_VERSION,
         },
       });
 
@@ -343,6 +346,25 @@ export class RunwayProvider implements AIProvider {
       status: "failed",
       error: "Generation timed out",
     };
+  }
+
+  /**
+   * Fetch with retry for transient errors (429, 503)
+   */
+  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+    let lastResponse: Response | undefined;
+    for (let attempt = 0; attempt < RunwayProvider.MAX_RETRIES; attempt++) {
+      const response = await fetch(url, init);
+      if (response.status !== 429 && response.status !== 503) {
+        return response;
+      }
+      lastResponse = response;
+      const retryAfter = response.headers.get("Retry-After");
+      const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : (2 ** (attempt + 1)) * 1000;
+      console.error(`[Runway] ${response.status} — retrying in ${delayMs / 1000}s (attempt ${attempt + 1}/${RunwayProvider.MAX_RETRIES})`);
+      await this.sleep(delayMs);
+    }
+    return lastResponse!;
   }
 
   /**
