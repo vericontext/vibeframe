@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry-run only (skip actual publish)'
+        type: boolean
+        default: false
 
 jobs:
   publish:
@@ -49,11 +55,13 @@ jobs:
       # Publish both — if one fails, the other may have succeeded.
       # Re-running the workflow is safe: npm ignores already-published versions.
       - name: Publish @vibeframe/mcp-server
+        if: ${{ !inputs.dry-run }}
         run: pnpm -F @vibeframe/mcp-server publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @vibeframe/cli
+        if: ${{ !inputs.dry-run }}
         run: pnpm -F @vibeframe/cli publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
