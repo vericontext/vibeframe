@@ -44,7 +44,26 @@ export function authError(envVar: string, provider: string): StructuredError {
   };
 }
 
+/** Provider-specific error hints based on error message patterns */
+const PROVIDER_ERROR_HINTS: Array<{ pattern: RegExp; suggestion: string; retryable: boolean }> = [
+  { pattern: /429|rate.?limit|too many requests/i, suggestion: "Rate limited. Wait 30-60 seconds and retry, or check your plan's rate limits.", retryable: true },
+  { pattern: /401|unauthorized|invalid.*key|authentication/i, suggestion: "API key is invalid or expired. Run 'vibe setup' to update, or check the key at the provider's dashboard.", retryable: false },
+  { pattern: /403|forbidden|permission/i, suggestion: "Access denied. Your API key may lack required permissions, or the feature requires a paid plan.", retryable: false },
+  { pattern: /402|payment|billing|quota|exceeded|insufficient/i, suggestion: "Account quota exceeded or billing issue. Check your provider dashboard for usage limits.", retryable: false },
+  { pattern: /500|internal.*error|server.*error/i, suggestion: "Provider server error. Retry in a few minutes.", retryable: true },
+  { pattern: /503|service.*unavailable|overloaded/i, suggestion: "Provider is temporarily overloaded. Retry in 1-2 minutes.", retryable: true },
+  { pattern: /timeout|timed?\s*out|ETIMEDOUT/i, suggestion: "Request timed out. The provider may be slow. Retry, or try a different provider with -p flag.", retryable: true },
+  { pattern: /content.*policy|safety|moderation|blocked/i, suggestion: "Content was blocked by the provider's safety filter. Rephrase your prompt.", retryable: false },
+  { pattern: /model.*not.*found|invalid.*model/i, suggestion: "The specified model is unavailable. Check 'vibe schema <command>' for valid model options.", retryable: false },
+];
+
 export function apiError(msg: string, retryable = false): StructuredError {
+  // Check for provider-specific hints
+  for (const hint of PROVIDER_ERROR_HINTS) {
+    if (hint.pattern.test(msg)) {
+      return { success: false, error: msg, code: "API_ERROR", exitCode: ExitCode.API_ERROR, suggestion: hint.suggestion, retryable: hint.retryable };
+    }
+  }
   return { success: false, error: msg, code: "API_ERROR", exitCode: ExitCode.API_ERROR, suggestion: retryable ? "Retry the command." : undefined, retryable };
 }
 
@@ -86,8 +105,67 @@ export function isQuietMode(): boolean {
   return process.env.VIBE_QUIET_OUTPUT === "1";
 }
 
+// ── Cost Estimation ──────────────────────────────────────────────────────
+
+/** Estimated cost ranges by command */
+const COST_ESTIMATES: Record<string, { min: number; max: number; unit: string }> = {
+  // Free
+  "detect scenes": { min: 0, max: 0, unit: "free" },
+  "detect silence": { min: 0, max: 0, unit: "free" },
+  "detect beats": { min: 0, max: 0, unit: "free" },
+  "edit silence-cut": { min: 0, max: 0, unit: "free" },
+  "edit fade": { min: 0, max: 0, unit: "free" },
+  "edit noise-reduce": { min: 0, max: 0, unit: "free" },
+  "edit reframe": { min: 0, max: 0, unit: "free" },
+  "edit interpolate": { min: 0, max: 0, unit: "free" },
+  "edit upscale-video": { min: 0, max: 0, unit: "free" },
+  // Low
+  "analyze media": { min: 0.01, max: 0.05, unit: "per call" },
+  "analyze video": { min: 0.01, max: 0.10, unit: "per video" },
+  "analyze review": { min: 0.01, max: 0.10, unit: "per video" },
+  "generate image": { min: 0.01, max: 0.07, unit: "per image" },
+  "generate thumbnail": { min: 0.01, max: 0.05, unit: "per image" },
+  "generate storyboard": { min: 0.01, max: 0.05, unit: "per call" },
+  "ai transcribe": { min: 0.01, max: 0.10, unit: "per minute" },
+  "audio transcribe": { min: 0.01, max: 0.10, unit: "per minute" },
+  "edit caption": { min: 0.01, max: 0.10, unit: "per video" },
+  "edit jump-cut": { min: 0.01, max: 0.10, unit: "per video" },
+  "edit translate-srt": { min: 0.01, max: 0.05, unit: "per file" },
+  "edit animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
+  // Medium
+  "generate speech": { min: 0.05, max: 0.30, unit: "per request" },
+  "generate sound-effect": { min: 0.05, max: 0.20, unit: "per request" },
+  "generate music": { min: 0.05, max: 0.50, unit: "per request" },
+  "generate motion": { min: 0.01, max: 0.10, unit: "per generation" },
+  "edit grade": { min: 0.01, max: 0.05, unit: "per video" },
+  "edit speed-ramp": { min: 0.05, max: 0.15, unit: "per video" },
+  "edit text-overlay": { min: 0, max: 0.05, unit: "per video" },
+  // High
+  "generate video": { min: 0.50, max: 5.00, unit: "per video" },
+  "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
+  // Very High
+  "pipeline script-to-video": { min: 5, max: 50, unit: "per project" },
+  "pipeline highlights": { min: 0.05, max: 1.00, unit: "per analysis" },
+  "pipeline auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
+  "pipeline animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
+  "pipeline regenerate-scene": { min: 0.50, max: 5.00, unit: "per scene" },
+};
+
+function formatCost(min: number, max: number, unit: string): string {
+  if (min === 0 && max === 0) return "Free";
+  if (min === max) return `~$${min.toFixed(2)} ${unit}`;
+  return `~$${min.toFixed(2)}-$${max.toFixed(2)} ${unit}`;
+}
+
 /** Output result - JSON mode outputs JSON, quiet mode outputs primary value only */
 export function outputResult(result: Record<string, unknown>): void {
+  // Inject cost estimate for dry-run results
+  if (result.dryRun && result.command && typeof result.command === "string") {
+    const cost = COST_ESTIMATES[result.command as string];
+    if (cost) {
+      result.estimatedCost = formatCost(cost.min, cost.max, cost.unit);
+    }
+  }
   if (isJsonMode()) {
     // Apply --fields filtering if specified
     const fields = process.env.VIBE_OUTPUT_FIELDS;

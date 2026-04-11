@@ -325,12 +325,12 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
 
   const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "ollama"];
   const providerDescriptions: Record<LLMProvider, string> = {
-    claude: "Best understanding, most capable",
-    openai: "GPT-5-mini, reliable and fast",
-    gemini: "Google AI, good for general use",
-    xai: "Grok 4.1, optimized for tool calling",
-    openrouter: "300+ models, unified API",
-    ollama: "Free, local, no API key needed",
+    claude: "Best reasoning, most capable for complex tasks",
+    openai: "GPT-5-mini, reliable and fast, good default",
+    gemini: "Google AI, strong multimodal understanding",
+    xai: "Grok 4.1 Fast, 2M context, great for tool calling",
+    openrouter: "300+ models via one API key (Claude, GPT, Gemini, Llama, etc.)",
+    ollama: "Free, local, no API key — offline capable (default: llama3.2)",
   };
   const providerLabels = providers.map((p) => {
     const rec = p === "claude" ? chalk.dim(" (recommended)") : "";
@@ -352,15 +352,15 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
   console.log();
 
   const allProviders = [
-    { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY", desc: "Claude (Agent, grade, reframe)" },
-    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY", desc: "GPT, Whisper, DALL-E" },
-    { key: "google", name: "Google", env: "GOOGLE_API_KEY", desc: "Gemini (image, video, analysis)" },
-    { key: "xai", name: "xAI", env: "XAI_API_KEY", desc: "Grok (Agent, image, video)" },
-    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY", desc: "TTS, SFX, music, voice clone" },
-    { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET", desc: "Gen-4.5 video" },
-    { key: "kling", name: "Kling", env: "KLING_API_KEY", desc: "v2.5/v3 video" },
-    { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY", desc: "300+ models" },
-    { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN", desc: "MusicGen" },
+    { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY", desc: "Claude — storyboard, color grade, reframe, Agent ($)" },
+    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY", desc: "Whisper (captions, jump-cut $), GPT Image ($), Agent" },
+    { key: "google", name: "Google", env: "GOOGLE_API_KEY", desc: "Gemini — image gen (free tier), video analysis ($), Veo ($$)" },
+    { key: "xai", name: "xAI", env: "XAI_API_KEY", desc: "Grok — video gen with audio ($$), image ($), Agent" },
+    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY", desc: "TTS ($), SFX, music, voice clone, dubbing" },
+    { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET", desc: "Gen-4.5 video generation ($$)" },
+    { key: "kling", name: "Kling", env: "KLING_API_KEY", desc: "v2.5/v3 video — std ($$) and pro ($$$) modes" },
+    { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY", desc: "300+ models via one key — Agent only (pay per model)" },
+    { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN", desc: "MusicGen background music ($, max 30s)" },
   ];
 
   for (const p of allProviders) {
