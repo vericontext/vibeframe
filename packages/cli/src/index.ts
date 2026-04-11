@@ -28,6 +28,7 @@ import { batchCommand } from "./commands/batch.js";
 import { detectCommand } from "./commands/detect.js";
 import { setupCommand } from "./commands/setup.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { demoCommand } from "./commands/demo.js";
 import { agentCommand } from "./commands/agent.js";
 import { ApiKeyError } from "./utils/api-key.js";
 import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
@@ -186,6 +187,7 @@ program.addCommand(audioCommand);
 program.addCommand(pipelineCommand);
 program.addCommand(setupCommand);
 program.addCommand(doctorCommand);
+program.addCommand(demoCommand);
 program.addCommand(agentCommand);
 
 // Workflow commands
