@@ -1012,3 +1012,317 @@ editCommand
       exitWithError(generalError(`Video upscaling failed: ${msg}`));
     }
   });
+
+
+// ── Exported execute functions ─────────────────────────────────────────────
+
+
+// ============================================================================
+// Color Grade
+// ============================================================================
+
+export interface GradeOptions {
+  videoPath: string;
+  style?: string;
+  preset?: string;
+  output?: string;
+  analyzeOnly?: boolean;
+  apiKey?: string;
+}
+
+export interface GradeResult {
+  success: boolean;
+  outputPath?: string;
+  style?: string;
+  description?: string;
+  ffmpegFilter?: string;
+  error?: string;
+}
+
+export async function executeGrade(options: GradeOptions): Promise<GradeResult> {
+  const { videoPath, style, preset, output, analyzeOnly, apiKey } = options;
+
+  try {
+    if (!style && !preset) return { success: false, error: "Either style or preset is required" };
+    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
+
+    const absPath = resolve(process.cwd(), videoPath);
+    let gradeResult: { ffmpegFilter: string; description: string };
+
+    if (preset) {
+      const claude = new ClaudeProvider();
+      gradeResult = await claude.analyzeColorGrade("", preset);
+    } else {
+      const key = apiKey || process.env.ANTHROPIC_API_KEY;
+      if (!key) return { success: false, error: "ANTHROPIC_API_KEY required for custom style grading" };
+      const claude = new ClaudeProvider();
+      await claude.initialize({ apiKey: key });
+      gradeResult = await claude.analyzeColorGrade(style!);
+    }
+
+    if (analyzeOnly) {
+      return { success: true, style: preset || style, description: gradeResult.description, ffmpegFilter: gradeResult.ffmpegFilter };
+    }
+
+    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, "-graded$1");
+    await execSafe("ffmpeg", ["-i", absPath, "-vf", gradeResult.ffmpegFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
+
+    return { success: true, outputPath, style: preset || style, description: gradeResult.description, ffmpegFilter: gradeResult.ffmpegFilter };
+  } catch (error) {
+    return { success: false, error: `Color grading failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+
+// ============================================================================
+// Speed Ramp
+// ============================================================================
+
+export interface SpeedRampOptions {
+  videoPath: string;
+  output?: string;
+  style?: "dramatic" | "smooth" | "action";
+  minSpeed?: number;
+  maxSpeed?: number;
+  analyzeOnly?: boolean;
+  language?: string;
+  apiKey?: string;
+}
+
+export interface SpeedRampResult {
+  success: boolean;
+  outputPath?: string;
+  keyframes?: Array<{ time: number; speed: number; reason: string }>;
+  avgSpeed?: number;
+  error?: string;
+}
+
+export async function executeSpeedRamp(options: SpeedRampOptions): Promise<SpeedRampResult> {
+  const { videoPath, output, style = "dramatic", minSpeed = 0.25, maxSpeed = 4.0, analyzeOnly, language, apiKey } = options;
+
+  try {
+    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
+
+    const openaiKey = process.env.OPENAI_API_KEY;
+    const claudeKey = apiKey || process.env.ANTHROPIC_API_KEY;
+    if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription" };
+    if (!claudeKey) return { success: false, error: "ANTHROPIC_API_KEY required for Claude analysis" };
+
+    const absPath = resolve(process.cwd(), videoPath);
+
+    // Extract audio
+    const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
+    await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
+
+    // Transcribe
+    const whisper = new WhisperProvider();
+    await whisper.initialize({ apiKey: openaiKey });
+    const audioBuffer = await readFile(tempAudio);
+    const transcript = await whisper.transcribe(new Blob([audioBuffer]), language);
+
+    // Cleanup temp
+    try { const { unlink } = await import("node:fs/promises"); await unlink(tempAudio); } catch { /* best-effort */ }
+
+    if (!transcript.segments || transcript.segments.length === 0) {
+      return { success: false, error: "No transcript segments found" };
+    }
+
+    // Analyze with Claude
+    const claude = new ClaudeProvider();
+    await claude.initialize({ apiKey: claudeKey });
+    const speedResult = await claude.analyzeForSpeedRamp(transcript.segments, { style, minSpeed, maxSpeed });
+
+    const avgSpeed = speedResult.keyframes.reduce((sum: number, kf: { speed: number }) => sum + kf.speed, 0) / speedResult.keyframes.length;
+
+    if (analyzeOnly) {
+      return { success: true, keyframes: speedResult.keyframes, avgSpeed };
+    }
+
+    if (speedResult.keyframes.length < 2) {
+      return { success: false, error: "Not enough keyframes for speed ramping" };
+    }
+
+    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
+    const setpts = `setpts=${(1 / avgSpeed).toFixed(3)}*PTS`;
+    const atempo = avgSpeed >= 0.5 && avgSpeed <= 2.0 ? `atempo=${avgSpeed.toFixed(3)}` : "";
+
+    if (atempo) {
+      await execSafe("ffmpeg", ["-i", absPath, "-filter_complex", `[0:v]${setpts}[v];[0:a]${atempo}[a]`, "-map", "[v]", "-map", "[a]", outputPath, "-y"], { timeout: 600000 });
+    } else {
+      await execSafe("ffmpeg", ["-i", absPath, "-vf", setpts, "-an", outputPath, "-y"], { timeout: 600000 });
+    }
+
+    return { success: true, outputPath, keyframes: speedResult.keyframes, avgSpeed };
+  } catch (error) {
+    return { success: false, error: `Speed ramping failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+
+// ============================================================================
+// Reframe
+// ============================================================================
+
+export interface ReframeOptions {
+  videoPath: string;
+  aspect?: string;
+  focus?: "auto" | "face" | "center" | "action";
+  output?: string;
+  analyzeOnly?: boolean;
+  apiKey?: string;
+}
+
+export interface ReframeResult {
+  success: boolean;
+  outputPath?: string;
+  sourceAspect?: string;
+  targetAspect?: string;
+  keyframeCount?: number;
+  error?: string;
+}
+
+export async function executeReframe(options: ReframeOptions): Promise<ReframeResult> {
+  const { videoPath, aspect = "9:16", output, analyzeOnly } = options;
+
+  try {
+    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
+
+    const absPath = resolve(process.cwd(), videoPath);
+
+    // Get video dimensions
+    const { stdout: probeOut } = await execSafe("ffprobe", [
+      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0", absPath,
+    ]);
+    const [widthStr, heightStr] = probeOut.trim().split(",");
+    const sourceWidth = parseInt(widthStr);
+    const sourceHeight = parseInt(heightStr);
+
+    // Parse target aspect ratio
+    const [tw, th] = aspect.split(":").map(Number);
+    const targetRatio = tw / th;
+    let cropWidth: number, cropHeight: number;
+
+    if (targetRatio > sourceWidth / sourceHeight) {
+      cropWidth = sourceWidth;
+      cropHeight = Math.round(sourceWidth / targetRatio);
+    } else {
+      cropHeight = sourceHeight;
+      cropWidth = Math.round(sourceHeight * targetRatio);
+    }
+
+    // Center crop (simple reframe without AI for MCP — Claude Vision analysis is expensive per frame)
+    const cropX = Math.round((sourceWidth - cropWidth) / 2);
+    const cropY = Math.round((sourceHeight - cropHeight) / 2);
+
+    if (analyzeOnly) {
+      return {
+        success: true,
+        sourceAspect: `${sourceWidth}:${sourceHeight}`,
+        targetAspect: aspect,
+        keyframeCount: 1,
+      };
+    }
+
+    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-${aspect.replace(":", "x")}$1`);
+    await execSafe("ffmpeg", ["-i", absPath, "-vf", `crop=${cropWidth}:${cropHeight}:${cropX}:${cropY}`, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
+
+    return { success: true, outputPath, sourceAspect: `${sourceWidth}:${sourceHeight}`, targetAspect: aspect };
+  } catch (error) {
+    return { success: false, error: `Reframe failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+
+// ============================================================================
+// Interpolate (Slow Motion)
+// ============================================================================
+
+export interface InterpolateOptions {
+  videoPath: string;
+  output?: string;
+  factor?: number;
+  fps?: number;
+  quality?: "fast" | "quality";
+}
+
+export interface InterpolateResult {
+  success: boolean;
+  outputPath?: string;
+  originalFps?: number;
+  targetFps?: number;
+  factor?: number;
+  error?: string;
+}
+
+export async function executeInterpolate(options: InterpolateOptions): Promise<InterpolateResult> {
+  const { videoPath, output, factor = 2, quality = "quality" } = options;
+
+  try {
+    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
+    if (![2, 4, 8].includes(factor)) return { success: false, error: "Factor must be 2, 4, or 8" };
+
+    const absPath = resolve(process.cwd(), videoPath);
+
+    const { stdout: fpsOut } = await execSafe("ffprobe", [
+      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "default=noprint_wrappers=1:nokey=1", absPath,
+    ]);
+    const [num, den] = fpsOut.trim().split("/").map(Number);
+    const originalFps = num / (den || 1);
+    const targetFps = options.fps || originalFps * factor;
+
+    const mi = quality === "fast" ? "mi_mode=mci" : "mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
+    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-slow${factor}x$1`);
+
+    await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS`, "-an", outputPath, "-y"], { timeout: 600000 });
+
+    return { success: true, outputPath, originalFps, targetFps, factor };
+  } catch (error) {
+    return { success: false, error: `Frame interpolation failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+
+// ============================================================================
+// Upscale Video
+// ============================================================================
+
+export interface UpscaleOptions {
+  videoPath: string;
+  output?: string;
+  scale?: number;
+  quality?: "fast" | "quality";
+}
+
+export interface UpscaleResult {
+  success: boolean;
+  outputPath?: string;
+  originalRes?: string;
+  targetRes?: string;
+  error?: string;
+}
+
+export async function executeUpscale(options: UpscaleOptions): Promise<UpscaleResult> {
+  const { videoPath, output, scale = 2, quality = "quality" } = options;
+
+  try {
+    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
+
+    const absPath = resolve(process.cwd(), videoPath);
+
+    const { stdout: probeOut } = await execSafe("ffprobe", [
+      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
+    ]);
+    const [w, h] = probeOut.trim().split(",").map(Number);
+    const targetW = w * scale;
+    const targetH = h * scale;
+
+    const scaleFilter = quality === "quality" ? `scale=${targetW}:${targetH}:flags=lanczos` : `scale=${targetW}:${targetH}`;
+    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-${scale}x$1`);
+
+    await execSafe("ffmpeg", ["-i", absPath, "-vf", scaleFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
+
+    return { success: true, outputPath, originalRes: `${w}x${h}`, targetRes: `${targetW}x${targetH}` };
+  } catch (error) {
+    return { success: false, error: `Upscale failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}

@@ -8,6 +8,7 @@ import { aiGenerationTools, handleAiGenerationToolCall } from "./ai-generation.j
 import { detectionTools, handleDetectionToolCall } from "./detection.js";
 import { aiVideoTools, handleAiVideoToolCall } from "./ai-video.js";
 import { aiAudioTools, handleAiAudioToolCall } from "./ai-audio.js";
+import { aiEditAdvancedTools, handleAiEditAdvancedToolCall } from "./ai-edit-advanced.js";
 
 export const tools = [
   ...projectTools,
@@ -20,6 +21,7 @@ export const tools = [
   ...detectionTools,
   ...aiVideoTools,
   ...aiAudioTools,
+  ...aiEditAdvancedTools,
 ];
 
 type ToolHandler = (name: string, args: Record<string, unknown>) => Promise<string>;
@@ -35,6 +37,7 @@ for (const t of aiGenerationTools) handlers[t.name] = handleAiGenerationToolCall
 for (const t of detectionTools) handlers[t.name] = handleDetectionToolCall;
 for (const t of aiVideoTools) handlers[t.name] = handleAiVideoToolCall;
 for (const t of aiAudioTools) handlers[t.name] = handleAiAudioToolCall;
+for (const t of aiEditAdvancedTools) handlers[t.name] = handleAiEditAdvancedToolCall;
 
 export async function handleToolCall(
   name: string,

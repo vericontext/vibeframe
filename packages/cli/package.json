@@ -94,6 +94,10 @@
     "./commands/ai-audio": {
       "import": "./src/commands/ai-audio.ts",
       "types": "./src/commands/ai-audio.ts"
+    },
+    "./commands/edit-cmd": {
+      "import": "./src/commands/edit-cmd.ts",
+      "types": "./src/commands/edit-cmd.ts"
     }
   },
   "scripts": {
