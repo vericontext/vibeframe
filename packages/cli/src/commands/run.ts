@@ -17,6 +17,7 @@ import ora from "ora";
 import { loadPipeline, executePipeline } from "../pipeline/index.js";
 import type { PipelineBudget } from "../pipeline/types.js";
 import { outputResult, exitWithError, generalError, usageError } from "./output.js";
+import { loadEnv } from "../utils/api-key.js";
 
 export const runCommand = new Command("run")
   .description("Execute a YAML video pipeline (Video as Code)")
@@ -63,6 +64,9 @@ Cost: Depends on steps. Use --dry-run to preview before executing.
 Run 'vibe schema run' for structured parameter info.
 `)
   .action(async (pipelinePath: string, options) => {
+    // Pipeline steps call execute*() functions directly (not CLI actions),
+    // so we must ensure .env is loaded before executor dispatches steps.
+    loadEnv();
     const isJson = options.json || process.env.VIBE_JSON_OUTPUT === "1";
 
     // Build CLI budget override from flags (merged with manifest.budget in executor)
