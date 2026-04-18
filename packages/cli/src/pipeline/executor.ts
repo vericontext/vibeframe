@@ -258,7 +258,7 @@ export interface ExecutePipelineOptions {
 const CHECKPOINT_FILE = ".pipeline-state.yaml";
 
 interface CheckpointState {
-  completedSteps: Array<{ id: string; output?: string; data?: Record<string, unknown> }>;
+  completedSteps: Array<{ id: string; action?: PipelineAction; output?: string; data?: Record<string, unknown> }>;
 }
 
 export async function executePipeline(
@@ -283,7 +283,7 @@ export async function executePipeline(
       for (const cs of checkpoint.completedSteps) {
         completedSteps.set(cs.id, {
           id: cs.id,
-          action: "generate-image", // placeholder — action doesn't matter for resolution
+          action: cs.action ?? ("generate-image" as PipelineAction), // fallback for checkpoints written before v0.46.2
           success: true,
           output: cs.output,
           data: cs.data,
@@ -344,8 +344,12 @@ export async function executePipeline(
     };
   }
 
-  // Budget tracking
+  // Budget tracking — seed from already-completed steps so resume enforces
+  // pipeline-wide budget (not just this-run budget).
   const budgetUsage: BudgetUsage = { estimatedCostUsd: 0, tokensUsed: 0, toolErrors: 0 };
+  for (const cs of completedSteps.values()) {
+    budgetUsage.estimatedCostUsd += maxCostFor(cs.action);
+  }
 
   // Execute steps
   for (const step of manifest.steps) {
@@ -416,6 +420,7 @@ export async function executePipeline(
       const checkpoint: CheckpointState = {
         completedSteps: Array.from(completedSteps.values()).map(s => ({
           id: s.id,
+          action: s.action,
           output: s.output,
           data: s.data,
         })),

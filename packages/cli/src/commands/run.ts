@@ -153,6 +153,7 @@ Run 'vibe schema run' for structured parameter info.
         outputResult({
           success: result.success,
           name: result.name,
+          error: result.error,
           completedSteps: result.completedSteps,
           totalSteps: result.totalSteps,
           totalDuration: result.totalDuration,
@@ -182,6 +183,9 @@ Run 'vibe schema run' for structured parameter info.
         console.log();
         console.log(chalk.dim("  " + "─".repeat(50)));
         console.log(`  ${chalk.bold(`${result.completedSteps}/${result.totalSteps} steps completed`)}${result.success ? chalk.green(" ✓") : ""}`);
+        if (result.error) {
+          console.log(chalk.red(`  ${result.error}`));
+        }
         if (result.totalDuration) {
           console.log(chalk.dim(`  Total: ${(result.totalDuration / 1000).toFixed(1)}s`));
         }
