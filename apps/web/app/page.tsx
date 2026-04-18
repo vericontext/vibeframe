@@ -15,6 +15,7 @@ import {
   Film,
   Code2,
 } from "lucide-react";
+import { ThemeToggle } from "../components/theme-toggle";
 
 export default function LandingPage() {
   return (
@@ -48,6 +49,7 @@ export default function LandingPage() {
               <Github className="w-5 h-5" />
               <span className="hidden sm:inline">GitHub</span>
             </Link>
+            <ThemeToggle />
             <Link
               href="https://github.com/vericontext/vibeframe#cli-reference"
               target="_blank"
@@ -63,8 +65,8 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-4 relative">
         <div className="mx-auto max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-8 animate-fade-in">
-            <Sparkles className="w-4 h-4" />
-            <span>AI-native video editing</span>
+            <Terminal className="w-4 h-4" />
+            <span>The video CLI for AI agents</span>
             <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">v{process.env.NEXT_PUBLIC_VERSION}</span>
           </div>
 
@@ -74,10 +76,9 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            CLI-first video editing for AI agents.
-            Use directly, with Claude Code,
-            via MCP in Claude Desktop & Cursor,
-            or through Agent mode — no GUI required.
+            A CLI agents can compose, pipe, and script.
+            YAML pipelines, 5 AI providers, 53 MCP tools bundled.
+            Works with Claude Code, Claude Desktop, Cursor — no GUI required.
           </p>
 
           {/* Install Command */}

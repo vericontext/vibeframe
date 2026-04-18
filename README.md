@@ -1,6 +1,6 @@
 # VibeFrame
 
-**AI-native video editing. CLI-first. MCP-ready.**
+**The video CLI for AI agents.** YAML pipelines. 5 AI providers. 53 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -21,7 +21,7 @@
 
 ## Why VibeFrame?
 
-Traditional video editors are built for **clicking buttons**. VibeFrame is built for **AI-powered workflows**.
+Traditional video editors are built for **clicking buttons**. VibeFrame is built for **AI-powered workflows** — a well-designed CLI that AI agents can compose, pipe, and script.
 
 | Traditional Editor | VibeFrame |
 |-------------------|----------|
@@ -30,7 +30,19 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 | Export for each platform | `vibe pipeline viral project.vibe.json` |
 | Click through menus | Natural language → CLI → done |
 
-**Design Principles:** Headless First — AI-Native — MCP Compatible — Provider Agnostic
+### vs other open-source video agents
+
+| Feature | VibeFrame | [Hyperframes](https://github.com/heygen-com/hyperframes) | [OpenMontage](https://github.com/calesthio/OpenMontage) | [Remotion](https://github.com/remotion-dev/remotion) |
+|---|---|---|---|---|
+| CLI-first | ✅ | ✅ | ✅ | ❌ (library) |
+| YAML pipelines | ✅ (`vibe run`) | partial | ✅ | ❌ |
+| AI providers | **5** (OpenAI/Anthropic/Gemini/xAI/OpenRouter) | TTS + transcribe | many | ❌ |
+| MCP server bundled | ✅ **53 tools** | ❌ | ❌ | ❌ |
+| Claude Code Skill | [planned](https://github.com/vericontext/vibeframe/issues/32) | ✅ | ❌ | ❌ |
+| Render backend | FFmpeg + Remotion | HTML + Puppeteer | FFmpeg | React → Video |
+| License | MIT | Apache 2.0 | AGPLv3 | MIT |
+
+**Design Principles:** CLI-First — AI-Native — Provider Agnostic — MCP Compatible
 
 ---
 
@@ -103,9 +115,9 @@ No setup needed beyond installing the CLI. Claude Code discovers and runs `vibe`
 
 ---
 
-## MCP Integration
+## MCP Integration (Claude Desktop / Cursor)
 
-Works with Claude Desktop and Cursor via MCP (53 MCP tools). No clone needed — just add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (53 tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {
