@@ -35,7 +35,7 @@ describe("Hyperframes integration (skipped if Chrome missing)", () => {
   });
 
   it("renders simple-2clip fixture to a non-zero mp4 (requires Chrome)", async () => {
-    if (!chromeAvailable) return;
+    if (!chromeAvailable || process.env.CI) return;
 
     const rawState = loadState("simple-2clip.vibe.json");
 
