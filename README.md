@@ -113,6 +113,23 @@ Already have the CLI installed? Claude Code runs `vibe` commands for you — jus
 
 No setup needed beyond installing the CLI. Claude Code discovers and runs `vibe` commands directly.
 
+### Install as a Claude Code Skill
+
+For richer guidance, install the Claude Code Skill pack — it adds three slash commands that walk Claude through common workflows:
+
+```bash
+# From the repo root (or any project where you want the skill active)
+mkdir -p .claude/skills
+curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
+```
+
+This registers:
+- **`/vibeframe`** — overview, command groups, and common workflows
+- **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
+- **`/vibe-script-to-video`** — guided script-to-video walkthrough
+
+Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
+
 ---
 
 ## MCP Integration (Claude Desktop / Cursor)
