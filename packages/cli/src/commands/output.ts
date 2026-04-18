@@ -123,7 +123,7 @@ export function isQuietMode(): boolean {
 // ── Cost Estimation ──────────────────────────────────────────────────────
 
 /** Estimated cost ranges by command */
-const COST_ESTIMATES: Record<string, { min: number; max: number; unit: string }> = {
+export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: string }> = {
   // Free
   "detect scenes": { min: 0, max: 0, unit: "free" },
   "detect silence": { min: 0, max: 0, unit: "free" },

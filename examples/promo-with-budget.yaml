@@ -1,0 +1,50 @@
+# VibeFrame Pipeline — AI Promo Video with Budget Ceiling
+# Demonstrates Opus 4.7 Task Budgets: hard cost and error ceilings.
+# Executor aborts before any step whose projected cost would exceed `budget.costUsd`.
+#
+# Requires: GOOGLE_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY
+# Run:
+#   vibe run examples/promo-with-budget.yaml --dry-run       # see projected cost + ceiling
+#   vibe run examples/promo-with-budget.yaml                 # execute with budget enforced
+#   vibe run examples/promo-with-budget.yaml --budget-usd 3  # override via CLI flag
+
+name: promo-with-budget
+description: Promo video with a $5 upper-bound cost ceiling
+version: 1
+
+# Budget ceilings — executor aborts when any is exceeded.
+# Cost uses the upper-bound of COST_ESTIMATES per action
+# (e.g., generate-video max ≈ $5.00, generate-tts max ≈ $0.30).
+budget:
+  costUsd: 5.00
+  maxToolErrors: 2
+
+# Opus 4.7 effort level for LLM-backed steps (low | medium | high | xhigh)
+effort: high
+
+steps:
+  - id: backdrop
+    action: generate-image
+    prompt: "Modern product showcase, cinematic lighting, 4K"
+    provider: gemini
+    ratio: "16:9"
+    output: backdrop.png
+
+  - id: narration
+    action: generate-tts
+    text: "Ship videos, not clicks."
+    output: narration.mp3
+
+  - id: scene
+    action: generate-video
+    prompt: "Smooth camera push into the frame"
+    image: $backdrop.output
+    duration: 5
+    provider: grok
+    output: scene.mp4
+
+  - id: grade
+    action: edit-grade
+    input: $scene.output
+    preset: cinematic-warm
+    output: final.mp4

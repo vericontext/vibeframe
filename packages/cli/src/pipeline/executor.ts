@@ -6,8 +6,47 @@ import { resolve } from "node:path";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { parse as yamlParse, stringify as yamlStringify } from "yaml";
-import type { PipelineManifest, PipelineAction, StepResult, PipelineResult } from "./types.js";
+import type { PipelineManifest, PipelineAction, PipelineBudget, StepResult, PipelineResult, BudgetUsage } from "./types.js";
 import { resolveStepParams, findUnresolvedRefs } from "./resolver.js";
+import { COST_ESTIMATES } from "../commands/output.js";
+
+// ── Action → CLI command mapping (for cost lookup) ──────────────────────
+
+const ACTION_TO_COMMAND: Partial<Record<PipelineAction, string>> = {
+  "generate-image": "generate image",
+  "generate-video": "generate video",
+  "generate-tts": "generate speech",
+  "generate-sfx": "generate sound-effect",
+  "generate-music": "generate music",
+  "generate-storyboard": "generate storyboard",
+  "generate-motion": "generate motion",
+  "edit-silence-cut": "edit silence-cut",
+  "edit-jump-cut": "edit jump-cut",
+  "edit-caption": "edit caption",
+  "edit-noise-reduce": "edit noise-reduce",
+  "edit-fade": "edit fade",
+  "edit-translate-srt": "edit translate-srt",
+  "edit-text-overlay": "edit text-overlay",
+  "edit-grade": "edit grade",
+  "edit-speed-ramp": "edit speed-ramp",
+  "edit-reframe": "edit reframe",
+  "edit-interpolate": "edit interpolate",
+  "edit-upscale": "edit upscale-video",
+  "edit-image": "edit image",
+  "audio-transcribe": "audio transcribe",
+  "detect-scenes": "detect scenes",
+  "detect-silence": "detect silence",
+  "detect-beats": "detect beats",
+  "analyze-media": "analyze media",
+  "analyze-video": "analyze video",
+  "review-video": "analyze review",
+};
+
+function maxCostFor(action: PipelineAction): number {
+  const cmd = ACTION_TO_COMMAND[action];
+  if (!cmd) return 0;
+  return COST_ESTIMATES[cmd]?.max ?? 0;
+}
 
 // ── Action Registry ─────────────────────────────────────────────────────
 
@@ -212,6 +251,8 @@ export interface ExecutePipelineOptions {
   resume?: boolean;
   /** Stop on first failure */
   failFast?: boolean;
+  /** Override manifest.budget (partial merge) */
+  budget?: PipelineBudget;
 }
 
 const CHECKPOINT_FILE = ".pipeline-state.yaml";
@@ -251,18 +292,27 @@ export async function executePipeline(
     }
   }
 
+  // Merge manifest budget with CLI overrides
+  const effectiveBudget: PipelineBudget | undefined = (manifest.budget || options.budget)
+    ? { ...(manifest.budget ?? {}), ...(options.budget ?? {}) }
+    : undefined;
+
   // Dry-run: validate and show plan
   if (options.dryRun) {
     const plan: Array<{ id: string; action: string; estimatedCost?: string; unresolvedRefs?: string[] }> = [];
     const availableIds = new Set<string>();
+    let totalMaxCost = 0;
 
     for (const step of manifest.steps) {
       const handler = ACTION_HANDLERS[step.action];
       const unresolvedRefs = findUnresolvedRefs(step as unknown as Record<string, unknown>, availableIds);
+      const max = maxCostFor(step.action);
+      totalMaxCost += max;
 
       plan.push({
         id: step.id,
         action: step.action,
+        estimatedCost: max > 0 ? `≤$${max.toFixed(2)}` : undefined,
         unresolvedRefs: unresolvedRefs.length > 0 ? unresolvedRefs : undefined,
       });
 
@@ -273,6 +323,11 @@ export async function executePipeline(
       availableIds.add(step.id);
     }
 
+    const budgetWarnings: string[] = [];
+    if (effectiveBudget?.costUsd !== undefined && totalMaxCost > effectiveBudget.costUsd) {
+      budgetWarnings.push(`Upper-bound cost estimate ($${totalMaxCost.toFixed(2)}) exceeds budget.costUsd ($${effectiveBudget.costUsd.toFixed(2)})`);
+    }
+
     return {
       success: true,
       name: manifest.name,
@@ -280,8 +335,17 @@ export async function executePipeline(
       completedSteps: 0,
       totalSteps: manifest.steps.length,
       outputDir,
+      budget: effectiveBudget ? {
+        estimatedCostUsd: totalMaxCost,
+        tokensUsed: 0,
+        toolErrors: 0,
+        ...(budgetWarnings.length > 0 ? { abortedBy: "costUsd" as const } : {}),
+      } : undefined,
     };
   }
+
+  // Budget tracking
+  const budgetUsage: BudgetUsage = { estimatedCostUsd: 0, tokensUsed: 0, toolErrors: 0 };
 
   // Execute steps
   for (const step of manifest.steps) {
@@ -291,12 +355,32 @@ export async function executePipeline(
       continue;
     }
 
+    // Budget pre-check: cost ceiling
+    if (effectiveBudget?.costUsd !== undefined) {
+      const projected = budgetUsage.estimatedCostUsd + maxCostFor(step.action);
+      if (projected > effectiveBudget.costUsd) {
+        budgetUsage.abortedBy = "costUsd";
+        return {
+          success: false,
+          name: manifest.name,
+          steps: results,
+          completedSteps: completedSteps.size,
+          totalSteps: manifest.steps.length,
+          totalDuration: Date.now() - startTime,
+          outputDir,
+          error: `Budget exceeded: projected $${projected.toFixed(2)} > budget.costUsd $${effectiveBudget.costUsd.toFixed(2)} (stopped before step '${step.id}')`,
+          budget: budgetUsage,
+        };
+      }
+    }
+
     const handler = ACTION_HANDLERS[step.action];
     if (!handler) {
       const result: StepResult = { id: step.id, action: step.action, success: false, error: `Unknown action: ${step.action}` };
       results.push(result);
+      budgetUsage.toolErrors += 1;
       if (options.failFast) {
-        return { success: false, name: manifest.name, steps: results, completedSteps: completedSteps.size, totalSteps: manifest.steps.length, outputDir, error: result.error };
+        return { success: false, name: manifest.name, steps: results, completedSteps: completedSteps.size, totalSteps: manifest.steps.length, outputDir, error: result.error, budget: effectiveBudget ? budgetUsage : undefined };
       }
       continue;
     }
@@ -326,6 +410,7 @@ export async function executePipeline(
 
     if (result.success) {
       completedSteps.set(step.id, result);
+      budgetUsage.estimatedCostUsd += maxCostFor(step.action);
 
       // Save checkpoint
       const checkpoint: CheckpointState = {
@@ -340,17 +425,38 @@ export async function executePipeline(
         yamlStringify(checkpoint, { indent: 2 }),
         "utf-8",
       );
-    } else if (options.failFast) {
-      return {
-        success: false,
-        name: manifest.name,
-        steps: results,
-        completedSteps: completedSteps.size,
-        totalSteps: manifest.steps.length,
-        totalDuration: Date.now() - startTime,
-        outputDir,
-        error: result.error,
-      };
+    } else {
+      budgetUsage.toolErrors += 1;
+
+      // Abort if maxToolErrors exceeded
+      if (effectiveBudget?.maxToolErrors !== undefined && budgetUsage.toolErrors > effectiveBudget.maxToolErrors) {
+        budgetUsage.abortedBy = "maxToolErrors";
+        return {
+          success: false,
+          name: manifest.name,
+          steps: results,
+          completedSteps: completedSteps.size,
+          totalSteps: manifest.steps.length,
+          totalDuration: Date.now() - startTime,
+          outputDir,
+          error: `Budget exceeded: ${budgetUsage.toolErrors} failed steps > budget.maxToolErrors ${effectiveBudget.maxToolErrors}`,
+          budget: budgetUsage,
+        };
+      }
+
+      if (options.failFast) {
+        return {
+          success: false,
+          name: manifest.name,
+          steps: results,
+          completedSteps: completedSteps.size,
+          totalSteps: manifest.steps.length,
+          totalDuration: Date.now() - startTime,
+          outputDir,
+          error: result.error,
+          budget: effectiveBudget ? budgetUsage : undefined,
+        };
+      }
     }
   }
 
@@ -364,5 +470,6 @@ export async function executePipeline(
     totalSteps: manifest.steps.length,
     totalDuration: Date.now() - startTime,
     outputDir,
+    budget: effectiveBudget ? budgetUsage : undefined,
   };
 }

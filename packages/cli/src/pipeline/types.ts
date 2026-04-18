@@ -56,6 +56,19 @@ export interface PipelineStep {
   [key: string]: unknown;
 }
 
+/** Effort level passed to LLM providers (maps to Anthropic Opus 4.7 effort) */
+export type EffortLevel = "low" | "medium" | "high" | "xhigh";
+
+/** Pipeline budget — aborts execution when any ceiling is hit */
+export interface PipelineBudget {
+  /** Max estimated USD (uses COST_ESTIMATES.max per action) */
+  costUsd?: number;
+  /** Max total token budget (tracked when provider returns usage) */
+  tokens?: number;
+  /** Max number of failed steps before aborting */
+  maxToolErrors?: number;
+}
+
 /** Pipeline manifest (parsed from YAML) */
 export interface PipelineManifest {
   /** Pipeline name */
@@ -66,6 +79,10 @@ export interface PipelineManifest {
   version?: number;
   /** Steps to execute */
   steps: PipelineStep[];
+  /** Cost / error ceilings enforced by the executor */
+  budget?: PipelineBudget;
+  /** Default effort level for LLM-backed steps (Opus 4.7 Task Budgets) */
+  effort?: EffortLevel;
 }
 
 /** Result of a single step execution */
@@ -83,6 +100,18 @@ export interface StepResult {
   duration?: number;
 }
 
+/** Running budget usage after execution */
+export interface BudgetUsage {
+  /** Upper-bound estimated USD used (sum of max cost per completed step) */
+  estimatedCostUsd: number;
+  /** Total tokens consumed (when providers report usage) */
+  tokensUsed: number;
+  /** Failed steps count */
+  toolErrors: number;
+  /** Set if execution aborted due to a budget ceiling */
+  abortedBy?: "costUsd" | "tokens" | "maxToolErrors";
+}
+
 /** Result of full pipeline execution */
 export interface PipelineResult {
   success: boolean;
@@ -93,4 +122,6 @@ export interface PipelineResult {
   totalDuration?: number;
   outputDir?: string;
   error?: string;
+  /** Budget usage when a budget was configured */
+  budget?: BudgetUsage;
 }
