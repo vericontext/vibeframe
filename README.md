@@ -37,7 +37,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 | CLI-first | ✅ | ✅ | ✅ | ❌ (library) |
 | YAML pipelines | ✅ (`vibe run`) | partial | ✅ | ❌ |
 | AI providers | **5** (OpenAI/Anthropic/Gemini/xAI/OpenRouter) | TTS + transcribe | many | ❌ |
-| MCP server bundled | ✅ **53 tools** | ❌ | ❌ | ❌ |
+| MCP server bundled | ✅ **53 MCP tools** | ❌ | ❌ | ❌ |
 | Claude Code Skill | [planned](https://github.com/vericontext/vibeframe/issues/32) | ✅ | ❌ | ❌ |
 | Render backend | FFmpeg + Remotion | HTML + Puppeteer | FFmpeg | React → Video |
 | License | MIT | Apache 2.0 | AGPLv3 | MIT |
@@ -134,7 +134,7 @@ Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/v
 
 ## MCP Integration (Claude Desktop / Cursor)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (53 tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (53 MCP tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {

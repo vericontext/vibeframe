@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-04-18
+
+### Added
+
+- add budget + effort (Opus 4.7 Task Budgets) *(pipeline)*
+- add Claude Code Skills for CLI discovery
+- add light/dark mode toggle *(web)*
+
+### Documentation
+
+- reposition as "The video CLI for AI agents"
+
+### Fixed
+
+- standardize demo/doctor JSON output + expand error hints *(cli)*
+- include pnpm-lock.yaml for next-themes dependency
+
 ## [0.45.0] - 2026-04-11
 
 ### Added
