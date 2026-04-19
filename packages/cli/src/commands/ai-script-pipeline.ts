@@ -17,7 +17,7 @@
  */
 
 import { readFile, writeFile, mkdir, unlink, rename } from "node:fs/promises";
-import { resolve, basename, extname } from "node:path";
+import { resolve, basename, dirname, extname } from "node:path";
 import { existsSync } from "node:fs";
 import { stringify as yamlStringify, parse as yamlParse } from "yaml";
 import chalk from "chalk";
@@ -488,6 +488,13 @@ export interface ScriptToVideoOptions {
    * during narration/image/video generation (format: `Scene i/N: ...`).
    */
   onProgress?: (message: string) => void;
+  /**
+   * Absolute path for the generated `project.vibe.json`. Defaults to
+   * `{outputDir}/project.vibe.json`. When supplied, the CLI layer can map its
+   * `-o` flag onto an arbitrary project file location without renaming files
+   * after the fact.
+   */
+  projectFilePath?: string;
 }
 
 /**
@@ -1253,8 +1260,15 @@ export async function executeScriptToVideo(
       currentTime += actualDuration;
     }
 
-    // Save project file
-    const projectPath = resolve(absOutputDir, "project.vibe.json");
+    // Save project file. Default is `{outputDir}/project.vibe.json`; callers
+    // can override via projectFilePath (used by the CLI's `-o` handling).
+    const projectPath = options.projectFilePath
+      ? resolve(process.cwd(), options.projectFilePath)
+      : resolve(absOutputDir, "project.vibe.json");
+    const projectParentDir = dirname(projectPath);
+    if (!existsSync(projectParentDir)) {
+      await mkdir(projectParentDir, { recursive: true });
+    }
     await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
     result.projectPath = projectPath;
     result.totalDuration = currentTime;
