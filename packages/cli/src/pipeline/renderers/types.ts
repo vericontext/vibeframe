@@ -18,6 +18,8 @@ export interface RenderOptions {
   fps?: 24 | 30 | 60;
   quality?: "draft" | "standard" | "high";
   format?: "mp4" | "webm" | "mov";
+  /** Hyperframes capture worker count. Defaults to 1 (sequential) — auto-worker mode times out on small comps. */
+  workers?: number;
   onProgress?: (pct: number, stage: string) => void;
   signal?: AbortSignal;
 }

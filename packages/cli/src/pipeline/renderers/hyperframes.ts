@@ -66,6 +66,7 @@ export function createHyperframesBackend(): RenderBackend {
         format: options.format ?? "mp4",
         entryFile: "index.html",
         crf: qualityToCrf(options.quality),
+        workers: options.workers ?? 1,
       };
       const job = createRenderJob(config);
 
