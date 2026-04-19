@@ -961,6 +961,28 @@ export async function executeScriptToVideo(
           return { success: false, outputDir: absOutputDir, scenes: segments.length, error: "Invalid Kling API key format. Use ACCESS_KEY:SECRET_KEY" };
         }
 
+        // Kling image2video requires a public image URL (not base64). When an
+        // ImgBB key is configured, upload each scene image once and pass the
+        // URL as referenceImage; otherwise fall through to text2video.
+        const imgbbApiKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
+        const imageUrls: (string | undefined)[] = new Array(segments.length);
+        if (imgbbApiKey) {
+          options.onProgress?.("Uploading scene images for Kling image-to-video...");
+          for (let i = 0; i < imagePaths.length; i++) {
+            if (imagePaths[i]) {
+              try {
+                const imageBuffer = await readFile(imagePaths[i]);
+                const uploadResult = await uploadToImgbb(imageBuffer, imgbbApiKey);
+                if (uploadResult.success && uploadResult.url) {
+                  imageUrls[i] = uploadResult.url;
+                }
+              } catch {
+                imageUrls[i] = undefined;
+              }
+            }
+          }
+        }
+
         for (let i = 0; i < segments.length; i++) {
           if (!imagePaths[i]) {
             videoPaths.push("");
@@ -972,11 +994,14 @@ export async function executeScriptToVideo(
 
           options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating video (kling)...`);
 
-          // Using text2video since Kling's image2video requires URL (not base64)
           const taskResult = await generateVideoWithRetryKling(
             kling,
             segment,
-            { duration: videoDuration, aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1" },
+            {
+              duration: videoDuration,
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+              referenceImage: imageUrls[i],
+            },
             maxRetries
           );
 
@@ -988,17 +1013,20 @@ export async function executeScriptToVideo(
                 const buffer = await downloadVideo(waitResult.videoUrl, videoApiKey);
                 await writeFile(videoPath, buffer);
 
-                // Extend video to match narration duration if needed
-                const targetDuration = segment.duration; // Already updated to narration length
-                const actualVideoDuration = await getVideoDuration(videoPath);
-
-                if (actualVideoDuration < targetDuration - 0.1) {
-                  const extendedPath = resolve(absOutputDir, `scene-${i + 1}-extended.mp4`);
-                  await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                  // Replace original with extended version
-                  await unlink(videoPath);
-                  await rename(extendedPath, videoPath);
-                }
+                // Extend video to match narration duration. Use extendVideoToTarget
+                // so large gaps (ratio > 1.4) can use Kling's own extend API for
+                // natural continuation instead of freeze-frame padding.
+                await extendVideoToTarget(
+                  videoPath,
+                  segment.duration,
+                  absOutputDir,
+                  `Scene ${i + 1}`,
+                  {
+                    kling,
+                    videoId: waitResult.videoId,
+                    onProgress: options.onProgress,
+                  }
+                );
 
                 videoPaths.push(videoPath);
                 result.videos!.push(videoPath);
@@ -1751,16 +1779,19 @@ Generate the single-person scene image now.`;
                 const buffer = await downloadVideo(waitResult.videoUrl, videoApiKey);
                 await writeFile(videoPath, buffer);
 
-                // Extend video to match narration duration if needed
-                const targetDuration = segment.duration;
-                const actualVideoDuration = await getVideoDuration(videoPath);
-
-                if (actualVideoDuration < targetDuration - 0.1) {
-                  const extendedPath = resolve(outputDir, `scene-${sceneNum}-extended.mp4`);
-                  await extendVideoNaturally(videoPath, targetDuration, extendedPath);
-                  await unlink(videoPath);
-                  await rename(extendedPath, videoPath);
-                }
+                // Extend via extendVideoToTarget so Kling's own extend API can
+                // be used for large gaps (ratio > 1.4) instead of freeze frames.
+                await extendVideoToTarget(
+                  videoPath,
+                  segment.duration,
+                  outputDir,
+                  `Scene ${sceneNum}`,
+                  {
+                    kling,
+                    videoId: waitResult.videoId,
+                    onProgress: options.onProgress,
+                  }
+                );
 
                 result.regeneratedScenes.push(sceneNum);
               } else {
