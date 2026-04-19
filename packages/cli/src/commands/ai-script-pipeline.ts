@@ -700,9 +700,18 @@ export async function executeScriptToVideo(
           continue;
         }
 
+        // Pre-TTS word-count heuristic (warn only; narration may still fit)
+        const wordCount = narrationText.split(/\s+/).filter(Boolean).length;
+        const maxWords = segment.duration > 5 ? 24 : 12;
+        if (wordCount > maxWords * 1.3) {
+          options.onProgress?.(
+            `⚠ Scene ${i + 1} narration has ${wordCount} words (target ~${maxWords} for ${segment.duration}s); speech may rush.`
+          );
+        }
+
         options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating narration...`);
 
-        const ttsResult = await elevenlabs.textToSpeech(narrationText, {
+        let ttsResult = await elevenlabs.textToSpeech(narrationText, {
           voiceId: options.voice,
         });
 
@@ -711,7 +720,33 @@ export async function executeScriptToVideo(
           await writeFile(audioPath, ttsResult.audioBuffer);
 
           // Get actual audio duration
-          const actualDuration = await getAudioDuration(audioPath);
+          let actualDuration = await getAudioDuration(audioPath);
+
+          // Auto speed-adjust if narration exceeds video bracket (5s or 10s).
+          // Pick the bracket from the pre-TTS segment.duration (the storyboard
+          // estimate), not actualDuration — actualDuration IS the overage.
+          const videoBracket = segment.duration > 5 ? 10 : 5;
+          const overageRatio = actualDuration / videoBracket;
+          if (overageRatio > 1.0 && overageRatio <= 1.35) {
+            const adjustedSpeed = Math.min(1.35, parseFloat(overageRatio.toFixed(2)));
+            options.onProgress?.(
+              `Scene ${i + 1}: adjusting narration speed to ${adjustedSpeed}x...`
+            );
+            const speedResult = await elevenlabs.textToSpeech(narrationText, {
+              voiceId: options.voice,
+              speed: adjustedSpeed,
+            });
+            if (speedResult.success && speedResult.audioBuffer) {
+              await writeFile(audioPath, speedResult.audioBuffer);
+              actualDuration = await getAudioDuration(audioPath);
+              ttsResult = speedResult;
+            }
+          } else if (overageRatio > 1.35) {
+            options.onProgress?.(
+              `⚠ Scene ${i + 1} narration is ${((overageRatio - 1) * 100).toFixed(0)}% over target (${actualDuration.toFixed(1)}s vs ${videoBracket}s bracket)`
+            );
+          }
+
           segment.duration = actualDuration;
 
           // Add to both arrays for backwards compatibility
