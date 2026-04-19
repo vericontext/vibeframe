@@ -202,6 +202,29 @@ export async function extendVideoToTarget(
 }
 
 /**
+ * Log a provider failure to stderr. Centralizes the "what went wrong" output
+ * so call sites stop silently dropping provider errors into failedScenes.
+ * Safe to call with unknown errors, string messages, or VideoResult shapes.
+ */
+export function logSceneFailure(
+  provider: string,
+  sceneLabel: string,
+  err: unknown
+): void {
+  let msg: string;
+  if (err instanceof Error) {
+    msg = err.message;
+  } else if (typeof err === "string") {
+    msg = err;
+  } else if (err && typeof err === "object" && "error" in err && typeof (err as { error: unknown }).error === "string") {
+    msg = (err as { error: string }).error;
+  } else {
+    msg = String(err);
+  }
+  console.error(chalk.dim(`\n  [${provider} ${sceneLabel}: ${msg}]`));
+}
+
+/**
  * Generate video with retry logic for Grok provider
  */
 export async function generateVideoWithRetryGrok(
@@ -232,9 +255,14 @@ export async function generateVideoWithRetryGrok(
         return { requestId: result.id };
       }
 
+      // Provider returned status: "failed" with an error message — don't
+      // discard it. Surface via onProgress + stderr so the caller can see WHY.
+      const providerErr = result.error || "Grok returned failed status";
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ ${providerErr.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        console.error(chalk.dim(`\n  [Grok error: ${providerErr}]`));
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -287,9 +315,12 @@ export async function generateVideoWithRetryKling(
         };
       }
 
+      const providerErr = result.error || "Kling returned failed status";
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ ${providerErr.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        console.error(chalk.dim(`\n  [Kling error: ${providerErr}]`));
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -297,7 +328,6 @@ export async function generateVideoWithRetryKling(
         onProgress?.(`⚠ Error: ${errMsg.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
       } else {
-        // Log the final error on last attempt
         console.error(chalk.dim(`\n  [Kling error: ${errMsg}]`));
       }
     }
@@ -332,9 +362,12 @@ export async function generateVideoWithRetryRunway(
         return { taskId: result.id };
       }
 
+      const providerErr = result.error || "Runway returned failed status";
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ ${providerErr.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        console.error(chalk.dim(`\n  [Runway error: ${providerErr}]`));
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -381,9 +414,12 @@ export async function generateVideoWithRetryVeo(
         return { operationName: result.id };
       }
 
+      const providerErr = result.error || "Veo returned failed status";
       if (attempt < maxRetries) {
-        onProgress?.(`⚠ Retry ${attempt + 1}/${maxRetries}...`);
+        onProgress?.(`⚠ ${providerErr.slice(0, 50)}... retry ${attempt + 1}/${maxRetries}`);
         await sleep(RETRY_DELAY_MS);
+      } else {
+        console.error(chalk.dim(`\n  [Veo error: ${providerErr}]`));
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -941,10 +977,12 @@ export async function executeScriptToVideo(
                 videoPaths.push(videoPath);
                 result.videos!.push(videoPath);
               } else {
+                logSceneFailure("Grok", `scene ${i + 1}`, waitResult);
                 videoPaths.push("");
                 result.failedScenes!.push(i + 1);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Grok", `scene ${i + 1}`, err);
               videoPaths.push("");
               result.failedScenes!.push(i + 1);
             }
@@ -1031,10 +1069,12 @@ export async function executeScriptToVideo(
                 videoPaths.push(videoPath);
                 result.videos!.push(videoPath);
               } else {
+                logSceneFailure("Kling", `scene ${i + 1}`, waitResult);
                 videoPaths.push("");
                 result.failedScenes!.push(i + 1);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Kling", `scene ${i + 1}`, err);
               videoPaths.push("");
               result.failedScenes!.push(i + 1);
             }
@@ -1088,10 +1128,12 @@ export async function executeScriptToVideo(
                 videoPaths.push(videoPath);
                 result.videos!.push(videoPath);
               } else {
+                logSceneFailure("Veo", `scene ${i + 1}`, waitResult);
                 videoPaths.push("");
                 result.failedScenes!.push(i + 1);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Veo", `scene ${i + 1}`, err);
               videoPaths.push("");
               result.failedScenes!.push(i + 1);
             }
@@ -1152,10 +1194,12 @@ export async function executeScriptToVideo(
                 videoPaths.push(videoPath);
                 result.videos!.push(videoPath);
               } else {
+                logSceneFailure("Runway", `scene ${i + 1}`, waitResult);
                 videoPaths.push("");
                 result.failedScenes!.push(i + 1);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Runway", `scene ${i + 1}`, err);
               videoPaths.push("");
               result.failedScenes!.push(i + 1);
             }
@@ -1685,9 +1729,11 @@ Generate the single-person scene image now.`;
 
                 result.regeneratedScenes.push(sceneNum);
               } else {
+                logSceneFailure("Grok", `scene ${sceneNum}`, waitResult);
                 result.failedScenes.push(sceneNum);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Grok", `scene ${sceneNum}`, err);
               result.failedScenes.push(sceneNum);
             }
           } else {
@@ -1733,9 +1779,11 @@ Generate the single-person scene image now.`;
 
                 result.regeneratedScenes.push(sceneNum);
               } else {
+                logSceneFailure("Veo", `scene ${sceneNum}`, waitResult);
                 result.failedScenes.push(sceneNum);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Veo", `scene ${sceneNum}`, err);
               result.failedScenes.push(sceneNum);
             }
           } else {
@@ -1795,9 +1843,11 @@ Generate the single-person scene image now.`;
 
                 result.regeneratedScenes.push(sceneNum);
               } else {
+                logSceneFailure("Kling", `scene ${sceneNum}`, waitResult);
                 result.failedScenes.push(sceneNum);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Kling", `scene ${sceneNum}`, err);
               result.failedScenes.push(sceneNum);
             }
           } else {
@@ -1842,9 +1892,11 @@ Generate the single-person scene image now.`;
 
                 result.regeneratedScenes.push(sceneNum);
               } else {
+                logSceneFailure("Runway", `scene ${sceneNum}`, waitResult);
                 result.failedScenes.push(sceneNum);
               }
-            } catch {
+            } catch (err) {
+              logSceneFailure("Runway", `scene ${sceneNum}`, err);
               result.failedScenes.push(sceneNum);
             }
           } else {
