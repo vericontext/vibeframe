@@ -1262,7 +1262,7 @@ export interface RegenerateSceneOptions {
   /** Only regenerate scene image */
   imageOnly?: boolean;
   /** Video generation provider */
-  generator?: "kling" | "runway" | "veo";
+  generator?: "grok" | "kling" | "runway" | "veo";
   /** Image generation provider */
   imageProvider?: "gemini" | "openai" | "grok";
   /** ElevenLabs voice name or ID */
@@ -1372,7 +1372,103 @@ export async function executeRegenerateScene(
         const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
         const maxRetries = options.retries ?? DEFAULT_VIDEO_RETRIES;
 
-        if (options.generator === "kling" || !options.generator) {
+        if (options.generator === "grok") {
+          // Grok (xAI) — image-to-video with data URI reference
+          const grok = new GrokProvider();
+          await grok.initialize({ apiKey: videoApiKey });
+
+          const ext = extname(imagePath).toLowerCase().slice(1);
+          const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+          const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+          const grokDuration = Math.min(15, Math.max(1, segment.duration));
+
+          const taskResult = await generateVideoWithRetryGrok(
+            grok,
+            segment,
+            {
+              duration: grokDuration,
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+              referenceImage,
+            },
+            maxRetries
+          );
+
+          if (taskResult) {
+            try {
+              const waitResult = await grok.waitForCompletion(taskResult.requestId, undefined, 300000);
+              if (waitResult.status === "completed" && waitResult.videoUrl) {
+                const buffer = await downloadVideo(waitResult.videoUrl, videoApiKey);
+                await writeFile(videoPath, buffer);
+
+                const targetDuration = segment.duration;
+                const actualVideoDuration = await getVideoDuration(videoPath);
+
+                if (actualVideoDuration < targetDuration - 0.1) {
+                  const extendedPath = resolve(outputDir, `scene-${sceneNum}-extended.mp4`);
+                  await extendVideoNaturally(videoPath, targetDuration, extendedPath);
+                  await unlink(videoPath);
+                  await rename(extendedPath, videoPath);
+                }
+
+                result.regeneratedScenes.push(sceneNum);
+              } else {
+                result.failedScenes.push(sceneNum);
+              }
+            } catch {
+              result.failedScenes.push(sceneNum);
+            }
+          } else {
+            result.failedScenes.push(sceneNum);
+          }
+        } else if (options.generator === "veo") {
+          // Veo (Gemini)
+          const veo = new GeminiProvider();
+          await veo.initialize({ apiKey: videoApiKey });
+
+          const ext = extname(imagePath).toLowerCase().slice(1);
+          const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+          const referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+          const veoDuration = (segment.duration > 6 ? 8 : segment.duration > 4 ? 6 : 4) as 4 | 6 | 8;
+
+          const taskResult = await generateVideoWithRetryVeo(
+            veo,
+            segment,
+            {
+              duration: veoDuration,
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+              referenceImage,
+            },
+            maxRetries
+          );
+
+          if (taskResult) {
+            try {
+              const waitResult = await veo.waitForVideoCompletion(taskResult.operationName, undefined, 300000);
+              if (waitResult.status === "completed" && waitResult.videoUrl) {
+                const buffer = await downloadVideo(waitResult.videoUrl, videoApiKey);
+                await writeFile(videoPath, buffer);
+
+                const targetDuration = segment.duration;
+                const actualVideoDuration = await getVideoDuration(videoPath);
+
+                if (actualVideoDuration < targetDuration - 0.1) {
+                  const extendedPath = resolve(outputDir, `scene-${sceneNum}-extended.mp4`);
+                  await extendVideoNaturally(videoPath, targetDuration, extendedPath);
+                  await unlink(videoPath);
+                  await rename(extendedPath, videoPath);
+                }
+
+                result.regeneratedScenes.push(sceneNum);
+              } else {
+                result.failedScenes.push(sceneNum);
+              }
+            } catch {
+              result.failedScenes.push(sceneNum);
+            }
+          } else {
+            result.failedScenes.push(sceneNum);
+          }
+        } else if (options.generator === "kling" || !options.generator) {
           const kling = new KlingProvider();
           await kling.initialize({ apiKey: videoApiKey });
 

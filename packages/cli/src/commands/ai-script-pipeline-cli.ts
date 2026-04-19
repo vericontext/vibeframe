@@ -37,6 +37,7 @@ import {
   generateVideoWithRetryKling,
   generateVideoWithRetryRunway,
   executeScriptToVideo,
+  executeRegenerateScene,
 } from "./ai-script-pipeline.js";
 import { downloadVideo } from "./ai-helpers.js";
 import { exitWithError, outputResult, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
@@ -1350,16 +1351,6 @@ aiCommand
         if (!genInfo) {
           exitWithError(usageError(`Invalid generator: ${generator}`, `Available: ${Object.keys(generatorKeyMap).join(", ")}`));
         }
-        // executeRegenerateScene + this inline path only support kling/runway
-        // (grok/veo not yet wired into executeRegenerateScene). Fail fast before
-        // spending on image regeneration.
-        const SUPPORTED_HERE = new Set(["kling", "runway"]);
-        if (!SUPPORTED_HERE.has(generator)) {
-          exitWithError(usageError(
-            `regenerate-scene does not yet support "${generator}".`,
-            `Supported: kling, runway. For grok/veo, re-run the full pipeline with 'vibe pipeline script-to-video -g ${generator}'.`,
-          ));
-        }
         const key = await getApiKey(genInfo.envVar, genInfo.name);
         if (!key) {
           exitWithError(authError(genInfo.envVar, genInfo.name));
@@ -1586,7 +1577,26 @@ Generate the single-person scene image now.`;
 
         let videoGenerated = false;
 
-        if (options.generator === "kling") {
+        // Grok and Veo: delegate to executeRegenerateScene (library function supports all 4
+        // since v0.48.5). Kling and Runway continue through the inline path below pending
+        // full dedup (#46).
+        if (options.generator === "grok" || options.generator === "veo") {
+          videoSpinner.text = `🎬 Regenerating scene ${sceneNum} video with ${options.generator}...`;
+          const delResult = await executeRegenerateScene({
+            projectDir,
+            scenes: [sceneNum],
+            videoOnly: true,
+            generator: options.generator as "grok" | "veo",
+            aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1" | undefined,
+            retries: maxRetries,
+          });
+          if (delResult.success && delResult.regeneratedScenes.includes(sceneNum)) {
+            videoGenerated = true;
+          } else if (delResult.error) {
+            videoSpinner.fail(delResult.error);
+            exitWithError(apiError(delResult.error, true));
+          }
+        } else if (options.generator === "kling") {
           const kling = new KlingProvider();
           await kling.initialize({ apiKey: videoApiKey });
 
