@@ -11,6 +11,7 @@ import { resolve, dirname, extname } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
+import { stringify as yamlStringify, parse as yamlParse } from "yaml";
 import {
   GeminiProvider,
   OpenAIProvider,
@@ -1252,7 +1253,6 @@ aiCommand
   .action(async (projectDir: string, options) => {
     try {
       const outputDir = resolve(process.cwd(), projectDir);
-      const storyboardPath = resolve(outputDir, "storyboard.json");
       const projectPath = resolve(outputDir, "project.vibe.json");
 
       // Validate project directory
@@ -1260,8 +1260,16 @@ aiCommand
         exitWithError(notFoundError(outputDir));
       }
 
-      if (!existsSync(storyboardPath)) {
-        exitWithError(notFoundError(storyboardPath));
+      // Storyboard: prefer YAML (written by executeScriptToVideo / grok+veo path),
+      // fall back to JSON (written by legacy kling/runway CLI inline path). Track
+      // source format so re-save preserves it.
+      const yamlPath = resolve(outputDir, "storyboard.yaml");
+      const jsonPath = resolve(outputDir, "storyboard.json");
+      const storyboardPath = existsSync(yamlPath) ? yamlPath : existsSync(jsonPath) ? jsonPath : null;
+      const storyboardIsYaml = storyboardPath === yamlPath;
+
+      if (!storyboardPath) {
+        exitWithError(notFoundError(`${outputDir}/storyboard.{yaml,json}`));
       }
 
       // Parse scene number(s) - supports "3" or "3,4,5"
@@ -1290,9 +1298,11 @@ aiCommand
         return;
       }
 
-      // Load storyboard
-      const storyboardContent = await readFile(storyboardPath, "utf-8");
-      const segments: StoryboardSegment[] = JSON.parse(storyboardContent);
+      // Load storyboard — YAML wraps segments in `scenes:` key, JSON is a bare array.
+      const storyboardContent = await readFile(storyboardPath!, "utf-8");
+      const segments: StoryboardSegment[] = storyboardIsYaml
+        ? (yamlParse(storyboardContent) as { scenes: StoryboardSegment[] }).scenes
+        : (JSON.parse(storyboardContent) as StoryboardSegment[]);
 
       // Validate all scene numbers
       for (const sceneNum of sceneNums) {
@@ -1743,7 +1753,11 @@ Generate the single-person scene image now.`;
           seg.startTime = currentTime;
           currentTime += seg.duration;
         }
-        await writeFile(storyboardPath, JSON.stringify(segments, null, 2), "utf-8");
+        // Preserve the source format (don't silently downgrade YAML to JSON).
+        const serialized = storyboardIsYaml
+          ? yamlStringify({ scenes: segments }, { indent: 2 })
+          : JSON.stringify(segments, null, 2);
+        await writeFile(storyboardPath!, serialized, "utf-8");
         console.log(chalk.dim(`  → Updated storyboard: ${storyboardPath}`));
       }
 
