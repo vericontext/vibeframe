@@ -483,7 +483,10 @@ export interface ScriptToVideoOptions {
   review?: boolean;
   /** Auto-apply fixable issues from review */
   reviewAutoApply?: boolean;
-  /** Called at major stage boundaries (storyboard, narration, images, videos, overlay, assembly, review). */
+  /**
+   * Called at stage boundaries (storyboard, assembly, review, …) and per scene
+   * during narration/image/video generation (format: `Scene i/N: ...`).
+   */
   onProgress?: (message: string) => void;
 }
 
@@ -697,6 +700,8 @@ export async function executeScriptToVideo(
           continue;
         }
 
+        options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating narration...`);
+
         const ttsResult = await elevenlabs.textToSpeech(narrationText, {
           voiceId: options.voice,
         });
@@ -769,6 +774,8 @@ export async function executeScriptToVideo(
       const imagePrompt = segment.visualStyle
         ? `${segment.visuals}. Style: ${segment.visualStyle}`
         : segment.visuals;
+
+      options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating image...`);
 
       try {
         let imageBuffer: Buffer | undefined;
@@ -856,6 +863,8 @@ export async function executeScriptToVideo(
           const segment = segments[i] as StoryboardSegment;
           const videoDuration = Math.min(15, Math.max(1, segment.duration));
 
+          options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating video (grok)...`);
+
           // Image-to-video: encode image as data URI
           const imageBuffer = await readFile(imagePaths[i]);
           const ext = extname(imagePaths[i]).toLowerCase().slice(1);
@@ -919,6 +928,8 @@ export async function executeScriptToVideo(
           const segment = segments[i] as StoryboardSegment;
           const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
 
+          options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating video (kling)...`);
+
           // Using text2video since Kling's image2video requires URL (not base64)
           const taskResult = await generateVideoWithRetryKling(
             kling,
@@ -975,6 +986,8 @@ export async function executeScriptToVideo(
 
           const segment = segments[i] as StoryboardSegment;
           const veoDuration = (segment.duration > 6 ? 8 : segment.duration > 4 ? 6 : 4) as 4 | 6 | 8;
+
+          options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating video (veo)...`);
 
           const taskResult = await generateVideoWithRetryVeo(
             veo,
@@ -1036,6 +1049,8 @@ export async function executeScriptToVideo(
 
           const videoDuration = (segment.duration > 5 ? 10 : 5) as 5 | 10;
           const aspectRatio = options.aspectRatio === "1:1" ? "16:9" : ((options.aspectRatio || "16:9") as "16:9" | "9:16");
+
+          options.onProgress?.(`Scene ${i + 1}/${segments.length}: generating video (runway)...`);
 
           const taskResult = await generateVideoWithRetryRunway(
             runway,
