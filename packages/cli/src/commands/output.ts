@@ -44,16 +44,22 @@ export function authError(envVar: string, provider: string): StructuredError {
   };
 }
 
-/** Provider-specific error hints based on error message patterns */
+/** Provider-specific error hints based on error message patterns.
+ *
+ * Ordering matters — the first match wins. Billing checks precede rate-limit
+ * checks because providers (notably Kling) return HTTP 429 for "Account
+ * balance not enough" — a non-retryable billing issue that would otherwise
+ * be misclassified as a transient rate limit and mislead the user.
+ */
 const PROVIDER_ERROR_HINTS: Array<{ pattern: RegExp; suggestion: string; retryable: boolean }> = [
+  // Billing (must precede the 429 rate-limit pattern)
+  { pattern: /402|payment.*required|billing|INSUFFICIENT_BALANCE|insufficient.*(credit|funds|balance)|balance.*(not.*enough|insufficient)|credits?.*exhausted|account.*balance/i, suggestion: "Account balance or credits exhausted. Top up at the provider dashboard, or try -p <other-provider>.", retryable: false },
   // Rate limits / quota
   { pattern: /429|rate.?limit|too many requests/i, suggestion: "Rate limited. Wait 30-60 seconds and retry, or check your plan's rate limits.", retryable: true },
   { pattern: /RESOURCE_EXHAUSTED|quota.*exceeded|requests.*per.*(minute|day)/i, suggestion: "Quota exceeded. Wait for the quota window to reset, or upgrade your plan. Consider -p <other-provider> to use a different provider.", retryable: true },
   // Auth
   { pattern: /401|unauthorized|(invalid|incorrect).*api.?key|invalid_api_key|authentication.*(failed|error)|missing.*api.?key|did not start with 'key_'/i, suggestion: "API key is invalid or expired. Run 'vibe setup' to update, or check the key at the provider's dashboard.", retryable: false },
   { pattern: /403|forbidden|permission.*denied/i, suggestion: "Access denied. Your API key may lack required permissions, or the feature requires a paid plan.", retryable: false },
-  // Billing
-  { pattern: /402|payment.*required|billing|INSUFFICIENT_BALANCE|insufficient.*(credit|funds|balance)|credits?.*exhausted/i, suggestion: "Account balance or credits exhausted. Top up at the provider dashboard, or try -p <other-provider>.", retryable: false },
   // Server
   { pattern: /500|internal.*error|server.*error/i, suggestion: "Provider server error. Retry in a few minutes.", retryable: true },
   { pattern: /503|service.*unavailable|overloaded|overloaded_error/i, suggestion: "Provider is temporarily overloaded. Retry in 1-2 minutes, or switch provider with -p.", retryable: true },

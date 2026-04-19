@@ -74,6 +74,20 @@ describe("apiError provider hints", () => {
     });
   });
 
+  it("prefers the billing hint over rate-limit when 429 carries a balance message", () => {
+    // Kling returns HTTP 429 for "Account balance not enough" — a billing
+    // issue, not a transient rate limit. Billing patterns must win.
+    expect(apiError("API error (429): Account balance not enough")).toMatchObject({
+      retryable: false,
+      suggestion: expect.stringContaining("balance or credits exhausted"),
+    });
+
+    expect(apiError("balance is not enough to proceed")).toMatchObject({
+      retryable: false,
+      suggestion: expect.stringContaining("balance or credits exhausted"),
+    });
+  });
+
   it("matches rate-limit patterns", () => {
     expect(apiError("HTTP 429 Too Many Requests")).toMatchObject({
       retryable: true,
