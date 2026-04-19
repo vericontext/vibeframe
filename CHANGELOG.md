@@ -5,22 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.49.0] - 2026-04-19
-
-### Added
-
-- implement narration/image regen in executeRegenerateScene *(pipeline)*
-- auto speed-adjust narration exceeding video bracket *(pipeline)*
-- emit per-scene onProgress events *(pipeline)*
+## [0.49.1] - 2026-04-19
 
 ### Changed
 
-- thin-wrap regenerate-scene over executeRegenerateScene *(cli)*
-- thin-wrap script-to-video over executeScriptToVideo *(cli)*
+- dedup CLI over executeScriptToVideo / executeRegenerateScene (#48)
 
 ### Fixed
 
-- restore kling ImgBB image2video + extend API in library *(pipeline)*
+- prefer billing hint over rate-limit for 429 balance errors *(cli)*
+- surface provider errors from video generation *(pipeline)*
 
 ## [0.48.6] - 2026-04-19
 
