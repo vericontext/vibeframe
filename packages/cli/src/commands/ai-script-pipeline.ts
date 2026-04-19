@@ -1323,6 +1323,8 @@ export interface RegenerateSceneOptions {
   retries?: number;
   /** Reference scene number for character consistency (auto-detects if not specified) */
   referenceScene?: number;
+  /** Called at per-scene progress points (`Scene N: regenerating narration...`). */
+  onProgress?: (message: string) => void;
 }
 
 /** Result from {@link executeRegenerateScene}. */
@@ -1385,6 +1387,8 @@ export async function executeRegenerateScene(
     }
 
     const regenerateVideo = options.videoOnly || (!options.narrationOnly && !options.imageOnly);
+    const regenerateNarration = options.narrationOnly || (!options.videoOnly && !options.imageOnly);
+    const regenerateImage = options.imageOnly || (!options.videoOnly && !options.narrationOnly);
 
     // Get API keys
     let videoApiKey: string | undefined;
@@ -1406,13 +1410,190 @@ export async function executeRegenerateScene(
       }
     }
 
+    let imageApiKey: string | undefined;
+    if (regenerateImage) {
+      const imageProvider = options.imageProvider || "openai";
+      const imageKeyMap: Record<typeof imageProvider, { envVar: string; name: string }> = {
+        openai: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
+        gemini: { envVar: "GOOGLE_API_KEY", name: "Google" },
+        grok: { envVar: "XAI_API_KEY", name: "xAI" },
+      };
+      const info = imageKeyMap[imageProvider];
+      if (!info) {
+        return { ...result, error: `Invalid imageProvider: ${imageProvider}` };
+      }
+      imageApiKey = (await getApiKey(info.envVar, info.name)) ?? undefined;
+      if (!imageApiKey) {
+        return { ...result, error: `${info.name} API key required. Run 'vibe setup' or set ${info.envVar} in .env` };
+      }
+    }
+
+    let elevenlabsApiKey: string | undefined;
+    if (regenerateNarration) {
+      elevenlabsApiKey = (await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs")) ?? undefined;
+      if (!elevenlabsApiKey) {
+        return { ...result, error: "ElevenLabs API key required. Run 'vibe setup' or set ELEVENLABS_API_KEY in .env" };
+      }
+    }
+
+    // Track storyboard mutations so we only rewrite when segment durations change.
+    let storyboardMutated = false;
+
     // Process each scene
     for (const sceneNum of options.scenes) {
       const segment = segments[sceneNum - 1];
+      const narrationPath = resolve(outputDir, `narration-${sceneNum}.mp3`);
       const imagePath = resolve(outputDir, `scene-${sceneNum}.png`);
       const videoPath = resolve(outputDir, `scene-${sceneNum}.mp4`);
 
+      let sceneFailed = false;
+
+      // Narration regeneration
+      if (regenerateNarration && elevenlabsApiKey) {
+        options.onProgress?.(`Scene ${sceneNum}: regenerating narration...`);
+        const elevenlabs = new ElevenLabsProvider();
+        await elevenlabs.initialize({ apiKey: elevenlabsApiKey });
+        const narrationText = segment.narration || segment.description;
+
+        const ttsResult = await elevenlabs.textToSpeech(narrationText, {
+          voiceId: options.voice,
+        });
+        if (ttsResult.success && ttsResult.audioBuffer) {
+          await writeFile(narrationPath, ttsResult.audioBuffer);
+          segment.duration = await getAudioDuration(narrationPath);
+          storyboardMutated = true;
+        } else {
+          sceneFailed = true;
+        }
+      }
+
+      // Image regeneration (with character-consistency reference when available)
+      if (!sceneFailed && regenerateImage && imageApiKey) {
+        options.onProgress?.(`Scene ${sceneNum}: regenerating image...`);
+        const imageProvider = options.imageProvider || "openai";
+
+        const characterDesc = segment.characterDescription || segments[0]?.characterDescription;
+        let imagePrompt = segment.visualStyle
+          ? `${segment.visuals}. Style: ${segment.visualStyle}`
+          : segment.visuals;
+        if (characterDesc) {
+          imagePrompt = `${imagePrompt}\n\nIMPORTANT - Character appearance must match exactly: ${characterDesc}`;
+        }
+
+        // Pick a reference image for character consistency: caller-specified,
+        // else auto-detect the first existing scene image that isn't this scene.
+        let referenceImageBuffer: Buffer | undefined;
+        const refSceneNum = options.referenceScene;
+        if (refSceneNum && refSceneNum >= 1 && refSceneNum <= segments.length && refSceneNum !== sceneNum) {
+          const refImagePath = resolve(outputDir, `scene-${refSceneNum}.png`);
+          if (existsSync(refImagePath)) {
+            referenceImageBuffer = await readFile(refImagePath);
+          }
+        } else if (!refSceneNum) {
+          for (let i = 1; i <= segments.length; i++) {
+            if (i !== sceneNum) {
+              const otherImagePath = resolve(outputDir, `scene-${i}.png`);
+              if (existsSync(otherImagePath)) {
+                referenceImageBuffer = await readFile(otherImagePath);
+                break;
+              }
+            }
+          }
+        }
+
+        const dalleImageSizes: Record<string, "1536x1024" | "1024x1536" | "1024x1024"> = {
+          "16:9": "1536x1024",
+          "9:16": "1024x1536",
+          "1:1": "1024x1024",
+        };
+        let imageBuffer: Buffer | undefined;
+        let imageUrl: string | undefined;
+
+        if (imageProvider === "openai") {
+          const openaiImage = new OpenAIImageProvider();
+          await openaiImage.initialize({ apiKey: imageApiKey });
+          const imageResult = await openaiImage.generateImage(imagePrompt, {
+            size: dalleImageSizes[options.aspectRatio || "16:9"] || "1536x1024",
+            quality: "standard",
+          });
+          if (imageResult.success && imageResult.images?.[0]) {
+            const img = imageResult.images[0];
+            if (img.base64) imageBuffer = Buffer.from(img.base64, "base64");
+            else if (img.url) imageUrl = img.url;
+          }
+        } else if (imageProvider === "gemini") {
+          const gemini = new GeminiProvider();
+          await gemini.initialize({ apiKey: imageApiKey });
+          if (referenceImageBuffer) {
+            // Gemini edit-with-reference path — pulls the character forward
+            // while describing the new action. Simplified visuals pick the
+            // first recognised action verb to reduce prompt bleed.
+            const simplifiedVisuals = segment.visuals.split(/[,.]/).find((part: string) =>
+              part.includes("standing") || part.includes("sitting") || part.includes("walking") ||
+              part.includes("lying") || part.includes("reaching") || part.includes("looking") ||
+              part.includes("working") || part.includes("coding") || part.includes("typing")
+            ) || segment.visuals.split(".")[0];
+
+            const editPrompt = `Generate a new image showing the SAME SINGLE person from the reference image in a new scene.
+
+REFERENCE: Look at the person in the reference image - their face, hair, build, and overall appearance.
+
+NEW SCENE: ${simplifiedVisuals}
+
+CRITICAL RULES:
+1. Show ONLY ONE person - the exact same individual from the reference image
+2. The person must have the IDENTICAL face, hair style, and body type
+3. Do NOT show multiple people or duplicate the character
+4. Create a single moment in time, one pose, one action
+5. Match the art style and quality of the reference image
+
+Generate the single-person scene image now.`;
+
+            const imageResult = await gemini.editImage([referenceImageBuffer], editPrompt, {
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+            });
+            if (imageResult.success && imageResult.images?.[0]?.base64) {
+              imageBuffer = Buffer.from(imageResult.images[0].base64, "base64");
+            }
+          } else {
+            const imageResult = await gemini.generateImage(imagePrompt, {
+              aspectRatio: (options.aspectRatio || "16:9") as "16:9" | "9:16" | "1:1",
+            });
+            if (imageResult.success && imageResult.images?.[0]?.base64) {
+              imageBuffer = Buffer.from(imageResult.images[0].base64, "base64");
+            }
+          }
+        } else if (imageProvider === "grok") {
+          const grok = new GrokProvider();
+          await grok.initialize({ apiKey: imageApiKey });
+          const imageResult = await grok.generateImage(imagePrompt, {
+            aspectRatio: options.aspectRatio || "16:9",
+          });
+          if (imageResult.success && imageResult.images?.[0]) {
+            const img = imageResult.images[0];
+            if (img.base64) imageBuffer = Buffer.from(img.base64, "base64");
+            else if (img.url) imageUrl = img.url;
+          }
+        }
+
+        if (imageBuffer) {
+          await writeFile(imagePath, imageBuffer);
+        } else if (imageUrl) {
+          const response = await fetch(imageUrl);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          await writeFile(imagePath, buffer);
+        } else {
+          sceneFailed = true;
+        }
+      }
+
+      if (sceneFailed) {
+        result.failedScenes.push(sceneNum);
+        continue;
+      }
+
       if (regenerateVideo && videoApiKey) {
+        options.onProgress?.(`Scene ${sceneNum}: regenerating video (${options.generator || "grok"})...`);
         if (!existsSync(imagePath)) {
           result.failedScenes.push(sceneNum);
           continue;
@@ -1625,7 +1806,24 @@ export async function executeRegenerateScene(
             result.failedScenes.push(sceneNum);
           }
         }
+      } else if (!sceneFailed) {
+        // narration-only / image-only / both: no video pass, so record success here
+        result.regeneratedScenes.push(sceneNum);
       }
+    }
+
+    // Persist storyboard if narration regeneration changed segment durations.
+    // Preserve the on-disk format (yaml vs json) so no silent downgrades.
+    if (storyboardMutated) {
+      let currentTime = 0;
+      for (const segment of segments) {
+        segment.startTime = currentTime;
+        currentTime += segment.duration;
+      }
+      const serialized = storyboardPath.endsWith(".yaml")
+        ? yamlStringify({ scenes: segments }, { indent: 2 })
+        : JSON.stringify(segments, null, 2);
+      await writeFile(storyboardPath, serialized, "utf-8");
     }
 
     result.success = result.failedScenes.length === 0;
