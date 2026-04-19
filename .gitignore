@@ -43,6 +43,7 @@ pnpm-debug.log*
 # Cache
 .cache
 .eslintcache
+*.tsbuildinfo
 
 samples/
 # Generated outputs
