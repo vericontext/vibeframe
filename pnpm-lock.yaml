@@ -133,8 +133,8 @@ importers:
         specifier: ^0.21.0
         version: 0.21.0
       '@hyperframes/producer':
-        specifier: ^0.4.4
-        version: 0.4.4(typescript@5.9.3)
+        specifier: ^0.4.6
+        version: 0.4.10(typescript@5.9.3)
       '@vibeframe/ai-providers':
         specifier: workspace:*
         version: link:../ai-providers
@@ -172,6 +172,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: '1'
         version: 1.6.1(vitest@1.6.1(@types/node@20.19.30))
+      '@webgpu/types':
+        specifier: ^0.1.69
+        version: 0.1.69
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -869,20 +872,20 @@ packages:
     resolution: {integrity: sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==}
     deprecated: Use @eslint/object-schema instead
 
-  '@hyperframes/core@0.4.4':
-    resolution: {integrity: sha512-7ycmibu7D3S3jNhkk9iEsQ58iGCHuewfOTiYDaUcHtsW/OiSkApMtYvy/pNfV6ylnpxE28Iv4EELuoPZcRMYJQ==}
+  '@hyperframes/core@0.4.10':
+    resolution: {integrity: sha512-qRcKjMgnIoS+lOiGJ8/Xno6RMkzWHb9tz6cWs/gJsVBOeL/DxVmPy/FrrjbMyGcXdAcn4W8pxKj31SRZePVvng==}
     peerDependencies:
       hono: ^4.0.0
     peerDependenciesMeta:
       hono:
         optional: true
 
-  '@hyperframes/engine@0.4.4':
-    resolution: {integrity: sha512-fuf0rtiHCplCbSOr8BkiVXqBqDvDjSUMWemSL+uwyv74NH18QHUHiRUjhllYCBWY7p0ex8S0THXqZE1tkQ2C3Q==}
+  '@hyperframes/engine@0.4.10':
+    resolution: {integrity: sha512-x/1Zi81Rc4xYiT0jrA7rk+wwxKzI33QMOFldMngHEaF32rTpwE1ZZRm14MqRa8JF2HD9POiCD7O/jlMmJx5IHQ==}
     engines: {node: '>=22'}
 
-  '@hyperframes/producer@0.4.4':
-    resolution: {integrity: sha512-TaxSJ/AROi+hLiX1SY7lyhJ+j4oxYPZre9A9/5byyw5Jy+xw0/LPjObKqdEScYq4NZfj91AKvV3AGIOCFI5V1g==}
+  '@hyperframes/producer@0.4.10':
+    resolution: {integrity: sha512-YWpuZrUetjBHVKI1L9XVUAiBdLnwfWbxIo/SrVR2TG3/EJARHcGsxni3Gue3xCV10RIlL2DpDW/+TSaYTS0MkQ==}
     engines: {node: '>=22'}
 
   '@istanbuljs/schema@0.1.3':
@@ -1603,6 +1606,9 @@ packages:
 
   '@vitest/utils@1.6.1':
     resolution: {integrity: sha512-jOrrUvXM4Av9ZWiG1EajNto0u96kWAhJ1LmPmJhXXQx/32MecEKd10pOLYgS2BQx1TgkGhloPU1ArDW2vvaY6g==}
+
+  '@webgpu/types@0.1.69':
+    resolution: {integrity: sha512-RPmm6kgRbI8e98zSD3RVACvnuktIja5+yLgDAkTmxLr90BEwdTXRQWNLF3ETTTyH/8mKhznZuN5AveXYFEsMGQ==}
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -3960,7 +3966,7 @@ snapshots:
 
   '@humanwhocodes/object-schema@2.0.3': {}
 
-  '@hyperframes/core@0.4.4(hono@4.11.7)':
+  '@hyperframes/core@0.4.10(hono@4.11.7)':
     dependencies:
       '@chenglou/pretext': 0.0.5
     optionalDependencies:
@@ -3970,10 +3976,10 @@ snapshots:
     transitivePeerDependencies:
       - canvas
 
-  '@hyperframes/engine@0.4.4(typescript@5.9.3)':
+  '@hyperframes/engine@0.4.10(typescript@5.9.3)':
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.11.7)
-      '@hyperframes/core': 0.4.4(hono@4.11.7)
+      '@hyperframes/core': 0.4.10(hono@4.11.7)
       hono: 4.11.7
       linkedom: 0.18.12
       puppeteer: 24.41.0(typescript@5.9.3)
@@ -3988,7 +3994,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@hyperframes/producer@0.4.4(typescript@5.9.3)':
+  '@hyperframes/producer@0.4.10(typescript@5.9.3)':
     dependencies:
       '@fontsource/archivo-black': 5.2.8
       '@fontsource/eb-garamond': 5.2.7
@@ -4002,8 +4008,8 @@ snapshots:
       '@fontsource/outfit': 5.2.8
       '@fontsource/space-mono': 5.2.9
       '@hono/node-server': 1.19.9(hono@4.11.7)
-      '@hyperframes/core': 0.4.4(hono@4.11.7)
-      '@hyperframes/engine': 0.4.4(typescript@5.9.3)
+      '@hyperframes/core': 0.4.10(hono@4.11.7)
+      '@hyperframes/engine': 0.4.10(typescript@5.9.3)
       hono: 4.11.7
       linkedom: 0.18.12
       postcss: 8.5.6
@@ -4725,6 +4731,8 @@ snapshots:
       estree-walker: 3.0.3
       loupe: 2.3.7
       pretty-format: 29.7.0
+
+  '@webgpu/types@0.1.69': {}
 
   abort-controller@3.0.0:
     dependencies:
