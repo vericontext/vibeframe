@@ -20,6 +20,8 @@ export function buildClipElements(state: TimelineState): string {
           return `<div id="${clip.id}" class="clip" style="z-index:${zIndex};"><video id="${clip.id}-media" src="${relAsset(source.url)}" style="width:100%;height:100%;object-fit:cover;" muted playsinline></video></div>`;
         case "audio":
           return `<audio id="${clip.id}-media" src="${relAsset(source.url)}"></audio><div id="${clip.id}" class="clip" style="z-index:${zIndex};background:#111;"></div>`;
+        case "lottie":
+          return `<div id="${clip.id}" class="clip" style="z-index:${zIndex};"><dotlottie-wc src="${relAsset(source.url)}" autoplay loop style="width:100%;height:100%;"></dotlottie-wc></div>`;
         default:
           return `<!-- unsupported source type: ${(source as { type: string }).type} for clip ${clip.id} -->`;
       }

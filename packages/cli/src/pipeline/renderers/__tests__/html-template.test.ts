@@ -139,4 +139,53 @@ describe("buildClipElements", () => {
     expect(markup).toContain('id="clip-2"');
     expect(markup).toContain("<img");
   });
+
+  it("emits <dotlottie-wc> for lottie sources", () => {
+    const state: TimelineState = {
+      ...loadFixture("simple-2clip.vibe.json"),
+      sources: [
+        { id: "source-l", name: "anim.lottie", type: "lottie", url: "/abs/anim.lottie", duration: 3 },
+      ],
+      clips: [
+        {
+          id: "clip-l",
+          sourceId: "source-l",
+          trackId: "track-1",
+          startTime: 0,
+          duration: 3,
+          sourceStartOffset: 0,
+          sourceEndOffset: 3,
+          effects: [],
+        },
+      ],
+    };
+    const markup = buildClipElements(state);
+    expect(markup).toContain("<dotlottie-wc");
+    expect(markup).toContain('src="assets/anim.lottie"');
+    expect(markup).toContain("autoplay");
+    expect(markup).toContain("loop");
+  });
+});
+
+describe("generateCompositionHtml with lottie source", () => {
+  it("injects dotlottie-wc module + setWasmUrl when state has a lottie source", () => {
+    const base = loadFixture("simple-2clip.vibe.json");
+    const state: TimelineState = {
+      ...base,
+      sources: [
+        { id: "source-l", name: "anim.lottie", type: "lottie", url: "/abs/anim.lottie", duration: 3 },
+      ],
+      clips: [],
+    };
+    const html = generateCompositionHtml(state);
+    expect(html).toContain('/vendor/dotlottie-wc/index.js');
+    expect(html).toContain('setWasmUrl("/vendor/dotlottie-player.wasm")');
+  });
+
+  it("does not inject lottie runtime when no lottie source present", () => {
+    const state = loadFixture("simple-2clip.vibe.json");
+    const html = generateCompositionHtml(state);
+    expect(html).not.toContain('dotlottie-wc');
+    expect(html).not.toContain('setWasmUrl');
+  });
 });
