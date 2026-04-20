@@ -1,0 +1,81 @@
+{
+  "version": "1.0.0",
+  "state": {
+    "project": {
+      "id": "proj-lottie-01",
+      "name": "Lottie Overlay Fixture",
+      "createdAt": "2026-04-21T00:00:00.000Z",
+      "updatedAt": "2026-04-21T00:00:00.000Z",
+      "aspectRatio": "16:9",
+      "frameRate": 30,
+      "duration": 3
+    },
+    "tracks": [
+      {
+        "id": "track-base",
+        "name": "Base",
+        "type": "image",
+        "order": 1,
+        "isMuted": false,
+        "isLocked": false,
+        "isVisible": true
+      },
+      {
+        "id": "track-overlay",
+        "name": "Overlay",
+        "type": "image",
+        "order": 2,
+        "isMuted": false,
+        "isLocked": false,
+        "isVisible": true
+      }
+    ],
+    "sources": [
+      {
+        "id": "source-base",
+        "name": "frame-a.jpg",
+        "type": "image",
+        "url": "assets/frame-a.jpg",
+        "duration": 3,
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "id": "source-lottie",
+        "name": "anim.lottie",
+        "type": "lottie",
+        "url": "assets/anim.lottie",
+        "duration": 3
+      }
+    ],
+    "clips": [
+      {
+        "id": "clip-base",
+        "sourceId": "source-base",
+        "trackId": "track-base",
+        "startTime": 0,
+        "duration": 3,
+        "sourceStartOffset": 0,
+        "sourceEndOffset": 3,
+        "effects": []
+      },
+      {
+        "id": "clip-overlay",
+        "sourceId": "source-lottie",
+        "trackId": "track-overlay",
+        "startTime": 0,
+        "duration": 3,
+        "sourceStartOffset": 0,
+        "sourceEndOffset": 3,
+        "effects": []
+      }
+    ],
+    "transitions": [],
+    "currentTime": 0,
+    "isPlaying": false,
+    "zoom": 50,
+    "scrollX": 0,
+    "selectedClipIds": [],
+    "selectedTrackId": null
+  }
+}
