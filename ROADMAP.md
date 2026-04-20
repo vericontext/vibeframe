@@ -228,6 +228,10 @@ Intelligence built into every interaction.
 - [x] **Lint-Fixer Agent** - Dedicated agent for fixing ESLint errors
 - [x] **Harness Documentation** - `.claude/README.md` documenting full harness structure
 
+### Hyperframes Render Backend (experimental)
+- [x] **HTML Render Pipeline** - Chrome BeginFrame → FFmpeg rendering via `@hyperframes/producer` (`vibe export --backend hyperframes`)
+- [x] **Lottie Overlays** - Add `.lottie` or `.json` vector animations as timeline sources; composed via `<dotlottie-wc>` in the Chrome render (bundled runtime, no CDN dependency at render time)
+
 ### Demo & Showcase
 - [ ] **Self-demo Video** - Use `pipeline script-to-video` to create VibeFrame intro video (dogfooding)
 - [ ] **Terminal Recording** - VHS/asciinema recordings of CLI workflows for README

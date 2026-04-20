@@ -98,7 +98,7 @@ pnpm install && pnpm build
 
 ### Render backends
 
-By default, `vibe export` uses FFmpeg. In v0.47.0+, a **Hyperframes** backend is available (experimental) — renders VibeFrame timelines through a Chrome BeginFrame → FFmpeg pipeline, unlocking CSS animations and Lottie overlays (Phase 2).
+By default, `vibe export` uses FFmpeg. Since v0.47.0, a **Hyperframes** backend is available (experimental) — renders VibeFrame timelines through a Chrome BeginFrame → FFmpeg pipeline, unlocking CSS animations. v0.50.0 adds **Lottie overlays**: add any `.lottie` source with `vibe timeline add-source project.vibe.json anim.lottie` (or `--type lottie` for `.json`) and render with `vibe export --backend hyperframes`.
 
 ```bash
 # Default (FFmpeg)
