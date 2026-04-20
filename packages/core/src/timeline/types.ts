@@ -20,8 +20,13 @@ export type Id = string;
 /** Time value in seconds (floats allowed, e.g., `1.5` = 1500ms). */
 export type TimeSeconds = number;
 
-/** Supported media types for sources and tracks. */
-export type MediaType = "video" | "audio" | "image";
+/**
+ * Supported media types for sources and tracks.
+ *
+ * - `lottie`: Vector animation (`.lottie` / `.json`). Experimental — renders
+ *   only via the Hyperframes backend (Chrome `<dotlottie-player>`).
+ */
+export type MediaType = "video" | "audio" | "image" | "lottie";
 
 /** Standard aspect ratios for different platforms (landscape, portrait, square, social). */
 export type AspectRatio = "16:9" | "9:16" | "1:1" | "4:5";
