@@ -29,7 +29,7 @@ timelineCommand
   .argument("<project>", "Project file path")
   .argument("<media>", "Media file path")
   .option("-n, --name <name>", "Source name (defaults to filename)")
-  .option("-t, --type <type>", "Media type (video, audio, image)")
+  .option("-t, --type <type>", "Media type (video, audio, image, lottie)")
   .option("-d, --duration <seconds>", "Duration in seconds (required for images)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, mediaPath: string, options) => {
@@ -672,5 +672,6 @@ function detectMediaType(path: string): MediaType {
   if (videoExts.includes(ext)) return "video";
   if (audioExts.includes(ext)) return "audio";
   if (imageExts.includes(ext)) return "image";
+  if (ext === ".lottie") return "lottie";
   return "video"; // Default
 }

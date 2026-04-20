@@ -66,6 +66,32 @@ describe("timeline commands", () => {
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
       expect(content.state.sources[0].type).toBe("audio");
     });
+
+    it("auto-detects .lottie extension as lottie type", () => {
+      const lottieFile = join(tempDir, "anim.lottie");
+      writeFileSync(lottieFile, "dummy lottie");
+
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${lottieFile}"`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.sources[0].type).toBe("lottie");
+    });
+
+    it("accepts --type lottie for .json files (ambiguous extension)", () => {
+      const jsonFile = join(tempDir, "anim.json");
+      writeFileSync(jsonFile, "{}");
+
+      execSync(
+        `${CLI} timeline add-source "${projectFile}" "${jsonFile}" --type lottie`,
+        { cwd: process.cwd(), encoding: "utf-8" }
+      );
+
+      const content = JSON.parse(readFileSync(projectFile, "utf-8"));
+      expect(content.state.sources[0].type).toBe("lottie");
+    });
   });
 
   describe("timeline add-clip", () => {

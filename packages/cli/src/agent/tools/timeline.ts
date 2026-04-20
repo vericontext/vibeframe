@@ -20,13 +20,14 @@ function detectMediaType(path: string): MediaType {
   if (videoExts.includes(ext)) return "video";
   if (audioExts.includes(ext)) return "audio";
   if (imageExts.includes(ext)) return "image";
+  if (ext === ".lottie") return "lottie";
   return "video";
 }
 
 // Helper to get media duration using ffprobe
 async function getMediaDuration(filePath: string, mediaType: MediaType): Promise<number> {
-  if (mediaType === "image") {
-    return 5; // Default 5 seconds for images
+  if (mediaType === "image" || mediaType === "lottie") {
+    return 5; // Default 5 seconds for images/lottie (no inherent duration)
   }
 
   try {
