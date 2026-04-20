@@ -122,4 +122,34 @@ describe("buildTempProject", () => {
     await proj.cleanup();
     expect(existsSync(proj.dir)).toBe(false);
   });
+
+  it("vendors dotlottie-wc runtime when state has a lottie source", async () => {
+    const assetDir = resolve(FIXTURE_DIR, "assets");
+    if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true });
+    const lottiePath = resolve(assetDir, "anim.lottie");
+    if (!existsSync(lottiePath)) {
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(lottiePath, "dummy lottie bytes");
+    }
+
+    const state: TimelineState = {
+      ...loadState("simple-2clip.vibe.json"),
+      sources: [
+        {
+          id: "source-lottie",
+          name: "anim.lottie",
+          type: "lottie",
+          url: lottiePath,
+          duration: 3,
+        },
+      ],
+      clips: [],
+    };
+
+    const proj = await buildTempProject(state);
+    expect(existsSync(resolve(proj.dir, "vendor", "dotlottie-wc", "index.js"))).toBe(true);
+    expect(existsSync(resolve(proj.dir, "vendor", "dotlottie-player.wasm"))).toBe(true);
+    expect(existsSync(resolve(proj.dir, "assets", "anim.lottie"))).toBe(true);
+    await proj.cleanup();
+  });
 });
