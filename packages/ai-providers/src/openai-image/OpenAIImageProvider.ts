@@ -6,10 +6,11 @@ import type {
 
 /**
  * GPT Image model types
- * - gpt-image-1.5: Latest model (fastest, best quality)
+ * - gpt-image-1.5: Default model (best cost/quality ratio)
+ * - gpt-image-2: Flagship model released 2026-04-21 (higher fidelity, pricier)
  * - dall-e-3: Legacy model
  */
-export type GPTImageModel = "gpt-image-1.5" | "dall-e-3";
+export type GPTImageModel = "gpt-image-1.5" | "gpt-image-2" | "dall-e-3";
 
 /**
  * GPT Image 1.5 quality tiers
@@ -27,7 +28,7 @@ export interface ImageOptions {
   model?: GPTImageModel;
   /** Image size */
   size?: "1024x1024" | "1536x1024" | "1024x1536" | "auto";
-  /** Quality tier (gpt-image-1.5) or standard/hd (dall-e-3) */
+  /** Quality tier (gpt-image-1.5 / gpt-image-2) or standard/hd (dall-e-3) */
   quality?: GPTImageQuality | "standard" | "hd";
   /** Style (dall-e-3 only) */
   style?: "vivid" | "natural";
@@ -60,22 +61,22 @@ export interface ImageEditOptions {
   size?: "1024x1024" | "512x512" | "256x256";
   /** Number of variations */
   n?: number;
-  /** Model for editing (default: gpt-image-1.5) */
+  /** Model for editing (default: gpt-image-1.5; gpt-image-2 also supported) */
   model?: GPTImageModel;
   /** Quality tier for editing */
   quality?: GPTImageQuality;
 }
 
-/** Default model - GPT Image 1.5 is fastest and best quality */
+/** Default model — GPT Image 1.5 for best cost/quality. gpt-image-2 is opt-in (pricier). */
 const DEFAULT_MODEL: GPTImageModel = "gpt-image-1.5";
 
 /**
- * OpenAI Image provider (GPT Image 1.5 / DALL-E)
+ * OpenAI Image provider (GPT Image 1.5 / GPT Image 2 / DALL-E)
  */
 export class OpenAIImageProvider implements AIProvider {
   id = "openai-image";
   name = "OpenAI GPT Image";
-  description = "AI image generation with GPT Image 1.5 (fastest, best quality)";
+  description = "AI image generation with GPT Image 1.5 (default) and GPT Image 2 (opt-in)";
   capabilities: AICapability[] = ["text-to-image", "background-removal", "image-editing"];
   iconUrl = "/icons/openai.svg";
   isAvailable = true;
@@ -110,7 +111,7 @@ export class OpenAIImageProvider implements AIProvider {
     }
 
     const model = options.model || DEFAULT_MODEL;
-    const isGPTImage = model === "gpt-image-1.5";
+    const isGPTImage = model === "gpt-image-1.5" || model === "gpt-image-2";
 
     try {
       // Build request body based on model
@@ -121,7 +122,7 @@ export class OpenAIImageProvider implements AIProvider {
       };
 
       if (isGPTImage) {
-        // GPT Image 1.5 options - does NOT support response_format
+        // GPT Image 1.5 / 2 options - do NOT support response_format
         // Quality values: low, medium, high, auto
         const qualityMap: Record<string, string> = {
           standard: "medium",
