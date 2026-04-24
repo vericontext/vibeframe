@@ -15,6 +15,7 @@ const pkg = require("../package.json");
 // Re-export engine for library usage
 export { Project, generateId, type ProjectFile } from "./engine/index.js";
 import { projectCommand } from "./commands/project.js";
+import { sceneCommand } from "./commands/scene.js";
 import { timelineCommand } from "./commands/timeline.js";
 import { generateCommand } from "./commands/generate.js";
 import { editCommand } from "./commands/edit-cmd.js";
@@ -197,6 +198,7 @@ program.addCommand(agentCommand);
 
 // Workflow commands
 program.addCommand(projectCommand);
+program.addCommand(sceneCommand);
 program.addCommand(timelineCommand);
 program.addCommand(exportCommand);
 program.addCommand(detectCommand);
