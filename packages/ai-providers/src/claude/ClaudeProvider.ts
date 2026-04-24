@@ -136,7 +136,8 @@ export class ClaudeProvider implements AIProvider {
   /** Supported model aliases for motion graphic generation */
   static readonly MOTION_MODELS = {
     sonnet: "claude-sonnet-4-6",
-    opus: "claude-opus-4-6",
+    opus: "claude-opus-4-7",
+    "opus-4-6": "claude-opus-4-6",
   } as const;
 
   async initialize(config: ProviderConfig): Promise<void> {
