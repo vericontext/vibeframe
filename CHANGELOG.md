@@ -5,22 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.50.0] - 2026-04-20
+## [0.51.0] - 2026-04-24
 
 ### Added
 
-- emit <dotlottie-wc> for lottie sources *(renderer)*
-- copy lottie assets + vendor dotlottie-wc runtime *(renderer)*
-- detect lottie sources in timeline add-source *(cli)*
-- add "lottie" to MediaType union *(core)*
+- bump opus alias to claude-opus-4-7 *(motion)*
+
+### Documentation
+
+- add Claude Opus 4.7, mark 4.6 as legacy, correct pricing *(MODELS)*
+
+## [0.50.0] - 2026-04-24
+
+### Added
+
+- Lottie overlay via Hyperframes backend (closes #41) (#54)
 
 ### Fixed
 
 - bump @hyperframes/producer 0.4.4 → 0.4.6 (+ webgpu types) (#53) *(deps)*
-
-### Testing
-
-- image base + lottie overlay end-to-end render *(renderer)*
 
 ## [0.49.1] - 2026-04-19
 
