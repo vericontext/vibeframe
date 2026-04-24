@@ -37,10 +37,11 @@ To use GPT-5.4 in agent mode: `vibe agent -p openai --model gpt-5.4`
 | Model ID | Variant | Notes |
 |----------|---------|-------|
 | `claude-sonnet-4-6` | Sonnet 4.6 | **Default**. Best cost-performance for agent loops. $3/M input, $15/M output |
-| `claude-opus-4-6` | Opus 4.6 | Highest capability, best for complex reasoning. $15/M input, $75/M output |
-| `claude-haiku-4-5-20251001` | Haiku 4.5 | Fastest, lowest cost. $0.80/M input, $4/M output |
+| `claude-opus-4-7` | Opus 4.7 | Highest capability, step-change in agentic coding, 1M context. $5/M input, $25/M output |
+| `claude-haiku-4-5-20251001` | Haiku 4.5 | Fastest, lowest cost. $1/M input, $5/M output |
+| `claude-opus-4-6` | Opus 4.6 (legacy) | Previous Opus tier — same price as 4.7. Still supported. |
 
-To use Opus in agent mode: `vibe agent -p claude --model claude-opus-4-6`
+To use Opus in agent mode: `vibe agent -p claude --model claude-opus-4-7`
 
 **xAI model options:**
 
@@ -103,7 +104,8 @@ Used for Remotion component code generation (`vibe generate motion`).
 | Alias | Model | Provider | Env Key | CLI Option | Notes |
 |-------|-------|----------|---------|------------|-------|
 | `sonnet` | `claude-sonnet-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
-| `opus` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality |
+| `opus` | `claude-opus-4-7` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality (step-change agentic coding) |
+| `opus-4-6` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus-4-6` | Previous Opus tier (legacy) |
 | `gemini` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Fast alternative |
 | `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini | `GOOGLE_API_KEY` | `-m gemini-3.1-pro` | Gemini 3.1 Pro |
 
