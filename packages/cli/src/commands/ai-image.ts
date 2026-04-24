@@ -41,7 +41,7 @@ aiCommand
   .option("-q, --quality <quality>", "Quality: standard, hd (openai only)", "standard")
   .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
   .option("-n, --count <n>", "Number of images to generate", "1")
-  .option("-m, --model <model>", "Gemini model: flash, 3.1-flash, latest (Nano Banana 2), pro (4K)")
+  .option("-m, --model <model>", "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (prompt: string, options) => {
     try {
@@ -92,7 +92,14 @@ aiCommand
         const openaiImage = new OpenAIImageProvider();
         await openaiImage.initialize({ apiKey });
 
+        const modelAlias = options.model;
+        const openaiModel =
+          modelAlias === "2" || modelAlias === "gpt-image-2"
+            ? "gpt-image-2"
+            : undefined;
+
         const result = await openaiImage.generateImage(prompt, {
+          model: openaiModel,
           size: options.size,
           quality: options.quality,
           style: options.style,
@@ -104,7 +111,8 @@ aiCommand
           exitWithError(apiError(result.error || "Image generation failed", true));
         }
 
-        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with OpenAI GPT Image 1.5`));
+        const modelLabel = openaiModel === "gpt-image-2" ? "GPT Image 2" : "GPT Image 1.5";
+        spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with OpenAI ${modelLabel}`));
 
         console.log();
         console.log(chalk.bold.cyan("Generated Images"));

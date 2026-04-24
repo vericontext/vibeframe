@@ -115,7 +115,8 @@ Used for Remotion component code generation (`vibe generate motion`).
 
 | Provider | Model | Env Key | CLI Option | Notes |
 |----------|-------|---------|------------|-------|
-| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai` | Quality tiers: low ($0.009), medium ($0.035), high ($0.133) |
+| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai` | **Default (OpenAI)**. Quality tiers: low ($0.009), medium ($0.035), high ($0.133) |
+| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai -m 2` | Flagship, 2026-04-21 GA. Higher fidelity. ~$0.04–$0.35/image |
 | Gemini | `gemini-2.5-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Default. Nano Banana Flash - **GA**, fast |
 | Gemini | `gemini-3.1-flash-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m 3.1-flash` | Nano Banana 2 - Image Search grounding, 512px |
 | Gemini | `gemini-3-pro-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m pro` | Nano Banana Pro - higher quality, up to 4K |
@@ -138,6 +139,7 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 | Gemini | 3.1 Flash | 3 | `-p gemini -m 3.1-flash` | Image Search grounding, 512px-1K output |
 | Gemini | Pro | 14 | `-p gemini -m pro` | Multi-image composition, up to 4K output |
 | OpenAI | `gpt-image-1.5` | 16 | `-p openai` | Instruction-based editing, multipart upload |
+| OpenAI | `gpt-image-2` | 16 | `-p openai -m 2` | Flagship editor, 2026-04-21 GA |
 | xAI Grok | `grok-imagine-image` | 1 | `-p grok` | Single image editing, $0.02/edit |
 
 ---
