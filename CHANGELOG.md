@@ -5,15 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0] - 2026-04-24
+
+### Added
+
+- allow gpt-image-2 in generate image *(openai-image)*
+
+### Documentation
+
+- add GPT-Image-2 rows for generate + edit *(MODELS)*
+
 ## [0.51.0] - 2026-04-24
 
 ### Added
 
-- bump opus alias to claude-opus-4-7 *(motion)*
-
-### Documentation
-
-- add Claude Opus 4.7, mark 4.6 as legacy, correct pricing *(MODELS)*
+- bump opus alias to Claude Opus 4.7 (#55) *(motion)*
 
 ## [0.50.0] - 2026-04-24
 
