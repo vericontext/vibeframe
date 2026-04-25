@@ -5,7 +5,6 @@
 
 import { Command } from "commander";
 import { createInterface } from "node:readline";
-import { createRequire } from "node:module";
 import chalk from "chalk";
 import ora from "ora";
 import { AgentExecutor } from "../agent/index.js";
@@ -13,9 +12,10 @@ import { getApiKeyFromConfig, type LLMProvider } from "../config/index.js";
 import { hasTTY } from "../utils/tty.js";
 import { loadEnv } from "../utils/api-key.js";
 import { exitWithError, authError, generalError } from "./output.js";
-
-const require = createRequire(import.meta.url);
-const pkg = require("../../package.json");
+// Bundled inline by esbuild (see packages/cli/build.js). The previous
+// `require("../../package.json")` broke once the cli was bundled into a
+// flat dist/index.js — relative paths shifted.
+import pkg from "../../package.json" with { type: "json" };
 
 export interface StartAgentOptions {
   provider?: string;

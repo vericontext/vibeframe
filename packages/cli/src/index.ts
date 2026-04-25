@@ -6,11 +6,12 @@ if (process.env.VIBE_DEBUG === "1") {
 }
 
 import { Command, CommanderError } from "commander";
-import { createRequire } from "module";
 import chalk from "chalk";
-
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json");
+// Bundled inline by esbuild — works after `tsc` (workspace dev) and after
+// `node build.js` (npm publish artifact). The previous `require("../package.json")`
+// broke once the cli was bundled into a flat `dist/index.js` because the
+// relative path resolution depended on the source file layout.
+import pkg from "../package.json" with { type: "json" };
 
 // Re-export engine for library usage
 export { Project, generateId, type ProjectFile } from "./engine/index.js";

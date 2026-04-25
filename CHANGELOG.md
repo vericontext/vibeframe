@@ -5,12 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.55.1] - 2026-04-25
+
+### Fixed
+
+- bundle CLI with esbuild so npm install actually works (v0.55.1) *(cli)*
+
 ## [0.55.0] - 2026-04-25
 
 ### Added
 
 - post-render ffmpeg audio mux (v0.55 c2/3) (#76) *(scene)*
 - scene-audio-scan helper for post-render mux (v0.55 c1/3) (#75) *(scene)*
+
+### Maintenance
+
+- release v0.55.0 — audio in rendered MP4 (v0.55 c3/3) (#77)
 
 ## [0.54.0] - 2026-04-25
 
