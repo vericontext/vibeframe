@@ -5,11 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.1] - 2026-04-25
+
+### Fixed
+
+- allow -p fal in vibe generate video (v0.57.1) *(cli)*
+
 ## [0.57.0] - 2026-04-25
 
 ### Added
 
-- default text-to-image to OpenAI gpt-image-2 (v0.56.0) *(image)*
+- add fal.ai provider hosting Seedance 2.0 (v0.57.0) (#88) *(fal)*
+
+## [0.56.0] - 2026-04-25
+
+### Added
+
+- default text-to-image to OpenAI gpt-image-2 (v0.56.0) (#86) *(image)*
 
 ### Documentation
 
@@ -17,12 +29,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - refresh /demo page with v0.55 self-promo + 3-surface section (#83) *(web)*
 - clearer quickstart + agent-mode + Claude Code walkthrough (#82) *(demos)*
 - vibe scene render vs npx hyperframes render (#81) *(comparison)*
-- asciinema quickstart embed in README (#79) *(demo)*
 
 ### Fixed
 
 - drop tail fade-out from announcement + simple presets (#85) *(scene)*
+
+## [0.55.2] - 2026-04-25
+
+### Documentation
+
+- asciinema quickstart embed in README (#79) *(demo)*
+
+### Fixed
+
 - auto TTS fallback to Kokoro + actionable FFmpeg message (v0.55.2) (#80) *(cli)*
+
+## [0.55.1] - 2026-04-25
+
+### Fixed
+
 - bundle CLI with esbuild so npm install actually works (v0.55.1) (#78) *(cli)*
 
 ## [0.55.0] - 2026-04-25

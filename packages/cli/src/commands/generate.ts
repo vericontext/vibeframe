@@ -567,7 +567,7 @@ Examples:
       }
 
       let provider = options.provider.toLowerCase();
-      const validProviders = ["runway", "kling", "veo", "grok"];
+      const validProviders = ["runway", "kling", "veo", "grok", "fal"];
       if (!validProviders.includes(provider)) {
         exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
       }
@@ -641,12 +641,14 @@ Examples:
         kling: "KLING_API_KEY",
         veo: "GOOGLE_API_KEY",
         grok: "XAI_API_KEY",
+        fal: "FAL_KEY",
       };
       const providerNameMap: Record<string, string> = {
         runway: "Runway",
         kling: "Kling",
         veo: "Veo",
         grok: "Grok",
+        fal: "fal.ai (Seedance 2.0)",
       };
       const envKey = envKeyMap[provider];
       const providerName = providerNameMap[provider];
