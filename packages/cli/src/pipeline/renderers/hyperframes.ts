@@ -1,44 +1,13 @@
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import * as path from "node:path";
 import type { RenderConfig } from "@hyperframes/producer";
 import type { RenderBackend, RenderOptions, RenderResult } from "./types.js";
-
-function findChrome(): string | undefined {
-  const candidates = [
-    process.env.HYPERFRAMES_CHROME_PATH,
-    process.env.CHROME_PATH,
-    // puppeteer auto-downloaded headless shell
-    path.join(homedir(), ".cache", "puppeteer", "chrome-headless-shell", "mac_arm-147.0.7727.56",
-      "chrome-headless-shell-mac_arm", "chrome-headless-shell"),
-    // system Chrome / Chromium
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  ];
-  for (const c of candidates) {
-    if (c && existsSync(c)) return c;
-  }
-  return undefined;
-}
+import { preflightChrome } from "./chrome.js";
 
 export function createHyperframesBackend(): RenderBackend {
   return {
     name: "hyperframes",
 
     async preflight() {
-      const chrome = findChrome();
-      if (chrome) return { ok: true };
-      return {
-        ok: false,
-        reason:
-          "Chrome not found. Set HYPERFRAMES_CHROME_PATH, or install Chrome " +
-          "(macOS: brew install --cask google-chrome · Linux: apt install chromium). " +
-          "Run `vibe doctor` for details.",
-      };
+      return preflightChrome();
     },
 
     async render(options: RenderOptions): Promise<RenderResult> {
