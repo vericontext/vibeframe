@@ -1,19 +1,44 @@
-# VibeFrame inside Claude Code (MCP)
+# VibeFrame inside Claude Code
 
-A walkthrough of using VibeFrame from a Claude Code session via the MCP
-server. Same 62 tools as the standalone agent — different surface.
+Two routes from a Claude Code session into VibeFrame, in order of decreasing
+setup. The README's animated cast covers Route A; this doc has both, plus
+the recording recipe.
 
-> **Recording**: a 60-second cast — drives `claude --print --mcp-config …
-> --output-format stream-json` and pipes the event stream through a small
-> python renderer that mirrors the live Claude Code chat UI (assistant
-> turns, tool calls, results). Embedded in the project README as
-> [`vibeframe-claude-code.svg`](vibeframe-claude-code.svg). Source:
-> [`claude-code-demo.sh`](claude-code-demo.sh).
+## Route A — natural-language → `vibe` CLI (no setup)
 
-## One-time setup (~1 minute)
+The default route. If the `vibe` binary is on your PATH (`npm i -g
+@vibeframe/cli` or `curl -fsSL https://vibeframe.ai/install.sh | bash`),
+Claude Code can drive it from the Bash tool. No MCP config needed.
+
+This is what the [`vibeframe-claude-code.svg`](vibeframe-claude-code.svg)
+cast in the README captures — Claude runs `vibe --help`, drills into
+`vibe scene --help`, then calls `vibe scene init/add/lint` to satisfy
+the prompt. About 12 turns, no manual scaffolding, all the discovery
+visible.
+
+The cast is generated from
+[`claude-code-demo.sh`](claude-code-demo.sh): the script drives
+`claude --print --output-format stream-json --allowed-tools Bash` and
+pipes the JSON event stream through a small inline python that renders
+it as a Claude-Code-style chat (`⏺` for assistant text, `▸` for Bash
+calls, dim grey for stdout previews).
+
+> **Why route A is the default we demo**: it works for any user who has
+> the CLI installed, with zero extra config. The MCP route below is
+> faster and more typed but adds a setup step.
+
+## Route B — typed MCP tools via `@vibeframe/mcp-server`
+
+Same 62 tools as the standalone `vibe agent`, exposed through MCP. Use
+this when you want Claude Code to call vibe operations as first-class
+typed tool invocations (not Bash spawns) — better cost surfaces, no
+shell-quoting friction, MCP resource access for project state.
+
+### Setup (~1 minute)
 
 Add the VibeFrame MCP server to Claude Code's config. The CLI install is
-*not* required — `npx -y @vibeframe/mcp-server` pulls the bundle on demand.
+*not* required for this route — `npx -y @vibeframe/mcp-server` pulls the
+bundle on demand.
 
 `~/.config/claude-code/mcp.json` (or whichever config path your install
 uses):
@@ -32,94 +57,48 @@ uses):
 Reload Claude Code. The 62 vibe tools register automatically — visible via
 `/mcp` if your build supports it.
 
-## The walkthrough (≈90 seconds, 5 prompts)
+### Same prompt, different surface
 
-### 1. Scaffold a scene project
+Whatever you typed under Route A still works. Claude now calls
+`mcp__vibeframe__scene_init`, `…__scene_add`, `…__scene_lint` directly
+instead of shelling out. Each call returns structured JSON Claude can
+reason about (versus parsing CLI text output), and paid operations
+surface a `costEstimateUsd` field for confirmation prompts.
 
-> **You:** "Use vibeframe to scaffold a 16:9 scene project named
-> `claude-demo` with 12 seconds of root duration."
+## Tighter loops with Route B
 
-Claude calls `scene_init` exactly once, prints the file list it created, and
-asks if you want to add scenes.
+Beyond the basic three-step flow:
 
-### 2. Add a narrated scene
+1. **Stateful editing** — Claude Code reads the scene HTML files via its
+   built-in `Read`, edits them with `Edit`, then calls back into vibe MCP
+   for `scene_lint` / `scene_render`. The agent loop composes across
+   the MCP server and the IDE's own tools.
+2. **Cost transparency** — `pipeline_*` tools surface `costEstimateUsd`
+   in the response so Claude Code can ask before spending.
+3. **Project resources** — `vibe.project.yaml` is exposed as an MCP
+   resource; the host can subscribe to changes.
 
-> **You:** "Add an explainer scene with the headline 'AI-native video
-> editing' and the narration 'Each word lights up the moment it is
-> spoken.' Use Kokoro for TTS so it stays free, no images, 6 seconds."
+## Recording recipe (Route A cast)
 
-Claude calls `scene_add` with `--tts kokoro --no-image`. The first call
-downloads the ~330 MB Kokoro model (Claude shows a warning); subsequent
-calls are instant. The MCP response includes the wav path, transcript JSON
-path, and the scene HTML path.
-
-### 3. Verify
-
-> **You:** "Lint the project — show me a summary, not the raw JSON."
-
-Claude calls `scene_lint`, parses the result, and surfaces the headline
-("0 errors, 4 informational notices about CDN script hoisting — safe to
-ignore"). This is the moment to notice that the agent isn't just relaying
-output; it's grading it.
-
-### 4. Render
-
-> **You:** "Render to MP4. Use draft quality, 24 fps, 6 capture workers."
-
-Claude calls `scene_render` with the right flags. Streams the producer's
-progress lines back into the chat. About 10 seconds later it reports the
-output path with `audioMuxApplied: true` — the v0.55 audio-mux pass added
-the AAC track on top of the producer's silent video.
-
-### 5. Iterate
-
-> **You:** "Change the headline to 'Edit text, not pixels' and re-render
-> just that scene."
-
-Claude rewrites the scene HTML directly (no re-prompting an LLM, no
-regenerating opaque MP4s — that's the editable-HTML payoff) and calls
-`scene_render` again.
-
-## Why the MCP surface matters
-
-- **Same tools as `vibe agent`** — VibeFrame's 62 agent tools are the same
-  set the MCP server exposes. Claude Code, Cursor, or any MCP host gets
-  parity with the standalone REPL.
-- **Stateful editing** — Claude Code can read the scene HTML files
-  directly via its built-in `Read` tool, edit them with `Edit`, then call
-  back into vibe MCP for `scene_lint` / `scene_render`. The agent loop is
-  composable across MCP servers.
-- **Cost transparency** — every paid tool surfaces `costEstimateUsd` in
-  the MCP response so the host can show the user before spending.
-
-## Recording recipe (for the maintainer)
-
-When you're ready to drop a screen capture in here:
+The committed cast is reproducible from the script — run from repo root:
 
 ```bash
-# 1. Pre-warm Kokoro so the demo doesn't pause for the model download
+# 1. Pre-warm Kokoro so any later narration step doesn't pause for download
 vibe scene init /tmp/warm -d 4 --json >/dev/null
 vibe scene add x --project /tmp/warm --narration "warm." --tts kokoro \
   --no-transcribe --no-image --json >/dev/null
 
-# 2. Open Claude Code, confirm /mcp shows vibeframe tools
+# 2. Record
+asciinema rec assets/demos/vibeframe-claude-code.cast \
+  --idle-time-limit=2 \
+  --title="VibeFrame inside Claude Code" \
+  --command="bash assets/demos/claude-code-demo.sh" \
+  --overwrite
 
-# 3. Cmd+Shift+5 → "Record Selected Portion" — drag around the chat area
-
-# 4. Run through the 5 prompts above
-
-# 5. Stop recording → trim with QuickTime → export .mp4 (1080p)
-
-# 6. Drop the file as assets/demos/claude-code-walkthrough.mp4
-#    Update README's "Use with Claude Code" section to link it.
-```
-
-GIF alternative for README inline embed (smaller, plays automatically on
-GitHub):
-
-```bash
-# Convert .mp4 → .gif (~3 MB for 90s, lossy but enough)
-ffmpeg -i claude-code-walkthrough.mp4 \
-  -vf "fps=10,scale=900:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
-  claude-code-walkthrough.gif
+# 3. Convert to SVG (svg-term-cli only accepts asciicast v1/v2)
+asciinema convert -f asciicast-v2 \
+  assets/demos/vibeframe-claude-code.cast /tmp/cc-v2.cast
+svg-term --in /tmp/cc-v2.cast \
+         --out assets/demos/vibeframe-claude-code.svg \
+         --window --width 100 --height 38
 ```
