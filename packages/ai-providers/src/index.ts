@@ -31,6 +31,8 @@ export { KlingProvider, klingProvider } from "./kling/index.js";
 export type { KlingVideoExtendOptions } from "./kling/index.js";
 export { GrokProvider, grokProvider } from "./grok/index.js";
 export type { GrokModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
+export { FalProvider, falProvider } from "./fal/index.js";
+export type { SeedanceVariant } from "./fal/index.js";
 export { ReplicateProvider, replicateProvider } from "./replicate/index.js";
 export type { ReplicateUpscaleOptions, ReplicateUpscaleResult, ReplicateInpaintOptions, MusicGenerationOptions, MusicGenerationResult, AudioRestorationOptions, AudioRestorationResult } from "./replicate/index.js";
 // Re-export commonly used types
