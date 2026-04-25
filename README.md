@@ -35,9 +35,17 @@ Bring your own LLM (Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama). Natu
   </a>
 </p>
 
-### 3. Inside Claude Code / Cursor (MCP)
+### 3. Inside Claude Code / Cursor (MCP) — `@vibeframe/mcp-server`
 
-The same 62 tools as `vibe agent`, surfaced through MCP for any compatible host. Setup is one config block; see [`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) for the 5-prompt walkthrough.
+Same 62 tools as `vibe agent`, surfaced through MCP for any compatible host. One JSON config block, no CLI install needed (npx pulls the bundle on demand):
+
+<p align="center">
+  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-claude-code.svg">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-claude-code.svg" alt="VibeFrame inside Claude Code (MCP) demo" />
+  </a>
+</p>
+
+[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) has the full 5-prompt walkthrough plus the recording recipe for richer demos.
 
 **Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Claude Code integration](https://youtu.be/sdf930sZ7co)
 

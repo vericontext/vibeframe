@@ -3,11 +3,12 @@
 A walkthrough of using VibeFrame from a Claude Code session via the MCP
 server. Same 62 tools as the standalone agent — different surface.
 
-> **Recording status**: text walkthrough below; a screen-capture
-> [`claude-code-walkthrough.mp4`](claude-code-walkthrough.mp4) replaces this
-> placeholder once the maintainer records it
-> (macOS Cmd+Shift+5 → record selection → drop the file alongside this
-> markdown). The text steps below match the on-screen flow exactly.
+> **Recording**: a 60-second cast — drives `claude --print --mcp-config …
+> --output-format stream-json` and pipes the event stream through a small
+> python renderer that mirrors the live Claude Code chat UI (assistant
+> turns, tool calls, results). Embedded in the project README as
+> [`vibeframe-claude-code.svg`](vibeframe-claude-code.svg). Source:
+> [`claude-code-demo.sh`](claude-code-demo.sh).
 
 ## One-time setup (~1 minute)
 
