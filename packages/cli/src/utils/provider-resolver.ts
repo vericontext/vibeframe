@@ -8,7 +8,12 @@ import { hasApiKey } from "./api-key.js";
 
 interface ProviderCandidate {
   name: string;
-  envVar: string;
+  /**
+   * Environment variable that must be set for this provider to be available.
+   * `null` means the provider is always available (e.g. local on-device models
+   * with no API key).
+   */
+  envVar: string | null;
   label: string;
 }
 
@@ -25,8 +30,12 @@ const VIDEO_PROVIDERS: ProviderCandidate[] = [
   { name: "runway", envVar: "RUNWAY_API_SECRET", label: "Runway" },
 ];
 
+// `kokoro` runs locally with no API key — it's the always-available fallback
+// behind ElevenLabs. Listing it last keeps existing key-holding users on
+// ElevenLabs by default while letting key-less users land on Kokoro.
 const SPEECH_PROVIDERS: ProviderCandidate[] = [
   { name: "elevenlabs", envVar: "ELEVENLABS_API_KEY", label: "ElevenLabs" },
+  { name: "kokoro", envVar: null, label: "Kokoro (local)" },
 ];
 
 const PROVIDER_MAP: Record<string, ProviderCandidate[]> = {
@@ -69,14 +78,14 @@ export function resolveProvider(
   // Check config default first
   if (configDefaults?.[category]) {
     const preferred = candidates.find(c => c.name === configDefaults![category]);
-    if (preferred && hasApiKey(preferred.envVar)) {
+    if (preferred && (preferred.envVar === null || hasApiKey(preferred.envVar))) {
       return { name: preferred.name, label: preferred.label };
     }
   }
 
   // Fall back to first available
   for (const candidate of candidates) {
-    if (hasApiKey(candidate.envVar)) {
+    if (candidate.envVar === null || hasApiKey(candidate.envVar)) {
       return { name: candidate.name, label: candidate.label };
     }
   }

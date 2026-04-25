@@ -22,10 +22,15 @@ import chalk from "chalk";
 import ora from "ora";
 import { parse as yamlParse } from "yaml";
 import {
-  ElevenLabsProvider,
   GeminiProvider,
   OpenAIImageProvider,
 } from "@vibeframe/ai-providers";
+import {
+  resolveTtsProvider,
+  TtsKeyMissingError,
+  parseTtsProviderName,
+  type TtsProviderName,
+} from "./_shared/tts-resolve.js";
 import {
   scaffoldSceneProject,
   aspectToDims,
@@ -184,7 +189,8 @@ sceneCommand
   .option("--insert-into <path>", "Root composition file to update", "index.html")
   .option("--project <dir>", "Project directory", ".")
   .option("--image-provider <name>", "Image provider: gemini, openai", "gemini")
-  .option("--voice <id>", "ElevenLabs voice id or name")
+  .option("--tts <provider>", "TTS provider: auto, elevenlabs, kokoro (default auto — picks ElevenLabs when key set, else Kokoro local)", "auto")
+  .option("--voice <id>", "Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)")
   .option("--no-audio", "Skip TTS even when --narration is provided (useful for tests/agent dry runs)")
   .option("--no-image", "Skip image generation even when --visuals is provided")
   .option("--force", "Overwrite an existing compositions/scene-<id>.html")
@@ -192,6 +198,12 @@ sceneCommand
   .action(async (name: string, options) => {
     if (options.style) options.style = validatePreset(options.style);
     if (options.duration !== undefined) options.duration = validateDuration(options.duration);
+    let tts: TtsProviderName;
+    try {
+      tts = parseTtsProviderName(options.tts);
+    } catch (error) {
+      exitWithError(usageError(error instanceof Error ? error.message : String(error)));
+    }
 
     if (options.dryRun) {
       const id = slugifySceneName(name);
@@ -210,6 +222,7 @@ sceneCommand
           project: options.project,
           insertInto: options.insertInto,
           imageProvider: options.imageProvider,
+          tts,
           audio: options.audio,   // commander sets `audio: false` when --no-audio is passed
           image: options.image,
         },
@@ -231,6 +244,7 @@ sceneCommand
         projectDir: options.project,
         insertInto: options.insertInto,
         imageProvider: options.imageProvider,
+        tts,
         voice: options.voice,
         skipAudio: options.audio === false,
         skipImage: options.image === false,
@@ -301,7 +315,9 @@ export interface SceneAddOptions {
   insertInto?: string;
   /** "gemini" | "openai". */
   imageProvider?: string;
-  /** ElevenLabs voice id/name. */
+  /** TTS provider preference. Defaults to `"auto"` (ElevenLabs if key set, else Kokoro). */
+  tts?: TtsProviderName;
+  /** Voice id (ElevenLabs name/id, or Kokoro id like `af_heart`). */
   voice?: string;
   /** When true, skip TTS even if narration is provided. */
   skipAudio?: boolean;
@@ -411,18 +427,32 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   let narrationDuration: number | undefined;
 
   if (narrationText && !opts.skipAudio) {
-    const elevenlabsKey = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs");
-    if (!elevenlabsKey) {
-      return errResult("ElevenLabs API key required for --narration. Set ELEVENLABS_API_KEY, run 'vibe setup', or pass --no-audio.");
+    let resolution;
+    try {
+      resolution = await resolveTtsProvider(opts.tts ?? "auto");
+    } catch (error) {
+      if (error instanceof TtsKeyMissingError) {
+        return errResult(error.message);
+      }
+      throw error;
     }
-    opts.onProgress?.("Generating narration with ElevenLabs...");
-    const elevenlabs = new ElevenLabsProvider();
-    await elevenlabs.initialize({ apiKey: elevenlabsKey });
-    const tts = await elevenlabs.textToSpeech(narrationText, { voiceId: opts.voice });
+    opts.onProgress?.(
+      resolution.provider === "kokoro"
+        ? "Generating narration with Kokoro (local — first run downloads ~330MB)..."
+        : "Generating narration with ElevenLabs...",
+    );
+    const tts = await resolution.call(narrationText, {
+      voice: opts.voice,
+      onProgress: (event) => {
+        if (event.status === "progress" && typeof event.progress === "number") {
+          opts.onProgress?.(`Kokoro model: ${event.file ?? ""} ${Math.round(event.progress)}%`);
+        }
+      },
+    });
     if (!tts.success || !tts.audioBuffer) {
-      return errResult(`ElevenLabs TTS failed: ${tts.error ?? "unknown error"}`);
+      return errResult(`${resolution.provider} TTS failed: ${tts.error ?? "unknown error"}`);
     }
-    audioRelPath = `assets/narration-${id}.mp3`;
+    audioRelPath = `assets/narration-${id}.${resolution.audioExtension}`;
     audioAbsPath = resolve(projectDir, audioRelPath);
     await mkdir(dirname(audioAbsPath), { recursive: true });
     await writeFile(audioAbsPath, tts.audioBuffer);

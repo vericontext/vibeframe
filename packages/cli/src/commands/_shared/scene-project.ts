@@ -59,7 +59,7 @@ export interface VibeProjectConfig {
   /** Default providers per capability. `null` means "auto-resolve from env". */
   providers: {
     image: "openai" | "gemini" | "grok" | null;
-    tts: "elevenlabs" | null;
+    tts: "elevenlabs" | "kokoro" | null;
     transcribe: "whisper" | null;
   };
   /** Cost ceiling for `vibe pipeline` runs in this project. 0 disables. */
