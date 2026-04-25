@@ -115,9 +115,9 @@ Used for Remotion component code generation (`vibe generate motion`).
 
 | Provider | Model | Env Key | CLI Option | Notes |
 |----------|-------|---------|------------|-------|
-| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai` | **Default (OpenAI)**. Quality tiers: low ($0.009), medium ($0.035), high ($0.133) |
-| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai -m 2` | Flagship, 2026-04-21 GA. Higher fidelity. ~$0.04–$0.35/image |
-| Gemini | `gemini-2.5-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Default. Nano Banana Flash - **GA**, fast |
+| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai` (default) | **Default since v0.56.** Artificial Analysis ELO 1332, #1 on text-to-image leaderboard. ~$0.04–$0.35/image |
+| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai -m 1.5` | Previous default, still strong on editing (#1 editing leaderboard). Quality tiers: low ($0.009), medium ($0.035), high ($0.133) |
+| Gemini | `gemini-2.5-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Nano Banana Flash - **GA**, fast. Auto-selected when only `GOOGLE_API_KEY` is set |
 | Gemini | `gemini-3.1-flash-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m 3.1-flash` | Nano Banana 2 - Image Search grounding, 512px |
 | Gemini | `gemini-3-pro-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m pro` | Nano Banana Pro - higher quality, up to 4K |
 | xAI Grok | `grok-imagine-image` | `XAI_API_KEY` | `-p grok` | $0.02/image, standard quality |
