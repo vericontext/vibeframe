@@ -206,11 +206,14 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       const wordCss = useWordSync
         ? `\n      ${scope} .caption .word { display: inline-block; opacity: 0; }`
         : "";
+      // No tail fade-out: the producer hides this clip the moment its
+      // data-duration ends, and the next scene's fade-in already
+      // overlaps with the cut visually. Adding a 0.4 s opacity-to-zero
+      // tween here just creates dead time between scenes — the previous
+      // version of this preset shipped that bug, demos felt sluggish.
       const timeline = useWordSync
-        ? `${buildTranscriptTweens(transcript, `${scope} .caption .word`)}
-      tl.to('${scope} .caption', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`
-        : `tl.from('${scope} .caption', { opacity: 0, y: 28, duration: 0.6, ease: 'power2.out' }, 0.1);
-      tl.to('${scope} .caption', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`;
+        ? buildTranscriptTweens(transcript, `${scope} .caption .word`)
+        : `tl.from('${scope} .caption', { opacity: 0, y: 28, duration: 0.45, ease: 'power3.out' }, 0.05);`;
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -258,8 +261,11 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       }`,
         body: `${backdropMarkup}
     <div class="announce"><h1 id="headline">${esc(headline)}</h1></div>`,
-        timeline: `tl.from('${scope} #headline', { opacity: 0, scale: 0.8, duration: 0.9, ease: 'back.out(1.6)' }, 0.15);
-      tl.to('${scope} #headline', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`,
+        // Faster, snappier entrance and no tail fade-out — see the
+        // matching note in the `simple` case above. The headline stays
+        // on screen until the producer cuts to the next clip; the next
+        // scene's own fade-in handles the visual transition.
+        timeline: `tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
       };
     }
     case "explainer": {
