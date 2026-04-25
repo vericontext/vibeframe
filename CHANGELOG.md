@@ -5,11 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0] - 2026-04-25
+
+### Added
+
+- scene_init/add/lint/render tools + MCP mirror (MVP 1 c6/8) (#65) *(agent)*
+- script-to-video --format scenes (MVP 1 c5/8) (#64) *(pipeline)*
+- vibe scene render via Hyperframes producer (MVP 1 c4/8) (#63) *(scene)*
+- vibe scene lint via runHyperframeLint (MVP 1 c3/8) (#62) *(scene)*
+- add template-based vibe scene add (MVP 1 c2/8) (#61) *(scene)*
+- scaffold vibe scene init + bilingual project layout (MVP 1 c1/8) (#60) *(scene)*
+- auto-tag main on version bump (closes #51) (#59) *(ci)*
+
+### Documentation
+
+- /vibe-scene skill + scene-promo example + README (MVP 1 c7/8) (#66) *(scene)*
+
 ## [0.52.1] - 2026-04-24
 
 ### Fixed
 
-- wire gpt-image-2 alias in "vibe generate image" *(generate)*
+- wire gpt-image-2 alias in "vibe generate image" (#57) *(generate)*
 
 ## [0.52.0] - 2026-04-24
 
