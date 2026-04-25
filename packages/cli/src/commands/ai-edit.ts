@@ -260,7 +260,7 @@ export async function executeSilenceCut(options: SilenceCutOptions): Promise<Sil
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   const method = useGemini ? "gemini" : "ffmpeg";
@@ -519,7 +519,7 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   const openaiKey = apiKey || process.env.OPENAI_API_KEY;
@@ -723,7 +723,7 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   const openaiKey = apiKey || process.env.OPENAI_API_KEY;
@@ -913,7 +913,7 @@ export async function executeNoiseReduce(options: NoiseReduceOptions): Promise<N
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   try {
@@ -1014,7 +1014,7 @@ export async function executeFade(options: FadeOptions): Promise<FadeResult> {
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   try {
@@ -1379,7 +1379,7 @@ export async function applyTextOverlays(options: TextOverlayOptions): Promise<Te
 
   // Check FFmpeg
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   // Check drawtext filter availability

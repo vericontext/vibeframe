@@ -923,7 +923,7 @@ aiCommand
 
       // Check FFmpeg availability
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       const spinner = ora("Processing audio ducking...").start();

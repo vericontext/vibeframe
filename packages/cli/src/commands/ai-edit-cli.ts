@@ -71,7 +71,7 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
 
       // Check FFmpeg
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       const ext = extname(videoPath);
@@ -200,7 +200,7 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
 
       // Check FFmpeg
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       if (options.dryRun) {
@@ -298,7 +298,7 @@ aiCommand
       }
 
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       if (options.dryRun) {
@@ -382,7 +382,7 @@ aiCommand
       }
 
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       if (options.dryRun) {
@@ -573,7 +573,7 @@ aiCommand
 
       // Check FFmpeg
       if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+        exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
       }
 
       if (options.dryRun) {

@@ -320,7 +320,7 @@ aiCommand
         }
 
         if (!commandExists("ffmpeg")) {
-          exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+          exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
         }
 
         const apiKey = await getApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
@@ -985,7 +985,7 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Please install FFmpeg." };
+    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
   const googleKey = apiKey || process.env.GOOGLE_API_KEY;

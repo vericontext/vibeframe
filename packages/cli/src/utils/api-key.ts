@@ -209,12 +209,20 @@ export class ApiKeyError extends Error {
 
 /**
  * Check if an API key is available without prompting or side effects.
+ *
+ * Sync env-only check — for the config-file fallback (set via `vibe setup`),
+ * use the async {@link getApiKey} instead. Two bugs in the previous
+ * implementation made this lie: (1) `getApiKeyFromConfig` is async and
+ * was called without `await`, so `!!Promise` always returned `true`,
+ * and (2) the function expects a provider key (`"elevenlabs"`) but was
+ * being passed the env-var name (`"ELEVENLABS_API_KEY"`). The result
+ * was that `vibe scene add --tts auto` always took the ElevenLabs path
+ * and crashed with "API key required" even though we were supposed to
+ * fall back to local Kokoro. Caught during pre-HN error-message audit.
  */
 export function hasApiKey(envVar: string): boolean {
   loadEnv();
-  if (process.env[envVar]) return true;
-  const key = getApiKeyFromConfig(envVar);
-  return !!key;
+  return !!process.env[envVar];
 }
 
 /**

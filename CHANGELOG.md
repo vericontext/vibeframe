@@ -5,11 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.55.1] - 2026-04-25
+## [0.55.2] - 2026-04-25
+
+### Documentation
+
+- asciinema quickstart embed in README (#79) *(demo)*
 
 ### Fixed
 
-- bundle CLI with esbuild so npm install actually works (v0.55.1) *(cli)*
+- bundle CLI with esbuild so npm install actually works (v0.55.1) (#78) *(cli)*
 
 ## [0.55.0] - 2026-04-25
 

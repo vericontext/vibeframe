@@ -854,7 +854,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             try {
               if (!commandExists("ffmpeg")) {
                 audioSpinner.fail("FFmpeg not found");
-                exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+                exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
               }
 
               const { stdout: probeOut } = await execSafe("ffprobe", [
@@ -1075,7 +1075,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         }
 
         if (!commandExists("ffmpeg")) {
-          exitWithError(generalError("FFmpeg not found. Please install FFmpeg."));
+          exitWithError(generalError("FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
         }
 
         const targetDuration = parseInt(options.duration);

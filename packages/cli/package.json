@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.55.1",
+  "version": "0.55.2",
   "description": "VibeFrame CLI - natural language video editing from the terminal",
   "private": false,
   "license": "MIT",
