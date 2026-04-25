@@ -13,9 +13,15 @@
 
 ## Demo
 
-**CLI walkthrough** → https://youtu.be/EJUUpPp2d_8
+**60-second quickstart** — install, scaffold, narrate (free local TTS), render to MP4 with synced captions:
 
-**Claude Code integration** → https://youtu.be/sdf930sZ7co
+<p align="center">
+  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-quickstart.svg">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-quickstart.svg" alt="VibeFrame v0.55 quickstart" />
+  </a>
+</p>
+
+**CLI walkthrough (full)** → https://youtu.be/EJUUpPp2d_8 · **Claude Code integration** → https://youtu.be/sdf930sZ7co
 
 ---
 
