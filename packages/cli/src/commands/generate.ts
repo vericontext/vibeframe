@@ -114,7 +114,7 @@ generateCommand
   .alias("img")
   .description("Generate image using AI (Gemini, DALL-E, or Runway)")
   .argument("[prompt]", "Image description prompt (interactive if omitted)")
-  .option("-p, --provider <provider>", "Provider: gemini, openai, grok, runway (dalle is deprecated)", "gemini")
+  .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway (dalle is deprecated)")
   .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)")
   .option("-o, --output <path>", "Output file path (downloads image)")
   .option("-s, --size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
@@ -149,22 +149,32 @@ Examples:
         validateOutputPath(options.output);
       }
 
-      // Auto-resolve provider if user didn't explicitly set one
-      let provider = options.provider.toLowerCase();
+      // Resolve provider:
+      //  - explicit -p flag wins (validated, then key-presence checked)
+      //  - no flag → IMAGE_PROVIDERS priority list (openai > gemini > grok)
+      //  - if no keys at all → keep gemini as last-resort default so the
+      //    later requireApiKey() prints a friendly Gemini-specific message
       const validProviders = ["openai", "dalle", "gemini", "grok", "runway"];
-      if (!validProviders.includes(provider)) {
-        exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: openai, gemini, grok, runway`));
-      }
-      // Auto-fallback: if default provider's key is missing, find one that works
       const providerEnvMap: Record<string, string> = {
         gemini: "GOOGLE_API_KEY", openai: "OPENAI_API_KEY", grok: "XAI_API_KEY",
       };
-      if (providerEnvMap[provider] && !hasApiKey(providerEnvMap[provider]) && !options.apiKey) {
-        const resolved = resolveProvider("image");
-        if (resolved) {
-          log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
-          provider = resolved.name;
+      let provider: string;
+      if (options.provider) {
+        provider = options.provider.toLowerCase();
+        if (!validProviders.includes(provider)) {
+          exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: openai, gemini, grok, runway`));
         }
+        // Explicit choice's key missing → fall back via resolver
+        if (providerEnvMap[provider] && !hasApiKey(providerEnvMap[provider]) && !options.apiKey) {
+          const resolved = resolveProvider("image");
+          if (resolved) {
+            log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
+            provider = resolved.name;
+          }
+        }
+      } else {
+        const resolved = resolveProvider("image");
+        provider = resolved?.name ?? "gemini";
       }
 
       // Show deprecation warning for "dalle"
@@ -524,7 +534,7 @@ generateCommand
   .alias("vid")
   .description("Generate video using AI (Kling, Runway, Veo, or Grok)")
   .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
-  .option("-p, --provider <provider>", "Provider: grok (default), kling, runway, veo, fal (Seedance 2.0)", "grok")
+  .option("-p, --provider <provider>", "Provider: fal (Seedance 2.0, default when FAL_KEY set), grok, kling, runway, veo")
   .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
   .option("-o, --output <path>", "Output file path (downloads video)")
   .option("-i, --image <path>", "Reference image for image-to-video")
@@ -566,23 +576,32 @@ Examples:
         validateOutputPath(options.output);
       }
 
-      let provider = options.provider.toLowerCase();
+      // Resolve provider:
+      //  - explicit -p flag wins (validated, then key-presence checked)
+      //  - no flag → VIDEO_PROVIDERS priority list (fal > grok > veo > kling > runway)
+      //  - if no keys at all → keep grok as last-resort default so the
+      //    later requireApiKey() prints a friendly Grok-specific message
       const validProviders = ["runway", "kling", "veo", "grok", "fal"];
-      if (!validProviders.includes(provider)) {
-        exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
-      }
-
-      // Auto-fallback: if default provider's key is missing, find one that works
       const videoEnvMap: Record<string, string> = {
         grok: "XAI_API_KEY", veo: "GOOGLE_API_KEY", kling: "KLING_API_KEY", runway: "RUNWAY_API_SECRET",
         fal: "FAL_KEY",
       };
-      if (videoEnvMap[provider] && !hasApiKey(videoEnvMap[provider]) && !options.apiKey) {
-        const resolved = resolveProvider("video");
-        if (resolved) {
-          log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
-          provider = resolved.name;
+      let provider: string;
+      if (options.provider) {
+        provider = options.provider.toLowerCase();
+        if (!validProviders.includes(provider)) {
+          exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
         }
+        if (videoEnvMap[provider] && !hasApiKey(videoEnvMap[provider]) && !options.apiKey) {
+          const resolved = resolveProvider("video");
+          if (resolved) {
+            log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
+            provider = resolved.name;
+          }
+        }
+      } else {
+        const resolved = resolveProvider("video");
+        provider = resolved?.name ?? "grok";
       }
 
       // Read image early so we can auto-detect aspect ratio before dry-run
