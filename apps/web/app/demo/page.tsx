@@ -215,7 +215,7 @@ export default function DemoPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               The pre-scene-authoring path: generate an image with one command, then animate it with another.
-              Still works in v0.55 — kept here as the building blocks underneath the new scene workflow.
+              Still works in v0.57 — kept here as the building blocks underneath the new scene workflow.
             </p>
           </div>
 

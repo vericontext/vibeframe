@@ -7,14 +7,21 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Counts come from next.config.js (auto-derived from packages/ai-providers
+// directory listing + MCP tool name regex), so they stay in sync with the
+// source. Falls back to the post-v0.57 numbers if env var lookup fails.
+const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "13";
+const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "59";
+const SHARE_DESCRIPTION = `YAML pipelines, ${AI_PROVIDERS} AI providers, ${MCP_TOOLS} MCP tools bundled. Ship videos, not clicks.`;
+
 export const metadata: Metadata = {
   title: "VibeFrame — The video CLI for AI agents",
-  description: "A CLI agents can compose, pipe, and script. YAML pipelines, 5 AI providers, 53 MCP tools bundled. Ship videos, not clicks.",
+  description: `A CLI agents can compose, pipe, and script. ${SHARE_DESCRIPTION}`,
   keywords: ["video CLI", "AI agent", "agentic CLI", "YAML pipelines", "MCP", "video editor", "Claude Code", "open source"],
   metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
     title: "VibeFrame — The video CLI for AI agents",
-    description: "YAML pipelines, 5 AI providers, 53 MCP tools bundled. Ship videos, not clicks.",
+    description: SHARE_DESCRIPTION,
     type: "website",
     url: "https://vibeframe.ai",
     siteName: "VibeFrame",
@@ -22,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "VibeFrame — The video CLI for AI agents",
-    description: "YAML pipelines, 5 AI providers, 53 MCP tools bundled. Ship videos, not clicks.",
+    description: SHARE_DESCRIPTION,
   },
 };
 
