@@ -99,6 +99,26 @@
       "import": "./src/commands/edit-cmd.ts",
       "types": "./src/commands/edit-cmd.ts"
     },
+    "./commands/scene": {
+      "import": "./src/commands/scene.ts",
+      "types": "./src/commands/scene.ts"
+    },
+    "./commands/_shared/scene-project": {
+      "import": "./src/commands/_shared/scene-project.ts",
+      "types": "./src/commands/_shared/scene-project.ts"
+    },
+    "./commands/_shared/scene-lint": {
+      "import": "./src/commands/_shared/scene-lint.ts",
+      "types": "./src/commands/_shared/scene-lint.ts"
+    },
+    "./commands/_shared/scene-render": {
+      "import": "./src/commands/_shared/scene-render.ts",
+      "types": "./src/commands/_shared/scene-render.ts"
+    },
+    "./commands/_shared/scene-html-emit": {
+      "import": "./src/commands/_shared/scene-html-emit.ts",
+      "types": "./src/commands/_shared/scene-html-emit.ts"
+    },
     "./pipeline": {
       "import": "./src/pipeline/index.ts",
       "types": "./src/pipeline/index.ts"

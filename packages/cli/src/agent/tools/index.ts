@@ -127,6 +127,7 @@ export { registerMediaTools } from "./media.js";
 export { registerAITools } from "./ai.js";
 export { registerExportTools } from "./export.js";
 export { registerBatchTools } from "./batch.js";
+export { registerSceneTools } from "./scene.js";
 
 /**
  * Register all tools
@@ -139,6 +140,7 @@ export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   const { registerAITools } = await import("./ai.js");
   const { registerExportTools } = await import("./export.js");
   const { registerBatchTools } = await import("./batch.js");
+  const { registerSceneTools } = await import("./scene.js");
 
   registerProjectTools(registry);
   registerTimelineTools(registry);
@@ -147,4 +149,5 @@ export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   registerAITools(registry);
   registerExportTools(registry);
   registerBatchTools(registry);
+  registerSceneTools(registry);
 }
