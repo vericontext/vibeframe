@@ -254,6 +254,27 @@ full scenes project from a written script in one shot:
 vibe pipeline script-to-video "..." --format scenes -o my-promo/ -a 16:9
 ```
 
+### Free local TTS + word-level caption sync (v0.54)
+
+`vibe scene add --narration "..."` now works with **no API key**. Without
+`ELEVENLABS_API_KEY`, VibeFrame falls back to **Kokoro-82M** (Apache 2.0)
+running locally — first call downloads ~330MB to
+`~/.cache/huggingface/hub`, then renders are free.
+
+```bash
+# Free local TTS (Kokoro)
+vibe scene add hook --narration "Ship videos, not clicks." --tts kokoro
+
+# Or use any external wav (npx hyperframes tts, macOS say, voice memo)
+vibe scene add hook --narration-file ./my-voice.wav
+```
+
+Whenever audio is present and `OPENAI_API_KEY` is set, narration is
+auto-transcribed (Whisper word-level) into `assets/transcript-<id>.json`
+and threaded into the scene HTML. Captions then **fade in word-by-word at
+the exact audio timestamp** — no more "scene says X but caption shows Y"
+drift. Supported on `simple`, `explainer`, and `kinetic-type` presets.
+
 Run [`examples/scene-promo/`](examples/scene-promo/) for an end-to-end
 walkthrough. See `/vibe-scene` for the agent skill, including the lint
 feedback loop pattern (`--json --fix`, ≤3 retries, template fallback).

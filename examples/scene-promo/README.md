@@ -67,6 +67,46 @@ Costs: ~$0.02 ElevenLabs TTS + ~$0.04 Gemini image per scene. Set
 `ELEVENLABS_API_KEY` and `GOOGLE_API_KEY` in `.env` first (or run
 `vibe setup`).
 
+## Free local TTS + word-level caption sync (v0.54)
+
+Skip the ElevenLabs cost entirely with `--tts kokoro` — first call
+downloads the ~330MB Kokoro-82M model to `~/.cache/huggingface/hub`,
+subsequent calls run in seconds:
+
+```bash
+vibe scene add narrated \
+  --project scene-promo --style explainer \
+  --kicker "WHY VIBE SCENE" \
+  --headline "Edit text, not pixels" \
+  --narration "Each word lights up the moment it's spoken." \
+  --tts kokoro --no-image
+```
+
+This emits three things into `assets/`:
+- `narration-narrated.wav` — Kokoro audio output
+- `transcript-narrated.json` — Whisper word-level timings (needs `OPENAI_API_KEY`)
+- `compositions/scene-narrated.html` — subtitle is split into one
+  `<span class="word">` per transcript entry, each fading in at its
+  absolute audio start time.
+
+Press `vibe scene render` and the captured MP4 has captions that appear
+exactly when each word is spoken. The `simple`, `explainer`, and
+`kinetic-type` presets all support word-sync; `announcement` and
+`product-shot` ignore the transcript (their headlines are static by design).
+
+Already have a wav from another tool (`npx hyperframes tts`, macOS `say`,
+hand-recorded)? Pass it directly — VibeFrame still transcribes it for sync:
+
+```bash
+vibe scene add custom \
+  --narration-file ./my-voice.wav \
+  --headline "Custom voiceover" \
+  --no-image
+```
+
+The generated `assets/narration-*.{wav,mp3}` and `assets/transcript-*.json`
+files are `.gitignore`d — re-run the command above to regenerate.
+
 ## One-shot: script-to-scenes
 
 `vibe pipeline script-to-video` can produce a scene project like this one

@@ -6,6 +6,14 @@
 renders/*.mp4
 tmp/
 
+# Generated narration audio + transcripts — re-generated on demand by
+# `vibe scene add --narration "..."`. Keeping them out of git keeps the
+# repo lean (~250KB+ per scene) and lets contributors regenerate with
+# whatever provider (Kokoro local / ElevenLabs) they prefer.
+assets/narration-*.wav
+assets/narration-*.mp3
+assets/transcript-*.json
+
 # OS / editor
 .DS_Store
 *.log
