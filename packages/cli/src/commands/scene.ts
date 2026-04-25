@@ -851,4 +851,13 @@ sceneCommand
     console.log(`  duration  ${(((result.durationMs ?? 0) / 1000)).toFixed(1)}s`);
     console.log(`  frames    ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`);
     console.log(`  config    ${result.fps}fps · ${result.quality} · ${result.format}`);
+    if (result.audioCount && result.audioCount > 0) {
+      const muxStatus = result.audioMuxApplied
+        ? chalk.green(`✓ ${result.audioCount} track${result.audioCount === 1 ? "" : "s"} muxed`)
+        : chalk.yellow(`⚠ ${result.audioCount} track${result.audioCount === 1 ? "" : "s"} skipped`);
+      console.log(`  audio     ${muxStatus}`);
+      if (result.audioMuxWarning) {
+        console.log(chalk.dim(`            ${result.audioMuxWarning}`));
+      }
+    }
   });

@@ -90,9 +90,12 @@ This emits three things into `assets/`:
   absolute audio start time.
 
 Press `vibe scene render` and the captured MP4 has captions that appear
-exactly when each word is spoken. The `simple`, `explainer`, and
-`kinetic-type` presets all support word-sync; `announcement` and
-`product-shot` ignore the transcript (their headlines are static by design).
+exactly when each word is spoken **and** the narration plays as the audio
+track (v0.55+ — `vibe scene render` runs a post-producer ffmpeg mux pass
+that overlays every `<audio>` element onto the video at its absolute
+timeline position). The `simple`, `explainer`, and `kinetic-type` presets
+all support word-sync; `announcement` and `product-shot` ignore the
+transcript (their headlines are static by design).
 
 Already have a wav from another tool (`npx hyperframes tts`, macOS `say`,
 hand-recorded)? Pass it directly — VibeFrame still transcribes it for sync:

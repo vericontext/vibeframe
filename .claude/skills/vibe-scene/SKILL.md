@@ -92,6 +92,18 @@ audio's absolute word start time:
 are intentionally static. Use `--no-transcribe` to skip Whisper if you
 don't want word-sync (or have no `OPENAI_API_KEY`).
 
+### Audio in the rendered MP4 (v0.55)
+
+`vibe scene render` runs an ffmpeg post-pass that overlays every
+`<audio>` element onto the producer's video at its absolute timeline
+position. The producer's video stream is copied untouched (`-c:v copy`
+— no re-encode) so the only added cost is one cheap audio mux.
+
+The render JSON now reports `audioCount` (how many `<audio>` elements
+were found) and `audioMuxApplied` (whether the ffmpeg pass succeeded).
+If `ffmpeg` is missing from PATH the producer's silent video is left
+in place and `audioMuxWarning` carries the reason.
+
 ## Lint feedback loop (agent pattern)
 
 ```bash
