@@ -77,7 +77,7 @@ export default function LandingPage() {
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
             A CLI agents can compose, pipe, and script.
-            YAML pipelines, 5 AI providers, 53 MCP tools bundled.
+            YAML pipelines, {process.env.NEXT_PUBLIC_AI_PROVIDERS} AI providers, {process.env.NEXT_PUBLIC_MCP_TOOLS} MCP tools bundled.
             Works with Claude Code, Claude Desktop, Cursor — no GUI required.
           </p>
 
@@ -138,11 +138,11 @@ export default function LandingPage() {
             <pre className="p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto">
               <code className="text-muted-foreground"># Generate an image, then animate it{"\n"}</code>
               <code className="text-foreground">vibe gen img "sunset over mountains" -o sunset.png{"\n"}</code>
-              <code className="text-green-400">{"✓ Generated with Gemini (Nano Banana)\n\n"}</code>
+              <code className="text-green-400">{"✓ Generated with OpenAI gpt-image-2 (default since v0.56)\n\n"}</code>
 
               <code className="text-muted-foreground"># Image-to-video (recommended workflow){"\n"}</code>
               <code className="text-foreground">vibe gen vid "camera zooms in slowly" -i sunset.png -o scene.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Generated 5s video with Grok (native audio)\n\n"}</code>
+              <code className="text-green-400">{"✓ Generated 5s video with fal.ai Seedance 2.0 (default since v0.57)\n\n"}</code>
 
               <code className="text-muted-foreground"># Add captions and remove silence{"\n"}</code>
               <code className="text-foreground">vibe ed cap video.mp4 -o captioned.mp4{"\n"}</code>
