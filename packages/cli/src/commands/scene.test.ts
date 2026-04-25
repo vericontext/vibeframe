@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, readFile, access } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { scaffoldSceneProject } from "./_shared/scene-project.js";
@@ -147,5 +147,103 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     const html = await readFile(resolve(dir, "compositions/scene-hook.html"), "utf-8");
     expect(html).toContain('data-width="1080"');
     expect(html).toContain('data-height="1920"');
+  });
+});
+
+describe("executeSceneAdd — narration-file path", () => {
+  it("copies an external wav into assets/ and skips TTS", async () => {
+    const projectDir = await makeProject();
+    // Minimal valid 8-byte stub — getAudioDuration may fail on non-real wav
+    // but the pathway under test is just file copy + skip-TTS.
+    const externalWav = join(projectDir, "external.wav");
+    await writeFile(externalWav, Buffer.from([82, 73, 70, 70, 0, 0, 0, 0]));
+
+    const result = await executeSceneAdd({
+      name: "from-file",
+      preset: "simple",
+      narrationFile: externalWav,
+      duration: 4,
+      projectDir,
+      skipImage: true,
+      skipTranscribe: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.audioPath).toBeDefined();
+    const copied = resolve(projectDir, "assets/narration-from-file.wav");
+    expect(await pathExists(copied)).toBe(true);
+  });
+
+  it("returns an error for missing narration file", async () => {
+    const projectDir = await makeProject();
+    const result = await executeSceneAdd({
+      name: "x",
+      preset: "simple",
+      narrationFile: "/does/not/exist.wav",
+      duration: 3,
+      projectDir,
+      skipImage: true,
+      skipTranscribe: true,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Narration file not found/);
+  });
+
+  it("rejects unsupported audio extensions", async () => {
+    const projectDir = await makeProject();
+    const externalFlac = join(projectDir, "audio.flac");
+    await writeFile(externalFlac, Buffer.from([1, 2, 3]));
+
+    const result = await executeSceneAdd({
+      name: "x",
+      preset: "simple",
+      narrationFile: externalFlac,
+      duration: 3,
+      projectDir,
+      skipImage: true,
+      skipTranscribe: true,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Unsupported narration file extension/);
+  });
+});
+
+describe("executeSceneAdd — transcribe", () => {
+  it("does not emit transcript when skipTranscribe is true", async () => {
+    const projectDir = await makeProject();
+    const externalWav = join(projectDir, "ext.wav");
+    await writeFile(externalWav, Buffer.from([82, 73, 70, 70, 0, 0, 0, 0]));
+
+    const result = await executeSceneAdd({
+      name: "no-transcribe",
+      preset: "simple",
+      narrationFile: externalWav,
+      duration: 3,
+      projectDir,
+      skipImage: true,
+      skipTranscribe: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.transcriptPath).toBeUndefined();
+    expect(result.transcriptWordCount).toBeUndefined();
+    const transcriptFile = resolve(projectDir, "assets/transcript-no-transcribe.json");
+    expect(await pathExists(transcriptFile)).toBe(false);
+  });
+
+  it("does not emit transcript when there's no audio to transcribe", async () => {
+    const projectDir = await makeProject();
+
+    const result = await executeSceneAdd({
+      name: "silent",
+      preset: "simple",
+      duration: 3,
+      projectDir,
+      skipAudio: true,
+      skipImage: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.transcriptPath).toBeUndefined();
   });
 });
