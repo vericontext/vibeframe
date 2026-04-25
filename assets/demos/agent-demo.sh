@@ -69,29 +69,29 @@ fi
 
 cd "$(mktemp -d /tmp/vibe-agent-demo-XXXXXX)"
 
-printf "${WHITE}VibeFrame agent mode — natural language → multi-tool orchestration${RESET}\n"
-printf "${DIM}One CLI flag opens an LLM-driven REPL with 62 vibe tools attached.${RESET}\n"
+printf "${WHITE}VibeFrame agent mode — stand-alone REPL, no IDE host, no MCP setup${RESET}\n"
+printf "${DIM}Pick any LLM provider (BYOK), get 62 vibe tools attached automatically.${RESET}\n"
 sleep 2
 
 header "1 · pick a provider"
 type_line "vibe agent --help | head -10"
 vibe agent --help | head -10
-takeaway "Bring your own LLM — Claude, OpenAI, Gemini, Grok, OpenRouter, or local Ollama."
+takeaway "Claude · OpenAI · Gemini · Grok · OpenRouter · local Ollama — same 62 tools either way."
 
-header "2 · ask in plain English (single-shot via -i)"
-type_line 'vibe agent -p claude -v -i \\'
+header "2 · ask in plain English (xAI Grok, single-shot via -i)"
+type_line 'vibe agent -p xai -v -i \\'
 type_line '  "Make me a 16:9 scene project named demo with a single 5-second \\'
 type_line '   announcement scene saying Hello vibe agent. Skip audio and image. \\'
 type_line '   Then lint."'
-vibe agent -p claude -v --max-turns 6 -i "Make me a 16:9 scene project named 'demo' with a single 5-second announcement scene saying 'Hello vibe agent'. Skip audio and image. Then lint." 2>&1 | head -40
+vibe agent -p xai -v --max-turns 6 -i "Make me a 16:9 scene project named 'demo' with a single 5-second announcement scene saying 'Hello vibe agent'. Skip audio and image. Then lint." 2>&1 | head -50
 
-takeaway "scene_init → scene_add → scene_lint, planned and executed by Claude."
+takeaway "scene_init → scene_add → scene_lint, planned and executed by Grok in 2 turns."
 
 header "3 · the agent surface"
 type_line "ls demo/"
 ls demo/
-takeaway "62 tools cover scenes, edits, AI generation, pipelines, audio, detection — wire up your own with MCP."
+takeaway "Same 62 tools also exposed through MCP — see the Claude Code demo for that surface."
 
-printf "\n${WHITE}Same tools backed by '/' commands inside Claude Code or Cursor (MCP).${RESET}\n"
-printf "${DIM}See assets/demos/claude-code-demo for that surface.${RESET}\n"
+printf "\n${WHITE}vibe agent = single binary REPL.${RESET} ${DIM}No IDE, no MCP host, no config.${RESET}\n"
+printf "${DIM}Swap '-p xai' for any other provider — your key, your model, your terminal.${RESET}\n"
 sleep 3
