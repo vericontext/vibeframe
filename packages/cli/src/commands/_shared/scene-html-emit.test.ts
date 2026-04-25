@@ -341,8 +341,10 @@ describe("emitSceneHtml — word-sync rendering", () => {
       expect(html).toContain("tl.fromTo");
       expect(html).toContain(", 0.05)"); // first word
       expect(html).toContain(", 1.45)"); // last word
-      // Final fade-out preserved
-      expect(html).toContain(", 2.60)"); // dur (3) - 0.4 = 2.6
+      // Tail fade-out was removed — the producer cuts the clip at its
+      // data-duration and the next scene's own fade-in handles the
+      // transition (see scene-html-emit.ts).
+      expect(html).not.toContain("tl.to('[data-composition-id=\"x\"] .caption'");
     });
   });
 
