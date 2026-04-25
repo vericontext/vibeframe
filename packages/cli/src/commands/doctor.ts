@@ -42,8 +42,13 @@ const COMMAND_KEY_MAP: Record<string, string[]> = {
   XAI_API_KEY: [
     "agent -p xai",
     "generate image -p grok",
-    "generate video",
+    "generate video -p grok",
     "edit image -p grok",
+  ],
+  FAL_KEY: [
+    "generate video -p fal (Seedance 2.0 — default since v0.57)",
+    "generate video -p fal -m fast (lower-latency variant)",
+    "generate video -p fal -i <image> (image-to-video)",
   ],
   ELEVENLABS_API_KEY: [
     "generate speech",
@@ -56,7 +61,7 @@ const COMMAND_KEY_MAP: Record<string, string[]> = {
   KLING_API_KEY: ["generate video -p kling"],
   RUNWAY_API_SECRET: ["generate video -p runway"],
   REPLICATE_API_TOKEN: ["generate music -p replicate"],
-  IMGBB_API_KEY: ["generate video -p kling (image-to-video)"],
+  IMGBB_API_KEY: ["generate video -p kling/fal (image-to-video upload host)"],
 };
 
 /** Commands that need no API key (FFmpeg only) */

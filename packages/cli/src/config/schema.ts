@@ -23,6 +23,7 @@ export interface VibeConfig {
     elevenlabs?: string;
     runway?: string;
     kling?: string;
+    fal?: string;
     imgbb?: string;
     replicate?: string;
     xai?: string;
@@ -36,7 +37,7 @@ export interface VibeConfig {
     /** Default provider for image generation */
     imageProvider?: "gemini" | "openai" | "grok";
     /** Default provider for video generation */
-    videoProvider?: "grok" | "kling" | "runway" | "veo";
+    videoProvider?: "fal" | "grok" | "kling" | "runway" | "veo";
     /** Default provider for storyboard analysis */
     storyboardProvider?: "claude" | "openai" | "gemini";
     /** Default voice for TTS */
@@ -68,6 +69,7 @@ export const PROVIDER_ENV_VARS: Record<string, string> = {
   elevenlabs: "ELEVENLABS_API_KEY",
   runway: "RUNWAY_API_SECRET",
   kling: "KLING_API_KEY",
+  fal: "FAL_KEY",
   imgbb: "IMGBB_API_KEY",
   replicate: "REPLICATE_API_TOKEN",
   xai: "XAI_API_KEY",

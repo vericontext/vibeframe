@@ -90,25 +90,25 @@ const AI_FEATURES: AIFeature[] = [
   {
     label: "Images",
     desc: "generate + edit",
-    defaultProvider: "Gemini Nano Banana",
-    alsoAvailable: "OpenAI GPT Image, Grok Imagine",
-    keys: [{ configKey: "google", envVar: "GOOGLE_API_KEY", name: "Google", url: "https://aistudio.google.com/apikey", what: "Gemini image generation + editing + video analysis" }],
+    defaultProvider: "OpenAI gpt-image-2 (Artificial Analysis #1, since v0.56)",
+    alsoAvailable: "Gemini Nano Banana, Grok Imagine",
+    keys: [{ configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI", url: "https://platform.openai.com/api-keys", what: "gpt-image-2 image generation + editing (also Whisper, Agent)" }],
     tryCommand: 'vibe generate image "a sunset over mountains" -o test.png',
   },
   {
     label: "Videos",
     desc: "generate + extend",
-    defaultProvider: "Grok Imagine (native audio)",
-    alsoAvailable: "Kling, Runway Gen-4.5, Google Veo",
-    keys: [{ configKey: "xai", envVar: "XAI_API_KEY", name: "xAI", url: "https://console.x.ai", what: "Grok video generation with native audio" }],
+    defaultProvider: "fal.ai Seedance 2.0 (Artificial Analysis #2 t2v + i2v, since v0.57)",
+    alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
+    keys: [{ configKey: "fal", envVar: "FAL_KEY", name: "fal.ai", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" }],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',
   },
   {
     label: "Audio",
     desc: "TTS, SFX, music, voice clone",
-    defaultProvider: "ElevenLabs",
+    defaultProvider: "ElevenLabs (paid, premium quality) — falls back to local Kokoro when no key (free, since v0.54)",
     alsoAvailable: "Replicate MusicGen (music only)",
-    keys: [{ configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech, sound effects, music, voice cloning" }],
+    keys: [{ configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech, sound effects, music, voice cloning (skip to use local Kokoro)" }],
     tryCommand: 'vibe generate speech "Hello world" -o hello.mp3',
   },
   {
@@ -178,9 +178,9 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
     config.llm.provider = "claude";
     const pipelineKeys: AIFeatureKey[] = [
       { configKey: "anthropic", envVar: "ANTHROPIC_API_KEY", name: "Anthropic", url: "https://console.anthropic.com/settings/keys", what: "Claude — storyboard generation + reasoning" },
-      { configKey: "google", envVar: "GOOGLE_API_KEY", name: "Google", url: "https://aistudio.google.com/apikey", what: "Gemini — image generation + video analysis" },
-      { configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech narration + music" },
-      { configKey: "xai", envVar: "XAI_API_KEY", name: "xAI", url: "https://console.x.ai", what: "Grok — video generation with native audio" },
+      { configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI", url: "https://platform.openai.com/api-keys", what: "gpt-image-2 image generation (default since v0.56) + Whisper word-level transcribe" },
+      { configKey: "fal", envVar: "FAL_KEY", name: "fal.ai", url: "https://fal.ai/dashboard/keys", what: "Seedance 2.0 — video generation, default since v0.57" },
+      { configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech narration + music (skip to use local Kokoro)" },
     ];
 
     console.log(chalk.dim("Step 2 of 2"));
@@ -352,11 +352,12 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
   console.log();
 
   const allProviders = [
+    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY", desc: "gpt-image-2 image gen ($, default since v0.56), Whisper transcribe, Agent" },
     { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY", desc: "Claude — storyboard, color grade, reframe, Agent ($)" },
-    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY", desc: "Whisper (captions, jump-cut $), GPT Image ($), Agent" },
+    { key: "fal", name: "fal.ai", env: "FAL_KEY", desc: "Seedance 2.0 video gen ($$, default since v0.57)" },
     { key: "google", name: "Google", env: "GOOGLE_API_KEY", desc: "Gemini — image gen (free tier), video analysis ($), Veo ($$)" },
     { key: "xai", name: "xAI", env: "XAI_API_KEY", desc: "Grok — video gen with audio ($$), image ($), Agent" },
-    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY", desc: "TTS ($), SFX, music, voice clone, dubbing" },
+    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY", desc: "TTS ($), SFX, music, voice clone, dubbing — skip to use local Kokoro" },
     { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET", desc: "Gen-4.5 video generation ($$)" },
     { key: "kling", name: "Kling", env: "KLING_API_KEY", desc: "v2.5/v3 video — std ($$) and pro ($$$) modes" },
     { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY", desc: "300+ models via one key — Agent only (pay per model)" },
@@ -507,6 +508,7 @@ async function showConfig(): Promise<void> {
     { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY" },
     { key: "google", name: "Google", env: "GOOGLE_API_KEY" },
     { key: "xai", name: "xAI", env: "XAI_API_KEY" },
+    { key: "fal", name: "fal.ai", env: "FAL_KEY" },
     { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY" },
     { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET" },
     { key: "kling", name: "Kling", env: "KLING_API_KEY" },
