@@ -93,8 +93,8 @@ export default function DemoPage() {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            5 scenes · free local Kokoro narration · word-level captions · audio mux.
-            Five <code className="font-mono text-sm">vibe scene add</code> calls and one <code className="font-mono text-sm">vibe scene render</code>.
+            24-second promo · 5 scenes · free local Kokoro narration · word-level captions · ambient soundtrack mixed in.
+            Five <code className="font-mono text-sm">vibe scene add</code> calls, one <code className="font-mono text-sm">vibe gen music</code>, one <code className="font-mono text-sm">vibe scene render</code>.
           </p>
 
           <div className="animate-fade-in-up delay-200">
@@ -208,13 +208,14 @@ export default function DemoPage() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/5 px-4 py-1.5 text-sm text-purple-400 mb-4">
               <Sparkles className="w-4 h-4" />
-              <span>Output Gallery</span>
+              <span>Earlier showcase · v0.5x image-to-video</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Image to video, scene by scene
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Each scene started as a generated image, then animated with a single command.
+              The pre-scene-authoring path: generate an image with one command, then animate it with another.
+              Still works in v0.55 — kept here as the building blocks underneath the new scene workflow.
             </p>
           </div>
 
