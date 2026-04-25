@@ -1,6 +1,6 @@
 # VibeFrame
 
-**The video CLI for AI agents.** YAML pipelines. 5 AI providers. 53 MCP tools bundled.
+**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 53 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -72,7 +72,7 @@ of `vibe scene render` vs `npx hyperframes render` on the same project
 |---|---|---|---|---|
 | CLI-first | ✅ | ✅ | ✅ | ❌ (library) |
 | YAML pipelines | ✅ (`vibe run`) | partial | ✅ | ❌ |
-| AI providers | **5** (OpenAI/Anthropic/Gemini/xAI/OpenRouter) | TTS + transcribe | many | ❌ |
+| AI providers | **13** (OpenAI gpt-image-2, fal/Seedance 2.0, Veo, Kling, Runway, Grok, ElevenLabs, Kokoro, Whisper, Claude, Gemini, OpenRouter, Ollama) | TTS + transcribe | many | ❌ |
 | MCP server bundled | ✅ **53 MCP tools** | ❌ | ❌ | ❌ |
 | Claude Code Skill | [planned](https://github.com/vericontext/vibeframe/issues/32) | ✅ | ❌ | ❌ |
 | Render backend | FFmpeg + Remotion | HTML + Puppeteer | FFmpeg | React → Video |
@@ -252,11 +252,11 @@ See [examples/](examples/) for ready-to-use pipeline templates.
 
 ## AI Pipelines
 
-End-to-end workflows powered by multiple AI providers (Claude + ElevenLabs + Gemini + Kling/Runway):
+End-to-end workflows powered by multiple AI providers (Claude + ElevenLabs / Kokoro + OpenAI gpt-image-2 + fal Seedance 2.0 / Grok / Veo / Kling / Runway):
 
 ```bash
 vibe pipeline script-to-video "A morning routine of a startup founder..." \
-  -d 60 -a 9:16 -g kling -o startup.vibe.json
+  -d 60 -a 9:16 -g fal -o startup.vibe.json
 
 vibe pipeline highlights interview.mp4 -d 90 --criteria emotional
 vibe pipeline auto-shorts podcast.mp4
@@ -332,7 +332,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe generate`** | `image`, `video`, `speech`, `sound-effect`, `music`, `motion`, `storyboard`, `thumbnail`, `background` | `vibe generate image "prompt" -o img.png` |
 | **`vibe edit`** | `silence-cut`, `jump-cut`, `caption`, `grade`, `reframe`, `speed-ramp`, `text-overlay`, `fade`, `noise-reduce`, `image`, `fill-gaps` | `vibe edit caption video.mp4 -o out.mp4` |
 | **`vibe analyze`** | `media`, `video`, `review`, `suggest` | `vibe analyze media video.mp4 "summarize"` |
-| **`vibe audio`** | `transcribe`, `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
+| **`vibe audio`** | `transcribe` (Whisper), `tts` (ElevenLabs · Kokoro local fallback), `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
 | **`vibe pipeline`** | `script-to-video`, `highlights`, `auto-shorts`, `regenerate-scene`, `animated-caption` | `vibe pipeline script-to-video "..." -a 9:16` |
 | **`vibe scene`** | `init`, `add`, `lint`, `render` | `vibe scene add intro --style announcement --headline "..."` |
 | **`vibe project`** | `create`, `info`, `set` | `vibe project create "name"` |
@@ -371,10 +371,11 @@ Best used for onboarding and quick experiments. For production workflows, use CL
 |----------|-----------|---------|
 | **Agent LLM** | OpenAI, Claude, Gemini, xAI, OpenRouter, Ollama | GPT-5-mini |
 | **Image** | OpenAI, Gemini, xAI Grok | OpenAI gpt-image-2 (since v0.56 — Artificial Analysis ELO #1) · Gemini fallback when no `OPENAI_API_KEY` |
-| **Video** | xAI Grok, Kling, Runway, Veo | Grok Imagine |
-| **Audio** | ElevenLabs, Whisper | - |
+| **Video** | fal.ai (Seedance 2.0), xAI Grok, Veo, Kling, Runway | fal.ai Seedance 2.0 (since v0.57 — Artificial Analysis ELO #2 on both text-to-video and image-to-video) · Grok fallback when no `FAL_KEY` |
+| **TTS** | ElevenLabs, Kokoro (local) | ElevenLabs · Kokoro local fallback when no `ELEVENLABS_API_KEY` (since v0.54) |
+| **Transcription** | Whisper | OpenAI Whisper (`OPENAI_API_KEY`) |
 
-**Required API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`
+**Required API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`, `FAL_KEY`
 
 ---
 

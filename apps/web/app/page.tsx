@@ -442,7 +442,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Layers className="w-6 h-6" />}
               title={`${process.env.NEXT_PUBLIC_AI_PROVIDERS} AI Providers`}
-              description="OpenAI, Claude, Gemini, ElevenLabs, Runway, Kling, Veo, Replicate, xAI Grok, OpenRouter, Ollama."
+              description="OpenAI gpt-image-2, fal.ai Seedance 2.0, Veo, Kling, Runway, Grok, ElevenLabs, Kokoro (local), Whisper, Claude, Gemini, OpenRouter, Ollama."
               gradient="from-green-500 to-emerald-500"
             />
           </div>
