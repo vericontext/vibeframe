@@ -491,6 +491,16 @@ export interface ScriptToVideoOptions {
   script: string;
   /** Output directory (default: "script-video-output") */
   outputDir?: string;
+  /**
+   * Output format. `"mp4"` (default) runs the full storyboard → TTS → image →
+   * video → assemble pipeline. `"scenes"` stops after image gen and emits a
+   * Hyperframes-style scene project (HTML compositions + GSAP timelines) at
+   * `outputDir`, ready for `vibe scene lint` / `vibe scene render`.
+   */
+  format?: "mp4" | "scenes";
+  /** Style preset applied to every scene when `format === "scenes"`.
+   *  Default: `"explainer"`. Ignored for `format === "mp4"`. */
+  scenePreset?: "simple" | "announcement" | "explainer" | "kinetic-type" | "product-shot";
   /** Target total duration in seconds */
   duration?: number;
   /** ElevenLabs voice name or ID */
@@ -583,6 +593,12 @@ export interface ScriptToVideoResult {
   appliedFixes?: string[];
   /** Path to reviewed/fixed video (when review auto-applied) */
   reviewedVideoPath?: string;
+  /** Format chosen for this run (`"mp4"` or `"scenes"`). */
+  format?: "mp4" | "scenes";
+  /** When `format === "scenes"`: project-relative scene HTML paths emitted. */
+  scenePaths?: string[];
+  /** When `format === "scenes"`: lint result for the emitted project. */
+  sceneLint?: import("./_shared/scene-lint.js").ProjectLintResult;
 }
 
 /**
@@ -920,6 +936,35 @@ export async function executeScriptToVideo(
       if (i < segments.length - 1) {
         await new Promise((r) => setTimeout(r, 500));
       }
+    }
+
+    // Step 4 (alt): branch into scene-project emit when --format scenes.
+    // We have everything needed: storyboard, narrations, images. Video gen,
+    // text overlays, .vibe.json assembly, and review are all skipped — the
+    // user iterates on the resulting HTML scenes via `vibe scene lint/render`.
+    if (options.format === "scenes") {
+      const { executeSegmentsToScenes } = await import("./_shared/segments-to-scenes.js");
+      options.onProgress?.("Materialising scene project...");
+      const sceneAspect = (options.aspectRatio === "1:1" || options.aspectRatio === "16:9" || options.aspectRatio === "9:16")
+        ? options.aspectRatio
+        : "16:9";
+      const scenes = await executeSegmentsToScenes({
+        segments,
+        narrationEntries: result.narrationEntries,
+        imagePaths,
+        outputDir: absOutputDir,
+        aspectRatio: sceneAspect,
+        scenePreset: options.scenePreset,
+        onProgress: options.onProgress,
+      });
+      result.format = "scenes";
+      result.scenePaths = scenes.scenePaths;
+      result.sceneLint = scenes.lintResult;
+      result.totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
+      if (!scenes.success) {
+        return { ...result, success: false, error: scenes.error ?? "Scene emit failed" };
+      }
+      return result;
     }
 
     // Step 4: Generate videos (if not images-only)

@@ -282,7 +282,10 @@ describe("CLI command groups", () => {
           cwd: process.cwd(),
           encoding: "utf-8",
           env: { ...process.env, REPLICATE_API_TOKEN: undefined },
-          timeout: 10000,
+          // 30s rather than 10s — the CLI spawn cold-starts the entire ESM
+          // dependency graph (puppeteer, ffmpeg helpers, Anthropic SDK, etc.)
+          // which can exceed 10s under full-suite parallel load.
+          timeout: 30000,
         });
         expect(output).toBeTruthy();
       } catch (error: unknown) {

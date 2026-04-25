@@ -50,6 +50,8 @@ aiCommand
   .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
   .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
   .option("--review-auto-apply", "Auto-apply fixable issues from AI review")
+  .option("--format <mode>", "Output format: mp4 (default, full pipeline) or scenes (editable HTML scene project)", "mp4")
+  .option("--scene-style <preset>", "Style preset for --format scenes: simple | announcement | explainer | kinetic-type | product-shot", "explainer")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (script: string, options) => {
     try {
@@ -183,6 +185,17 @@ aiCommand
       console.log();
 
       const pipelineSpinner = ora(`🎬 Running script-to-video with ${options.generator}...`).start();
+      const format = (options.format ?? "mp4") as "mp4" | "scenes";
+      if (format !== "mp4" && format !== "scenes") {
+        exitWithError(usageError(`Invalid --format: ${options.format}`, "Valid: mp4, scenes"));
+      }
+      const validScenePresets = ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const;
+      type ScenePresetCli = typeof validScenePresets[number];
+      const scenePreset = options.sceneStyle as ScenePresetCli;
+      if (format === "scenes" && !validScenePresets.includes(scenePreset)) {
+        exitWithError(usageError(`Invalid --scene-style: ${scenePreset}`, `Valid: ${validScenePresets.join(", ")}`));
+      }
+
       const result = await executeScriptToVideo({
         script: scriptContent,
         outputDir: effectiveOutputDir,
@@ -201,12 +214,54 @@ aiCommand
         textStyle: options.textStyle as TextOverlayStyle | undefined,
         review: options.review,
         reviewAutoApply: options.reviewAutoApply,
+        format,
+        scenePreset,
         onProgress: (msg: string) => { pipelineSpinner.text = msg; },
       });
 
       if (!result.success) {
         pipelineSpinner.fail(chalk.red(result.error || "Script-to-Video failed"));
         exitWithError(apiError(result.error || "Script-to-Video failed", true));
+      }
+
+      // ---- Scene-project output path -------------------------------------
+      if (result.format === "scenes") {
+        pipelineSpinner.succeed(chalk.green(`Generated ${result.scenes} scene HTML file(s) → ${effectiveOutputDir}/`));
+
+        const lint = result.sceneLint;
+        const lintLine = lint
+          ? `  🧪 Lint: ${lint.errorCount} error(s), ${lint.warningCount} warning(s), ${lint.infoCount} info`
+          : "  🧪 Lint: skipped";
+
+        console.log();
+        console.log(chalk.bold.green("Script-to-Scenes complete!"));
+        console.log(chalk.dim("─".repeat(60)));
+        console.log();
+        console.log(`  📁 Project: ${chalk.cyan(effectiveOutputDir)}/`);
+        console.log(`  🎬 Scenes: ${result.scenes}`);
+        console.log(`  ⏱️  Duration: ${result.totalDuration ?? 0}s`);
+        console.log(lintLine);
+        console.log();
+        console.log(chalk.dim("Next steps:"));
+        console.log(chalk.dim(`  vibe scene lint --project ${effectiveOutputDir}`));
+        console.log(chalk.dim(`  vibe scene render --project ${effectiveOutputDir}`));
+        console.log();
+
+        outputResult({
+          success: true,
+          command: "pipeline script-to-video",
+          result: {
+            format: "scenes",
+            outputDir: result.outputDir,
+            scenes: result.scenes,
+            totalDuration: result.totalDuration,
+            scenePaths: result.scenePaths ?? [],
+            lint: lint
+              ? { ok: lint.ok, errorCount: lint.errorCount, warningCount: lint.warningCount, infoCount: lint.infoCount }
+              : undefined,
+          },
+        });
+        return;
       }
 
       pipelineSpinner.succeed(chalk.green(`Generated ${result.scenes} scene(s) → ${result.projectPath}`));
