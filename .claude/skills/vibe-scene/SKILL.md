@@ -55,13 +55,42 @@ from the generated TTS audio.
 
 `vibe scene add` integrates the existing AI providers:
 
-- `--narration "..."` → ElevenLabs TTS → `assets/narration-<id>.mp3`
+- `--narration "..."` → TTS provider (see below) → `assets/narration-<id>.{mp3|wav}`
+- `--narration-file <path>` → copies a pre-existing wav/mp3 (TTS skipped)
+- After audio exists → Whisper word-level transcribe → `assets/transcript-<id>.json`
 - `--visuals "..."` → Gemini (default) or OpenAI image → `assets/scene-<id>.png`
-- `--no-audio` / `--no-image` skip generation (useful for hand-authored or
-  CI-friendly seeds).
+- `--no-audio` / `--no-image` / `--no-transcribe` skip individual stages
+  (useful for hand-authored or CI-friendly seeds).
 
-If keys are missing, the command exits with a usage error before any spend —
-no partial state.
+### TTS provider (`--tts <auto|elevenlabs|kokoro>`)
+
+| Provider | Cost | Quality | Cold start | Output |
+|---|---|---|---|---|
+| **ElevenLabs** | ~$0.02/scene | high | none | mp3 |
+| **Kokoro** (local, Apache 2.0) | $0 | medium-high | first call downloads ~330MB | wav |
+
+`--tts auto` (default): picks ElevenLabs when `ELEVENLABS_API_KEY` is set,
+otherwise falls back to Kokoro. Local-only users get a working pipeline
+with no API key. The first Kokoro call shows a `~330MB download` spinner
+and caches to `~/.cache/huggingface/hub`; subsequent calls add ~1–2s.
+
+Voice: `--voice af_heart` (Kokoro, default), `--voice rachel` (ElevenLabs).
+
+### Word-level caption sync
+
+Whenever `assets/transcript-<id>.json` exists, three presets render each
+narration word as its own `<span class="word">` and animate them at the
+audio's absolute word start time:
+
+- `simple` — caption splits into word spans with fade-in at each start.
+- `explainer` — subtitle splits; kicker + title stay static.
+- `kinetic-type` — uses transcript timing instead of even stagger.
+  **Visible text comes from the transcript**, not `--headline` (narration
+  is the ground truth).
+
+`announcement` and `product-shot` ignore the transcript — their headlines
+are intentionally static. Use `--no-transcribe` to skip Whisper if you
+don't want word-sync (or have no `OPENAI_API_KEY`).
 
 ## Lint feedback loop (agent pattern)
 
