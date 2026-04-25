@@ -33,6 +33,16 @@ await build({
     "@anthropic-ai/sdk",
     "@google/generative-ai",
     "openai",
+    // KokoroProvider only fires its dynamic import when textToSpeech() is
+    // called, which never happens through the MCP surface. Marking the heavy
+    // native graph (~150 MB across onnxruntime-node + transformers.js) as
+    // external keeps the bundle small and avoids esbuild's "no loader for
+    // .node files" error on prebuilt binaries.
+    "kokoro-js",
+    "@huggingface/transformers",
+    "onnxruntime-node",
+    "onnxruntime-node/*",
+    "sharp",
   ],
   sourcemap: false,
   minify: false,

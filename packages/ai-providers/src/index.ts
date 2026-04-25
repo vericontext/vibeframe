@@ -22,6 +22,8 @@ export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment 
 export { OllamaProvider, ollamaProvider } from "./ollama/index.js";
 export { ElevenLabsProvider, elevenLabsProvider, KNOWN_VOICES, resolveVoiceId } from "./elevenlabs/index.js";
 export type { Voice, TTSOptions, TTSResult, MusicOptions, MusicResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
+export { KokoroProvider, kokoroProvider, KOKORO_DEFAULT_VOICE, KOKORO_MODEL_ID } from "./kokoro/index.js";
+export type { KokoroTTSOptions, KokoroTTSResult, KokoroLoadEvent } from "./kokoro/index.js";
 export { OpenAIImageProvider, openaiImageProvider } from "./openai-image/index.js";
 export type { ImageOptions, ImageResult, ImageEditOptions } from "./openai-image/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";
@@ -38,8 +40,11 @@ export type {
   ProviderConfig,
   GenerateOptions,
   VideoResult,
+  TranscribeOptions,
+  TranscriptGranularity,
   TranscriptResult,
   TranscriptSegment,
+  TranscriptWord,
   EditSuggestion,
   TimelineCommand,
   CommandParseResult,

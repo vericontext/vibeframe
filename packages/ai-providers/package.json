@@ -56,7 +56,8 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@vibeframe/core": "workspace:*"
+    "@vibeframe/core": "workspace:*",
+    "kokoro-js": "^1.2.1"
   },
   "devDependencies": {
     "typescript": "^5.3.3",
