@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   buildClipReference,
+  buildTranscriptTweens,
   emitSceneHtml,
   insertClipIntoRoot,
   nextSceneStart,
   readRootDims,
+  renderTranscriptSpans,
   slugifySceneName,
   SCENE_PRESETS,
+  type SceneTranscriptWord,
   type ScenePreset,
 } from "./scene-html-emit.js";
 import { buildEmptyRootHtml } from "./scene-project.js";
@@ -246,5 +249,221 @@ describe("emitSceneHtml — preset specifics", () => {
       duration: 4,
     });
     expect(html).toContain("Product Shot");
+  });
+});
+
+// ── word-sync helpers ───────────────────────────────────────────────────────
+
+describe("renderTranscriptSpans", () => {
+  it("emits one span per word with sequential data-i indices", () => {
+    const out = renderTranscriptSpans([
+      { text: "Hello", start: 0, end: 0.5 },
+      { text: "world.", start: 0.6, end: 1.0 },
+    ]);
+    expect(out).toBe(
+      `<span class="word" data-i="0">Hello</span> <span class="word" data-i="1">world.</span>`,
+    );
+  });
+
+  it("escapes HTML metacharacters inside words", () => {
+    const out = renderTranscriptSpans([{ text: '"<x>&', start: 0, end: 0.5 }]);
+    expect(out).toContain("&quot;&lt;x&gt;&amp;");
+  });
+
+  it("returns empty string for an empty transcript", () => {
+    expect(renderTranscriptSpans([])).toBe("");
+  });
+});
+
+describe("buildTranscriptTweens", () => {
+  const words: SceneTranscriptWord[] = [
+    { text: "Hello", start: 0, end: 0.5 },
+    { text: "world.", start: 0.6, end: 1.0 },
+  ];
+
+  it("emits one absolute-timed fromTo per word", () => {
+    const tweens = buildTranscriptTweens(words, "[data-composition-id=\"x\"] .caption .word");
+    expect(tweens).toContain(`tl.fromTo('[data-composition-id="x"] .caption .word[data-i="0"]'`);
+    expect(tweens).toContain(`tl.fromTo('[data-composition-id="x"] .caption .word[data-i="1"]'`);
+    // Absolute start times preserved
+    expect(tweens).toContain(", 0)");    // first word at 0
+    expect(tweens).toContain(", 0.6)");  // second word at 0.6
+  });
+
+  it("clamps negative start times to 0", () => {
+    const tweens = buildTranscriptTweens(
+      [{ text: "First", start: -0.05, end: 0.3 }],
+      "x",
+    );
+    expect(tweens).toContain(", 0)");
+  });
+});
+
+// ── per-preset word-sync rendering ──────────────────────────────────────────
+
+const transcriptFixture: SceneTranscriptWord[] = [
+  { text: "Ship", start: 0.05, end: 0.5 },
+  { text: "videos,", start: 0.55, end: 1.1 },
+  { text: "not", start: 1.2, end: 1.4 },
+  { text: "clicks.", start: 1.45, end: 2.0 },
+];
+
+describe("emitSceneHtml — word-sync rendering", () => {
+  describe("simple preset", () => {
+    it("renders captions as static text when transcript is absent", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "simple",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        subhead: "Ship videos.",
+      });
+      expect(html).toContain('<div class="caption" id="caption">Ship videos.</div>');
+      expect(html).not.toContain('class="word"');
+      expect(html).not.toContain("tl.fromTo");
+    });
+
+    it("splits caption into word spans with absolute GSAP timing when transcript is present", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "simple",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        subhead: "Ship videos, not clicks.",
+        transcript: transcriptFixture,
+      });
+      // Each word becomes its own span
+      expect(html).toContain('<span class="word" data-i="0">Ship</span>');
+      expect(html).toContain('<span class="word" data-i="3">clicks.</span>');
+      // GSAP timeline uses absolute start times
+      expect(html).toContain("tl.fromTo");
+      expect(html).toContain(", 0.05)"); // first word
+      expect(html).toContain(", 1.45)"); // last word
+      // Final fade-out preserved
+      expect(html).toContain(", 2.60)"); // dur (3) - 0.4 = 2.6
+    });
+  });
+
+  describe("explainer preset", () => {
+    it("renders subtitle as static text when transcript is absent", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "explainer",
+        width: 1920,
+        height: 1080,
+        duration: 4,
+        headline: "Title",
+        subhead: "Subtitle text",
+      });
+      expect(html).toContain('<div class="subtitle" id="subtitle">Subtitle text</div>');
+      expect(html).not.toContain('class="word"');
+    });
+
+    it("splits subtitle into word spans when transcript is present (kicker/title stay static)", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "explainer",
+        width: 1920,
+        height: 1080,
+        duration: 4,
+        kicker: "VIDEO AS CODE",
+        headline: "Author scenes, not timelines",
+        subhead: "Ship videos, not clicks.",
+        transcript: transcriptFixture,
+      });
+      // Subtitle becomes word spans
+      expect(html).toContain('<span class="word" data-i="0">Ship</span>');
+      // Kicker + title remain static
+      expect(html).toContain('<div class="kicker" id="kicker">VIDEO AS CODE</div>');
+      expect(html).toContain('<h1 class="title" id="title">Author scenes, not timelines</h1>');
+      // GSAP word-sync against #subtitle .word
+      expect(html).toContain(`#subtitle .word[data-i="0"]`);
+    });
+
+    it("falls back to static subtitle when transcript present but subhead empty", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "explainer",
+        width: 1920,
+        height: 1080,
+        duration: 4,
+        headline: "Title",
+        transcript: transcriptFixture,
+      });
+      // No subtitle div, no word spans (CSS rules can still mention .subtitle)
+      expect(html).not.toContain('id="subtitle"');
+      expect(html).not.toContain('class="word"');
+    });
+  });
+
+  describe("kinetic-type preset", () => {
+    it("uses even stagger when transcript is absent", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "kinetic-type",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        headline: "Ship videos",
+      });
+      expect(html).toContain('id="w-0"');
+      expect(html).toContain('id="w-1"');
+      // Stagger generates even start values, e.g. 0.05, 0.05+s, ...
+      expect(html).toMatch(/, 0\.\d{2}\)/);
+    });
+
+    it("uses absolute transcript timing when present (overrides headline source)", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "kinetic-type",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        headline: "ignored when transcript supplied",
+        transcript: transcriptFixture,
+      });
+      // Transcript words become the visible text
+      expect(html).toContain(">Ship<");
+      expect(html).toContain(">clicks.<");
+      expect(html).not.toContain(">ignored<");
+      // Absolute timings present in tweens
+      expect(html).toContain(", 0.05)");
+      expect(html).toContain(", 1.45)");
+    });
+  });
+
+  describe("announcement preset (transcript ignored — static headline)", () => {
+    it("does not split headline even when transcript is present", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "announcement",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        headline: "Big Headline",
+        transcript: transcriptFixture,
+      });
+      expect(html).toContain('<h1 id="headline">Big Headline</h1>');
+      expect(html).not.toContain('class="word"');
+    });
+  });
+
+  describe("product-shot preset (transcript ignored)", () => {
+    it("does not split headline even when transcript is present", () => {
+      const html = emitSceneHtml({
+        id: "x",
+        preset: "product-shot",
+        width: 1920,
+        height: 1080,
+        duration: 3,
+        headline: "Big Product",
+        transcript: transcriptFixture,
+      });
+      expect(html).toContain('id="headline"');
+      expect(html).toContain("Big Product");
+      expect(html).not.toContain('class="word"');
+    });
   });
 });

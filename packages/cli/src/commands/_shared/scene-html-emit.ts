@@ -30,6 +30,17 @@ export const SCENE_PRESETS: readonly ScenePreset[] = [
   "product-shot",
 ] as const;
 
+/**
+ * One word from a Whisper word-level transcript. Mirrors
+ * {@link import("@vibeframe/ai-providers").TranscriptWord} but is duplicated
+ * here so this module stays pure (no provider package import).
+ */
+export interface SceneTranscriptWord {
+  text: string;
+  start: number;
+  end: number;
+}
+
 export interface EmitSceneInput {
   /** Kebab-case scene id; appears in `data-composition-id` and template id. */
   id: string;
@@ -50,6 +61,14 @@ export interface EmitSceneInput {
   imagePath?: string;
   /** Project-relative narration audio path (e.g. "assets/narration-intro.mp3"). */
   audioPath?: string;
+  /**
+   * Word-level timings (Whisper output) for narration sync. When supplied, the
+   * `simple`, `explainer`, and `kinetic-type` presets render each word as its
+   * own `<span class="word">` and animate them at their absolute audio start
+   * times via GSAP. `announcement` and `product-shot` ignore this field —
+   * their headlines are intentionally static.
+   */
+  transcript?: SceneTranscriptWord[];
 }
 
 const GSAP_CDN = "https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js";
@@ -91,6 +110,44 @@ export function slugifySceneName(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "scene";
+}
+
+// ---------------------------------------------------------------------------
+// Word-sync helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a transcript as `<span class="word" data-i="N">…</span>` markup,
+ * separated by literal whitespace so kerning and wrapping behave naturally.
+ * Returns the empty string when there's nothing to render.
+ */
+export function renderTranscriptSpans(transcript: SceneTranscriptWord[]): string {
+  return transcript
+    .map((w, i) => `<span class="word" data-i="${i}">${esc(w.text)}</span>`)
+    .join(" ");
+}
+
+/**
+ * Build absolute-timing GSAP tweens that fade each transcript word in at its
+ * narration `start` time. The `targetSelector` parametrises the scope so the
+ * same routine can drive `simple` (`.caption .word`), `explainer`
+ * (`#subtitle .word`), or `kinetic-type` (`.kinetic .word`).
+ *
+ * Each tween is `tl.fromTo(sel, {opacity:0,y:10}, {opacity:1,y:0,duration:0.18}, start)`
+ * — short enough to feel responsive at any speech rate, long enough to avoid
+ * popping at 30fps. Words clamp to non-negative starts.
+ */
+export function buildTranscriptTweens(
+  transcript: SceneTranscriptWord[],
+  targetSelector: string,
+): string {
+  return transcript
+    .map((w, i) => {
+      const start = Math.max(0, Number(w.start.toFixed(3)));
+      const sel = `${targetSelector}[data-i="${i}"]`;
+      return `tl.fromTo('${sel}', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, ${start});`;
+    })
+    .join("\n      ");
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +197,20 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
 
   switch (input.preset) {
     case "simple": {
-      const caption = subhead || headline;
+      const transcript = input.transcript;
+      const useWordSync = !!(transcript && transcript.length > 0);
+      const captionText = subhead || headline;
+      const captionInner = useWordSync
+        ? renderTranscriptSpans(transcript)
+        : esc(captionText);
+      const wordCss = useWordSync
+        ? `\n      ${scope} .caption .word { display: inline-block; opacity: 0; }`
+        : "";
+      const timeline = useWordSync
+        ? `${buildTranscriptTweens(transcript, `${scope} .caption .word`)}
+      tl.to('${scope} .caption', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`
+        : `tl.from('${scope} .caption', { opacity: 0, y: 28, duration: 0.6, ease: 'power2.out' }, 0.1);
+      tl.to('${scope} .caption', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`;
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -156,11 +226,10 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         font-weight: 700;
         line-height: 1.2;
         text-shadow: 0 4px 20px rgba(0,0,0,0.65);
-      }`,
+      }${wordCss}`,
         body: `${backdropMarkup}
-    <div class="caption" id="caption">${esc(caption)}</div>`,
-        timeline: `tl.from('${scope} .caption', { opacity: 0, y: 28, duration: 0.6, ease: 'power2.out' }, 0.1);
-      tl.to('${scope} .caption', { opacity: 0, duration: 0.4, ease: 'power2.in' }, ${(dur - 0.4).toFixed(2)});`,
+    <div class="caption" id="caption">${captionInner}</div>`,
+        timeline,
       };
     }
     case "announcement": {
@@ -196,6 +265,17 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
     case "explainer": {
       const k = kicker || humanise(id).toUpperCase();
       const sub = subhead || "";
+      const transcript = input.transcript;
+      const useWordSync = !!(transcript && transcript.length > 0 && sub);
+      const subtitleInner = useWordSync ? renderTranscriptSpans(transcript) : esc(sub);
+      const wordCss = useWordSync
+        ? `\n      ${scope} #subtitle .word { display: inline-block; opacity: 0; }`
+        : "";
+      const subtitleTween = useWordSync
+        ? buildTranscriptTweens(transcript, `${scope} #subtitle .word`)
+        : sub
+          ? `tl.from('${scope} #subtitle', { opacity: 0, y: 30, duration: 0.55, ease: 'power3.out' }, 0.55);`
+          : "";
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -218,30 +298,44 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       }
       ${scope} .subtitle {
         font-size: 38px; font-weight: 300; color: #c0c0d0; max-width: 80%;
-      }`,
+      }${wordCss}`,
         body: `${backdropMarkup}
     <div class="stage">
       <div class="kicker" id="kicker">${esc(k)}</div>
       <h1 class="title" id="title">${esc(headline)}</h1>${sub ? `
-      <div class="subtitle" id="subtitle">${esc(sub)}</div>` : ""}
+      <div class="subtitle" id="subtitle">${subtitleInner}</div>` : ""}
     </div>`,
         timeline: `tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('${scope} #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
-      ${sub ? `tl.from('${scope} #subtitle', { opacity: 0, y: 30, duration: 0.55, ease: 'power3.out' }, 0.55);` : ""}`,
+      ${subtitleTween}`,
       };
     }
     case "kinetic-type": {
-      const words = headline.split(/\s+/).filter(Boolean);
+      const transcript = input.transcript;
+      const useWordSync = !!(transcript && transcript.length > 0);
+      // When transcript is supplied, drive word entries from it (narration is
+      // the ground truth — what's spoken is what's shown). Otherwise fall back
+      // to splitting the headline.
+      const words = useWordSync
+        ? transcript.map((w) => w.text)
+        : headline.split(/\s+/).filter(Boolean);
       const wordSpans = words
-        .map((w, i) => `<span class="word" id="w-${i}">${esc(w)}</span>`)
+        .map((w, i) => `<span class="word" data-i="${i}" id="w-${i}">${esc(w)}</span>`)
         .join(" ");
       const stagger = Math.max(0.08, Math.min(0.3, (dur - 0.6) / Math.max(words.length, 1)));
-      const tweens = words
-        .map((_, i) => {
-          const start = (0.05 + i * stagger).toFixed(2);
-          return `tl.from('${scope} #w-${i}', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, ${start});`;
-        })
-        .join("\n      ");
+      const tweens = useWordSync
+        ? transcript
+            .map((w, i) => {
+              const start = Math.max(0, Number(w.start.toFixed(3)));
+              return `tl.from('${scope} #w-${i}', { opacity: 0, y: 80, scale: 0.8, duration: 0.35, ease: 'back.out(1.8)' }, ${start});`;
+            })
+            .join("\n      ")
+        : words
+            .map((_, i) => {
+              const start = (0.05 + i * stagger).toFixed(2);
+              return `tl.from('${scope} #w-${i}', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, ${start});`;
+            })
+            .join("\n      ");
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;

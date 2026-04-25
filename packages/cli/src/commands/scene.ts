@@ -520,6 +520,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   // we just lose word-level animation timing.
   let transcriptRelPath: string | undefined;
   let transcriptWordCount: number | undefined;
+  let transcriptWords: { text: string; start: number; end: number }[] | undefined;
 
   if (audioAbsPath && !opts.skipTranscribe) {
     const whisperKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
@@ -543,6 +544,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
           const transcriptAbs = resolve(projectDir, transcriptRelPath);
           await writeFile(transcriptAbs, JSON.stringify(transcript.words, null, 2), "utf-8");
           transcriptWordCount = transcript.words.length;
+          transcriptWords = transcript.words.map((w) => ({ text: w.text, start: w.start, end: w.end }));
         } else if (transcript.status === "failed") {
           opts.onProgress?.(`Transcribe failed: ${transcript.error ?? "unknown error"}`);
         }
@@ -630,6 +632,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     kicker: opts.kicker,
     imagePath: imageRelPath,
     audioPath: audioRelPath,
+    transcript: transcriptWords,
   });
   await mkdir(dirname(scenePath), { recursive: true });
   await writeFile(scenePath, sceneHtml, "utf-8");
