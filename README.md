@@ -36,6 +36,10 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 | Export for each platform | `vibe pipeline viral project.vibe.json` |
 | Click through menus | Natural language → CLI → done |
 
+**See [docs/comparison.md](docs/comparison.md)** for a measured side-by-side
+of `vibe scene render` vs `npx hyperframes render` on the same project
+(reproducible with [`tests/comparison/render-bench.sh`](tests/comparison/render-bench.sh)).
+
 ### vs other open-source video agents
 
 | Feature | VibeFrame | [Hyperframes](https://github.com/heygen-com/hyperframes) | [OpenMontage](https://github.com/calesthio/OpenMontage) | [Remotion](https://github.com/remotion-dev/remotion) |
