@@ -10,8 +10,8 @@
  * Subcommands land incrementally across MVP 1:
  *   - init      [C1] — scaffold project directory
  *   - add       [C2] — author one scene (template + assets)
- *   - lint      [C3, this commit] — in-process Hyperframes lint + --fix
- *   - render    [C4]
+ *   - lint      [C3] — in-process Hyperframes lint + --fix
+ *   - render    [C4, this commit] — render scene project to MP4/WebM/MOV
  */
 
 import { Command } from "commander";
@@ -46,6 +46,12 @@ import {
   rootExists,
   type ProjectLintResult,
 } from "./_shared/scene-lint.js";
+import {
+  executeSceneRender,
+  type RenderFps,
+  type RenderFormat,
+  type RenderQuality,
+} from "./_shared/scene-render.js";
 import {
   exitWithError,
   generalError,
@@ -93,6 +99,9 @@ Examples:
   $ vibe scene lint                                       # Validate every scene against Hyperframes rules
   $ vibe scene lint --fix                                 # Auto-fix mechanical issues (e.g. missing class="clip")
   $ vibe scene lint --json                                # Structured output for agent loops
+  $ vibe scene render                                     # Render to renders/<name>-<timestamp>.mp4
+  $ vibe scene render -o demo.mp4 --quality high          # Custom output path + quality
+  $ vibe scene render --fps 60 --format webm              # 60fps WebM render
 
 A scene project is bilingual: it works with both \`vibe\` and \`npx hyperframes\`.
 Run 'vibe schema scene.<command>' for structured parameter info.`);
@@ -604,3 +613,115 @@ function severityTag(severity: "error" | "warning" | "info"): string {
   if (severity === "warning") return chalk.yellow("⚠ warn   ");
   return chalk.blue("ℹ info   ");
 }
+
+// ---------------------------------------------------------------------------
+// `vibe scene render`
+// ---------------------------------------------------------------------------
+
+const VALID_FPS: ReadonlyArray<RenderFps> = [24, 30, 60];
+const VALID_QUALITIES: ReadonlyArray<RenderQuality> = ["draft", "standard", "high"];
+const VALID_FORMATS: ReadonlyArray<RenderFormat> = ["mp4", "webm", "mov"];
+
+function validateFps(value: string): RenderFps {
+  const n = parseInt(value, 10);
+  if (!VALID_FPS.includes(n as RenderFps)) {
+    exitWithError(usageError(`Invalid --fps: ${value}`, `Valid: ${VALID_FPS.join(", ")}`));
+  }
+  return n as RenderFps;
+}
+
+function validateQuality(value: string): RenderQuality {
+  if (!VALID_QUALITIES.includes(value as RenderQuality)) {
+    exitWithError(usageError(`Invalid --quality: ${value}`, `Valid: ${VALID_QUALITIES.join(", ")}`));
+  }
+  return value as RenderQuality;
+}
+
+function validateFormat(value: string): RenderFormat {
+  if (!VALID_FORMATS.includes(value as RenderFormat)) {
+    exitWithError(usageError(`Invalid --format: ${value}`, `Valid: ${VALID_FORMATS.join(", ")}`));
+  }
+  return value as RenderFormat;
+}
+
+function validateWorkers(value: string): number {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 16) {
+    exitWithError(usageError(`Invalid --workers: ${value}`, "Must be an integer between 1 and 16"));
+  }
+  return n;
+}
+
+sceneCommand
+  .command("render")
+  .description("Render a scene project to MP4/WebM/MOV via the Hyperframes producer (requires Chrome)")
+  .argument("[root]", "Root composition file relative to --project", "index.html")
+  .option("--project <dir>", "Project directory", ".")
+  .option("-o, --out <path>", "Output file (default: renders/<name>-<timestamp>.<format>)")
+  .option("--fps <n>", `Frames per second: ${VALID_FPS.join("|")}`, "30")
+  .option("--quality <q>", `Quality preset: ${VALID_QUALITIES.join("|")}`, "standard")
+  .option("--format <f>", `Output container: ${VALID_FORMATS.join("|")}`, "mp4")
+  .option("--workers <n>", "Capture workers (1-16, default 1)", "1")
+  .option("--dry-run", "Preview parameters without rendering")
+  .action(async (root: string, options) => {
+    const fps = validateFps(options.fps);
+    const quality = validateQuality(options.quality);
+    const format = validateFormat(options.format);
+    const workers = validateWorkers(options.workers);
+    const projectDir = resolve(options.project as string);
+
+    if (options.dryRun) {
+      outputResult({
+        dryRun: true,
+        command: "scene render",
+        params: {
+          projectDir,
+          root,
+          output: options.out,
+          fps,
+          quality,
+          format,
+          workers,
+        },
+      });
+      return;
+    }
+
+    const spinner = isJsonMode() ? null : ora("Rendering scene project...").start();
+
+    const result = await executeSceneRender({
+      projectDir,
+      root,
+      output: options.out,
+      fps,
+      quality,
+      format,
+      workers,
+      onProgress: (pct, stage) => {
+        if (spinner) spinner.text = `Rendering [${Math.round(pct * 100)}%] ${stage}`;
+      },
+    });
+
+    if (!result.success) {
+      spinner?.fail("Render failed");
+      if (isJsonMode()) {
+        outputResult({ command: "scene render", ...result });
+        process.exit(1);
+      }
+      exitWithError(generalError(result.error ?? "Render failed"));
+    }
+
+    if (isJsonMode()) {
+      outputResult({ command: "scene render", ...result });
+      return;
+    }
+
+    spinner?.succeed(chalk.green(`Render complete: ${result.outputPath}`));
+    console.log();
+    console.log(chalk.bold.cyan("Render"));
+    console.log(chalk.dim("─".repeat(60)));
+    console.log(`  output    ${chalk.bold(result.outputPath)}`);
+    console.log(`  duration  ${(((result.durationMs ?? 0) / 1000)).toFixed(1)}s`);
+    console.log(`  frames    ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`);
+    console.log(`  config    ${result.fps}fps · ${result.quality} · ${result.format}`);
+  });
