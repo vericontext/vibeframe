@@ -13,7 +13,11 @@
 
 ## Demo
 
-**60-second quickstart** — install, scaffold, narrate (free local TTS), render to MP4 with synced captions:
+VibeFrame meets you wherever you write. **Same 62 tools, three surfaces:**
+
+### 1. Quickstart — `vibe` CLI directly (≈90 s)
+
+Install, scaffold, narrate (free local Kokoro TTS), render to MP4 with synced captions:
 
 <p align="center">
   <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-quickstart.svg">
@@ -21,7 +25,21 @@
   </a>
 </p>
 
-**CLI walkthrough (full)** → https://youtu.be/EJUUpPp2d_8 · **Claude Code integration** → https://youtu.be/sdf930sZ7co
+### 2. Standalone agent mode — `vibe agent` (≈50 s)
+
+Bring your own LLM (Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama). Natural language in, multi-tool execution out — no MCP host required:
+
+<p align="center">
+  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-agent.svg">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-agent.svg" alt="VibeFrame agent mode demo" />
+  </a>
+</p>
+
+### 3. Inside Claude Code / Cursor (MCP)
+
+The same 62 tools as `vibe agent`, surfaced through MCP for any compatible host. Setup is one config block; see [`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) for the 5-prompt walkthrough.
+
+**Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Claude Code integration](https://youtu.be/sdf930sZ7co)
 
 ---
 
