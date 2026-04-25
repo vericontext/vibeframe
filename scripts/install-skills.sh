@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
 
 REPO_RAW="https://raw.githubusercontent.com/vericontext/vibeframe/main"
-SKILLS=(vibeframe vibe-pipeline vibe-script-to-video)
+SKILLS=(vibeframe vibe-pipeline vibe-script-to-video vibe-scene)
 TARGET_DIR="${CLAUDE_SKILLS_DIR:-.claude/skills}"
 
 if [ ! -d ".claude" ] && [ -z "${FORCE_INSTALL:-}" ]; then
@@ -26,4 +26,4 @@ done
 
 echo ""
 echo "Done. Restart Claude Code to pick up new skills."
-echo "Slash commands now available: /vibeframe, /vibe-pipeline, /vibe-script-to-video"
+echo "Slash commands now available: /vibeframe, /vibe-pipeline, /vibe-script-to-video, /vibe-scene"
