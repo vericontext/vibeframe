@@ -1,0 +1,11 @@
+# VibeFrame caches
+.vibeframe/cache/
+.vibeframe/checkpoints/
+
+# Render outputs
+renders/*.mp4
+tmp/
+
+# OS / editor
+.DS_Store
+*.log

@@ -1,0 +1,40 @@
+<template id="scene-outro-template">
+  <div data-composition-id="outro" data-start="0" data-duration="6" data-width="1920" data-height="1080">
+    <style>
+      [data-composition-id="outro"] {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        color: #fff; overflow: hidden; background: #000;
+      }
+      [data-composition-id="outro"] .backdrop {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%);
+      }
+      [data-composition-id="outro"] .kinetic {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; padding: 0 6%;
+        font-size: 180px; font-weight: 900; letter-spacing: -6px;
+        line-height: 1; text-shadow: 0 6px 30px rgba(0,0,0,0.6);
+      }
+      [data-composition-id="outro"] .kinetic .word { display: inline-block; margin: 0 12px; }
+    </style>
+
+    <div class="backdrop"></div>
+    <div class="kinetic"><span class="word" id="w-0">Made</span> <span class="word" id="w-1">with</span> <span class="word" id="w-2">vibe</span> <span class="word" id="w-3">scene</span></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      tl.from('[data-composition-id="outro"] #w-0', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, 0.05);
+      tl.from('[data-composition-id="outro"] #w-1', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, 0.35);
+      tl.from('[data-composition-id="outro"] #w-2', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, 0.65);
+      tl.from('[data-composition-id="outro"] #w-3', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, 0.95);
+
+      window.__timelines["outro"] = tl;
+    </script>
+  </div>
+</template>

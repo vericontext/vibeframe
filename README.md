@@ -151,6 +151,7 @@ This registers:
 - **`/vibeframe`** — overview, command groups, and common workflows
 - **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
 - **`/vibe-script-to-video`** — guided script-to-video walkthrough
+- **`/vibe-scene`** — per-scene HTML authoring (Hyperframes-backed, editable)
 
 Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
 
@@ -230,6 +231,35 @@ Storyboards are saved as YAML for easy editing and version control.
 
 ---
 
+## Scene Authoring (HTML, not MP4)
+
+Since v0.53.0, `vibe scene` produces **editable per-scene HTML** instead of
+opaque MP4s. Each scene is a self-contained HTML file with scoped CSS and a
+paused GSAP timeline — text tweaks don't require regenerating video.
+
+```bash
+vibe scene init my-promo -r 16:9 -d 30
+vibe scene add intro --style announcement --headline "Ship videos, not clicks"
+vibe scene add core  --style explainer --kicker "VIDEO AS CODE" \
+                     --headline "Author scenes, not timelines"
+vibe scene lint                        # in-process Hyperframes linter
+vibe scene render -o promo.mp4         # requires Chrome
+```
+
+Scene projects are bilingual — they work with both `vibe` and
+[`npx hyperframes`](https://github.com/heygen-com/hyperframes). To produce a
+full scenes project from a written script in one shot:
+
+```bash
+vibe pipeline script-to-video "..." --format scenes -o my-promo/ -a 16:9
+```
+
+Run [`examples/scene-promo/`](examples/scene-promo/) for an end-to-end
+walkthrough. See `/vibe-scene` for the agent skill, including the lint
+feedback loop pattern (`--json --fix`, ≤3 retries, template fallback).
+
+---
+
 ## CLI Reference
 
 Every command supports `--help`. Run `vibe --help` for a full list.
@@ -241,6 +271,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe analyze`** | `media`, `video`, `review`, `suggest` | `vibe analyze media video.mp4 "summarize"` |
 | **`vibe audio`** | `transcribe`, `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
 | **`vibe pipeline`** | `script-to-video`, `highlights`, `auto-shorts`, `regenerate-scene`, `animated-caption` | `vibe pipeline script-to-video "..." -a 9:16` |
+| **`vibe scene`** | `init`, `add`, `lint`, `render` | `vibe scene add intro --style announcement --headline "..."` |
 | **`vibe project`** | `create`, `info`, `set` | `vibe project create "name"` |
 | **`vibe timeline`** | `add-source`, `add-clip`, `split`, `trim`, `move`, `delete`, `list` | `vibe timeline add-source project file` |
 | **`vibe batch`** | `import`, `concat`, `apply-effect` | `vibe batch import project dir/` |
