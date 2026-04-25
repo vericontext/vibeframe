@@ -13,7 +13,7 @@
  * returns a structured result instead of throwing or exiting.
  */
 
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, relative, dirname, basename } from "node:path";
 import { parse as yamlParse } from "yaml";
@@ -24,6 +24,8 @@ import {
 } from "@hyperframes/producer";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
 import { rootExists } from "./scene-lint.js";
+import { scanSceneAudio } from "./scene-audio-scan.js";
+import { muxAudioIntoVideo } from "./scene-audio-mux.js";
 
 export type RenderFps = 24 | 30 | 60;
 export type RenderQuality = "draft" | "standard" | "high";
@@ -56,6 +58,12 @@ export interface SceneRenderResult {
   fps?: RenderFps;
   quality?: RenderQuality;
   format?: RenderFormat;
+  /** Number of `<audio>` elements muxed into the final file. 0 = silent project. */
+  audioCount?: number;
+  /** True when ffmpeg was invoked to overlay audio on the producer's video. */
+  audioMuxApplied?: boolean;
+  /** Non-fatal warning from the audio mux pass — caller may surface to the user. */
+  audioMuxWarning?: string;
   error?: string;
 }
 
@@ -184,6 +192,40 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     };
   }
 
+  // -- Audio mux pass (post-producer) ------------------------------------
+  // The producer emits silent video — sub-composition <audio> elements are
+  // not picked up. We scan the project ourselves and lay them onto the
+  // video in one ffmpeg pass with -c:v copy (no re-encode).
+  let audioCount = 0;
+  let audioMuxApplied = false;
+  let audioMuxWarning: string | undefined;
+  try {
+    opts.onProgress?.(0.95, "Mixing audio");
+    const rootHtml = await readFile(resolve(projectDir, root), "utf-8");
+    const audios = await scanSceneAudio({ projectDir, rootHtml });
+    audioCount = audios.length;
+    if (audios.length > 0) {
+      const videoDuration =
+        job.totalFrames && config.fps ? job.totalFrames / config.fps : undefined;
+      const mux = await muxAudioIntoVideo({
+        videoPath: outputPath,
+        audios,
+        format: config.format ?? "mp4",
+        videoDuration,
+        onProgress: (line) => {
+          if (line) opts.onProgress?.(0.97, line);
+        },
+      });
+      if (mux.success) {
+        audioMuxApplied = true;
+      } else {
+        audioMuxWarning = mux.error;
+      }
+    }
+  } catch (err) {
+    audioMuxWarning = err instanceof Error ? err.message : String(err);
+  }
+
   return {
     success: true,
     outputPath: relative(process.cwd(), outputPath) || outputPath,
@@ -193,6 +235,9 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     fps: config.fps,
     quality: config.quality,
     format: config.format,
+    audioCount,
+    audioMuxApplied,
+    audioMuxWarning,
   };
 }
 
