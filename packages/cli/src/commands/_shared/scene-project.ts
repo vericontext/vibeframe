@@ -146,9 +146,10 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
       data-width="${width}"
       data-height="${height}"
     >
-      <!-- Scenes will be inserted here by \`vibe scene add\`.
-           Each scene is a <div class="clip" data-composition-src="compositions/*.html"
-           data-start="..." data-duration="..." data-track-index="1"></div>. -->
+      <!-- Scenes added via \`vibe scene add\` are inserted here. -->
+      <!-- Each scene reference: data-composition-id, data-composition-src, data-start, data-duration, data-track-index. -->
+      <!-- See compositions/*.html for sub-composition contents. -->
+
     </div>
 
     <script>

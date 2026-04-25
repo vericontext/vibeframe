@@ -52,17 +52,19 @@ describe("nextSceneStart", () => {
 // ── buildClipReference ──────────────────────────────────────────────────────
 
 describe("buildClipReference", () => {
-  it("builds a Hyperframes-compatible clip div", () => {
+  it("builds a Hyperframes-compatible clip div with data-composition-id", () => {
     const out = buildClipReference({ id: "intro", start: 0, duration: 4 });
     expect(out).toContain('class="clip"');
+    expect(out).toContain('data-composition-id="intro"');
     expect(out).toContain('data-composition-src="compositions/scene-intro.html"');
     expect(out).toContain('data-start="0"');
     expect(out).toContain('data-duration="4"');
     expect(out).toContain('data-track-index="1"');
   });
 
-  it("respects an explicit track and src override", () => {
+  it("respects an explicit track and src override and still emits data-composition-id", () => {
     const out = buildClipReference({ id: "x", start: 1.234, duration: 2.345, trackIndex: 3, src: "custom/path.html" });
+    expect(out).toContain('data-composition-id="x"');
     expect(out).toContain('data-composition-src="custom/path.html"');
     expect(out).toContain('data-track-index="3"');
     expect(out).toContain('data-start="1.234"');
@@ -76,7 +78,7 @@ describe("insertClipIntoRoot", () => {
   it("inserts a clip before the root closing div", () => {
     const root = buildEmptyRootHtml({ aspect: "16:9", duration: 10 });
     const updated = insertClipIntoRoot(root, { id: "intro", start: 0, duration: 4 });
-    expect(updated).toContain('<div class="clip" data-composition-src="compositions/scene-intro.html"');
+    expect(updated).toContain('<div class="clip" data-composition-id="intro" data-composition-src="compositions/scene-intro.html"');
     // The new clip must appear *before* the root's closing </div>
     const clipIdx = updated.indexOf("compositions/scene-intro.html");
     const rootCloseIdx = updated.lastIndexOf("</div>\n\n    <script>");

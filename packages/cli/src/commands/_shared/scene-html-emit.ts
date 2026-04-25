@@ -380,13 +380,13 @@ export interface ClipReferenceInput {
   src?: string;
 }
 
-/** Build the `<div class="clip" data-composition-src=...>` reference string. */
+/** Build the `<div class="clip" data-composition-id=... data-composition-src=...>` reference string. */
 export function buildClipReference(opts: ClipReferenceInput): string {
   const start = Number(opts.start.toFixed(3));
   const duration = Number(opts.duration.toFixed(3));
   const track = opts.trackIndex ?? 1;
   const src = opts.src ?? `compositions/scene-${opts.id}.html`;
-  return `<div class="clip" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}"></div>`;
+  return `<div class="clip" data-composition-id="${esc(opts.id)}" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}"></div>`;
 }
 
 /**

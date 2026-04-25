@@ -9,8 +9,8 @@
  *
  * Subcommands land incrementally across MVP 1:
  *   - init      [C1] — scaffold project directory
- *   - add       [C2, this commit] — author one scene (template + assets)
- *   - lint      [C3]
+ *   - add       [C2] — author one scene (template + assets)
+ *   - lint      [C3, this commit] — in-process Hyperframes lint + --fix
  *   - render    [C4]
  */
 
@@ -41,6 +41,11 @@ import {
   SCENE_PRESETS,
   type ScenePreset,
 } from "./_shared/scene-html-emit.js";
+import {
+  runProjectLint,
+  rootExists,
+  type ProjectLintResult,
+} from "./_shared/scene-lint.js";
 import {
   exitWithError,
   generalError,
@@ -85,6 +90,9 @@ Examples:
       --headline "Welcome to VibeFrame"                   # Headline-only scene
   $ vibe scene add overview --narration "VibeFrame turns scripts into video." \\
       --visuals "studio desk, soft lighting"              # AI narration + image
+  $ vibe scene lint                                       # Validate every scene against Hyperframes rules
+  $ vibe scene lint --fix                                 # Auto-fix mechanical issues (e.g. missing class="clip")
+  $ vibe scene lint --json                                # Structured output for agent loops
 
 A scene project is bilingual: it works with both \`vibe\` and \`npx hyperframes\`.
 Run 'vibe schema scene.<command>' for structured parameter info.`);
@@ -514,4 +522,85 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     audioPath: audioAbsPath ? (relative(process.cwd(), audioAbsPath) || audioAbsPath) : undefined,
     imagePath: imageAbsPath ? (relative(process.cwd(), imageAbsPath) || imageAbsPath) : undefined,
   };
+}
+
+// ---------------------------------------------------------------------------
+// `vibe scene lint`
+// ---------------------------------------------------------------------------
+
+sceneCommand
+  .command("lint")
+  .description("Validate scene HTML against Hyperframes rules (in-process, no Chrome required)")
+  .argument("[root]", "Root composition file relative to --project", "index.html")
+  .option("--project <dir>", "Project directory", ".")
+  .option("--fix", "Apply mechanical auto-fixes (currently: missing class=\"clip\")")
+  .action(async (root: string, options) => {
+    const projectDir = resolve(options.project as string);
+    if (!(await rootExists(projectDir, root))) {
+      exitWithError(generalError(
+        `Root composition not found: ${resolve(projectDir, root)}`,
+        "Run `vibe scene init` first, or pass --project <dir>.",
+      ));
+    }
+
+    const spinner = isJsonMode() ? null : ora("Linting scenes...").start();
+    let result: ProjectLintResult;
+    try {
+      result = await runProjectLint({ projectDir, rootRel: root, fix: !!options.fix });
+    } catch (error) {
+      spinner?.fail("Lint failed");
+      const msg = error instanceof Error ? error.message : String(error);
+      exitWithError(generalError(`Lint failed: ${msg}`));
+    }
+
+    if (isJsonMode()) {
+      outputResult({
+        command: "scene lint",
+        ...result,
+      });
+      if (!result.ok) process.exit(1);
+      return;
+    }
+
+    if (result.ok && result.warningCount === 0 && result.infoCount === 0) {
+      spinner?.succeed(chalk.green(`Lint clean — ${result.files.length} file(s) checked`));
+    } else if (result.ok) {
+      spinner?.warn(chalk.yellow(
+        `${result.warningCount} warning(s), ${result.infoCount} info — ${result.errorCount} error(s)`,
+      ));
+    } else {
+      spinner?.fail(chalk.red(
+        `${result.errorCount} error(s), ${result.warningCount} warning(s), ${result.infoCount} info`,
+      ));
+    }
+
+    for (const file of result.files) {
+      if (file.findings.length === 0) continue;
+      console.log();
+      console.log(chalk.bold.cyan(file.file));
+      console.log(chalk.dim("─".repeat(60)));
+      for (const f of file.findings) {
+        const tag = severityTag(f.severity);
+        const loc = f.elementId ? chalk.dim(` #${f.elementId}`) : f.selector ? chalk.dim(` ${f.selector}`) : "";
+        console.log(`  ${tag} ${chalk.dim(`[${f.code}]`)}${loc}  ${f.message}`);
+        if (f.fixHint) console.log(`     ${chalk.dim("→ " + f.fixHint)}`);
+      }
+    }
+
+    if (result.fixed.length > 0) {
+      console.log();
+      console.log(chalk.bold.cyan("Auto-fixed"));
+      console.log(chalk.dim("─".repeat(60)));
+      for (const fx of result.fixed) {
+        console.log(`  ${chalk.green("✔")} ${fx.file}  ${chalk.dim(fx.codes.join(", "))}`);
+      }
+    }
+
+    if (!result.ok) process.exit(1);
+  });
+
+function severityTag(severity: "error" | "warning" | "info"): string {
+  if (severity === "error") return chalk.red("✘ error  ");
+  if (severity === "warning") return chalk.yellow("⚠ warn   ");
+  return chalk.blue("ℹ info   ");
 }
