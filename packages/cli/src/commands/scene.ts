@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import { basename, resolve, relative, dirname } from "node:path";
-import { mkdir, readFile, writeFile, access } from "node:fs/promises";
+import { mkdir, readFile, writeFile, access, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
@@ -24,6 +24,7 @@ import { parse as yamlParse } from "yaml";
 import {
   GeminiProvider,
   OpenAIImageProvider,
+  WhisperProvider,
 } from "@vibeframe/ai-providers";
 import {
   resolveTtsProvider,
@@ -182,6 +183,7 @@ sceneCommand
   .argument("<name>", "Scene name (slugified into the composition id)")
   .option("--style <preset>", `Style preset: ${SCENE_PRESETS.join(", ")}`, "simple")
   .option("--narration <text>", "Narration text (or path to a .txt file). Drives TTS + scene duration.")
+  .option("--narration-file <path>", "Existing narration audio file (.wav/.mp3). Skips TTS — useful with hyperframes tts, Mac say, or other external tools.")
   .option("-d, --duration <sec>", "Explicit scene duration in seconds (overrides narration audio)")
   .option("--visuals <prompt>", "Image prompt — generates assets/scene-<id>.png via the configured image provider")
   .option("--headline <text>", "Visible headline (defaults to the humanised scene name)")
@@ -193,6 +195,8 @@ sceneCommand
   .option("--voice <id>", "Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)")
   .option("--no-audio", "Skip TTS even when --narration is provided (useful for tests/agent dry runs)")
   .option("--no-image", "Skip image generation even when --visuals is provided")
+  .option("--no-transcribe", "Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)")
+  .option("--transcribe-language <code>", "BCP-47 language code passed to Whisper (e.g. en, ko)")
   .option("--force", "Overwrite an existing compositions/scene-<id>.html")
   .option("--dry-run", "Preview parameters without writing files or calling APIs")
   .action(async (name: string, options) => {
@@ -237,6 +241,7 @@ sceneCommand
         name,
         preset: options.style as ScenePreset,
         narration: options.narration,
+        narrationFile: options.narrationFile,
         duration: options.duration,
         visuals: options.visuals,
         headline: options.headline,
@@ -248,6 +253,8 @@ sceneCommand
         voice: options.voice,
         skipAudio: options.audio === false,
         skipImage: options.image === false,
+        skipTranscribe: options.transcribe === false,
+        transcribeLanguage: options.transcribeLanguage,
         force: !!options.force,
         onProgress: (msg) => {
           if (spinner) spinner.text = msg;
@@ -274,6 +281,7 @@ sceneCommand
       console.log(chalk.green("  +"), result.scenePath);
       if (result.audioPath) console.log(chalk.green("  +"), result.audioPath);
       if (result.imagePath) console.log(chalk.green("  +"), result.imagePath);
+      if (result.transcriptPath) console.log(chalk.green("  +"), result.transcriptPath);
       console.log(chalk.yellow("  ~"), result.rootPath, chalk.dim("(updated)"));
       console.log();
       console.log(chalk.bold.cyan("Composition"));
@@ -303,6 +311,14 @@ export interface SceneAddOptions {
   preset: ScenePreset;
   /** Narration text. If the value is an existing file path, its content is used. */
   narration?: string;
+  /**
+   * Path to an existing narration audio file (.wav/.mp3). When provided,
+   * skips TTS entirely and copies the file into the project's `assets/`.
+   * Compatible with `npx hyperframes tts`, `say`, or any other external
+   * synthesis tool. The transcript is still generated unless
+   * `skipTranscribe` is set.
+   */
+  narrationFile?: string;
   /** Explicit duration in seconds. Overrides narration-derived duration. */
   duration?: number;
   /** Image generation prompt. */
@@ -323,6 +339,13 @@ export interface SceneAddOptions {
   skipAudio?: boolean;
   /** When true, skip image generation even if visuals is provided. */
   skipImage?: boolean;
+  /**
+   * When true, skip the Whisper word-level transcribe step that would
+   * otherwise emit `assets/transcript-<id>.json`.
+   */
+  skipTranscribe?: boolean;
+  /** BCP-47 language hint forwarded to Whisper (e.g. `"en"`, `"ko"`). */
+  transcribeLanguage?: string;
   /** Overwrite existing compositions/scene-<id>.html. */
   force?: boolean;
   /** Progress sink (CLI spinner / agent stream). */
@@ -339,6 +362,14 @@ export interface SceneAddResult {
   rootPath: string;
   audioPath?: string;
   imagePath?: string;
+  /**
+   * Project-relative path to `assets/transcript-<id>.json` when Whisper
+   * word-level transcribe ran. `undefined` when skipped or when the audio
+   * source produced no narration text to transcribe.
+   */
+  transcriptPath?: string;
+  /** Number of word entries emitted into the transcript JSON. */
+  transcriptWordCount?: number;
   error?: string;
 }
 
@@ -426,7 +457,26 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   let audioAbsPath: string | undefined;
   let narrationDuration: number | undefined;
 
-  if (narrationText && !opts.skipAudio) {
+  if (opts.narrationFile && !opts.skipAudio) {
+    // External wav/mp3: skip TTS, copy file into the project's assets/ dir.
+    const sourceAbs = resolve(opts.narrationFile);
+    if (!(await pathExists(sourceAbs))) {
+      return errResult(`Narration file not found: ${sourceAbs}`);
+    }
+    const ext = (sourceAbs.match(/\.([a-z0-9]+)$/i)?.[1] ?? "wav").toLowerCase();
+    if (ext !== "wav" && ext !== "mp3") {
+      return errResult(`Unsupported narration file extension: .${ext}. Use .wav or .mp3.`);
+    }
+    audioRelPath = `assets/narration-${id}.${ext}`;
+    audioAbsPath = resolve(projectDir, audioRelPath);
+    await mkdir(dirname(audioAbsPath), { recursive: true });
+    await copyFile(sourceAbs, audioAbsPath);
+    try {
+      narrationDuration = await getAudioDuration(audioAbsPath);
+    } catch {
+      narrationDuration = undefined;
+    }
+  } else if (narrationText && !opts.skipAudio) {
     let resolution;
     try {
       resolution = await resolveTtsProvider(opts.tts ?? "auto");
@@ -460,6 +510,46 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
       narrationDuration = await getAudioDuration(audioAbsPath);
     } catch {
       narrationDuration = undefined;
+    }
+  }
+
+  // -- Whisper word-level transcribe --------------------------------------
+  // Auto-runs whenever we have audio + an OpenAI key. The transcript JSON
+  // mirrors the Hyperframes shape so a future emitSceneHtml (C5) can drive
+  // GSAP word-sync from it. Failure is non-fatal — narration still plays,
+  // we just lose word-level animation timing.
+  let transcriptRelPath: string | undefined;
+  let transcriptWordCount: number | undefined;
+
+  if (audioAbsPath && !opts.skipTranscribe) {
+    const whisperKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
+    if (!whisperKey) {
+      opts.onProgress?.(
+        "Skipping transcribe (OPENAI_API_KEY not set — narration plays but word-sync unavailable)",
+      );
+    } else {
+      opts.onProgress?.("Transcribing narration (Whisper word-level)...");
+      try {
+        const whisper = new WhisperProvider();
+        await whisper.initialize({ apiKey: whisperKey });
+        const audioBytes = await readFile(audioAbsPath);
+        const audioBlob = new Blob([new Uint8Array(audioBytes)]);
+        const transcript = await whisper.transcribe(audioBlob, undefined, {
+          granularity: "word",
+          language: opts.transcribeLanguage,
+        });
+        if (transcript.status === "completed" && transcript.words?.length) {
+          transcriptRelPath = `assets/transcript-${id}.json`;
+          const transcriptAbs = resolve(projectDir, transcriptRelPath);
+          await writeFile(transcriptAbs, JSON.stringify(transcript.words, null, 2), "utf-8");
+          transcriptWordCount = transcript.words.length;
+        } else if (transcript.status === "failed") {
+          opts.onProgress?.(`Transcribe failed: ${transcript.error ?? "unknown error"}`);
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        opts.onProgress?.(`Transcribe failed: ${msg}`);
+      }
     }
   }
 
@@ -550,6 +640,8 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   const updated = insertClipIntoRoot(rootHtmlBefore, { id, start, duration });
   await writeFile(rootPath, updated, "utf-8");
 
+  const transcriptAbsPath = transcriptRelPath ? resolve(projectDir, transcriptRelPath) : undefined;
+
   return {
     success: true,
     id,
@@ -560,6 +652,8 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     rootPath: relative(process.cwd(), rootPath) || rootPath,
     audioPath: audioAbsPath ? (relative(process.cwd(), audioAbsPath) || audioAbsPath) : undefined,
     imagePath: imageAbsPath ? (relative(process.cwd(), imageAbsPath) || imageAbsPath) : undefined,
+    transcriptPath: transcriptAbsPath ? (relative(process.cwd(), transcriptAbsPath) || transcriptAbsPath) : undefined,
+    transcriptWordCount,
   };
 }
 
