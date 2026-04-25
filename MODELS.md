@@ -144,13 +144,15 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 ---
 
-## Text-to-Video (4)
+## Text-to-Video (5)
 
 > Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate speech` / `vibe generate sound-effect`.
 
 | Provider | Model | Duration | Audio | Env Key | CLI Option | Notes |
 |----------|-------|----------|-------|---------|------------|-------|
-| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | **Default**. Best lip-sync/native audio. $0.07/s (720p) |
+| fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_KEY` | `-p fal` | **Auto-default when `FAL_KEY` set** (since v0.57). Artificial Analysis ELO 1270 #2 text, 1347 #2 image. ByteDance has no public API — fal.ai is the gateway. |
+| fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_KEY` | `-p fal -m fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
+| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Fallback default when `FAL_KEY` is unset. Best lip-sync/native audio. $0.07/s (720p) |
 | Kling | `kling-v2-5-turbo` | 5-10 sec | No | `KLING_API_KEY` | `-p kling` | Fast (~36s generation) |
 | Kling | `kling-v2-6` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v2.6` | High quality |
 | Kling | `kling-v3` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v3` | Higher quality, multi-shot, lip-sync |
@@ -178,6 +180,7 @@ All text-to-video providers also support image-to-video. Key differences per pro
 
 | Provider | Model | I2V Support | Image Input | Notes |
 |----------|-------|-------------|-------------|-------|
+| fal.ai | `seedance-2.0` | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`). Supports `--last-frame` for end-frame transition. |
 | xAI Grok | `grok-imagine-video` | Yes | URL or data URI | Same pricing as T2V |
 | Kling | all v2.5+ models | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) |
 | Veo | all models | Yes | base64 (first frame) | Supports `--last-frame` for frame interpolation |

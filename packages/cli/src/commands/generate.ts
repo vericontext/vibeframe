@@ -38,6 +38,7 @@ import {
   ReplicateProvider,
   ClaudeProvider,
   GrokProvider,
+  FalProvider,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../utils/tty.js";
@@ -523,7 +524,7 @@ generateCommand
   .alias("vid")
   .description("Generate video using AI (Kling, Runway, Veo, or Grok)")
   .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
-  .option("-p, --provider <provider>", "Provider: grok (default), kling, runway, veo", "grok")
+  .option("-p, --provider <provider>", "Provider: grok (default), kling, runway, veo, fal (Seedance 2.0)", "grok")
   .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
   .option("-o, --output <path>", "Output file path (downloads video)")
   .option("-i, --image <path>", "Reference image for image-to-video")
@@ -574,6 +575,7 @@ Examples:
       // Auto-fallback: if default provider's key is missing, find one that works
       const videoEnvMap: Record<string, string> = {
         grok: "XAI_API_KEY", veo: "GOOGLE_API_KEY", kling: "KLING_API_KEY", runway: "RUNWAY_API_SECRET",
+        fal: "FAL_KEY",
       };
       if (videoEnvMap[provider] && !hasApiKey(videoEnvMap[provider]) && !options.apiKey) {
         const resolved = resolveProvider("video");
@@ -894,6 +896,46 @@ Examples:
           },
           300000
         );
+      } else if (provider === "fal") {
+        // fal.ai → ByteDance Seedance 2.0 (Artificial Analysis #2 on
+        // both video leaderboards). The fal client's `subscribe` blocks
+        // until the queue produces a final URL, so we don't need a
+        // separate wait/poll loop like the other providers.
+        const fal = new FalProvider();
+        await fal.initialize({ apiKey });
+
+        // Seedance 2.0 image-to-video needs an HTTPS URL. base64 / data
+        // URIs aren't accepted, so reuse the same ImgBB upload trick
+        // Kling uses when an image was passed via `-i`.
+        let falImage = referenceImage;
+        if (falImage && falImage.startsWith("data:")) {
+          spinner.text = "Uploading image to ImgBB for fal...";
+          const imgbbKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
+          if (!imgbbKey) {
+            spinner.fail("ImgBB API key required for fal image-to-video");
+            exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+          }
+          const base64Data = falImage.split(",")[1];
+          const imageBuffer = Buffer.from(base64Data, "base64");
+          const uploadResult = await uploadToImgbb(imageBuffer, imgbbKey);
+          if (!uploadResult.success || !uploadResult.url) {
+            spinner.fail("ImgBB upload failed");
+            exitWithError(apiError(`ImgBB upload failed: ${uploadResult.error}`, true));
+          }
+          falImage = uploadResult.url;
+        }
+
+        spinner.text = "Generating video with Seedance 2.0 (this may take 1-3 minutes)...";
+        const falModel = options.model === "fast" ? "seedance-2.0-fast" : "seedance-2.0";
+        result = await fal.generateVideo(prompt, {
+          prompt,
+          referenceImage: falImage,
+          duration: options.duration ? parseInt(options.duration) : undefined,
+          aspectRatio: options.ratio as "16:9" | "9:16" | "1:1" | "4:5",
+          negativePrompt: options.negative,
+          model: falModel,
+        });
+        finalResult = result;
       }
 
       if (!finalResult || finalResult.status !== "completed") {

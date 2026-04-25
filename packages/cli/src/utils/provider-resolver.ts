@@ -30,7 +30,22 @@ const IMAGE_PROVIDERS: ProviderCandidate[] = [
   { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
 ];
 
+// As of v0.57, fal.ai (Seedance 2.0) leads when its key is set —
+// Artificial Analysis ELO 1270 #2 on text-to-video, 1347 #2 on
+// image-to-video (the only model ahead of it on either chart is
+// Alibaba's HappyHorse-1.0 which has no public API).
+//
+//   text-to-video  Seedance 2.0  1270 (#2)  vs Grok 1230 (#6) → +40 ELO
+//   image-to-video Seedance 2.0  1347 (#2)  vs Grok 1327 (#3) → +20 ELO
+//
+// References:
+//   https://artificialanalysis.ai/video/leaderboard/text-to-video
+//   https://artificialanalysis.ai/video/leaderboard/image-to-video
+//
+// Users without a FAL_KEY fall through to Grok / Veo / Kling / Runway
+// in that order, so existing setups are unchanged.
 const VIDEO_PROVIDERS: ProviderCandidate[] = [
+  { name: "fal", envVar: "FAL_KEY", label: "fal.ai (Seedance 2.0)" },
   { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
   { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
   { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
