@@ -29,6 +29,16 @@ TMPDIR="${TMPDIR:-/tmp}"
 SMOKE_DIR="$(mktemp -d "$TMPDIR/vibe-smoke-kokoro-XXXXXX")"
 trap 'rm -rf "$SMOKE_DIR"' EXIT
 
+# Load .env from repo root so OPENAI_API_KEY / ELEVENLABS_API_KEY visible
+# to the shell. The CLI itself loads .env via dotenv, but our shell
+# conditionals (`if [ -n "$OPENAI_API_KEY" ]`) need it pre-exported.
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 green() { printf "\033[32m%s\033[0m\n" "$*"; }
 red()   { printf "\033[31m%s\033[0m\n" "$*" >&2; }
 step()  { printf "\033[36m▶ %s\033[0m\n" "$*"; }
@@ -87,14 +97,34 @@ fi
 green "✓ Lint clean"
 
 if [ "${SMOKE_RENDER:-0}" = "1" ]; then
-  step "Rendering to MP4 (requires Chrome)"
-  $VIBE scene render --project "$SMOKE_DIR/promo" \
+  step "Rendering to MP4 (requires Chrome + ffmpeg)"
+  # Producer (`@hyperframes/producer`) writes [WARN]/[INFO] lines to stdout
+  # alongside our --json output. Strip everything before the first `{` so
+  # python json.loads sees only the result envelope.
+  RENDER_RESULT="$($VIBE scene render --project "$SMOKE_DIR/promo" \
     --out "$SMOKE_DIR/promo/renders/smoke.mp4" \
-    --quality draft --fps 24 --json >/dev/null
-  if [ -s "$SMOKE_DIR/promo/renders/smoke.mp4" ]; then
-    green "✓ Render produced MP4 ($(stat -f%z "$SMOKE_DIR/promo/renders/smoke.mp4" 2>/dev/null || stat -c%s "$SMOKE_DIR/promo/renders/smoke.mp4") bytes)"
-  else
+    --quality draft --fps 24 --json | awk '/^\{/{found=1} found')"
+  MP4="$SMOKE_DIR/promo/renders/smoke.mp4"
+  if [ ! -s "$MP4" ]; then
     red "Render did not produce a non-empty MP4"
+    exit 1
+  fi
+  AUDIO_MUX="$(echo "$RENDER_RESULT" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('audioMuxApplied',False))")"
+  green "✓ Render produced MP4 ($(stat -f%z "$MP4" 2>/dev/null || stat -c%s "$MP4") bytes)"
+
+  # v0.55+: verify the post-producer ffmpeg mux pass actually embedded audio.
+  # Catches regressions where the producer skips audio capture and our mux
+  # also falls through (e.g. ffmpeg missing, filter graph bug).
+  if [ "$AUDIO_MUX" = "True" ]; then
+    AUDIO_STREAM_COUNT="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$MP4" | wc -l | tr -d ' ')"
+    if [ "$AUDIO_STREAM_COUNT" -lt "1" ]; then
+      red "audioMuxApplied=true but rendered MP4 has no audio stream — mux pass regressed"
+      exit 1
+    fi
+    AUDIO_DURATION="$(ffprobe -v error -select_streams a:0 -show_entries stream=duration -of csv=p=0 "$MP4")"
+    green "✓ MP4 has $AUDIO_STREAM_COUNT audio stream(s), narration ${AUDIO_DURATION}s"
+  else
+    red "audioMuxApplied was not true. JSON: $RENDER_RESULT"
     exit 1
   fi
 fi

@@ -275,6 +275,12 @@ and threaded into the scene HTML. Captions then **fade in word-by-word at
 the exact audio timestamp** — no more "scene says X but caption shows Y"
 drift. Supported on `simple`, `explainer`, and `kinetic-type` presets.
 
+In v0.55, `vibe scene render` adds a post-producer **ffmpeg audio mux
+pass** so the rendered MP4 actually carries the narration track instead
+of being silent. `-c:v copy` keeps it cheap (no video re-encode); the
+render JSON reports `audioCount` + `audioMuxApplied` for agent
+introspection.
+
 Run [`examples/scene-promo/`](examples/scene-promo/) for an end-to-end
 walkthrough. See `/vibe-scene` for the agent skill, including the lint
 feedback loop pattern (`--json --fix`, ≤3 retries, template fallback).
