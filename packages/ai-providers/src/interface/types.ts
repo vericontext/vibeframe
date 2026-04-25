@@ -165,10 +165,46 @@ export interface TranscriptSegment {
 }
 
 /**
+ * A single word-level entry within a transcription result.
+ *
+ * Mirrors the Hyperframes `transcript.json` shape exactly so VibeFrame
+ * scene HTML can drive GSAP timelines with the same word timings.
+ */
+export interface TranscriptWord {
+  /** The word text (without surrounding whitespace) */
+  text: string;
+  /** Start time in seconds */
+  start: TimeSeconds;
+  /** End time in seconds */
+  end: TimeSeconds;
+}
+
+/**
+ * Granularity at which timestamps are returned by a transcription provider.
+ *
+ * - `"segment"` — sentence/utterance level (default, back-compat)
+ * - `"word"` — word level only
+ * - `"both"` — both segment and word level
+ */
+export type TranscriptGranularity = "segment" | "word" | "both";
+
+/**
+ * Optional parameters for {@link AIProvider.transcribe}.
+ *
+ * Providers ignore unsupported options.
+ */
+export interface TranscribeOptions {
+  /** BCP-47 language code hint (e.g. `"en"`, `"ko"`). */
+  language?: string;
+  /** Timestamp granularity. Defaults to `"segment"` for back-compat. */
+  granularity?: TranscriptGranularity;
+}
+
+/**
  * Result returned by {@link AIProvider.transcribe}.
  *
  * Contains the full transcript text, individual time-aligned segments,
- * and the detected language.
+ * optional word-level timings, and the detected language.
  */
 export interface TranscriptResult {
   /** Provider-assigned transcription job ID */
@@ -179,6 +215,8 @@ export interface TranscriptResult {
   fullText?: string;
   /** Individual segments */
   segments?: TranscriptSegment[];
+  /** Word-level timings (populated when granularity is "word" or "both") */
+  words?: TranscriptWord[];
   /** Detected language */
   detectedLanguage?: string;
   /** Error message if failed */
@@ -611,11 +649,17 @@ export interface AIProvider {
 
   /**
    * Transcribe audio to text (capability: `"speech-to-text"`).
+   *
+   * The third parameter accepts {@link TranscribeOptions} for granularity
+   * control. The legacy `language: string` form is still accepted as the
+   * second argument for back-compat.
+   *
    * @param audio - Audio data as a Blob.
    * @param language - Optional BCP-47 language code hint (e.g., `"en"`, `"ko"`).
-   * @returns Transcription result with full text and time-aligned segments.
+   * @param options - Additional transcription options (granularity, etc.).
+   * @returns Transcription result with full text, segments, and optionally word-level timings.
    */
-  transcribe?(audio: Blob, language?: string): Promise<TranscriptResult>;
+  transcribe?(audio: Blob, language?: string, options?: TranscribeOptions): Promise<TranscriptResult>;
 
   /**
    * Get AI-generated edit suggestions based on clips and a natural language instruction

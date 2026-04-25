@@ -2,11 +2,18 @@ import type {
   AIProvider,
   AICapability,
   ProviderConfig,
+  TranscribeOptions,
   TranscriptResult,
+  TranscriptWord,
 } from "../interface/types.js";
 
 /**
- * OpenAI Whisper provider for speech-to-text
+ * OpenAI Whisper provider for speech-to-text.
+ *
+ * Supports segment-level (default) and word-level timestamps via the
+ * `timestamp_granularities[]` query parameter on the `/audio/transcriptions`
+ * endpoint. Word-level output mirrors the Hyperframes `transcript.json`
+ * shape (`{text, start, end}`) so it can drive scene HTML GSAP timelines.
  */
 export class WhisperProvider implements AIProvider {
   id = "whisper";
@@ -30,7 +37,11 @@ export class WhisperProvider implements AIProvider {
     return !!this.apiKey;
   }
 
-  async transcribe(audio: Blob, language?: string): Promise<TranscriptResult> {
+  async transcribe(
+    audio: Blob,
+    language?: string,
+    options?: TranscribeOptions,
+  ): Promise<TranscriptResult> {
     if (!this.apiKey) {
       return {
         id: "",
@@ -39,15 +50,25 @@ export class WhisperProvider implements AIProvider {
       };
     }
 
+    const granularity = options?.granularity ?? "segment";
+
     try {
       const formData = new FormData();
       formData.append("file", audio, "audio.webm");
       formData.append("model", "whisper-1");
       formData.append("response_format", "verbose_json");
-      formData.append("timestamp_granularities[]", "segment");
 
-      if (language) {
-        formData.append("language", language);
+      // Whisper API accepts multiple `timestamp_granularities[]` values.
+      if (granularity === "segment" || granularity === "both") {
+        formData.append("timestamp_granularities[]", "segment");
+      }
+      if (granularity === "word" || granularity === "both") {
+        formData.append("timestamp_granularities[]", "word");
+      }
+
+      const lang = language ?? options?.language;
+      if (lang) {
+        formData.append("language", lang);
       }
 
       const response = await fetch(`${this.baseUrl}/audio/transcriptions`, {
@@ -71,26 +92,35 @@ export class WhisperProvider implements AIProvider {
         text: string;
         language?: string;
         segments?: Array<{ id: number; start: number; end: number; text: string }>;
+        words?: Array<{ word: string; start: number; end: number }>;
       };
 
-      return {
+      const result: TranscriptResult = {
         id: crypto.randomUUID(),
         status: "completed",
         fullText: data.text,
         detectedLanguage: data.language,
-        segments: data.segments?.map((seg: {
-          id: number;
-          start: number;
-          end: number;
-          text: string;
-        }, index: number) => ({
+      };
+
+      if (granularity === "segment" || granularity === "both") {
+        result.segments = data.segments?.map((seg, index) => ({
           id: `segment-${index}`,
           startTime: seg.start,
           endTime: seg.end,
           text: seg.text.trim(),
-          confidence: 1, // Whisper doesn't provide confidence per segment
-        })),
-      };
+          confidence: 1, // Whisper doesn't provide per-segment confidence
+        }));
+      }
+
+      if (granularity === "word" || granularity === "both") {
+        result.words = data.words?.map((w): TranscriptWord => ({
+          text: w.word,
+          start: w.start,
+          end: w.end,
+        }));
+      }
+
+      return result;
     } catch (error) {
       return {
         id: "",
