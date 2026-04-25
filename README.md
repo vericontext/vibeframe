@@ -370,7 +370,7 @@ Best used for onboarding and quick experiments. For production workflows, use CL
 | Category | Providers | Default |
 |----------|-----------|---------|
 | **Agent LLM** | OpenAI, Claude, Gemini, xAI, OpenRouter, Ollama | GPT-5-mini |
-| **Image** | Gemini, OpenAI, xAI Grok | Gemini Nano Banana |
+| **Image** | OpenAI, Gemini, xAI Grok | OpenAI gpt-image-2 (since v0.56 — Artificial Analysis ELO #1) · Gemini fallback when no `OPENAI_API_KEY` |
 | **Video** | xAI Grok, Kling, Runway, Veo | Grok Imagine |
 | **Audio** | ElevenLabs, Whisper | - |
 

@@ -6,9 +6,12 @@ import type {
 
 /**
  * GPT Image model types
- * - gpt-image-1.5: Default model (best cost/quality ratio)
- * - gpt-image-2: Flagship model released 2026-04-21 (higher fidelity, pricier)
- * - dall-e-3: Legacy model
+ * - gpt-image-2: Default since v0.56 — Artificial Analysis ELO 1332,
+ *   #1 on the text-to-image leaderboard at the time of switch (released
+ *   2026-04-21, ~70 ELO above any non-OpenAI model).
+ * - gpt-image-1.5: Previous default, still strong for editing (#1 on
+ *   the editing leaderboard) and cheaper (~$0.04 vs ~$0.08 high).
+ * - dall-e-3: Legacy model.
  */
 export type GPTImageModel = "gpt-image-1.5" | "gpt-image-2" | "dall-e-3";
 
@@ -68,7 +71,11 @@ export interface ImageEditOptions {
 }
 
 /** Default model — GPT Image 1.5 for best cost/quality. gpt-image-2 is opt-in (pricier). */
-const DEFAULT_MODEL: GPTImageModel = "gpt-image-1.5";
+// Default model bumped to gpt-image-2 in v0.56 (Artificial Analysis ELO
+// 1332 → #1 on text-to-image leaderboard). Pass `model: "gpt-image-1.5"`
+// explicitly to keep the old default — still cheaper and #1 on the
+// editing leaderboard.
+const DEFAULT_MODEL: GPTImageModel = "gpt-image-2";
 
 /**
  * OpenAI Image provider (GPT Image 1.5 / GPT Image 2 / DALL-E)

@@ -17,9 +17,16 @@ interface ProviderCandidate {
   label: string;
 }
 
+// As of v0.56, OpenAI is the preferred image provider — gpt-image-2
+// holds Artificial Analysis ELO 1332 on the text-to-image leaderboard
+// (#1; ~70 ELO above any non-OpenAI model). Users without an OpenAI
+// key automatically fall through to Gemini, so Gemini-only setups are
+// unaffected. Set `defaults.imageProvider: gemini` in
+// `~/.vibeframe/config.yaml` to keep the previous behaviour even when
+// both keys are present.
 const IMAGE_PROVIDERS: ProviderCandidate[] = [
-  { name: "gemini", envVar: "GOOGLE_API_KEY", label: "Gemini" },
   { name: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
+  { name: "gemini", envVar: "GOOGLE_API_KEY", label: "Gemini" },
   { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
 ];
 
