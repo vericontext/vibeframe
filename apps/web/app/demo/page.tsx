@@ -6,14 +6,12 @@ import {
   Sparkles,
   Github,
   ArrowRight,
-  Film,
   Wand2,
   Image,
   Music,
   Video,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/theme-toggle";
-import { HeroVideo } from "../../components/demo/HeroVideo";
 import { SceneCard } from "../../components/demo/SceneCard";
 import { StepTimeline } from "../../components/demo/StepTimeline";
 
@@ -79,47 +77,26 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* Hero — three asciinema surfaces lead the page (the previous
+          synthesised 5-scene MP4 hero was demoted; see ROADMAP-v0.58.md
+          for the architectural pivot underway). */}
       <section className="pt-32 pb-20 px-4">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/5 px-4 py-1.5 text-sm text-green-400 mb-8 animate-fade-in">
-            <Film className="w-4 h-4" />
-            <span>Dogfooding · v0.55</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-            Built with VibeFrame,<br />
-            <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">for VibeFrame.</span>
-          </h1>
-
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            15-second promo · 5 scenes · gpt-image-2 generates each backdrop · Kokoro narrates · Whisper word-syncs the captions · 0.4 s crossfade joins · idle hero pulse so the body never feels static.
-            Five <code className="font-mono text-sm">vibe scene add</code> calls (all with <code className="font-mono text-sm">--visuals</code> + <code className="font-mono text-sm">--narration</code>), one <code className="font-mono text-sm">vibe scene render</code> — the project lives in <a href="https://github.com/vericontext/vibeframe/tree/main/examples/scene-promo" className="underline hover:text-foreground">examples/scene-promo</a>.
-          </p>
-
-          <div className="animate-fade-in-up delay-200">
-            <HeroVideo src="/demo/v0.55-self-promo.mp4" poster="/demo/v0.55-self-promo-thumb.png" />
-          </div>
-        </div>
-      </section>
-
-      {/* Three surfaces (asciinema) */}
-      <section id="surfaces" className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-8 animate-fade-in">
               <Terminal className="w-4 h-4" />
-              <span>Three surfaces · same 62 tools</span>
+              <span>Three surfaces · same {process.env.NEXT_PUBLIC_AGENT_TOOLS} tools</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Use VibeFrame how you already work
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Plain CLI, stand-alone agent REPL, or natural language inside Claude Code — same tools, three entry points.
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
+              Use VibeFrame how<br />
+              <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">you already work.</span>
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
+              Plain CLI, stand-alone agent REPL, or natural language inside Claude Code — same tools, three entry points. Each clip below is a real terminal recording.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-6 animate-fade-in-up delay-200">
             <SurfaceCard
               badge="1 · CLI"
               title="vibe (terminal)"
