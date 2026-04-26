@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.63.0] - 2026-04-26
+
+### Added
+
+- add cinematic demo hero + drop redundant Features grid (v0.62 C5) (#146) *(web)*
+- scene-build + scene-render pipeline actions (v0.62 C1) (#142) *(pipeline)*
+- vibe doctor — scope-aware diagnostics + next-step hint (v0.61 C3) (#140) *(cli)*
+- vibe init — project-scope scaffold (v0.61 C2) (#141) *(cli)*
+- vibe setup overhaul — user-scope wizard + agent host detection (v0.61 C1) (#138) *(cli)*
+
+### Documentation
+
+- move ROADMAP-v0.58.md to docs/archive (v0.62 C4) (#145) *(archive)*
+- refresh README + ROADMAP for v0.60.0 (#137)
+
+### Maintenance
+
+- BUILD vs PROCESS framing — pipeline group + AGENTS.md template (v0.63 C3+C4) (#151)
+- delete viral / b-roll / narrate (v0.63 C2) (#149) *(pipeline)*
+- widen script-to-video deprecation to the whole command (v0.63 C1) (#148) *(pipeline)*
+- deprecate script-to-video --format scenes (v0.62 C3) (#144) *(pipeline)*
+- consolidate skill pack 4 → 2 (v0.62 C2) (#143) *(skills)*
+
 ## [0.60.0] - 2026-04-26
 
 ### Added
