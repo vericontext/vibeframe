@@ -128,14 +128,85 @@ will be loaded into a root index.html via
 \`data-composition-src="compositions/${compositionId}.html"\`.
 
 Requirements (non-negotiable):
-- Use the \`<template>\` wrapper (this is a sub-composition, not standalone)
-- Composition id: \`${compositionId}\`
-- One paused GSAP timeline registered on \`window.__timelines["${compositionId}"]\`
-- All timed elements have \`class="clip"\` and \`data-start\`, \`data-duration\`, \`data-track-index\`
-- No \`Math.random()\`, \`Date.now()\`, \`repeat: -1\`, or \`<br>\` in content
-- Layout-before-animation: position elements at hero-frame state in CSS, animate FROM
-- No exit animations (transitions handle scene exits, except the final beat)
-- Strictly follow DESIGN.md palette, typography, motion signature
+
+- **Output must be a BARE \`<template>...</template>\` fragment.** Do NOT
+  wrap it in \`<!DOCTYPE html>\`, \`<html>\`, \`<head>\`, or \`<body>\` —
+  Hyperframes' producer reads the file as a fragment and full-document
+  wrappers break sub-composition parsing.
+- Wrapper template id: \`${compositionId}-template\`. Inner div has
+  \`data-composition-id="${compositionId}"\` AND \`data-start="0"\` AND
+  \`data-duration="<beat duration in seconds>"\` AND \`data-width="1920"\`
+  AND \`data-height="1080"\`.
+- One paused GSAP timeline registered on \`window.__timelines["${compositionId}"]\`.
+- **Timeline total duration MUST equal the beat \`data-duration\`.** Hyperframes
+  renders in screenshot-capture mode with virtual time; if the timeline ends
+  before the beat (e.g., entry tweens covering 0–1.4s of a 3s beat), the
+  producer's seek lands past the timeline's natural end and visibility state
+  goes stale — the hold phase renders BLACK. Anchor the timeline to the full
+  beat duration via either:
+    1. A subtle idle motion spanning 0→duration on a parent element, e.g.
+       \`tl.fromTo(".scene-content", { scale: 1.0 }, { scale: 1.015, duration: <beat>, ease: "none" }, 0);\`
+       (Ken-Burns, breathing opacity, gradient drift — should be barely
+       perceptible so it doesn't compete with entry/exit beats).
+    2. OR an explicit \`tl.set(target, { ...natural state... }, <beat - 0.001>)\`
+       anchor at the end.
+  This is the #2 source of "text disappears mid-beat" bugs after \`.clip\` sizing.
+- Timed children inside the composition have \`class="clip"\` plus
+  \`data-start\`, \`data-duration\`, \`data-track-index\`.
+- **\`.clip\` elements get visibility control from the framework but NO
+  sizing.** Always give \`.clip\` explicit fill via CSS:
+  \`{ position: absolute; inset: 0; }\` (or equivalent
+  \`width: 100%; height: 100%; top: 0; left: 0;\`). Without this, the
+  \`.clip\` collapses to its content size and any flex-centering inside
+  it breaks. THIS IS THE #1 SOURCE OF "TEXT NOT RENDERING / WRONG
+  POSITION" BUGS — do not skip the rule.
+- Composition root must declare its absolute size in CSS:
+  \`[data-composition-id="${compositionId}"] { position: relative; width: 1920px; height: 1080px; }\`.
+- No \`Math.random()\`, \`Date.now()\`, \`repeat: -1\`, or \`<br>\` in content.
+- Layout-before-animation: position elements at hero-frame state in CSS,
+  animate FROM that position.
+- No exit animations (transitions handle scene exits, except the final beat).
+- Strictly follow DESIGN.md palette, typography, motion signature.
+
+Reference shape (verbatim — match this skeleton exactly, no DOCTYPE / html / body):
+
+\`\`\`
+<template id="${compositionId}-template">
+  <div data-composition-id="${compositionId}" data-start="0" data-duration="<sec>" data-width="1920" data-height="1080">
+    <style>
+      [data-composition-id="${compositionId}"] {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        background: /* from DESIGN.md */;
+        overflow: hidden;
+      }
+      /* Critical: .clip elements get framework visibility control but NOT
+         sizing — give them explicit fill or content centering breaks. */
+      [data-composition-id="${compositionId}"] .clip {
+        position: absolute;
+        inset: 0;
+      }
+      /* …per-element styles… */
+    </style>
+
+    <div class="clip" data-start="0" data-duration="<sec>" data-track-index="0">
+      <!-- content; can use display:flex etc. since .clip now fills the scene -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      // Idle motion spanning full beat duration — required to keep timeline
+      // length aligned with data-duration (otherwise hold phase goes black).
+      tl.fromTo(".scene-content", { scale: 1.0 }, { scale: 1.015, duration: <sec>, ease: "none" }, 0);
+      // entry tweens
+      window.__timelines["${compositionId}"] = tl;
+    </script>
+  </div>
+</template>
+\`\`\`
 
 === Storyboard — global direction ===
 
@@ -149,8 +220,9 @@ ${ctx.beat.body}
 
 === Output format ===
 
-Return ONE complete HTML file in a single \`\`\`html\`\`\` fenced code block.
-No prose, no explanations, no commentary outside the code block. Just the HTML.`;
+Return ONE bare \`<template>\` fragment in a single \`\`\`html\`\`\` fenced code
+block. No \`<!DOCTYPE>\`, no \`<html>\`, no prose, no explanations, no
+commentary outside the code block. Just the template.`;
 
   if (ctx.retryFeedback && ctx.retryFeedback.trim().length > 0) {
     return `${baseRequirements}

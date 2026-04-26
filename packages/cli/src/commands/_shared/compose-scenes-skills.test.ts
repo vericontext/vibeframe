@@ -61,7 +61,8 @@ describe("buildUserPrompt", () => {
   it("uses scene-<id>.html as the composition path", () => {
     const u = buildUserPrompt({ beat, storyboardGlobal: "" });
     expect(u).toContain('compositions/scene-1.html');
-    expect(u).toContain('Composition id: `scene-1`');
+    expect(u).toContain('data-composition-id="scene-1"');
+    expect(u).toContain('scene-1-template');
   });
 
   it("emits placeholder when global direction is empty", () => {
