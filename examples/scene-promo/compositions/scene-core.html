@@ -30,13 +30,24 @@
         font-size: 38px; font-weight: 300; color: #c0c0d0; max-width: 80%;
         overflow-wrap: break-word;
       }
+      [data-composition-id="core"] #subtitle .word { display: inline-block; opacity: 0; }
     </style>
 
     <div class="backdrop"></div>
     <div class="stage">
       <div class="kicker" id="kicker">VIDEO AS CODE</div>
       <h1 class="title" id="title">Author scenes, not timelines</h1>
+      <div class="subtitle" id="subtitle"><span class="word" data-i="0">Author</span> <span class="word" data-i="1">scenes</span> <span class="word" data-i="2">not</span> <span class="word" data-i="3">timelines</span></div>
     </div>
+
+    <audio
+      id="narration"
+      data-start="0"
+      data-duration="auto"
+      data-track-index="2"
+      src="assets/narration-core.wav"
+      data-volume="1"
+    ></audio>
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <script>
@@ -46,7 +57,10 @@
       tl.fromTo('[data-composition-id="core"] .backdrop', { scale: 1.0 }, { scale: 1.05, duration: 7.00, ease: 'none' }, 0);
       tl.from('[data-composition-id="core"] #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('[data-composition-id="core"] #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
-      
+      tl.fromTo('[data-composition-id="core"] #subtitle .word[data-i="0"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0);
+      tl.fromTo('[data-composition-id="core"] #subtitle .word[data-i="1"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0.6);
+      tl.fromTo('[data-composition-id="core"] #subtitle .word[data-i="2"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 1.42);
+      tl.fromTo('[data-composition-id="core"] #subtitle .word[data-i="3"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 1.56);
 
       window.__timelines["core"] = tl;
     </script>
