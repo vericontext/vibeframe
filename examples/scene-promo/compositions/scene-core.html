@@ -11,6 +11,7 @@
         inset: 0;
         background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%);
       }
+      [data-composition-id="core"] .backdrop { transform-origin: center; }
       [data-composition-id="core"] .stage {
         position: absolute; inset: 0;
         display: flex; flex-direction: column; justify-content: center;
@@ -23,9 +24,11 @@
       [data-composition-id="core"] .title {
         font-size: 110px; font-weight: 800; letter-spacing: -2px;
         line-height: 1.05; margin: 0;
+        overflow-wrap: break-word;
       }
       [data-composition-id="core"] .subtitle {
         font-size: 38px; font-weight: 300; color: #c0c0d0; max-width: 80%;
+        overflow-wrap: break-word;
       }
     </style>
 
@@ -40,6 +43,7 @@
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
+      tl.fromTo('[data-composition-id="core"] .backdrop', { scale: 1.0 }, { scale: 1.05, duration: 7.00, ease: 'none' }, 0);
       tl.from('[data-composition-id="core"] #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('[data-composition-id="core"] #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
       

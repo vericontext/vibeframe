@@ -151,6 +151,59 @@ export function buildTranscriptTweens(
 }
 
 // ---------------------------------------------------------------------------
+// Robust-default helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Pick a hero font size that fits the supplied text at the canvas width
+ * without manual tuning. Linear fall-off below `comfortableChars`.
+ *
+ * Why this exists: presets used to emit a fixed font-size (e.g. 160 px for
+ * `announcement`, 180 px for `kinetic-type`). Fine when the headline was a
+ * tagline like "Ship videos, not clicks", but `vibe scene add` is fed by an
+ * LLM whose headlines vary from 3 words to 12. Fixed-px headlines overflow
+ * the 1920-wide canvas the moment they exceed ~22 characters; the v0.55
+ * self-promo demo shipped with this exact bug ("Made with vibe scene" at
+ * 180 px clipped at the right edge on the rendered MP4).
+ *
+ * Tuned empirically against -apple-system / Helvetica Neue with the
+ * letter-spacing each preset already uses. The numbers below approximate
+ * real glyph widths without measuring them at runtime.
+ */
+function fitFontSize(text: string, baseMaxPx: number, minPx: number, comfortableChars: number): number {
+  const charCount = text.length;
+  if (charCount <= comfortableChars) return baseMaxPx;
+  const ratio = comfortableChars / charCount;
+  return Math.max(minPx, Math.round(baseMaxPx * ratio));
+}
+
+/**
+ * Kinetic-type uses one span per word, so word count matters as much as
+ * char count. The thresholds below were picked so the rendered text never
+ * exceeds 1700 px (the safe inner width at 1920×1080 with 6% padding) when
+ * each word lands at the chosen font size.
+ */
+function fitKineticFontSize(words: string[]): number {
+  const totalChars = words.join(" ").length;
+  if (totalChars <= 18) return 180;
+  if (totalChars <= 26) return 140;
+  if (totalChars <= 38) return 110;
+  if (totalChars <= 54) return 90;
+  return 72;
+}
+
+/**
+ * Render the standard backdrop Ken-Burns tween. Subtle linear scale 1.0 →
+ * 1.05 over the full scene duration. Applied to every preset (used to be
+ * `product-shot` only) so the screen never feels static during the long
+ * static body that follows the entrance animation. The product-shot keeps
+ * its more dramatic 1.08 endpoint.
+ */
+function kenBurnsTween(scope: string, dur: number, endScale = 1.05): string {
+  return `tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: ${endScale}, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);`;
+}
+
+// ---------------------------------------------------------------------------
 // Per-preset content + animation
 // ---------------------------------------------------------------------------
 
@@ -206,12 +259,13 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       const wordCss = useWordSync
         ? `\n      ${scope} .caption .word { display: inline-block; opacity: 0; }`
         : "";
+      const captionFontPx = fitFontSize(captionText, 56, 28, 60);
       // No tail fade-out: the producer hides this clip the moment its
       // data-duration ends, and the next scene's fade-in already
       // overlaps with the cut visually. Adding a 0.4 s opacity-to-zero
       // tween here just creates dead time between scenes — the previous
       // version of this preset shipped that bug, demos felt sluggish.
-      const timeline = useWordSync
+      const captionTween = useWordSync
         ? buildTranscriptTweens(transcript, `${scope} .caption .word`)
         : `tl.from('${scope} .caption', { opacity: 0, y: 28, duration: 0.45, ease: 'power3.out' }, 0.05);`;
       return {
@@ -221,21 +275,25 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         color: #fff; overflow: hidden; background: #000;
       }
       ${backdrop}
+      ${scope} .backdrop { transform-origin: center; }
       ${scope} .caption {
         position: absolute;
         left: 8%; right: 8%; bottom: 12%;
         text-align: center;
-        font-size: 56px;
+        font-size: ${captionFontPx}px;
         font-weight: 700;
         line-height: 1.2;
+        overflow-wrap: break-word;
         text-shadow: 0 4px 20px rgba(0,0,0,0.65);
       }${wordCss}`,
         body: `${backdropMarkup}
     <div class="caption" id="caption">${captionInner}</div>`,
-        timeline,
+        timeline: `${kenBurnsTween(scope, dur)}
+      ${captionTween}`,
       };
     }
     case "announcement": {
+      const fontSize = fitFontSize(headline, 160, 72, 22);
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -243,6 +301,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         color: #fff; overflow: hidden; background: #000;
       }
       ${backdrop}
+      ${scope} .backdrop { transform-origin: center; }
       ${scope} .announce {
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: center;
@@ -251,10 +310,11 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       }
       ${scope} .announce h1 {
         margin: 0;
-        font-size: 160px;
+        font-size: ${fontSize}px;
         font-weight: 900;
         letter-spacing: -4px;
-        line-height: 1;
+        line-height: 1.05;
+        overflow-wrap: break-word;
         background: linear-gradient(90deg, #8e2de2, #00c9ff);
         -webkit-background-clip: text; background-clip: text; color: transparent;
         text-shadow: 0 8px 40px rgba(142,45,226,0.35);
@@ -264,8 +324,10 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         // Faster, snappier entrance and no tail fade-out — see the
         // matching note in the `simple` case above. The headline stays
         // on screen until the producer cuts to the next clip; the next
-        // scene's own fade-in handles the visual transition.
-        timeline: `tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
+        // scene's own fade-in handles the visual transition. Backdrop
+        // Ken-Burns fills what used to be 80% dead static frame.
+        timeline: `${kenBurnsTween(scope, dur)}
+      tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
       };
     }
     case "explainer": {
@@ -282,6 +344,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         : sub
           ? `tl.from('${scope} #subtitle', { opacity: 0, y: 30, duration: 0.55, ease: 'power3.out' }, 0.55);`
           : "";
+      const titleFontPx = fitFontSize(headline, 110, 56, 30);
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -289,6 +352,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         color: #fff; overflow: hidden; background: #000;
       }
       ${backdrop}
+      ${scope} .backdrop { transform-origin: center; }
       ${scope} .stage {
         position: absolute; inset: 0;
         display: flex; flex-direction: column; justify-content: center;
@@ -299,11 +363,13 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         color: #00c9ff; font-weight: 600;
       }
       ${scope} .title {
-        font-size: 110px; font-weight: 800; letter-spacing: -2px;
+        font-size: ${titleFontPx}px; font-weight: 800; letter-spacing: -2px;
         line-height: 1.05; margin: 0;
+        overflow-wrap: break-word;
       }
       ${scope} .subtitle {
         font-size: 38px; font-weight: 300; color: #c0c0d0; max-width: 80%;
+        overflow-wrap: break-word;
       }${wordCss}`,
         body: `${backdropMarkup}
     <div class="stage">
@@ -311,7 +377,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       <h1 class="title" id="title">${esc(headline)}</h1>${sub ? `
       <div class="subtitle" id="subtitle">${subtitleInner}</div>` : ""}
     </div>`,
-        timeline: `tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
+        timeline: `${kenBurnsTween(scope, dur)}
+      tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('${scope} #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
       ${subtitleTween}`,
       };
@@ -342,6 +409,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
               return `tl.from('${scope} #w-${i}', { opacity: 0, y: 80, scale: 0.8, duration: 0.45, ease: 'back.out(1.8)' }, ${start});`;
             })
             .join("\n      ");
+      const kineticFontPx = fitKineticFontSize(words);
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -349,21 +417,26 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         color: #fff; overflow: hidden; background: #000;
       }
       ${backdrop}
+      ${scope} .backdrop { transform-origin: center; }
       ${scope} .kinetic {
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: center;
+        flex-wrap: wrap; gap: 8px 16px;
         text-align: center; padding: 0 6%;
-        font-size: 180px; font-weight: 900; letter-spacing: -6px;
+        font-size: ${kineticFontPx}px; font-weight: 900; letter-spacing: -6px;
         line-height: 1; text-shadow: 0 6px 30px rgba(0,0,0,0.6);
+        overflow-wrap: break-word;
       }
       ${scope} .kinetic .word { display: inline-block; margin: 0 12px; }`,
         body: `${backdropMarkup}
     <div class="kinetic">${wordSpans}</div>`,
-        timeline: tweens,
+        timeline: `${kenBurnsTween(scope, dur)}
+      ${tweens}`,
       };
     }
     case "product-shot": {
       const label = kicker || humanise(id);
+      const headlineFontPx = fitFontSize(headline, 72, 40, 50);
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -381,12 +454,14 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       }
       ${scope} .product-headline {
         position: absolute; left: 8%; right: 8%; bottom: 14%;
-        font-size: 72px; font-weight: 800; letter-spacing: -1px;
-        line-height: 1.1; text-shadow: 0 4px 20px rgba(0,0,0,0.7);
+        font-size: ${headlineFontPx}px; font-weight: 800; letter-spacing: -1px;
+        line-height: 1.1; overflow-wrap: break-word;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.7);
       }${subhead ? `
       ${scope} .product-sub {
         position: absolute; left: 8%; right: 8%; bottom: 8%;
         font-size: 28px; font-weight: 400; color: #d0d0e0;
+        overflow-wrap: break-word;
         text-shadow: 0 2px 10px rgba(0,0,0,0.7);
       }` : ""}`,
         body: `${backdropMarkup}
