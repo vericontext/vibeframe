@@ -571,6 +571,71 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
     }
   });
 
+  it("ships idle hero-pulse motion on every preset so body-time isn't perceptually static", () => {
+    for (const preset of ["simple", "announcement", "explainer", "product-shot"] as const) {
+      const html = emitSceneHtml({
+        id: "x",
+        preset,
+        width: 1920,
+        height: 1080,
+        duration: 5, // long enough to fit at least one 1.5 s yoyo cycle
+        headline: "Test",
+        subhead: "sub",
+        kicker: "kick",
+      });
+      // Each preset emits a `tl.to(<hero>, { scale: 1.04, y: -8, ..., yoyo: true, repeat: <N>, ease: 'sine.inOut' })`
+      // — the continuous breathing + floating pulse that fills the body time.
+      expect(html, `${preset} should emit idle hero-pulse`).toMatch(
+        /tl\.to\([^)]*scale: 1\.04[^)]*yoyo: true[^)]*repeat: \d+[^)]*ease: 'sine\.inOut'/,
+      );
+    }
+  });
+
+  it("kinetic-type emits per-word phased bobs (left-to-right wave) during body time", () => {
+    const html = emitSceneHtml({
+      id: "x",
+      preset: "kinetic-type",
+      width: 1920,
+      height: 1080,
+      duration: 6,
+      headline: "Made with vibe scene", // 4 words
+    });
+    // One `tl.to(#w-N, { y: -12, yoyo: true, ... })` per word.
+    for (let i = 0; i < 4; i++) {
+      expect(html, `should emit phased bob for word #w-${i}`).toMatch(
+        new RegExp(`tl\\.to\\('\\[data-composition-id="x"\\] #w-${i}'.*y: -12.*yoyo: true.*repeat: \\d+.*ease: 'sine\\.inOut'`),
+      );
+    }
+  });
+
+  it("idle motion uses finite repeat (never `repeat: -1`) so timeline.duration() stays finite", () => {
+    const html = emitSceneHtml({
+      id: "x",
+      preset: "announcement",
+      width: 1920,
+      height: 1080,
+      duration: 5,
+      headline: "Test",
+    });
+    // GSAP `repeat: -1` would make the timeline's totalDuration go to
+    // Infinity, which then breaks Hyperframes' duration resolution
+    // chain (deep-dive 03 § getSafeTimelineDurationSeconds).
+    expect(html).not.toMatch(/repeat: -1/);
+  });
+
+  it("idle motion is skipped when scene is too short to fit a full 1.5 s yoyo cycle", () => {
+    const html = emitSceneHtml({
+      id: "x",
+      preset: "announcement",
+      width: 1920,
+      height: 1080,
+      duration: 1.5, // entrance + crossfade fade-out alone leave no body time
+      headline: "Brief",
+    });
+    // No idle pulse for very short scenes — they're entrance + fade only.
+    expect(html).not.toMatch(/scale: 1\.04.*yoyo/);
+  });
+
   it("buildClipReference assigns inverted z-index so earlier scenes paint on top during overlap", () => {
     const a = buildClipReference({ id: "intro", start: 0, duration: 5 });
     const b = buildClipReference({ id: "core", start: 4.6, duration: 7 });
