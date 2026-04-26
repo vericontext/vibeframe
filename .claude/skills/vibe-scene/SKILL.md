@@ -13,7 +13,43 @@ Prefer this over `vibe pipeline script-to-video --format mp4` whenever the
 user expects to **iterate** on text, layout, or timing — text tweaks don't
 require regenerating video.
 
-## Authoring loop
+## Two authoring paths
+
+VibeFrame supports two paths into the same project layout. Pick by the kind
+of output the user expects.
+
+| Path | When to use | Output quality |
+|---|---|---|
+| **High-craft** — `DESIGN.md` + `/hyperframes` skill in Claude Code | User wants cinematic finish, named visual identity, motion principles, transitions that actually punctuate the narrative | Matches what the Hyperframes ecosystem ships |
+| **Quick draft / fallback** — `vibe scene add --style <preset>` | No agent in the loop, or fast iteration on layout/timing/text — same project format, just template-rendered HTML | Generic but functional; great for proof-of-concept and CI dogfood |
+
+**Default to the high-craft path when an agent is available.** The
+`scene-html-emit` 5-preset path exists so non-agent flows still work — it
+is intentionally not the cinematic finish layer.
+
+## High-craft path (DESIGN.md → agent → HTML)
+
+1. `vibe scene init my-promo --visual-style "Swiss Pulse"` — seeds
+   `DESIGN.md` (palette, typography, motion, transitions) plus the
+   `vibe.project.yaml`/`hyperframes.json`/`index.html` scaffold.
+2. Install / load the Hyperframes skill set so `/hyperframes` is in scope:
+   ```bash
+   npx skills add heygen-com/hyperframes
+   ```
+3. Hand the user's `DESIGN.md` + `STORYBOARD.md` (and any narration text)
+   to Claude Code with `/hyperframes` loaded; ask it to author each scene
+   HTML directly under `compositions/scene-<id>.html`. The skill enforces
+   the visual identity contract — scenes that contradict DESIGN.md are
+   rejected on lint.
+4. `vibe scene lint --fix` for mechanical issues, `vibe scene render` to
+   MP4. Asset generation (`vibe scene add --visuals "..." --no-html`) can
+   still run alongside.
+
+`DESIGN.md` is the hard-gate: never author scene HTML before it exists.
+Browse named styles via `vibe scene styles`; re-seed an existing project
+with `vibe scene init . --visual-style "<name>"` (idempotent).
+
+## Quick-draft path (5-preset `scene add`)
 
 ```bash
 vibe scene init my-promo -r 16:9 -d 30          # 1. scaffold project
@@ -30,7 +66,8 @@ on user-provided projects.
 ## Subcommands
 
 ```bash
-vibe scene init <dir> [-r 16:9|9:16|1:1|4:5] [-d <sec>]
+vibe scene init <dir> [-r 16:9|9:16|1:1|4:5] [-d <sec>] [--visual-style "<name>"]
+vibe scene styles [<name>]                    # list / show vendored visual identities
 vibe scene add <name> --style <preset> [...]
 vibe scene lint [<root>] [--json] [--fix]
 vibe scene render [<root>] [--fps 30] [--quality standard] [--format mp4]

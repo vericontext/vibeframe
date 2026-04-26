@@ -15,6 +15,8 @@ import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 import { resolve, basename } from "node:path";
 import { stringify as yamlStringify } from "yaml";
 
+import type { VisualStyle } from "./visual-styles.js";
+
 /** Supported aspect ratios for scene projects (maps to CSS canvas dims). */
 export type SceneAspect = "16:9" | "9:16" | "1:1" | "4:5";
 
@@ -161,6 +163,100 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
 `;
 }
 
+/**
+ * Project-local `DESIGN.md` template — the visual-identity hard-gate.
+ *
+ * Hyperframes' `hyperframes` skill teaches: "no scene HTML before DESIGN.md is
+ * authored." This template seeds that contract so the project never opens
+ * with a blank slate. When `style` is provided, the rules are pre-filled
+ * from the vendored named-style data (`visual-styles.ts`); otherwise the
+ * user (or agent) fills the placeholders.
+ *
+ * The agent-driven craft path expects this file as input — see
+ * `.claude/skills/vibe-scene/SKILL.md`.
+ */
+export function buildDesignMd(opts: {
+  name: string;
+  style?: VisualStyle;
+}): string {
+  const { name, style } = opts;
+
+  const intro = style
+    ? `Visual identity for **${name}**, scaffolded from the **${style.name}** style (after ${style.designer}). Customise freely — this file is the single source of truth for every scene's palette, typography, and motion.`
+    : `Visual identity for **${name}**. Fill the sections below before authoring any scene HTML or generating any backdrop. Pick a named style with \`vibe scene styles\` if you want a credible starting point.`;
+
+  const moodLine = style
+    ? `**Mood:** ${style.mood} · **Best for:** ${style.bestFor}`
+    : `**Mood:** _(one line — what should the viewer FEEL?)_`;
+
+  const palette = style
+    ? `${style.palette.map((c) => `- \`${c}\``).join("\n")}\n\n${style.paletteNotes}`
+    : `- _hex_ — primary\n- _hex_ — accent\n\n_2–3 colours max. Declare explicit hex values; never name colours abstractly._`;
+
+  const typography = style
+    ? style.typography
+    : `_One family, two weights. State the role of each (headline / label / body)._`;
+
+  const composition = style
+    ? style.composition
+    : `_Grid? Centered? Layered? How does negative space behave?_`;
+
+  const motion = style
+    ? `${style.motion}\n\n**GSAP signature:** ${style.gsapSignature}`
+    : `_How fast? Snappy or fluid? Overshoot or precision?_\n\n**GSAP signature:** _e.g. \`expo.out\`, \`sine.inOut\`, \`back.out(1.8)\`_`;
+
+  const transition = style
+    ? style.transition
+    : `_Which Hyperframes shader matches the energy? (Cinematic Zoom, Cross-Warp Morph, Glitch, Domain Warp, …)_`;
+
+  const avoid = style
+    ? style.avoid.map((a) => `- ${a}`).join("\n")
+    : `- _anti-pattern 1_\n- _anti-pattern 2_\n- _anti-pattern 3_`;
+
+  return `# ${name} — Design
+
+> **Hard-gate.** This file defines the visual identity of every scene.
+> Author it before generating any HTML, backdrop image, or motion.
+> The Hyperframes \`hyperframes\` skill enforces this: scenes that
+> contradict DESIGN.md are rejected.
+
+${intro}
+
+## Style
+
+${moodLine}
+
+## Palette
+
+${palette}
+
+## Typography
+
+${typography}
+
+## Composition
+
+${composition}
+
+## Motion
+
+${motion}
+
+## Transition
+
+${transition}
+
+## What NOT to do
+
+${avoid}
+
+---
+
+_Browse other named styles: \`vibe scene styles\`_
+${style ? `_This file was seeded by \`vibe scene init --visual-style "${style.name}"\`._` : `_Seed this file from a named style: \`vibe scene init <dir> --visual-style "<name>"\`._`}
+`;
+}
+
 /** Project-local CLAUDE.md that orients an AI agent to both toolchains. */
 export function buildProjectClaudeMd(name: string): string {
   return `# ${name} — Scene Authoring Project
@@ -168,6 +264,16 @@ export function buildProjectClaudeMd(name: string): string {
 This project is **bilingual**: it works with both VibeFrame (\`vibe\`) and
 HeyGen Hyperframes (\`hyperframes\`). You can run either CLI inside this
 directory.
+
+## Visual identity hard-gate
+
+**Author \`DESIGN.md\` before any scene HTML.** It defines palette,
+typography, motion, and transition rules. Both the agent-driven path and
+the fallback emit reference it; scenes that contradict DESIGN.md are
+rejected by the Hyperframes \`hyperframes\` skill.
+
+Browse named styles: \`vibe scene styles\`. Re-seed from one with
+\`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).
 
 ## Skills — USE THESE FIRST
 
@@ -177,14 +283,23 @@ semantics, VibeFrame pipeline conventions) that are NOT in generic web docs.
 
 | Skill             | Command          | When to use                                                                           |
 | ----------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| **vibe-scene**    | \`/vibe-scene\`    | Authoring / editing per-scene HTML in this project — preferred                        |
-| **hyperframes**   | \`/hyperframes\`   | Fallback: direct HF authoring (install via \`npx skills add heygen-com/hyperframes\`) |
+| **hyperframes**   | \`/hyperframes\`   | Cinematic-quality composition — DESIGN.md hard-gate, named styles, motion principles  |
+| **vibe-scene**    | \`/vibe-scene\`    | VibeFrame's authoring loop, AI assets, lint feedback, pipeline integration            |
 | **gsap**          | \`/gsap\`          | GSAP tweens, timelines, easing                                                        |
 
-If the skill is not available, follow the **Key Rules** below.
+Install the Hyperframes skills once per machine:
+
+\`\`\`bash
+npx skills add heygen-com/hyperframes
+\`\`\`
+
+Restart your agent session (or reload the skill list) after installing.
+If skills aren't available, follow the **Key Rules** below — they cover
+the framework-level minimum, not the cinematic craft layer.
 
 ## Project structure
 
+- \`DESIGN.md\` — visual identity contract (palette, type, motion, transitions)
 - \`index.html\` — root composition (timeline)
 - \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
 - \`assets/\` — shared media (narration audio, images, video)
@@ -254,6 +369,12 @@ export interface ScaffoldOptions {
   aspect?: SceneAspect;
   duration?: number;
   now?: Date;
+  /**
+   * Optional named visual style (e.g. "Swiss Pulse"). When provided,
+   * `DESIGN.md` is seeded with the style's palette / typography / motion
+   * rules instead of placeholders. Resolved via `getVisualStyle()`.
+   */
+  visualStyle?: VisualStyle;
 }
 
 export interface ScaffoldResult {
@@ -343,6 +464,20 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   } else {
     await writeFile(claudePath, buildProjectClaudeMd(name), "utf-8");
     created.push(claudePath);
+  }
+
+  // DESIGN.md — visual-identity hard-gate (Hyperframes skill convention).
+  // Preserve existing so users can hand-edit between init runs.
+  const designPath = resolve(dir, "DESIGN.md");
+  if (await pathExists(designPath)) {
+    skipped.push(designPath);
+  } else {
+    await writeFile(
+      designPath,
+      buildDesignMd({ name, style: opts.visualStyle }),
+      "utf-8",
+    );
+    created.push(designPath);
   }
 
   // .gitignore — preserve existing.

@@ -6,6 +6,7 @@ import { parse as yamlParse } from "yaml";
 
 import {
   aspectToDims,
+  buildDesignMd,
   buildEmptyRootHtml,
   buildHyperframesConfig,
   buildHyperframesMeta,
@@ -16,6 +17,7 @@ import {
   scaffoldSceneProject,
   type HyperframesConfig,
 } from "./scene-project.js";
+import { getVisualStyle } from "./visual-styles.js";
 
 async function makeTmp(label = "vibe-scene-test-"): Promise<string> {
   return mkdtemp(join(tmpdir(), label));
@@ -114,6 +116,60 @@ describe("buildProjectClaudeMd", () => {
     expect(md).toContain("vibe scene add");
     expect(md).toContain("npx hyperframes");
   });
+
+  it("introduces the DESIGN.md hard-gate and hyperframes skill install", () => {
+    const md = buildProjectClaudeMd("my-promo");
+    expect(md).toContain("DESIGN.md");
+    expect(md).toContain("hard-gate");
+    expect(md).toContain("npx skills add heygen-com/hyperframes");
+  });
+});
+
+describe("buildDesignMd", () => {
+  it("emits placeholder sections when no style is provided", () => {
+    const md = buildDesignMd({ name: "my-promo" });
+    expect(md).toContain("# my-promo — Design");
+    expect(md).toContain("Hard-gate.");
+    // Section headings are stable.
+    expect(md).toContain("## Style");
+    expect(md).toContain("## Palette");
+    expect(md).toContain("## Typography");
+    expect(md).toContain("## Composition");
+    expect(md).toContain("## Motion");
+    expect(md).toContain("## Transition");
+    expect(md).toContain("## What NOT to do");
+    // Placeholder hint to seed from a named style.
+    expect(md).toContain("--visual-style");
+  });
+
+  it("seeds from a named style: pulls palette, typography, motion, transition, avoid", () => {
+    const swiss = getVisualStyle("Swiss Pulse");
+    expect(swiss).toBeDefined();
+    const md = buildDesignMd({ name: "my-promo", style: swiss });
+
+    expect(md).toContain("Swiss Pulse");
+    expect(md).toContain("Josef Müller-Brockmann");
+    // Palette hex appears verbatim.
+    expect(md).toContain("#0066FF");
+    // Typography rule.
+    expect(md).toContain("Helvetica or Inter Bold");
+    // Motion / GSAP signature.
+    expect(md).toContain("expo.out");
+    // Transition.
+    expect(md).toContain("Cinematic Zoom");
+    // Anti-patterns.
+    expect(md).toContain("Decorative transitions");
+    // Footer attribution.
+    expect(md).toContain('--visual-style "Swiss Pulse"');
+  });
+
+  it("accepts the slug form when looked up via getVisualStyle", () => {
+    const slug = getVisualStyle("data-drift");
+    expect(slug).toBeDefined();
+    const md = buildDesignMd({ name: "ai-promo", style: slug });
+    expect(md).toContain("Data Drift");
+    expect(md).toContain("#7c3aed");
+  });
 });
 
 describe("buildSceneGitignore", () => {
@@ -152,6 +208,7 @@ describe("scaffoldSceneProject", () => {
       "index.html",
       "vibe.project.yaml",
       "CLAUDE.md",
+      "DESIGN.md",
       ".gitignore",
     ];
     for (const f of expected) {
@@ -163,6 +220,40 @@ describe("scaffoldSceneProject", () => {
     expect(result.created.length).toBe(expected.length);
     expect(result.merged).toEqual([]);
     expect(result.skipped).toEqual([]);
+  });
+
+  it("seeds DESIGN.md from --visual-style when provided", async () => {
+    const dir = await makeTmp();
+    const style = getVisualStyle("Swiss Pulse");
+    expect(style).toBeDefined();
+    await scaffoldSceneProject({ dir, name: "fixture", visualStyle: style });
+    const design = await readFile(resolve(dir, "DESIGN.md"), "utf-8");
+    expect(design).toContain("Swiss Pulse");
+    expect(design).toContain("#0066FF");
+    expect(design).toContain("Helvetica or Inter Bold");
+  });
+
+  it("DESIGN.md falls back to placeholders when no style provided", async () => {
+    const dir = await makeTmp();
+    await scaffoldSceneProject({ dir, name: "fixture" });
+    const design = await readFile(resolve(dir, "DESIGN.md"), "utf-8");
+    expect(design).toContain("# fixture — Design");
+    expect(design).toContain("--visual-style");
+    // Should NOT pre-fill from any specific style:
+    expect(design).not.toContain("Swiss Pulse");
+    expect(design).not.toContain("Velvet Standard");
+  });
+
+  it("preserves a user-edited DESIGN.md across re-init", async () => {
+    const dir = await makeTmp();
+    await scaffoldSceneProject({ dir, name: "fixture" });
+    const designPath = resolve(dir, "DESIGN.md");
+    await writeFile(designPath, "# Custom design\n\nMy notes.\n", "utf-8");
+
+    const second = await scaffoldSceneProject({ dir, name: "fixture" });
+    const after = await readFile(designPath, "utf-8");
+    expect(after).toBe("# Custom design\n\nMy notes.\n");
+    expect(second.skipped.some((p) => p.endsWith("DESIGN.md"))).toBe(true);
   });
 
   it("vibe.project.yaml parses as valid YAML and carries the chosen aspect", async () => {

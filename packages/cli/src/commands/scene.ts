@@ -39,6 +39,12 @@ import {
   type VibeProjectConfig,
 } from "./_shared/scene-project.js";
 import {
+  getVisualStyle,
+  listVisualStyles,
+  visualStyleNames,
+  type VisualStyle,
+} from "./_shared/visual-styles.js";
+import {
   emitSceneHtml,
   insertClipIntoRoot,
   nextSceneStart,
@@ -93,6 +99,20 @@ function validatePreset(value: string): ScenePreset {
   return value as ScenePreset;
 }
 
+function validateVisualStyle(value: string): VisualStyle {
+  const found = getVisualStyle(value);
+  if (!found) {
+    exitWithError(
+      usageError(
+        `Unknown visual style: ${value}`,
+        `Valid: ${visualStyleNames()}. Browse details with \`vibe scene styles\`.`,
+      ),
+    );
+  }
+  // exitWithError aborts; this branch is unreachable but typescript needs it.
+  return found as VisualStyle;
+}
+
 export const sceneCommand = new Command("scene")
   .description("Author and render per-scene HTML compositions (Hyperframes backend)")
   .addHelpText("after", `
@@ -120,24 +140,34 @@ sceneCommand
   .option("-n, --name <name>", "Project name (defaults to directory basename)")
   .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, 1:1, 4:5", "16:9")
   .option("-d, --duration <sec>", "Default root composition duration (seconds)", "10")
+  .option("--visual-style <name>", `Seed DESIGN.md from a named style (browse via \`vibe scene styles\`). E.g. "Swiss Pulse"`)
   .option("--dry-run", "Preview parameters without writing files")
   .action(async (dir: string, options) => {
     const aspect = validateAspect(options.ratio);
     const duration = validateDuration(options.duration);
     const name = (options.name as string | undefined) ?? basename(dir.replace(/\/+$/, ""));
+    const visualStyle = options.visualStyle
+      ? validateVisualStyle(options.visualStyle as string)
+      : undefined;
 
     if (options.dryRun) {
       outputResult({
         dryRun: true,
         command: "scene init",
-        params: { dir, name, aspect, duration },
+        params: {
+          dir,
+          name,
+          aspect,
+          duration,
+          visualStyle: visualStyle?.name ?? null,
+        },
       });
       return;
     }
 
     const spinner = isJsonMode() ? null : ora(`Scaffolding scene project at ${dir}...`).start();
     try {
-      const result = await scaffoldSceneProject({ dir, name, aspect, duration });
+      const result = await scaffoldSceneProject({ dir, name, aspect, duration, visualStyle });
 
       if (isJsonMode()) {
         outputResult({
@@ -147,6 +177,7 @@ sceneCommand
           name,
           aspect,
           duration,
+          visualStyle: visualStyle?.name ?? null,
           created: result.created,
           merged: result.merged,
           skipped: result.skipped,
@@ -164,7 +195,13 @@ sceneCommand
       console.log();
       console.log(chalk.bold.cyan("Next steps"));
       console.log(chalk.dim("─".repeat(60)));
-      console.log(`  ${chalk.cyan("vibe scene add")} <name>    ${chalk.dim("# author a scene via AI")}`);
+      if (visualStyle) {
+        console.log(`  ${chalk.dim("DESIGN.md seeded with")} ${chalk.bold(visualStyle.name)} ${chalk.dim("— review and customise.")}`);
+      } else {
+        console.log(`  ${chalk.cyan("vibe scene styles")}        ${chalk.dim("# pick a named style for DESIGN.md")}`);
+      }
+      console.log(`  ${chalk.cyan("npx skills add heygen-com/hyperframes")}  ${chalk.dim("# load the cinematic-craft skill set")}`);
+      console.log(`  ${chalk.cyan("vibe scene add")} <name>    ${chalk.dim("# fallback path: 5-preset emit")}`);
       console.log(`  ${chalk.cyan("vibe scene lint")}          ${chalk.dim("# validate HTML")}`);
       console.log(`  ${chalk.cyan("vibe scene render")}        ${chalk.dim("# render to MP4")}`);
     } catch (error) {
@@ -172,6 +209,81 @@ sceneCommand
       const msg = error instanceof Error ? error.message : String(error);
       exitWithError(generalError(`Failed to scaffold: ${msg}`));
     }
+  });
+
+// ---------------------------------------------------------------------------
+// `vibe scene styles` — list / show vendored visual identities
+// ---------------------------------------------------------------------------
+
+sceneCommand
+  .command("styles")
+  .description("List vendored visual styles (or show one) for DESIGN.md seeding")
+  .argument("[name]", "Style name to inspect (omit to list all)")
+  .action((name?: string) => {
+    if (!name) {
+      const all = listVisualStyles();
+      if (isJsonMode()) {
+        outputResult({
+          success: true,
+          command: "scene styles",
+          count: all.length,
+          styles: all.map((s) => ({
+            name: s.name,
+            slug: s.slug,
+            designer: s.designer,
+            mood: s.mood,
+            bestFor: s.bestFor,
+          })),
+        });
+        return;
+      }
+      console.log();
+      console.log(chalk.bold.cyan("Visual styles"));
+      console.log(chalk.dim("─".repeat(60)));
+      for (const s of all) {
+        console.log(
+          `  ${chalk.bold(s.name.padEnd(18))} ${chalk.dim(s.mood.padEnd(24))} ${chalk.dim(s.bestFor)}`,
+        );
+      }
+      console.log();
+      console.log(chalk.dim("Show details: "), chalk.cyan('vibe scene styles "<name>"'));
+      console.log(chalk.dim("Seed DESIGN.md:"), chalk.cyan('vibe scene init <dir> --visual-style "<name>"'));
+      return;
+    }
+
+    const style = getVisualStyle(name);
+    if (!style) {
+      exitWithError(
+        usageError(
+          `Unknown visual style: ${name}`,
+          `Valid: ${visualStyleNames()}.`,
+        ),
+      );
+      return;
+    }
+
+    if (isJsonMode()) {
+      outputResult({ success: true, command: "scene styles", style });
+      return;
+    }
+
+    console.log();
+    console.log(chalk.bold.cyan(style.name), chalk.dim(`— ${style.designer}`));
+    console.log(chalk.dim("─".repeat(60)));
+    console.log(`${chalk.bold("Mood:")}        ${style.mood}`);
+    console.log(`${chalk.bold("Best for:")}    ${style.bestFor}`);
+    console.log(`${chalk.bold("Palette:")}     ${style.palette.join(", ")}`);
+    console.log(chalk.dim("              ") + style.paletteNotes);
+    console.log(`${chalk.bold("Typography:")}  ${style.typography}`);
+    console.log(`${chalk.bold("Composition:")} ${style.composition}`);
+    console.log(`${chalk.bold("Motion:")}      ${style.motion}`);
+    console.log(`${chalk.bold("GSAP:")}        ${style.gsapSignature}`);
+    console.log(`${chalk.bold("Transition:")}  ${style.transition}`);
+    console.log();
+    console.log(chalk.bold("Avoid:"));
+    for (const a of style.avoid) console.log(`  ${chalk.red("•")} ${a}`);
+    console.log();
+    console.log(chalk.dim("Seed DESIGN.md:"), chalk.cyan(`vibe scene init <dir> --visual-style "${style.name}"`));
   });
 
 // ---------------------------------------------------------------------------
