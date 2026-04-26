@@ -39,7 +39,9 @@ aiCommand
   .option("-o, --output <path>", "Output file path (downloads image)")
   .option("-s, --size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
   .option("-r, --ratio <ratio>", "Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)", "1:1")
-  .option("-q, --quality <quality>", "Quality: standard, hd (openai only)", "standard")
+  // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`,
+  // which previously ate the value silently and dropped the prompt positional.
+  .option("--quality <quality>", "Quality: standard, hd (openai only)", "standard")
   .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
   .option("-n, --count <n>", "Number of images to generate", "1")
   .option("-m, --model <model>", "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)")

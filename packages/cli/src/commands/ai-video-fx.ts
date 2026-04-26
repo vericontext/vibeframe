@@ -115,7 +115,8 @@ export function registerVideoFxCommands(ai: Command): void {
     .option("-o, --output <path>", "Output file path")
     .option("-f, --factor <number>", "Slow motion factor: 2, 4, or 8", "2")
     .option("--fps <number>", "Target output FPS")
-    .option("-q, --quality <mode>", "Quality: fast or quality", "quality")
+    // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`.
+    .option("--quality <mode>", "Quality: fast or quality", "quality")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
       try {
