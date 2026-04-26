@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Terminal,
-  Sparkles,
   Github,
   ArrowRight,
   Wand2,
@@ -12,32 +11,6 @@ import {
   Video,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/theme-toggle";
-import { SceneCard } from "../../components/demo/SceneCard";
-import { StepTimeline } from "../../components/demo/StepTimeline";
-
-const scenes = [
-  {
-    title: "Scene 1: Terminal in Space",
-    description: "A floating holographic terminal displaying 'vibe generate video' — the CLI as a gateway to creation.",
-    imageSrc: "/demo/scene1-terminal.png",
-    videoSrc: "/demo/scene1.mp4",
-    command: 'vibe gen vid "terminal slowly rotates, text pulses with energy" -i scene1.png -o scene1.mp4',
-  },
-  {
-    title: "Scene 2: AI Workspace",
-    description: "Futuristic control room with holographic screens — representing the multi-provider AI pipeline.",
-    imageSrc: "/demo/scene2-workspace.png",
-    videoSrc: "/demo/scene2.mp4",
-    command: 'vibe gen vid "camera flies through workspace, screens flicker" -i scene2.png -o scene2.mp4',
-  },
-  {
-    title: "Scene 3: Ready to Play",
-    description: "A glowing play button with particle effects — the finished video, ready to ship.",
-    imageSrc: "/demo/scene3-output.png",
-    videoSrc: "/demo/scene3.mp4",
-    command: 'vibe gen vid "play button glows, particles converge, burst of light" -i scene3.png -o scene3.mp4',
-  },
-];
 
 export default function DemoPage() {
   return (
@@ -176,51 +149,6 @@ export default function DemoPage() {
               color="from-green-500 to-emerald-500"
             />
           </div>
-        </div>
-      </section>
-
-      {/* Output Gallery */}
-      <section id="gallery" className="py-20 px-4 border-t border-border/50">
-        <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/5 px-4 py-1.5 text-sm text-purple-400 mb-4">
-              <Sparkles className="w-4 h-4" />
-              <span>Earlier showcase · v0.5x image-to-video</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Image to video, scene by scene
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              The pre-scene-authoring path: generate an image with one command, then animate it with another.
-              Still works in v0.57 — kept here as the building blocks underneath the new scene workflow.
-            </p>
-          </div>
-
-          <div className="space-y-16">
-            {scenes.map((scene, i) => (
-              <SceneCard key={i} {...scene} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Was Made */}
-      <section id="how-it-was-made" className="py-20 px-4 border-t border-border/50">
-        <div className="mx-auto max-w-4xl">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/5 px-4 py-1.5 text-sm text-orange-400 mb-4">
-              <Terminal className="w-4 h-4" />
-              <span>Behind the Scenes</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              How it was made
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Step-by-step: the exact CLI commands used to produce this demo video.
-            </p>
-          </div>
-
-          <StepTimeline />
         </div>
       </section>
 
