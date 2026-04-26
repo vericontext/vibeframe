@@ -33,14 +33,18 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 
-// Vendored snapshot — esbuild's `text` loader inlines these .md files as
-// string literals at build time, so `npm install -g @vibeframe/cli` ships
-// the skill content inside the single bundled dist/index.js.
-import SKILL_MD              from "./SKILL.md";
-import HOUSE_STYLE_MD        from "./house-style.md";
-import MOTION_PRINCIPLES_MD  from "./motion-principles.md";
-import TYPOGRAPHY_MD         from "./typography.md";
-import TRANSITIONS_MD        from "./transitions.md";
+// Vendored skill content as TS template-literal constants, auto-generated
+// from the sibling .md files by `scripts/refresh-hf-bundle.sh`. Kept as a
+// regular TS module (not bundler-magic .md imports) so any package whose
+// tsc traverses this file (mcp-server via workspace dep) compiles without
+// needing extra ambient declarations or sibling .d.ts files.
+import {
+  SKILL_MD,
+  HOUSE_STYLE_MD,
+  MOTION_PRINCIPLES_MD,
+  TYPOGRAPHY_MD,
+  TRANSITIONS_MD,
+} from "./bundle-content.js";
 
 /**
  * Snapshot identifier. Bump on every refresh of the vendored MD files.

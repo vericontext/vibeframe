@@ -10,6 +10,7 @@ import {
   composeBeatWithRetry,
   computeCacheKey,
   defaultCacheDir,
+  executeComposeScenesWithSkills,
   extractHtml,
   formatLintFeedback,
   lintBeatHtml,
@@ -18,6 +19,8 @@ import {
 
 import type { Beat } from "./storyboard-parse.js";
 import type { LintFinding } from "./scene-lint.js";
+
+import { mkdirSync, writeFileSync, readFileSync as fsReadFileSync } from "node:fs";
 
 // Shared fixtures
 const beat: Beat = {
@@ -406,5 +409,140 @@ describe("composeBeatWithRetry", () => {
       code: "lint-failed-after-retry",
     });
     expect(create).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── executeComposeScenesWithSkills (C5 pipeline action) ─────────────────
+
+const validSceneHtml = `<template id="scene-1-template">
+  <div data-composition-id="scene-1" data-width="1920" data-height="1080" data-start="0" data-duration="3">
+    <div class="clip" data-start="0" data-duration="3" data-track-index="0">
+      <p>Hello</p>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-1"] = { paused: true };
+    </script>
+  </div>
+</template>`;
+
+function fenceHtml(html: string): string {
+  return "```html\n" + html + "\n```";
+}
+
+function seedProject(root: string, designMd: string, storyboardMd: string): void {
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, "DESIGN.md"), designMd, "utf-8");
+  writeFileSync(join(root, "STORYBOARD.md"), storyboardMd, "utf-8");
+}
+
+describe("executeComposeScenesWithSkills", () => {
+  let projectRoot: string;
+  let cacheDir: string;
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), "compose-action-test-"));
+    cacheDir = mkdtempSync(join(tmpdir(), "compose-action-cache-"));
+    process.env.ANTHROPIC_API_KEY = "sk-test";
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+    rmSync(cacheDir, { recursive: true, force: true });
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+  });
+
+  it("composes one composition file per beat and reports aggregate metadata", async () => {
+    seedProject(
+      projectRoot,
+      "# Design\n\n## Palette\n- `#000000`\n",
+      "**Format:** 1920x1080\n\n## Beat 1 — Hook\n\nbody1\n\n## Beat 2 — Outro\n\nbody2\n",
+    );
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenceHtml(validSceneHtml) }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+
+    const r = await executeComposeScenesWithSkills(
+      { cacheDir },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+
+    expect(r.success).toBe(true);
+    expect(r.outputPath).toBe(projectRoot);
+    expect(r.data?.beats).toBe(2);
+    expect(r.data?.written).toHaveLength(2);
+    expect(r.data?.written[0].beatId).toBe("1");
+    expect(r.data?.written[1].beatId).toBe("2");
+    expect(r.data?.cacheHits).toBe(0);
+    expect(r.data?.totalTokensIn).toBeGreaterThan(0);
+
+    // Composition files exist
+    const c1 = fsReadFileSync(join(projectRoot, "compositions/scene-1.html"), "utf-8");
+    const c2 = fsReadFileSync(join(projectRoot, "compositions/scene-2.html"), "utf-8");
+    expect(c1).toBe(validSceneHtml);
+    expect(c2).toBe(validSceneHtml);
+
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns failure when DESIGN.md is missing", async () => {
+    mkdirSync(projectRoot, { recursive: true });
+    writeFileSync(join(projectRoot, "STORYBOARD.md"), "## Beat 1 — x\nbody\n");
+    const r = await executeComposeScenesWithSkills({}, projectRoot);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("DESIGN.md not found");
+  });
+
+  it("returns failure when STORYBOARD.md is missing", async () => {
+    mkdirSync(projectRoot, { recursive: true });
+    writeFileSync(join(projectRoot, "DESIGN.md"), "# d");
+    const r = await executeComposeScenesWithSkills({}, projectRoot);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("STORYBOARD.md not found");
+  });
+
+  it("returns failure when STORYBOARD.md has no beats", async () => {
+    seedProject(projectRoot, "# d", "Just prose, no headings.\n");
+    const r = await executeComposeScenesWithSkills({}, projectRoot);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("no `## Beat …` headings");
+  });
+
+  it("aborts on first beat failure and reports partial progress", async () => {
+    seedProject(
+      projectRoot,
+      "# d",
+      "## Beat 1 — Good\n\nbody\n\n## Beat 2 — Bad\n\nbody\n",
+    );
+    // First beat: good HTML. Second beat: invalid HTML → fails lint twice → throws.
+    const create = vi.fn()
+      .mockResolvedValueOnce({  // beat 1 — valid
+        content: [{ type: "text", text: fenceHtml(validSceneHtml) }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      })
+      .mockResolvedValueOnce({  // beat 2 first attempt — invalid
+        content: [{ type: "text", text: fenceHtml("<template id=\"x\"><div>nope</div></template>") }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      })
+      .mockResolvedValueOnce({  // beat 2 retry — also invalid
+        content: [{ type: "text", text: fenceHtml("<template id=\"x\"><div>still nope</div></template>") }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      });
+
+    const r = await executeComposeScenesWithSkills(
+      { cacheDir },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('compose-scenes-with-skills failed at beat "2"');
+    // Beat 1 was already written; metadata reflects that.
+    expect(r.data?.written).toHaveLength(1);
+    expect(r.data?.written[0].beatId).toBe("1");
   });
 });

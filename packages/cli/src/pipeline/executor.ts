@@ -40,6 +40,7 @@ const ACTION_TO_COMMAND: Partial<Record<PipelineAction, string>> = {
   "analyze-media": "analyze media",
   "analyze-video": "analyze video",
   "review-video": "analyze review",
+  "compose-scenes-with-skills": "compose scenes with skills",
 };
 
 function maxCostFor(action: PipelineAction): number {
@@ -211,6 +212,28 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeReview } = await import("../commands/ai-review.js");
     const r = await executeReview({ videoPath: params.input as string, autoApply: params.autoApply as boolean | undefined, model: params.model as "flash" | "flash-2.5" | "pro" | undefined });
     return { id: "", action: "review-video", success: r.success, output: r.outputPath, data: { feedback: r.feedback }, error: r.error };
+  });
+
+  // Scene composition (v0.59+)
+  registerAction("compose-scenes-with-skills", async (params, outputDir) => {
+    const { executeComposeScenesWithSkills } = await import("../commands/_shared/compose-scenes-skills.js");
+    const r = await executeComposeScenesWithSkills(
+      {
+        design: params.design as string | undefined,
+        storyboard: params.storyboard as string | undefined,
+        project: params.project as string | undefined,
+        effort: params.effort as "low" | "medium" | "high" | undefined,
+      },
+      outputDir,
+    );
+    return {
+      id: "",
+      action: "compose-scenes-with-skills",
+      success: r.success,
+      output: r.outputPath,
+      data: r.data as Record<string, unknown> | undefined,
+      error: r.error,
+    };
   });
 }
 
