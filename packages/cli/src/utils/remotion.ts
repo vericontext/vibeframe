@@ -41,15 +41,6 @@ export interface RenderMotionOptions {
   transparent?: boolean;
 }
 
-export interface CompositeOptions {
-  /** Base video to overlay on */
-  baseVideo: string;
-  /** Rendered overlay (transparent WebM) */
-  overlayPath: string;
-  /** Final composited output */
-  outputPath: string;
-}
-
 export interface RenderResult {
   success: boolean;
   outputPath?: string;
@@ -1035,90 +1026,3 @@ export const ${name} = () => {
   return { code, name };
 }
 
-// ── Legacy composite helpers (kept for backward compat) ───────────────────
-
-/**
- * Composite a transparent overlay on top of a base video using FFmpeg.
- * @deprecated Use renderWithEmbeddedVideo() for new code.
- */
-export async function compositeOverlay(options: CompositeOptions): Promise<RenderResult> {
-  try {
-    await execSafe("ffmpeg", [
-      "-y", "-i", options.baseVideo, "-i", options.overlayPath,
-      "-filter_complex", "[0:v][1:v]overlay=0:0:shortest=1[out]",
-      "-map", "[out]", "-map", "0:a?", "-c:a", "copy",
-      "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
-      options.outputPath,
-    ], { timeout: 300_000 });
-    return { success: true, outputPath: options.outputPath };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: `FFmpeg composite failed: ${msg}` };
-  }
-}
-
-/**
- * Composite a transparent overlay on top of a static image using FFmpeg.
- * @deprecated Use renderWithEmbeddedImage() for new code.
- */
-export async function compositeWithImage(options: {
-  baseImage: string;
-  overlayPath: string;
-  outputPath: string;
-  durationSeconds: number;
-  fps?: number;
-}): Promise<RenderResult> {
-  try {
-    const fps = options.fps || 30;
-    await execSafe("ffmpeg", [
-      "-y", "-loop", "1", "-framerate", String(fps), "-i", options.baseImage,
-      "-i", options.overlayPath,
-      "-filter_complex", "[0:v]scale=iw:ih[base];[base][1:v]overlay=0:0:shortest=1[out]",
-      "-map", "[out]",
-      "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
-      "-t", String(options.durationSeconds),
-      options.outputPath,
-    ], { timeout: 300_000 });
-    return { success: true, outputPath: options.outputPath };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: `FFmpeg image composite failed: ${msg}` };
-  }
-}
-
-/**
- * Full pipeline: render motion graphic → composite onto base video.
- * @deprecated Use renderWithEmbeddedVideo() for new code.
- */
-export async function renderAndComposite(
-  motionOpts: RenderMotionOptions,
-  baseVideo?: string,
-  finalOutput?: string,
-): Promise<RenderResult> {
-  const renderOpts = {
-    ...motionOpts,
-    transparent: !!baseVideo,
-    outputPath: baseVideo
-      ? motionOpts.outputPath.replace(/\.\w+$/, "_overlay.webm")
-      : motionOpts.outputPath,
-  };
-
-  const renderResult = await renderMotion(renderOpts);
-  if (!renderResult.success || !renderResult.outputPath) {
-    return renderResult;
-  }
-
-  if (!baseVideo) {
-    return renderResult;
-  }
-
-  const output = finalOutput || motionOpts.outputPath;
-  const compositeResult = await compositeOverlay({
-    baseVideo,
-    overlayPath: renderResult.outputPath,
-    outputPath: output,
-  });
-
-  await rm(renderResult.outputPath, { force: true }).catch(() => {});
-  return compositeResult;
-}
