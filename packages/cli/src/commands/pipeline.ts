@@ -34,31 +34,36 @@ import { isJsonMode, outputResult, exitWithError, notFoundError, usageError, api
 export const pipelineCommand = new Command("pipeline")
   .alias("pipe")
   .description(
-    "AI video pipelines (script-to-video, highlights, shorts, animated-caption)"
+    "AI media transformations on existing video / audio (highlights, auto-shorts, animated captions). For BUILD-from-text flows see `vibe scene build`."
   )
   .addHelpText(
     "after",
     `
-Examples:
-  $ vibe pipeline script-to-video "A day in the life..." -o ./output/ -g kling
-  $ vibe pipeline script-to-video "..." -o ./output/ --images-only
+Two flows — pick by intent:
+  BUILD     — text → MP4 (intent → AI generation → new video)
+              Use \`vibe scene build\` with a STORYBOARD.md + DESIGN.md.
+              Idempotent, agent-editable, skills-driven (v0.60+).
+  PROCESS   — existing video/audio → transformed media
+              Use \`vibe pipeline\` (this group) or \`vibe edit\` / \`vibe audio\`.
+              One-shot, batch-oriented, no storyboard required.
+
+Examples (PROCESS):
   $ vibe pipeline highlights long-video.mp4 -o highlights.json -d 60
   $ vibe pipeline auto-shorts long-video.mp4 -o shorts/ -n 3 --add-captions
   $ vibe pipeline animated-caption video.mp4 -o captioned.mp4 -s highlight
   $ vibe pipeline animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
 
-Required API Keys (pipelines use multiple providers):
-  script-to-video:     ANTHROPIC_API_KEY + GOOGLE_API_KEY + ELEVENLABS_API_KEY
-                       + video provider key (KLING_API_KEY / RUNWAY_API_SECRET / GOOGLE_API_KEY)
+Required API Keys:
   highlights:          GOOGLE_API_KEY (Gemini analysis)
   auto-shorts:         GOOGLE_API_KEY + OPENAI_API_KEY (optional captions)
   animated-caption:    OPENAI_API_KEY (Whisper transcription)
 
 Cost tiers:
-  script-to-video:     $$$ Very High (~$5-$50+ per video)
   highlights:          $   Low (~$0.05)
   auto-shorts:         $$  Medium (~$0.10-$1)
   animated-caption:    $   Low (~$0.01)
+
+  script-to-video:     $$$ DEPRECATED v0.63 — use \`vibe scene build\` (~$0.18 cached).
 
 Use '--dry-run' to preview parameters before execution.
 Run 'vibe schema pipeline.<command>' for structured parameter info.

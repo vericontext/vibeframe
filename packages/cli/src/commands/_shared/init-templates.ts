@@ -36,19 +36,57 @@ vibe schema generate.video     # JSON Schema for any single command
 vibe doctor                    # available providers + system health
 \`\`\`
 
+## Two flows — pick by intent
+
+VibeFrame splits cleanly into two flows. Routing the user's request
+correctly is the most important judgement call you'll make.
+
+**BUILD — create new video from text intent.**
+Use \`vibe scene build\` with a STORYBOARD.md + DESIGN.md. The
+skills-driven pipeline (v0.60+) dispatches narration TTS + backdrop
+image-gen per beat, composes scene HTML via the Hyperframes skill
+bundle, then renders to MP4. Idempotent re-runs reuse cached assets.
+
+**PROCESS — transform existing video / audio.**
+Use \`vibe pipeline\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
+batch-oriented operations on a file the user already has on disk.
+
+Decision rule: if the user is starting from intent (a script, a brand,
+an idea), it's BUILD. If the user is starting from a media file, it's
+PROCESS.
+
 ## Common workflows
+
+### BUILD (new video from text)
 
 | Task | Command |
 |---|---|
-| Author scenes from a storyboard | \`vibe scene build [project-dir]\` |
+| One-shot storyboard → MP4 | \`vibe scene build [project-dir]\` |
 | Render an existing scene project | \`vibe scene render -o out.mp4\` |
+| Lint scene HTML | \`vibe scene lint --json\` |
 | Generate a single image | \`vibe generate image "prompt" -o img.png --quality hd\` |
 | Generate a single video | \`vibe generate video "prompt" -i image.png -o clip.mp4\` |
 | Generate narration | \`vibe generate speech "text" -o voice.mp3\` |
-| Remove silence from a clip | \`vibe edit silence-cut in.mp4 -o out.mp4\` |
-| Add captions to a clip | \`vibe edit caption in.mp4 -o out.mp4\` |
+
+### PROCESS (transform existing media)
+
+| Task | Command |
+|---|---|
+| Extract highlights from a long video | \`vibe pipeline highlights file.mp4 -d 60\` |
+| Long video → vertical shorts | \`vibe pipeline auto-shorts file.mp4 -n 3 --add-captions\` |
+| Add animated word-by-word captions | \`vibe pipeline animated-caption file.mp4 -s karaoke-sweep\` |
+| Remove silence | \`vibe edit silence-cut in.mp4 -o out.mp4\` |
+| Add static captions | \`vibe edit caption in.mp4 -o out.mp4\` |
+| Translate audio (transcribe → TTS) | \`vibe audio dub file.mp4 -t ko\` |
+| Transcribe (Whisper, word-level) | \`vibe audio transcribe file.mp4 --granularity word\` |
 | Analyze a video | \`vibe analyze video file.mp4 "summarise"\` |
+
+### Compose pipelines (Video as Code)
+
+| Task | Command |
+|---|---|
 | Run a YAML pipeline | \`vibe run pipeline.yaml --dry-run\` |
+| Resume from last checkpoint | \`vibe run pipeline.yaml --resume\` |
 
 ## Cost tiers
 
