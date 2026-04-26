@@ -1,11 +1,13 @@
 # VibeFrame Roadmap
 
-> **For the *current* architectural direction, see [`docs/ROADMAP-v0.58.md`](docs/ROADMAP-v0.58.md).**
-> That doc supersedes anything below for active development.
+> Active per-release detail lives in [`CHANGELOG.md`](CHANGELOG.md).
+> The v0.58-era architectural pivot doc is preserved for historical
+> context at [`docs/archive/ROADMAP-v0.58.md`](docs/archive/ROADMAP-v0.58.md)
+> — its substance landed in v0.59 (`compose-scenes-with-skills`) and v0.60
+> (`vibe scene build`), so it no longer drives active development.
 >
-> This file is the longer historical and forward-looking plan: what shipped (Phases 1-4),
+> This file is the longer-running plan: what shipped (Phases 1-4),
 > what's on the horizon (Phases 5-7).
-> Per-release detail lives in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

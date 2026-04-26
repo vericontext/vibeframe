@@ -232,4 +232,4 @@ rm -f *.png *.mp4 *.mp3 *.wav *.vibe.json
 | See every CLI command at a glance | `vibe --help` or [README › CLI Reference](README.md#cli-reference) |
 | Author a multi-step pipeline as code | [`docs/cookbook.md`](docs/cookbook.md), [`examples/`](examples/) |
 | Compare the scene render vs. raw Hyperframes | [`docs/comparison.md`](docs/comparison.md) |
-| Track what's coming next | [`docs/ROADMAP-v0.58.md`](docs/ROADMAP-v0.58.md), [`ROADMAP.md`](ROADMAP.md) |
+| Track what's coming next | [`ROADMAP.md`](ROADMAP.md) |
