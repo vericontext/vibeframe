@@ -255,70 +255,6 @@ function kenBurnsTween(scope: string, dur: number, endScale = 1.08): string {
   return `tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: ${endScale}, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);`;
 }
 
-/**
- * Subtle idle "breathing" pulse on a hero element. Runs from `idleStart`
- * up to `dur - SCENE_OVERLAP_SECONDS` (so the fade-out never collides
- * with the pulse on the way out) using GSAP's yoyo + finite repeat.
- *
- * Why this exists: even with Ken-Burns on the backdrop and crossfade
- * transitions, the body of every scene was perceptually static —
- * entrance happens in the first ~1 s, then nothing changes for 3-6 s
- * until the next crossfade. Hyperframes-style "natural" videos run
- * multiple animation systems concurrently (deep-dive series 03 §
- * "다섯 어댑터"); the closest analogue here is a continuous low-
- * amplitude pulse on the focal element so the eye reads "alive" rather
- * than "frozen".
- *
- * Tuning notes:
- *   • amplitude `scale: 1.005` — almost imperceptible per-frame, very
- *     readable as motion across 1.5 s. Anything bigger competes with
- *     readability of the text content.
- *   • period 1.5 s — long enough to feel ambient, short enough that
- *     even a 5 s scene gets ≥ 2 plays of the cycle.
- *   • finite `repeat` — *not* `repeat: -1`. Infinite repeats make the
- *     timeline's `duration()` report Infinity, which then breaks
- *     Hyperframes' duration resolution chain (deep-dive 03
- *     `getSafeTimelineDurationSeconds`). The play count is sized to
- *     fill the body without exceeding it.
- */
-function idleHeroPulse(scope: string, selector: string, idleStart: number, dur: number): string {
-  const cycleDur = 1.5;
-  const idleEnd = dur - SCENE_OVERLAP_SECONDS;
-  const window = idleEnd - idleStart;
-  if (window < cycleDur) return ""; // not even one cycle fits
-  // Fit as many full yoyo plays as the window allows. plays >= 2 means
-  // the motion bounces back; plays = 1 means the hero just drifts up
-  // and grows over the body. Even one-way drift beats a frozen frame.
-  const plays = Math.max(1, Math.floor(window / cycleDur));
-  const repeat = plays - 1;
-  return `tl.to('${scope} ${selector}', { scale: 1.04, y: -8, duration: ${cycleDur}, yoyo: true, repeat: ${repeat}, ease: 'sine.inOut' }, ${idleStart.toFixed(2)});`;
-}
-
-/**
- * Phased per-word bob for kinetic-type. Each word translates 4 px up
- * then back, with successive words offset by 0.15 s — the eye reads it
- * as a left-to-right wave moving across the headline. Same finite-
- * repeat reasoning as `idleHeroPulse`.
- */
-function kineticWordBobs(scope: string, wordCount: number, idleStart: number, dur: number): string {
-  const cycleDur = 1.8;
-  const idleEnd = dur - SCENE_OVERLAP_SECONDS;
-  const window = idleEnd - idleStart;
-  if (window < cycleDur) return "";
-  const plays = Math.max(1, Math.floor(window / cycleDur));
-  const repeat = plays - 1;
-  const lines: string[] = [];
-  for (let i = 0; i < wordCount; i++) {
-    const start = (idleStart + i * 0.18).toFixed(2);
-    // y: -12 = ~10 % of typical kinetic word height — meaningful floating
-    // motion that reads as a wave when phased across words.
-    lines.push(
-      `tl.to('${scope} #w-${i}', { y: -12, duration: ${cycleDur}, yoyo: true, repeat: ${repeat}, ease: 'sine.inOut' }, ${start});`,
-    );
-  }
-  return lines.join("\n      ");
-}
-
 // ---------------------------------------------------------------------------
 // Per-preset content + animation
 // ---------------------------------------------------------------------------
@@ -406,8 +342,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
     <div class="caption" id="caption">${captionInner}</div>`,
         timeline: `${crossfadeTweens(scope, dur)}
       ${kenBurnsTween(scope, dur)}
-      ${captionTween}
-      ${idleHeroPulse(scope, "#caption", 1.0, dur)}`,
+      ${captionTween}`,
       };
     }
     case "announcement": {
@@ -446,8 +381,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         // Ken-Burns fills what used to be 80% dead static frame.
         timeline: `${crossfadeTweens(scope, dur)}
       ${kenBurnsTween(scope, dur)}
-      tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);
-      ${idleHeroPulse(scope, "#headline", 1.0, dur)}`,
+      tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
       };
     }
     case "explainer": {
@@ -501,8 +435,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       ${kenBurnsTween(scope, dur)}
       tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('${scope} #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
-      ${subtitleTween}
-      ${idleHeroPulse(scope, "#title", 1.2, dur)}`,
+      ${subtitleTween}`,
       };
     }
     case "kinetic-type": {
@@ -532,14 +465,6 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
             })
             .join("\n      ");
       const kineticFontPx = fitKineticFontSize(words);
-      // Words finish entering at: 0.05 + (n - 1) * stagger + 0.45 (entrance dur).
-      // Add 0.2 s breathing room before the idle wave starts. For
-      // word-sync scenes, take the max of the transcript's last word
-      // end-time + 0.2 s instead.
-      const lastWordEntryEnd = useWordSync
-        ? Math.max(...transcript.map((w) => w.end + 0.2))
-        : 0.05 + (words.length - 1) * stagger + 0.45 + 0.2;
-      const idleStart = Math.max(1.0, Number(lastWordEntryEnd.toFixed(2)));
       return {
         css: `${scope} {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -562,8 +487,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
     <div class="kinetic">${wordSpans}</div>`,
         timeline: `${crossfadeTweens(scope, dur)}
       ${kenBurnsTween(scope, dur)}
-      ${tweens}
-      ${kineticWordBobs(scope, words.length, idleStart, dur)}`,
+      ${tweens}`,
       };
     }
     case "product-shot": {
@@ -604,8 +528,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: 1.12, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);
       tl.from('${scope} #label', { opacity: 0, x: -30, duration: 0.5, ease: 'power3.out' }, 0.2);
       tl.from('${scope} #headline', { opacity: 0, y: 40, duration: 0.6, ease: 'power3.out' }, 0.4);${subhead ? `
-      tl.from('${scope} #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);` : ""}
-      ${idleHeroPulse(scope, "#headline", 1.2, dur)}`,
+      tl.from('${scope} #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);` : ""}`,
       };
     }
   }
