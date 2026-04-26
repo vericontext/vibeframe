@@ -17,6 +17,21 @@ VibeFrame meets you wherever you write — same 58 MCP tools, three surfaces. Ea
 clip below is a real terminal recording. For a copy-pasteable walkthrough you
 can follow live, see **[`DEMO.md`](DEMO.md)**.
 
+### What you can build (≈9 s)
+
+A cinematic 1920×1080 promo, end-to-end from a `STORYBOARD.md` + `DESIGN.md`
+through the v0.59 `compose-scenes-with-skills` pipeline. Three beats, GPT
+Image 2 backdrops, ElevenLabs narration + cinematic BGM, all rendered
+deterministically by Hyperframes' producer.
+
+<p align="center">
+  <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/cinematic-v060.mp4" controls width="800" muted></video>
+</p>
+
+> Rendered from
+> [`examples/vibeframe-promo/`](examples/vibeframe-promo/) — the same project is
+> the smoke fixture for `compose-scenes-with-skills`.
+
 ### 1. Quickstart — `vibe` CLI directly (≈90 s)
 
 Install, scaffold a scene project, narrate with free local Kokoro TTS, render to
