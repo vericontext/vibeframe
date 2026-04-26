@@ -21,7 +21,7 @@ import {
   executeScriptToVideo,
   executeRegenerateScene,
 } from "./ai-script-pipeline.js";
-import { exitWithError, outputResult, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { exitWithError, outputResult, isJsonMode, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 export function registerScriptPipelineCommands(aiCommand: Command): void {
@@ -50,13 +50,24 @@ aiCommand
   .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
   .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
   .option("--review-auto-apply", "Auto-apply fixable issues from AI review")
-  .option("--format <mode>", "Output format: mp4 (default, full pipeline) or scenes (editable HTML scene project)", "mp4")
+  .option("--format <mode>", "Output format: mp4 (default, full pipeline) or scenes (DEPRECATED in v0.62 — use `vibe scene build` with STORYBOARD frontmatter cues; removal scheduled for v0.63)", "mp4")
   .option("--scene-style <preset>", "Style preset for --format scenes: simple | announcement | explainer | kinetic-type | product-shot", "explainer")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (script: string, options) => {
     try {
       if (options.output) {
         validateOutputPath(options.output);
+      }
+
+      // v0.62: --format scenes deprecation warning fires before any other
+      // work so dry-runs surface the same notice production runs do.
+      // Removal scheduled for v0.63 — point users at `vibe scene build`.
+      if (options.format === "scenes" && !isJsonMode()) {
+        console.warn();
+        console.warn(chalk.yellow("⚠  --format scenes is deprecated and will be removed in v0.63."));
+        console.warn(chalk.dim("   Migrate to: write STORYBOARD.md with per-beat YAML cues, then `vibe scene build <project-dir>`."));
+        console.warn(chalk.dim("   See examples/scene-promo-pipeline.yaml for the v0.62 reference flow."));
+        console.warn();
       }
 
       if (options.dryRun) {
