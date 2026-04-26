@@ -59,11 +59,12 @@ steps:
 
     expect(result.success).toBe(true);
     expect(executeSceneBuild).toHaveBeenCalledOnce();
-    const call = vi.mocked(executeSceneBuild).mock.calls[0][0];
-    expect(call.projectDir).toBe(join(workDir, "my-promo"));
-    expect(call.ttsProvider).toBe("kokoro");
-    expect(call.voice).toBe("af_heart");
-    expect(call.imageQuality).toBe("hd");
+    const call = vi.mocked(executeSceneBuild).mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(call!.projectDir).toBe(join(workDir, "my-promo"));
+    expect(call!.ttsProvider).toBe("kokoro");
+    expect(call!.voice).toBe("af_heart");
+    expect(call!.imageQuality).toBe("hd");
 
     expect(result.steps[0].output).toBe("/tmp/render.mp4");
     expect(result.steps[0].action).toBe("scene-build");
@@ -100,8 +101,9 @@ steps: [{ id: b, action: scene-build, skipRender: true }]
 `));
 
     await executePipeline(manifest, { outputDir: workDir });
-    const call = vi.mocked(executeSceneBuild).mock.calls[0][0];
-    expect(call.skipRender).toBe(true);
+    const call = vi.mocked(executeSceneBuild).mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(call!.skipRender).toBe(true);
   });
 });
 
@@ -131,10 +133,11 @@ steps:
     expect(result.success).toBe(true);
     expect(executeSceneRender).toHaveBeenCalledOnce();
 
-    const call = vi.mocked(executeSceneRender).mock.calls[0][0];
-    expect(call.projectDir).toBe(join(workDir, "my-promo"));
-    expect(call.fps).toBe(30);
-    expect(call.quality).toBe("high");
+    const call = vi.mocked(executeSceneRender).mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(call!.projectDir).toBe(join(workDir, "my-promo"));
+    expect(call!.fps).toBe(30);
+    expect(call!.quality).toBe("high");
 
     const data = result.steps[0].data as { audioCount: number; audioMuxApplied: boolean };
     expect(data.audioCount).toBe(3);
@@ -153,7 +156,9 @@ steps: [{ id: r, action: scene-render }]
 `));
 
     await executePipeline(manifest, { outputDir: workDir });
-    expect(vi.mocked(executeSceneRender).mock.calls[0][0].projectDir).toBe(workDir);
+    const call = vi.mocked(executeSceneRender).mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(call!.projectDir).toBe(workDir);
   });
 });
 
