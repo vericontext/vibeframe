@@ -265,7 +265,7 @@ vibe run promo.yaml               # execute pipeline
 vibe run promo.yaml --resume      # retry from last checkpoint
 ```
 
-See [examples/](examples/) for ready-to-use pipeline templates.
+See [`examples/README.md`](examples/README.md) for the catalog — three runnable YAML pipelines (offline / AI promo / budget-capped) plus a bilingual `scene-promo/` project.
 
 ---
 
