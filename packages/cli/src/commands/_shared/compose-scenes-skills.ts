@@ -423,6 +423,13 @@ export async function composeBeatWithRetry(
  *
  * Returns the project root as `output` and per-beat metadata in `data`.
  */
+/** Per-beat lifecycle event emitted to the optional `onProgress` callback. */
+export type ComposeProgressEvent =
+  | { type: "beat-start"; beatId: string; beatIndex: number; totalBeats: number }
+  | { type: "beat-cached"; beatId: string; beatIndex: number; totalBeats: number; lintAttempts: 1 | 2 }
+  | { type: "beat-fresh"; beatId: string; beatIndex: number; totalBeats: number; lintAttempts: 1 | 2; costUsd?: number; latencyMs?: number }
+  | { type: "beat-failed"; beatId: string; beatIndex: number; totalBeats: number; error: string };
+
 export interface ComposeScenesParams {
   /** Path to DESIGN.md, relative to project root. */
   design?: string;
@@ -434,6 +441,8 @@ export interface ComposeScenesParams {
   effort?: ComposeEffort;
   /** Override the cache directory (tests). */
   cacheDir?: string;
+  /** Optional per-beat progress callback (CLI spinner / pipeline reporter). */
+  onProgress?: (event: ComposeProgressEvent) => void;
 }
 
 export interface ComposeScenesActionResult {
@@ -459,8 +468,13 @@ export interface ComposeScenesActionResult {
 }
 
 /**
- * Execute the action. Sequential per-beat fanout in C5; parallelisation
- * lands in C6. Tests inject `overrides` to mock the SDK + clock.
+ * Execute the action. Per-beat fanout via `Promise.allSettled` — all beats
+ * compose in parallel, all errors surface together (rather than fail-fast,
+ * which would still pay for in-flight API calls without surfacing their
+ * findings). Tests inject `overrides` to mock the SDK + clock.
+ *
+ * Wall-clock for an N-beat compose ≈ slowest single beat (~8s @ Sonnet 4.6
+ * per pre-flight PR #111), regardless of N. Cost still scales with N.
  */
 export async function executeComposeScenesWithSkills(
   params: ComposeScenesParams,
@@ -498,18 +512,31 @@ export async function executeComposeScenesWithSkills(
   const compositionsDir = join(projectRoot, "compositions");
   await mkdir(compositionsDir, { recursive: true });
 
-  const written: ComposeScenesActionResult["data"] extends infer D
-    ? D extends { written: infer W } ? W : never
-    : never = [];
-  let totalCostUsd = 0;
-  let totalTokensIn = 0;
-  let totalTokensOut = 0;
-  let cacheHits = 0;
+  const onProgress = params.onProgress ?? (() => {});
+  const totalBeats = beats.length;
 
-  for (const beat of beats) {
-    let result;
+  // Fan out per-beat composes. Each task returns either { ok: true, ... }
+  // (with the result + write path) or { ok: false, error } so we can
+  // aggregate failures in order.
+  type FanoutOutcome =
+    | {
+        ok: true;
+        beatId: string;
+        beatIndex: number;
+        path: string;
+        result: ComposeBeatWithRetryResult;
+      }
+    | {
+        ok: false;
+        beatId: string;
+        beatIndex: number;
+        error: string;
+      };
+
+  const tasks: Array<Promise<FanoutOutcome>> = beats.map(async (beat, beatIndex): Promise<FanoutOutcome> => {
+    onProgress({ type: "beat-start", beatId: beat.id, beatIndex, totalBeats });
     try {
-      result = await composeBeatWithRetry(
+      const result = await composeBeatWithRetry(
         {
           beat,
           designMd,
@@ -521,50 +548,94 @@ export async function executeComposeScenesWithSkills(
         },
         overrides,
       );
+
+      const compositionPath = join(compositionsDir, `scene-${beat.id}.html`);
+      await mkdir(dirname(compositionPath), { recursive: true });
+      await writeFile(compositionPath, result.html, "utf-8");
+
+      if (result.cached) {
+        onProgress({
+          type: "beat-cached",
+          beatId: beat.id,
+          beatIndex,
+          totalBeats,
+          lintAttempts: result.lintAttempts,
+        });
+      } else {
+        onProgress({
+          type: "beat-fresh",
+          beatId: beat.id,
+          beatIndex,
+          totalBeats,
+          lintAttempts: result.lintAttempts,
+          costUsd: result.costUsd,
+          latencyMs: result.latencyMs,
+        });
+      }
+
+      return { ok: true, beatId: beat.id, beatIndex, path: compositionPath, result };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        outputPath: projectRoot,
-        error: `compose-scenes-with-skills failed at beat "${beat.id}": ${message}`,
-        data: {
-          beats: beats.length,
-          written,
-          totalCostUsd,
-          totalTokensIn,
-          totalTokensOut,
-          cacheHits,
-        },
-      };
+      onProgress({ type: "beat-failed", beatId: beat.id, beatIndex, totalBeats, error: message });
+      return { ok: false, beatId: beat.id, beatIndex, error: message };
     }
+  });
 
-    const compositionPath = join(compositionsDir, `scene-${beat.id}.html`);
-    await mkdir(dirname(compositionPath), { recursive: true });
-    await writeFile(compositionPath, result.html, "utf-8");
+  const outcomes = await Promise.all(tasks);
 
+  // Aggregate metadata in beat order. `outcomes` is already ordered by
+  // input position (Promise.all preserves order).
+  const written: ComposeScenesActionResult["data"] extends infer D
+    ? D extends { written: infer W } ? W : never
+    : never = [];
+  const failures: Array<{ beatId: string; error: string }> = [];
+  let totalCostUsd = 0;
+  let totalTokensIn = 0;
+  let totalTokensOut = 0;
+  let cacheHits = 0;
+
+  for (const outcome of outcomes) {
+    if (!outcome.ok) {
+      failures.push({ beatId: outcome.beatId, error: outcome.error });
+      continue;
+    }
+    const r = outcome.result;
     written.push({
-      beatId: beat.id,
-      path: compositionPath,
-      cached: result.cached,
-      lintAttempts: result.lintAttempts,
-      costUsd: result.costUsd,
+      beatId: outcome.beatId,
+      path: outcome.path,
+      cached: r.cached,
+      lintAttempts: r.lintAttempts,
+      costUsd: r.costUsd,
     });
-    if (result.cached) cacheHits++;
-    if (result.costUsd) totalCostUsd += result.costUsd;
-    if (result.inputTokens) totalTokensIn += result.inputTokens;
-    if (result.outputTokens) totalTokensOut += result.outputTokens;
+    if (r.cached) cacheHits++;
+    if (r.costUsd) totalCostUsd += r.costUsd;
+    if (r.inputTokens) totalTokensIn += r.inputTokens;
+    if (r.outputTokens) totalTokensOut += r.outputTokens;
+  }
+
+  const aggregateData = {
+    beats: beats.length,
+    written,
+    totalCostUsd: Number(totalCostUsd.toFixed(4)),
+    totalTokensIn,
+    totalTokensOut,
+    cacheHits,
+  };
+
+  if (failures.length > 0) {
+    return {
+      success: false,
+      outputPath: projectRoot,
+      error: failures.length === 1
+        ? `compose-scenes-with-skills failed at beat "${failures[0].beatId}": ${failures[0].error}`
+        : `compose-scenes-with-skills failed at ${failures.length} beats:\n${failures.map((f) => `  - ${f.beatId}: ${f.error}`).join("\n")}`,
+      data: aggregateData,
+    };
   }
 
   return {
     success: true,
     outputPath: projectRoot,
-    data: {
-      beats: beats.length,
-      written,
-      totalCostUsd: Number(totalCostUsd.toFixed(4)),
-      totalTokensIn,
-      totalTokensOut,
-      cacheHits,
-    },
+    data: aggregateData,
   };
 }

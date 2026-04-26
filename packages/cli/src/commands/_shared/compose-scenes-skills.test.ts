@@ -512,6 +512,89 @@ describe("executeComposeScenesWithSkills", () => {
     expect(r.error).toContain("no `## Beat …` headings");
   });
 
+  it("emits onProgress events per beat: start → fresh|cached|failed", async () => {
+    seedProject(
+      projectRoot,
+      "# d",
+      "## Beat 1 — A\n\nbody\n\n## Beat 2 — B\n\nbody\n",
+    );
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenceHtml(validSceneHtml) }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+    const events: string[] = [];
+
+    await executeComposeScenesWithSkills(
+      {
+        cacheDir,
+        onProgress: (e) => events.push(`${e.type}:${e.beatId}:${e.beatIndex}`),
+      },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+
+    // Both beats fired through start → fresh (no cache hits on first run).
+    expect(events).toContain("beat-start:1:0");
+    expect(events).toContain("beat-start:2:1");
+    expect(events).toContain("beat-fresh:1:0");
+    expect(events).toContain("beat-fresh:2:1");
+    expect(events.filter((e) => e.startsWith("beat-failed"))).toHaveLength(0);
+  });
+
+  it("emits beat-cached on second run when content already cached", async () => {
+    seedProject(projectRoot, "# d", "## Beat 1 — A\n\nbody\n");
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenceHtml(validSceneHtml) }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+
+    // First run — fresh.
+    const events1: string[] = [];
+    await executeComposeScenesWithSkills(
+      { cacheDir, onProgress: (e) => events1.push(e.type) },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+    expect(events1).toContain("beat-fresh");
+
+    // Second run — same project + same cacheDir → cache hit.
+    const events2: string[] = [];
+    await executeComposeScenesWithSkills(
+      { cacheDir, onProgress: (e) => events2.push(e.type) },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+    expect(events2).toContain("beat-cached");
+    expect(events2).not.toContain("beat-fresh");
+  });
+
+  it("aggregates multiple beat failures into one error message (doesn't fail-fast)", async () => {
+    seedProject(
+      projectRoot,
+      "# d",
+      "## Beat 1 — Bad\n\nbody\n\n## Beat 2 — AlsoBad\n\nbody\n",
+    );
+    // Every call returns invalid HTML → both beats fail twice → both throw.
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenceHtml("<template id=\"x\"><div>nope</div></template>") }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+
+    const r = await executeComposeScenesWithSkills(
+      { cacheDir },
+      projectRoot,
+      { client: { messages: { create } } as never },
+    );
+
+    expect(r.success).toBe(false);
+    // Both beat ids appear in the aggregated error (deriveBeatId → "1", "2")
+    expect(r.error).toContain("- 1: ");
+    expect(r.error).toContain("- 2: ");
+    expect(r.error).toMatch(/failed at 2 beats/);
+    // 4 calls total: 2 beats × 2 attempts (initial + retry)
+    expect(create).toHaveBeenCalledTimes(4);
+  });
+
   it("aborts on first beat failure and reports partial progress", async () => {
     seedProject(
       projectRoot,
