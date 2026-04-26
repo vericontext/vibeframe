@@ -111,6 +111,20 @@ R_MCP_BUNDLED=$(first_num '\*\*[0-9]+ MCP tools\*\*' README.md)
 [ -n "$R_MCP_BUNDLED" ] && [ "$R_MCP_BUNDLED" != "$MCP_TOOLS" ] && \
   err "README.md MCP cell shows '${R_MCP_BUNDLED} MCP tools' but actual = ${MCP_TOOLS}"
 
+# Comparison table — "MCP server (N tools, ..." and "✅ N tools" cells.
+# These were missed before #108 cleanup landed; check each occurrence.
+while IFS= read -r line; do
+  N=$(echo "$line" | grep -oE 'MCP server \([0-9]+ tools' | grep -oE '[0-9]+' | head -1)
+  [ -n "$N" ] && [ "$N" != "$MCP_TOOLS" ] && \
+    err "README.md comparison row says 'MCP server (${N} tools' but actual = ${MCP_TOOLS}"
+done < <(grep -E 'MCP server \([0-9]+ tools' README.md)
+
+while IFS= read -r line; do
+  N=$(echo "$line" | grep -oE '✅ [0-9]+ tools' | grep -oE '[0-9]+' | head -1)
+  [ -n "$N" ] && [ "$N" != "$MCP_TOOLS" ] && \
+    err "README.md MCP-server row says '✅ ${N} tools' but actual = ${MCP_TOOLS}"
+done < <(grep -E '✅ [0-9]+ tools' README.md)
+
 # ── A2. apps/web/app/page.tsx hero copy ─────────────────────────────────
 # Hero copy may interpolate ${process.env.NEXT_PUBLIC_AI_PROVIDERS} (preferred)
 # or hardcode. If hardcoded, must match.

@@ -79,7 +79,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | Layer | Hyperframes | VibeFrame |
 |---|---|---|
 | **AI generation** | — | OpenAI gpt-image-2 (image default since v0.56), fal.ai Seedance 2.0 (video default since v0.57), Veo, Kling, Runway, Grok, ElevenLabs, Replicate |
-| **Agent integrations** | — | MCP server (59 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
+| **Agent integrations** | — | MCP server (58 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
 | **Traditional editing** | — | `vibe edit` silence-cut · jump-cut · caption · grade · reframe · speed-ramp · fade · noise-reduce (84+ commands total) |
 | **AI analysis** | — | `vibe analyze` media/video/review/suggest (multimodal LLMs) |
 | **AI pipelines** | composition format only | `vibe pipeline script-to-video` · `highlights` · `auto-shorts` · `animated-caption` |
@@ -87,7 +87,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
 | **Claude Code skills** | ✅ `hyperframes skills add` | ✅ ships `/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene` |
-| **MCP server** | ❌ | ✅ 59 tools |
+| **MCP server** | ❌ | ✅ 58 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
 
