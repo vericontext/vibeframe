@@ -65,7 +65,7 @@ JSON config block, no CLI install needed (`npx` pulls the bundle on demand).
   </a>
 </p>
 
-> **New in v0.58 (not yet in the recordings above):** `vibe scene init --visual-style "Swiss Pulse"` seeds a `DESIGN.md` hard-gate; `vibe scene styles` browses 8 named visual identities (Swiss Pulse, Velvet Standard, Deconstructed, Maximalist Type, Data Drift, Soft Signal, Folk Frequency, Shadow Cut). The cinematic-craft path runs through Hyperframes' `/hyperframes` skill in Claude Code — `npx skills add heygen-com/hyperframes`. See [`docs/ROADMAP-v0.58.md`](docs/ROADMAP-v0.58.md) for the v0.59 / v0.60 plan.
+> **New in v0.60:** `vibe scene build` is the one-shot driver — write a `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration), and a single command dispatches TTS + GPT Image 2 + composes scene HTML via the `compose-scenes-with-skills` pipeline (v0.59) and renders to MP4. `vibe scene init --visual-style "Swiss Pulse"` (v0.58) still seeds the `DESIGN.md` hard-gate + 8 named visual identities. Hyperframes' `/hyperframes` skill (`npx skills add heygen-com/hyperframes`) is loaded as the LLM system prompt for composition craft.
 
 [`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) has the full 5-prompt walkthrough plus the recording recipe.
 
@@ -319,8 +319,37 @@ vibe scene render -o promo.mp4         # requires Chrome
 ```
 
 Scene projects are bilingual — they work with both `vibe` and
-[`npx hyperframes`](https://github.com/heygen-com/hyperframes). To produce a
-full scenes project from a written script in one shot:
+[`npx hyperframes`](https://github.com/heygen-com/hyperframes).
+
+### One-shot build (v0.60)
+
+When the project has a `STORYBOARD.md` with per-beat YAML cues, a single
+command dispatches all primitives + composes + renders:
+
+```bash
+vibe scene build my-promo                 # storyboard → narration + backdrops + MP4
+vibe scene build --skip-render            # compose only (review HTML before rendering)
+vibe scene build --tts kokoro --voice af_heart   # override frontmatter providers
+```
+
+Per-beat cues live as a fenced \`\`\`yaml block at the start of each beat body:
+
+```markdown
+## Beat hook — Hook
+
+\`\`\`yaml
+narration: "Type a YAML."
+backdrop: "Abstract minimalist tech aesthetic, electric blue glow"
+duration: 3
+\`\`\`
+```
+
+Idempotent: existing assets are reused, `--force` overrides. See
+[`examples/vibeframe-promo/`](examples/vibeframe-promo/) for the
+end-to-end fixture (the same project that produced the cinematic hero
+above).
+
+### Or: from a written script in one shot
 
 ```bash
 vibe pipeline script-to-video "..." --format scenes -o my-promo/ -a 16:9
@@ -370,7 +399,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe analyze`** | `media`, `video`, `review`, `suggest` | `vibe analyze media video.mp4 "summarize"` |
 | **`vibe audio`** | `transcribe` (Whisper), `tts` (ElevenLabs · Kokoro local fallback), `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
 | **`vibe pipeline`** | `script-to-video`, `highlights`, `auto-shorts`, `regenerate-scene`, `animated-caption` | `vibe pipeline script-to-video "..." -a 9:16` |
-| **`vibe scene`** | `init`, `add`, `lint`, `render` | `vibe scene add intro --style announcement --headline "..."` |
+| **`vibe scene`** | `init`, `add`, `lint`, `render`, `build` (v0.60) | `vibe scene build my-promo` |
 | **`vibe project`** | `create`, `info`, `set` | `vibe project create "name"` |
 | **`vibe timeline`** | `add-source`, `add-clip`, `split`, `trim`, `move`, `delete`, `list` | `vibe timeline add-source project file` |
 | **`vibe batch`** | `import`, `concat`, `apply-effect` | `vibe batch import project dir/` |
