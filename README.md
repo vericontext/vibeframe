@@ -1,6 +1,6 @@
 # VibeFrame
 
-**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 53 MCP tools bundled.
+**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 59 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -73,7 +73,7 @@ of `vibe scene render` vs `npx hyperframes render` on the same project
 | CLI-first | ✅ | ✅ | ✅ | ❌ (library) |
 | YAML pipelines | ✅ (`vibe run`) | partial | ✅ | ❌ |
 | AI providers | **13** (OpenAI gpt-image-2, fal/Seedance 2.0, Veo, Kling, Runway, Grok, ElevenLabs, Kokoro, Whisper, Claude, Gemini, OpenRouter, Ollama) | TTS + transcribe | many | ❌ |
-| MCP server bundled | ✅ **53 MCP tools** | ❌ | ❌ | ❌ |
+| MCP server bundled | ✅ **59 MCP tools** | ❌ | ❌ | ❌ |
 | Claude Code Skill | [planned](https://github.com/vericontext/vibeframe/issues/32) | ✅ | ❌ | ❌ |
 | Render backend | FFmpeg + Remotion | HTML + Puppeteer | FFmpeg | React → Video |
 | License | MIT | Apache 2.0 | AGPLv3 | MIT |
@@ -195,7 +195,7 @@ Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/v
 
 ## MCP Integration (Claude Desktop / Cursor)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (53 MCP tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (59 MCP tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {
