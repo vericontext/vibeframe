@@ -24,6 +24,10 @@ import {
   hasTTY,
 } from "../utils/tty.js";
 import { loadEnv } from "../utils/api-key.js";
+import {
+  detectedAgentHosts,
+  summariseAgentHosts,
+} from "../utils/agent-host-detect.js";
 
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
@@ -129,8 +133,14 @@ const AI_FEATURES: AIFeature[] = [
  */
 async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log();
-  console.log(chalk.bold.magenta("VibeFrame Setup"));
+  console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.dim(" — user scope"));
   console.log(chalk.dim("─".repeat(40)));
+  console.log();
+
+  // Show detected agent hosts up-front so the user knows VibeFrame can
+  // tell what they have. Informational only — never blocks setup.
+  const hosts = detectedAgentHosts();
+  console.log(chalk.dim(`Agent hosts: ${summariseAgentHosts(hosts)}`));
   console.log();
 
   // Load existing config or create default
@@ -415,9 +425,23 @@ function showComplete(
   }
   console.log();
   console.log(chalk.bold("  Next steps:"));
-  console.log(chalk.dim("    vibe doctor         Check system health + available commands"));
-  console.log(chalk.dim("    vibe schema --list  Discover all 69 commands"));
-  console.log(chalk.dim("    vibe setup          Re-run setup anytime"));
+  console.log(chalk.dim("    cd <project>; vibe init   Scaffold AGENTS.md / CLAUDE.md / .env.example (project scope)"));
+  console.log(chalk.dim("    vibe doctor               Check system health + available commands"));
+  console.log(chalk.dim("    vibe schema --list        Discover all 69 commands"));
+  console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
+
+  // Tailored hint when an agent host is detected — points at the file
+  // `vibe init` will scaffold for that host.
+  const hosts = detectedAgentHosts();
+  const primary = hosts[0];
+  if (primary) {
+    console.log();
+    console.log(
+      chalk.dim(
+        `  Detected ${primary.label} — \`vibe init\` will scaffold ${primary.projectFiles.join(" + ")} in your project.`,
+      ),
+    );
+  }
   console.log();
 }
 
