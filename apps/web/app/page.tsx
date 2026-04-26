@@ -14,6 +14,7 @@ import {
   Wand2,
   Film,
   Code2,
+  Video,
 } from "lucide-react";
 import { ThemeToggle } from "../components/theme-toggle";
 
@@ -108,6 +109,50 @@ export default function LandingPage() {
               See it in action
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ⓪ What you can build — v0.62 cinematic demo MP4 anchored above the
+          three-surface walkthroughs. Shows OUTPUT first, then surfaces.
+          Replaces the section the v0.58 pivot left blank. */}
+      <section className="py-20 px-4 border-t border-border/50 relative">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
+              <Video className="w-4 h-4" />
+              <span>What you can build · v0.60 demo</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              STORYBOARD.md → MP4, in one command
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {`Author cues in YAML, run \`vibe scene build\`. The pipeline dispatches `}
+              narration TTS, GPT Image 2 backdrops, composes scene HTML via the
+              Hyperframes skill bundle, and renders deterministically.
+            </p>
+          </div>
+          <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black mx-auto max-w-4xl">
+            <video
+              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/cinematic-v060.mp4"
+              controls
+              muted
+              autoPlay
+              loop
+              playsInline
+              className="w-full h-auto"
+            />
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Source:{" "}
+            <Link
+              href="https://github.com/vericontext/vibeframe/tree/main/examples/vibeframe-promo"
+              target="_blank"
+              className="underline hover:text-foreground"
+            >
+              examples/vibeframe-promo/
+            </Link>
+            {" — STORYBOARD.md + DESIGN.md, ~$0.18 fresh / $0 cached."}
+          </p>
         </div>
       </section>
 
@@ -407,47 +452,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section id="features" className="py-20 px-4 border-t border-border/50">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Built for AI agents
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Not another Premiere clone. VibeFrame is designed from the ground up
-              for automation and AI-powered workflows.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <FeatureCard
-              icon={<Terminal className="w-6 h-6" />}
-              title="CLI-First"
-              description={`Full video editing from the command line. ${process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands with short aliases. Zero GUI required.`}
-              gradient="from-blue-500 to-cyan-500"
-            />
-            <FeatureCard
-              icon={<Code2 className="w-6 h-6" />}
-              title="Claude Code"
-              description="Natural language → CLI execution. Describe what you want, Claude runs the commands."
-              gradient="from-orange-500 to-amber-500"
-            />
-            <FeatureCard
-              icon={<MessageSquare className="w-6 h-6" />}
-              title="MCP Native"
-              description={`${process.env.NEXT_PUBLIC_MCP_TOOLS} tools in Claude Desktop and Cursor. Let AI control your edits.`}
-              gradient="from-purple-500 to-pink-500"
-            />
-            <FeatureCard
-              icon={<Layers className="w-6 h-6" />}
-              title={`${process.env.NEXT_PUBLIC_AI_PROVIDERS} AI Providers`}
-              description="OpenAI gpt-image-2, fal.ai Seedance 2.0, Veo, Kling, Runway, Grok, ElevenLabs, Kokoro (local), Whisper, Claude, Gemini, OpenRouter, Ollama."
-              gradient="from-green-500 to-emerald-500"
-            />
-          </div>
-        </div>
-      </section>
+      {/* v0.62: removed the "Built for AI agents" Features Grid — every
+          point it made (CLI-First, Claude Code, MCP, AI Providers) was
+          already covered by its own dedicated section above, so the
+          4-card grid was pure restatement. The cinematic demo at the
+          top + the four detailed surface sections cover the same ground
+          with less repetition. */}
 
       {/* CTA */}
       <section className="py-20 px-4">
@@ -636,28 +646,8 @@ function TerminalAnimation() {
   );
 }
 
-// Feature Card Component
-function FeatureCard({
-  icon,
-  title,
-  description,
-  gradient
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  gradient: string;
-}) {
-  return (
-    <div className="group bg-secondary/50 border border-border/50 rounded-xl p-6 hover:border-primary/30 hover:bg-secondary/80 transition-all duration-300">
-      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-        {icon}
-      </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground text-sm">{description}</p>
-    </div>
-  );
-}
+// FeatureCard removed in v0.62 along with the redundant "Built for AI agents"
+// section. Reintroduce here if a future grid needs it.
 
 // Feature Item Component (for Agent section)
 function FeatureItem({
