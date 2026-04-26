@@ -174,6 +174,28 @@ export const SCENE_OVERLAP_SECONDS = 0.4;
  * Both tweens target the scope (`[data-composition-id="<id>"]`) so the
  * opacity fade affects the whole scene including backdrop — child opacity
  * inherits from the scope.
+ *
+ * Combined with the z-index inversion in `buildClipReference()` (earlier
+ * scenes paint on TOP of later scenes during overlap windows), the
+ * architecture is:
+ *
+ *   • Outgoing scene (on top) fades scope opacity 1 → 0 over its last
+ *     `SCENE_OVERLAP_SECONDS`. As it fades, the incoming scene below
+ *     (already at full opacity) is revealed cleanly. No black bleed-
+ *     through because the layer behind the fading-out scope is the
+ *     incoming scene's fully-opaque pixels, not the body's #000.
+ *   • Incoming scene fades 0 → 1 over its first `SCENE_OVERLAP_SECONDS`.
+ *     For non-first scenes this is invisible (the outgoing scene above
+ *     is still fully opaque covering it), but it gives the very first
+ *     scene of the video a clean fade-from-black opening.
+ *
+ * Earlier variants without z-index inversion had the *incoming* on top
+ * (DOM order) which caused the incoming's still-emerging content (mostly
+ * dark backdrop) to dim the visible image during overlap. Frame-luma
+ * analysis on v0.55-self-promo showed a 17 % dip mid-overlap. The
+ * z-index inversion + outgoing-fade-out reverses the layering so the
+ * outgoing's already-rich content is what fades, revealing the
+ * incoming's fully-opaque content — no dimming.
  */
 function crossfadeTweens(scope: string, dur: number): string {
   return `tl.from('${scope}', { opacity: 0, duration: ${SCENE_OVERLAP_SECONDS}, ease: 'power2.out' }, 0);
@@ -602,7 +624,17 @@ export function buildClipReference(opts: ClipReferenceInput): string {
   const duration = Number(opts.duration.toFixed(3));
   const track = opts.trackIndex ?? 1;
   const src = opts.src ?? `compositions/scene-${opts.id}.html`;
-  return `<div class="clip" data-composition-id="${esc(opts.id)}" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}"></div>`;
+  // Inline z-index inverted from start time: earlier scenes paint on TOP
+  // of later scenes during overlap windows. The fade-out scope tween on
+  // the outgoing (earlier) scene then reveals the incoming (later) scene
+  // below it cleanly, with no black bleed-through. DOM order alone isn't
+  // enough — Hyperframes runtime sets `visibility: visible/hidden` based
+  // on data-start/data-duration, so both clips paint during overlap and
+  // the later DOM child would otherwise cover the earlier one.
+  // Scale factor 1000 keeps z-indices within sane integer ranges for
+  // multi-minute compositions while preserving sort order.
+  const zIndex = Math.max(1, 1000000 - Math.floor(start * 1000));
+  return `<div class="clip" data-composition-id="${esc(opts.id)}" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}" style="z-index: ${zIndex};"></div>`;
 }
 
 /**

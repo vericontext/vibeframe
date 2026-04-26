@@ -559,15 +559,27 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
         subhead: "sub",
         kicker: "kick",
       });
-      // Fade-in: 0..0.4 s
+      // Symmetric fade-in / fade-out, both 0.4 s. Combined with z-index
+      // inversion in buildClipReference() (earlier scenes on top), the
+      // outgoing fade-out reveals the incoming below cleanly.
       expect(html, `${preset} should fade-in scope at 0`).toMatch(
         /tl\.from\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 0\)/,
       );
-      // Fade-out: (dur - 0.4)..dur
       expect(html, `${preset} should fade-out scope before end`).toMatch(
         /tl\.to\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 4\.60\)/,
       );
     }
+  });
+
+  it("buildClipReference assigns inverted z-index so earlier scenes paint on top during overlap", () => {
+    const a = buildClipReference({ id: "intro", start: 0, duration: 5 });
+    const b = buildClipReference({ id: "core", start: 4.6, duration: 7 });
+    const c = buildClipReference({ id: "outro", start: 11.2, duration: 6 });
+    // Higher z-index = painted on top. start=0 should outrank start=4.6
+    // which should outrank start=11.2.
+    const z = (clip: string) => parseInt(clip.match(/z-index: (\d+);/)?.[1] ?? "0", 10);
+    expect(z(a)).toBeGreaterThan(z(b));
+    expect(z(b)).toBeGreaterThan(z(c));
   });
 
   it("nextSceneStart respects optional overlap so subsequent clips overlap by SCENE_OVERLAP_SECONDS", () => {
