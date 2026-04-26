@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.60.0] - 2026-04-26
+
+### Added
+
+- vibe scene build — one-shot storyboard → MP4 (v0.60 C3) (#135) *(scene)*
+- YAML frontmatter + per-beat cues (v0.60 C2) (#133) *(storyboard)*
+
+### Fixed
+
+- bake timeline-duration rule into compose-scenes prompt (v0.60 demo black-hold fix) (#131) *(scene)*
+- drop -q shorthand from quality flags (collides with --quiet) (#130) *(cli)*
+
+### Maintenance
+
+- commit v0.60 cinematic MP4 + restore MP4 hero on /demo (#132) *(demo)*
+
 ## [0.59.0] - 2026-04-26
 
 ### Added
@@ -59,7 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - mark surface recordings 'coming soon' + rebuild DEMO.md follow-along (#108) *(demo)*
 - honest positioning vs Hyperframes (build-on, not compete) (#96) *(readme)*
 - refresh landing copy + share metadata for v0.57 defaults (#93) *(web)*
-- refresh AI provider list for v0.56 / v0.57 (#91) *(readme,web)*
 
 ### Fixed
 
@@ -67,7 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - z-index inversion eliminates mid-overlap luma dip (#101) *(scene)*
 - restore narration on the v0.55 self-promo MP4 (audio was missing) (#99) *(demo)*
 - MCP tool count is 58, not 59 (test fixtures over-count) (#97) *(counts)*
-- refresh onboarding for fal + Kokoro defaults (v0.57.3) (#92) *(cli)*
 
 ### Maintenance
 
@@ -75,6 +89,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - drop orphan binaries + components after hero pivot (#106) *(demo)*
 - drop synthesised hero MP4, lead with asciinema, set v0.58 roadmap (#105) *(demo)*
 - broaden sync drift detection (catches today's 7 missed cases) (#95) *(hooks)*
+
+## [0.57.3] - 2026-04-25
+
+### Documentation
+
+- refresh AI provider list for v0.56 / v0.57 (#91) *(readme,web)*
+
+### Fixed
+
+- refresh onboarding for fal + Kokoro defaults (v0.57.3) (#92) *(cli)*
 
 ## [0.57.2] - 2026-04-25
 
