@@ -69,8 +69,9 @@ packages/cli/*.mp3
 # Docs media (regenerable)
 docs/*.mp4
 
-# Internal docs
+# Private dev docs — patterns kept so locally-created files stay out
+# of accidental `git add .`. Files like scripts/FUNC_TEST.md /
+# QUICK_TEST.md / CLAUDE_CODE_TEST.md *are* committed dev playbooks
+# (golden-path smoke tests) — they're public on purpose.
 ROADMAP-CLOUD.md
 scripts/DEV_GUIDE.md
-scripts/FUNC_TEST.md
-scripts/QUICK_TEST.md
