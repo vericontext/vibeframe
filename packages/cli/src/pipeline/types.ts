@@ -43,6 +43,8 @@ export type PipelineAction =
   | "analyze-media"
   // Review
   | "review-video"
+  // Scene composition (v0.59+)
+  | "compose-scenes-with-skills"
   // Meta
   | "export";
 

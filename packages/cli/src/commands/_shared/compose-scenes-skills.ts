@@ -28,17 +28,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import {
   runHyperframeLint,
   type PreparedHyperframeLintInput,
 } from "@hyperframes/producer";
 
+import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
 import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
-import type { Beat } from "./storyboard-parse.js";
+import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 
 /** Effort level → model + token caps. */
 export type ComposeEffort = "low" | "medium" | "high";
@@ -401,4 +402,169 @@ export async function composeBeatWithRetry(
     "lint-failed-after-retry",
     `Beat "${ctx.beat.id}" failed lint after retry. Final findings:\n${formatLintFeedback(lint2.findings)}`,
   );
+}
+
+// ── Pipeline action executor (C5) ───────────────────────────────────────
+
+/**
+ * YAML pipeline action: read DESIGN.md + STORYBOARD.md, compose each beat
+ * via Claude, write `compositions/scene-<id>.html` per beat. Sequential
+ * fanout; C6 swaps in `Promise.all` parallelism.
+ *
+ * Wired into `pipeline/executor.ts` as the `compose-scenes-with-skills`
+ * action. YAML shape:
+ *
+ *     - id: compose
+ *       action: compose-scenes-with-skills
+ *       design: DESIGN.md          # required (relative to project)
+ *       storyboard: STORYBOARD.md  # required
+ *       project: .                 # optional, default outputDir
+ *       effort: medium             # optional, low|medium|high
+ *
+ * Returns the project root as `output` and per-beat metadata in `data`.
+ */
+export interface ComposeScenesParams {
+  /** Path to DESIGN.md, relative to project root. */
+  design?: string;
+  /** Path to STORYBOARD.md, relative to project root. */
+  storyboard?: string;
+  /** Scene project root, relative to outputDir. Defaults to outputDir. */
+  project?: string;
+  /** Effort tier — low/medium/high. Defaults to medium. */
+  effort?: ComposeEffort;
+  /** Override the cache directory (tests). */
+  cacheDir?: string;
+}
+
+export interface ComposeScenesActionResult {
+  success: boolean;
+  /** Project root (where compositions/ lives). */
+  outputPath?: string;
+  /** Aggregated metadata for the dry-run / final report. */
+  data?: {
+    beats: number;
+    written: Array<{
+      beatId: string;
+      path: string;
+      cached: boolean;
+      lintAttempts: 1 | 2;
+      costUsd?: number;
+    }>;
+    totalCostUsd: number;
+    totalTokensIn: number;
+    totalTokensOut: number;
+    cacheHits: number;
+  };
+  error?: string;
+}
+
+/**
+ * Execute the action. Sequential per-beat fanout in C5; parallelisation
+ * lands in C6. Tests inject `overrides` to mock the SDK + clock.
+ */
+export async function executeComposeScenesWithSkills(
+  params: ComposeScenesParams,
+  outputDir: string,
+  overrides?: { client?: Anthropic; now?: () => number },
+): Promise<ComposeScenesActionResult> {
+  const projectRoot = params.project ? resolve(outputDir, params.project) : resolve(outputDir);
+  const designPath = resolve(projectRoot, params.design ?? "DESIGN.md");
+  const storyboardPath = resolve(projectRoot, params.storyboard ?? "STORYBOARD.md");
+
+  if (!existsSync(designPath)) {
+    return { success: false, error: `DESIGN.md not found at ${designPath}` };
+  }
+  if (!existsSync(storyboardPath)) {
+    return { success: false, error: `STORYBOARD.md not found at ${storyboardPath}` };
+  }
+
+  const designMd = await readFile(designPath, "utf-8");
+  const storyboardMd = await readFile(storyboardPath, "utf-8");
+
+  const { global: storyboardGlobal, beats } = parseStoryboard(storyboardMd);
+  if (beats.length === 0) {
+    return {
+      success: false,
+      error: `STORYBOARD.md at ${storyboardPath} contains no \`## Beat …\` headings.`,
+    };
+  }
+
+  const skillBundleLoaded = loadHyperframesSkillBundle();
+  const skillBundle = { content: skillBundleLoaded.content, hash: skillBundleLoaded.hash };
+
+  // Allow cache hit even when no API key — only fail when an actual call would be made.
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+
+  const compositionsDir = join(projectRoot, "compositions");
+  await mkdir(compositionsDir, { recursive: true });
+
+  const written: ComposeScenesActionResult["data"] extends infer D
+    ? D extends { written: infer W } ? W : never
+    : never = [];
+  let totalCostUsd = 0;
+  let totalTokensIn = 0;
+  let totalTokensOut = 0;
+  let cacheHits = 0;
+
+  for (const beat of beats) {
+    let result;
+    try {
+      result = await composeBeatWithRetry(
+        {
+          beat,
+          designMd,
+          storyboardGlobal,
+          skillBundle,
+          apiKey,
+          effort: params.effort,
+          cacheDir: params.cacheDir,
+        },
+        overrides,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        outputPath: projectRoot,
+        error: `compose-scenes-with-skills failed at beat "${beat.id}": ${message}`,
+        data: {
+          beats: beats.length,
+          written,
+          totalCostUsd,
+          totalTokensIn,
+          totalTokensOut,
+          cacheHits,
+        },
+      };
+    }
+
+    const compositionPath = join(compositionsDir, `scene-${beat.id}.html`);
+    await mkdir(dirname(compositionPath), { recursive: true });
+    await writeFile(compositionPath, result.html, "utf-8");
+
+    written.push({
+      beatId: beat.id,
+      path: compositionPath,
+      cached: result.cached,
+      lintAttempts: result.lintAttempts,
+      costUsd: result.costUsd,
+    });
+    if (result.cached) cacheHits++;
+    if (result.costUsd) totalCostUsd += result.costUsd;
+    if (result.inputTokens) totalTokensIn += result.inputTokens;
+    if (result.outputTokens) totalTokensOut += result.outputTokens;
+  }
+
+  return {
+    success: true,
+    outputPath: projectRoot,
+    data: {
+      beats: beats.length,
+      written,
+      totalCostUsd: Number(totalCostUsd.toFixed(4)),
+      totalTokensIn,
+      totalTokensOut,
+      cacheHits,
+    },
+  };
 }

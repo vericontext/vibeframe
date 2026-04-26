@@ -170,6 +170,9 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "pipeline auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
   "pipeline animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
   "pipeline regenerate-scene": { min: 0.50, max: 5.00, unit: "per scene" },
+  // Scene composition (v0.59+) — per-beat composer call ≈ $0.06 (PR #111
+  // pre-flight). Range covers a 1-beat preview to a 10-beat long-form.
+  "compose scenes with skills": { min: 0.05, max: 1.50, unit: "per pipeline" },
 };
 
 function formatCost(min: number, max: number, unit: string): string {
