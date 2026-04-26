@@ -129,9 +129,15 @@ describe("executeSegmentsToScenes", () => {
     const root = await readFile(resolve(dir, "index.html"), "utf-8");
     expect(root).toContain('data-composition-src="compositions/scene-01.html"');
     expect(root).toContain('data-composition-src="compositions/scene-02.html"');
-    expect(root).toMatch(/data-composition-id="scene-01"\s+data-composition-src="compositions\/scene-01\.html"\s+data-start="0"\s+data-duration="4"/);
-    expect(root).toMatch(/data-composition-id="scene-02"\s+data-composition-src="compositions\/scene-02\.html"\s+data-start="4"\s+data-duration="3"/);
-    expect(root).toContain('data-duration="7"'); // root grew to fit total 7s
+    // Crossfade architecture: scene-02 starts 0.4 s before scene-01 ends
+    // (SCENE_OVERLAP_SECONDS) so the two clips overlap by the crossfade
+    // window. Adjacent clips alternate track-index so the Hyperframes
+    // `overlapping_clips_same_track` linter doesn't fire on the
+    // intentional overlap.
+    expect(root).toMatch(/data-composition-id="scene-01"\s+data-composition-src="compositions\/scene-01\.html"\s+data-start="0"\s+data-duration="4"\s+data-track-index="1"/);
+    expect(root).toMatch(/data-composition-id="scene-02"\s+data-composition-src="compositions\/scene-02\.html"\s+data-start="3.6"\s+data-duration="3"\s+data-track-index="2"/);
+    // Root grew to fit clip 2's end-time (3.6 + 3 = 6.6).
+    expect(root).toContain('data-duration="6.6"');
   });
 
   it("reports missingNarration / missingImage for failed-asset segments without failing overall", async () => {

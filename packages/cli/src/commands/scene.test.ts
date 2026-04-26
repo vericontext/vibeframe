@@ -65,7 +65,11 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
       name: "outro", preset: "simple", duration: 2, projectDir, skipAudio: true, skipImage: true,
     });
     expect(b.success).toBe(true);
-    expect(b.start).toBe(3);
+    // Crossfade architecture: second scene starts 0.4 s before the first
+    // ends so the two clips overlap by SCENE_OVERLAP_SECONDS in the parent
+    // timeline. Adjacent clips alternate track-index to keep the
+    // Hyperframes overlap-on-same-track linter happy.
+    expect(b.start).toBeCloseTo(2.6, 5);
 
     const root = await readFile(resolve(projectDir, "index.html"), "utf-8");
     expect(root).toContain('data-composition-src="compositions/scene-intro.html"');

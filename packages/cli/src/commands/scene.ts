@@ -45,6 +45,7 @@ import {
   readRootDims,
   slugifySceneName,
   SCENE_PRESETS,
+  SCENE_OVERLAP_SECONDS,
   type ScenePreset,
 } from "./_shared/scene-html-emit.js";
 import {
@@ -639,8 +640,17 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
 
   // -- Update root index.html ---------------------------------------------
   opts.onProgress?.("Updating root composition...");
-  const start = nextSceneStart(rootHtmlBefore);
-  const updated = insertClipIntoRoot(rootHtmlBefore, { id, start, duration });
+  // Each new scene starts SCENE_OVERLAP_SECONDS before the previous scene's
+  // end so the two clips overlap in the parent timeline. Inside each scene,
+  // the matching scope opacity tweens at boundaries produce a smooth
+  // crossfade instead of the hard cut the previous architecture had.
+  // Adjacent clips alternate track-index (1, 2, 1, 2, ...) so the
+  // Hyperframes `overlapping_clips_same_track` lint rule doesn't flag the
+  // deliberate crossfade overlap.
+  const start = nextSceneStart(rootHtmlBefore, SCENE_OVERLAP_SECONDS);
+  const existingClipCount = (rootHtmlBefore.match(/<div\s+class="clip"/g) || []).length;
+  const trackIndex = (existingClipCount % 2) + 1;
+  const updated = insertClipIntoRoot(rootHtmlBefore, { id, start, duration, trackIndex });
   await writeFile(rootPath, updated, "utf-8");
 
   const transcriptAbsPath = transcriptRelPath ? resolve(projectDir, transcriptRelPath) : undefined;

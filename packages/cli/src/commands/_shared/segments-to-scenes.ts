@@ -28,6 +28,7 @@ import {
 import {
   emitSceneHtml,
   insertClipIntoRoot,
+  SCENE_OVERLAP_SECONDS,
   type ScenePreset,
 } from "./scene-html-emit.js";
 import { runProjectLint, type ProjectLintResult } from "./scene-lint.js";
@@ -136,7 +137,15 @@ export async function executeSegmentsToScenes(
   const dims = aspectToDims(aspect);
   const preset = opts.scenePreset ?? DEFAULT_PRESET;
   const projectName = opts.projectName ?? basename(outputDir);
-  const totalDuration = opts.segments.reduce((sum, s) => sum + (s.duration || 0), 0) || 10;
+  // Crossfade architecture: each scene after the first overlaps the
+  // previous by SCENE_OVERLAP_SECONDS, so the effective parent duration is
+  // the sum of segment durations minus one overlap window per join.
+  const totalDuration = (() => {
+    const sum = opts.segments.reduce((acc, s) => acc + (s.duration || 0), 0);
+    if (sum <= 0) return 10;
+    const joins = Math.max(0, opts.segments.length - 1);
+    return Math.max(0.1, sum - joins * SCENE_OVERLAP_SECONDS);
+  })();
 
   const baseError = (error: string): SegmentsToScenesResult => ({
     success: false,
@@ -217,6 +226,19 @@ export async function executeSegmentsToScenes(
   }
 
   // Step 4 (continued): build the running clip-stack into the root in order.
+  // Each subsequent scene starts SCENE_OVERLAP_SECONDS *before* the previous
+  // scene ends so the two clips overlap in the parent timeline. Inside each
+  // scene, the matching scope opacity tweens at boundaries produce a smooth
+  // crossfade — the previous architecture hard-cut at clip boundaries which
+  // looked like long pauses on the rendered MP4.
+  //
+  // Adjacent clips alternate track-index (1, 2, 1, 2, ...) so the
+  // Hyperframes `overlapping_clips_same_track` lint rule doesn't fire on
+  // the deliberate crossfade overlap — that rule is correct for hand-edited
+  // compositions but here the overlap is intentional + temporary (the
+  // outgoing clip fades to opacity 0 in its last 0.4 s). DOM order still
+  // controls paint order, so track-index choice doesn't change the
+  // rendered pixels.
   let clipStart = 0;
   for (let i = 0; i < opts.segments.length; i++) {
     const segment = opts.segments[i];
@@ -228,9 +250,12 @@ export async function executeSegmentsToScenes(
       id,
       start: clipStart,
       duration,
+      trackIndex: (i % 2) + 1,
       src: `compositions/${id}.html`,
     });
-    clipStart += duration;
+    // Next scene starts (duration - overlap) ahead so it overlaps by the
+    // crossfade window. First scene's clipStart stays at 0.
+    clipStart += duration - SCENE_OVERLAP_SECONDS;
   }
   await writeFile(rootAbs, rootHtml, "utf-8");
 

@@ -48,7 +48,9 @@
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
-      tl.fromTo('[data-composition-id="intro"] .backdrop', { scale: 1.0 }, { scale: 1.05, duration: 5.00, ease: 'none' }, 0);
+      tl.from('[data-composition-id="intro"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+      tl.to('[data-composition-id="intro"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 4.60);
+      tl.fromTo('[data-composition-id="intro"] .backdrop', { scale: 1.0 }, { scale: 1.08, duration: 5.00, ease: 'none' }, 0);
       tl.from('[data-composition-id="intro"] #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);
 
       window.__timelines["intro"] = tl;
