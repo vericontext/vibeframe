@@ -1,5 +1,5 @@
 <template id="scene-intro-template">
-  <div data-composition-id="intro" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+  <div data-composition-id="intro" data-start="0" data-duration="3" data-width="1920" data-height="1080">
     <style>
       [data-composition-id="intro"] {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -9,7 +9,17 @@
       [data-composition-id="intro"] .backdrop {
         position: absolute;
         inset: 0;
-        background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%);
+        width: 100%;
+        height: 100%;
+        background-image: url("assets/scene-intro.png");
+        background-size: cover;
+        background-position: center;
+      }
+      [data-composition-id="intro"] .backdrop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.55) 100%);
       }
       [data-composition-id="intro"] .backdrop { transform-origin: center; }
       [data-composition-id="intro"] .announce {
@@ -49,8 +59,8 @@
       const tl = gsap.timeline({ paused: true });
 
       tl.from('[data-composition-id="intro"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
-      tl.to('[data-composition-id="intro"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 3.60);
-      tl.fromTo('[data-composition-id="intro"] .backdrop', { scale: 1.0 }, { scale: 1.08, duration: 4.00, ease: 'none' }, 0);
+      tl.to('[data-composition-id="intro"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 2.60);
+      tl.fromTo('[data-composition-id="intro"] .backdrop', { scale: 1.0 }, { scale: 1.08, duration: 3.00, ease: 'none' }, 0);
       tl.from('[data-composition-id="intro"] #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);
       tl.to('[data-composition-id="intro"] #headline', { scale: 1.04, y: -8, duration: 1.5, yoyo: true, repeat: 0, ease: 'sine.inOut' }, 1.00);
 

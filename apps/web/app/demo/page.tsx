@@ -93,8 +93,8 @@ export default function DemoPage() {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            12-second promo · 3 scenes with 0.4 s crossfade joins · idle hero pulse so the body never feels static · free local Kokoro narration · word-level captions · auto-fit text that never overflows the canvas.
-            Three <code className="font-mono text-sm">vibe scene add</code> calls, one <code className="font-mono text-sm">vibe scene render</code> — the same project lives in <a href="https://github.com/vericontext/vibeframe/tree/main/examples/scene-promo" className="underline hover:text-foreground">examples/scene-promo</a>.
+            15-second promo · 5 scenes · gpt-image-2 generates each backdrop · Kokoro narrates · Whisper word-syncs the captions · 0.4 s crossfade joins · idle hero pulse so the body never feels static.
+            Five <code className="font-mono text-sm">vibe scene add</code> calls (all with <code className="font-mono text-sm">--visuals</code> + <code className="font-mono text-sm">--narration</code>), one <code className="font-mono text-sm">vibe scene render</code> — the project lives in <a href="https://github.com/vericontext/vibeframe/tree/main/examples/scene-promo" className="underline hover:text-foreground">examples/scene-promo</a>.
           </p>
 
           <div className="animate-fade-in-up delay-200">

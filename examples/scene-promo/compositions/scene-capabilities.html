@@ -1,0 +1,82 @@
+<template id="scene-capabilities-template">
+  <div data-composition-id="capabilities" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+    <style>
+      [data-composition-id="capabilities"] {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: #fff; overflow: hidden; background: #000;
+      }
+      [data-composition-id="capabilities"] .backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url("assets/scene-capabilities.png");
+        background-size: cover;
+        background-position: center;
+      }
+      [data-composition-id="capabilities"] .backdrop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.55) 100%);
+      }
+      [data-composition-id="capabilities"] .backdrop { transform-origin: center; }
+      [data-composition-id="capabilities"] .stage {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; justify-content: center;
+        gap: 24px; padding: 0 10%;
+      }
+      [data-composition-id="capabilities"] .kicker {
+        font-size: 28px; letter-spacing: 6px; text-transform: uppercase;
+        color: #00c9ff; font-weight: 600;
+      }
+      [data-composition-id="capabilities"] .title {
+        font-size: 110px; font-weight: 800; letter-spacing: -2px;
+        line-height: 1.05; margin: 0;
+        overflow-wrap: break-word;
+      }
+      [data-composition-id="capabilities"] .subtitle {
+        font-size: 38px; font-weight: 300; color: #c0c0d0; max-width: 80%;
+        overflow-wrap: break-word;
+      }
+      [data-composition-id="capabilities"] #subtitle .word { display: inline-block; opacity: 0; }
+    </style>
+
+    <div class="backdrop"></div>
+    <div class="stage">
+      <div class="kicker" id="kicker">MULTI PROVIDER</div>
+      <h1 class="title" id="title">13 AI providers, one CLI</h1>
+      <div class="subtitle" id="subtitle"><span class="word" data-i="0">13</span> <span class="word" data-i="1">AI</span> <span class="word" data-i="2">Providers</span> <span class="word" data-i="3">1</span> <span class="word" data-i="4">CLI</span></div>
+    </div>
+
+    <audio
+      id="narration"
+      data-start="0"
+      data-duration="auto"
+      data-track-index="2"
+      src="assets/narration-capabilities.wav"
+      data-volume="1"
+    ></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      tl.from('[data-composition-id="capabilities"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+      tl.to('[data-composition-id="capabilities"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 3.60);
+      tl.fromTo('[data-composition-id="capabilities"] .backdrop', { scale: 1.0 }, { scale: 1.08, duration: 4.00, ease: 'none' }, 0);
+      tl.from('[data-composition-id="capabilities"] #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
+      tl.from('[data-composition-id="capabilities"] #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
+      tl.fromTo('[data-composition-id="capabilities"] #subtitle .word[data-i="0"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0);
+      tl.fromTo('[data-composition-id="capabilities"] #subtitle .word[data-i="1"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0.76);
+      tl.fromTo('[data-composition-id="capabilities"] #subtitle .word[data-i="2"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 1.18);
+      tl.fromTo('[data-composition-id="capabilities"] #subtitle .word[data-i="3"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 2.22);
+      tl.fromTo('[data-composition-id="capabilities"] #subtitle .word[data-i="4"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 2.42);
+      tl.to('[data-composition-id="capabilities"] #title', { scale: 1.04, y: -8, duration: 1.5, yoyo: true, repeat: 0, ease: 'sine.inOut' }, 1.20);
+
+      window.__timelines["capabilities"] = tl;
+    </script>
+  </div>
+</template>

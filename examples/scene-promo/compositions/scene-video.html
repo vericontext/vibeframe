@@ -1,0 +1,76 @@
+<template id="scene-video-template">
+  <div data-composition-id="video" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+    <style>
+      [data-composition-id="video"] {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: #fff; overflow: hidden; background: #000;
+      }
+      [data-composition-id="video"] .backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url("assets/scene-video.png");
+        background-size: cover;
+        background-position: center;
+      }
+      [data-composition-id="video"] .backdrop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.55) 100%);
+      }
+      [data-composition-id="video"] .backdrop { transform-origin: center; }
+      [data-composition-id="video"] .label {
+        position: absolute; top: 8%; left: 8%;
+        padding: 12px 24px; border-radius: 999px;
+        background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+        font-size: 24px; font-weight: 600; letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      [data-composition-id="video"] .product-headline {
+        position: absolute; left: 8%; right: 8%; bottom: 14%;
+        font-size: 72px; font-weight: 800; letter-spacing: -1px;
+        line-height: 1.1; overflow-wrap: break-word;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.7);
+      }
+      [data-composition-id="video"] .product-sub {
+        position: absolute; left: 8%; right: 8%; bottom: 8%;
+        font-size: 28px; font-weight: 400; color: #d0d0e0;
+        overflow-wrap: break-word;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+      }
+    </style>
+
+    <div class="backdrop"></div>
+    <div class="label" id="label">VIDEO</div>
+    <div class="product-headline" id="headline">Seedance 2.0 by default</div>
+    <div class="product-sub" id="subhead">Top tier video generation. Default since v0.57.</div>
+
+    <audio
+      id="narration"
+      data-start="0"
+      data-duration="auto"
+      data-track-index="2"
+      src="assets/narration-video.wav"
+      data-volume="1"
+    ></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      tl.from('[data-composition-id="video"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+      tl.to('[data-composition-id="video"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 3.60);
+      tl.fromTo('[data-composition-id="video"] .backdrop', { scale: 1.0 }, { scale: 1.12, duration: 4.00, ease: 'none' }, 0);
+      tl.from('[data-composition-id="video"] #label', { opacity: 0, x: -30, duration: 0.5, ease: 'power3.out' }, 0.2);
+      tl.from('[data-composition-id="video"] #headline', { opacity: 0, y: 40, duration: 0.6, ease: 'power3.out' }, 0.4);
+      tl.from('[data-composition-id="video"] #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);
+      tl.to('[data-composition-id="video"] #headline', { scale: 1.04, y: -8, duration: 1.5, yoyo: true, repeat: 0, ease: 'sine.inOut' }, 1.20);
+
+      window.__timelines["video"] = tl;
+    </script>
+  </div>
+</template>
