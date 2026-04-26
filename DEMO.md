@@ -1,150 +1,182 @@
 # VibeFrame Demo
 
-Three surfaces, same tools. Pick the entry point that matches how you already
-work — every section below is **copy-pasteable** and produces a real artifact
-on disk.
+Four steps from `curl install.sh | bash` to a rendered MP4 — every step is
+copy-pasteable and produces a real artifact on disk.
 
-> The asciinema recordings in the [README](README.md#demo) show v0.57 commands and
-> pre-date the v0.58 visual-identity features (`vibe scene init --visual-style "<name>"`,
-> `vibe scene styles`, the `DESIGN.md` hard-gate). The walkthroughs below include both —
-> start with whichever surface fits you.
+> The screen recordings below are produced by the three [VHS](https://github.com/charmbracelet/vhs)
+> tapes in [`assets/demos/`](assets/demos/). To regenerate them after
+> changes, install vhs (`brew install vhs`) and run
+> [`scripts/record-vhs.sh`](scripts/record-vhs.sh).
 
-| Surface | Best for | API keys needed |
-|---|---|---|
-| [1. CLI direct (`vibe`)](#1-cli-direct--vibe-quickstart) | Scripted workflows, CI, terminal-first authors | None for the offline path; `OPENAI_API_KEY` for word-sync captions |
-| [2. Standalone agent REPL (`vibe agent`)](#2-standalone-agent-repl--vibe-agent) | One-off prompts without leaving the terminal — BYO LLM | One of: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `XAI_API_KEY` / `OPENROUTER_API_KEY`, or local Ollama |
-| [3. Inside Claude Code / Cursor (MCP)](#3-inside-claude-code--cursor-mcp) | Natural-language editing inside an existing agent host | Whatever the host already uses |
+| Step | Command | Scope | What happens |
+|---|---|---|---|
+| 1. Install | `curl -fsSL https://vibeframe.ai/install.sh \| bash` | global | Installs the `@vibeframe/cli` npm package |
+| 2. Setup | `vibe setup` | user (~/) | API keys + LLM provider, once per machine |
+| 3. Init | `vibe init my-promo` | project | Scaffolds AGENTS.md / CLAUDE.md / .env.example / .gitignore / vibe.project.yaml |
+| 4. Build | `vibe scene build my-promo` | project | STORYBOARD.md → narration TTS → backdrop image-gen → compose → MP4 |
 
-> **Prerequisites for all three:** Node.js ≥ 20 and FFmpeg on `PATH`. Install via
-> `curl -fsSL https://vibeframe.ai/install.sh | bash` (or
-> `npm install -g @vibeframe/cli`). Confirm with `vibe doctor`.
+Steps 2-4 each have a recording below. Step 1 is just an `npm install`
+under the hood and isn't worth a GIF.
 
 ---
 
-## 1. CLI direct — `vibe` quickstart
-
-**Goal:** end up with `demo.mp4` — a 12-second narrated clip rendered from a
-scene project. **No API keys required for the render** (uses local Kokoro
-TTS); a Whisper key adds word-synced captions if you set one.
+## 1. Install
 
 ```bash
-# 0. (Optional) confirm prerequisites
-vibe doctor                                   # checks Node, FFmpeg, Chrome
+curl -fsSL https://vibeframe.ai/install.sh | bash
+# or
+npm install -g @vibeframe/cli
 
-# 1. Scaffold a scene project (16:9, default 30s root)
-#    --visual-style seeds DESIGN.md from a named identity. Browse the 8
-#    available styles with `vibe scene styles`. Omit the flag to write a
-#    placeholder DESIGN.md you fill in yourself.
-vibe scene init my-promo --visual-style "Swiss Pulse"
+vibe doctor                                   # confirm Node 20+, FFmpeg, Chrome
+```
+
+`vibe doctor` is the entry point throughout — it's scope-aware (since
+v0.61), so it tells you what's missing and which command fixes it
+(`vibe setup` for user scope, `vibe init` for project scope).
+
+---
+
+## 2. Setup — user scope (once per machine)
+
+<p align="center">
+  <a href="assets/demos/setup.tape">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/setup.gif"
+         alt="vibe setup user-scope wizard" width="900" />
+  </a>
+</p>
+
+`vibe setup` is interactive — it detects which agent hosts you have
+installed (Claude Code / Codex / Cursor / Aider) and offers to install
+the matching skill packs. API keys go to `~/.vibeframe/config.yaml`,
+gitignored by design.
+
+```bash
+vibe setup                  # interactive wizard
+vibe setup --full           # all 13 providers, no prompts
+vibe setup --show           # show current config (masks API keys)
+vibe setup --claude-code    # Claude Code integration cheat-sheet
+```
+
+You only need one LLM key to get going (the wizard recommends Anthropic
+for Claude Code-driven flows). Local fallbacks work without any keys —
+[Kokoro TTS](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX)
+and FFmpeg-only edits (`silence-cut`, `fade`, `noise-reduce`).
+
+---
+
+## 3. Init — project scope (once per project)
+
+<p align="center">
+  <a href="assets/demos/init.tape">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/init.gif"
+         alt="vibe init project-scope scaffold" width="900" />
+  </a>
+</p>
+
+`vibe init` writes the agent-aware project files. The default
+`--agent auto` reads which agent host you have configured and picks the
+right files; `--agent all` writes both `AGENTS.md` (cross-tool, follows
+the [agents.md spec](https://agents.md)) and `CLAUDE.md` (Claude Code,
+imports `@AGENTS.md` so guidance stays single-sourced).
+
+```bash
+vibe init my-promo                  # auto-detect host
+vibe init my-promo --agent all      # write CLAUDE.md + AGENTS.md
+vibe init my-promo --agent codex    # cross-tool only
+vibe init my-promo --dry-run        # preview file list, no writes
+```
+
+Idempotent by default — re-running won't overwrite your edits.
+`--force` opts in to overwrite.
+
+After init, hand the directory to **any agent host**:
+
+```bash
 cd my-promo
-
-# 2. Add a narrated hook scene
-#    --tts auto picks ElevenLabs if ELEVENLABS_API_KEY is set,
-#    otherwise falls back to local Kokoro (first call: ~330MB download)
-vibe scene add hook \
-  --style announcement \
-  --headline "Ship videos, not clicks" \
-  --narration "Stop fighting timelines. Author scenes that an agent can edit."
-
-# 3. Add a follow-up scene with a generated backdrop
-#    --visuals invokes Gemini by default; pass --image-provider openai for gpt-image-2
-vibe scene add tagline \
-  --style explainer \
-  --kicker "VIDEO AS CODE" \
-  --headline "Author scenes, not timelines" \
-  --narration "Each word lights up the moment it is spoken." \
-  --visuals "minimalist studio desk, soft warm lighting, top-down 16:9"
-
-# 4. Validate
-vibe scene lint                               # 0 errors expected
-
-# 5. Render to MP4 (Chrome required)
-vibe scene render -o demo.mp4
-```
-
-**What you get back:**
-
-- `demo.mp4` — narrated, captioned, 1920×1080.
-- `compositions/scene-hook.html`, `compositions/scene-tagline.html` — editable
-  per-scene HTML you can hand-tweak and re-render without regenerating audio.
-- `assets/narration-*.wav` and (if `OPENAI_API_KEY` is set)
-  `assets/transcript-*.json` for word-level caption sync.
-
-**Iterate in seconds:** edit headline text in `compositions/scene-hook.html`
-directly, then `vibe scene render -o demo.mp4` — text tweaks skip TTS and
-image generation, so the second render finishes in ~10 s.
-
-**One-shot variant** (script → finished MP4) when you don't want to author
-scenes manually:
-
-```bash
-vibe pipeline script-to-video \
-  "Scene 1: founder wakes at 5 a.m.\nScene 2: coffee brewing.\nScene 3: ship time." \
-  --format scenes -a 9:16 -d 30 -o ./morning/
-# → ./morning/ is a full scene project + rendered MP4
+claude                              # Claude Code reads CLAUDE.md
+codex                               # Codex reads AGENTS.md
+cursor .                            # Cursor reads AGENTS.md
 ```
 
 ---
 
-## 2. Standalone agent REPL — `vibe agent`
+## 4. Build — STORYBOARD.md → MP4
 
-**Goal:** drive VibeFrame in natural language without spinning up Claude Code,
-Cursor, or any MCP host. The REPL discovers the same tools the MCP server
-exposes and runs them locally with structured tool-use.
+<p align="center">
+  <a href="assets/demos/build.tape">
+    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/build.gif"
+         alt="vibe scene build cinematic flow" width="900" />
+  </a>
+</p>
+
+`vibe scene build` is the v0.60 one-shot driver. Author your storyboard
+once, then this command:
+
+1. Reads frontmatter + per-beat YAML cues
+2. Dispatches narration TTS + backdrop image-gen per beat (parallel fanout)
+3. Composes scene HTML via the v0.59 `compose-scenes-with-skills` pipeline
+4. Renders to MP4 through the Hyperframes producer
+
+````markdown
+<!-- STORYBOARD.md -->
+## Beat hook — Hook
+
+```yaml
+narration: "Type a YAML."
+backdrop: "Abstract minimalist tech aesthetic, electric blue glow"
+duration: 3
+```
+````
 
 ```bash
-# 0. Set ONE LLM key — agent picks an available provider automatically
-export ANTHROPIC_API_KEY=sk-ant-...           # or OPENAI / GOOGLE / XAI / OPENROUTER
-# Local-only? export OLLAMA_HOST=http://localhost:11434  (no API key needed)
-
-# 1. Start the REPL (default: Claude — override with -p openai|gemini|grok|openrouter|ollama)
-vibe agent
+vibe scene build my-promo                 # storyboard → MP4
+vibe scene build my-promo --skip-render   # compose only (review HTML first)
+vibe scene build my-promo --dry-run       # preview cost
+vibe scene build my-promo --force         # re-dispatch even cached primitives
 ```
 
-Once the REPL is open, paste any of these prompts in turn:
+Idempotent: existing `assets/narration-*` / `assets/backdrop-*` are
+reused, so iteration is cheap. The cinematic
+[v0.60 demo MP4](assets/demos/cinematic-v060.mp4) is the output of this
+exact flow against [`examples/vibeframe-promo/`](examples/vibeframe-promo/) —
+~$0.18 fresh, $0 cached.
 
-```text
-> Generate an image of a sunrise over a quiet city, then turn it into a 4-second video where the camera slowly pushes in.
+For YAML-pipeline form (multi-step orchestration, budget guards, resume):
 
-> Now narrate it: "A new day, a new build."  Pick the cheapest TTS provider available.
-
-> Mix the narration over the video and save the final clip as morning.mp4.
-
-> Run vibe doctor and tell me which providers I'm authenticated against.
+```yaml
+# scene-promo.yaml
+name: my-promo
+budget: { costUsd: 2.00 }
+steps:
+  - id: build
+    action: scene-build
+    project: my-promo
+    quality: hd
 ```
-
-**What the agent does** (visible in the REPL trace):
-
-1. Picks tools (`generate_image`, `generate_video`, `generate_speech`,
-   `audio_dub`, …) by reading their schemas — no hand-written prompt
-   engineering on your side.
-2. Calls each via the same code path as `vibe ...` on the command line, so
-   you can replay any step from the trace verbatim in your shell.
-3. Confirms before any high-cost operation (`pipeline`, `generate_video`)
-   when the budget guard is active.
-
-**Useful flags:**
 
 ```bash
-vibe agent -p ollama --model llama3.1        # offline, no API key
-vibe agent --max-turns 6                     # cap loops in CI / cron
-vibe agent --json                            # machine-readable trace
+vibe run scene-promo.yaml --dry-run       # preview cost
+vibe run scene-promo.yaml                 # execute
+vibe run scene-promo.yaml --resume        # retry from last checkpoint
 ```
 
-Exit any time with `Ctrl-D` or `:exit`. Every artifact lives in the working
-directory you launched from — nothing is uploaded.
+See [`examples/scene-promo-pipeline.yaml`](examples/scene-promo-pipeline.yaml)
+for the reference fixture.
 
 ---
 
-## 3. Inside Claude Code / Cursor (MCP)
+## Three agent hosts, one project
 
-**Goal:** keep editing prose / code in your existing agent host while the same
-58 tools run alongside. Two paths — pick the one your host supports.
+Once `vibe init` has scaffolded the project, every supported agent host
+sees the same guidance:
 
-### Path A — MCP server (recommended for Claude Desktop, Cursor)
+| Host | File read | How it integrates |
+|---|---|---|
+| Claude Code | `CLAUDE.md` (imports `@AGENTS.md`) | Slash commands `/vibe-pipeline`, `/vibe-scene` (install via [`scripts/install-skills.sh`](scripts/install-skills.sh)) |
+| Codex | `AGENTS.md` | CLI shell access; agent reads `vibe schema --list` for tool catalog |
+| Cursor | `AGENTS.md` | Same; pairs with `.cursor/mcp.json` if you also want MCP |
 
-Add the block below to your host's MCP config and restart it. No clone, no
-local install — `npx` fetches the bundle on demand.
+For Claude Desktop / any MCP-only host, drop the `vibe` package in via:
 
 ```json
 {
@@ -157,7 +189,7 @@ local install — `npx` fetches the bundle on demand.
 }
 ```
 
-Config file locations:
+Config locations:
 
 | Host | Path |
 |---|---|
@@ -165,62 +197,33 @@ Config file locations:
 | Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
 | Cursor | `.cursor/mcp.json` in the workspace |
 
-After restart, just describe what you want — the host calls VibeFrame tools
-directly:
+---
 
-```text
-"Make a 30-second 9:16 hype reel from script.txt with synced captions."
+## Standalone agent REPL (`vibe agent`)
 
-"Detect the 3 most exciting scenes in interview.mp4 and turn each into a 30-second short."
-
-"Generate a backdrop image of a cyberpunk skyline, animate a 5-second push-in,
- then dub the line 'The future is shipping' over it."
-```
-
-The host shows tool calls inline (`generate_image → generate_video → audio_dub`)
-and you can interrupt or edit at any step.
-
-### Path B — Claude Code without MCP (CLI discovery)
-
-If you already use Claude Code in a directory where `vibe` is on `PATH`,
-Claude Code finds the CLI automatically — no config block needed. Just open
-the project and ask:
+If you want natural-language editing without spinning up Claude Code or
+any MCP host, the standalone REPL discovers the same tools the MCP
+server exposes:
 
 ```bash
-claude                                       # opens Claude Code in cwd
+export ANTHROPIC_API_KEY=sk-ant-...
+vibe agent                             # default: Claude
+vibe agent -p ollama --model llama3.1  # offline, no key
+vibe agent --max-turns 6 --json        # CI/cron mode
 ```
 
-```text
-"Run vibe --help and walk me through the script-to-video pipeline."
-
-"Use vibe to create a 9:16 short about my morning coffee with narration and music."
-```
-
-Claude Code calls `vibe schema --list` to discover commands, `vibe schema <cmd>`
-for parameters, and `vibe ... --json` for structured output. The
-[`/vibe-pipeline`](.claude/skills/vibe-pipeline/SKILL.md) and
-[`/vibe-scene`](.claude/skills/vibe-scene/SKILL.md) skills (auto-loaded if
-you clone this repo, or add via `scripts/install-skills.sh`) tighten the
-loop — they teach Claude the right command shapes for common workflows.
-For a one-page overview, run `vibe init` to scaffold `AGENTS.md` (cross-tool)
-and `CLAUDE.md` (Claude Code, imports `@AGENTS.md`) into your project.
-
-[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md)
-has the original 5-prompt walkthrough plus a recording recipe.
+Once the REPL is open, ask in plain English. The agent picks tools from
+their JSON Schema, runs them via the same code path as the CLI, and
+shows the trace inline so you can replay any step verbatim in your shell.
 
 ---
 
 ## Cleanup
 
-Each surface produces artifacts in the directory you ran from. Remove them
-when you're done:
-
 ```bash
-# Surface 1
-rm -rf my-promo morning
-
-# Surface 2 / 3
-rm -f *.png *.mp4 *.mp3 *.wav *.vibe.json
+rm -rf my-promo                         # whatever you named the project
+# user scope removal (rare)
+rm ~/.vibeframe/config.yaml
 ```
 
 ---
@@ -230,6 +233,6 @@ rm -f *.png *.mp4 *.mp3 *.wav *.vibe.json
 | You want to… | Read |
 |---|---|
 | See every CLI command at a glance | `vibe --help` or [README › CLI Reference](README.md#cli-reference) |
-| Author a multi-step pipeline as code | [`docs/cookbook.md`](docs/cookbook.md), [`examples/`](examples/) |
-| Compare the scene render vs. raw Hyperframes | [`docs/comparison.md`](docs/comparison.md) |
+| Author a multi-step pipeline as code | [`examples/`](examples/), [`docs/cookbook.md`](docs/cookbook.md) |
+| Compare scene render vs. raw Hyperframes | [`docs/comparison.md`](docs/comparison.md) |
 | Track what's coming next | [`ROADMAP.md`](ROADMAP.md) |
