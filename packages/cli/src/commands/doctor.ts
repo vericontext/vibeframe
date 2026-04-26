@@ -5,11 +5,14 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { access } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { CONFIG_PATH } from "../config/index.js";
 import { PROVIDER_ENV_VARS } from "../config/schema.js";
 import { commandExists } from "../utils/exec-safe.js";
 import { execSafe } from "../utils/exec-safe.js";
 import { loadEnv } from "../utils/api-key.js";
+import { detectAgentHosts, summariseAgentHosts } from "../utils/agent-host-detect.js";
 import { outputResult } from "./output.js";
 
 /** Mapping of env vars to the commands they unlock */
@@ -163,6 +166,29 @@ interface DiagnosticResults {
     config: { path: string; ok: boolean };
     optionalTools?: Record<string, OptionalToolStatus>;
   };
+  /**
+   * v0.61: scope-aware status. The "what should I run next?" hint at the
+   * bottom of the report uses these flags directly.
+   */
+  scope: {
+    user: {
+      /** `~/.vibeframe/config.json` exists — `vibe setup` has been run. */
+      configured: boolean;
+      configPath: string;
+    };
+    project: {
+      /** Current working directory. */
+      cwd: string;
+      /** True when ANY of (AGENTS.md / CLAUDE.md / vibe.project.yaml) exists. */
+      initialized: boolean;
+      /** Per-file existence — each entry is informational for the report. */
+      files: { path: string; exists: boolean }[];
+    };
+    agentHosts: {
+      detected: string[];
+      summary: string;
+    };
+  };
   providers: Record<
     string,
     { envVar: string; configured: boolean; commands: string[] }
@@ -272,12 +298,28 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
     }
   }
 
+  // v0.61: scope diagnostics ─────────────────────────────────────────────
+  const cwd = process.cwd();
+  const projectFiles = ["AGENTS.md", "CLAUDE.md", "vibe.project.yaml"].map((rel) => ({
+    path: rel,
+    exists: existsSync(resolve(cwd, rel)),
+  }));
+  const projectInitialized = projectFiles.some((f) => f.exists);
+
+  const hosts = detectAgentHosts();
+  const detectedNames = hosts.filter((h) => h.detected).map((h) => h.label);
+
   return {
     system: {
       node: { version: nodeVersion, ok: true },
       ffmpeg: { version: ffmpegVersion, ok: ffmpegExists, ...(ffmpegFilters ? { filters: ffmpegFilters } : {}) },
       config: { path: CONFIG_PATH, ok: configExists },
       ...(Object.keys(optionalTools).length > 0 ? { optionalTools } : {}),
+    },
+    scope: {
+      user: { configured: configExists, configPath: CONFIG_PATH },
+      project: { cwd, initialized: projectInitialized, files: projectFiles },
+      agentHosts: { detected: detectedNames, summary: summariseAgentHosts(hosts) },
     },
     providers,
     readyCount,
@@ -334,14 +376,26 @@ function printReport(results: DiagnosticResults): void {
     }
   }
 
-  // Config
-  if (results.system.config.ok) {
-    console.log(`    Config     ${chalk.green("OK")}  ${chalk.dim(results.system.config.path)}`);
+  console.log();
+  console.log(chalk.bold("  Scope"));
+
+  // User scope — vibe setup status
+  if (results.scope.user.configured) {
+    console.log(`    User       ${chalk.green("OK")}       ${chalk.dim(results.scope.user.configPath)}`);
   } else {
-    console.log(
-      `    Config     ${chalk.yellow("NOT SET")}  ${chalk.dim("Run: vibe setup")}`
-    );
+    console.log(`    User       ${chalk.yellow("NOT SET")}  ${chalk.dim("Run: vibe setup")}`);
   }
+
+  // Project scope — vibe init status
+  if (results.scope.project.initialized) {
+    const present = results.scope.project.files.filter((f) => f.exists).map((f) => f.path);
+    console.log(`    Project    ${chalk.green("OK")}       ${chalk.dim(present.join(", "))}`);
+  } else {
+    console.log(`    Project    ${chalk.yellow("NOT INIT")} ${chalk.dim(`Run: vibe init  (cwd: ${results.scope.project.cwd})`)}`);
+  }
+
+  // Agent hosts — informational
+  console.log(`    Agents     ${chalk.dim(results.scope.agentHosts.summary)}`);
 
   console.log();
   console.log(chalk.bold("  API Keys"));
@@ -382,8 +436,32 @@ function printReport(results: DiagnosticResults): void {
     `  Ready: ${readyColor(`${results.readyCount}/${results.totalCount}`)} commands (${pct}%)`
   );
 
-  if (missing.length > 0) {
-    console.log(chalk.dim(`  Run 'vibe setup' to configure more providers.`));
+  // ── v0.61: scope-aware "what to do next" hint ────────────────────────
+  // Prioritise scope problems over provider gaps — a user without setup
+  // configured can't run 'vibe setup' to add providers either.
+  const nextStep = pickNextStep(results, missing.length > 0);
+  if (nextStep) {
+    console.log(chalk.dim(`  ${nextStep}`));
   }
   console.log();
+}
+
+/**
+ * Pick the single most-helpful next-step suggestion for the user. Order:
+ *  1. user scope unset → run setup
+ *  2. project scope uninitialized → run init
+ *  3. some providers missing → setup again to add more keys
+ *  4. everything ok → no hint
+ */
+function pickNextStep(results: DiagnosticResults, hasMissingProviders: boolean): string | null {
+  if (!results.scope.user.configured) {
+    return "Next: run 'vibe setup' to configure your user scope (API keys + LLM provider).";
+  }
+  if (!results.scope.project.initialized) {
+    return "Next: run 'vibe init' in your project directory to scaffold AGENTS.md / CLAUDE.md / .env.example.";
+  }
+  if (hasMissingProviders) {
+    return "Run 'vibe setup' to add more provider keys.";
+  }
+  return null;
 }
