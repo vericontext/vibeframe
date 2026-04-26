@@ -52,6 +52,7 @@ import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { executeThumbnailBestFrame } from "./ai-image.js";
 import { registerMotionCommand } from "./ai-motion.js";
+import { executeOpenAIImageGenerate } from "./_shared/openai-image.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,29 +212,13 @@ Examples:
       const spinner = ora(`Generating image with ${providerName}...`).start();
 
       if (provider === "dalle" || provider === "openai") {
-        const openaiImage = new OpenAIImageProvider();
-        await openaiImage.initialize({ apiKey });
-
-        const modelAlias = options.model;
-        const openaiModel =
-          modelAlias === "2" || modelAlias === "gpt-image-2"
-            ? "gpt-image-2"
-            : undefined;
-
-        const result = await openaiImage.generateImage(prompt, {
-          model: openaiModel,
-          size: options.size,
-          quality: options.quality,
-          style: options.style,
-          n: parseInt(options.count),
-        });
+        const { result, modelLabel } = await executeOpenAIImageGenerate(prompt, options, { apiKey });
 
         if (!result.success || !result.images) {
           spinner.fail(result.error || "Image generation failed");
           exitWithError(apiError(result.error || "Image generation failed", true));
         }
 
-        const modelLabel = openaiModel === "gpt-image-2" ? "GPT Image 2" : "GPT Image 1.5";
         spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with OpenAI ${modelLabel}`));
 
         if (isJsonMode()) {
