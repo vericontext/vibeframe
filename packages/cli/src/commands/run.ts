@@ -166,6 +166,7 @@ Run 'vibe schema run' for structured parameter info.
             output: s.output,
             duration: s.duration,
             error: s.error,
+            data: s.data,
           })),
         });
       } else {
