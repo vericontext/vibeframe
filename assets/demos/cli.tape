@@ -2,21 +2,8 @@
 #
 # Renders → assets/demos/cli.mp4
 #
-# The "scripted, no-agent" path. User scaffolds a scene project, hand-
-# authors the STORYBOARD.md with per-beat YAML cues, runs `vibe scene
-# build`, opens the resulting MP4.
-#
-# This is the surface that replaces `assets/demos/vibeframe-quickstart.svg`
-# (the v0.57-era asciinema). Same value prop — "I author scenes, vibe
-# renders" — but now ends with a real cinematic MP4 instead of a
-# captioned silent clip.
-#
-# Recipe:
-#   brew install vhs
-#   export ANTHROPIC_API_KEY=...   # compose-scenes-with-skills
-#   export OPENAI_API_KEY=...      # gpt-image-2 backdrops
-#   export ELEVENLABS_API_KEY=...  # narration TTS
-#   vhs assets/demos/cli.tape      # ~3–5 min, ~$0.20–$0.50
+# Hand-authored STORYBOARD with rich per-beat YAML cues, then
+# `vibe scene build` → narrated, captioned 12-second cinematic MP4.
 
 Output assets/demos/cli.mp4
 
@@ -28,15 +15,11 @@ Set Theme "Catppuccin Mocha"
 Set Shell "bash"
 Set TypingSpeed 30ms
 
-# Land in a fresh tempdir so nothing carries over from prior recordings
-Type "cd $(mktemp -d -t vibe-cli-demo-XXX) && pwd"
+Type "cd ~/dev/personal/lab/vibeframe-lab && mkdir -p cli-demo && cd cli-demo && pwd"
 Enter
 Sleep 2s
 
-# ── 1. Scaffold ─────────────────────────────────────────────
-Type "# 1. Scaffold a scene project — seeds DESIGN.md from the named identity"
-Enter
-Type 'vibe scene init my-promo --visual-style "Swiss Pulse" -d 9'
+Type 'vibe scene init my-promo --visual-style "Swiss Pulse" -d 12'
 Enter
 Sleep 5s
 
@@ -44,15 +27,13 @@ Type "ls my-promo/"
 Enter
 Sleep 3s
 
-# ── 2. Author STORYBOARD.md with per-beat YAML cues ─────────
 Type "clear"
 Enter
 Sleep 500ms
-Type "# 2. Author STORYBOARD.md — per-beat YAML cues drive the build"
-Enter
+
 Type "cat > my-promo/STORYBOARD.md <<'STORY'"
 Enter
-Type "# Storyboard"
+Type "# VibeFrame promo storyboard"
 Enter
 Type ""
 Enter
@@ -62,11 +43,11 @@ Type ""
 Enter
 Type '```yaml'
 Enter
-Type 'narration: "Type a YAML."'
+Type 'narration: "Stop fighting timelines. Author scenes the way you write code — every edit a command, every workflow scriptable."'
 Enter
-Type 'backdrop: "Abstract minimalist tech, electric blue glow on near-black"'
+Type 'backdrop: "Abstract minimalist tech aesthetic, electric blue volumetric light glow on near-black, faint grain texture, cinematic Apple keynote mood, no text"'
 Enter
-Type "duration: 3"
+Type "duration: 4"
 Enter
 Type '```'
 Enter
@@ -78,11 +59,11 @@ Type ""
 Enter
 Type '```yaml'
 Enter
-Type 'narration: "Get a video."'
+Type 'narration: "VibeFrame composes videos from your storyboard. Thirteen AI providers. Skills-driven scene authoring. One command from text to MP4."'
 Enter
-Type 'backdrop: "Code editor with YAML on dark monitor, shallow depth of field"'
+Type 'backdrop: "Cinematic close-up of a glowing code editor on a dark monitor, electric blue YAML syntax visible, shallow depth of field bokeh, premium developer aesthetic"'
 Enter
-Type "duration: 3"
+Type "duration: 4"
 Enter
 Type '```'
 Enter
@@ -94,11 +75,11 @@ Type ""
 Enter
 Type '```yaml'
 Enter
-Type 'narration: "VibeFrame. Open source."'
+Type 'narration: "VibeFrame is open source under MIT. Install with one curl line, ship cinematic video as code."'
 Enter
-Type 'backdrop: "Hardware surface, blue LED dot pattern, deep blacks"'
+Type 'backdrop: "Premium dark hardware surface with subtle electric blue LED dot pattern grid, soft rim lighting, deep blacks, abstract geometric tech aesthetic"'
 Enter
-Type "duration: 3"
+Type "duration: 4"
 Enter
 Type '```'
 Enter
@@ -106,26 +87,29 @@ Type "STORY"
 Enter
 Sleep 2s
 
-Type "head -20 my-promo/STORYBOARD.md"
+Type "head -25 my-promo/STORYBOARD.md"
 Enter
 Sleep 4s
 
-# ── 3. Build ────────────────────────────────────────────────
 Type "clear"
 Enter
 Sleep 500ms
-Type "# 3. vibe scene build — TTS + image-gen per beat, compose, render"
-Enter
+
 Type "vibe scene build my-promo"
 Enter
-Sleep 120s
+# Real fresh build for 3 beats × 4s with HD backdrops:
+#   3× narration TTS (parallel, 5–10s)
+#   3× HD gpt-image-2 backdrops (parallel, 30–60s each)
+#   compose-scenes-with-skills (~10–20s)
+#   render (~25s for 12s video)
+#   audio mux (~3s)
+# Total ~3–4 min worst-case.
+Sleep 240s
 
-# ── 4. Show result ──────────────────────────────────────────
 Type "clear"
 Enter
 Sleep 500ms
-Type "# 4. Result"
-Enter
+
 Type "ls my-promo/renders/"
 Enter
-Sleep 4s
+Sleep 5s

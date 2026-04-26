@@ -119,6 +119,45 @@ ${ctx.skillBundle.content}
 ${ctx.designMd}`;
 }
 
+/**
+ * Render the beat's per-beat YAML cues (narration / backdrop / duration /
+ * voice — see C2 storyboard frontmatter spec) as inline context inside
+ * the user prompt. Returns an empty string when no cues are present.
+ *
+ * Why this matters: parseStoryboard strips the \`\`\`yaml cue block from
+ * \`Beat.body\` so the LLM doesn't see machine-only metadata twice. But
+ * if the body becomes empty (a common case — many users put the entire
+ * beat intent in cues), the cache key for "## Beat hook — Hook" + empty
+ * body is identical for ANY beat with that heading. Pre-v0.63 this
+ * caused composed scene HTML from one project's "hook" beat to silently
+ * land on another's. Surface the cue content back into the prompt so
+ * (1) the LLM can actually see what to render, and (2) the cache key
+ * differs by cue content.
+ */
+function formatBeatCues(cues: Beat["cues"]): string {
+  if (!cues) return "";
+  const lines: string[] = ["", "**Beat cues** (declarative, machine-readable):"];
+  if (cues.narration !== undefined) {
+    lines.push(`- narration: ${JSON.stringify(cues.narration)}`);
+  }
+  if (cues.backdrop !== undefined) {
+    lines.push(`- backdrop: ${JSON.stringify(cues.backdrop)}`);
+  }
+  if (cues.duration !== undefined) {
+    lines.push(`- duration: ${cues.duration}s`);
+  }
+  if (cues.voice !== undefined) {
+    lines.push(`- voice: ${JSON.stringify(cues.voice)}`);
+  }
+  // Surface unknown keys verbatim so users can extend cue semantics
+  // (e.g. \`bgm\`, \`accent\`) without us coupling to every name.
+  for (const [k, v] of Object.entries(cues)) {
+    if (["narration", "backdrop", "duration", "voice"].includes(k)) continue;
+    lines.push(`- ${k}: ${JSON.stringify(v)}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 /** Build the user prompt — instructions + storyboard global + beat body. */
 export function buildUserPrompt(ctx: Pick<ComposeBeatContext, "beat" | "storyboardGlobal" | "retryFeedback">): string {
   const compositionId = `scene-${ctx.beat.id}`;
@@ -215,7 +254,7 @@ ${ctx.storyboardGlobal || "(no global direction)"}
 === Beat to build ===
 
 ## ${ctx.beat.heading}
-
+${formatBeatCues(ctx.beat.cues)}
 ${ctx.beat.body}
 
 === Output format ===
