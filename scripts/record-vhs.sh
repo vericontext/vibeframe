@@ -6,7 +6,7 @@
 #   - vhs       — `brew install vhs` (macOS) or download from
 #                 https://github.com/charmbracelet/vhs/releases (Linux)
 #   - vibe      — `npm install -g @vibeframe/cli@latest`
-#   - claude    — `claude` on PATH for e2e.tape (Anthropic Claude Code)
+#   - claude    — `claude` on PATH for claude.tape (Anthropic Claude Code)
 #   - ANTHROPIC_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY in env
 #     (compose-scenes-with-skills + gpt-image-2 backdrops + TTS narration)
 #
@@ -19,7 +19,7 @@
 #   ── User-facing surfaces (real API calls, real videos) ──────────
 #   assets/demos/cli.mp4      — Surface 1: vibe CLI directly, hand-authored STORYBOARD
 #   assets/demos/agent.mp4    — Surface 2: vibe agent REPL, natural-language driven
-#   assets/demos/e2e.mp4      — Surface 3: claude --dangerously-skip-permissions, end-to-end
+#   assets/demos/claude.mp4      — Surface 3: claude --dangerously-skip-permissions, end-to-end
 #
 # The MP4s replace the v0.57-era asciinema SVGs in README + landing
 # (vibeframe-quickstart.svg, vibeframe-agent.svg, vibeframe-claude-code.svg).
@@ -57,14 +57,14 @@ WIZARD_TAPES=(
 SURFACE_TAPES=(
   "assets/demos/cli.tape"
   "assets/demos/agent.tape"
-  "assets/demos/e2e.tape"
+  "assets/demos/claude.tape"
 )
 
 ALL_TAPES=("${WIZARD_TAPES[@]}")
 if [ "${SKIP_SURFACES:-0}" != "1" ]; then
   ALL_TAPES+=("${SURFACE_TAPES[@]}")
   if ! command -v claude >/dev/null 2>&1; then
-    echo "⚠  claude not on PATH — e2e.tape will fail. Install Claude Code or set SKIP_SURFACES=1." >&2
+    echo "⚠  claude not on PATH — claude.tape will fail. Install Claude Code or set SKIP_SURFACES=1." >&2
   fi
 fi
 
