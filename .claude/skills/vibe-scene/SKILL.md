@@ -13,19 +13,24 @@ Prefer this over `vibe pipeline script-to-video --format mp4` whenever the
 user expects to **iterate** on text, layout, or timing — text tweaks don't
 require regenerating video.
 
-## Two authoring paths
+## Three authoring paths (v0.60+)
 
-VibeFrame supports two paths into the same project layout. Pick by the kind
-of output the user expects.
+VibeFrame supports three paths into the same project layout. Pick by how
+much the user wants to author by hand vs. delegate to an agent.
 
-| Path | When to use | Output quality |
-|---|---|---|
-| **High-craft** — `DESIGN.md` + `/hyperframes` skill in Claude Code | User wants cinematic finish, named visual identity, motion principles, transitions that actually punctuate the narrative | Matches what the Hyperframes ecosystem ships |
-| **Quick draft / fallback** — `vibe scene add --style <preset>` | No agent in the loop, or fast iteration on layout/timing/text — same project format, just template-rendered HTML | Generic but functional; great for proof-of-concept and CI dogfood |
+| Path | Command | When to use | Output quality |
+|---|---|---|---|
+| **One-shot (default, v0.60+)** | `vibe scene build [project-dir]` | STORYBOARD.md has YAML frontmatter + per-beat cues — single command dispatches narration TTS + backdrop image-gen + composes scene HTML via skills + renders. Idempotent. | Cinematic; matches the v0.60 demo MP4 |
+| **High-craft (manual)** | `DESIGN.md` + `/hyperframes` skill in Claude Code | Maximum control: hand-author each scene with the agent reading DESIGN.md as a hard-gate | Cinematic; matches what the Hyperframes ecosystem ships |
+| **Quick draft / fallback** | `vibe scene add --style <preset>` | No agent or no API keys; fast iteration on layout/text | Generic but functional |
 
-**Default to the high-craft path when an agent is available.** The
-`scene-html-emit` 5-preset path exists so non-agent flows still work — it
-is intentionally not the cinematic finish layer.
+**Recommend `vibe scene build` whenever the user has a STORYBOARD with
+narration / backdrop intent.** It's the cleanest path and handles the full
+storyboard → MP4 chain.
+
+The `scene-html-emit` 5-preset path (used by `vibe scene add --style ...`)
+exists so non-agent flows still work — it is intentionally not the
+cinematic finish layer.
 
 ## High-craft path (DESIGN.md → agent → HTML)
 

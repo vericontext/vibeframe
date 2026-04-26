@@ -198,12 +198,12 @@ claude                                       # opens Claude Code in cwd
 
 Claude Code calls `vibe schema --list` to discover commands, `vibe schema <cmd>`
 for parameters, and `vibe ... --json` for structured output. The
-[`/vibeframe`](.claude/skills/vibeframe/SKILL.md),
-[`/vibe-pipeline`](.claude/skills/vibe-pipeline/SKILL.md),
-[`/vibe-script-to-video`](.claude/skills/vibe-script-to-video/SKILL.md), and
-[`/vibe-scene`](.claude/skills/vibe-scene/SKILL.md) skills (auto-loaded if you
-clone this repo, or add via `scripts/install-skills.sh`) tighten the loop —
-they teach Claude the right command shapes for common workflows.
+[`/vibe-pipeline`](.claude/skills/vibe-pipeline/SKILL.md) and
+[`/vibe-scene`](.claude/skills/vibe-scene/SKILL.md) skills (auto-loaded if
+you clone this repo, or add via `scripts/install-skills.sh`) tighten the
+loop — they teach Claude the right command shapes for common workflows.
+For a one-page overview, run `vibe init` to scaffold `AGENTS.md` (cross-tool)
+and `CLAUDE.md` (Claude Code, imports `@AGENTS.md`) into your project.
 
 [`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md)
 has the original 5-prompt walkthrough plus a recording recipe.

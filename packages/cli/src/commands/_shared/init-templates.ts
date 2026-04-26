@@ -104,12 +104,11 @@ too.
 ## Skills
 
 If you ran \`vibe init\` with Claude Code detected, the VibeFrame skill
-pack is available as slash commands:
+pack is available as slash commands (consolidated to 2 in v0.62 — the
+overview content moved into AGENTS.md above):
 
-- \`/vibeframe\` — overview, command groups, common workflows
-- \`/vibe-pipeline\` — YAML pipeline authoring helper
-- \`/vibe-script-to-video\` — guided script-to-video walkthrough
-- \`/vibe-scene\` — per-scene HTML authoring (Hyperframes-backed)
+- \`/vibe-pipeline\` — YAML pipeline authoring helper (Video as Code)
+- \`/vibe-scene\` — per-scene HTML authoring + \`vibe scene build\`
 
 To install / update them later:
 

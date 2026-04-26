@@ -107,7 +107,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Video as Code** | composition is somewhat declarative | `vibe run pipeline.yaml` · `--dry-run` cost preview · `--resume` checkpoints · step references (`$step.output`) |
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
-| **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene` |
+| **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibe-pipeline`, `/vibe-scene` (overview lives in `AGENTS.md` scaffolded by `vibe init`) |
 | **MCP server** | ❌ | ✅ 58 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
@@ -220,10 +220,10 @@ curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/
 ```
 
 This registers:
-- **`/vibeframe`** — overview, command groups, and common workflows
 - **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
-- **`/vibe-script-to-video`** — guided script-to-video walkthrough
-- **`/vibe-scene`** — per-scene HTML authoring (Hyperframes-backed, editable)
+- **`/vibe-scene`** — per-scene HTML authoring + `vibe scene build` (Hyperframes-backed)
+
+> The earlier `/vibeframe` overview and `/vibe-script-to-video` walkthrough were merged into `AGENTS.md` (scaffolded by `vibe init`) and `/vibe-scene` respectively in v0.62 — fewer slash commands, single source of truth.
 
 Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
 

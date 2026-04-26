@@ -32,11 +32,12 @@ describe("CLAUDE_MD template", () => {
     expect(CLAUDE_MD.startsWith("@AGENTS.md")).toBe(true);
   });
 
-  it("documents the four VibeFrame slash commands", () => {
-    expect(CLAUDE_MD).toContain("/vibeframe");
+  it("documents the two consolidated VibeFrame slash commands (v0.62 trim from 4 → 2)", () => {
     expect(CLAUDE_MD).toContain("/vibe-pipeline");
-    expect(CLAUDE_MD).toContain("/vibe-script-to-video");
     expect(CLAUDE_MD).toContain("/vibe-scene");
+    // v0.62 explicitly removed these — overview lives in AGENTS.md, walkthrough merged into vibe-scene.
+    expect(CLAUDE_MD).not.toContain("/vibeframe ");
+    expect(CLAUDE_MD).not.toContain("/vibe-script-to-video");
   });
 
   it("provides the install-skills curl command for later updates", () => {
