@@ -25,7 +25,7 @@ vi.mock("../../commands/ai-script-pipeline.js", () => ({
     scenes: 3,
     storyboardPath: "/test/output/storyboard.json",
     projectPath: "/test/output/project.vibe.json",
-    narrations: ["/test/output/narration-1.mp3"],
+    narrationEntries: [{ path: "/test/output/narration-1.mp3", duration: 3, segmentIndex: 0, failed: false }],
     images: ["/test/output/scene-1.png"],
     videos: ["/test/output/scene-1.mp4"],
     totalDuration: 30,

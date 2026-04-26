@@ -571,8 +571,6 @@ export interface ScriptToVideoResult {
   storyboardPath?: string;
   /** Path to the generated .vibe.json project file */
   projectPath?: string;
-  /** @deprecated Use narrationEntries for proper segment tracking */
-  narrations?: string[];
   /** Narration entries with segment index tracking */
   narrationEntries?: NarrationEntry[];
   /** Paths to generated scene images */
@@ -730,7 +728,6 @@ export async function executeScriptToVideo(
       outputDir: absOutputDir,
       scenes: segments.length,
       storyboardPath,
-      narrations: [],
       narrationEntries: [],
       images: [],
       videos: [],
@@ -808,8 +805,6 @@ export async function executeScriptToVideo(
 
           segment.duration = actualDuration;
 
-          // Add to both arrays for backwards compatibility
-          result.narrations!.push(audioPath);
           result.narrationEntries!.push({
             path: audioPath,
             duration: actualDuration,
