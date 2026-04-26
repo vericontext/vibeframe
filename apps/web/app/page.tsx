@@ -156,6 +156,62 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ⓪.5 — From install to MP4: the v0.61 4-step on-ramp */}
+      <section className="py-20 px-4 border-t border-border/50 relative">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/5 px-4 py-1.5 text-sm text-purple-400 mb-4">
+              <Wand2 className="w-4 h-4" />
+              <span>From install to MP4 · v0.61 wizard</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Four steps. Same flow on every agent host.
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Once <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe init</code> scaffolds
+              {" "}<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">AGENTS.md</code> + {" "}
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">CLAUDE.md</code>, Claude Code,
+              Codex, and Cursor all see the same project guidance.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">1. Install · global</div>
+              <code className="font-mono text-xs text-foreground block break-all">curl -fsSL vibeframe.ai/install.sh | bash</code>
+              <p className="text-xs text-muted-foreground mt-3">Adds the <code className="text-primary">vibe</code> CLI.</p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">2. Setup · user scope</div>
+              <code className="font-mono text-xs text-foreground">vibe setup</code>
+              <p className="text-xs text-muted-foreground mt-3">API keys + LLM provider, once per machine. Detects your agent host.</p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">3. Init · project scope</div>
+              <code className="font-mono text-xs text-foreground">vibe init my-promo</code>
+              <p className="text-xs text-muted-foreground mt-3">
+                Scaffolds <code className="text-primary">AGENTS.md</code> (cross-tool) + <code className="text-primary">CLAUDE.md</code> + <code className="text-primary">.env.example</code>.
+              </p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">4. Build · STORYBOARD → MP4</div>
+              <code className="font-mono text-xs text-foreground">vibe scene build my-promo</code>
+              <p className="text-xs text-muted-foreground mt-3">Dispatches narration + backdrops, composes scenes via skills, renders.</p>
+            </div>
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground mt-8">
+            Two flows depending on intent —{" "}
+            <span className="text-foreground font-medium">BUILD</span> from text via{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code>,{" "}
+            <span className="text-foreground font-medium">PROCESS</span> existing media via{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe pipeline</code> /{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code> /{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">audio</code>.
+          </p>
+        </div>
+      </section>
+
       {/* ① CLI First Section */}
       <section id="cli-first" className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
@@ -227,8 +283,8 @@ export default function LandingPage() {
               command="vibe edit caption video.mp4 -o captioned.mp4 && vibe edit translate-srt captions.srt -t ko"
             />
             <ClaudeCodeExample
-              input="Create a TikTok from this script"
-              command={`vibe pipeline script-to-video "A day in the life..." -a 9:16 -o ./tiktok/`}
+              input="Build a 9:16 promo from STORYBOARD.md"
+              command={`vibe scene build my-promo --image-size 1024x1536`}
             />
           </div>
 
@@ -407,24 +463,24 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <PipelineCard
+              icon={<Film className="w-6 h-6" />}
+              title="Scene Build"
+              command="vibe scene build my-promo"
+              description="STORYBOARD.md + DESIGN.md → narrated, captioned MP4"
+              gradient="from-blue-500 to-purple-500"
+            />
+            <PipelineCard
               icon={<Layers className="w-6 h-6" />}
               title="Video as Code"
               command="vibe run pipeline.yaml"
-              description="Declarative YAML → reproducible video workflows"
+              description="Declarative YAML pipelines, --resume + budget guards"
               gradient="from-green-500 to-teal-500"
-            />
-            <PipelineCard
-              icon={<Film className="w-6 h-6" />}
-              title="Script to Video"
-              command="vibe pipeline script-to-video"
-              description="Text → Storyboard → TTS → Images → Video"
-              gradient="from-blue-500 to-purple-500"
             />
             <PipelineCard
               icon={<Sparkles className="w-6 h-6" />}
               title="Auto Highlights"
               command="vibe pipeline highlights"
-              description="Long video → AI analysis → Best moments"
+              description="Long video → AI analysis → best moments"
               gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard
@@ -438,14 +494,14 @@ export default function LandingPage() {
               icon={<Zap className="w-6 h-6" />}
               title="Auto Shorts"
               command="vibe pipeline auto-shorts"
-              description="Long video → Vertical shorts with captions"
+              description="Long video → vertical shorts with captions"
               gradient="from-orange-500 to-yellow-500"
             />
             <PipelineCard
               icon={<Wand2 className="w-6 h-6" />}
               title="Auto Dub"
               command="vibe audio dub"
-              description="Transcribe → Translate → TTS in any language"
+              description="Transcribe → translate → TTS in any language"
               gradient="from-green-500 to-emerald-500"
             />
           </div>
