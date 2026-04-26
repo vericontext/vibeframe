@@ -1,0 +1,34 @@
+# VibeFrame promo — end-to-end pipeline (v0.59+)
+#
+# Hands DESIGN.md + STORYBOARD.md to Claude Sonnet 4.6 (with the
+# Hyperframes skill bundle as system prompt) and writes one HTML
+# composition per beat.
+#
+# Run:
+#   ANTHROPIC_API_KEY=sk-... vibe run examples/vibeframe-promo/vibeframe-promo.yaml --dry-run
+#   ANTHROPIC_API_KEY=sk-... vibe run examples/vibeframe-promo/vibeframe-promo.yaml
+#
+# Then render the project to MP4 (separate step, requires Chrome):
+#   vibe scene render --project examples/vibeframe-promo -o promo.mp4
+#
+# See examples/vibeframe-promo/README.md for the full walkthrough,
+# including how the cache makes second runs free.
+
+name: vibeframe-promo
+description: Compose 3 scene HTMLs from DESIGN.md + STORYBOARD.md via the Hyperframes skill bundle.
+version: 1
+
+# Cost ceiling — abort if projected cost exceeds this. Each beat
+# costs ≈ $0.06 at the medium effort tier (PR #111 pre-flight),
+# so 3 beats ≈ $0.18. The $1.50 ceiling is the dry-run upper bound
+# for compose-scenes-with-skills (covers up to ~10 beats).
+budget:
+  costUsd: 1.50
+
+steps:
+  - id: compose
+    action: compose-scenes-with-skills
+    design: DESIGN.md
+    storyboard: STORYBOARD.md
+    project: .
+    effort: medium
