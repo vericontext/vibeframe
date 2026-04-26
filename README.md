@@ -62,21 +62,33 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 | Export for each platform | `vibe pipeline viral project.vibe.json` |
 | Click through menus | Natural language → CLI → done |
 
-**See [docs/comparison.md](docs/comparison.md)** for a measured side-by-side
-of `vibe scene render` vs `npx hyperframes render` on the same project
-(reproducible with [`tests/comparison/render-bench.sh`](tests/comparison/render-bench.sh)).
+### Built on Hyperframes
 
-### vs other open-source video agents
+VibeFrame is **not** a competitor to [Hyperframes](https://github.com/heygen-com/hyperframes) — it builds on it. Hyperframes solves the hard rendering problem (Chrome BeginFrame deterministic capture, parity harness, native HDR pipeline, Studio NLE editor) and VibeFrame uses it as a render backend (`vibe export --backend hyperframes` since v0.47, `vibe scene` produces Hyperframes-compatible HTML since v0.53). The two layers are complementary:
 
-| Feature | VibeFrame | [Hyperframes](https://github.com/heygen-com/hyperframes) | [OpenMontage](https://github.com/calesthio/OpenMontage) | [Remotion](https://github.com/remotion-dev/remotion) |
-|---|---|---|---|---|
-| CLI-first | ✅ | ✅ | ✅ | ❌ (library) |
-| YAML pipelines | ✅ (`vibe run`) | partial | ✅ | ❌ |
-| AI providers | **13** (OpenAI gpt-image-2, fal/Seedance 2.0, Veo, Kling, Runway, Grok, ElevenLabs, Kokoro, Whisper, Claude, Gemini, OpenRouter, Ollama) | TTS + transcribe | many | ❌ |
-| MCP server bundled | ✅ **59 MCP tools** | ❌ | ❌ | ❌ |
-| Claude Code Skill | [planned](https://github.com/vericontext/vibeframe/issues/32) | ✅ | ❌ | ❌ |
-| Render backend | FFmpeg + Remotion | HTML + Puppeteer | FFmpeg | React → Video |
-| License | MIT | Apache 2.0 | AGPLv3 | MIT |
+- **Hyperframes** — HTML composition format · deterministic rendering · Studio editor · native HDR · local Kokoro TTS · local whisper-cpp transcribe · Claude Code skills
+- **VibeFrame** — AI generation providers (image/video/audio) · agent integrations (MCP, REPL) · traditional editing/analysis commands · multi-stage AI pipelines
+
+See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `vibe scene render` vs `npx hyperframes render` on the same project — same h264 stream both directions, +33 KB for the AAC narration track. Reproducible with [`tests/comparison/render-bench.sh`](tests/comparison/render-bench.sh).
+
+### What VibeFrame adds on top
+
+| Layer | Hyperframes | VibeFrame |
+|---|---|---|
+| **AI generation** | — | OpenAI gpt-image-2 (image default since v0.56), fal.ai Seedance 2.0 (video default since v0.57), Veo, Kling, Runway, Grok, ElevenLabs, Replicate |
+| **Agent integrations** | — | MCP server (59 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
+| **Traditional editing** | — | `vibe edit` silence-cut · jump-cut · caption · grade · reframe · speed-ramp · fade · noise-reduce (84+ commands total) |
+| **AI analysis** | — | `vibe analyze` media/video/review/suggest (multimodal LLMs) |
+| **AI pipelines** | composition format only | `vibe pipeline script-to-video` · `highlights` · `auto-shorts` · `animated-caption` |
+| **Video as Code** | composition is somewhat declarative | `vibe run pipeline.yaml` · `--dry-run` cost preview · `--resume` checkpoints · step references (`$step.output`) |
+| **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
+| **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
+| **Claude Code skills** | ✅ `hyperframes skills add` | ✅ ships `/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene` |
+| **MCP server** | ❌ | ✅ 59 tools |
+| **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
+| **License** | Apache 2.0 | MIT |
+
+The short version: **if you already write HTML compositions and want them rendered well, use Hyperframes directly. If you want AI to *write* those compositions for you, edit them traditionally, surface them to Claude Code via MCP, or stitch a multi-stage AI pipeline — that's VibeFrame.**
 
 **Design Principles:** CLI-First — AI-Native — Provider Agnostic — MCP Compatible
 
