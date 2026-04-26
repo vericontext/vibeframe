@@ -8,11 +8,17 @@ the Apache License, Version 2.0:
     https://github.com/heygen-com/hyperframes
     https://www.apache.org/licenses/LICENSE-2.0
 
-VibeFrame loads them as a system prompt for the
-`compose-scenes-with-skills` YAML pipeline action (v0.59+). When a user
-has installed the upstream skill via `npx skills add heygen-com/hyperframes`,
-the installed copy takes precedence — this snapshot is the offline /
-CI-safe fallback.
+VibeFrame is not affiliated with HeyGen or the Hyperframes project.
+We use Hyperframes under its public Apache 2.0 license; the
+relationship is documented in /CREDITS.md at the repo root, and any
+feedback about how this layering is presented or used should reach
+the VibeFrame maintainers, not HeyGen.
+
+VibeFrame loads these files as a system prompt for the
+`compose-scenes-with-skills` YAML pipeline action (v0.59+). When a
+user has installed the upstream skill via the documented agent path
+(`npx skills add heygen-com/hyperframes`), the installed copy takes
+precedence — this snapshot is the offline / CI-safe fallback.
 
 Files vendored
 --------------

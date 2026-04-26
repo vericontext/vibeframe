@@ -4,6 +4,12 @@
  * Loads the vendored Hyperframes skill content as a single concatenated
  * system-prompt string. Used by `compose-scenes-with-skills` (v0.59+).
  *
+ * Hyperframes (https://github.com/heygen-com/hyperframes, Apache 2.0)
+ * publishes this skill content as the agent-loadable definition of its
+ * composition craft. VibeFrame is not affiliated with HeyGen — see
+ * `/CREDITS.md` and `./NOTICE` for the relationship + license obligations
+ * VibeFrame honours.
+ *
  * Sourcing order (highest precedence first):
  *   1. User-installed skill — `~/.claude/skills/hyperframes/` (read at runtime
  *      via readFileSync — kept fresh by the user's `npx skills update` flow)
@@ -11,9 +17,11 @@
  *      `npm install -g @vibeframe/cli` because the .md files are inlined
  *      into the esbuild bundle via the text loader — see `build.js`)
  *
- * Vendoring is documented in NOTICE next to this file (Apache 2.0 attribution).
- * Refresh the snapshot with `scripts/refresh-hf-bundle.sh` (re-copies from a
- * sibling clone of `github.com/heygen-com/hyperframes` and bumps BUNDLE_VERSION).
+ * The vendored copy is byte-identical to upstream: no semantic edits. We
+ * mirror Hyperframes' own treatment of prior art (see their CREDITS.md
+ * "Prior art" section about Remotion). Refresh the snapshot with
+ * `scripts/refresh-hf-bundle.sh`, which re-copies from a sibling clone of
+ * the upstream repo and bumps BUNDLE_VERSION.
  *
  * The cache for `compose-scenes-with-skills` keys on `BUNDLE_VERSION` (folded
  * into the hash) so snapshot upgrades automatically invalidate previously-cached
