@@ -235,6 +235,64 @@ async function ensureActionsRegistered(): Promise<void> {
       error: r.error,
     };
   });
+
+  // v0.62: STORYBOARD → MP4 in one action. Reads frontmatter + per-beat
+  // cues, dispatches TTS + image-gen per beat, runs compose-scenes-with-
+  // skills, then renders. Idempotent — existing assets are reused.
+  registerAction("scene-build", async (params, outputDir) => {
+    const { executeSceneBuild } = await import("../commands/_shared/scene-build.js");
+    const projectRel = (params.project as string | undefined) ?? ".";
+    const r = await executeSceneBuild({
+      projectDir: resolve(outputDir, projectRel),
+      effort: params.effort as "low" | "medium" | "high" | undefined,
+      skipNarration: params.skipNarration as boolean | undefined,
+      skipBackdrop: params.skipBackdrop as boolean | undefined,
+      skipRender: params.skipRender as boolean | undefined,
+      ttsProvider: params.tts as "auto" | "elevenlabs" | "kokoro" | undefined,
+      voice: params.voice as string | undefined,
+      imageProvider: params.imageProvider as "openai" | undefined,
+      imageQuality: params.quality as "standard" | "hd" | undefined,
+      force: params.force as boolean | undefined,
+    });
+    return {
+      id: "",
+      action: "scene-build",
+      success: r.success,
+      output: r.outputPath,
+      data: { beats: r.beats, totalLatencyMs: r.totalLatencyMs, composeData: r.composeData ?? null } as Record<string, unknown>,
+      error: r.error,
+    };
+  });
+
+  // v0.62: render-only escape hatch for pipelines that author scene HTML
+  // by hand (or via compose-scenes-with-skills) and only need the
+  // Hyperframes producer pass + audio mux at the end.
+  registerAction("scene-render", async (params, outputDir) => {
+    const { executeSceneRender } = await import("../commands/_shared/scene-render.js");
+    const projectRel = (params.project as string | undefined) ?? ".";
+    const r = await executeSceneRender({
+      projectDir: resolve(outputDir, projectRel),
+      root: params.root as string | undefined,
+      output: params.output as string | undefined,
+      fps: params.fps as 24 | 30 | 60 | undefined,
+      quality: params.quality as "draft" | "standard" | "high" | undefined,
+      format: params.format as "mp4" | "webm" | "mov" | undefined,
+      workers: params.workers as number | undefined,
+    });
+    return {
+      id: "",
+      action: "scene-render",
+      success: r.success,
+      output: r.outputPath,
+      data: {
+        durationMs: r.durationMs,
+        framesRendered: r.framesRendered,
+        audioCount: r.audioCount,
+        audioMuxApplied: r.audioMuxApplied,
+      } as Record<string, unknown>,
+      error: r.error,
+    };
+  });
 }
 
 // ── Pipeline Loader ─────────────────────────────────────────────────────
