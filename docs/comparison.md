@@ -69,7 +69,7 @@ ahead because Chrome warm-up amortises across more frames.
 | **Word-sync captions** | manual JS hardcoding (see [`hyperframe-learn` example](https://github.com/heygen-com/hyperframes)) | `vibe scene add` emits `<span class="word">` from transcript automatically |
 | Pipeline (script → scenes → MP4) | not in scope | `vibe pipeline script-to-video --format scenes` |
 | Provider routing (TTS/image/video) | n/a | `--tts auto\|kokoro\|elevenlabs`, `--image-provider gemini\|openai`, `-g grok\|kling\|runway\|veo` |
-| Agent + MCP tool surface | n/a | 53 MCP tools incl. `scene_init/add/lint/render` |
+| Agent + MCP tool surface | n/a | 58 MCP tools incl. `scene_init/add/lint/render` |
 | Pricing | $0 (local) | $0 with Kokoro+Gemini, ≤$0.10 with ElevenLabs+OpenAI |
 
 ## What VibeFrame is *not* solving
@@ -83,12 +83,16 @@ ahead because Chrome warm-up amortises across more frames.
 
 ## Why "AI-native CLI" is the gap, not "another renderer"
 
-Hyperframes is a renderer + small tool ecosystem. VibeFrame is the layer
-that turns "I have a script, write me a captioned video" into one command,
-running through configurable providers, with the lint / transcript /
-audio-mux glue automated. If you're already comfortable hand-authoring
-scene HTML, `npx hyperframes` covers ~80% of what you'd want. VibeFrame
-absorbs the remaining glue + adds the agent / MCP / pipeline surface.
+Hyperframes is a complete composition + rendering framework: producer,
+linter, Studio editor, 50+ installable blocks/components, plugin
+manifests for Claude Code / Cursor / Codex, and a five-skill agent
+ecosystem (`hyperframes`, `gsap`, `hyperframes-cli`, `hyperframes-registry`,
+`website-to-hyperframes`). VibeFrame addresses a different concern: AI
+asset generation, multi-provider routing, and headless YAML pipelines
+that orchestrate the full `script → assets → compose → render` chain.
+If your need is "give me clean HTML composition tooling and a
+deterministic renderer," `npx hyperframes` is the right answer.
+VibeFrame layers on top of that with the agent / MCP / pipeline surface.
 
 ## Reproducing this comparison
 

@@ -71,10 +71,12 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 
 ### Built on Hyperframes
 
-VibeFrame is **not** a competitor to [Hyperframes](https://github.com/heygen-com/hyperframes) — it builds on it. Hyperframes solves the hard rendering problem (Chrome BeginFrame deterministic capture, parity harness, native HDR pipeline, Studio NLE editor) and VibeFrame uses it as a render backend (`vibe export --backend hyperframes` since v0.47, `vibe scene` produces Hyperframes-compatible HTML since v0.53). The two layers are complementary:
+VibeFrame is **not** a competitor to [Hyperframes](https://github.com/heygen-com/hyperframes) (Apache 2.0) — it builds on it. Hyperframes solves the hard rendering problem (Chrome BeginFrame deterministic capture, parity harness, native HDR pipeline, Studio editor) and VibeFrame uses it as a render backend (`vibe export --backend hyperframes` since v0.47, `vibe scene` produces Hyperframes-compatible HTML since v0.53). The two layers are complementary:
 
-- **Hyperframes** — HTML composition format · deterministic rendering · Studio editor · native HDR · local Kokoro TTS · local whisper-cpp transcribe · Claude Code skills
-- **VibeFrame** — AI generation providers (image/video/audio) · agent integrations (MCP, REPL) · traditional editing/analysis commands · multi-stage AI pipelines
+- **Hyperframes** — HTML composition format · deterministic rendering · Studio editor · native HDR · local Kokoro TTS · local whisper-cpp transcribe · agent skill ecosystem (`hyperframes`, `gsap`, `hyperframes-cli`, `hyperframes-registry`, `website-to-hyperframes`)
+- **VibeFrame** — 13 AI generation providers (image/video/audio) · agent integrations (MCP, REPL) · traditional editing/analysis commands · multi-stage YAML pipelines
+
+VibeFrame's `compose-scenes-with-skills` action (v0.59+) loads Hyperframes' `hyperframes` skill content as the system prompt for Claude-driven scene HTML generation. We use the user's installed copy when present (`npx skills add heygen-com/hyperframes`); otherwise the bundle ships a vendored snapshot for offline / CI safety. Provenance and the full relationship are documented in [`CREDITS.md`](CREDITS.md). VibeFrame is not affiliated with HeyGen.
 
 See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `vibe scene render` vs `npx hyperframes render` on the same project — same h264 stream both directions, +33 KB for the AAC narration track. Reproducible with [`tests/comparison/render-bench.sh`](tests/comparison/render-bench.sh).
 
@@ -90,7 +92,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Video as Code** | composition is somewhat declarative | `vibe run pipeline.yaml` · `--dry-run` cost preview · `--resume` checkpoints · step references (`$step.output`) |
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
-| **Claude Code skills** | ✅ `hyperframes skills add` | ✅ ships `/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene` |
+| **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene` |
 | **MCP server** | ❌ | ✅ 58 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |

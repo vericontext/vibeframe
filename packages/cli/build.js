@@ -64,6 +64,11 @@ await build({
   sourcemap: false,
   minify: false,
   treeShaking: true,
+  // Inline the vendored Hyperframes skill markdown as string constants so
+  // the bundled `dist/index.js` is self-contained when published to npm
+  // (the .md files are not in the package's `files` whitelist; see
+  // `src/commands/_shared/hf-skill-bundle/bundle.ts` for the import sites).
+  loader: { ".md": "text" },
   // The CLI imports many subpaths through its own `exports` field. Tell
   // esbuild to follow them via the package.json conditions exposed there.
   conditions: ["import"],
