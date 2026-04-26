@@ -618,7 +618,33 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   // -- Decide scene duration -----------------------------------------------
   const cfg = await loadVibeProjectConfig(projectDir);
   const fallback = cfg?.defaultSceneDuration ?? 5;
-  const duration = opts.duration ?? narrationDuration ?? fallback;
+  // Scene duration must be ≥ narration audio length, otherwise the parent
+  // clip's data-duration cuts the audio short — the previous heuristic
+  // (`opts.duration ?? narrationDuration ?? fallback`) honored an
+  // explicit `--duration` flag even when it was shorter than the
+  // generated TTS, which produced exactly the "scene feels rushed /
+  // narration cut off" bug the v0.55 self-promo MP4 hit on the TTS and
+  // video scenes (3 s scene, 3.77 s narration). The user-supplied value
+  // is now treated as a *minimum* — when narration audio is longer, we
+  // extend the scene so it accommodates the full narration plus the
+  // SCENE_OVERLAP_SECONDS crossfade tail and a small safety buffer for
+  // TTS tail silence.
+  const NARRATION_TAIL_BUFFER = 0.5;
+  const userDur = opts.duration;
+  const audioMinDur = narrationDuration !== undefined
+    ? narrationDuration + SCENE_OVERLAP_SECONDS + NARRATION_TAIL_BUFFER
+    : undefined;
+  let duration: number;
+  if (userDur !== undefined && audioMinDur !== undefined) {
+    duration = Math.max(userDur, audioMinDur);
+  } else if (audioMinDur !== undefined) {
+    duration = audioMinDur;
+  } else if (userDur !== undefined) {
+    duration = userDur;
+  } else {
+    duration = fallback;
+  }
+  duration = Number(duration.toFixed(2));
 
   // -- Emit scene HTML -----------------------------------------------------
   opts.onProgress?.("Emitting scene HTML...");

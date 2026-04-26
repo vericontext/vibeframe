@@ -1,5 +1,5 @@
 <template id="scene-video-template">
-  <div data-composition-id="video" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+  <div data-composition-id="video" data-start="0" data-duration="5.93" data-width="1920" data-height="1080">
     <style>
       [data-composition-id="video"] {
         position: absolute; inset: 0; width: 100%; height: 100%;
@@ -63,12 +63,12 @@
       const tl = gsap.timeline({ paused: true });
 
       tl.from('[data-composition-id="video"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
-      tl.to('[data-composition-id="video"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 3.60);
-      tl.fromTo('[data-composition-id="video"] .backdrop', { scale: 1.0 }, { scale: 1.12, duration: 4.00, ease: 'none' }, 0);
+      tl.to('[data-composition-id="video"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 5.53);
+      tl.fromTo('[data-composition-id="video"] .backdrop', { scale: 1.0 }, { scale: 1.12, duration: 5.93, ease: 'none' }, 0);
       tl.from('[data-composition-id="video"] #label', { opacity: 0, x: -30, duration: 0.5, ease: 'power3.out' }, 0.2);
       tl.from('[data-composition-id="video"] #headline', { opacity: 0, y: 40, duration: 0.6, ease: 'power3.out' }, 0.4);
       tl.from('[data-composition-id="video"] #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);
-      tl.to('[data-composition-id="video"] #headline', { scale: 1.04, y: -8, duration: 1.5, yoyo: true, repeat: 0, ease: 'sine.inOut' }, 1.20);
+      tl.to('[data-composition-id="video"] #headline', { scale: 1.04, y: -8, duration: 1.5, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 1.20);
 
       window.__timelines["video"] = tl;
     </script>
