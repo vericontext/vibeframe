@@ -7,13 +7,17 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   composeBeatHtml,
+  composeBeatWithRetry,
   computeCacheKey,
   defaultCacheDir,
   extractHtml,
+  formatLintFeedback,
+  lintBeatHtml,
   ComposeBeatError,
 } from "./compose-scenes-skills.js";
 
 import type { Beat } from "./storyboard-parse.js";
+import type { LintFinding } from "./scene-lint.js";
 
 // Shared fixtures
 const beat: Beat = {
@@ -248,5 +252,159 @@ describe("composeBeatHtml", () => {
 
     const args = create.mock.calls[0][0];
     expect(args.max_tokens).toBe(8_000);
+  });
+});
+
+// ── Lint feedback helpers (C4) ──────────────────────────────────────────
+
+describe("formatLintFeedback", () => {
+  it("returns empty string when no errors", () => {
+    expect(formatLintFeedback([])).toBe("");
+    const warningsOnly: LintFinding[] = [
+      { severity: "warning", code: "x", message: "y" },
+    ];
+    expect(formatLintFeedback(warningsOnly)).toBe("");
+  });
+
+  it("formats each error as ERROR [code] message", () => {
+    const findings: LintFinding[] = [
+      { severity: "error", code: "missing_clip_class", message: 'div lacks class="clip"' },
+      { severity: "error", code: "no_timeline", message: "no GSAP timeline registered" },
+    ];
+    const out = formatLintFeedback(findings);
+    expect(out).toContain('ERROR [missing_clip_class] div lacks class="clip"');
+    expect(out).toContain("ERROR [no_timeline] no GSAP timeline registered");
+  });
+
+  it("includes fixHint on a separate line when present", () => {
+    const findings: LintFinding[] = [
+      {
+        severity: "error",
+        code: "missing_clip_class",
+        message: 'div lacks class="clip"',
+        fixHint: 'add class="clip" to the timed div',
+      },
+    ];
+    const out = formatLintFeedback(findings);
+    expect(out).toContain("Fix hint: add class=\"clip\"");
+  });
+
+  it("filters out non-error findings (warnings/info)", () => {
+    const findings: LintFinding[] = [
+      { severity: "error", code: "real-error", message: "fix me" },
+      { severity: "warning", code: "soft-warn", message: "minor" },
+      { severity: "info", code: "fyi", message: "irrelevant" },
+    ];
+    const out = formatLintFeedback(findings);
+    expect(out).toContain("real-error");
+    expect(out).not.toContain("soft-warn");
+    expect(out).not.toContain("fyi");
+  });
+});
+
+describe("lintBeatHtml", () => {
+  it("returns errors for HTML missing required structure", () => {
+    // Missing data-composition-id, data-width, data-height entirely
+    const html = `<template id="bad"><div>hi</div></template>`;
+    const r = lintBeatHtml(html, "test");
+    expect(r.errorCount).toBeGreaterThan(0);
+  });
+
+  it("structure has expected counts shape", () => {
+    const html = `<template id="bad"><div>nothing</div></template>`;
+    const r = lintBeatHtml(html, "test");
+    expect(r).toHaveProperty("errorCount");
+    expect(r).toHaveProperty("warningCount");
+    expect(r).toHaveProperty("findings");
+    expect(Array.isArray(r.findings)).toBe(true);
+  });
+});
+
+// ── composeBeatWithRetry (C4) ───────────────────────────────────────────
+
+const validHtml = `<template id="scene-1-template">
+  <div data-composition-id="scene-1" data-width="1920" data-height="1080" data-start="0" data-duration="3">
+    <div class="clip" data-start="0" data-duration="3" data-track-index="0">
+      <p>Hello</p>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-1"] = { paused: true };
+    </script>
+  </div>
+</template>`;
+
+const invalidHtml = `<template id="bad"><div>nothing</div></template>`;
+
+function fenced(html: string): string {
+  return "```html\n" + html + "\n```";
+}
+
+describe("composeBeatWithRetry", () => {
+  let cacheDir: string;
+
+  beforeEach(() => {
+    cacheDir = mkdtempSync(join(tmpdir(), "compose-retry-test-"));
+  });
+
+  afterEach(() => {
+    rmSync(cacheDir, { recursive: true, force: true });
+  });
+
+  it("returns lintAttempts=1 when first shot lints clean", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenced(validHtml) }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+
+    const r = await composeBeatWithRetry(
+      { ...baseCtx, cacheDir },
+      { client: { messages: { create } } as never },
+    );
+
+    expect(r.lintAttempts).toBe(1);
+    expect(r.lint.errorCount).toBe(0);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
+  it("retries with feedback when first shot fails lint, returns lintAttempts=2 on success", async () => {
+    const create = vi.fn()
+      .mockResolvedValueOnce({
+        content: [{ type: "text", text: fenced(invalidHtml) }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      })
+      .mockResolvedValueOnce({
+        content: [{ type: "text", text: fenced(validHtml) }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      });
+
+    const r = await composeBeatWithRetry(
+      { ...baseCtx, cacheDir },
+      { client: { messages: { create } } as never },
+    );
+
+    expect(r.lintAttempts).toBe(2);
+    expect(r.lint.errorCount).toBe(0);
+    expect(create).toHaveBeenCalledTimes(2);
+
+    // Retry call's user prompt must include the lint findings as feedback
+    const retryArgs = create.mock.calls[1][0];
+    const retryUserMsg = retryArgs.messages[0].content;
+    expect(retryUserMsg).toContain("Previous attempt failed lint");
+  });
+
+  it("throws lint-failed-after-retry when both attempts fail", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: fenced(invalidHtml) }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    });
+
+    await expect(
+      composeBeatWithRetry({ ...baseCtx, cacheDir }, { client: { messages: { create } } as never }),
+    ).rejects.toMatchObject({
+      name: "ComposeBeatError",
+      code: "lint-failed-after-retry",
+    });
+    expect(create).toHaveBeenCalledTimes(2);
   });
 });
