@@ -1,0 +1,34 @@
+# scene-promo-pipeline.yaml
+#
+# v0.62 reference pipeline — STORYBOARD.md → MP4 in one declarative file.
+# Replaces the earlier "scene add → scene render" two-step manual flow.
+#
+# How to run:
+#   vibe run examples/scene-promo-pipeline.yaml --dry-run    # cost preview
+#   vibe run examples/scene-promo-pipeline.yaml              # actually build
+#
+# Project layout assumed:
+#   examples/vibeframe-promo/
+#     STORYBOARD.md       — beats with `narration:` / `backdrop:` cues
+#     DESIGN.md           — visual identity hard-gate
+#     index.html          — root composition referencing scene HTML
+#     vibe.project.yaml
+#
+# This pipeline reproduces the cinematic-v060.mp4 demo end-to-end. See
+# `assets/demos/cinematic-v060.mp4` for the rendered output.
+
+name: scene-promo
+budget:
+  costUsd: 2.00          # cap total spend — scene-build composes via Sonnet 4.6
+  maxToolErrors: 1
+effort: medium
+
+steps:
+  # Single action does it all: TTS per beat (cues), backdrops per beat
+  # (cues), compose scene HTML via skills, render to MP4.
+  - id: build
+    action: scene-build
+    project: vibeframe-promo
+    quality: hd            # gpt-image-2 quality for backdrops
+    # Idempotent by default — pre-existing assets/narration-*.mp3 +
+    # assets/backdrop-*.png are reused. Pass `force: true` to redo.
