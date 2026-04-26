@@ -1,0 +1,15 @@
+{
+  "pass": 1,
+  "ts": "2026-04-26T15:17:05.972Z",
+  "model": "claude-sonnet-4-6",
+  "latencyMs": 8535,
+  "inputTokens": 15253,
+  "outputTokens": 758,
+  "costUsd": 0.0571,
+  "htmlChars": 2134,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 2
+  }
+}

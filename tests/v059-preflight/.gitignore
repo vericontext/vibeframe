@@ -1,0 +1,6 @@
+# LLM artefacts — regenerable from fixtures + ANTHROPIC_API_KEY
+project-shell/compositions/scene-beat-*.html
+project-shell/.vibeframe/
+
+# Per-run scratch
+tmp/*.html

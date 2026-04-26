@@ -1,0 +1,61 @@
+{
+  "n": 5,
+  "passRate": 1,
+  "meanLatencyMs": 8420.8,
+  "meanCharsHtml": 2217,
+  "totalCostUsd": 0.2886,
+  "meanDiff": 0.331,
+  "maxDiff": 0.459,
+  "runs": [
+    {
+      "n": 1,
+      "latencyMs": 8228,
+      "inputTokens": 15253,
+      "outputTokens": 767,
+      "costUsd": 0.0573,
+      "htmlChars": 2131,
+      "lintOk": true,
+      "lintErrors": 0
+    },
+    {
+      "n": 2,
+      "latencyMs": 8123,
+      "inputTokens": 15253,
+      "outputTokens": 773,
+      "costUsd": 0.0574,
+      "htmlChars": 2149,
+      "lintOk": true,
+      "lintErrors": 0
+    },
+    {
+      "n": 3,
+      "latencyMs": 8235,
+      "inputTokens": 15253,
+      "outputTokens": 806,
+      "costUsd": 0.0578,
+      "htmlChars": 2236,
+      "lintOk": true,
+      "lintErrors": 0
+    },
+    {
+      "n": 4,
+      "latencyMs": 8501,
+      "inputTokens": 15253,
+      "outputTokens": 777,
+      "costUsd": 0.0574,
+      "htmlChars": 2161,
+      "lintOk": true,
+      "lintErrors": 0
+    },
+    {
+      "n": 5,
+      "latencyMs": 9017,
+      "inputTokens": 15253,
+      "outputTokens": 861,
+      "costUsd": 0.0587,
+      "htmlChars": 2408,
+      "lintOk": true,
+      "lintErrors": 0
+    }
+  ]
+}
