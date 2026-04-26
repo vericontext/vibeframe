@@ -4,6 +4,11 @@ Three surfaces, same tools. Pick the entry point that matches how you already
 work — every section below is **copy-pasteable** and produces a real artifact
 on disk.
 
+> The asciinema recordings in the [README](README.md#demo) show v0.57 commands and
+> pre-date the v0.58 visual-identity features (`vibe scene init --visual-style "<name>"`,
+> `vibe scene styles`, the `DESIGN.md` hard-gate). The walkthroughs below include both —
+> start with whichever surface fits you.
+
 | Surface | Best for | API keys needed |
 |---|---|---|
 | [1. CLI direct (`vibe`)](#1-cli-direct--vibe-quickstart) | Scripted workflows, CI, terminal-first authors | None for the offline path; `OPENAI_API_KEY` for word-sync captions |
@@ -27,7 +32,10 @@ TTS); a Whisper key adds word-synced captions if you set one.
 vibe doctor                                   # checks Node, FFmpeg, Chrome
 
 # 1. Scaffold a scene project (16:9, default 30s root)
-vibe scene init my-promo
+#    --visual-style seeds DESIGN.md from a named identity. Browse the 8
+#    available styles with `vibe scene styles`. Omit the flag to write a
+#    placeholder DESIGN.md you fill in yourself.
+vibe scene init my-promo --visual-style "Swiss Pulse"
 cd my-promo
 
 # 2. Add a narrated hook scene
