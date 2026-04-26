@@ -16,7 +16,7 @@
  */
 
 import { OpenAIImageProvider } from "@vibeframe/ai-providers";
-import type { ImageResult } from "@vibeframe/ai-providers";
+import type { ImageOptions, ImageResult } from "@vibeframe/ai-providers";
 
 /** Subset of CLI options consumed by the helper. */
 export interface OpenAIImageHelperOptions {
@@ -66,11 +66,18 @@ export async function executeOpenAIImageGenerate(
 
   const { openaiModel, modelLabel } = resolveOpenAIImageModel(options.model);
 
+  // commander hands back unconstrained strings for `--size` / `--quality`
+  // / `--style`. The provider's `ImageOptions` narrows these to specific
+  // unions ("1024x1024" | "1536x1024" | …, etc.). The original duplicated
+  // handlers were `any`-typed via commander's loose `OptionValues`, which
+  // is why this never tripped before the dedup; the helper makes the
+  // shape explicit, so we cast at the single call boundary instead of
+  // ANY-laundering through the call sites.
   const result = await provider.generateImage(prompt, {
     model: openaiModel,
-    size: options.size,
-    quality: options.quality,
-    style: options.style,
+    size: options.size as ImageOptions["size"],
+    quality: options.quality as ImageOptions["quality"],
+    style: options.style as ImageOptions["style"],
     n: options.count !== undefined ? parseInt(options.count, 10) : undefined,
   });
 
