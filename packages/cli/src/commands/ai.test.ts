@@ -67,88 +67,27 @@ describe("CLI command groups", () => {
     });
   });
 
-  describe("pipeline b-roll", () => {
-    it("shows help", () => {
-      const output = execSync(`${CLI} pipeline b-roll --help`, {
-        cwd: process.cwd(),
-        encoding: "utf-8",
-      });
+  // pipeline b-roll, pipeline viral, pipeline narrate were removed in v0.63.
+  // Skills + agent flows replaced them: agents drive `vibe analyze video` +
+  // `vibe generate speech` for narration, `vibe pipeline auto-shorts` plus
+  // manual review for viral optimisation, B-roll matching is a hand-curated
+  // step in the agent loop now. See docs/archive/ROADMAP-v0.58.md for the
+  // pre-pivot positioning.
 
-      expect(output).toContain("Match B-roll footage");
-      expect(output).toContain("--threshold");
-      expect(output).toContain("--broll");
-      expect(output).toContain("--broll-dir");
-      expect(output).toContain("--output");
-      expect(output).toContain("--analyze-only");
-      expect(output).toContain("--language");
-    });
-
-    it("fails without B-roll files", () => {
-      expect(() => {
-        execSync(`${CLI} pipeline b-roll "test narration"`, {
+  describe("pipeline (deletion regression cover)", () => {
+    it.each(["b-roll", "viral", "narrate"])(
+      "%s subcommand is gone — Commander surfaces 'unknown command'",
+      (sub) => {
+        // Commander prints `error: unknown command '<sub>'` to stderr but
+        // VibeFrame's error handler exits 0 — so check stdout/stderr text
+        // rather than the exit code.
+        const output = execSync(`${CLI} pipeline ${sub} 2>&1 || true`, {
           cwd: process.cwd(),
           encoding: "utf-8",
-          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
         });
-      }).toThrow();
-    });
-
-    it("fails without API keys", () => {
-      expect(() => {
-        execSync(`${CLI} pipeline b-roll test.mp3 -b clip.mp4`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
-        });
-      }).toThrow();
-    });
-  });
-
-  describe("pipeline viral", () => {
-    it("shows help", () => {
-      const output = execSync(`${CLI} pipeline viral --help`, {
-        cwd: process.cwd(),
-        encoding: "utf-8",
-      });
-
-      expect(output).toContain("Optimize video for viral potential");
-      expect(output).toContain("--platforms");
-      expect(output).toContain("--output-dir");
-      expect(output).toContain("--analyze-only");
-      expect(output).toContain("--skip-captions");
-      expect(output).toContain("--caption-style");
-      expect(output).toContain("--hook-duration");
-    });
-
-    it("validates platform names", () => {
-      expect(() => {
-        execSync(`${CLI} pipeline viral /tmp/test.vibe.json --platforms invalid-platform`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
-        });
-      }).toThrow();
-    });
-
-    it("fails without API keys", () => {
-      expect(() => {
-        execSync(`${CLI} pipeline viral /tmp/test.vibe.json`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
-        });
-      }).toThrow();
-    });
-
-    it("fails with nonexistent project", () => {
-      expect(() => {
-        execSync(`${CLI} pipeline viral /tmp/nonexistent_project_12345.vibe.json`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
-        });
-      }).toThrow();
-    });
+        expect(output).toContain(`unknown command '${sub}'`);
+      },
+    );
   });
 
   describe("generate video-extend", () => {

@@ -15,10 +15,12 @@
  * - ai-suggest-edit.ts — Suggest, edit, storyboard commands
  * - ai-fill-gaps.ts   — Fill timeline gaps with AI video
  * - ai-video-fx.ts    — Video upscale, interpolate, inpaint, track
- * - ai-broll.ts       — B-roll matching
- * - ai-viral.ts       — Viral optimizer
  * - ai-visual-fx.ts   — Grade, speed-ramp, reframe, style-transfer
- * - ai-narrate.ts     — Auto-narration + providers list
+ *
+ * Removed in v0.63 (skills + agent flows replaced these):
+ * - ai-broll.ts       — B-roll matching (use `vibe analyze` + manual selection)
+ * - ai-viral.ts       — Viral optimizer (use `vibe pipeline auto-shorts` + manual review)
+ * - ai-narrate.ts     — Auto-narration (agent drives `vibe analyze video` + `vibe generate speech`)
  *
  * @see MODELS.md for AI model configuration
  */
@@ -41,10 +43,7 @@ import { registerMotionCommand } from "./ai-motion.js";
 import { registerSuggestEditCommands } from "./ai-suggest-edit.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
 import { registerVideoFxCommands } from "./ai-video-fx.js";
-import { registerBrollCommand } from "./ai-broll.js";
-import { registerViralCommand } from "./ai-viral.js";
 import { registerVisualFxCommands } from "./ai-visual-fx.js";
-import { registerNarrateCommands } from "./ai-narrate.js";
 
 // ============================================================================
 // Re-exports for backward compatibility (agent tools import from this file)
@@ -109,12 +108,6 @@ export {
   type RegenerateSceneResult,
 } from "./ai-script-pipeline.js";
 
-export {
-  autoNarrate,
-  type AutoNarrateOptions,
-  type AutoNarrateResult,
-} from "./ai-narrate.js";
-
 // ============================================================================
 // AI Command — register all subcommands
 // ============================================================================
@@ -137,10 +130,7 @@ registerMotionCommand(aiCommand);
 registerSuggestEditCommands(aiCommand);
 registerFillGapsCommand(aiCommand);
 registerVideoFxCommands(aiCommand);
-registerBrollCommand(aiCommand);
-registerViralCommand(aiCommand);
 registerVisualFxCommands(aiCommand);
-registerNarrateCommands(aiCommand);
 
 // ============================================================================
 // executeCommand — applies parsed timeline commands to a project
