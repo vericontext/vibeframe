@@ -28,7 +28,7 @@ Set Width 1280
 Set Height 900
 Set Padding 24
 Set Theme "Catppuccin Mocha"
-Set Shell "zsh"
+Set Shell "bash"
 
 Type "clear"
 Enter
