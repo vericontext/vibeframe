@@ -32,6 +32,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import {
+  runHyperframeLint,
+  type PreparedHyperframeLintInput,
+} from "@hyperframes/producer";
+
+import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
 import type { Beat } from "./storyboard-parse.js";
 
 /** Effort level → model + token caps. */
@@ -301,4 +307,98 @@ export async function composeBeatHtml(
     latencyMs,
     model: settings.model,
   };
+}
+
+// ── Lint retry loop (C4) ────────────────────────────────────────────────
+
+export interface BeatLintResult {
+  errorCount: number;
+  warningCount: number;
+  findings: LintFinding[];
+}
+
+/**
+ * Lint a single beat's HTML in-memory using `@hyperframes/producer`'s
+ * `runHyperframeLint` directly — no temp project shell, no subprocess.
+ *
+ * Sub-composition false-positives are filtered (matches what the
+ * `vibe scene lint` command does). The result is the same set of
+ * findings the user would see if they ran `vibe scene lint` after
+ * the beat HTML landed in a project.
+ */
+export function lintBeatHtml(html: string, beatId: string): BeatLintResult {
+  const prepared: PreparedHyperframeLintInput = {
+    html,
+    entryFile: `compositions/scene-${beatId}.html`,
+    source: "projectDir",
+  };
+  const raw = runHyperframeLint(prepared);
+  const findings = filterSubCompFalsePositives(raw.findings as LintFinding[], true);
+  return {
+    errorCount: findings.filter((f) => f.severity === "error").length,
+    warningCount: findings.filter((f) => f.severity === "warning").length,
+    findings,
+  };
+}
+
+/**
+ * Format lint findings into a feedback block for the retry prompt.
+ * Errors only — warnings don't block, so we don't burn the LLM's
+ * attention budget on them.
+ */
+export function formatLintFeedback(findings: LintFinding[]): string {
+  const errors = findings.filter((f) => f.severity === "error");
+  if (errors.length === 0) return "";
+  return errors
+    .map((f) => {
+      const fix = f.fixHint ? `\n  Fix hint: ${f.fixHint}` : "";
+      return `ERROR [${f.code}] ${f.message}${fix}`;
+    })
+    .join("\n");
+}
+
+export interface ComposeBeatWithRetryResult extends ComposeBeatResult {
+  /** 1 if first-shot HTML linted clean; 2 if retry succeeded. */
+  lintAttempts: 1 | 2;
+  /** Lint result from the *final* (winning) attempt. */
+  lint: BeatLintResult;
+}
+
+/**
+ * `composeBeatHtml` + lint feedback retry loop, capped at 1 retry.
+ *
+ * Pre-flight (PR #111) showed 5/5 first-pass success at $0.058/scene; deeper
+ * retry loops just burn budget. If the second attempt also fails lint,
+ * throws `ComposeBeatError("lint-failed-after-retry", ...)` with the final
+ * findings — caller (C5 pipeline action) decides whether to fall back to
+ * the 5-preset emit path or surface the failure to the user.
+ *
+ * Cache contract preserved: retries use a different `retryFeedback`, which
+ * is folded into the cache key, so retries don't accidentally serve the
+ * cached first-shot HTML.
+ */
+export async function composeBeatWithRetry(
+  ctx: ComposeBeatContext,
+  overrides?: { client?: Anthropic; now?: () => number },
+): Promise<ComposeBeatWithRetryResult> {
+  // Attempt 1 — no retry feedback (cache-friendly first shot).
+  const first = await composeBeatHtml(ctx, overrides);
+  const lint1 = lintBeatHtml(first.html, ctx.beat.id);
+  if (lint1.errorCount === 0) {
+    return { ...first, lintAttempts: 1, lint: lint1 };
+  }
+
+  // Attempt 2 — feed lint findings back into the prompt.
+  const feedback = formatLintFeedback(lint1.findings);
+  const second = await composeBeatHtml({ ...ctx, retryFeedback: feedback }, overrides);
+  const lint2 = lintBeatHtml(second.html, ctx.beat.id);
+  if (lint2.errorCount === 0) {
+    return { ...second, lintAttempts: 2, lint: lint2 };
+  }
+
+  // Both failed → fatal.
+  throw new ComposeBeatError(
+    "lint-failed-after-retry",
+    `Beat "${ctx.beat.id}" failed lint after retry. Final findings:\n${formatLintFeedback(lint2.findings)}`,
+  );
 }
