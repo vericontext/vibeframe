@@ -54,7 +54,9 @@
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
-      tl.fromTo('[data-composition-id="core"] .backdrop', { scale: 1.0 }, { scale: 1.05, duration: 7.00, ease: 'none' }, 0);
+      tl.from('[data-composition-id="core"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+      tl.to('[data-composition-id="core"]', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 6.60);
+      tl.fromTo('[data-composition-id="core"] .backdrop', { scale: 1.0 }, { scale: 1.08, duration: 7.00, ease: 'none' }, 0);
       tl.from('[data-composition-id="core"] #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('[data-composition-id="core"] #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
       tl.fromTo('[data-composition-id="core"] #subtitle .word[data-i="0"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0);

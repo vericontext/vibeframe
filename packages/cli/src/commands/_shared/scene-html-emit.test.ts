@@ -219,7 +219,9 @@ describe("emitSceneHtml — preset specifics", () => {
 
   it("product-shot: applies a Ken-Burns scale tween over the full duration", () => {
     const html = emitSceneHtml({ ...baseInput, preset: "product-shot", duration: 6 });
-    expect(html).toContain("scale: 1.08, duration: 6.00");
+    // product-shot uses a more dramatic 1.12 endpoint (other presets use
+    // the global default 1.08 emitted by kenBurnsTween()).
+    expect(html).toContain("scale: 1.12, duration: 6.00");
   });
 
   it("escapes HTML metacharacters in headline + subhead", () => {
@@ -543,6 +545,41 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
     });
     expect(long).not.toContain("font-size: 110px"); // base maxes
     expect(long).toMatch(/\.title \{[\s\S]*font-size: \d+px/); // some computed value
+  });
+
+  it("ships scope crossfade tweens (fade-in at 0, fade-out at dur-overlap) on every preset", () => {
+    for (const preset of ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const) {
+      const html = emitSceneHtml({
+        id: "x",
+        preset,
+        width: 1920,
+        height: 1080,
+        duration: 5,
+        headline: "Test",
+        subhead: "sub",
+        kicker: "kick",
+      });
+      // Fade-in: 0..0.4 s
+      expect(html, `${preset} should fade-in scope at 0`).toMatch(
+        /tl\.from\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 0\)/,
+      );
+      // Fade-out: (dur - 0.4)..dur
+      expect(html, `${preset} should fade-out scope before end`).toMatch(
+        /tl\.to\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 4\.60\)/,
+      );
+    }
+  });
+
+  it("nextSceneStart respects optional overlap so subsequent clips overlap by SCENE_OVERLAP_SECONDS", () => {
+    const root = `
+      <div class="clip" data-composition-src="a.html" data-start="0" data-duration="5" data-track-index="1"></div>
+      <div class="clip" data-composition-src="b.html" data-start="5" data-duration="7" data-track-index="1"></div>
+    `;
+    // Without overlap: behaves like before (logical end)
+    expect(nextSceneStart(root)).toBe(12);
+    // With overlap: returns 12 - 0.4 = 11.6 so the next clip overlaps the
+    // last 0.4 s of the previous one, matching the crossfade window.
+    expect(nextSceneStart(root, 0.4)).toBeCloseTo(11.6, 5);
   });
 
   it("hero text containers all get overflow-wrap break-word as a safety net", () => {

@@ -151,6 +151,36 @@ export function buildTranscriptTweens(
 }
 
 // ---------------------------------------------------------------------------
+// Crossfade architecture
+// ---------------------------------------------------------------------------
+
+/**
+ * Length of the scope opacity fade-in / fade-out applied at every scene's
+ * boundaries. When two adjacent clips overlap by this amount in the parent
+ * timeline (`scene.ts` and `segments-to-scenes.ts` lay them out that way),
+ * the outgoing scene's last `SCENE_OVERLAP_SECONDS` fades to opacity 0
+ * while the incoming scene's first `SCENE_OVERLAP_SECONDS` fades from 0,
+ * yielding a smooth crossfade instead of the hard cut the previous
+ * architecture produced.
+ *
+ * Tuned at 0.4 s — long enough that the eye perceives a soft transition,
+ * short enough that the text content of the next scene is fully present
+ * by the time the entrance animation finishes (entrance starts at 0.05 s).
+ */
+export const SCENE_OVERLAP_SECONDS = 0.4;
+
+/**
+ * Standard crossfade hooks emitted at the top of every preset's timeline.
+ * Both tweens target the scope (`[data-composition-id="<id>"]`) so the
+ * opacity fade affects the whole scene including backdrop — child opacity
+ * inherits from the scope.
+ */
+function crossfadeTweens(scope: string, dur: number): string {
+  return `tl.from('${scope}', { opacity: 0, duration: ${SCENE_OVERLAP_SECONDS}, ease: 'power2.out' }, 0);
+      tl.to('${scope}', { opacity: 0, duration: ${SCENE_OVERLAP_SECONDS}, ease: 'power2.in' }, ${(dur - SCENE_OVERLAP_SECONDS).toFixed(2)});`;
+}
+
+// ---------------------------------------------------------------------------
 // Robust-default helpers
 // ---------------------------------------------------------------------------
 
@@ -199,7 +229,7 @@ function fitKineticFontSize(words: string[]): number {
  * static body that follows the entrance animation. The product-shot keeps
  * its more dramatic 1.08 endpoint.
  */
-function kenBurnsTween(scope: string, dur: number, endScale = 1.05): string {
+function kenBurnsTween(scope: string, dur: number, endScale = 1.08): string {
   return `tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: ${endScale}, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);`;
 }
 
@@ -288,7 +318,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       }${wordCss}`,
         body: `${backdropMarkup}
     <div class="caption" id="caption">${captionInner}</div>`,
-        timeline: `${kenBurnsTween(scope, dur)}
+        timeline: `${crossfadeTweens(scope, dur)}
+      ${kenBurnsTween(scope, dur)}
       ${captionTween}`,
       };
     }
@@ -326,7 +357,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         // on screen until the producer cuts to the next clip; the next
         // scene's own fade-in handles the visual transition. Backdrop
         // Ken-Burns fills what used to be 80% dead static frame.
-        timeline: `${kenBurnsTween(scope, dur)}
+        timeline: `${crossfadeTweens(scope, dur)}
+      ${kenBurnsTween(scope, dur)}
       tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
       };
     }
@@ -377,7 +409,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       <h1 class="title" id="title">${esc(headline)}</h1>${sub ? `
       <div class="subtitle" id="subtitle">${subtitleInner}</div>` : ""}
     </div>`,
-        timeline: `${kenBurnsTween(scope, dur)}
+        timeline: `${crossfadeTweens(scope, dur)}
+      ${kenBurnsTween(scope, dur)}
       tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('${scope} #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
       ${subtitleTween}`,
@@ -430,7 +463,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       ${scope} .kinetic .word { display: inline-block; margin: 0 12px; }`,
         body: `${backdropMarkup}
     <div class="kinetic">${wordSpans}</div>`,
-        timeline: `${kenBurnsTween(scope, dur)}
+        timeline: `${crossfadeTweens(scope, dur)}
+      ${kenBurnsTween(scope, dur)}
       ${tweens}`,
       };
     }
@@ -468,7 +502,8 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
     <div class="label" id="label">${esc(label)}</div>
     <div class="product-headline" id="headline">${esc(headline)}</div>${subhead ? `
     <div class="product-sub" id="subhead">${esc(subhead)}</div>` : ""}`,
-        timeline: `tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: 1.08, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);
+        timeline: `${crossfadeTweens(scope, dur)}
+      tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: 1.12, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);
       tl.from('${scope} #label', { opacity: 0, x: -30, duration: 0.5, ease: 'power3.out' }, 0.2);
       tl.from('${scope} #headline', { opacity: 0, y: 40, duration: 0.6, ease: 'power3.out' }, 0.4);${subhead ? `
       tl.from('${scope} #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);` : ""}`,
@@ -533,8 +568,14 @@ ${audioBlock}
 /**
  * Sum existing `<div class="clip">` end-times to find where the next scene
  * should start. Returns 0 for an empty root.
+ *
+ * `overlap` (default 0) is subtracted from the max end-time so callers can
+ * place the new clip to overlap with the previous one — used by the
+ * crossfade architecture (`vibe scene add` and `segments-to-scenes.ts`
+ * pass `SCENE_OVERLAP_SECONDS` here so each new scene's first
+ * `SCENE_OVERLAP_SECONDS` blend with the previous scene's last).
  */
-export function nextSceneStart(rootHtml: string): number {
+export function nextSceneStart(rootHtml: string, overlap = 0): number {
   const clipRegex = /<div\s+class="clip"[^>]*?\sdata-start="([\d.]+)"[^>]*?\sdata-duration="([\d.]+)"/gi;
   let maxEnd = 0;
   let match: RegExpExecArray | null;
@@ -542,7 +583,7 @@ export function nextSceneStart(rootHtml: string): number {
     const end = parseFloat(match[1]) + parseFloat(match[2]);
     if (Number.isFinite(end) && end > maxEnd) maxEnd = end;
   }
-  return maxEnd;
+  return Math.max(0, maxEnd - overlap);
 }
 
 export interface ClipReferenceInput {
