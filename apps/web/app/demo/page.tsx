@@ -93,8 +93,8 @@ export default function DemoPage() {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            24-second promo · 5 scenes · free local Kokoro narration · word-level captions · ambient soundtrack mixed in.
-            Five <code className="font-mono text-sm">vibe scene add</code> calls, one <code className="font-mono text-sm">vibe gen music</code>, one <code className="font-mono text-sm">vibe scene render</code>.
+            18-second promo · 3 scenes · continuous Ken-Burns backdrop · auto-fit text that never overflows the canvas.
+            Three <code className="font-mono text-sm">vibe scene add</code> calls, one <code className="font-mono text-sm">vibe scene render</code>. Narration / soundtrack / word-sync captions all still ship in the CLI — see <a href="https://github.com/vericontext/vibeframe/tree/main/examples/scene-promo" className="underline hover:text-foreground">examples/scene-promo</a>.
           </p>
 
           <div className="animate-fade-in-up delay-200">

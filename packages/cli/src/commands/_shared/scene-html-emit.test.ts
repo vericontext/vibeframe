@@ -321,7 +321,11 @@ describe("emitSceneHtml — word-sync rendering", () => {
       });
       expect(html).toContain('<div class="caption" id="caption">Ship videos.</div>');
       expect(html).not.toContain('class="word"');
-      expect(html).not.toContain("tl.fromTo");
+      // The caption itself uses a single `tl.from` (not per-word). The
+      // `tl.fromTo` here is the Ken-Burns backdrop scale tween which now
+      // ships in every preset — the assertion below ensures no per-word
+      // fromTo leaks in when transcript is absent.
+      expect(html).not.toContain('.caption .word[data-i=');
     });
 
     it("splits caption into word spans with absolute GSAP timing when transcript is present", () => {
@@ -467,5 +471,87 @@ describe("emitSceneHtml — word-sync rendering", () => {
       expect(html).toContain("Big Product");
       expect(html).not.toContain('class="word"');
     });
+  });
+});
+
+// ── robust-default behaviour (Ken-Burns + auto-fit font sizing) ────────────
+
+describe("emitSceneHtml — robust defaults across input variability", () => {
+  it("ships Ken-Burns backdrop motion on every preset (no static dead frames)", () => {
+    for (const preset of ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const) {
+      const html = emitSceneHtml({
+        id: "x",
+        preset,
+        width: 1920,
+        height: 1080,
+        duration: 5,
+        headline: "Test",
+        subhead: "sub",
+        kicker: "kick",
+      });
+      expect(html, `${preset} should include Ken-Burns backdrop tween`).toMatch(
+        /tl\.fromTo\('\[data-composition-id="x"\] \.backdrop'.*scale: 1\.0/,
+      );
+    }
+  });
+
+  it("announcement: scales font size down for long headlines, never below 72px", () => {
+    const short = emitSceneHtml({
+      id: "x", preset: "announcement", width: 1920, height: 1080, duration: 5,
+      headline: "Short tagline",
+    });
+    const long = emitSceneHtml({
+      id: "x", preset: "announcement", width: 1920, height: 1080, duration: 5,
+      headline: "VibeFrame turns natural language into editable HTML scenes that render to video",
+    });
+    expect(short).toContain("font-size: 160px");
+    // 80-char headline: ratio = 22/80 ≈ 0.275, baseMax 160 × 0.275 ≈ 44 → clamped to 72
+    expect(long).toMatch(/font-size: (7[2-9]|8[0-9])px/);
+    expect(long).not.toContain("font-size: 160px");
+  });
+
+  it("kinetic-type: word-count-aware font size keeps text inside 1920×1080 canvas", () => {
+    const fewWords = emitSceneHtml({
+      id: "x", preset: "kinetic-type", width: 1920, height: 1080, duration: 5,
+      headline: "Ship fast", // 9 chars → 180px
+    });
+    const manyWords = emitSceneHtml({
+      id: "x", preset: "kinetic-type", width: 1920, height: 1080, duration: 5,
+      headline: "Author scenes generate edit render publish ship done", // 8 words / 52 chars → 90px
+    });
+    const tons = emitSceneHtml({
+      id: "x", preset: "kinetic-type", width: 1920, height: 1080, duration: 5,
+      headline: "One two three four five six seven eight nine ten eleven twelve more text here", // 70+ chars → 72px
+    });
+    expect(fewWords).toContain("font-size: 180px");
+    expect(manyWords).toContain("font-size: 90px");
+    expect(tons).toContain("font-size: 72px");
+  });
+
+  it("kinetic-type: emits flex-wrap so wrapping is the fallback when heuristic underestimates", () => {
+    const html = emitSceneHtml({
+      id: "x", preset: "kinetic-type", width: 1920, height: 1080, duration: 5,
+      headline: "Hello world",
+    });
+    expect(html).toContain("flex-wrap: wrap");
+  });
+
+  it("explainer: scales title font down for long headlines", () => {
+    const long = emitSceneHtml({
+      id: "x", preset: "explainer", width: 1920, height: 1080, duration: 5,
+      kicker: "INTRO", headline: "An exhaustively long explanation that would otherwise overflow the canvas",
+    });
+    expect(long).not.toContain("font-size: 110px"); // base maxes
+    expect(long).toMatch(/\.title \{[\s\S]*font-size: \d+px/); // some computed value
+  });
+
+  it("hero text containers all get overflow-wrap break-word as a safety net", () => {
+    for (const preset of ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const) {
+      const html = emitSceneHtml({
+        id: "x", preset, width: 1920, height: 1080, duration: 5,
+        headline: "Test", subhead: "sub", kicker: "kick",
+      });
+      expect(html, `${preset} should include overflow-wrap`).toContain("overflow-wrap: break-word");
+    }
   });
 });

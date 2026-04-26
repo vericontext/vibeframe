@@ -11,6 +11,7 @@
         inset: 0;
         background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%);
       }
+      [data-composition-id="intro"] .backdrop { transform-origin: center; }
       [data-composition-id="intro"] .announce {
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: center;
@@ -19,10 +20,11 @@
       }
       [data-composition-id="intro"] .announce h1 {
         margin: 0;
-        font-size: 160px;
+        font-size: 153px;
         font-weight: 900;
         letter-spacing: -4px;
-        line-height: 1;
+        line-height: 1.05;
+        overflow-wrap: break-word;
         background: linear-gradient(90deg, #8e2de2, #00c9ff);
         -webkit-background-clip: text; background-clip: text; color: transparent;
         text-shadow: 0 8px 40px rgba(142,45,226,0.35);
@@ -37,8 +39,8 @@
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
-      tl.from('[data-composition-id="intro"] #headline', { opacity: 0, scale: 0.8, duration: 0.9, ease: 'back.out(1.6)' }, 0.15);
-      tl.to('[data-composition-id="intro"] #headline', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 4.60);
+      tl.fromTo('[data-composition-id="intro"] .backdrop', { scale: 1.0 }, { scale: 1.05, duration: 5.00, ease: 'none' }, 0);
+      tl.from('[data-composition-id="intro"] #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);
 
       window.__timelines["intro"] = tl;
     </script>
