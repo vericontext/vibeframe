@@ -1,0 +1,55 @@
+VibeFrame — vendored Hyperframes skill bundle
+==============================================
+
+The Markdown files in this directory are a verbatim snapshot of the
+`hyperframes` skill from HeyGen's Hyperframes project, licensed under
+the Apache License, Version 2.0:
+
+    https://github.com/heygen-com/hyperframes
+    https://www.apache.org/licenses/LICENSE-2.0
+
+VibeFrame loads them as a system prompt for the
+`compose-scenes-with-skills` YAML pipeline action (v0.59+). When a user
+has installed the upstream skill via `npx skills add heygen-com/hyperframes`,
+the installed copy takes precedence — this snapshot is the offline /
+CI-safe fallback.
+
+Files vendored
+--------------
+
+  SKILL.md             core composition rules + visual-identity hard-gate
+  house-style.md       default motion / sizing / palette
+  motion-principles.md easing-as-emotion, choreography
+  typography.md        font pairing, OpenType, dark-bg adjustments
+  transitions.md       crossfades, wipes, shader transitions
+
+These files are NOT modified from upstream. Any local edits would
+defeat the parity with what users get via `npx skills add` and break
+the cache-by-input-hash assumption in `compose-scenes-skills.ts`.
+
+Snapshot provenance
+-------------------
+
+  Source repo:   github.com/heygen-com/hyperframes
+  Snapshot of:   970367f
+  Snapshot date: 2026-04-25
+  Snapshot path: skills/hyperframes/{SKILL.md, house-style.md, references/motion-principles.md, references/typography.md, references/transitions.md}
+
+To verify or refresh, see `bundle.ts` (exposes `BUNDLE_VERSION` for
+cache invalidation) and the `pnpm refresh-hf-bundle` script in the
+package.json (re-copies from a sibling clone of the upstream repo).
+
+Apache 2.0 license text
+-----------------------
+
+A full copy of the Apache 2.0 license is available at the source repo
+above. Brief summary of obligations honoured by this vendoring:
+
+  - Attribution: this NOTICE file + bundle.ts surface the source on
+    every load.
+  - Modifications: none. Files are byte-identical to upstream as of
+    the snapshot date above.
+  - License inclusion: the upstream LICENSE file is referenced (not
+    duplicated; users can fetch it from the source repo URL).
+  - State changes: the only "change" is moving the files into a new
+    directory inside the VibeFrame monorepo. No semantic edits.
