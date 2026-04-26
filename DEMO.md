@@ -1,261 +1,227 @@
 # VibeFrame Demo
 
-From install to "wow" in 5 minutes.
+Three surfaces, same tools. Pick the entry point that matches how you already
+work — every section below is **copy-pasteable** and produces a real artifact
+on disk.
+
+| Surface | Best for | API keys needed |
+|---|---|---|
+| [1. CLI direct (`vibe`)](#1-cli-direct--vibe-quickstart) | Scripted workflows, CI, terminal-first authors | None for the offline path; `OPENAI_API_KEY` for word-sync captions |
+| [2. Standalone agent REPL (`vibe agent`)](#2-standalone-agent-repl--vibe-agent) | One-off prompts without leaving the terminal — BYO LLM | One of: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `XAI_API_KEY` / `OPENROUTER_API_KEY`, or local Ollama |
+| [3. Inside Claude Code / Cursor (MCP)](#3-inside-claude-code--cursor-mcp) | Natural-language editing inside an existing agent host | Whatever the host already uses |
+
+> **Prerequisites for all three:** Node.js ≥ 20 and FFmpeg on `PATH`. Install via
+> `curl -fsSL https://vibeframe.ai/install.sh | bash` (or
+> `npm install -g @vibeframe/cli`). Confirm with `vibe doctor`.
 
 ---
 
-## 0. Install + Setup (30 sec)
+## 1. CLI direct — `vibe` quickstart
+
+**Goal:** end up with `demo.mp4` — a 12-second narrated clip rendered from a
+scene project. **No API keys required for the render** (uses local Kokoro
+TTS); a Whisper key adds word-synced captions if you set one.
 
 ```bash
-# One-line install
-curl -fsSL https://vibeframe.ai/install.sh | bash
+# 0. (Optional) confirm prerequisites
+vibe doctor                                   # checks Node, FFmpeg, Chrome
 
-# Setup wizard — arrow keys to select, Enter to confirm
-vibe setup
+# 1. Scaffold a scene project (16:9, default 30s root)
+vibe scene init my-promo
+cd my-promo
 
-#   ❯ Edit videos offline          no API keys
-#     AI features                   pick what you need
-#     Full AI pipeline              script-to-video, highlights
-#     Custom setup                  choose providers one by one
+# 2. Add a narrated hook scene
+#    --tts auto picks ElevenLabs if ELEVENLABS_API_KEY is set,
+#    otherwise falls back to local Kokoro (first call: ~330MB download)
+vibe scene add hook \
+  --style announcement \
+  --headline "Ship videos, not clicks" \
+  --narration "Stop fighting timelines. Author scenes that an agent can edit."
 
-# Verify
-vibe doctor
+# 3. Add a follow-up scene with a generated backdrop
+#    --visuals invokes Gemini by default; pass --image-provider openai for gpt-image-2
+vibe scene add tagline \
+  --style explainer \
+  --kicker "VIDEO AS CODE" \
+  --headline "Author scenes, not timelines" \
+  --narration "Each word lights up the moment it is spoken." \
+  --visuals "minimalist studio desk, soft warm lighting, top-down 16:9"
+
+# 4. Validate
+vibe scene lint                               # 0 errors expected
+
+# 5. Render to MP4 (Chrome required)
+vibe scene render -o demo.mp4
 ```
 
----
+**What you get back:**
 
-## 1. Edit Right Now (no API keys)
+- `demo.mp4` — narrated, captioned, 1920×1080.
+- `compositions/scene-hook.html`, `compositions/scene-tagline.html` — editable
+  per-scene HTML you can hand-tweak and re-render without regenerating audio.
+- `assets/narration-*.wav` and (if `OPENAI_API_KEY` is set)
+  `assets/transcript-*.json` for word-level caption sync.
 
-Grab any video you have. No setup, no API keys, no waiting.
+**Iterate in seconds:** edit headline text in `compositions/scene-hook.html`
+directly, then `vibe scene render -o demo.mp4` — text tweaks skip TTS and
+image generation, so the second render finishes in ~10 s.
 
-```bash
-# Remove dead air from an interview
-vibe edit silence-cut interview.mp4 -o clean.mp4
-
-# Add fade in/out
-vibe edit fade clean.mp4 -o faded.mp4 --fade-in 1 --fade-out 1
-
-# Remove background noise
-vibe edit noise-reduce noisy-recording.mp4 -o clean.mp4 -s high
-
-# Burn a title into the video
-vibe edit text-overlay faded.mp4 -t "My First Edit" -s center-bold -o titled.mp4
-
-# Detect scene changes
-vibe detect scenes video.mp4 --json
-
-# Detect silent gaps
-vibe detect silence video.mp4 --json
-```
-
----
-
-## 2. One Key, Big Impact
-
-Each section needs just one API key. Set up only what you use.
-
-### Images (GOOGLE_API_KEY)
-
-```bash
-# Generate an image
-vibe generate image "a cozy coffee shop in the rain, cinematic lighting" -o coffee.png
-
-# Edit it
-vibe edit image coffee.png "add steam rising from a cup" -o coffee-steam.png
-
-# Turn it into a video
-vibe generate video "camera slowly pushes into the coffee shop" -i coffee-steam.png -o coffee.mp4
-```
-
-### Videos (XAI_API_KEY)
-
-```bash
-# Text-to-video with native audio
-vibe generate video "ocean waves crashing on rocks at golden hour" -o waves.mp4 -d 5
-
-# Image-to-video
-vibe generate video "the city wakes up at dawn" -i skyline.png -o dawn.mp4
-```
-
-### Audio (ELEVENLABS_API_KEY)
-
-```bash
-# Narration
-vibe generate speech "Every great story starts with a single frame." -o narration.mp3
-
-# Sound effects
-vibe generate sound-effect "gentle rain on a window" -o rain.mp3 -d 10
-
-# Background music
-vibe generate music "lo-fi chill beat, relaxing" -o bgm.mp3 -d 30
-```
-
-### AI Editing (OPENAI_API_KEY + ANTHROPIC_API_KEY)
-
-```bash
-# Auto-transcribe and burn captions
-vibe edit caption video.mp4 -o captioned.mp4 -s bold
-
-# Cinematic color grade
-vibe edit grade video.mp4 -o graded.mp4 --preset cinematic-warm
-
-# Smart reframe: landscape → vertical
-vibe edit reframe video.mp4 -o vertical.mp4 -a 9:16
-
-# Motion graphics overlay
-vibe generate motion "minimal lower-third with the text 'VibeFrame Demo'" \
-  --render --video video.mp4 -o with-graphics.mp4
-```
-
----
-
-## 3. Compose: Chain Commands
-
-Build a complete video by chaining CLI commands. This is exactly what Claude Code or Codex would do.
-
-```bash
-# 1. Generate a hero image
-vibe generate image "a startup founder coding at sunrise" -o hero.png
-
-# 2. Bring it to life as video
-vibe generate video "the founder types code, sun rises through the window" \
-  -i hero.png -o hero.mp4 -d 5
-
-# 3. Add narration
-vibe generate speech "Building the future, one line at a time." -o voice.mp3
-
-# 4. Add background music
-vibe generate music "inspiring ambient, minimal" -o bgm.mp3 -d 10
-
-# 5. Assemble into a project
-vibe project create "Startup Intro" -o project.vibe.json
-
-# Add sources (returns source IDs)
-vibe timeline add-source project.vibe.json hero.mp4
-vibe timeline add-source project.vibe.json voice.mp3
-vibe timeline add-source project.vibe.json bgm.mp3
-
-# Add clips to timeline (use source IDs from above)
-vibe timeline add-clip project.vibe.json <hero-source-id>
-vibe timeline add-clip project.vibe.json <voice-source-id>
-vibe timeline add-clip project.vibe.json <bgm-source-id>
-
-# 6. Export
-vibe export project.vibe.json -o startup-intro.mp4 -y
-```
-
----
-
-## 4. Full Pipeline: Script to Video
-
-One command. Complete video. This is the "wow" moment.
+**One-shot variant** (script → finished MP4) when you don't want to author
+scenes manually:
 
 ```bash
 vibe pipeline script-to-video \
-  "Scene 1: A developer wakes up at 5am, alarm buzzing.
-   Scene 2: Coffee brewing while reviewing pull requests on a laptop.
-   Scene 3: Team standup — everyone shares progress on the product launch." \
-  -o ./startup-video/ -a 9:16 -d 60
-
-# Review what was generated
-ls ./startup-video/
-
-# Regenerate a specific scene if needed
-vibe pipeline regenerate-scene ./startup-video/ --scene 2
-
-# Extract highlights from any long video
-vibe pipeline highlights long-interview.mp4 -d 60
-
-# Auto-generate vertical shorts
-vibe pipeline auto-shorts podcast.mp4 -o ./shorts/ -n 3 -d 30
+  "Scene 1: founder wakes at 5 a.m.\nScene 2: coffee brewing.\nScene 3: ship time." \
+  --format scenes -a 9:16 -d 30 -o ./morning/
+# → ./morning/ is a full scene project + rendered MP4
 ```
 
 ---
 
-## 5. For AI Agents
+## 2. Standalone agent REPL — `vibe agent`
 
-The CLI is fully self-discoverable. No docs needed.
+**Goal:** drive VibeFrame in natural language without spinning up Claude Code,
+Cursor, or any MCP host. The REPL discovers the same tools the MCP server
+exposes and runs them locally with structured tool-use.
 
 ```bash
-# Discover all commands
-vibe schema --list --json
+# 0. Set ONE LLM key — agent picks an available provider automatically
+export ANTHROPIC_API_KEY=sk-ant-...           # or OPENAI / GOOGLE / XAI / OPENROUTER
+# Local-only? export OLLAMA_HOST=http://localhost:11434  (no API key needed)
 
-# Get JSON Schema for any command
-vibe schema generate.video --json
-
-# Preview before executing
-vibe generate video "test" --dry-run --json
-
-# Pipe options as JSON
-echo '{"provider":"kling","duration":5}' | vibe generate video "sunset" --stdin --json
-
-# Check available providers
-vibe doctor --json
+# 1. Start the REPL (default: Claude — override with -p openai|gemini|grok|openrouter|ollama)
+vibe agent
 ```
+
+Once the REPL is open, paste any of these prompts in turn:
+
+```text
+> Generate an image of a sunrise over a quiet city, then turn it into a 4-second video where the camera slowly pushes in.
+
+> Now narrate it: "A new day, a new build."  Pick the cheapest TTS provider available.
+
+> Mix the narration over the video and save the final clip as morning.mp4.
+
+> Run vibe doctor and tell me which providers I'm authenticated against.
+```
+
+**What the agent does** (visible in the REPL trace):
+
+1. Picks tools (`generate_image`, `generate_video`, `generate_speech`,
+   `audio_dub`, …) by reading their schemas — no hand-written prompt
+   engineering on your side.
+2. Calls each via the same code path as `vibe ...` on the command line, so
+   you can replay any step from the trace verbatim in your shell.
+3. Confirms before any high-cost operation (`pipeline`, `generate_video`)
+   when the budget guard is active.
+
+**Useful flags:**
+
+```bash
+vibe agent -p ollama --model llama3.1        # offline, no API key
+vibe agent --max-turns 6                     # cap loops in CI / cron
+vibe agent --json                            # machine-readable trace
+```
+
+Exit any time with `Ctrl-D` or `:exit`. Every artifact lives in the working
+directory you launched from — nothing is uploaded.
 
 ---
 
-## 6. AI Agent Integration
+## 3. Inside Claude Code / Cursor (MCP)
 
-The CLI is designed for any AI coding agent — Claude Code, Codex, OpenCode, Cursor, etc. Open your agent of choice in a project directory and give it natural language instructions.
+**Goal:** keep editing prose / code in your existing agent host while the same
+58 tools run alongside. Two paths — pick the one your host supports.
 
-### Claude Code
+### Path A — MCP server (recommended for Claude Desktop, Cursor)
+
+Add the block below to your host's MCP config and restart it. No clone, no
+local install — `npx` fetches the bundle on demand.
+
+```json
+{
+  "mcpServers": {
+    "vibeframe": {
+      "command": "npx",
+      "args": ["-y", "@vibeframe/mcp-server"]
+    }
+  }
+}
+```
+
+Config file locations:
+
+| Host | Path |
+|---|---|
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cursor | `.cursor/mcp.json` in the workspace |
+
+After restart, just describe what you want — the host calls VibeFrame tools
+directly:
+
+```text
+"Make a 30-second 9:16 hype reel from script.txt with synced captions."
+
+"Detect the 3 most exciting scenes in interview.mp4 and turn each into a 30-second short."
+
+"Generate a backdrop image of a cyberpunk skyline, animate a 5-second push-in,
+ then dub the line 'The future is shipping' over it."
+```
+
+The host shows tool calls inline (`generate_image → generate_video → audio_dub`)
+and you can interrupt or edit at any step.
+
+### Path B — Claude Code without MCP (CLI discovery)
+
+If you already use Claude Code in a directory where `vibe` is on `PATH`,
+Claude Code finds the CLI automatically — no config block needed. Just open
+the project and ask:
 
 ```bash
-# Open Claude Code in your project
-claude
-
-# Then just describe what you want:
+claude                                       # opens Claude Code in cwd
 ```
 
-Example prompts to try:
+```text
+"Run vibe --help and walk me through the script-to-video pipeline."
 
-```
-"Remove silence from interview.mp4 and add captions"
-
-"Generate a 9:16 TikTok video about morning coffee routine
- with narration and background music"
-
-"Take product-photo.png, edit it to add a gradient background,
- then create a 5-second video with zoom effect"
-
-"Detect scenes in long-video.mp4, extract the 3 best moments
- as 30-second highlights, and add animated captions"
-
-"Create a project, add all mp4 files from ./footage/,
- trim each to 10 seconds, and export as a montage"
+"Use vibe to create a 9:16 short about my morning coffee with narration and music."
 ```
 
-The agent will discover commands via `vibe --help` and `vibe schema`, use `--dry-run` to preview, and execute with `--json` for structured output.
+Claude Code calls `vibe schema --list` to discover commands, `vibe schema <cmd>`
+for parameters, and `vibe ... --json` for structured output. The
+[`/vibeframe`](.claude/skills/vibeframe/SKILL.md),
+[`/vibe-pipeline`](.claude/skills/vibe-pipeline/SKILL.md),
+[`/vibe-script-to-video`](.claude/skills/vibe-script-to-video/SKILL.md), and
+[`/vibe-scene`](.claude/skills/vibe-scene/SKILL.md) skills (auto-loaded if you
+clone this repo, or add via `scripts/install-skills.sh`) tighten the loop —
+they teach Claude the right command shapes for common workflows.
 
-### Any Agent (Codex, OpenCode, etc.)
-
-The same works with any AI agent that can run shell commands:
-
-```bash
-# The agent discovers the CLI
-vibe --help
-vibe schema --list --json
-vibe doctor --json
-
-# Then executes commands with structured I/O
-vibe generate image "prompt" -o out.png --json
-vibe edit silence-cut video.mp4 -o clean.mp4 --json
-
-# Complex options via stdin
-echo '{"provider":"kling","duration":5,"ratio":"9:16"}' | \
-  vibe generate video "sunset" --stdin --json
-```
-
-No CLAUDE.md, no special configuration. The CLI is the interface.
+[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md)
+has the original 5-prompt walkthrough plus a recording recipe.
 
 ---
 
 ## Cleanup
 
+Each surface produces artifacts in the directory you ran from. Remove them
+when you're done:
+
 ```bash
-rm -f coffee.png coffee-steam.png coffee.mp4 waves.mp4 dawn.mp4
-rm -f narration.mp3 rain.mp3 bgm.mp3 voice.mp3 hero.png hero.mp4
-rm -f project.vibe.json startup-intro.mp4
-rm -rf ./startup-video/ ./shorts/
+# Surface 1
+rm -rf my-promo morning
+
+# Surface 2 / 3
+rm -f *.png *.mp4 *.mp3 *.wav *.vibe.json
 ```
+
+---
+
+## Where to next
+
+| You want to… | Read |
+|---|---|
+| See every CLI command at a glance | `vibe --help` or [README › CLI Reference](README.md#cli-reference) |
+| Author a multi-step pipeline as code | [`docs/cookbook.md`](docs/cookbook.md), [`examples/`](examples/) |
+| Compare the scene render vs. raw Hyperframes | [`docs/comparison.md`](docs/comparison.md) |
+| Track what's coming next | [`docs/ROADMAP-v0.58.md`](docs/ROADMAP-v0.58.md), [`ROADMAP.md`](ROADMAP.md) |

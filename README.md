@@ -13,39 +13,42 @@
 
 ## Demo
 
-VibeFrame meets you wherever you write. **Same 62 tools, three surfaces:**
+VibeFrame meets you wherever you write — same 58 MCP tools, three surfaces. The
+recordings below are being re-cut for v0.58; in the meantime,
+**[`DEMO.md`](DEMO.md)** has a copy-pasteable follow-along for each surface that
+produces a real artifact in under five minutes.
 
 ### 1. Quickstart — `vibe` CLI directly (≈90 s)
 
-Install, scaffold, narrate (free local Kokoro TTS), render to MP4 with synced captions:
+Install, scaffold a scene project, narrate with free local Kokoro TTS, render to
+MP4 with synced captions.
 
 <p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-quickstart.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-quickstart.svg" alt="VibeFrame v0.55 quickstart" />
-  </a>
+  <i>📹 Recording coming soon (v0.58 re-cut). Follow along in
+  <a href="DEMO.md#1-cli-direct--vibe-quickstart">DEMO.md › 1. CLI direct</a>.</i>
 </p>
 
 ### 2. Standalone agent mode — `vibe agent` (≈50 s)
 
-Bring your own LLM (Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama). Natural language in, multi-tool execution out — no MCP host required:
+Bring your own LLM (Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama).
+Natural language in, multi-tool execution out — no MCP host required.
 
 <p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-agent.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-agent.svg" alt="VibeFrame agent mode demo" />
-  </a>
+  <i>📹 Recording coming soon (v0.58 re-cut). Follow along in
+  <a href="DEMO.md#2-standalone-agent-repl--vibe-agent">DEMO.md › 2. Standalone agent REPL</a>.</i>
 </p>
 
 ### 3. Inside Claude Code / Cursor (MCP) — `@vibeframe/mcp-server`
 
-Same 62 tools as `vibe agent`, surfaced through MCP for any compatible host. One JSON config block, no CLI install needed (npx pulls the bundle on demand):
+Same tools as `vibe agent`, surfaced through MCP for any compatible host. One
+JSON config block, no CLI install needed (`npx` pulls the bundle on demand).
 
 <p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-claude-code.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-claude-code.svg" alt="VibeFrame inside Claude Code (MCP) demo" />
-  </a>
+  <i>📹 Recording coming soon (v0.58 re-cut). Follow along in
+  <a href="DEMO.md#3-inside-claude-code--cursor-mcp">DEMO.md › 3. Inside Claude Code / Cursor</a>.</i>
 </p>
 
-[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) has the full 5-prompt walkthrough plus the recording recipe for richer demos.
+[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) has the original 5-prompt walkthrough plus the recording recipe.
 
 **Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Claude Code integration](https://youtu.be/sdf930sZ7co)
 
