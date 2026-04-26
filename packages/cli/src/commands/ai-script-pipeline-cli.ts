@@ -29,7 +29,7 @@ export function registerScriptPipelineCommands(aiCommand: Command): void {
 aiCommand
   .command("script-to-video")
   .alias("s2v")
-  .description("Generate complete video from text script using AI pipeline")
+  .description("[DEPRECATED v0.63 — removal scheduled v0.64] Generate complete video from text script using AI pipeline. Use `vibe scene build` with a STORYBOARD.md instead — same outcome, idempotent, agent-editable")
   .argument("<script>", "Script text or file path (use -f for file)")
   .option("-f, --file", "Treat script argument as file path")
   .option("-o, --output <path>", "Output project file path", "script-video.vibe.json")
@@ -59,14 +59,22 @@ aiCommand
         validateOutputPath(options.output);
       }
 
-      // v0.62: --format scenes deprecation warning fires before any other
-      // work so dry-runs surface the same notice production runs do.
-      // Removal scheduled for v0.63 — point users at `vibe scene build`.
-      if (options.format === "scenes" && !isJsonMode()) {
+      // v0.63: the entire `pipeline script-to-video` command is deprecated.
+      // Storyboard inference is brittle (LLM hallucinates beats, no per-beat
+      // cues, no idempotent re-runs); `vibe scene build` covers the same
+      // outcome with explicit STORYBOARD.md frontmatter and asset reuse.
+      // Warning fires for ANY invocation in human mode (JSON mode swallows
+      // it so automation isn't disrupted). Removal scheduled for v0.64.
+      if (!isJsonMode()) {
         console.warn();
-        console.warn(chalk.yellow("⚠  --format scenes is deprecated and will be removed in v0.63."));
-        console.warn(chalk.dim("   Migrate to: write STORYBOARD.md with per-beat YAML cues, then `vibe scene build <project-dir>`."));
-        console.warn(chalk.dim("   See examples/scene-promo-pipeline.yaml for the v0.62 reference flow."));
+        console.warn(chalk.yellow("⚠  `vibe pipeline script-to-video` is deprecated and will be removed in v0.64."));
+        console.warn(chalk.dim("   The skills-driven storyboard flow (vibe scene build) replaces it:"));
+        console.warn(chalk.dim("     1. Write STORYBOARD.md with per-beat YAML cues (narration / backdrop / duration)."));
+        console.warn(chalk.dim("     2. `vibe scene build <project-dir>` — single command, idempotent re-runs."));
+        console.warn(chalk.dim("   See examples/scene-promo-pipeline.yaml for the YAML pipeline form."));
+        if (options.format === "scenes") {
+          console.warn(chalk.yellow("   (--format scenes is doubly deprecated — already slated for v0.63 removal.)"));
+        }
         console.warn();
       }
 
