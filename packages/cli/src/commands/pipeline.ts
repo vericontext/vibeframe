@@ -1,36 +1,33 @@
 /**
  * @module pipeline
  *
- * Top-level `vibe pipeline` command group for AI video pipelines.
+ * Top-level `vibe pipeline` command group for AI media transformations
+ * on existing video / audio files.
+ *
+ * For BUILDING new video from text intent (storyboard → MP4), see
+ * `vibe scene build` (v0.60+) — that's the skills-driven path. Pipelines
+ * here process media you already have.
  *
  * Commands:
- *   pipeline script-to-video  - Full script-to-video pipeline
- *   pipeline regenerate-scene - Regenerate specific scene(s)
+ *   pipeline script-to-video  - [DEPRECATED v0.63] Full script-to-video pipeline (use `vibe scene build`)
+ *   pipeline regenerate-scene - Regenerate specific scene(s) of a script-to-video output
  *   pipeline highlights       - Extract highlights from long-form content
  *   pipeline auto-shorts      - Generate short-form clips from long-form video
- *   pipeline viral            - Viral optimizer for multi-platform export
- *   pipeline b-roll           - B-roll matching using Whisper + Claude Vision
- *   pipeline narrate          - Auto-narration (Gemini + Claude/OpenAI + ElevenLabs)
+ *   pipeline animated-caption - Add word-by-word animated captions
+ *
+ * Removed in v0.63 (skills + agent flows replaced these):
+ *   pipeline viral, pipeline b-roll, pipeline narrate
  *
  * @dependencies Whisper, Claude, Gemini, ElevenLabs, Kling, Runway, FFmpeg
  */
 
 import { Command } from "commander";
-import { resolve, dirname, basename } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { resolve, basename } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { Project, type ProjectFile } from "../engine/index.js";
-import { ffprobeDuration } from "../utils/exec-safe.js";
-import { getAudioDuration } from "../utils/audio.js";
-import { formatTime } from "./ai-helpers.js";
-import { validateOutputPath } from "./validate.js";
-import { autoNarrate } from "./ai-narrate.js";
 import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
-import { registerViralCommand } from "./ai-viral.js";
-import { registerBrollCommand } from "./ai-broll.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
 import { isJsonMode, outputResult, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
 
@@ -75,200 +72,6 @@ registerScriptPipelineCommands(pipelineCommand);
 // ── pipeline highlights & auto-shorts ──────────────────────────────────
 
 registerHighlightsCommands(pipelineCommand);
-
-// ── pipeline viral ─────────────────────────────────────────────────────
-
-registerViralCommand(pipelineCommand);
-
-// ── pipeline b-roll ────────────────────────────────────────────────────
-
-registerBrollCommand(pipelineCommand);
-
-// ── pipeline narrate ───────────────────────────────────────────────────
-
-pipelineCommand
-  .command("narrate")
-  .description("Generate AI narration for a video file or project (deprecated)")
-  .argument("<input>", "Video file or project file (.vibe.json)")
-  .option("-o, --output <dir>", "Output directory for generated files", ".")
-  .option("-v, --voice <name>", "ElevenLabs voice name (rachel, adam, josh, etc.)", "rachel")
-  .option("-s, --style <style>", "Narration style: informative, energetic, calm, dramatic", "informative")
-  .option("-l, --language <lang>", "Language code (e.g., en, ko)", "en")
-  .option("-p, --provider <name>", "LLM for script generation: claude (default), openai", "claude")
-  .option("--add-to-project", "Add narration to project (only for .vibe.json input)")
-  .option("--dry-run", "Preview pipeline parameters without executing")
-  .action(async (inputPath: string, options) => {
-    try {
-      console.warn(chalk.yellow("Warning: 'pipeline narrate' is deprecated. Use individual commands instead:"));
-      console.warn(chalk.dim("  vibe analyze video <video> 'describe scenes' → vibe generate speech '<script>'"));
-      console.warn();
-
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
-
-      const absPath = resolve(process.cwd(), inputPath);
-      if (!existsSync(absPath)) {
-        exitWithError(notFoundError(absPath));
-      }
-
-      if (options.dryRun) {
-        outputResult({ dryRun: true, command: "pipeline narrate", params: { inputPath, voice: options.voice, style: options.style, language: options.language, provider: options.provider } });
-        return;
-      }
-
-      console.log();
-      console.log(chalk.bold.cyan("Auto-Narrate Pipeline"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log();
-
-      const isProject = inputPath.endsWith(".vibe.json");
-      let videoPath: string;
-      let project: Project | null = null;
-      let outputDir = resolve(process.cwd(), options.output);
-
-      if (isProject) {
-        // Load project to find video source
-        const content = await readFile(absPath, "utf-8");
-        const data: ProjectFile = JSON.parse(content);
-        project = Project.fromJSON(data);
-        const sources = project.getSources();
-        const videoSource = sources.find((s) => s.type === "video");
-
-        if (!videoSource) {
-          exitWithError(usageError("No video source found in project"));
-        }
-
-        videoPath = resolve(dirname(absPath), videoSource.url);
-        if (!existsSync(videoPath)) {
-          exitWithError(notFoundError(videoPath));
-        }
-
-        // Use project directory as output if not specified
-        if (options.output === ".") {
-          outputDir = dirname(absPath);
-        }
-
-        console.log(`Project: ${chalk.bold(project.getMeta().name)}`);
-      } else {
-        videoPath = absPath;
-        console.log(`Video: ${chalk.bold(basename(videoPath))}`);
-      }
-
-      // Get video duration
-      const durationSpinner = ora("Analyzing video...").start();
-      let duration: number;
-      try {
-        duration = await ffprobeDuration(videoPath);
-        durationSpinner.succeed(chalk.green(`Duration: ${formatTime(duration)}`));
-      } catch {
-        durationSpinner.fail("Failed to get video duration");
-        exitWithError(generalError("Failed to get video duration", "Ensure the file is a valid video and FFmpeg is installed."));
-      }
-
-      // Validate style option
-      const validStyles = ["informative", "energetic", "calm", "dramatic"];
-      if (!validStyles.includes(options.style)) {
-        exitWithError(usageError(`Invalid style: ${options.style}`, `Valid styles: ${validStyles.join(", ")}`));
-      }
-
-      // Generate narration
-      const generateSpinner = ora("Generating narration...").start();
-
-      generateSpinner.text = "Analyzing video with Gemini...";
-      const result = await autoNarrate({
-        videoPath,
-        duration,
-        outputDir,
-        voice: options.voice,
-        style: options.style as "informative" | "energetic" | "calm" | "dramatic",
-        language: options.language,
-        scriptProvider: options.provider as "claude" | "openai",
-      });
-
-      if (!result.success) {
-        generateSpinner.fail(`Failed: ${result.error}`);
-        exitWithError(apiError(`Narration failed: ${result.error}`, true));
-      }
-
-      generateSpinner.succeed(chalk.green("Narration generated successfully"));
-
-      if (isJsonMode()) {
-        outputResult({ success: true, audioPath: result.audioPath, segments: result.segments?.map(s => ({ startTime: s.startTime, endTime: s.endTime, text: s.text })) });
-        return;
-      }
-
-      // Display result
-      console.log();
-      console.log(chalk.bold.cyan("Generated Files"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log(`  Audio: ${chalk.green(result.audioPath)}`);
-      console.log(`  Script: ${chalk.green(resolve(outputDir, "narration-script.txt"))}`);
-
-      if (result.segments && result.segments.length > 0) {
-        console.log();
-        console.log(chalk.bold.cyan("Narration Segments"));
-        console.log(chalk.dim("─".repeat(60)));
-        for (const seg of result.segments.slice(0, 5)) {
-          console.log(`  [${formatTime(seg.startTime)} - ${formatTime(seg.endTime)}] ${chalk.dim(seg.text.substring(0, 50))}${seg.text.length > 50 ? "..." : ""}`);
-        }
-        if (result.segments.length > 5) {
-          console.log(chalk.dim(`  ... and ${result.segments.length - 5} more segments`));
-        }
-      }
-
-      // Add to project if requested
-      if (options.addToProject && project && isProject) {
-        const addSpinner = ora("Adding narration to project...").start();
-
-        // Get audio duration
-        let audioDuration: number;
-        try {
-          audioDuration = await getAudioDuration(result.audioPath!);
-        } catch {
-          audioDuration = duration; // Fallback to video duration
-        }
-
-        // Add audio source
-        const audioSource = project.addSource({
-          name: "Auto-generated narration",
-          url: basename(result.audioPath!),
-          type: "audio",
-          duration: audioDuration,
-        });
-
-        // Add audio clip to audio track
-        const audioTrack = project.getTracks().find((t) => t.type === "audio");
-        if (audioTrack) {
-          project.addClip({
-            sourceId: audioSource.id,
-            trackId: audioTrack.id,
-            startTime: 0,
-            duration: Math.min(audioDuration, duration),
-            sourceStartOffset: 0,
-            sourceEndOffset: Math.min(audioDuration, duration),
-          });
-        }
-
-        // Save updated project
-        await writeFile(absPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
-        addSpinner.succeed(chalk.green("Narration added to project"));
-      }
-
-      console.log();
-      console.log(chalk.bold.green("Auto-narrate complete!"));
-
-      if (!options.addToProject && isProject) {
-        console.log();
-        console.log(chalk.dim("Tip: Use --add-to-project to automatically add the narration to your project"));
-      }
-
-      console.log();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Auto-narrate failed: ${msg}`));
-    }
-  });
 
 // ── pipeline animated-caption ────────────────────────────────────────────
 
