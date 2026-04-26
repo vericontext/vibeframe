@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.59.0] - 2026-04-26
+
+### Added
+
+- vibeframe-promo end-to-end pipeline (v0.59 C7) (#128) *(examples)*
+- per-beat fanout + onProgress callback (v0.59 C6) (#127) *(scene)*
+- register compose-scenes-with-skills action (v0.59 C5) (#126) *(pipeline)*
+- lint retry loop wraps composeBeatHtml (v0.59 C4) (#125) *(scene)*
+- single-beat Claude composer + input-hash cache (v0.59 C3) (#124) *(scene)*
+- parse STORYBOARD.md into beats (v0.59 C2) (#123) *(scene)*
+- vendor Hyperframes skill bundle for compose-scenes-with-skills (v0.59 C1) (#122) *(skills)*
+
+### Changed
+
+- remove deprecated 'narrations' field — use narrationEntries throughout (#118) *(pipeline)*
+- drop 3 deprecated composite helpers (-96 lines) (#116) *(remotion)*
+- strip continuous body-motion helpers (Pass 2 simplification) (#113) *(scene-emit)*
+- extract shared OpenAI image helper (closes #58) (#112) *(image)*
+
+### Documentation
+
+- commit-by-commit plan for compose-scenes-with-skills (#121) *(v0.59)*
+- slim 312→103 lines, point to ROADMAP-v0.58.md as canonical (#120) *(roadmap)*
+- add catalog README, link from main README (#119) *(examples)*
+- restore asciinema embeds + add v0.58 callout (R1 stopgap) (#114) *(demo)*
+
+### Fixed
+
+- cast commander strings to ImageOptions unions in shared helper (#115) *(image)*
+
+### Maintenance
+
+- drop vestigial entries for tracked dev docs (#117) *(gitignore)*
+
+### Testing
+
+- end-to-end smoke harness for compose-scenes-with-skills (C8) (#129) *(v0.59)*
+- pre-flight experiment validates compose-scenes-with-skills hypothesis (#111) *(v0.59)*
+
 ## [0.58.0] - 2026-04-26
 
 ### Added
