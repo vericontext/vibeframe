@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   deriveBeatId,
+  extractBeatCues,
+  extractProjectFrontmatter,
   parseBeatDuration,
   parseStoryboard,
 } from "./storyboard-parse.js";
@@ -186,5 +188,183 @@ describe("parseBeatDuration", () => {
   it("only reads first Beat-duration subsection it sees, then stops at next heading", () => {
     const body = `### Beat duration\n\n4\n\n### Notes\n\n10 seconds of post-roll\n`;
     expect(parseBeatDuration(body)).toBe(4);
+  });
+});
+
+// ── v0.60: project frontmatter + per-beat cues ──────────────────────────
+
+describe("extractProjectFrontmatter", () => {
+  it("returns undefined when no frontmatter is present", () => {
+    const md = "# Storyboard\n\n## Beat 1 — Hook\n";
+    const r = extractProjectFrontmatter(md);
+    expect(r.frontmatter).toBeUndefined();
+    expect(r.remaining).toBe(md);
+  });
+
+  it("strips and parses a leading frontmatter block", () => {
+    const md = `---
+project: vibeframe-promo
+providers:
+  tts: elevenlabs
+  image: openai
+voice: rachel
+---
+# Storyboard
+
+## Beat 1 — Hook
+`;
+    const r = extractProjectFrontmatter(md);
+    expect(r.frontmatter).toEqual({
+      project: "vibeframe-promo",
+      providers: { tts: "elevenlabs", image: "openai" },
+      voice: "rachel",
+    });
+    expect(r.remaining.startsWith("# Storyboard")).toBe(true);
+  });
+
+  it("ignores malformed YAML (returns frontmatter undefined, leaves remaining intact)", () => {
+    const md = "---\nthis: is: not: valid: yaml:\n---\nbody\n";
+    const r = extractProjectFrontmatter(md);
+    expect(r.frontmatter).toBeUndefined();
+    expect(r.remaining).toBe(md);
+  });
+
+  it("rejects array root (frontmatter must be an object)", () => {
+    const md = "---\n- one\n- two\n---\nbody\n";
+    const r = extractProjectFrontmatter(md);
+    expect(r.frontmatter).toBeUndefined();
+  });
+});
+
+describe("extractBeatCues", () => {
+  it("returns undefined when body has no leading yaml block", () => {
+    const body = "### Concept\n\nCold open.\n";
+    const r = extractBeatCues(body);
+    expect(r.cues).toBeUndefined();
+    expect(r.body).toBe(body);
+  });
+
+  it("strips and parses a leading ```yaml cue block", () => {
+    const body = `\`\`\`yaml
+narration: "Type a YAML."
+backdrop: "Abstract minimalist tech aesthetic, electric blue glow"
+duration: 3
+\`\`\`
+
+### Concept
+
+Cold open.
+`;
+    const r = extractBeatCues(body);
+    expect(r.cues).toEqual({
+      narration: "Type a YAML.",
+      backdrop: "Abstract minimalist tech aesthetic, electric blue glow",
+      duration: 3,
+    });
+    expect(r.body.startsWith("### Concept")).toBe(true);
+    expect(r.body).not.toContain("narration:");
+  });
+
+  it("does NOT strip a yaml block deeper in the body (only leading block is metadata)", () => {
+    const body = `### Concept
+
+Cold open.
+
+\`\`\`yaml
+narration: this should not be stripped
+\`\`\`
+`;
+    const r = extractBeatCues(body);
+    expect(r.cues).toBeUndefined();
+    expect(r.body).toBe(body);
+  });
+});
+
+describe("parseStoryboard — frontmatter + cues integration", () => {
+  it("attaches frontmatter to the result", () => {
+    const md = `---
+project: demo
+voice: rachel
+---
+
+## Beat hook — Hook
+
+### Concept
+
+Open.
+`;
+    const r = parseStoryboard(md);
+    expect(r.frontmatter).toEqual({ project: "demo", voice: "rachel" });
+    expect(r.beats).toHaveLength(1);
+    expect(r.beats[0].id).toBe("hook");
+  });
+
+  it("attaches per-beat cues + strips them from body", () => {
+    const md = `## Beat hook — Hook
+
+\`\`\`yaml
+narration: "Type a YAML."
+duration: 3
+\`\`\`
+
+### Concept
+
+Cold open.
+`;
+    const r = parseStoryboard(md);
+    expect(r.beats[0].cues).toEqual({ narration: "Type a YAML.", duration: 3 });
+    expect(r.beats[0].duration).toBe(3);
+    expect(r.beats[0].body).not.toContain("narration:");
+    expect(r.beats[0].body).toContain("Cold open.");
+  });
+
+  it("cue duration overrides ### Beat duration subsection", () => {
+    const md = `## Beat hook — Hook
+
+\`\`\`yaml
+duration: 5
+\`\`\`
+
+### Beat duration
+
+3 seconds
+`;
+    const r = parseStoryboard(md);
+    expect(r.beats[0].duration).toBe(5);
+  });
+
+  it("falls back to ### Beat duration when cue duration absent", () => {
+    const md = `## Beat hook — Hook
+
+\`\`\`yaml
+narration: "X"
+\`\`\`
+
+### Beat duration
+
+4 seconds
+`;
+    const r = parseStoryboard(md);
+    expect(r.beats[0].duration).toBe(4);
+  });
+
+  it("storyboard without any frontmatter / cues parses identically to v0.59 (back-compat)", () => {
+    const md = `**Format:** 1920×1080
+
+## Beat 1 — Hook (0–3s)
+
+### Concept
+
+Cold open.
+
+### Beat duration
+
+3 seconds
+`;
+    const r = parseStoryboard(md);
+    expect(r.frontmatter).toBeUndefined();
+    expect(r.beats[0].cues).toBeUndefined();
+    expect(r.beats[0].duration).toBe(3);
+    expect(r.beats[0].body).toContain("### Concept");
   });
 });
