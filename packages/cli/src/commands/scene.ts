@@ -66,6 +66,10 @@ import {
   type RenderQuality,
 } from "./_shared/scene-render.js";
 import {
+  executeSceneBuild,
+  type SceneBuildProgressEvent,
+} from "./_shared/scene-build.js";
+import {
   exitWithError,
   generalError,
   usageError,
@@ -1005,3 +1009,144 @@ sceneCommand
       }
     }
   });
+
+// ── vibe scene build — v0.60 one-shot storyboard → MP4 ──────────────────
+
+sceneCommand
+  .command("build")
+  .description("One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 (v0.60)")
+  .argument("[project-dir]", "Project directory containing STORYBOARD.md", ".")
+  .option("--effort <level>", "Compose effort tier: low|medium|high", "medium")
+  .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
+  .option("--skip-backdrop", "Don't dispatch image-gen even when beats declare backdrop cues")
+  .option("--skip-render", "Compose only — don't render to MP4")
+  .option("--tts <provider>", "TTS provider: auto|elevenlabs|kokoro (overrides frontmatter)")
+  .option("--voice <id>", "Voice id (provider-specific — overrides frontmatter)")
+  .option("--image-provider <name>", "Image provider: openai (only one supported in v0.60)")
+  .option("--quality <q>", "Image quality: standard|hd", "hd")
+  .option("--image-size <s>", "Image size: 1024x1024|1536x1024|1024x1536", "1536x1024")
+  .option("--force", "Re-dispatch primitives even when assets already exist")
+  .option("--dry-run", "Preview parameters without dispatching")
+  .action(async (projectDirArg: string, options) => {
+    const projectDir = resolve(projectDirArg);
+
+    if (options.dryRun) {
+      outputResult({
+        dryRun: true,
+        command: "scene build",
+        params: {
+          projectDir,
+          effort: options.effort,
+          skipNarration: options.skipNarration ?? false,
+          skipBackdrop: options.skipBackdrop ?? false,
+          skipRender: options.skipRender ?? false,
+          ttsProvider: options.tts,
+          voice: options.voice,
+          imageProvider: options.imageProvider,
+          imageQuality: options.quality,
+          imageSize: options.imageSize,
+          force: options.force ?? false,
+        },
+      });
+      return;
+    }
+
+    const validEfforts = ["low", "medium", "high"] as const;
+    if (!validEfforts.includes(options.effort)) {
+      exitWithError(usageError(`Invalid --effort: ${options.effort}`, `Must be one of: ${validEfforts.join(", ")}`));
+    }
+
+    const spinner = isJsonMode() ? null : ora("Reading STORYBOARD.md...").start();
+
+    const result = await executeSceneBuild({
+      projectDir,
+      effort: options.effort,
+      skipNarration: options.skipNarration,
+      skipBackdrop: options.skipBackdrop,
+      skipRender: options.skipRender,
+      ttsProvider: options.tts,
+      voice: options.voice,
+      imageProvider: options.imageProvider,
+      imageQuality: options.quality,
+      imageSize: options.imageSize,
+      force: options.force,
+      onProgress: (e: SceneBuildProgressEvent) => {
+        if (!spinner) return;
+        if (e.type === "phase-start") {
+          spinner.text = `Phase: ${e.phase}...`;
+        } else if (e.type === "narration-generated") {
+          spinner.text = `Narration ${e.beatId} → ${e.path} (${e.provider})`;
+        } else if (e.type === "backdrop-generated") {
+          spinner.text = `Backdrop ${e.beatId} → ${e.path} (${e.provider})`;
+        } else if (e.type === "beat-fresh") {
+          spinner.text = `Composed beat ${e.beatId} ($${(e.costUsd ?? 0).toFixed(3)} · ${e.latencyMs ?? 0}ms)`;
+        } else if (e.type === "beat-cached") {
+          spinner.text = `Composed beat ${e.beatId} (cached)`;
+        } else if (e.type === "render-start") {
+          spinner.text = "Rendering...";
+        } else if (e.type === "render-done") {
+          spinner.text = `Rendered: ${e.outputPath}`;
+        }
+      },
+    });
+
+    if (!result.success) {
+      spinner?.fail(`Build failed: ${result.error}`);
+      if (isJsonMode()) {
+        outputResult({ command: "scene build", ...result });
+        process.exit(1);
+      }
+      exitWithError(generalError(result.error ?? "Build failed"));
+    }
+
+    if (isJsonMode()) {
+      outputResult({ command: "scene build", ...result });
+      return;
+    }
+
+    spinner?.succeed(chalk.green(
+      result.outputPath
+        ? `Build complete: ${result.outputPath}`
+        : "Build complete (compose only — render skipped)",
+    ));
+    console.log();
+    console.log(chalk.bold.cyan("Beats"));
+    console.log(chalk.dim("─".repeat(60)));
+    for (const b of result.beats) {
+      const narration = formatPrimitiveStatus(b.narrationStatus, b.narrationPath);
+      const backdrop = formatPrimitiveStatus(b.backdropStatus, b.backdropPath);
+      console.log(`  ${chalk.bold(b.beatId.padEnd(12))} narration: ${narration}   backdrop: ${backdrop}`);
+      if (b.narrationError) console.log(chalk.red(`    ! narration: ${b.narrationError}`));
+      if (b.backdropError) console.log(chalk.red(`    ! backdrop: ${b.backdropError}`));
+    }
+    if (result.composeData) {
+      console.log();
+      console.log(chalk.bold.cyan("Compose"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`  beats     ${result.composeData.beats}`);
+      console.log(`  cache     ${result.composeData.cacheHits} hit / ${result.composeData.beats - result.composeData.cacheHits} fresh`);
+      console.log(`  cost      $${result.composeData.totalCostUsd.toFixed(4)}`);
+    }
+    if (result.outputPath) {
+      console.log();
+      console.log(chalk.bold.cyan("Render"));
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`  output    ${chalk.bold(result.outputPath)}`);
+      if (result.renderResult?.audioCount && result.renderResult.audioCount > 0) {
+        console.log(`  audio     ${result.renderResult.audioCount} track${result.renderResult.audioCount === 1 ? "" : "s"} muxed`);
+      }
+    }
+    console.log();
+    console.log(chalk.dim(`Total: ${(result.totalLatencyMs / 1000).toFixed(1)}s`));
+  });
+
+function formatPrimitiveStatus(status: string, path?: string): string {
+  switch (status) {
+    case "generated": return chalk.green(`✓ ${path}`);
+    case "cached":    return chalk.dim(`◇ ${path} (cached)`);
+    case "skipped":   return chalk.dim("· skipped");
+    case "no-cue":    return chalk.dim("· no cue");
+    case "failed":    return chalk.red("✗ failed");
+    default:          return status;
+  }
+}
