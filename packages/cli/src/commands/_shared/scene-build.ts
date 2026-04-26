@@ -177,6 +177,15 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     };
   }
 
+  // ── Phase 2.5: wire scene compositions into root index.html ───────────
+  // compose-scenes-with-skills writes per-beat HTML to compositions/, but
+  // doesn't touch the root index.html. Without `<div class="clip"
+  // data-composition-src="compositions/scene-X.html">` references in the
+  // root, the producer renders a black 9-second video. Patch the root
+  // here so users (and agents) get a working render straight from `vibe
+  // scene build` on a fresh `vibe scene init` project.
+  await syncRootClipReferences(parsed.beats, projectDir, beatOutcomes);
+
   // ── Phase 3: render (optional) ────────────────────────────────────────
   let outputPath: string | undefined;
   let renderResult: SceneRenderResult | undefined;
@@ -356,4 +365,93 @@ function failBeforePrimitives(error: string, startedAt: number): SceneBuildResul
     beats: [],
     totalLatencyMs: Date.now() - startedAt,
   };
+}
+
+// ── Root index.html sync ────────────────────────────────────────────────
+
+/**
+ * Insert / replace `<div class="clip" data-composition-src=...>` tags in
+ * the project's `index.html` so the root composition references the
+ * scene HTML compose-scenes-with-skills just wrote.
+ *
+ * Why this is needed: `vibe scene init` scaffolds an `index.html` with
+ * placeholder comments but no clip refs. `compose-scenes-with-skills`
+ * writes per-beat HTML to `compositions/scene-<id>.html` but doesn't
+ * touch the root. Without explicit refs, the Hyperframes producer
+ * walks an empty `<div id="root">` and renders a 9-second black video.
+ *
+ * The sync is idempotent: it scans for the existing block and replaces
+ * it wholesale. Project authors who hand-curate `index.html` should add
+ * the marker comments below to keep `vibe scene build` from clobbering
+ * unrelated content.
+ *
+ * No-op when `index.html` doesn't exist (caller hasn't run `scene init`).
+ */
+async function syncRootClipReferences(
+  beats: Beat[],
+  projectDir: string,
+  outcomes: BeatBuildOutcome[],
+): Promise<void> {
+  const rootPath = join(projectDir, "index.html");
+  if (!existsSync(rootPath)) return;
+
+  const html = await readFile(rootPath, "utf-8");
+
+  // Compute beat start times sequentially. cues.duration / `### Beat duration`
+  // both feed Beat.duration; default to 3s when neither is present.
+  let cursor = 0;
+  const clipLines: string[] = [];
+  const audioLines: string[] = [];
+  for (const beat of beats) {
+    const duration = beat.duration ?? 3;
+    const compositionId = `scene-${beat.id}`;
+    clipLines.push(
+      `      <div class="clip" data-composition-id="${compositionId}" data-composition-src="compositions/${compositionId}.html" data-start="${cursor}" data-duration="${duration}" data-track-index="0"></div>`,
+    );
+    // If the dispatcher produced a narration audio file, wire it into the
+    // root with absolute timing. Sub-composition `<audio>` elements aren't
+    // muxed by the producer; root-level ones are.
+    const outcome = outcomes.find((o) => o.beatId === beat.id);
+    if (outcome?.narrationPath) {
+      audioLines.push(
+        `      <audio src="${outcome.narrationPath}" data-start="${cursor}" data-duration="${duration}" data-track-index="2"></audio>`,
+      );
+    }
+    cursor += duration;
+  }
+
+  const totalDuration = cursor;
+  const block =
+    "      <!-- vibe-scene-build: clip refs (auto-generated; safe to re-run) -->\n" +
+    clipLines.join("\n") +
+    (audioLines.length > 0 ? "\n" + audioLines.join("\n") : "") +
+    "\n      <!-- /vibe-scene-build -->";
+
+  let next: string;
+  const markerRe = /\n? *<!-- vibe-scene-build: clip refs.*?<!-- \/vibe-scene-build -->/s;
+  if (markerRe.test(html)) {
+    // Replace previous block in place — idempotent re-runs.
+    next = html.replace(markerRe, "\n" + block);
+  } else {
+    // First run: drop the block before the closing `</div>` of `id="root"`.
+    // Falls back to inserting before `</body>` if the root structure isn't
+    // recognisable — better than failing silently.
+    const rootCloseRe = /(\n\s*<\/div>\s*\n\s*<script[^>]*>[\s\S]*window\.__timelines)/;
+    if (rootCloseRe.test(html)) {
+      next = html.replace(rootCloseRe, `\n${block}\n    $1`);
+    } else {
+      next = html.replace(/<\/body>/, `${block}\n  </body>`);
+    }
+  }
+
+  // Update the root data-duration to match the new total. Pure regex —
+  // we don't pull in a full HTML parser for one attribute.
+  next = next.replace(
+    /(id="root"[\s\S]*?data-duration=")(\d+(?:\.\d+)?)(")/,
+    `$1${totalDuration}$3`,
+  );
+
+  if (next !== html) {
+    await writeFile(rootPath, next, "utf-8");
+  }
 }
