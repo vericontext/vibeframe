@@ -40,8 +40,12 @@ fi
 # `interface` (the type-only folder that defines the AIProvider contract).
 AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! -name interface | wc -l | tr -d ' ')
 
-# MCP tool definitions
-MCP_TOOLS=$(grep -rh 'name: "' packages/mcp-server/src/tools/ 2>/dev/null | wc -l | tr -d ' ')
+# MCP tool definitions. Exclude *.test.ts — test fixture strings
+# (e.g. `name: "intro"` inside a handleSceneToolCall) match the regex but
+# aren't registered tools. Source-true count is 58 at runtime; an over-count
+# regex would let next.config.js advertise 59.
+MCP_TOOLS=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'name: "' \
+  packages/mcp-server/src/tools/ 2>/dev/null | wc -l | tr -d ' ')
 
 # Agent tool definitions
 AGENT_TOOLS=$(grep -r 'ToolDefinition = {' packages/cli/src/agent/tools/ 2>/dev/null | wc -l | tr -d ' ')

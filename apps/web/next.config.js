@@ -7,7 +7,13 @@ const pkg = require("./package.json");
 function countPattern(dir, pattern) {
   let total = 0;
   try {
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith(".ts"));
+    // Exclude *.test.ts — fixture strings in tests (e.g. `name: "intro"`
+    // inside a handleSceneToolCall arg) get caught by the production regex
+    // and over-count by 1+. The MCP server actually registers 58 tools at
+    // runtime, not 59.
+    const files = fs.readdirSync(dir).filter(
+      (f) => f.endsWith(".ts") && !f.endsWith(".test.ts"),
+    );
     for (const file of files) {
       const content = fs.readFileSync(path.join(dir, file), "utf8");
       const matches = content.match(new RegExp(pattern, "g"));

@@ -1,6 +1,6 @@
 # VibeFrame
 
-**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 59 MCP tools bundled.
+**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 58 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -207,7 +207,7 @@ Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/v
 
 ## MCP Integration (Claude Desktop / Cursor)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (59 MCP tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (58 MCP tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {
