@@ -178,4 +178,12 @@ export const MIGRATED: Set<string> = new Set([
   "project_info",
   // C5: export
   "export_video",
+  // v0.66 PR3: agent-only manifest entries (surfaces=["agent"])
+  "fs_list",
+  "fs_read",
+  "fs_write",
+  "fs_exists",
+  "batch_import",
+  "batch_concat",
+  "batch_apply_effect",
 ]);
