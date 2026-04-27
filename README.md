@@ -13,12 +13,6 @@
 
 ## Demo
 
-VibeFrame meets you wherever you write — same 58 MCP tools, three surfaces. Each
-clip below is a real terminal recording. For a copy-pasteable walkthrough you
-can follow live, see **[`DEMO.md`](DEMO.md)**.
-
-### What you can build (≈9 s)
-
 A cinematic 1920×1080 promo, end-to-end from a `STORYBOARD.md` + `DESIGN.md`
 through the v0.59 `compose-scenes-with-skills` pipeline. Three beats, GPT
 Image 2 backdrops, ElevenLabs narration + cinematic BGM, all rendered
@@ -30,40 +24,21 @@ deterministically by Hyperframes' producer.
 
 > Rendered from
 > [`examples/vibeframe-promo/`](examples/vibeframe-promo/) — the same project is
-> the smoke fixture for `compose-scenes-with-skills`.
+> the smoke fixture for `compose-scenes-with-skills`. For a copy-pasteable
+> walkthrough you can follow live, see **[`DEMO.md`](DEMO.md)**.
 
-### 1. Quickstart — `vibe` CLI directly (≈90 s)
+### Reproduce the surfaces locally
 
-Install, scaffold a scene project, narrate with free local Kokoro TTS, render to
-MP4 with synced captions.
+`assets/demos/` ships VHS tapes for every surface — run any with
+[`vhs`](https://github.com/charmbracelet/vhs):
 
-<p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-quickstart.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-quickstart.svg" alt="VibeFrame CLI quickstart asciinema" />
-  </a>
-</p>
-
-### 2. Standalone agent mode — `vibe agent` (≈50 s)
-
-Bring your own LLM (Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama).
-Natural language in, multi-tool execution out — no MCP host required.
-
-<p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-agent.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-agent.svg" alt="VibeFrame agent mode asciinema (BYO LLM)" />
-  </a>
-</p>
-
-### 3. Inside Claude Code / Cursor (MCP) — `@vibeframe/mcp-server`
-
-Same tools as `vibe agent`, surfaced through MCP for any compatible host. One
-JSON config block, no CLI install needed (`npx` pulls the bundle on demand).
-
-<p align="center">
-  <a href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/vibeframe-claude-code.svg">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-claude-code.svg" alt="VibeFrame inside Claude Code (MCP) asciinema" />
-  </a>
-</p>
+```bash
+brew install vhs
+vhs assets/demos/cli.tape          # Surface 1 — vibe CLI directly
+vhs assets/demos/agent.tape        # Surface 2 — vibe agent (natural language)
+vhs assets/demos/claude.tape       # Surface 3 — Claude Code → vibe scene build
+vhs assets/demos/claude-i2v.tape   # Surface 4 — Claude Code → t2i + i2v + narration
+```
 
 > **New in v0.60:** `vibe scene build` is the one-shot driver — write a `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration), and a single command dispatches TTS + GPT Image 2 + composes scene HTML via the `compose-scenes-with-skills` pipeline (v0.59) and renders to MP4. `vibe scene init --visual-style "Swiss Pulse"` (v0.58) still seeds the `DESIGN.md` hard-gate + 8 named visual identities. Hyperframes' `/hyperframes` skill (`npx skills add heygen-com/hyperframes`) is loaded as the LLM system prompt for composition craft.
 

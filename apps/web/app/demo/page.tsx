@@ -85,58 +85,73 @@ export default function DemoPage() {
         </div>
       </section>
 
-      {/* Three asciinema surfaces — how you USE VibeFrame, complementing
-          the cinematic hero above (which shows what you BUILD). */}
+      {/* Four reproducible surfaces — VHS tape recipes, run locally with
+          `vhs assets/demos/<name>.tape`. The actual rendered demo MP4s
+          aren't committed; the tapes are the source of truth. */}
       <section className="pt-32 pb-20 px-4">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-8 animate-fade-in">
               <Terminal className="w-4 h-4" />
-              <span>Three surfaces · same {process.env.NEXT_PUBLIC_AGENT_TOOLS} tools</span>
+              <span>Four surfaces · run any tape locally</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
               Use VibeFrame how<br />
               <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">you already work.</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-              Plain CLI, stand-alone agent REPL, or natural language inside Claude Code — same tools, three entry points. Each clip below is a real terminal recording.
+              Plain CLI, stand-alone agent, or Claude Code — same tools, four
+              entry points. Each surface below ships a VHS tape; install{" "}
+              <a
+                href="https://github.com/charmbracelet/vhs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                vhs
+              </a>{" "}
+              and run it to see the recording.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6 animate-fade-in-up delay-200">
-            <SurfaceCard
+          <div className="grid md:grid-cols-2 gap-6 animate-fade-in-up delay-200">
+            <TapeCard
               badge="1 · CLI"
               title="vibe (terminal)"
-              note="Pure commands · no LLM in the loop · ≈90 s"
-              svgSrc="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-quickstart.svg"
-              alt="VibeFrame CLI quickstart asciinema"
+              note="Hand-authored STORYBOARD → vibe scene build → MP4"
+              command="vhs assets/demos/cli.tape"
             />
-            <SurfaceCard
+            <TapeCard
               badge="2 · Agent"
               title="vibe agent"
-              note="BYOK REPL · Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama · ≈40 s"
-              svgSrc="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-agent.svg"
-              alt="VibeFrame agent mode asciinema (xAI Grok)"
+              note="BYOK · natural language → vibe scene build"
+              command="vhs assets/demos/agent.tape"
             />
-            <SurfaceCard
+            <TapeCard
               badge="3 · Claude Code"
-              title="natural language"
-              note="No MCP setup · Claude discovers vibe via --help · ≈90 s"
-              svgSrc="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/vibeframe-claude-code.svg"
-              alt="VibeFrame inside Claude Code asciinema"
+              title="scene build"
+              note="Claude Code drives storyboard → multi-beat MP4"
+              command="vhs assets/demos/claude.tape"
+            />
+            <TapeCard
+              badge="4 · Claude Code"
+              title="primitive chain"
+              note="t2i (gpt-image-2) → i2v (Seedance 2.0) → narration → mux"
+              command="vhs assets/demos/claude-i2v.tape"
             />
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
-            For tighter Claude-Code-to-vibe loops via MCP, see the{" "}
+            For the full Claude Code walkthrough (5 prompts, recording recipe),
+            see the{" "}
             <Link
               href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/claude-code-walkthrough.md"
               target="_blank"
               className="underline hover:text-foreground"
             >
-              MCP route walkthrough
-            </Link>{" "}
-            (typed tool calls, structured cost surfaces).
+              walkthrough
+            </Link>
+            .
           </p>
         </div>
       </section>
@@ -258,37 +273,26 @@ function CommandCard({ icon, title, command, color }: { icon: React.ReactNode; t
   );
 }
 
-function SurfaceCard({
+function TapeCard({
   badge,
   title,
   note,
-  svgSrc,
-  alt,
+  command,
 }: {
   badge: string;
   title: string;
   note: string;
-  svgSrc: string;
-  alt: string;
+  command: string;
 }) {
   return (
-    <div className="bg-secondary/30 border border-border/50 rounded-xl overflow-hidden hover:border-primary/30 transition-all">
-      <div className="px-5 pt-5">
-        <div className="text-xs font-mono text-cyan-400 mb-1">{badge}</div>
-        <div className="text-base font-semibold mb-1">{title}</div>
-        <div className="text-xs text-muted-foreground mb-4">{note}</div>
+    <div className="bg-secondary/30 border border-border/50 rounded-xl p-5 hover:border-primary/30 transition-all">
+      <div className="text-xs font-mono text-cyan-400 mb-1">{badge}</div>
+      <div className="text-base font-semibold mb-1">{title}</div>
+      <div className="text-xs text-muted-foreground mb-4">{note}</div>
+      <div className="bg-background/50 rounded-lg px-3 py-2 font-mono text-xs overflow-x-auto border border-border/30">
+        <span className="text-green-400">$ </span>
+        <span className="text-foreground">{command}</span>
       </div>
-      <a
-        href={svgSrc}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block bg-background/50 border-t border-border/50"
-      >
-        {/* Plain <img> on purpose — these are external SVG raw URLs from the
-            github mirror, so next/image's optimizer would just round-trip
-            them. Lazy-loaded to keep the page light on first paint. */}
-        <img src={svgSrc} alt={alt} className="w-full" loading="lazy" />
-      </a>
     </div>
   );
 }

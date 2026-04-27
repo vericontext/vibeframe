@@ -1,25 +1,15 @@
-# assets/demos/build.tape — VHS recording for `vibe scene build` (one-shot
-# storyboard → MP4 flow that produces the cinematic v0.60 demo).
+# assets/demos/build.tape — `vibe scene build` cached-path demo
 #
 # Renders → assets/demos/build.gif
 #
-# Recipe:
-#   brew install vhs                       # macOS
-#   vhs assets/demos/build.tape            # produces build.gif
+# Copies the repo's vibeframe-promo fixture into the lab dir, shows
+# the storyboard, runs `vibe scene build .` against it. Compose hits
+# the sha256 cache (~/.vibeframe/cache/compose-scenes/) so the
+# recording stays under a minute and produces no API spend.
 #
-# Captures the v0.60+ storyboard-driven flow:
-#   1. `cat STORYBOARD.md` — show the per-beat YAML cues users author
-#   2. `vibe scene build --skip-render` — dispatch primitives + compose
-#      (skip render to keep the GIF short and avoid Chrome dependency)
-#   3. Final `tree compositions assets` — show what landed
-#
-# Prerequisites for a clean recording:
-#   - cwd = repo root
-#   - examples/vibeframe-promo/ has cached compose results
-#     (~/.vibeframe/cache/compose-scenes/*.html — automatic on second run)
-#   - ANTHROPIC_API_KEY set (compose still validates env even on cache hit)
-#   - For the full render, drop --skip-render and depend on Chrome being
-#     installed; render typically takes ~15s for a 9s composition.
+# Prereqs: the cache should already contain the 3 vibeframe-promo
+# beats. If not, run `vibe scene build examples/vibeframe-promo` once
+# from the repo root before recording.
 
 Output assets/demos/build.gif
 
@@ -30,33 +20,26 @@ Set Padding 24
 Set Theme "Catppuccin Mocha"
 Set Shell "bash"
 
-Type "clear"
+Type "cd ~/dev/personal/lab/vibeframe-lab && rm -rf build-demo && cp -r ~/dev/vericontext/vibeframe/examples/vibeframe-promo build-demo && cd build-demo && pwd"
 Enter
-Sleep 500ms
+Sleep 1s
 
-# 1. show the storyboard with cues
-Type "# the storyboard — per-beat YAML cues drive primitive dispatch"
-Enter
-Type "head -30 examples/vibeframe-promo/STORYBOARD.md"
+Type "head -30 STORYBOARD.md"
 Enter
 Sleep 5s
 
-# 2. run scene build
 Type "clear"
 Enter
 Sleep 500ms
-Type "# vibe scene build — dispatches narration + backdrops, composes scenes"
-Enter
-Type "vibe scene build examples/vibeframe-promo --skip-render"
+
+Type "vibe scene build . --skip-render"
 Enter
 Sleep 12s
 
-# 3. inspect the result
 Type "clear"
 Enter
 Sleep 500ms
-Type "# what landed"
-Enter
-Type "ls examples/vibeframe-promo/compositions/ examples/vibeframe-promo/assets/"
+
+Type "ls compositions/ assets/"
 Enter
 Sleep 4s

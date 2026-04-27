@@ -97,14 +97,11 @@ Sleep 500ms
 
 Type "vibe scene build my-promo"
 Enter
-# Real fresh build for 3 beats × 4s with HD backdrops:
-#   3× narration TTS (parallel, 5–10s)
-#   3× HD gpt-image-2 backdrops (parallel, 30–60s each)
-#   compose-scenes-with-skills (~10–20s)
-#   render (~25s for 12s video)
-#   audio mux (~3s)
-# Total ~3–4 min worst-case.
-Sleep 240s
+# Real fresh build for 3 beats × 4s with HD backdrops. Generous slack
+# because OpenAI gpt-image-2 occasionally serves 503s and the SDK
+# retries internally — a single transient can push the whole phase to
+# 5+ minutes. Trailing dead time gets trimmed post-record with ffmpeg.
+Sleep 360s
 
 Type "clear"
 Enter
