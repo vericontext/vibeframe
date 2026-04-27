@@ -395,7 +395,7 @@ This tool re-creates videos for failed scenes using image-to-video (if ImgBB key
 };
 
 const animatedCaptionDef: ToolDefinition = {
-  name: "pipeline_animated_caption",
+  name: "edit_animated_caption",
   description:
     "Add animated word-by-word captions to video. Styles: highlight (TikTok-style), bounce, pop-in, neon (Remotion), karaoke-sweep, typewriter (ASS/fast). Requires OPENAI_API_KEY for Whisper.",
   parameters: {

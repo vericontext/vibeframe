@@ -104,7 +104,7 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   // pipeline
   "pipeline highlights":       { mcp: "pipeline_highlights",      agent: "pipeline_highlights" },
   "pipeline auto-shorts":      { mcp: "pipeline_auto_shorts",     agent: "pipeline_auto_shorts" },
-  "pipeline animated-caption": { mcp: "edit_animated_caption",    agent: "pipeline_animated_caption" }, // naming inconsistency tracked
+  "pipeline animated-caption": { mcp: "edit_animated_caption",    agent: "edit_animated_caption" },
   "pipeline script-to-video":  { mcp: "pipeline_script_to_video", agent: "pipeline_script_to_video" }, // [DEPRECATED v0.63]
 
   // detect
@@ -112,18 +112,17 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   "detect silence": { mcp: "detect_silence", agent: "detect_silence" },
   "detect beats":   { mcp: "detect_beats",   agent: "detect_beats" },
 
-  // timeline — agent uses short names (timeline_split), MCP uses _clip suffix.
-  // Tracked as known naming drift — TODO unify in v0.64 (Phase D follow-up).
+  // timeline — both surfaces use the _clip suffix as of v0.64 (Phase D unify).
   "timeline add-source":  { mcp: "timeline_add_source",     agent: "timeline_add_source" },
   "timeline add-clip":    { mcp: "timeline_add_clip",       agent: "timeline_add_clip" },
   "timeline add-track":   { mcp: "timeline_add_track",      agent: "timeline_add_track" },
   "timeline add-effect":  { mcp: "timeline_add_effect",     agent: "timeline_add_effect" },
-  "timeline trim":        { mcp: "timeline_trim_clip",      agent: "timeline_trim" },
+  "timeline trim":        { mcp: "timeline_trim_clip",      agent: "timeline_trim_clip" },
   "timeline list":        { mcp: "timeline_list",           agent: "timeline_list" },
-  "timeline split":       { mcp: "timeline_split_clip",     agent: "timeline_split" },
-  "timeline duplicate":   { mcp: "timeline_duplicate_clip", agent: "timeline_duplicate" },
-  "timeline delete":      { mcp: "timeline_delete_clip",    agent: "timeline_delete" },
-  "timeline move":        { mcp: "timeline_move_clip",      agent: "timeline_move" },
+  "timeline split":       { mcp: "timeline_split_clip",     agent: "timeline_split_clip" },
+  "timeline duplicate":   { mcp: "timeline_duplicate_clip", agent: "timeline_duplicate_clip" },
+  "timeline delete":      { mcp: "timeline_delete_clip",    agent: "timeline_delete_clip" },
+  "timeline move":        { mcp: "timeline_move_clip",      agent: "timeline_move_clip" },
 
   // project
   "project create": { mcp: "project_create", agent: "project_create" },
