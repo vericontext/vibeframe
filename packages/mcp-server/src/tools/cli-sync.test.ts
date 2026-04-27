@@ -21,11 +21,19 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Command } from "commander";
 import { sceneCommand } from "@vibeframe/cli/commands/scene";
 import { generateCommand } from "@vibeframe/cli/commands/generate";
 import { ToolRegistry, registerAllTools } from "@vibeframe/cli/agent";
 import { tools } from "./index.js";
+
+// Structural shim so this package can introspect a Commander Command without
+// needing to depend on the commander package itself (mcp-server doesn't ship
+// the CLI surface — it only mirrors it). If the Commander API ever changes,
+// the failure mode is "test file fails to compile", which is the right
+// outcome for a sync-detection hook.
+interface CommanderLike {
+  commands: ReadonlyArray<{ name(): string }>;
+}
 
 // Lazy: most CLI command modules don't pre-export their root Command instance.
 // We inline the subcommand list rather than importing every command file —
@@ -182,8 +190,8 @@ describe("CLI ↔ MCP tool sync", () => {
     // Sanity-check that CLI_TREE matches reality for at least the two groups
     // we can import without dragging in every subcommand module. Catches
     // someone renaming a Commander subcommand without updating SYNC_TABLE.
-    const sceneSubs = (sceneCommand as Command).commands.map((c) => c.name()).sort();
-    const generateSubs = (generateCommand as Command).commands.map((c) => c.name()).sort();
+    const sceneSubs = (sceneCommand as unknown as CommanderLike).commands.map((c) => c.name()).sort();
+    const generateSubs = (generateCommand as unknown as CommanderLike).commands.map((c) => c.name()).sort();
     expect(sceneSubs).toEqual([...CLI_TREE.scene].sort());
     expect(generateSubs).toEqual([...CLI_TREE.generate].sort());
   });
