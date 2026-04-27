@@ -158,4 +158,24 @@ export const MIGRATED: Set<string> = new Set([
   "pipeline_auto_shorts",
   "pipeline_run",
   "pipeline_regenerate_scene",
+  // C5: detect
+  "detect_scenes",
+  "detect_silence",
+  "detect_beats",
+  // C5: timeline
+  "timeline_add_source",
+  "timeline_add_clip",
+  "timeline_split_clip",
+  "timeline_trim_clip",
+  "timeline_move_clip",
+  "timeline_delete_clip",
+  "timeline_duplicate_clip",
+  "timeline_add_effect",
+  "timeline_add_track",
+  "timeline_list",
+  // C5: project
+  "project_create",
+  "project_info",
+  // C5: export
+  "export_video",
 ]);

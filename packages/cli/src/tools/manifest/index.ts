@@ -11,6 +11,10 @@ import { editTools } from "./edit.js";
 import { analyzeTools } from "./analyze.js";
 import { generateTools } from "./generate.js";
 import { pipelineTools } from "./pipeline.js";
+import { detectTools } from "./detect.js";
+import { timelineTools } from "./timeline.js";
+import { projectTools } from "./project.js";
+import { exportTools } from "./export.js";
 
 export const manifest: readonly AnyTool[] = [
   ...sceneTools,
@@ -19,8 +23,10 @@ export const manifest: readonly AnyTool[] = [
   ...analyzeTools,
   ...generateTools,
   ...pipelineTools,
-  // Future commits add: detect, timeline, project, export, agent-only,
-  // mcp-only.
+  ...detectTools,
+  ...timelineTools,
+  ...projectTools,
+  ...exportTools,
 ];
 
 export {
@@ -30,4 +36,8 @@ export {
   analyzeTools,
   generateTools,
   pipelineTools,
+  detectTools,
+  timelineTools,
+  projectTools,
+  exportTools,
 };

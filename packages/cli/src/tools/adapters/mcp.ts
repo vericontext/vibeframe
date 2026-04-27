@@ -33,11 +33,19 @@ export type McpDispatcher = (
 ) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
 
 function formatZodError(err: ZodError): string {
-  // Surface Zod's "Required" issues as the legacy "missing required argument"
-  // phrasing so existing MCP-host integrations that match on that string keep
-  // working.
+  // Surface "this required field is missing/null/undefined" as the legacy
+  // "missing required argument" phrasing so existing MCP-host integrations
+  // that match on that string keep working. Zod issues this with two
+  // shapes:
+  //   - {code: "invalid_type", message: "Required", received: "undefined"}
+  //   - {code: "invalid_type", message: "Expected …, received null", received: "null"}
   const missing = err.issues
-    .filter((i) => i.code === "invalid_type" && i.message === "Required")
+    .filter((i) => {
+      if (i.code !== "invalid_type") return false;
+      // ZodIssue's `received` field is typed `unknown` here.
+      const received = (i as unknown as { received?: string }).received;
+      return received === "undefined" || received === "null";
+    })
     .map((i) => i.path.join("."))
     .filter(Boolean);
   if (missing.length > 0) {
