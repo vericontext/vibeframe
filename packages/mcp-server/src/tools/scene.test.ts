@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { sceneTools, handleSceneToolCall } from "./scene.js";
+import { sceneTools } from "@vibeframe/cli/tools/manifest";
+import { manifestToMcpTools } from "@vibeframe/cli/tools/adapters/mcp";
 import { tools, handleToolCall } from "./index.js";
 
 async function pathExists(p: string): Promise<boolean> {
@@ -13,9 +14,18 @@ async function makeTmp(label = "vibe-mcp-scene-"): Promise<string> {
   return mkdtemp(join(tmpdir(), label));
 }
 
+// Project the manifest's scene entries into the MCP tool shape so the legacy
+// per-tool inputSchema assertions still apply.
+const sceneMcpTools = manifestToMcpTools(sceneTools);
+
+async function callScene(name: string, args: Record<string, unknown>): Promise<string> {
+  const result = await handleToolCall(name, args);
+  return result.content[0].text;
+}
+
 describe("MCP scene tools — registration", () => {
   it("exports six tools with the canonical names", () => {
-    const names = sceneTools.map((t) => t.name).sort();
+    const names = sceneMcpTools.map((t) => t.name).sort();
     expect(names).toEqual([
       "scene_add",
       "scene_build",
@@ -34,7 +44,7 @@ describe("MCP scene tools — registration", () => {
     expect(globalNames.has("scene_render")).toBe(true);
   });
 
-  it.each(sceneTools.map((t) => [t.name, t] as const))(
+  it.each(sceneMcpTools.map((t) => [t.name, t] as const))(
     "%s has well-formed inputSchema",
     (name, tool) => {
       expect(tool.name).toBe(name);
@@ -45,21 +55,20 @@ describe("MCP scene tools — registration", () => {
   );
 
   it("scene_init declares `dir` as required; scene_add requires `name`; lint+render are arg-free", () => {
-    const byName = Object.fromEntries(sceneTools.map((t) => [t.name, t]));
-    expect((byName.scene_init.inputSchema as { required?: string[] }).required).toEqual(["dir"]);
-    expect((byName.scene_add.inputSchema as { required?: string[] }).required).toEqual(["name"]);
-    expect((byName.scene_lint.inputSchema as { required?: string[] }).required).toBeUndefined();
-    expect((byName.scene_render.inputSchema as { required?: string[] }).required).toBeUndefined();
+    const byName = Object.fromEntries(sceneMcpTools.map((t) => [t.name, t]));
+    expect(byName.scene_init.inputSchema.required).toEqual(["dir"]);
+    expect(byName.scene_add.inputSchema.required).toEqual(["name"]);
+    expect(byName.scene_lint.inputSchema.required).toEqual([]);
+    expect(byName.scene_render.inputSchema.required).toEqual([]);
   });
 });
 
-describe("handleSceneToolCall — offline path", () => {
-  // We pass absolute paths for `dir` / `projectDir` so the handler doesn't
-  // depend on process.cwd() (vitest workers can't `process.chdir`).
+describe("handleToolCall — scene offline path", () => {
+  // Absolute paths so the handler doesn't depend on process.cwd().
 
   it("scene_init scaffolds a project at the given absolute dir", async () => {
     const dir = resolve(await makeTmp(), "promo");
-    const text = await handleSceneToolCall("scene_init", { dir, aspect: "9:16", duration: 6 });
+    const text = await callScene("scene_init", { dir, aspect: "9:16", duration: 6 });
     const parsed = JSON.parse(text) as { success: boolean; created: string[] };
     expect(parsed.success).toBe(true);
     expect(parsed.created.length).toBeGreaterThan(0);
@@ -68,9 +77,9 @@ describe("handleSceneToolCall — offline path", () => {
 
   it("scene_add → scene_lint flow: skipAudio/skipImage scene + lint reports ok", async () => {
     const projectDir = await makeTmp();
-    await handleSceneToolCall("scene_init", { dir: projectDir });
+    await callScene("scene_init", { dir: projectDir });
 
-    const addText = await handleSceneToolCall("scene_add", {
+    const addText = await callScene("scene_add", {
       projectDir,
       name: "intro",
       preset: "announcement",
@@ -84,7 +93,7 @@ describe("handleSceneToolCall — offline path", () => {
     expect(addParsed.id).toBe("intro");
     expect(addParsed.preset).toBe("announcement");
 
-    const lintText = await handleSceneToolCall("scene_lint", { projectDir });
+    const lintText = await callScene("scene_lint", { projectDir });
     const lintParsed = JSON.parse(lintText) as { ok: boolean; errorCount: number; files: unknown[] };
     expect(lintParsed.ok).toBe(true);
     expect(lintParsed.errorCount).toBe(0);
@@ -92,19 +101,10 @@ describe("handleSceneToolCall — offline path", () => {
   });
 
   it("scene_render returns a structured failure when no project exists", async () => {
-    const text = await handleSceneToolCall("scene_render", {
+    const text = await callScene("scene_render", {
       projectDir: resolve(await makeTmp(), "missing"),
     });
     expect(text).toMatch(/scene_render failed|Project directory not found|Chrome not found|Root composition not found/);
-  });
-
-  it("dispatches scene_* tools through handleToolCall (the public MCP entry)", async () => {
-    const dir = resolve(await makeTmp(), "x");
-    const result = await handleToolCall("scene_init", { dir });
-    expect(result.content[0].type).toBe("text");
-    const parsed = JSON.parse(result.content[0].text) as { success: boolean };
-    expect(parsed.success).toBe(true);
-    expect(await pathExists(resolve(dir, "index.html"))).toBe(true);
   });
 
   it("handleToolCall enforces required args (scene_init without dir → error message)", async () => {

@@ -185,7 +185,7 @@ describe("@vibeframe/mcp-server", () => {
 
         // Each property should have a type and description
         for (const [, val] of Object.entries(tool.inputSchema.properties)) {
-          const prop = val as Record<string, unknown>;
+          const prop = val as unknown as Record<string, unknown>;
           expect(prop.type || prop.enum).toBeDefined();
           expect(prop.description).toBeDefined();
         }
@@ -204,7 +204,7 @@ describe("@vibeframe/mcp-server", () => {
       const result = await handleToolCall("unknown_tool", {});
       expect(result.content).toBeDefined();
       expect(result.content[0].type).toBe("text");
-      expect(result.content[0].text).toContain("Error");
+      expect(result.content[0].text).toMatch(/Unknown tool|Error/);
     });
   });
 

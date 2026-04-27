@@ -40,12 +40,13 @@ fi
 # `interface` (the type-only folder that defines the AIProvider contract).
 AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! -name interface | wc -l | tr -d ' ')
 
-# MCP tool definitions. Exclude *.test.ts — test fixture strings
-# (e.g. `name: "intro"` inside a handleSceneToolCall) match the regex but
-# aren't registered tools. Source-true count is 58 at runtime; an over-count
-# regex would let next.config.js advertise 59.
-MCP_TOOLS=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'name: "' \
-  packages/mcp-server/src/tools/ 2>/dev/null | wc -l | tr -d ' ')
+# MCP tool definitions. Counts every `defineTool({` in the manifest
+# (packages/cli/src/tools/manifest/*.ts) — pre-v0.65 also grepped
+# `'name: "'` in packages/mcp-server/src/tools/, but C6 deleted those
+# files and the manifest is now SSOT for both MCP + Agent surfaces.
+# C9 will replace this with `node packages/cli/dist/tools/print-counts.js`.
+MCP_TOOLS=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'defineTool({' \
+  packages/cli/src/tools/manifest/ 2>/dev/null | wc -l | tr -d ' ')
 
 # Agent tool definitions
 AGENT_TOOLS=$(grep -r 'ToolDefinition = {' packages/cli/src/agent/tools/ 2>/dev/null | wc -l | tr -d ' ')
