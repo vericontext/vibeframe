@@ -42,7 +42,7 @@ vhs assets/demos/claude-i2v.tape   # Surface 4 — Claude Code → t2i + i2v + n
 
 > **New in v0.60:** `vibe scene build` is the one-shot driver — write a `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration), and a single command dispatches TTS + GPT Image 2 + composes scene HTML via the `compose-scenes-with-skills` pipeline (v0.59) and renders to MP4. `vibe scene init --visual-style "Swiss Pulse"` (v0.58) still seeds the `DESIGN.md` hard-gate + 8 named visual identities. Hyperframes' `/hyperframes` skill (`npx skills add heygen-com/hyperframes`) is loaded as the LLM system prompt for composition craft.
 
-[`assets/demos/claude-code-walkthrough.md`](assets/demos/claude-code-walkthrough.md) has the full 5-prompt walkthrough plus the recording recipe.
+For the typed MCP route into Claude Code / Cursor, see [`packages/mcp-server/README.md`](packages/mcp-server/README.md).
 
 **Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Claude Code integration](https://youtu.be/sdf930sZ7co)
 

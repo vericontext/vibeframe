@@ -142,14 +142,13 @@ export default function DemoPage() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
-            For the full Claude Code walkthrough (5 prompts, recording recipe),
-            see the{" "}
+            For the typed MCP route, see the{" "}
             <Link
-              href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/claude-code-walkthrough.md"
+              href="https://github.com/vericontext/vibeframe/blob/main/packages/mcp-server/README.md"
               target="_blank"
               className="underline hover:text-foreground"
             >
-              walkthrough
+              @vibeframe/mcp-server README
             </Link>
             .
           </p>
