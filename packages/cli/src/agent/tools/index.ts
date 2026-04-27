@@ -130,7 +130,12 @@ export { registerBatchTools } from "./batch.js";
 export { registerSceneTools } from "./scene.js";
 
 /**
- * Register all tools
+ * Register all tools.
+ *
+ * During the v0.65 migration we register the manifest first (manifest
+ * entries take precedence) and then call the legacy `register*Tools`
+ * functions, which skip any name in `MIGRATED`. After C6 this collapses to
+ * a single `registerManifestIntoAgent(registry, manifest)` call.
  */
 export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   const { registerProjectTools } = await import("./project.js");
@@ -141,7 +146,12 @@ export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   const { registerExportTools } = await import("./export.js");
   const { registerBatchTools } = await import("./batch.js");
   const { registerSceneTools } = await import("./scene.js");
+  const { manifest } = await import("../../tools/manifest/index.js");
+  const { registerManifestIntoAgent } = await import(
+    "../../tools/adapters/agent.js"
+  );
 
+  registerManifestIntoAgent(registry, manifest);
   registerProjectTools(registry);
   registerTimelineTools(registry);
   registerFilesystemTools(registry);

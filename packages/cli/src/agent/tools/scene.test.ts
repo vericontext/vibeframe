@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ToolRegistry } from "./index.js";
 import { registerSceneTools, sceneToolDefinitions } from "./scene.js";
+import { manifest } from "../../tools/manifest/index.js";
+import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 import type { AgentContext, ToolDefinition } from "../types.js";
 
 async function pathExists(p: string): Promise<boolean> {
@@ -21,6 +23,11 @@ function ctx(workingDirectory: string): AgentContext {
 let registry: ToolRegistry;
 beforeEach(() => {
   registry = new ToolRegistry();
+  // During the v0.65 migration, scene_styles is sourced from the manifest
+  // and the legacy `registerSceneTools` skips it (gated on MIGRATED).
+  // Registering both gives the same final set the production agent runtime
+  // sees in `registerAllTools`.
+  registerManifestIntoAgent(registry, manifest);
   registerSceneTools(registry);
 });
 

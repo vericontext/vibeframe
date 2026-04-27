@@ -43,6 +43,22 @@
       "import": "./src/agent/index.ts",
       "types": "./src/agent/index.ts"
     },
+    "./tools/manifest": {
+      "import": "./src/tools/manifest/index.ts",
+      "types": "./src/tools/manifest/index.ts"
+    },
+    "./tools/define-tool": {
+      "import": "./src/tools/define-tool.ts",
+      "types": "./src/tools/define-tool.ts"
+    },
+    "./tools/adapters/mcp": {
+      "import": "./src/tools/adapters/mcp.ts",
+      "types": "./src/tools/adapters/mcp.ts"
+    },
+    "./tools/adapters/agent": {
+      "import": "./src/tools/adapters/agent.ts",
+      "types": "./src/tools/adapters/agent.ts"
+    },
     "./commands/export": {
       "import": "./src/commands/export.ts",
       "types": "./src/commands/export.ts"
@@ -161,7 +177,8 @@
     "music-metadata": "^11.11.1",
     "openai": "^4.77.0",
     "ora": "^8.0.1",
-    "yaml": "^2.3.4"
+    "yaml": "^2.3.4",
+    "zod": "^3.22.4"
   },
   "optionalDependencies": {
     "kokoro-js": "^1.2.1"

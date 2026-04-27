@@ -405,13 +405,18 @@ const sceneStylesHandler: ToolHandler = async (args): Promise<ToolResult> => {
 // Registration
 // ---------------------------------------------------------------------------
 
+import { MIGRATED } from "../../tools/define-tool.js";
+
 export function registerSceneTools(registry: ToolRegistry): void {
-  registry.register(sceneInitDef, sceneInitHandler);
-  registry.register(sceneAddDef, sceneAddHandler);
-  registry.register(sceneLintDef, sceneLintHandler);
-  registry.register(sceneRenderDef, sceneRenderHandler);
-  registry.register(sceneBuildDef, sceneBuildHandler);
-  registry.register(sceneStylesDef, sceneStylesHandler);
+  // During the v0.65 migration each entry is registered only if the manifest
+  // has not yet taken it over. After C6 (legacy collapse) this entire file
+  // and function disappear.
+  if (!MIGRATED.has(sceneInitDef.name))   registry.register(sceneInitDef, sceneInitHandler);
+  if (!MIGRATED.has(sceneAddDef.name))    registry.register(sceneAddDef, sceneAddHandler);
+  if (!MIGRATED.has(sceneLintDef.name))   registry.register(sceneLintDef, sceneLintHandler);
+  if (!MIGRATED.has(sceneRenderDef.name)) registry.register(sceneRenderDef, sceneRenderHandler);
+  if (!MIGRATED.has(sceneBuildDef.name))  registry.register(sceneBuildDef, sceneBuildHandler);
+  if (!MIGRATED.has(sceneStylesDef.name)) registry.register(sceneStylesDef, sceneStylesHandler);
 }
 
 // Exported for tests so the same defs can be inspected without instantiating

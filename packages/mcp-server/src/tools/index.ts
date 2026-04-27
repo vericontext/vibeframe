@@ -10,8 +10,14 @@ import { aiVideoTools, handleAiVideoToolCall } from "./ai-video.js";
 import { aiAudioTools, handleAiAudioToolCall } from "./ai-audio.js";
 import { aiEditAdvancedTools, handleAiEditAdvancedToolCall } from "./ai-edit-advanced.js";
 import { sceneTools, handleSceneToolCall } from "./scene.js";
+import { manifest } from "@vibeframe/cli/tools/manifest";
+import { MIGRATED } from "@vibeframe/cli/tools/define-tool";
+import {
+  manifestToMcpTools,
+  buildMcpDispatcher,
+} from "@vibeframe/cli/tools/adapters/mcp";
 
-export const tools = [
+const legacyTools = [
   ...projectTools,
   ...timelineTools,
   ...exportTools,
@@ -24,7 +30,15 @@ export const tools = [
   ...aiAudioTools,
   ...aiEditAdvancedTools,
   ...sceneTools,
-];
+].filter((t) => !MIGRATED.has(t.name));
+
+const manifestMcpTools = manifestToMcpTools(manifest);
+const manifestDispatch = buildMcpDispatcher(manifest);
+
+// During the v0.65 migration we serve a union of legacy hand-written tools
+// (filtered to exclude any name in MIGRATED) and manifest-sourced tools. After
+// C6 (legacy collapse) this becomes just `manifestMcpTools`.
+export const tools = [...legacyTools, ...manifestMcpTools];
 
 type ToolHandler = (name: string, args: Record<string, unknown>) => Promise<string>;
 
@@ -55,6 +69,12 @@ export async function handleToolCall(
   name: string,
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
+  // Manifest-sourced tools take precedence (Zod schema does its own
+  // validation; no missing-arg short-circuit needed).
+  if (MIGRATED.has(name)) {
+    return manifestDispatch(name, args);
+  }
+
   try {
     const handler = handlers[name];
     if (!handler) throw new Error(`Unknown tool: ${name}`);

@@ -1,0 +1,110 @@
+/**
+ * @module define-tool
+ * @description Single source of truth DSL for VibeFrame tool definitions.
+ *
+ * Each tool is declared once via `defineTool({...})` with a Zod schema, an
+ * `execute` function, and metadata. The MCP server (`packages/mcp-server`)
+ * and the in-process Agent (`packages/cli/src/agent/tools`) both consume the
+ * manifest via thin adapters — no tool definition is ever duplicated across
+ * surfaces.
+ *
+ * The CLI Commander tree (`packages/cli/src/commands/*.ts`) is intentionally
+ * left hand-written. Its short flags, `--no-foo` negations, variadic args,
+ * and custom validators don't fit cleanly into a metadata sidecar. The
+ * Commander chains call the same `executeXxx` engine functions that the
+ * manifest entries call, so the CLI stays in sync via the existing
+ * `cli-sync.test.ts` invariant.
+ *
+ * See `/Users/kiyeonjeon/.claude/plans/logical-wibbling-sonnet.md` for the
+ * full v0.65 migration plan.
+ */
+
+import { z, type ZodTypeAny } from "zod";
+
+export type CostTier = "free" | "low" | "medium" | "high" | "very-high";
+export type Surface = "mcp" | "agent";
+
+export interface ExecuteContext {
+  /** Resolves relative paths in tool args (`process.cwd()` for MCP/CLI; `AgentContext.workingDirectory` for Agent). */
+  workingDirectory: string;
+  /** The surface invoking the tool. Lets executes branch on JSON vs human output if needed. */
+  surface: "cli" | Surface;
+}
+
+export interface ToolExecuteResult {
+  success: boolean;
+  /** JSON-stringifiable payload. MCP returns `JSON.stringify(data)`; Agent uses humanLines first, falls back to data. */
+  data?: Record<string, unknown>;
+  /** Human-readable lines for Agent REPL output. Optional — adapter falls back to JSON if absent. */
+  humanLines?: readonly string[];
+  error?: string;
+}
+
+export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {
+  /** snake_case canonical name (used by MCP `tools/list` and Agent registry). */
+  name: string;
+  /** Group this tool belongs to ("scene" | "audio" | "edit" | …). Drives skill regen + sync-counts. */
+  category: string;
+  /** Cost tier from `.claude/rules/architecture.md` cost table. */
+  cost: CostTier;
+  /** Identical for MCP description and Agent description. One paragraph. */
+  description: string;
+  /** Single source of truth for argument shape. Must be a `z.object({...})`. */
+  schema: S;
+  /** Surfaces the tool lives on. Defaults to `["mcp", "agent"]` when omitted. */
+  surfaces?: readonly Surface[];
+  /** Engine fn. Receives Zod-validated args. */
+  execute: (args: z.infer<S>, ctx: ExecuteContext) => Promise<ToolExecuteResult>;
+}
+
+/**
+ * Type erasure helper for collecting tools into the manifest array.
+ *
+ * `ToolDefinition` is generic over the Zod schema type, so a heterogeneous
+ * array of tools each with different schemas can't directly satisfy
+ * `ToolDefinition<ZodTypeAny>[]` (Zod's generic is invariant). At the
+ * manifest aggregation boundary we cast individual tools to this erased
+ * shape — the adapters use `tool.schema.safeParse()` which doesn't need the
+ * narrow type.
+ */
+export type AnyTool = ToolDefinition<ZodTypeAny>;
+
+const NAME_PATTERN = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
+
+function validateToolDefinition<S extends ZodTypeAny>(t: ToolDefinition<S>): void {
+  if (!NAME_PATTERN.test(t.name)) {
+    throw new Error(`Tool name "${t.name}" must be snake_case (matches /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/)`);
+  }
+  if (!t.category || !/^[a-z-]+$/.test(t.category)) {
+    throw new Error(`Tool "${t.name}" has invalid category "${t.category}" (must be lowercase, dash-separated)`);
+  }
+  // Schema must be a ZodObject so we can derive {properties, required}. We
+  // accept any ZodTypeAny in the type sig for ergonomics, then runtime-check.
+  const schemaTypeName = (t.schema as { _def?: { typeName?: string } })._def?.typeName;
+  if (schemaTypeName !== "ZodObject") {
+    throw new Error(`Tool "${t.name}" schema must be a z.object({...}); got ${schemaTypeName}`);
+  }
+  if (t.surfaces && t.surfaces.length === 0) {
+    throw new Error(`Tool "${t.name}" has empty surfaces array; use [] only via explicit type override`);
+  }
+}
+
+export function defineTool<S extends ZodTypeAny>(t: ToolDefinition<S>): ToolDefinition<S> {
+  validateToolDefinition(t);
+  return t;
+}
+
+/**
+ * During the v0.65 migration (commits C1–C5), tools are moved from the legacy
+ * hand-written definitions in `packages/cli/src/agent/tools/*.ts` and
+ * `packages/mcp-server/src/tools/*.ts` into the manifest one group at a time.
+ * Both legacy and manifest sources are wired up simultaneously; legacy paths
+ * skip any tool whose name appears here (manifest takes over).
+ *
+ * After C6 (legacy collapse), this set is deleted — every registered tool
+ * comes from the manifest.
+ */
+export const MIGRATED: Set<string> = new Set([
+  // Phase A pilot (C1)
+  "scene_styles",
+]);
