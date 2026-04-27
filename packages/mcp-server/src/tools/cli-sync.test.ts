@@ -71,10 +71,10 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   "generate storyboard":    { mcp: "generate_storyboard",   agent: "generate_storyboard" },
   "generate motion":        { mcp: "generate_motion",       agent: "generate_motion" },
   "generate thumbnail":     { mcp: "generate_thumbnail",    agent: "generate_thumbnail" },
-  "generate background":    { mcp: "generate_background",   agent: null }, // TODO Phase B
-  "generate video-status":  { mcp: "generate_video_status", agent: null }, // TODO Phase B
-  "generate video-cancel":  { mcp: "generate_video_cancel", agent: null }, // TODO Phase B
-  "generate video-extend":  { mcp: "generate_video_extend", agent: null }, // TODO Phase B
+  "generate background":    { mcp: "generate_background",   agent: "generate_background" },
+  "generate video-status":  { mcp: "generate_video_status", agent: "generate_video_status" },
+  "generate video-cancel":  { mcp: "generate_video_cancel", agent: "generate_video_cancel" },
+  "generate video-extend":  { mcp: "generate_video_extend", agent: "generate_video_extend" },
   "generate music-status":  { mcp: null, agent: null }, // TODO async music job status everywhere
 
   // edit
@@ -85,21 +85,21 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   "edit translate-srt":     { mcp: "edit_translate_srt", agent: "edit_translate_srt" },
   "edit jump-cut":          { mcp: "edit_jump_cut",      agent: "edit_jump_cut" },
   "edit fill-gaps":         { mcp: null, agent: null },  // TODO: extract executeFillGaps + wire both
-  "edit grade":             { mcp: "edit_grade",         agent: null }, // TODO Phase B
+  "edit grade":             { mcp: "edit_grade",         agent: "edit_grade" },
   "edit text-overlay":      { mcp: "edit_text_overlay",  agent: "edit_text_overlay" },
-  "edit speed-ramp":        { mcp: "edit_speed_ramp",    agent: null }, // TODO Phase B
-  "edit reframe":           { mcp: "edit_reframe",       agent: null }, // TODO Phase B
+  "edit speed-ramp":        { mcp: "edit_speed_ramp",    agent: "edit_speed_ramp" },
+  "edit reframe":           { mcp: "edit_reframe",       agent: "edit_reframe" },
   "edit image":             { mcp: "edit_image",         agent: "edit_image" },
-  "edit interpolate":       { mcp: "edit_interpolate",   agent: null }, // TODO Phase B
-  "edit upscale-video":     { mcp: "edit_upscale",       agent: null }, // TODO Phase B
+  "edit interpolate":       { mcp: "edit_interpolate",   agent: "edit_interpolate" },
+  "edit upscale-video":     { mcp: "edit_upscale",       agent: "edit_upscale" },
 
   // audio
   "audio transcribe":   { mcp: "audio_transcribe",  agent: "audio_transcribe" },
   "audio voices":       { mcp: null, agent: null },               // diagnostic — CLI-only by design
-  "audio isolate":      { mcp: "audio_isolate",     agent: null }, // TODO Phase B
-  "audio voice-clone":  { mcp: "audio_voice_clone", agent: null }, // TODO Phase B
-  "audio dub":          { mcp: "audio_dub",         agent: null }, // TODO Phase B
-  "audio duck":         { mcp: "audio_duck",        agent: null }, // TODO Phase B
+  "audio isolate":      { mcp: "audio_isolate",     agent: "audio_isolate" },
+  "audio voice-clone":  { mcp: "audio_voice_clone", agent: "audio_voice_clone" },
+  "audio dub":          { mcp: "audio_dub",         agent: "audio_dub" },
+  "audio duck":         { mcp: "audio_duck",        agent: "audio_duck" },
 
   // pipeline
   "pipeline highlights":       { mcp: "pipeline_highlights",      agent: "pipeline_highlights" },

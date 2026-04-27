@@ -16,6 +16,12 @@ import type { ToolDefinition, ToolResult } from "../types.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { downloadVideo } from "../../commands/ai-helpers.js";
 import { sanitizeAIResult } from "../../commands/sanitize.js";
+import { executeBackground } from "../../commands/generate.js";
+import {
+  executeVideoStatus,
+  executeVideoCancel,
+  executeVideoExtend,
+} from "../../commands/ai-video.js";
 
 // Helper to get timestamp for filenames
 function getTimestamp(): string {
@@ -1059,6 +1065,128 @@ const generateMotion: ToolHandler = async (args, context): Promise<ToolResult> =
 };
 
 // ============================================================================
+// v0.6x additions — generate_background + video lifecycle helpers
+// ============================================================================
+
+const generateBackgroundDef: ToolDefinition = {
+  name: "generate_background",
+  description: "Generate a cinematic backdrop image (OpenAI gpt-image-2 / DALL·E variant tuned for video backgrounds). Returns the image URL and downloads to `output` when given. Requires OPENAI_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      description: { type: "string", description: "Background description / image prompt." },
+      aspect:      { type: "string", description: "Aspect ratio. Default '16:9'.", enum: ["16:9", "9:16", "1:1"] },
+      output:      { type: "string", description: "Output PNG path (relative resolves against agent cwd)." },
+    },
+    required: ["description"],
+  },
+};
+
+const generateBackgroundHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeBackground({
+    description: args.description as string,
+    aspect: args.aspect as "16:9" | "9:16" | "1:1" | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "generate_background failed" };
+  }
+  return { toolCallId: "", success: true, output: `Background generated → ${result.outputPath ?? result.imageUrl}` };
+};
+
+const generateVideoStatusDef: ToolDefinition = {
+  name: "generate_video_status",
+  description: "Check video generation status for Runway or Kling tasks. Optionally wait for completion and download the video.",
+  parameters: {
+    type: "object",
+    properties: {
+      taskId:   { type: "string", description: "Task ID returned from generate_video" },
+      provider: { type: "string", description: "Provider (default: runway)", enum: ["runway", "kling"] },
+      taskType: { type: "string", description: "Kling task type", enum: ["text2video", "image2video"] },
+      wait:     { type: "boolean", description: "Block until completion (polls every ~10s)" },
+      output:   { type: "string", description: "Download video to this path when complete" },
+    },
+    required: ["taskId"],
+  },
+};
+
+const generateVideoStatusHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeVideoStatus({
+    taskId: args.taskId as string,
+    provider: args.provider as "runway" | "kling" | undefined,
+    taskType: args.taskType as "text2video" | "image2video" | undefined,
+    wait: args.wait as boolean | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "generate_video_status failed" };
+  }
+  const lines: string[] = [`Status: ${result.status}`];
+  if (result.videoUrl) lines.push(`Video URL: ${result.videoUrl}`);
+  if (result.outputPath) lines.push(`Saved → ${result.outputPath}`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
+const generateVideoCancelDef: ToolDefinition = {
+  name: "generate_video_cancel",
+  description: "Cancel an in-flight Runway video generation task. Charges still apply if the job was already mostly complete.",
+  parameters: {
+    type: "object",
+    properties: {
+      taskId: { type: "string", description: "Task ID to cancel" },
+    },
+    required: ["taskId"],
+  },
+};
+
+const generateVideoCancelHandler: ToolHandler = async (args): Promise<ToolResult> => {
+  const result = await executeVideoCancel({ taskId: args.taskId as string });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "generate_video_cancel failed" };
+  }
+  return { toolCallId: "", success: true, output: `Task ${args.taskId} cancelled.` };
+};
+
+const generateVideoExtendDef: ToolDefinition = {
+  name: "generate_video_extend",
+  description: "Extend a previously-generated video using Kling or Veo. Requires the video/operation ID from a prior generate_video call.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoId:  { type: "string", description: "Video ID (Kling) or operation name (Veo)" },
+      provider: { type: "string", description: "Provider (default: kling)", enum: ["kling", "veo"] },
+      prompt:   { type: "string", description: "Optional continuation prompt" },
+      duration: { type: "number", description: "Extension duration in seconds (5 or 10 for Kling)" },
+      negative: { type: "string", description: "Negative prompt (Kling/Veo)" },
+      veoModel: { type: "string", description: "Veo model name override" },
+      output:   { type: "string", description: "Download to this path when complete" },
+      wait:     { type: "boolean", description: "Block until completion" },
+    },
+    required: ["videoId"],
+  },
+};
+
+const generateVideoExtendHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeVideoExtend({
+    videoId: args.videoId as string,
+    provider: args.provider as "kling" | "veo" | undefined,
+    prompt: args.prompt as string | undefined,
+    duration: args.duration as number | undefined,
+    negative: args.negative as string | undefined,
+    veoModel: args.veoModel as string | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    wait: args.wait as boolean | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "generate_video_extend failed" };
+  }
+  const lines: string[] = [`Extension status: ${result.status}`];
+  if (result.videoUrl) lines.push(`Video URL: ${result.videoUrl}`);
+  if (result.outputPath) lines.push(`Saved → ${result.outputPath}`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
+// ============================================================================
 // Registration
 // ============================================================================
 
@@ -1070,4 +1198,8 @@ export function registerGenerationTools(registry: ToolRegistry): void {
   registry.register(musicDef, generateMusic);
   registry.register(storyboardDef, generateStoryboard);
   registry.register(motionDef, generateMotion);
+  registry.register(generateBackgroundDef, generateBackgroundHandler);
+  registry.register(generateVideoStatusDef, generateVideoStatusHandler);
+  registry.register(generateVideoCancelDef, generateVideoCancelHandler);
+  registry.register(generateVideoExtendDef, generateVideoExtendHandler);
 }

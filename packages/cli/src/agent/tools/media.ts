@@ -8,6 +8,12 @@ import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
+import {
+  executeIsolate,
+  executeVoiceClone,
+  executeDub,
+  executeDuck,
+} from "../../commands/ai-audio.js";
 
 // Tool Definitions
 const mediaInfoDef: ToolDefinition = {
@@ -684,6 +690,127 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
+// ─── ElevenLabs / FFmpeg audio post-processing ─────────────────────────────
+
+const audioIsolateDef: ToolDefinition = {
+  name: "audio_isolate",
+  description: "Isolate vocals from background music using ElevenLabs Audio Isolation. Requires ELEVENLABS_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      audioPath: { type: "string", description: "Input audio file path" },
+      output:    { type: "string", description: "Output file path (default: vocals.mp3)" },
+    },
+    required: ["audioPath"],
+  },
+};
+
+const audioIsolateHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeIsolate({
+    audioPath: resolve(context.workingDirectory, args.audioPath as string),
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_isolate failed" };
+  }
+  return { toolCallId: "", success: true, output: `✅ Vocals isolated → ${result.outputPath}` };
+};
+
+const audioVoiceCloneDef: ToolDefinition = {
+  name: "audio_voice_clone",
+  description: "Clone a voice from 1-25 audio samples using ElevenLabs Instant Voice Cloning. Requires ELEVENLABS_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      samplePaths: { type: "array", items: { type: "string", description: "Audio sample file path" }, description: "1-25 audio sample file paths" },
+      name:        { type: "string", description: "Voice name" },
+      description: { type: "string", description: "Voice description" },
+      removeNoise: { type: "boolean", description: "Remove background noise from samples" },
+    },
+    required: ["samplePaths", "name"],
+  },
+};
+
+const audioVoiceCloneHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const samples = (args.samplePaths as string[]).map((p) => resolve(context.workingDirectory, p));
+  const result = await executeVoiceClone({
+    samplePaths: samples,
+    name: args.name as string,
+    description: args.description as string | undefined,
+    removeNoise: args.removeNoise as boolean | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_voice_clone failed" };
+  }
+  return { toolCallId: "", success: true, output: `✅ Voice cloned: ${result.name} (id=${result.voiceId})` };
+};
+
+const audioDubDef: ToolDefinition = {
+  name: "audio_dub",
+  description: "Dub audio/video to another language: transcribe (Whisper) → translate (Claude) → TTS (ElevenLabs). Requires OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      mediaPath:   { type: "string",  description: "Input media file (video or audio)" },
+      language:    { type: "string",  description: "Target language code (e.g., en, ko, ja)" },
+      source:      { type: "string",  description: "Source language code (auto-detect if omitted)" },
+      output:      { type: "string",  description: "Output file path" },
+      voice:       { type: "string",  description: "ElevenLabs voice id or name" },
+      analyzeOnly: { type: "boolean", description: "Cost analysis only — don't actually dub" },
+    },
+    required: ["mediaPath", "language"],
+  },
+};
+
+const audioDubHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeDub({
+    mediaPath: resolve(context.workingDirectory, args.mediaPath as string),
+    language: args.language as string,
+    source: args.source as string | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    voice: args.voice as string | undefined,
+    analyzeOnly: args.analyzeOnly as boolean | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_dub failed" };
+  }
+  return { toolCallId: "", success: true, output: `✅ Dubbed ${result.sourceLanguage}→${result.targetLanguage} (${result.segmentCount} segments) → ${result.outputPath}` };
+};
+
+const audioDuckDef: ToolDefinition = {
+  name: "audio_duck",
+  description: "Auto-duck background music when voice is present using FFmpeg sidechain compression. No API key needed.",
+  parameters: {
+    type: "object",
+    properties: {
+      musicPath: { type: "string", description: "Background music file path" },
+      voicePath: { type: "string", description: "Voice/narration file path (the trigger)" },
+      output:    { type: "string", description: "Output file path (default: ducked.mp3)" },
+      threshold: { type: "string", description: "Sidechain threshold (e.g. '0.05'). FFmpeg sidechaincompress param." },
+      ratio:     { type: "string", description: "Compression ratio (e.g. '8')" },
+      attack:    { type: "string", description: "Attack time in ms (e.g. '20')" },
+      release:   { type: "string", description: "Release time in ms (e.g. '500')" },
+    },
+    required: ["musicPath", "voicePath"],
+  },
+};
+
+const audioDuckHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeDuck({
+    musicPath: resolve(context.workingDirectory, args.musicPath as string),
+    voicePath: resolve(context.workingDirectory, args.voicePath as string),
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    threshold: args.threshold as string | undefined,
+    ratio: args.ratio as string | undefined,
+    attack: args.attack as string | undefined,
+    release: args.release as string | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_duck failed" };
+  }
+  return { toolCallId: "", success: true, output: `✅ Music ducked → ${result.outputPath}` };
+};
+
 // Registration function
 export function registerMediaTools(registry: ToolRegistry): void {
   registry.register(mediaInfoDef, mediaInfo);
@@ -694,4 +821,8 @@ export function registerMediaTools(registry: ToolRegistry): void {
   registry.register(compressDef, compress);
   registry.register(convertDef, convert);
   registry.register(concatDef, concat);
+  registry.register(audioIsolateDef, audioIsolateHandler);
+  registry.register(audioVoiceCloneDef, audioVoiceCloneHandler);
+  registry.register(audioDubDef, audioDubHandler);
+  registry.register(audioDuckDef, audioDuckHandler);
 }
