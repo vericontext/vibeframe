@@ -9,9 +9,9 @@ A scene project is a directory that is **bilingual**: it works with both
 `vibe` and `npx hyperframes`. Each scene is one HTML file with scoped CSS and
 a paused GSAP timeline. Cheap to edit, cheap to lint, expensive only at render.
 
-Prefer this over `vibe pipeline script-to-video --format mp4` whenever the
-user expects to **iterate** on text, layout, or timing — text tweaks don't
-require regenerating video.
+`vibe scene build` (v0.60+) is the supported one-shot driver from a
+written storyboard to an MP4. The older `vibe pipeline script-to-video`
+was deprecated in v0.63 and will be removed in a later major.
 
 ## Three authoring paths (v0.60+)
 
@@ -166,18 +166,21 @@ recommended agent loop:
 `data-track-index`, GSAP timeline registration. Layout and content errors
 must be hand-fixed.
 
-## Scripts-to-scenes (one command)
+## STORYBOARD-to-MP4 (one command, v0.60+)
 
 ```bash
-vibe pipeline script-to-video "..." --format scenes -o my-video/ -a 16:9
+vibe scene init my-promo --visual-style "Swiss Pulse" -d 12
+# (edit STORYBOARD.md with per-beat YAML cues — narration, backdrop, duration)
+vibe scene build my-promo
 ```
 
-This bundles `scene init` + segment-to-scene authoring + lint + render into a
-single pipeline. Output is an editable scene project, not a sealed MP4. Re-run
-`vibe scene render` after editing any scene to refresh the final video.
+`vibe scene build` reads the STORYBOARD frontmatter + per-beat cues, dispatches
+TTS + image-gen per beat, composes scene HTML via the
+`compose-scenes-with-skills` pipeline, and renders to MP4. Idempotent: existing
+assets are reused, `--force` overrides, sha256-cached compose results.
 
-Default `--format` is **mp4** for back-compat in v0.53; flips to **scenes** in
-v0.54.
+Output is an editable scene project, not a sealed MP4. Re-run `vibe scene render`
+after editing any scene to refresh the final video.
 
 ## Hyperframes interop
 
@@ -201,7 +204,7 @@ If neither is installed, the **Key Rules** at the top of every scene project's
 | Task | Tool |
 |------|------|
 | Generate narration + image, then author scene | `vibe scene add` |
-| Generate a full scenes project from a script | `vibe pipeline script-to-video --format scenes` |
+| Generate a full scenes project from a STORYBOARD | `vibe scene build` (v0.60+) |
 | Hand-tweak a single scene's animation | edit `compositions/<file>.html` directly |
 | Render the project | `vibe scene render` *or* `npx hyperframes render` (equivalent) |
 | Lint | `vibe scene lint` *or* `npx hyperframes lint` (equivalent) |

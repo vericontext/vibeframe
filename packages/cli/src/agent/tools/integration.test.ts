@@ -182,9 +182,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
   });
 
   describe("Tool Registration", () => {
-    it("should register all 57 tools", () => {
+    it("should register all 73 non-scene tools", () => {
       const tools = registry.getAll();
-      expect(tools.length).toBe(58);
+      expect(tools.length).toBe(73);
     });
 
     it("should register all project tools (5)", () => {
@@ -206,12 +206,12 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         "timeline_add_clip",
         "timeline_add_track",
         "timeline_add_effect",
-        "timeline_trim",
-        "timeline_split",
-        "timeline_move",
+        "timeline_trim_clip",
+        "timeline_split_clip",
+        "timeline_move_clip",
         "timeline_clear",
-        "timeline_delete",
-        "timeline_duplicate",
+        "timeline_delete_clip",
+        "timeline_duplicate_clip",
         "timeline_list",
       ];
       for (const name of timelineTools) {
@@ -676,15 +676,15 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(projectTools.length).toBe(5);
       expect(timelineTools.length).toBe(11);  // Added timeline_clear
       expect(fsTools.length).toBe(4);
-      expect(mediaTools.length).toBe(8);  // Added media_compress, media_convert, media_concat
-      expect(generateTools.length).toBe(8);  // image, video, speech, sound_effect, music, storyboard, motion, thumbnail
-      expect(editTools.length).toBe(8);  // text_overlay, silence_cut, jump_cut, caption, noise_reduce, fade, translate_srt, image
-      expect(analyzeTools.length).toBe(3);  // video, media, review
-      expect(pipelineTools.length).toBe(5);  // script_to_video, highlights, auto_shorts, regenerate_scene, animated_caption
+      expect(mediaTools.length).toBe(12);  // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
+      expect(generateTools.length).toBe(13);  // +background, video_status/cancel/extend, music_status (Phase B v0.64)
+      expect(editTools.length).toBe(14);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption (Phase B+D v0.64)
+      expect(analyzeTools.length).toBe(4);  // video, media, review, suggest
+      expect(pipelineTools.length).toBe(4);  // animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
 
-      // Total: 5+11+4+8+8+8+3+4+3+3 = 57
+      // Total: 5+11+4+12+13+14+4+4+3+3 = 73
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -695,7 +695,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           pipelineTools.length +
           exportTools.length +
           batchTools.length;
-      expect(totalTools).toBe(58);
+      expect(totalTools).toBe(73);
     });
   });
 });

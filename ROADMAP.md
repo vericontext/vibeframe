@@ -23,10 +23,14 @@
 
 This is where day-to-day work happens. Major capabilities all delivered through v0.58:
 
-### Pipelines
-- `vibe pipeline script-to-video` (Claude storyboard → TTS → image → video → assemble; `--retries`, `--resume`, regenerate-scene)
+### BUILD-from-text (Scene authoring)
+- `vibe scene build` — v0.60 one-shot STORYBOARD.md → MP4 driver (per-beat YAML cues, sha256 cache)
+- `vibe scene init/add/lint/render` — primitives behind the orchestrator
+
+### PROCESS existing video (`vibe pipeline`)
 - `vibe pipeline highlights` / `auto-shorts` (FFmpeg + Whisper + Claude analysis)
 - `vibe pipeline animated-caption` (6 styles across ASS fast-path and Remotion overlay)
+- (`vibe pipeline script-to-video` deprecated v0.63 — superseded by `vibe scene build`)
 
 ### Smart editing & analysis (`vibe edit` / `vibe analyze`)
 silence-cut, jump-cut, caption, grade, reframe, speed-ramp, fade, noise-reduce, text-overlay, upscale, interpolate, fill-gaps, translate-srt, image edit, video review (84+ commands total).
@@ -44,7 +48,7 @@ Aliases (`gen`, `ed`, `az`, `pipe`, …), `--describe`, `--dry-run` cost preview
 `vibe run pipeline.yaml` — 20+ actions, `$step.output` references, `.pipeline-state.yaml` checkpointing, `--dry-run`/`--resume`, budget ceilings. See [`examples/README.md`](examples/README.md).
 
 ### Agent surface
-`vibe agent` REPL (BYO LLM × 6 — Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama). MCP server bundled. Claude Code skill pack (`/vibeframe`, `/vibe-pipeline`, `/vibe-script-to-video`, `/vibe-scene`).
+`vibe agent` REPL (BYO LLM × 6 — Claude / OpenAI / Gemini / Grok / OpenRouter / Ollama). MCP server bundled (61 tools). Claude Code skill pack (`/vibe-pipeline`, `/vibe-scene`) — consolidated 4 → 2 in v0.62.
 
 ### Demo & showcase
 - [x] Asciinema recordings (CLI / agent / Claude Code) — README hero
@@ -56,7 +60,6 @@ Aliases (`gen`, `ed`, `az`, `pipe`, …), `--describe`, `--dry-run` cost preview
 - **I2V backdrop integration** — replace still + Ken-Burns backdrops in `vibe scene build` with motion video from Runway / Kling / Veo / fal.ai
 - **Multi-provider T2I in `scene build`** — currently OpenAI gpt-image-2 only; add Gemini / Grok routing
 - **`compose-scenes-with-skills` narration awareness** — pass word-level transcript so Claude can word-sync animations to audio
-- **`--format scenes` default flip** on `vibe pipeline script-to-video` (deferred from v0.54 plan)
 - **Real-Time Subject Tracking** — local MediaPipe / YOLO / SAM-2 for fast-moving subject reframing, replacing today's Claude Vision keyframe approach (`vibe edit reframe --track`).
 - **`vibe init` setup wizard** — post-install one-shot that scaffolds `CLAUDE.md` / `AGENTS.md` / `.claude/skills/` / `.env.example` based on detected agent host (Claude Code, Cursor, plain shell).
 

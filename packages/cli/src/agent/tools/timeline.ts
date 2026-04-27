@@ -194,7 +194,7 @@ const addEffectDef: ToolDefinition = {
 };
 
 const trimDef: ToolDefinition = {
-  name: "timeline_trim",
+  name: "timeline_trim_clip",
   description: "Trim a clip (adjust start time or duration)",
   parameters: {
     type: "object",
@@ -221,7 +221,7 @@ const trimDef: ToolDefinition = {
 };
 
 const splitDef: ToolDefinition = {
-  name: "timeline_split",
+  name: "timeline_split_clip",
   description: "Split a clip at a specific time, creating two clips",
   parameters: {
     type: "object",
@@ -244,7 +244,7 @@ const splitDef: ToolDefinition = {
 };
 
 const moveDef: ToolDefinition = {
-  name: "timeline_move",
+  name: "timeline_move_clip",
   description: "Move a clip to a new position or track",
   parameters: {
     type: "object",
@@ -271,7 +271,7 @@ const moveDef: ToolDefinition = {
 };
 
 const deleteDef: ToolDefinition = {
-  name: "timeline_delete",
+  name: "timeline_delete_clip",
   description: "Delete a clip from the timeline",
   parameters: {
     type: "object",
@@ -290,7 +290,7 @@ const deleteDef: ToolDefinition = {
 };
 
 const duplicateDef: ToolDefinition = {
-  name: "timeline_duplicate",
+  name: "timeline_duplicate_clip",
   description: "Duplicate a clip",
   parameters: {
     type: "object",

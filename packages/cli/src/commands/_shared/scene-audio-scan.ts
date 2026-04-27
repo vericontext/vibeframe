@@ -163,6 +163,10 @@ export async function scanSceneAudio(opts: {
   const clips = parseRootClips(opts.rootHtml);
 
   const out: SceneAudioElement[] = [];
+
+  // Sub-composition scan — original v0.55 behaviour. Each clip's source
+  // HTML is read for `<audio>` elements; their `data-start` is relative
+  // to the clip start, so `absoluteStart = clip.start + audio.localStart`.
   for (const clip of clips) {
     const html = await reader(clip.compositionSrc);
     if (!html) continue;
@@ -180,6 +184,29 @@ export async function scanSceneAudio(opts: {
       });
     }
   }
+
+  // v0.63: also scan root-level `<audio>` elements. `vibe scene build`
+  // writes narration `<audio>` tags directly into the root composition
+  // alongside the auto-generated clip refs (because injecting them into
+  // each scene HTML — written by an LLM via compose-scenes-with-skills —
+  // would require mutating LLM output and races with regeneration). At
+  // root level, `data-start` is absolute, and the cap defaults to the
+  // longest known clip end so producer trims don't surprise the caller.
+  const maxClipEnd = clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0);
+  const rootAudios = parseSceneAudios(opts.rootHtml);
+  for (const audio of rootAudios) {
+    out.push({
+      srcRel: audio.srcRel,
+      srcAbs: resolve(opts.projectDir, audio.srcRel),
+      absoluteStart: audio.localStart,
+      durationHint: audio.durationHint,
+      clipDurationCap: Math.max(0, maxClipEnd - audio.localStart),
+      volume: audio.volume,
+      trackIndex: audio.trackIndex,
+      compositionSrc: "(root)",
+    });
+  }
+
   // Stable sort by absolute start so downstream filter graphs are deterministic.
   out.sort((a, b) => a.absoluteStart - b.absoluteStart);
   return out;

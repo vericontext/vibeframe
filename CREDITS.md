@@ -82,8 +82,7 @@ What VibeFrame implements independently (not borrowed from any of the
 above):
 
 - The agent surface — `vibe agent` REPL with BYO LLM, MCP server with
-  58 tools, Claude Code skills (`/vibeframe`, `/vibe-pipeline`,
-  `/vibe-script-to-video`, `/vibe-scene`).
+  61 tools, Claude Code skills (`/vibe-pipeline`, `/vibe-scene`).
 - The YAML pipeline DSL (`vibe run pipeline.yaml`) — `--dry-run` cost
   preview, `--resume` checkpoints, `$step.output` references, budget
   ceilings.

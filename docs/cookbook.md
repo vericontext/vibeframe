@@ -69,13 +69,16 @@ Create a complete video from a text script.
 **Cost:** $5-$50 (AI image + video + TTS generation)
 
 ```bash
-# Step 1: Generate full video from script
-vibe pipeline script-to-video \
-  "A morning routine of a startup founder. Wake up at 5am, meditation, coffee, coding session." \
-  -d 60 -a 16:9 -g kling -o ./startup-video/
+# Step 1: Scaffold project + author STORYBOARD.md (per-beat YAML cues)
+vibe scene init startup-video --visual-style "Swiss Pulse" -d 60 -r 16:9
+# (edit STORYBOARD.md with beats describing the morning routine)
 
-# Step 2: Regenerate a specific scene if needed
-vibe pipeline regenerate-scene ./startup-video/ --scene 2 --video-only -g veo
+# Step 2: Build end-to-end (TTS + backdrops + compose + render)
+vibe scene build startup-video
+
+# Step 3: To re-render a single scene, edit its composition HTML directly
+#         and re-run scene render — no need to regenerate the whole project.
+vibe scene render startup-video
 
 # Step 3: Add background music
 vibe generate music "upbeat lo-fi morning vibes" -d 60 -o bgm.mp3

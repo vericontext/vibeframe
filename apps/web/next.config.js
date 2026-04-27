@@ -9,8 +9,8 @@ function countPattern(dir, pattern) {
   try {
     // Exclude *.test.ts — fixture strings in tests (e.g. `name: "intro"`
     // inside a handleSceneToolCall arg) get caught by the production regex
-    // and over-count by 1+. The MCP server actually registers 58 tools at
-    // runtime, not 59.
+    // and over-count by 1+. The MCP server actually registers 63 tools at
+    // runtime, not 64.
     const files = fs.readdirSync(dir).filter(
       (f) => f.endsWith(".ts") && !f.endsWith(".test.ts"),
     );

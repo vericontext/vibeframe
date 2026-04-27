@@ -23,9 +23,68 @@ import {
 import { Project, type ProjectFile } from '../engine/index.js';
 import { getApiKey } from '../utils/api-key.js';
 import { formatTime, applySuggestion } from './ai-helpers.js';
-import { executeCommand } from './ai.js';
 import { exitWithError, authError, usageError, apiError, generalError } from './output.js';
 import { validateOutputPath } from "./validate.js";
+
+export interface ExecuteSuggestEditOptions {
+  projectPath: string;
+  instruction: string;
+  apply?: boolean;
+  apiKey?: string;
+}
+export interface SuggestEditEntry {
+  type: string;
+  description: string;
+  confidence: number;
+  clipIds: string[];
+  params: Record<string, unknown>;
+}
+export interface ExecuteSuggestEditResult {
+  success: boolean;
+  suggestions?: SuggestEditEntry[];
+  applied?: boolean;
+  appliedSuggestion?: SuggestEditEntry;
+  outputPath?: string;
+  error?: string;
+}
+
+export async function executeSuggestEdit(options: ExecuteSuggestEditOptions): Promise<ExecuteSuggestEditResult> {
+  try {
+    const apiKey = options.apiKey ?? process.env.GOOGLE_API_KEY;
+    if (!apiKey) return { success: false, error: "GOOGLE_API_KEY required for suggest" };
+
+    const filePath = resolve(process.cwd(), options.projectPath);
+    const content = await readFile(filePath, "utf-8");
+    const data: ProjectFile = JSON.parse(content);
+    const project = Project.fromJSON(data);
+
+    const gemini = new GeminiProvider();
+    await gemini.initialize({ apiKey });
+
+    const clips = project.getClips();
+    const suggestions = (await gemini.autoEdit(clips, options.instruction)) as SuggestEditEntry[];
+
+    if (options.apply && suggestions.length > 0) {
+      const first = suggestions[0];
+      const applied = applySuggestion(project, first);
+      if (applied) {
+        await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+        return {
+          success: true,
+          suggestions,
+          applied: true,
+          appliedSuggestion: first,
+          outputPath: filePath,
+        };
+      }
+      return { success: true, suggestions, applied: false };
+    }
+
+    return { success: true, suggestions };
+  } catch (error) {
+    return { success: false, error: `Suggest failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
 
 export function registerSuggestEditCommands(ai: Command): void {
   ai
@@ -162,6 +221,10 @@ export function registerSuggestEditCommands(ai: Command): void {
         console.log();
         spinner.start("Executing commands...");
 
+        // Dynamic import — `./ai.js` re-imports this file to register
+        // CLI subcommands, so importing it eagerly creates a circular dep
+        // that breaks when `ai-suggest-edit` is also pulled in by MCP/Agent.
+        const { executeCommand } = await import('./ai.js');
         let executed = 0;
         for (const cmd of result.commands) {
           const success = executeCommand(project, cmd);

@@ -2427,3 +2427,107 @@ export async function executeStoryboard(options: ExecuteStoryboardOptions): Prom
     return { success: false, error: `Storyboard failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
+
+export interface ExecuteBackgroundOptions {
+  description: string;
+  aspect?: "16:9" | "9:16" | "1:1" | string;
+  output?: string;
+  apiKey?: string;
+}
+export interface ExecuteBackgroundResult {
+  success: boolean;
+  imageUrl?: string;
+  outputPath?: string;
+  base64?: string;
+  revisedPrompt?: string;
+  error?: string;
+}
+
+export async function executeBackground(options: ExecuteBackgroundOptions): Promise<ExecuteBackgroundResult> {
+  try {
+    const apiKey = options.apiKey
+      ?? (hasApiKey("OPENAI_API_KEY")
+        ? ((await getApiKeyFromConfig("openai")) || process.env.OPENAI_API_KEY!)
+        : null);
+    if (!apiKey) return { success: false, error: "OPENAI_API_KEY required for background generation" };
+
+    const openaiImage = new OpenAIImageProvider();
+    await openaiImage.initialize({ apiKey });
+
+    const aspect: "16:9" | "9:16" | "1:1" =
+      options.aspect === "9:16" || options.aspect === "1:1" ? options.aspect : "16:9";
+    const result = await openaiImage.generateBackground(options.description, aspect);
+    if (!result.success || !result.images || result.images.length === 0) {
+      return { success: false, error: result.error || "Background generation failed" };
+    }
+
+    const img = result.images[0];
+
+    let outputPath: string | undefined;
+    if (options.output) {
+      let buffer: Buffer;
+      if (img.url) {
+        buffer = Buffer.from(await (await fetch(img.url)).arrayBuffer());
+      } else if (img.base64) {
+        buffer = Buffer.from(img.base64, "base64");
+      } else {
+        return { success: false, error: "Provider returned no image data" };
+      }
+      outputPath = resolve(process.cwd(), options.output);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, buffer);
+    }
+
+    return {
+      success: true,
+      imageUrl: img.url,
+      outputPath,
+      base64: img.base64,
+      revisedPrompt: img.revisedPrompt,
+    };
+  } catch (error) {
+    return { success: false, error: `Background generation failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+export interface ExecuteMusicStatusOptions {
+  taskId: string;
+  apiKey?: string;
+}
+export interface ExecuteMusicStatusResult {
+  success: boolean;
+  taskId?: string;
+  status?: "completed" | "failed" | "processing";
+  audioUrl?: string;
+  error?: string;
+}
+
+export async function executeMusicStatus(options: ExecuteMusicStatusOptions): Promise<ExecuteMusicStatusResult> {
+  try {
+    const apiKey = options.apiKey
+      ?? (hasApiKey("REPLICATE_API_TOKEN")
+        ? ((await getApiKeyFromConfig("replicate")) || process.env.REPLICATE_API_TOKEN!)
+        : null);
+    if (!apiKey) return { success: false, error: "REPLICATE_API_TOKEN required for music status" };
+
+    const replicate = new ReplicateProvider();
+    await replicate.initialize({ apiKey });
+    const result = await replicate.getMusicStatus(options.taskId);
+
+    const status: "completed" | "failed" | "processing" = result.audioUrl
+      ? "completed"
+      : result.error
+      ? "failed"
+      : "processing";
+
+    return {
+      success: true,
+      taskId: options.taskId,
+      status,
+      audioUrl: result.audioUrl,
+      error: result.error,
+    };
+  } catch (error) {
+    return { success: false, error: `Music status check failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}

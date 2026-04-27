@@ -25,7 +25,15 @@ import {
   type TextOverlayStyle,
   type CaptionStyle,
 } from "../../commands/ai-edit.js";
+import {
+  executeGrade,
+  executeSpeedRamp,
+  executeReframe,
+  executeInterpolate,
+  executeUpscale,
+} from "../../commands/edit-cmd.js";
 import { executeReview } from "../../commands/ai-review.js";
+import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { executeThumbnailBestFrame } from "../../commands/ai-image.js";
 import { sanitizeAIResult } from "../../commands/sanitize.js";
 
@@ -829,6 +837,185 @@ const translateSrtHandler: ToolHandler = async (args, context): Promise<ToolResu
 };
 
 // ============================================================================
+// analyze_suggest — Gemini-driven edit suggestions for a project
+// ============================================================================
+
+const analyzeSuggestDef: ToolDefinition = {
+  name: "analyze_suggest",
+  description: "Get natural-language edit suggestions for a project from Gemini. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      projectPath: { type: "string",  description: "Project file path (.vibe.json)" },
+      instruction: { type: "string",  description: "Natural-language instruction (e.g. 'trim all clips to 5 seconds')" },
+      apply:       { type: "boolean", description: "Apply the first suggestion in place" },
+    },
+    required: ["projectPath", "instruction"],
+  },
+};
+
+const analyzeSuggestHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeSuggestEdit({
+    projectPath: resolve(context.workingDirectory, args.projectPath as string),
+    instruction: args.instruction as string,
+    apply: args.apply as boolean | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "analyze_suggest failed" };
+  }
+  const lines: string[] = [`Found ${result.suggestions?.length ?? 0} suggestion(s)`];
+  result.suggestions?.forEach((s, i) => {
+    lines.push(`  [${i + 1}] ${s.type.toUpperCase()} (conf ${(s.confidence * 100).toFixed(0)}%) — ${s.description}`);
+  });
+  if (result.applied) lines.push(`Applied first suggestion → ${result.outputPath}`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
+// ============================================================================
+// v0.55+ edit primitives — colour grade / speed ramp / reframe / interpolate / upscale
+// ============================================================================
+
+const editGradeDef: ToolDefinition = {
+  name: "edit_grade",
+  description: "Apply AI-generated colour grading. Claude inspects the video and emits an FFmpeg grading filter chain. Requires ANTHROPIC_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath:   { type: "string",  description: "Input video file" },
+      style:       { type: "string",  description: "Free-form grade style (e.g. 'cinematic teal-orange')" },
+      preset:      { type: "string",  description: "Named preset (cinematic, vintage, cool, warm, b&w)" },
+      output:      { type: "string",  description: "Output file path" },
+      analyzeOnly: { type: "boolean", description: "Return proposed FFmpeg filter without rendering" },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const editGradeHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeGrade({
+    videoPath: resolve(context.workingDirectory, args.videoPath as string),
+    style: args.style as string | undefined,
+    preset: args.preset as string | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    analyzeOnly: args.analyzeOnly as boolean | undefined,
+  });
+  if (!result.success) return { toolCallId: "", success: false, output: "", error: result.error ?? "edit_grade failed" };
+  return { toolCallId: "", success: true, output: `Graded (${result.style ?? "preset"}) → ${result.outputPath ?? "(analyze-only)"}` };
+};
+
+const editSpeedRampDef: ToolDefinition = {
+  name: "edit_speed_ramp",
+  description: "Content-aware variable-speed ramping. Whisper transcribes; Claude picks keyframes. Requires OPENAI_API_KEY + ANTHROPIC_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath:   { type: "string",  description: "Input video file" },
+      output:      { type: "string",  description: "Output file path" },
+      style:       { type: "string",  description: "Ramp style", enum: ["dramatic", "smooth", "action"] },
+      minSpeed:    { type: "number",  description: "Min speed multiplier (default 0.5)" },
+      maxSpeed:    { type: "number",  description: "Max speed multiplier (default 3.0)" },
+      analyzeOnly: { type: "boolean", description: "Return proposed keyframes without rendering" },
+      language:    { type: "string",  description: "Whisper language hint" },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const editSpeedRampHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeSpeedRamp({
+    videoPath: resolve(context.workingDirectory, args.videoPath as string),
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    style: args.style as "dramatic" | "smooth" | "action" | undefined,
+    minSpeed: args.minSpeed as number | undefined,
+    maxSpeed: args.maxSpeed as number | undefined,
+    analyzeOnly: args.analyzeOnly as boolean | undefined,
+    language: args.language as string | undefined,
+  });
+  if (!result.success) return { toolCallId: "", success: false, output: "", error: result.error ?? "edit_speed_ramp failed" };
+  return { toolCallId: "", success: true, output: `Speed ramp (avg ${result.avgSpeed?.toFixed(2)}×, ${result.keyframes?.length ?? 0} keyframes) → ${result.outputPath ?? "(analyze-only)"}` };
+};
+
+const editReframeDef: ToolDefinition = {
+  name: "edit_reframe",
+  description: "Auto-reframe video to a different aspect ratio. Claude Vision inspects keyframes for subject tracking. Requires ANTHROPIC_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath:   { type: "string",  description: "Input video file" },
+      aspect:      { type: "string",  description: "Target aspect (e.g. '9:16', '1:1', '16:9')" },
+      focus:       { type: "string",  description: "Subject focus mode", enum: ["auto", "face", "center", "action"] },
+      output:      { type: "string",  description: "Output file path" },
+      analyzeOnly: { type: "boolean", description: "Return proposed keyframes without rendering" },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const editReframeHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeReframe({
+    videoPath: resolve(context.workingDirectory, args.videoPath as string),
+    aspect: args.aspect as string | undefined,
+    focus: args.focus as "auto" | "face" | "center" | "action" | undefined,
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    analyzeOnly: args.analyzeOnly as boolean | undefined,
+  });
+  if (!result.success) return { toolCallId: "", success: false, output: "", error: result.error ?? "edit_reframe failed" };
+  return { toolCallId: "", success: true, output: `Reframed ${result.sourceAspect}→${result.targetAspect} (${result.keyframeCount} keyframes) → ${result.outputPath ?? "(analyze-only)"}` };
+};
+
+const editInterpolateDef: ToolDefinition = {
+  name: "edit_interpolate",
+  description: "Frame-interpolate video for smooth slow-motion or higher framerate. FFmpeg minterpolate (no API key needed).",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: { type: "string", description: "Input video file" },
+      output:    { type: "string", description: "Output file path" },
+      factor:    { type: "number", description: "Interpolation factor (e.g. 2 doubles framerate)" },
+      fps:       { type: "number", description: "Explicit target fps (overrides factor)" },
+      quality:   { type: "string", description: "Speed/quality tradeoff", enum: ["fast", "quality"] },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const editInterpolateHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeInterpolate({
+    videoPath: resolve(context.workingDirectory, args.videoPath as string),
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    factor: args.factor as number | undefined,
+    fps: args.fps as number | undefined,
+    quality: args.quality as "fast" | "quality" | undefined,
+  });
+  if (!result.success) return { toolCallId: "", success: false, output: "", error: result.error ?? "edit_interpolate failed" };
+  return { toolCallId: "", success: true, output: `Interpolated ${result.originalFps}fps→${result.targetFps}fps (×${result.factor}) → ${result.outputPath}` };
+};
+
+const editUpscaleDef: ToolDefinition = {
+  name: "edit_upscale",
+  description: "Upscale video resolution. Local ffmpeg lanczos by default; Topaz Video AI when available.",
+  parameters: {
+    type: "object",
+    properties: {
+      videoPath: { type: "string", description: "Input video file" },
+      output:    { type: "string", description: "Output file path" },
+      scale:     { type: "number", description: "Scale factor (e.g. 2 for 2× upscale)" },
+    },
+    required: ["videoPath"],
+  },
+};
+
+const editUpscaleHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeUpscale({
+    videoPath: resolve(context.workingDirectory, args.videoPath as string),
+    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
+    scale: args.scale as number | undefined,
+  });
+  if (!result.success) return { toolCallId: "", success: false, output: "", error: result.error ?? "edit_upscale failed" };
+  return { toolCallId: "", success: true, output: `Upscaled → ${result.outputPath}` };
+};
+
+// ============================================================================
 // Registration
 // ============================================================================
 
@@ -842,4 +1029,10 @@ export function registerEditingTools(registry: ToolRegistry): void {
   registry.register(fadeDef, fadeHandler);
   registry.register(thumbnailBestFrameDef, thumbnailBestFrameHandler);
   registry.register(translateSrtDef, translateSrtHandler);
+  registry.register(editGradeDef, editGradeHandler);
+  registry.register(editSpeedRampDef, editSpeedRampHandler);
+  registry.register(editReframeDef, editReframeHandler);
+  registry.register(editInterpolateDef, editInterpolateHandler);
+  registry.register(editUpscaleDef, editUpscaleHandler);
+  registry.register(analyzeSuggestDef, analyzeSuggestHandler);
 }

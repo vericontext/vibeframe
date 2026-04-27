@@ -39,6 +39,10 @@
       "import": "./src/engine/index.ts",
       "types": "./src/engine/index.ts"
     },
+    "./agent": {
+      "import": "./src/agent/index.ts",
+      "types": "./src/agent/index.ts"
+    },
     "./commands/export": {
       "import": "./src/commands/export.ts",
       "types": "./src/commands/export.ts"
@@ -118,6 +122,18 @@
     "./commands/_shared/scene-html-emit": {
       "import": "./src/commands/_shared/scene-html-emit.ts",
       "types": "./src/commands/_shared/scene-html-emit.ts"
+    },
+    "./commands/_shared/scene-build": {
+      "import": "./src/commands/_shared/scene-build.ts",
+      "types": "./src/commands/_shared/scene-build.ts"
+    },
+    "./commands/_shared/visual-styles": {
+      "import": "./src/commands/_shared/visual-styles.ts",
+      "types": "./src/commands/_shared/visual-styles.ts"
+    },
+    "./commands/ai-suggest-edit": {
+      "import": "./src/commands/ai-suggest-edit.ts",
+      "types": "./src/commands/ai-suggest-edit.ts"
     },
     "./pipeline": {
       "import": "./src/pipeline/index.ts",
