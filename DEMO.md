@@ -38,12 +38,7 @@ v0.61), so it tells you what's missing and which command fixes it
 
 ## 2. Setup — user scope (once per machine)
 
-<p align="center">
-  <a href="assets/demos/setup.tape">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/setup.gif"
-         alt="vibe setup user-scope wizard" width="900" />
-  </a>
-</p>
+> 📼 [`assets/demos/setup.tape`](assets/demos/setup.tape) — VHS recipe. Run `vhs assets/demos/setup.tape` to capture a fresh GIF locally.
 
 `vibe setup` is interactive — it detects which agent hosts you have
 installed (Claude Code / Codex / Cursor / Aider) and offers to install
@@ -66,12 +61,7 @@ and FFmpeg-only edits (`silence-cut`, `fade`, `noise-reduce`).
 
 ## 3. Init — project scope (once per project)
 
-<p align="center">
-  <a href="assets/demos/init.tape">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/init.gif"
-         alt="vibe init project-scope scaffold" width="900" />
-  </a>
-</p>
+> 📼 [`assets/demos/init.tape`](assets/demos/init.tape) — VHS recipe. Run `vhs assets/demos/init.tape` to capture a fresh GIF locally.
 
 `vibe init` writes the agent-aware project files. The default
 `--agent auto` reads which agent host you have configured and picks the
@@ -102,12 +92,7 @@ cursor .                            # Cursor reads AGENTS.md
 
 ## 4. Build — STORYBOARD.md → MP4
 
-<p align="center">
-  <a href="assets/demos/build.tape">
-    <img src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/build.gif"
-         alt="vibe scene build cinematic flow" width="900" />
-  </a>
-</p>
+> 📼 [`assets/demos/build.tape`](assets/demos/build.tape) — VHS recipe. Run `vhs assets/demos/build.tape` to capture a fresh GIF locally.
 
 `vibe scene build` is the v0.60 one-shot driver. Author your storyboard
 once, then this command:

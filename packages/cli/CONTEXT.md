@@ -35,7 +35,7 @@ Check which keys are configured: `vibe doctor --json`
 | Free | `detect *`, `edit silence-cut/fade/noise-reduce`, `project`, `timeline`, `export`, `schema` | $0 |
 | Low | `analyze *`, `audio transcribe`, `generate image` | $0.01-$0.10 |
 | High | `generate video`, `edit image`, `edit caption` | $1-$5 |
-| Very High | `pipeline *` (script-to-video, highlights, auto-shorts) | $5-$50+ |
+| Very High | `scene build`, `pipeline *` (highlights, auto-shorts, animated-caption) | $5-$50+ |
 
 ## Schema Introspection
 

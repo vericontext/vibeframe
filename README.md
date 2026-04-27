@@ -56,7 +56,7 @@ Traditional video editors are built for **clicking buttons**. VibeFrame is built
 |-------------------|----------|
 | Import → Drag → Trim → Export | `vibe edit silence-cut interview.mp4 -o clean.mp4` |
 | Manual scene detection | `vibe detect scenes video.mp4` |
-| Export for each platform | `vibe pipeline viral project.vibe.json` |
+| Export for each platform | `vibe pipeline auto-shorts project.vibe.json` |
 | Click through menus | Natural language → CLI → done |
 
 ### Built on Hyperframes
@@ -78,7 +78,8 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Agent integrations** | — | MCP server (61 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
 | **Traditional editing** | — | `vibe edit` silence-cut · jump-cut · caption · grade · reframe · speed-ramp · fade · noise-reduce (84+ commands total) |
 | **AI analysis** | — | `vibe analyze` media/video/review/suggest (multimodal LLMs) |
-| **AI pipelines** | composition format only | `vibe pipeline script-to-video` · `highlights` · `auto-shorts` · `animated-caption` |
+| **BUILD from text** | composition format only | `vibe scene build` (v0.60 one-shot driver) — STORYBOARD.md → MP4 |
+| **PROCESS existing video** | — | `vibe pipeline highlights` · `auto-shorts` · `animated-caption` |
 | **Video as Code** | composition is somewhat declarative | `vibe run pipeline.yaml` · `--dry-run` cost preview · `--resume` checkpoints · step references (`$step.output`) |
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
@@ -109,8 +110,10 @@ vibe edit silence-cut interview.mp4 -o clean.mp4
 # Add captions with auto-transcription
 vibe edit caption video.mp4 -o captioned.mp4
 
-# Create a TikTok from a script
-vibe pipeline script-to-video "A day in the life of a developer..." -a 9:16 -o ./tiktok/
+# Build a cinematic promo from a STORYBOARD (v0.60)
+vibe scene init my-promo --visual-style "Swiss Pulse" -d 12
+# (edit STORYBOARD.md with three beats)
+vibe scene build my-promo
 
 # Export to MP4
 vibe export project.vibe.json -o output.mp4
@@ -178,7 +181,7 @@ Already have the CLI installed? Claude Code runs `vibe` commands for you — jus
 | "Remove silence from interview.mp4" | `vibe edit silence-cut interview.mp4 -o clean.mp4` |
 | "Extract 3 best moments from podcast.mp4" | `vibe pipeline highlights podcast.mp4 -c 3` |
 | "Add Korean subtitles to video.mp4" | `vibe edit caption video.mp4 -o captioned.mp4` |
-| "Create a TikTok from this script" | `vibe pipeline script-to-video "..." -a 9:16` |
+| "Build a 12-second cinematic promo" | `vibe scene init promo && vibe scene build promo` |
 | "Remove background noise" | `vibe edit noise-reduce noisy.mp4 -o clean.mp4` |
 | "Make a 60-second highlight reel" | `vibe pipeline highlights long-video.mp4 -d 60` |
 
@@ -198,7 +201,7 @@ This registers:
 - **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
 - **`/vibe-scene`** — per-scene HTML authoring + `vibe scene build` (Hyperframes-backed)
 
-> The earlier `/vibeframe` overview and `/vibe-script-to-video` walkthrough were merged into `AGENTS.md` (scaffolded by `vibe init`) and `/vibe-scene` respectively in v0.62 — fewer slash commands, single source of truth.
+> The skill pack was consolidated 4 → 2 in v0.62: the older `/vibeframe` overview moved to `AGENTS.md` (scaffolded by `vibe init`), and `/vibe-script-to-video` was retired in v0.63 in favour of `/vibe-scene` driving `vibe scene build`.
 
 Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
 
@@ -261,20 +264,19 @@ See [`examples/README.md`](examples/README.md) for the catalog — three runnabl
 
 ---
 
-## AI Pipelines
+## AI Pipelines (PROCESS existing video)
 
-End-to-end workflows powered by multiple AI providers (Claude + ElevenLabs / Kokoro + OpenAI gpt-image-2 + fal Seedance 2.0 / Grok / Veo / Kling / Runway):
+`vibe pipeline` takes a finished video and transforms it. For BUILD-from-text
+flows, use `vibe scene build` (see Scene Authoring below).
 
 ```bash
-vibe pipeline script-to-video "A morning routine of a startup founder..." \
-  -d 60 -a 9:16 -g fal -o startup.vibe.json
-
 vibe pipeline highlights interview.mp4 -d 90 --criteria emotional
 vibe pipeline auto-shorts podcast.mp4
 vibe pipeline animated-caption video.mp4 -s bounce -o captioned.mp4
 ```
 
-Storyboards are saved as YAML for easy editing and version control.
+> `pipeline script-to-video` is **deprecated as of v0.63** — `vibe scene build`
+> is the supported one-shot driver (cheaper, cached, deterministic).
 
 ---
 
@@ -324,12 +326,6 @@ Idempotent: existing assets are reused, `--force` overrides. See
 end-to-end fixture (the same project that produced the cinematic hero
 above).
 
-### Or: from a written script in one shot
-
-```bash
-vibe pipeline script-to-video "..." --format scenes -o my-promo/ -a 16:9
-```
-
 ### Free local TTS + word-level caption sync (v0.54)
 
 `vibe scene add --narration "..."` now works with **no API key**. Without
@@ -373,7 +369,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe edit`** | `silence-cut`, `jump-cut`, `caption`, `grade`, `reframe`, `speed-ramp`, `text-overlay`, `fade`, `noise-reduce`, `image`, `fill-gaps` | `vibe edit caption video.mp4 -o out.mp4` |
 | **`vibe analyze`** | `media`, `video`, `review`, `suggest` | `vibe analyze media video.mp4 "summarize"` |
 | **`vibe audio`** | `transcribe` (Whisper), `tts` (ElevenLabs · Kokoro local fallback), `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
-| **`vibe pipeline`** | `script-to-video`, `highlights`, `auto-shorts`, `regenerate-scene`, `animated-caption` | `vibe pipeline script-to-video "..." -a 9:16` |
+| **`vibe pipeline`** | `highlights`, `auto-shorts`, `animated-caption` (`script-to-video` deprecated v0.63 — see `vibe scene build`) | `vibe pipeline highlights long.mp4 -d 60` |
 | **`vibe scene`** | `init`, `add`, `lint`, `render`, `build` (v0.60) | `vibe scene build my-promo` |
 | **`vibe project`** | `create`, `info`, `set` | `vibe project create "name"` |
 | **`vibe timeline`** | `add-source`, `add-clip`, `split`, `trim`, `move`, `delete`, `list` | `vibe timeline add-source project file` |

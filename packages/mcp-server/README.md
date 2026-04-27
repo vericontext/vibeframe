@@ -196,7 +196,7 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 | Variable | Used by |
 |----------|---------|
 | `OPENAI_API_KEY` | gpt-image-2, Whisper, GPT |
-| `ANTHROPIC_API_KEY` | Claude (translate-srt, highlights, script-to-video) |
+| `ANTHROPIC_API_KEY` | Claude (translate-srt, highlights, scene_build compose pipeline) |
 | `GOOGLE_API_KEY` | Gemini (analyze, review, silence-cut, narrate) |
 | `ELEVENLABS_API_KEY` | TTS, voice-clone, dubbing, SFX |
 | `XAI_API_KEY` | Grok |

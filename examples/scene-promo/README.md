@@ -110,13 +110,15 @@ vibe scene add custom \
 The generated `assets/narration-*.{wav,mp3}` and `assets/transcript-*.json`
 files are `.gitignore`d — re-run the command above to regenerate.
 
-## One-shot: script-to-scenes
+## One-shot: STORYBOARD → MP4 (v0.60)
 
-`vibe pipeline script-to-video` can produce a scene project like this one
-from a written script in a single command:
+`vibe scene build` produces a scene project like this one end-to-end from
+a `STORYBOARD.md` with per-beat YAML cues — no manual `scene add` chain:
 
 ```bash
-vibe pipeline script-to-video "..." --format scenes -o my-promo/ -a 16:9
+vibe scene init my-promo --visual-style "Swiss Pulse" -d 18
+# (edit STORYBOARD.md with three beats, each with a yaml cue block)
+vibe scene build my-promo
 ```
 
 Output is editable HTML — re-run `vibe scene render` after any edit.
