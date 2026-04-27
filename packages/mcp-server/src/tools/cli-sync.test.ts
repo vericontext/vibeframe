@@ -171,6 +171,17 @@ describe("CLI ↔ manifest sync", () => {
     expect(orphans.map((t) => t.name)).toEqual([]);
   });
 
+  it("agent-only manifest entries are NOT exposed via MCP", () => {
+    // surfaces=["agent"] entries (fs_*, batch_*) must never end up in
+    // mcp-server's tools array — MCP clients have host-side filesystem
+    // affordances and these would be unsafe / out of scope. Regression
+    // for v0.66 PR3.
+    const registered = new Set(tools.map((t) => t.name));
+    const agentOnly = manifest.filter((t) => t.surfaces && t.surfaces.length === 1 && t.surfaces[0] === "agent");
+    const leaked = agentOnly.map((t) => t.name).filter((n) => registered.has(n));
+    expect(leaked, `agent-only entries leaked into MCP tools array: ${leaked.join(", ")}`).toEqual([]);
+  });
+
   it("CLI_ONLY_TOP_LEVEL has no overlap with CLI_TREE groups", () => {
     const overlap = [...CLI_ONLY_TOP_LEVEL].filter((c) => Object.prototype.hasOwnProperty.call(CLI_TREE, c));
     expect(overlap, `CLI_ONLY_TOP_LEVEL overlaps mapped groups: ${overlap.join(", ")}`).toEqual([]);

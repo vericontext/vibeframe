@@ -35,6 +35,7 @@ export interface JsonSchema {
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
+  additionalProperties?: JsonSchema | boolean;
 }
 
 interface ZodTypeDef {
@@ -46,6 +47,7 @@ interface ZodTypeDef {
   schema?: ZodTypeAny;
   type?: ZodTypeAny;
   shape?: () => Record<string, ZodTypeAny>;
+  valueType?: ZodTypeAny;
 }
 
 function getDef(z: ZodTypeAny): ZodTypeDef {
@@ -111,6 +113,20 @@ function convertLeaf(z: ZodTypeAny, description?: string): JsonSchema {
     case "ZodArray": {
       if (!def.type) throw new Error(`zod-to-json-schema: ZodArray without item type`);
       return { type: "array", items: convertLeaf(def.type), ...base };
+    }
+    case "ZodRecord": {
+      // Open-keyed record (e.g. z.record(z.unknown())). Translate to a
+      // free-form object whose values match the inner type. ZodUnknown
+      // becomes `additionalProperties: true` (any JSON value allowed).
+      const valueType = def.valueType;
+      if (!valueType) {
+        return { type: "object", additionalProperties: true, ...base };
+      }
+      const valueDef = getDef(valueType);
+      if (valueDef.typeName === "ZodUnknown" || valueDef.typeName === "ZodAny") {
+        return { type: "object", additionalProperties: true, ...base };
+      }
+      return { type: "object", additionalProperties: convertLeaf(valueType), ...base };
     }
     case "ZodObject":
       return convertObject(afterDefault, desc);

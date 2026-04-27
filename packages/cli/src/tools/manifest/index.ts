@@ -15,6 +15,7 @@ import { detectTools } from "./detect.js";
 import { timelineTools } from "./timeline.js";
 import { projectTools } from "./project.js";
 import { exportTools } from "./export.js";
+import { agentOnlyTools } from "./agent-only.js";
 
 export const manifest: readonly AnyTool[] = [
   ...sceneTools,
@@ -27,6 +28,7 @@ export const manifest: readonly AnyTool[] = [
   ...timelineTools,
   ...projectTools,
   ...exportTools,
+  ...agentOnlyTools,
 ];
 
 export {
@@ -40,4 +42,5 @@ export {
   timelineTools,
   projectTools,
   exportTools,
+  agentOnlyTools,
 };

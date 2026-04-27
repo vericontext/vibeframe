@@ -45,11 +45,22 @@ AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! 
 # `'name: "'` in packages/mcp-server/src/tools/, but C6 deleted those
 # files and the manifest is now SSOT for both MCP + Agent surfaces.
 # C9 will replace this with `node packages/cli/dist/tools/print-counts.js`.
-MCP_TOOLS=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'defineTool({' \
-  packages/cli/src/tools/manifest/ 2>/dev/null | wc -l | tr -d ' ')
+# v0.66 PR3 introduced `manifest/agent-only.ts` (surfaces=["agent"]) — those
+# entries never reach MCP, so exclude them here to keep the MCP count honest.
+MCP_TOOLS=$(grep -rh --include='*.ts' --exclude='*.test.ts' --exclude='agent-only.ts' \
+  'defineTool({' packages/cli/src/tools/manifest/ 2>/dev/null | wc -l | tr -d ' ')
 
-# Agent tool definitions
-AGENT_TOOLS=$(grep -r 'ToolDefinition = {' packages/cli/src/agent/tools/ 2>/dev/null | wc -l | tr -d ' ')
+# Agent tool definitions = manifest entries with agent surface (everything
+# except the MCP-only `pipeline_run`) plus the legacy register*Tools files.
+# Manifest agent-surface count: total manifest entries minus MCP-only ones
+# (currently just pipeline_run). Legacy: each `ToolDefinition = {` in
+# `agent/tools/*.ts`.
+MANIFEST_TOTAL=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'defineTool({' \
+  packages/cli/src/tools/manifest/ 2>/dev/null | wc -l | tr -d ' ')
+MCP_ONLY=$(grep -rh --include='*.ts' --exclude='*.test.ts' 'surfaces: \["mcp"\]' \
+  packages/cli/src/tools/manifest/ 2>/dev/null | wc -l | tr -d ' ')
+LEGACY_AGENT=$(grep -r 'ToolDefinition = {' packages/cli/src/agent/tools/ 2>/dev/null | wc -l | tr -d ' ')
+AGENT_TOOLS=$(( MANIFEST_TOTAL - MCP_ONLY + LEGACY_AGENT ))
 
 # LLM providers (LLMProvider type union)
 LLM_PROVIDERS=$(grep 'LLMProvider = ' packages/cli/src/agent/types.ts 2>/dev/null \
