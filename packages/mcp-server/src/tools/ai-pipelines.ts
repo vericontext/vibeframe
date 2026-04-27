@@ -8,7 +8,7 @@ import { loadPipeline, executePipeline } from "@vibeframe/cli/pipeline";
 export const aiPipelineTools = [
   {
     name: "pipeline_script_to_video",
-    description: "Full script-to-video pipeline: script -> storyboard -> images -> voiceover -> video. Requires multiple API keys depending on providers chosen.",
+    description: "[DEPRECATED v0.63 — prefer scene_build] Full script-to-video pipeline: script -> storyboard -> images -> voiceover -> video. Kept for backwards compatibility, but scene_build is the supported one-shot driver (cheaper, cached, deterministic). Requires multiple API keys depending on providers chosen.",
     inputSchema: {
       type: "object" as const,
       properties: {

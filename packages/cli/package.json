@@ -119,6 +119,14 @@
       "import": "./src/commands/_shared/scene-html-emit.ts",
       "types": "./src/commands/_shared/scene-html-emit.ts"
     },
+    "./commands/_shared/scene-build": {
+      "import": "./src/commands/_shared/scene-build.ts",
+      "types": "./src/commands/_shared/scene-build.ts"
+    },
+    "./commands/_shared/visual-styles": {
+      "import": "./src/commands/_shared/visual-styles.ts",
+      "types": "./src/commands/_shared/visual-styles.ts"
+    },
     "./pipeline": {
       "import": "./src/pipeline/index.ts",
       "types": "./src/pipeline/index.ts"

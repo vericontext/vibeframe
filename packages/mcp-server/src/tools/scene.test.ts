@@ -14,9 +14,16 @@ async function makeTmp(label = "vibe-mcp-scene-"): Promise<string> {
 }
 
 describe("MCP scene tools — registration", () => {
-  it("exports four tools with the canonical names", () => {
+  it("exports six tools with the canonical names", () => {
     const names = sceneTools.map((t) => t.name).sort();
-    expect(names).toEqual(["scene_add", "scene_init", "scene_lint", "scene_render"]);
+    expect(names).toEqual([
+      "scene_add",
+      "scene_build",
+      "scene_init",
+      "scene_lint",
+      "scene_render",
+      "scene_styles",
+    ]);
   });
 
   it("includes scene tools in the global MCP tools list", () => {

@@ -3,13 +3,15 @@
  * tools in `packages/cli/src/agent/tools/scene.ts` so MCP hosts (Claude
  * Desktop, Cursor, etc.) get the same surface as the in-process agent.
  *
- * Tools: scene_init, scene_add, scene_lint, scene_render
+ * Tools: scene_init, scene_add, scene_lint, scene_render, scene_build, scene_styles
  */
 
 import { resolve } from "node:path";
 import { scaffoldSceneProject } from "@vibeframe/cli/commands/_shared/scene-project";
 import { runProjectLint, type ProjectLintResult } from "@vibeframe/cli/commands/_shared/scene-lint";
 import { executeSceneRender } from "@vibeframe/cli/commands/_shared/scene-render";
+import { executeSceneBuild } from "@vibeframe/cli/commands/_shared/scene-build";
+import { listVisualStyles, getVisualStyle } from "@vibeframe/cli/commands/_shared/visual-styles";
 import { executeSceneAdd } from "@vibeframe/cli/commands/scene";
 
 const SCENE_PRESETS = ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const;
@@ -82,6 +84,38 @@ export const sceneTools = [
         quality:    { type: "string",  enum: ["draft", "standard", "high"], description: "Quality preset. Default 'standard'." },
         format:     { type: "string",  enum: ["mp4", "webm", "mov"], description: "Container format. Default 'mp4'." },
         workers:    { type: "number",  description: "Capture worker count (1-16). Default 1." },
+      },
+    },
+  },
+  {
+    name: "scene_build",
+    description:
+      "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining scene_init + scene_add + scene_render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        projectDir:    { type: "string",  description: "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the MCP server's cwd." },
+        effort:        { type: "string",  enum: ["draft", "standard", "high"], description: "Compose effort tier passed to compose-scenes-with-skills. Default 'standard'." },
+        skipNarration: { type: "boolean", description: "Skip TTS for every beat (use existing audio assets if present)." },
+        skipBackdrop:  { type: "boolean", description: "Skip image generation for every beat (use existing PNG assets if present)." },
+        skipRender:    { type: "boolean", description: "Stop after compose — produces compositions/*.html but no final MP4." },
+        ttsProvider:   { type: "string",  enum: ["auto", "elevenlabs", "kokoro"], description: "TTS provider override. Default 'auto'." },
+        voice:         { type: "string",  description: "TTS voice id (provider-specific)." },
+        imageProvider: { type: "string",  enum: ["openai"], description: "Image provider for backdrops. Default 'openai' (gpt-image-2)." },
+        imageQuality:  { type: "string",  enum: ["standard", "hd"], description: "OpenAI image quality. Default 'standard'." },
+        imageSize:     { type: "string",  description: "OpenAI image size (e.g. '1536x1024' for cinematic 16:9). Default '1536x1024'." },
+        force:         { type: "boolean", description: "Re-dispatch primitives even when cached assets exist." },
+      },
+    },
+  },
+  {
+    name: "scene_styles",
+    description:
+      "List the 8 vendored visual identities available for `scene_init --visual-style` (Swiss Pulse, Data Drift, …) or, when `name` is provided, return the full DESIGN.md hard-gate body for one style. The DESIGN.md content is what the LLM uses as a non-negotiable visual rulebook during compose-scenes-with-skills.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "Style name or slug (e.g. 'Swiss Pulse', 'swiss-pulse'). Omit to list all 8." },
       },
     },
   },
@@ -201,6 +235,62 @@ export async function handleSceneToolCall(
         quality: result.quality,
         format: result.format,
       });
+    }
+
+    case "scene_build": {
+      const projectDir = args.projectDir
+        ? resolve(process.cwd(), args.projectDir as string)
+        : process.cwd();
+      const result = await executeSceneBuild({
+        projectDir,
+        effort: args.effort as "draft" | "standard" | "high" | undefined,
+        skipNarration: args.skipNarration as boolean | undefined,
+        skipBackdrop: args.skipBackdrop as boolean | undefined,
+        skipRender: args.skipRender as boolean | undefined,
+        ttsProvider: args.ttsProvider as "auto" | "elevenlabs" | "kokoro" | undefined,
+        voice: args.voice as string | undefined,
+        imageProvider: args.imageProvider as "openai" | undefined,
+        imageQuality: args.imageQuality as "standard" | "hd" | undefined,
+        imageSize: args.imageSize as
+          | "1024x1024"
+          | "1536x1024"
+          | "1024x1536"
+          | undefined,
+        force: args.force as boolean | undefined,
+      });
+      if (!result.success) return `scene_build failed: ${result.error}`;
+      return JSON.stringify({
+        success: true,
+        outputPath: result.outputPath,
+        beats: result.beats.map((b) => ({
+          id: b.id,
+          narrationStatus: b.narrationStatus,
+          narrationPath: b.narrationPath,
+          backdropStatus: b.backdropStatus,
+          backdropPath: b.backdropPath,
+          composeStatus: b.composeStatus,
+          composePath: b.composePath,
+          duration: b.duration,
+        })),
+        totalLatencyMs: result.totalLatencyMs,
+      });
+    }
+
+    case "scene_styles": {
+      const query = args.name as string | undefined;
+      if (query) {
+        const style = getVisualStyle(query);
+        if (!style) return `scene_styles failed: unknown style "${query}"`;
+        return JSON.stringify({ success: true, style });
+      }
+      const styles = listVisualStyles().map((s) => ({
+        slug: s.slug,
+        name: s.name,
+        designer: s.designer,
+        mood: s.mood,
+        bestFor: s.bestFor,
+      }));
+      return JSON.stringify({ success: true, count: styles.length, styles });
     }
 
     default:
