@@ -44,9 +44,13 @@ describe("scene agent tools — registration + schema", () => {
     ]);
   });
 
-  it("exports definitions matching the registered set (parity with sceneToolDefinitions)", () => {
+  it("exports definitions matching the registered scene set (parity with sceneToolDefinitions)", () => {
     const exported = sceneToolDefinitions.map((d) => d.name).sort();
-    const registered = registry.getDefinitions().map((t) => t.name).sort();
+    const registered = registry
+      .getDefinitions()
+      .map((t) => t.name)
+      .filter((n) => n.startsWith("scene_"))
+      .sort();
     expect(exported).toEqual(registered);
   });
 

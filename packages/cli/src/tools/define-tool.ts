@@ -105,11 +105,37 @@ export function defineTool<S extends ZodTypeAny>(t: ToolDefinition<S>): ToolDefi
  * comes from the manifest.
  */
 export const MIGRATED: Set<string> = new Set([
-  // C2: full scene group
+  // C2: scene
   "scene_init",
   "scene_add",
   "scene_lint",
   "scene_render",
   "scene_build",
   "scene_styles",
+  // C3: audio
+  "audio_transcribe",
+  "audio_isolate",
+  "audio_voice_clone",
+  "audio_dub",
+  "audio_duck",
+  // C3: edit
+  "edit_silence_cut",
+  "edit_caption",
+  "edit_fade",
+  "edit_noise_reduce",
+  "edit_jump_cut",
+  "edit_text_overlay",
+  "edit_translate_srt",
+  "edit_grade",
+  "edit_speed_ramp",
+  "edit_reframe",
+  "edit_interpolate",
+  "edit_upscale",
+  "edit_animated_caption",
+  "edit_image",
+  // C3: analyze
+  "analyze_media",
+  "analyze_video",
+  "analyze_review",
+  "analyze_suggest",
 ]);
