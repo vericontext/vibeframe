@@ -2454,7 +2454,9 @@ export async function executeBackground(options: ExecuteBackgroundOptions): Prom
     const openaiImage = new OpenAIImageProvider();
     await openaiImage.initialize({ apiKey });
 
-    const result = await openaiImage.generateBackground(options.description, options.aspect ?? "16:9");
+    const aspect: "16:9" | "9:16" | "1:1" =
+      options.aspect === "9:16" || options.aspect === "1:1" ? options.aspect : "16:9";
+    const result = await openaiImage.generateBackground(options.description, aspect);
     if (!result.success || !result.images || result.images.length === 0) {
       return { success: false, error: result.error || "Background generation failed" };
     }

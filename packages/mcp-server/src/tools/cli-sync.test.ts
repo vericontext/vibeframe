@@ -56,11 +56,11 @@ type SyncEntry = { mcp: string | null; agent: string | null };
 const SYNC_TABLE: Record<string, SyncEntry> = {
   // scene
   "scene init":         { mcp: "scene_init",        agent: "scene_init" },
-  "scene styles":       { mcp: "scene_styles",      agent: null }, // TODO Phase B
+  "scene styles":       { mcp: "scene_styles",      agent: "scene_styles" },
   "scene add":          { mcp: "scene_add",         agent: "scene_add" },
   "scene lint":         { mcp: "scene_lint",        agent: "scene_lint" },
   "scene render":       { mcp: "scene_render",      agent: "scene_render" },
-  "scene build":        { mcp: "scene_build",       agent: null }, // TODO Phase B
+  "scene build":        { mcp: "scene_build",       agent: "scene_build" },
 
   // generate
   "generate image":         { mcp: "generate_image",        agent: "generate_image" },

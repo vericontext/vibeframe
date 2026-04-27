@@ -32,6 +32,11 @@ import {
   type RenderQuality,
   type RenderFormat,
 } from "../../commands/_shared/scene-render.js";
+import { executeSceneBuild } from "../../commands/_shared/scene-build.js";
+import {
+  listVisualStyles,
+  getVisualStyle,
+} from "../../commands/_shared/visual-styles.js";
 import type { ScenePreset } from "../../commands/_shared/scene-html-emit.js";
 
 const SCENE_PRESETS = [
@@ -117,6 +122,42 @@ const sceneRenderDef: ToolDefinition = {
       quality:    { type: "string",  description: "Quality preset. Default 'standard'.", enum: ["draft", "standard", "high"] },
       format:     { type: "string",  description: "Container format. Default 'mp4'.", enum: ["mp4", "webm", "mov"] },
       workers:    { type: "number",  description: "Capture worker count (1-16). Default 1." },
+    },
+    required: [],
+  },
+};
+
+const sceneBuildDef: ToolDefinition = {
+  name: "scene_build",
+  description:
+    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining scene_init + scene_add + scene_render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap.",
+  parameters: {
+    type: "object",
+    properties: {
+      projectDir:    { type: "string",  description: "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the agent's working directory." },
+      effort:        { type: "string",  description: "Compose effort tier passed to compose-scenes-with-skills. Default 'medium'.", enum: ["low", "medium", "high"] },
+      skipNarration: { type: "boolean", description: "Skip TTS for every beat (use existing audio assets if present)." },
+      skipBackdrop:  { type: "boolean", description: "Skip image generation for every beat (use existing PNG assets if present)." },
+      skipRender:    { type: "boolean", description: "Stop after compose — produces compositions/*.html but no final MP4." },
+      ttsProvider:   { type: "string",  description: "TTS provider override. Default 'auto'.", enum: ["auto", "elevenlabs", "kokoro"] },
+      voice:         { type: "string",  description: "TTS voice id (provider-specific)." },
+      imageProvider: { type: "string",  description: "Image provider for backdrops. Default 'openai' (gpt-image-2).", enum: ["openai"] },
+      imageQuality:  { type: "string",  description: "OpenAI image quality. Default 'standard'.", enum: ["standard", "hd"] },
+      imageSize:     { type: "string",  description: "OpenAI image size. Default '1536x1024' (cinematic 16:9-ish)." },
+      force:         { type: "boolean", description: "Re-dispatch primitives even when cached assets exist." },
+    },
+    required: [],
+  },
+};
+
+const sceneStylesDef: ToolDefinition = {
+  name: "scene_styles",
+  description:
+    "List the 8 vendored visual identities available for `scene_init --visual-style` (Swiss Pulse, Data Drift, …) or, when `name` is provided, return the full DESIGN.md hard-gate body for one style. The DESIGN.md content is what the LLM uses as a non-negotiable visual rulebook during compose-scenes-with-skills.",
+  parameters: {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Style name or slug (e.g. 'Swiss Pulse', 'swiss-pulse'). Omit to list all 8." },
     },
     required: [],
   },
@@ -278,6 +319,88 @@ const sceneRenderHandler: ToolHandler = async (args, context): Promise<ToolResul
   return { toolCallId: "", success: true, output: lines.join("\n") };
 };
 
+const sceneBuildHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const projectDir = args.projectDir
+    ? resolve(context.workingDirectory, args.projectDir as string)
+    : context.workingDirectory;
+
+  const result = await executeSceneBuild({
+    projectDir,
+    effort: args.effort as "low" | "medium" | "high" | undefined,
+    skipNarration: args.skipNarration as boolean | undefined,
+    skipBackdrop: args.skipBackdrop as boolean | undefined,
+    skipRender: args.skipRender as boolean | undefined,
+    ttsProvider: args.ttsProvider as "auto" | "elevenlabs" | "kokoro" | undefined,
+    voice: args.voice as string | undefined,
+    imageProvider: args.imageProvider as "openai" | undefined,
+    imageQuality: args.imageQuality as "standard" | "hd" | undefined,
+    imageSize: args.imageSize as
+      | "1024x1024"
+      | "1536x1024"
+      | "1024x1536"
+      | undefined,
+    force: args.force as boolean | undefined,
+  });
+
+  if (!result.success) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: result.error ?? "scene_build failed",
+    };
+  }
+
+  const lines: string[] = [
+    `✅ Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
+    `   beats: ${result.beats.length}`,
+    `   wall-clock: ${(result.totalLatencyMs / 1000).toFixed(1)}s`,
+  ];
+  for (const b of result.beats) {
+    lines.push(
+      `   [${b.beatId}] narration=${b.narrationStatus} backdrop=${b.backdropStatus}`,
+    );
+  }
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
+const sceneStylesHandler: ToolHandler = async (args): Promise<ToolResult> => {
+  const query = args.name as string | undefined;
+  if (query) {
+    const style = getVisualStyle(query);
+    if (!style) {
+      return {
+        toolCallId: "",
+        success: false,
+        output: "",
+        error: `Unknown visual style "${query}". Run scene_styles with no name to list all 8.`,
+      };
+    }
+    const lines: string[] = [
+      `🎨 ${style.name} (${style.slug})`,
+      `   designer: ${style.designer}`,
+      `   mood:     ${style.mood}`,
+      `   bestFor:  ${style.bestFor}`,
+      `   palette:  ${style.palette.join(", ")} — ${style.paletteNotes}`,
+      `   typography: ${style.typography}`,
+      `   composition: ${style.composition}`,
+      `   motion:      ${style.motion}`,
+      `   transition:  ${style.transition}`,
+      `   gsap:        ${style.gsapSignature}`,
+      `   avoid:       ${style.avoid.join(" · ")}`,
+    ];
+    return { toolCallId: "", success: true, output: lines.join("\n") };
+  }
+
+  const styles = listVisualStyles();
+  const lines: string[] = [`📚 ${styles.length} vendored visual identities:`];
+  for (const s of styles) {
+    lines.push(`   • ${s.name} (${s.slug}) — ${s.mood}; best for ${s.bestFor}`);
+  }
+  lines.push(``, `Run scene_styles { name: "<slug>" } to fetch the full DESIGN.md hard-gate body for one style.`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
 // ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
@@ -287,6 +410,8 @@ export function registerSceneTools(registry: ToolRegistry): void {
   registry.register(sceneAddDef, sceneAddHandler);
   registry.register(sceneLintDef, sceneLintHandler);
   registry.register(sceneRenderDef, sceneRenderHandler);
+  registry.register(sceneBuildDef, sceneBuildHandler);
+  registry.register(sceneStylesDef, sceneStylesHandler);
 }
 
 // Exported for tests so the same defs can be inspected without instantiating
@@ -296,4 +421,6 @@ export const sceneToolDefinitions: ReadonlyArray<ToolDefinition> = [
   sceneAddDef,
   sceneLintDef,
   sceneRenderDef,
+  sceneBuildDef,
+  sceneStylesDef,
 ];

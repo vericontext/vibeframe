@@ -95,7 +95,7 @@ export const sceneTools = [
       type: "object" as const,
       properties: {
         projectDir:    { type: "string",  description: "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the MCP server's cwd." },
-        effort:        { type: "string",  enum: ["draft", "standard", "high"], description: "Compose effort tier passed to compose-scenes-with-skills. Default 'standard'." },
+        effort:        { type: "string",  enum: ["low", "medium", "high"], description: "Compose effort tier passed to compose-scenes-with-skills. Default 'medium'." },
         skipNarration: { type: "boolean", description: "Skip TTS for every beat (use existing audio assets if present)." },
         skipBackdrop:  { type: "boolean", description: "Skip image generation for every beat (use existing PNG assets if present)." },
         skipRender:    { type: "boolean", description: "Stop after compose — produces compositions/*.html but no final MP4." },
@@ -243,7 +243,7 @@ export async function handleSceneToolCall(
         : process.cwd();
       const result = await executeSceneBuild({
         projectDir,
-        effort: args.effort as "draft" | "standard" | "high" | undefined,
+        effort: args.effort as "low" | "medium" | "high" | undefined,
         skipNarration: args.skipNarration as boolean | undefined,
         skipBackdrop: args.skipBackdrop as boolean | undefined,
         skipRender: args.skipRender as boolean | undefined,
@@ -263,14 +263,13 @@ export async function handleSceneToolCall(
         success: true,
         outputPath: result.outputPath,
         beats: result.beats.map((b) => ({
-          id: b.id,
+          beatId: b.beatId,
           narrationStatus: b.narrationStatus,
           narrationPath: b.narrationPath,
+          narrationError: b.narrationError,
           backdropStatus: b.backdropStatus,
           backdropPath: b.backdropPath,
-          composeStatus: b.composeStatus,
-          composePath: b.composePath,
-          duration: b.duration,
+          backdropError: b.backdropError,
         })),
         totalLatencyMs: result.totalLatencyMs,
       });
