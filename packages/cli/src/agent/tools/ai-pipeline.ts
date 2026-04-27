@@ -14,6 +14,7 @@ import { writeFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import {
   executeScriptToVideo,
@@ -1044,12 +1045,14 @@ const animatedCaptionHandler: ToolHandler = async (args, context): Promise<ToolR
 // ============================================================================
 
 export function registerPipelineTools(registry: ToolRegistry): void {
-  registry.register(scriptToVideoDef, scriptToVideoHandler);
-  registry.register(highlightsDef, highlightsHandler);
-  registry.register(autoShortsDef, autoShortsHandler);
-  registry.register(geminiVideoDef, geminiVideoHandler);
-  registry.register(analyzeDef, analyzeHandler);
-  registry.register(editImageDef, editImageHandler);
-  registry.register(regenerateSceneDef, regenerateSceneHandler);
-  registry.register(animatedCaptionDef, animatedCaptionHandler);
+  // Manifest takes precedence — skip names already sourced from
+  // packages/cli/src/tools/manifest. Same pattern as scene.ts/timeline.ts.
+  if (!MIGRATED.has(scriptToVideoDef.name))    registry.register(scriptToVideoDef, scriptToVideoHandler);
+  if (!MIGRATED.has(highlightsDef.name))       registry.register(highlightsDef, highlightsHandler);
+  if (!MIGRATED.has(autoShortsDef.name))       registry.register(autoShortsDef, autoShortsHandler);
+  if (!MIGRATED.has(geminiVideoDef.name))      registry.register(geminiVideoDef, geminiVideoHandler);
+  if (!MIGRATED.has(analyzeDef.name))          registry.register(analyzeDef, analyzeHandler);
+  if (!MIGRATED.has(editImageDef.name))        registry.register(editImageDef, editImageHandler);
+  if (!MIGRATED.has(regenerateSceneDef.name))  registry.register(regenerateSceneDef, regenerateSceneHandler);
+  if (!MIGRATED.has(animatedCaptionDef.name))  registry.register(animatedCaptionDef, animatedCaptionHandler);
 }

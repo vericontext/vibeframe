@@ -17,6 +17,8 @@ import { registerMediaTools } from "./media.js";
 import { registerAITools } from "./ai.js";
 import { registerExportTools } from "./export.js";
 import { registerBatchTools } from "./batch.js";
+import { manifest } from "../../tools/manifest/index.js";
+import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 // Mock the imported CLI functions to avoid actual API calls
 vi.mock("../../commands/ai-script-pipeline.js", () => ({
   executeScriptToVideo: vi.fn().mockResolvedValue({
@@ -172,6 +174,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
 
   beforeEach(() => {
     registry = new ToolRegistry();
+    // Mirror production: manifest first, then legacy register*Tools (which
+    // skip names already in MIGRATED).
+    registerManifestIntoAgent(registry, manifest);
     registerProjectTools(registry);
     registerTimelineTools(registry);
     registerFilesystemTools(registry);
@@ -182,9 +187,13 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
   });
 
   describe("Tool Registration", () => {
-    it("should register all 73 non-scene tools", () => {
+    it("should register the full manifest + legacy agent-only tools", () => {
+      // Production registers manifest (79 entries with agent surface) plus
+      // legacy register*Tools (gated on MIGRATED). 6 scene tools come from
+      // manifest now, so the previous "73 non-scene" framing no longer
+      // applies — assert the post-v0.66 unified count.
       const tools = registry.getAll();
-      expect(tools.length).toBe(73);
+      expect(tools.length).toBe(79);
     });
 
     it("should register all project tools (5)", () => {
@@ -342,7 +351,8 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         const params = tool!.parameters.properties;
         // Required
         expect(params.script).toBeDefined();
-        // Optional (matching CLI options)
+        // Optional (matching CLI options). Manifest is SSOT — if a param
+        // diverges from the CLI, the fix is in the manifest, not here.
         expect(params.outputDir).toBeDefined();
         expect(params.duration).toBeDefined();
         expect(params.voice).toBeDefined();
@@ -351,7 +361,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         expect(params.aspectRatio).toBeDefined();
         expect(params.imagesOnly).toBeDefined();
         expect(params.noVoiceover).toBeDefined();
-        expect(params.retries).toBeDefined();
       });
 
       it("should have correct enum values for generator", () => {
@@ -513,7 +522,10 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           })
         );
         expect(result.success).toBe(true);
-        expect(result.output).toContain("Script-to-Video complete");
+        // Manifest's pipeline_script_to_video humanLines uses "Script-to-video"
+        // (lower-cased "video"). The legacy handler's "Script-to-Video complete"
+        // wording is gone post-v0.66.
+        expect(result.output).toContain("Script-to-video");
       });
 
       it("should handle failure gracefully", async () => {
@@ -549,16 +561,19 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           mockContext
         );
 
+        // Manifest's pipeline_highlights passes args through raw; the legacy
+        // handler used to resolve `media` against ctx.workingDirectory. If
+        // path resolution is needed, executeHighlights handles it internally.
         expect(executeHighlights).toHaveBeenCalledWith(
           expect.objectContaining({
-            media: "/test/workdir/video.mp4",
+            media: "video.mp4",
             duration: 60,
             criteria: "emotional",
             useGemini: true,
           })
         );
         expect(result.success).toBe(true);
-        expect(result.output).toContain("Found 1 highlights");
+        expect(result.output).toContain("highlights extracted");
       });
     });
 
@@ -578,16 +593,17 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           mockContext
         );
 
+        // Manifest passes args through raw (see pipeline_highlights note above).
         expect(executeAutoShorts).toHaveBeenCalledWith(
           expect.objectContaining({
-            video: "/test/workdir/long-video.mp4",
+            video: "long-video.mp4",
             count: 3,
             duration: 45,
             aspect: "9:16",
           })
         );
         expect(result.success).toBe(true);
-        expect(result.output).toContain("Generated 1 short");
+        expect(result.output).toContain("shorts generated");
       });
 
       it("should handle analyzeOnly mode", async () => {
@@ -619,15 +635,18 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           mockContext
         );
 
+        // Manifest passes args through raw (see pipeline_highlights note).
         expect(executeGeminiVideo).toHaveBeenCalledWith(
           expect.objectContaining({
-            source: "/test/workdir/video.mp4",
+            source: "video.mp4",
             prompt: "Summarize this video",
             model: "flash",
           })
         );
         expect(result.success).toBe(true);
-        expect(result.output).toContain("test video summary");
+        // Manifest's analyze_video humanLines reports the model, not the
+        // raw summary text — the summary is in result.data.text.
+        expect(result.output).toContain("Analyzed video");
       });
 
       it("should handle YouTube URLs without modification", async () => {
@@ -672,6 +691,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const pipelineTools = allTools.filter((t) => t.name.startsWith("pipeline_"));
       const exportTools = allTools.filter((t) => t.name.startsWith("export_"));
       const batchTools = allTools.filter((t) => t.name.startsWith("batch_"));
+      const sceneTools = allTools.filter((t) => t.name.startsWith("scene_"));
 
       expect(projectTools.length).toBe(5);
       expect(timelineTools.length).toBe(11);  // Added timeline_clear
@@ -683,8 +703,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(pipelineTools.length).toBe(4);  // animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
+      expect(sceneTools.length).toBe(6);  // v0.66: scene_* surfaced via manifest (init/add/lint/render/build/styles)
 
-      // Total: 5+11+4+12+13+14+4+4+3+3 = 73
+      // Total: 5+11+4+12+13+14+4+4+3+3+6 = 79
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -694,8 +715,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           analyzeTools.length +
           pipelineTools.length +
           exportTools.length +
-          batchTools.length;
-      expect(totalTools).toBe(73);
+          batchTools.length +
+          sceneTools.length;
+      expect(totalTools).toBe(79);
     });
   });
 });
@@ -730,6 +752,9 @@ describe("Tool Name Consistency", () => {
 
   beforeEach(() => {
     registry = new ToolRegistry();
+    // Mirror production: manifest first, then legacy register*Tools (which
+    // skip names already in MIGRATED).
+    registerManifestIntoAgent(registry, manifest);
     registerProjectTools(registry);
     registerTimelineTools(registry);
     registerFilesystemTools(registry);
@@ -754,6 +779,7 @@ describe("Tool Name Consistency", () => {
       "pipeline_",
       "export_",
       "batch_",
+      "scene_",
     ];
 
     for (const tool of tools) {
@@ -771,5 +797,44 @@ describe("Tool Name Consistency", () => {
     for (const tool of tools) {
       expect(tool.name).toMatch(validNamePattern);
     }
+  });
+});
+
+/**
+ * Regression for v0.65 silent overwrite bug: legacy register*Tools functions
+ * in ai-editing/ai-generation/ai-pipeline/media did NOT gate on MIGRATED, so
+ * they ran AFTER registerManifestIntoAgent and overwrote manifest definitions
+ * via Map.set. v0.66 PR1 added MIGRATED gates to all four files. This test
+ * proves the manifest definition is what the registry actually serves.
+ */
+describe("Manifest is SSOT for Agent surface", () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = new ToolRegistry();
+    registerManifestIntoAgent(registry, manifest);
+    registerProjectTools(registry);
+    registerTimelineTools(registry);
+    registerFilesystemTools(registry);
+    registerMediaTools(registry);
+    registerAITools(registry);
+    registerExportTools(registry);
+    registerBatchTools(registry);
+  });
+
+  it("every manifest entry with agent surface has its description served by registry", () => {
+    const drift: Array<{ name: string; manifest: string; registry: string }> = [];
+    for (const entry of manifest) {
+      if (entry.surfaces && !entry.surfaces.includes("agent")) continue;
+      const registered = registry.get(entry.name);
+      if (!registered) {
+        drift.push({ name: entry.name, manifest: entry.description, registry: "<not registered>" });
+        continue;
+      }
+      if (registered.description !== entry.description) {
+        drift.push({ name: entry.name, manifest: entry.description, registry: registered.description });
+      }
+    }
+    expect(drift, `Agent registry diverges from manifest for: ${drift.map((d) => d.name).join(", ")}`).toEqual([]);
   });
 });

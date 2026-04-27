@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 
 // Tool Definitions
 const projectCreateDef: ToolDefinition = {
@@ -305,9 +306,10 @@ const projectSave: ToolHandler = async (args, context): Promise<ToolResult> => {
 
 // Registration function
 export function registerProjectTools(registry: ToolRegistry): void {
-  registry.register(projectCreateDef, projectCreate);
-  registry.register(projectInfoDef, projectInfo);
-  registry.register(projectSetDef, projectSet);
-  registry.register(projectOpenDef, projectOpen);
-  registry.register(projectSaveDef, projectSave);
+  // Manifest takes precedence — project_set/open/save stay hand-written here.
+  if (!MIGRATED.has(projectCreateDef.name))  registry.register(projectCreateDef, projectCreate);
+  if (!MIGRATED.has(projectInfoDef.name))    registry.register(projectInfoDef, projectInfo);
+  if (!MIGRATED.has(projectSetDef.name))     registry.register(projectSetDef, projectSet);
+  if (!MIGRATED.has(projectOpenDef.name))    registry.register(projectOpenDef, projectOpen);
+  if (!MIGRATED.has(projectSaveDef.name))    registry.register(projectSaveDef, projectSave);
 }

@@ -9,6 +9,7 @@ import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { ffprobeDuration } from "../../utils/exec-safe.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 
 // Helper to detect media type from file extension
 function detectMediaType(path: string): MediaType {
@@ -938,15 +939,16 @@ const clear: ToolHandler = async (args, context): Promise<ToolResult> => {
 
 // Registration function
 export function registerTimelineTools(registry: ToolRegistry): void {
-  registry.register(addSourceDef, addSource);
-  registry.register(addClipDef, addClip);
-  registry.register(addTrackDef, addTrack);
-  registry.register(addEffectDef, addEffect);
-  registry.register(trimDef, trim);
-  registry.register(splitDef, split);
-  registry.register(moveDef, move);
-  registry.register(deleteDef, deleteClip);
-  registry.register(duplicateDef, duplicate);
-  registry.register(listDef, list);
-  registry.register(clearDef, clear);
+  // Manifest takes precedence — only timeline_clear stays hand-written here.
+  if (!MIGRATED.has(addSourceDef.name))   registry.register(addSourceDef, addSource);
+  if (!MIGRATED.has(addClipDef.name))     registry.register(addClipDef, addClip);
+  if (!MIGRATED.has(addTrackDef.name))    registry.register(addTrackDef, addTrack);
+  if (!MIGRATED.has(addEffectDef.name))   registry.register(addEffectDef, addEffect);
+  if (!MIGRATED.has(trimDef.name))        registry.register(trimDef, trim);
+  if (!MIGRATED.has(splitDef.name))       registry.register(splitDef, split);
+  if (!MIGRATED.has(moveDef.name))        registry.register(moveDef, move);
+  if (!MIGRATED.has(deleteDef.name))      registry.register(deleteDef, deleteClip);
+  if (!MIGRATED.has(duplicateDef.name))   registry.register(duplicateDef, duplicate);
+  if (!MIGRATED.has(listDef.name))        registry.register(listDef, list);
+  if (!MIGRATED.has(clearDef.name))       registry.register(clearDef, clear);
 }

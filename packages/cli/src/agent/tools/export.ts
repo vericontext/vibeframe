@@ -6,6 +6,7 @@ import { resolve, basename } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import { runExport } from "../../commands/export.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 
 // Tool Definitions
 const exportVideoDef: ToolDefinition = {
@@ -178,7 +179,8 @@ const exportSubtitles: ToolHandler = async (_args, _context): Promise<ToolResult
 
 // Registration function
 export function registerExportTools(registry: ToolRegistry): void {
-  registry.register(exportVideoDef, exportVideo);
-  registry.register(exportAudioDef, exportAudio);
-  registry.register(exportSubtitlesDef, exportSubtitles);
+  // Manifest takes precedence — export_audio/subtitles stay hand-written here.
+  if (!MIGRATED.has(exportVideoDef.name))      registry.register(exportVideoDef, exportVideo);
+  if (!MIGRATED.has(exportAudioDef.name))      registry.register(exportAudioDef, exportAudio);
+  if (!MIGRATED.has(exportSubtitlesDef.name))  registry.register(exportSubtitlesDef, exportSubtitles);
 }

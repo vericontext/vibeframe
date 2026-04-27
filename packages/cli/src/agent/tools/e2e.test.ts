@@ -29,6 +29,8 @@ import { resolve, join } from "node:path";
 import { execSync } from "node:child_process";
 import { ToolRegistry } from "./index.js";
 import { registerAITools } from "./ai.js";
+import { manifest } from "../../tools/manifest/index.js";
+import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 import type { AgentContext } from "../types.js";
 
 // Skip all tests unless RUN_E2E is set
@@ -90,8 +92,10 @@ describe.skipIf(!RUN_E2E)("E2E: AI Pipeline Tools", () => {
   beforeAll(() => {
     printCostWarning();
 
-    // Setup registry
+    // Setup registry — mirror production: manifest first, then legacy
+    // register*Tools (which skip names already in MIGRATED).
     registry = new ToolRegistry();
+    registerManifestIntoAgent(registry, manifest);
     registerAITools(registry);
 
     // Create test output directory

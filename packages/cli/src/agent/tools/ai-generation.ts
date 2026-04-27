@@ -13,6 +13,7 @@ import { writeFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { downloadVideo } from "../../commands/ai-helpers.js";
 import { sanitizeAIResult } from "../../commands/sanitize.js";
@@ -1214,16 +1215,18 @@ const generateVideoExtendHandler: ToolHandler = async (args, context): Promise<T
 // ============================================================================
 
 export function registerGenerationTools(registry: ToolRegistry): void {
-  registry.register(imageDef, generateImage);
-  registry.register(videoDef, generateVideo);
-  registry.register(ttsDef, generateTTS);
-  registry.register(sfxDef, generateSFX);
-  registry.register(musicDef, generateMusic);
-  registry.register(storyboardDef, generateStoryboard);
-  registry.register(motionDef, generateMotion);
-  registry.register(generateBackgroundDef, generateBackgroundHandler);
-  registry.register(generateMusicStatusDef, generateMusicStatusHandler);
-  registry.register(generateVideoStatusDef, generateVideoStatusHandler);
-  registry.register(generateVideoCancelDef, generateVideoCancelHandler);
-  registry.register(generateVideoExtendDef, generateVideoExtendHandler);
+  // Manifest takes precedence — skip names already sourced from
+  // packages/cli/src/tools/manifest. Same pattern as scene.ts/timeline.ts.
+  if (!MIGRATED.has(imageDef.name))                  registry.register(imageDef, generateImage);
+  if (!MIGRATED.has(videoDef.name))                  registry.register(videoDef, generateVideo);
+  if (!MIGRATED.has(ttsDef.name))                    registry.register(ttsDef, generateTTS);
+  if (!MIGRATED.has(sfxDef.name))                    registry.register(sfxDef, generateSFX);
+  if (!MIGRATED.has(musicDef.name))                  registry.register(musicDef, generateMusic);
+  if (!MIGRATED.has(storyboardDef.name))             registry.register(storyboardDef, generateStoryboard);
+  if (!MIGRATED.has(motionDef.name))                 registry.register(motionDef, generateMotion);
+  if (!MIGRATED.has(generateBackgroundDef.name))     registry.register(generateBackgroundDef, generateBackgroundHandler);
+  if (!MIGRATED.has(generateMusicStatusDef.name))    registry.register(generateMusicStatusDef, generateMusicStatusHandler);
+  if (!MIGRATED.has(generateVideoStatusDef.name))    registry.register(generateVideoStatusDef, generateVideoStatusHandler);
+  if (!MIGRATED.has(generateVideoCancelDef.name))    registry.register(generateVideoCancelDef, generateVideoCancelHandler);
+  if (!MIGRATED.has(generateVideoExtendDef.name))    registry.register(generateVideoExtendDef, generateVideoExtendHandler);
 }

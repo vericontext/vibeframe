@@ -8,6 +8,7 @@ import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 import {
   executeIsolate,
   executeVoiceClone,
@@ -813,16 +814,19 @@ const audioDuckHandler: ToolHandler = async (args, context): Promise<ToolResult>
 
 // Registration function
 export function registerMediaTools(registry: ToolRegistry): void {
-  registry.register(mediaInfoDef, mediaInfo);
-  registry.register(detectScenesDef, detectScenes);
-  registry.register(detectSilenceDef, detectSilence);
-  registry.register(detectBeatsDef, detectBeats);
-  registry.register(transcribeDef, transcribe);
-  registry.register(compressDef, compress);
-  registry.register(convertDef, convert);
-  registry.register(concatDef, concat);
-  registry.register(audioIsolateDef, audioIsolateHandler);
-  registry.register(audioVoiceCloneDef, audioVoiceCloneHandler);
-  registry.register(audioDubDef, audioDubHandler);
-  registry.register(audioDuckDef, audioDuckHandler);
+  // Manifest takes precedence — the 8 detect_* / audio_* tools are
+  // manifest-sourced; the 4 media_* tools (info/compress/convert/concat) stay
+  // hand-written here. Same pattern as scene.ts/timeline.ts.
+  if (!MIGRATED.has(mediaInfoDef.name))         registry.register(mediaInfoDef, mediaInfo);
+  if (!MIGRATED.has(detectScenesDef.name))      registry.register(detectScenesDef, detectScenes);
+  if (!MIGRATED.has(detectSilenceDef.name))     registry.register(detectSilenceDef, detectSilence);
+  if (!MIGRATED.has(detectBeatsDef.name))       registry.register(detectBeatsDef, detectBeats);
+  if (!MIGRATED.has(transcribeDef.name))        registry.register(transcribeDef, transcribe);
+  if (!MIGRATED.has(compressDef.name))          registry.register(compressDef, compress);
+  if (!MIGRATED.has(convertDef.name))           registry.register(convertDef, convert);
+  if (!MIGRATED.has(concatDef.name))            registry.register(concatDef, concat);
+  if (!MIGRATED.has(audioIsolateDef.name))      registry.register(audioIsolateDef, audioIsolateHandler);
+  if (!MIGRATED.has(audioVoiceCloneDef.name))   registry.register(audioVoiceCloneDef, audioVoiceCloneHandler);
+  if (!MIGRATED.has(audioDubDef.name))          registry.register(audioDubDef, audioDubHandler);
+  if (!MIGRATED.has(audioDuckDef.name))         registry.register(audioDuckDef, audioDuckHandler);
 }

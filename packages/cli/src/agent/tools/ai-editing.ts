@@ -14,6 +14,7 @@
 import { resolve } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
+import { MIGRATED } from "../../tools/define-tool.js";
 import {
   executeTextOverlay,
   executeSilenceCut,
@@ -1020,19 +1021,21 @@ const editUpscaleHandler: ToolHandler = async (args, context): Promise<ToolResul
 // ============================================================================
 
 export function registerEditingTools(registry: ToolRegistry): void {
-  registry.register(textOverlayDef, textOverlayHandler);
-  registry.register(reviewDef, reviewHandler);
-  registry.register(silenceCutDef, silenceCutHandler);
-  registry.register(jumpCutDef, jumpCutHandler);
-  registry.register(captionDef, captionHandler);
-  registry.register(noiseReduceDef, noiseReduceHandler);
-  registry.register(fadeDef, fadeHandler);
-  registry.register(thumbnailBestFrameDef, thumbnailBestFrameHandler);
-  registry.register(translateSrtDef, translateSrtHandler);
-  registry.register(editGradeDef, editGradeHandler);
-  registry.register(editSpeedRampDef, editSpeedRampHandler);
-  registry.register(editReframeDef, editReframeHandler);
-  registry.register(editInterpolateDef, editInterpolateHandler);
-  registry.register(editUpscaleDef, editUpscaleHandler);
-  registry.register(analyzeSuggestDef, analyzeSuggestHandler);
+  // Manifest takes precedence — skip names already sourced from
+  // packages/cli/src/tools/manifest. Same pattern as scene.ts/timeline.ts.
+  if (!MIGRATED.has(textOverlayDef.name))        registry.register(textOverlayDef, textOverlayHandler);
+  if (!MIGRATED.has(reviewDef.name))             registry.register(reviewDef, reviewHandler);
+  if (!MIGRATED.has(silenceCutDef.name))         registry.register(silenceCutDef, silenceCutHandler);
+  if (!MIGRATED.has(jumpCutDef.name))            registry.register(jumpCutDef, jumpCutHandler);
+  if (!MIGRATED.has(captionDef.name))            registry.register(captionDef, captionHandler);
+  if (!MIGRATED.has(noiseReduceDef.name))        registry.register(noiseReduceDef, noiseReduceHandler);
+  if (!MIGRATED.has(fadeDef.name))               registry.register(fadeDef, fadeHandler);
+  if (!MIGRATED.has(thumbnailBestFrameDef.name)) registry.register(thumbnailBestFrameDef, thumbnailBestFrameHandler);
+  if (!MIGRATED.has(translateSrtDef.name))       registry.register(translateSrtDef, translateSrtHandler);
+  if (!MIGRATED.has(editGradeDef.name))          registry.register(editGradeDef, editGradeHandler);
+  if (!MIGRATED.has(editSpeedRampDef.name))      registry.register(editSpeedRampDef, editSpeedRampHandler);
+  if (!MIGRATED.has(editReframeDef.name))        registry.register(editReframeDef, editReframeHandler);
+  if (!MIGRATED.has(editInterpolateDef.name))    registry.register(editInterpolateDef, editInterpolateHandler);
+  if (!MIGRATED.has(editUpscaleDef.name))        registry.register(editUpscaleDef, editUpscaleHandler);
+  if (!MIGRATED.has(analyzeSuggestDef.name))     registry.register(analyzeSuggestDef, analyzeSuggestHandler);
 }
