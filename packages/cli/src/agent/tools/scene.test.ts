@@ -25,9 +25,16 @@ beforeEach(() => {
 });
 
 describe("scene agent tools — registration + schema", () => {
-  it("registers exactly four scene_* tools", () => {
+  it("registers exactly six scene_* tools", () => {
     const names = registry.getDefinitions().map((t) => t.name).filter((n) => n.startsWith("scene_")).sort();
-    expect(names).toEqual(["scene_add", "scene_init", "scene_lint", "scene_render"]);
+    expect(names).toEqual([
+      "scene_add",
+      "scene_build",
+      "scene_init",
+      "scene_lint",
+      "scene_render",
+      "scene_styles",
+    ]);
   });
 
   it("exports definitions matching the registered set (parity with sceneToolDefinitions)", () => {

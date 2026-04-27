@@ -182,9 +182,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
   });
 
   describe("Tool Registration", () => {
-    it("should register all 71 non-scene tools", () => {
+    it("should register all 73 non-scene tools", () => {
       const tools = registry.getAll();
-      expect(tools.length).toBe(71);
+      expect(tools.length).toBe(73);
     });
 
     it("should register all project tools (5)", () => {
@@ -677,14 +677,14 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(timelineTools.length).toBe(11);  // Added timeline_clear
       expect(fsTools.length).toBe(4);
       expect(mediaTools.length).toBe(12);  // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
-      expect(generateTools.length).toBe(12);  // +background, video_status/cancel/extend (Phase B v0.64)
+      expect(generateTools.length).toBe(13);  // +background, video_status/cancel/extend, music_status (Phase B v0.64)
       expect(editTools.length).toBe(14);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption (Phase B+D v0.64)
-      expect(analyzeTools.length).toBe(3);  // video, media, review
+      expect(analyzeTools.length).toBe(4);  // video, media, review, suggest
       expect(pipelineTools.length).toBe(4);  // animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
 
-      // Total: 5+11+4+12+12+14+3+4+3+3 = 71
+      // Total: 5+11+4+12+13+14+4+4+3+3 = 73
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -695,7 +695,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           pipelineTools.length +
           exportTools.length +
           batchTools.length;
-      expect(totalTools).toBe(71);
+      expect(totalTools).toBe(73);
     });
   });
 });
