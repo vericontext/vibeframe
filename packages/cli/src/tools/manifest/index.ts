@@ -9,14 +9,25 @@ import { sceneTools } from "./scene.js";
 import { audioTools } from "./audio.js";
 import { editTools } from "./edit.js";
 import { analyzeTools } from "./analyze.js";
+import { generateTools } from "./generate.js";
+import { pipelineTools } from "./pipeline.js";
 
 export const manifest: readonly AnyTool[] = [
   ...sceneTools,
   ...audioTools,
   ...editTools,
   ...analyzeTools,
-  // Future commits add: generate, pipeline, detect, timeline, project,
-  // export, agent-only, mcp-only.
+  ...generateTools,
+  ...pipelineTools,
+  // Future commits add: detect, timeline, project, export, agent-only,
+  // mcp-only.
 ];
 
-export { sceneTools, audioTools, editTools, analyzeTools };
+export {
+  sceneTools,
+  audioTools,
+  editTools,
+  analyzeTools,
+  generateTools,
+  pipelineTools,
+};
