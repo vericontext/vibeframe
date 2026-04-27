@@ -1,8 +1,16 @@
 # @vibeframe/mcp-server
 
-MCP (Model Context Protocol) server for [VibeFrame](https://github.com/vericontext/vibeframe) — AI-native video editing.
+The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe). This package is *only* the MCP adapter — it exposes VibeFrame's operations as typed MCP tools so a host (Claude Desktop, Claude Code, Cursor, …) can call them by natural language.
 
-Author scenes, generate media, run pipelines, and edit timelines from any MCP host (Claude Desktop, Claude Code, Cursor, …) by natural language.
+> **Just want a CLI?** Use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) instead — same operations, invoked directly in your shell as `vibe <command>`. This package and the CLI wrap the same underlying engine; pick whichever fits your workflow. Many users install both.
+
+| Surface | Package | How you call it |
+|---------|---------|-----------------|
+| MCP host (Claude Desktop / Cursor / Claude Code) | `@vibeframe/mcp-server` *(this)* | host calls tool by name → `mcp__vibeframe__scene_init({...})` |
+| Shell / scripts | `@vibeframe/cli` | `vibe scene init my-promo` |
+| Standalone agent REPL | `@vibeframe/cli` (`vibe agent`) | natural language → CLI calls |
+
+The tool list below is what the MCP host sees. The same operations exist as `vibe <verb> <noun>` subcommands in the CLI — see `vibe --help`.
 
 ## Quick Setup
 
@@ -44,17 +52,20 @@ claude mcp add vibeframe -- npx -y @vibeframe/mcp-server
 
 ## What You Can Do
 
-Once connected, ask your AI assistant:
+Once connected, your MCP host can resolve prompts like these into typed tool calls:
 
 > "Scaffold a 12-second Swiss-Pulse promo project, three beats, and render it"
+> *→ `scene_init` + 3× `scene_add` + `scene_render`*
 
 > "Generate a cinematic backdrop image, animate it for 5 seconds, add narration"
+> *→ `generate_image` + `generate_motion` + `generate_speech`*
 
 > "Remove silent segments and add captions to my interview"
-
-> "Extract three highlight clips and make a 60-second short"
+> *→ `edit_silence_cut` + `edit_caption`*
 
 ## Available Tools (58)
+
+Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows them as `mcp__vibeframe__scene_init`). Each one wraps the same engine call as the matching `vibe` CLI subcommand.
 
 ### Scene authoring (4) — v0.58+
 
