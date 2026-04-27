@@ -63,7 +63,7 @@ Once connected, your MCP host can resolve prompts like these into typed tool cal
 > "Remove silent segments and add captions to my interview"
 > *→ `edit_silence_cut` + `edit_caption`*
 
-## Available Tools (61)
+## Available Tools (63)
 
 Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows them as `mcp__vibeframe__scene_init`). Each one wraps the same engine call as the matching `vibe` CLI subcommand.
 
@@ -78,7 +78,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `scene_render` | Deterministic Hyperframes render → MP4 |
 | `scene_build` | **v0.60 one-shot**: STORYBOARD.md cues → TTS + image + compose + render → MP4 (cached, idempotent) |
 
-### Generation (12)
+### Generation (13)
 
 | Tool | Description | Providers |
 |------|-------------|-----------|
@@ -88,7 +88,8 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `generate_video_status` / `_cancel` / `_extend` | Manage long-running video jobs | (provider-specific) |
 | `generate_motion` | Animate a still image | FAL Seedance, Runway |
 | `generate_speech` | Text-to-speech | ElevenLabs |
-| `generate_music` | AI background music | Suno, ElevenLabs |
+| `generate_music` | AI background music | Suno, ElevenLabs, Replicate MusicGen |
+| `generate_music_status` | Poll Replicate music task | Replicate |
 | `generate_sound_effect` | SFX from prompt | ElevenLabs |
 | `generate_thumbnail` | AI thumbnail composition | OpenAI, Google |
 | `generate_storyboard` | Multi-beat storyboard frames | OpenAI, Google |
@@ -129,13 +130,14 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `detect_scenes` | Find shot boundaries |
 | `detect_beats` | Find music beats |
 
-### Analysis (3)
+### Analysis (4)
 
 | Tool | Description |
 |------|-------------|
 | `analyze_media` | Unified image / video / YouTube analysis (Gemini) |
 | `analyze_video` | Temporal video understanding (Gemini) |
 | `analyze_review` | AI video review + auto-fix suggestions |
+| `analyze_suggest` | Natural-language project edit suggestions (Gemini); optional auto-apply |
 
 ### Timeline (10)
 

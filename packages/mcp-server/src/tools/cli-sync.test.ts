@@ -75,7 +75,7 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   "generate video-status":  { mcp: "generate_video_status", agent: "generate_video_status" },
   "generate video-cancel":  { mcp: "generate_video_cancel", agent: "generate_video_cancel" },
   "generate video-extend":  { mcp: "generate_video_extend", agent: "generate_video_extend" },
-  "generate music-status":  { mcp: null, agent: null }, // TODO async music job status everywhere
+  "generate music-status":  { mcp: "generate_music_status", agent: "generate_music_status" },
 
   // edit
   "edit silence-cut":       { mcp: "edit_silence_cut",   agent: "edit_silence_cut" },
@@ -84,7 +84,7 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   "edit fade":              { mcp: "edit_fade",          agent: "edit_fade" },
   "edit translate-srt":     { mcp: "edit_translate_srt", agent: "edit_translate_srt" },
   "edit jump-cut":          { mcp: "edit_jump_cut",      agent: "edit_jump_cut" },
-  "edit fill-gaps":         { mcp: null, agent: null },  // TODO: extract executeFillGaps + wire both
+  "edit fill-gaps":         { mcp: null, agent: null },  // TODO v0.65: extract executeFillGaps from ~400-line .action() — Kling i2v gap-filler
   "edit grade":             { mcp: "edit_grade",         agent: "edit_grade" },
   "edit text-overlay":      { mcp: "edit_text_overlay",  agent: "edit_text_overlay" },
   "edit speed-ramp":        { mcp: "edit_speed_ramp",    agent: "edit_speed_ramp" },
@@ -95,7 +95,7 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
 
   // audio
   "audio transcribe":   { mcp: "audio_transcribe",  agent: "audio_transcribe" },
-  "audio voices":       { mcp: null, agent: null },               // diagnostic — CLI-only by design
+  "audio voices":       { mcp: null, agent: null },               // CLI-only by design — diagnostic ElevenLabs voice lister
   "audio isolate":      { mcp: "audio_isolate",     agent: "audio_isolate" },
   "audio voice-clone":  { mcp: "audio_voice_clone", agent: "audio_voice_clone" },
   "audio dub":          { mcp: "audio_dub",         agent: "audio_dub" },
@@ -127,13 +127,13 @@ const SYNC_TABLE: Record<string, SyncEntry> = {
   // project
   "project create": { mcp: "project_create", agent: "project_create" },
   "project info":   { mcp: "project_info",   agent: "project_info" },
-  "project set":    { mcp: null, agent: null }, // CLI-only config writer
+  "project set":    { mcp: null, agent: null }, // CLI-only by design — config writer; agents/hosts use fs_write
 
   // analyze
   "analyze media":   { mcp: "analyze_media",  agent: "analyze_media" },
   "analyze video":   { mcp: "analyze_video",  agent: "analyze_video" },
   "analyze review":  { mcp: "analyze_review", agent: "analyze_review" },
-  "analyze suggest": { mcp: null, agent: null }, // TODO: ai-suggest-edit not exposed anywhere
+  "analyze suggest": { mcp: "analyze_suggest", agent: "analyze_suggest" },
 };
 
 // MCP tools that have no direct CLI subcommand by design — namespace shifts,

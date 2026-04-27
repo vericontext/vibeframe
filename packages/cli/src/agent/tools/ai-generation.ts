@@ -16,7 +16,7 @@ import type { ToolDefinition, ToolResult } from "../types.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { downloadVideo } from "../../commands/ai-helpers.js";
 import { sanitizeAIResult } from "../../commands/sanitize.js";
-import { executeBackground } from "../../commands/generate.js";
+import { executeBackground, executeMusicStatus } from "../../commands/generate.js";
 import {
   executeVideoStatus,
   executeVideoCancel,
@@ -1147,6 +1147,29 @@ const generateVideoCancelHandler: ToolHandler = async (args): Promise<ToolResult
   return { toolCallId: "", success: true, output: `Task ${args.taskId} cancelled.` };
 };
 
+const generateMusicStatusDef: ToolDefinition = {
+  name: "generate_music_status",
+  description: "Check Replicate music generation status. `generate_music` returns a task id; this tool polls it until the audio URL is ready. Requires REPLICATE_API_TOKEN.",
+  parameters: {
+    type: "object",
+    properties: {
+      taskId: { type: "string", description: "Task ID returned from generate_music" },
+    },
+    required: ["taskId"],
+  },
+};
+
+const generateMusicStatusHandler: ToolHandler = async (args): Promise<ToolResult> => {
+  const result = await executeMusicStatus({ taskId: args.taskId as string });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "generate_music_status failed" };
+  }
+  const lines: string[] = [`Music task ${result.taskId}: ${result.status}`];
+  if (result.audioUrl) lines.push(`Audio URL: ${result.audioUrl}`);
+  if (result.error) lines.push(`Error: ${result.error}`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
 const generateVideoExtendDef: ToolDefinition = {
   name: "generate_video_extend",
   description: "Extend a previously-generated video using Kling or Veo. Requires the video/operation ID from a prior generate_video call.",
@@ -1199,6 +1222,7 @@ export function registerGenerationTools(registry: ToolRegistry): void {
   registry.register(storyboardDef, generateStoryboard);
   registry.register(motionDef, generateMotion);
   registry.register(generateBackgroundDef, generateBackgroundHandler);
+  registry.register(generateMusicStatusDef, generateMusicStatusHandler);
   registry.register(generateVideoStatusDef, generateVideoStatusHandler);
   registry.register(generateVideoCancelDef, generateVideoCancelHandler);
   registry.register(generateVideoExtendDef, generateVideoExtendHandler);

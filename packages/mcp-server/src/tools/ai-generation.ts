@@ -1,7 +1,7 @@
 import { executeMotion } from "@vibeframe/cli/commands/ai-motion";
 import { executeAnimatedCaption } from "@vibeframe/cli/commands/ai-animated-caption";
 import { executeRegenerateScene } from "@vibeframe/cli/commands/ai-script-pipeline";
-import { executeSpeech, executeSoundEffect, executeMusic, executeStoryboard, executeBackground } from "@vibeframe/cli/commands/generate";
+import { executeSpeech, executeSoundEffect, executeMusic, executeMusicStatus, executeStoryboard, executeBackground } from "@vibeframe/cli/commands/generate";
 import { executeImageGenerate, executeGeminiEdit } from "@vibeframe/cli/commands/ai-image";
 
 export const aiGenerationTools = [
@@ -217,6 +217,17 @@ export const aiGenerationTools = [
       required: ["description"],
     },
   },
+  {
+    name: "generate_music_status",
+    description: "Check Replicate music generation task status. `generate_music` returns a task id; this tool polls it until the audio URL is ready. Requires REPLICATE_API_TOKEN.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        taskId: { type: "string", description: "Task ID returned from generate_music" },
+      },
+      required: ["taskId"],
+    },
+  },
 ];
 
 export async function handleAiGenerationToolCall(
@@ -376,6 +387,18 @@ export async function handleAiGenerationToolCall(
         imageUrl: result.imageUrl,
         outputPath: result.outputPath,
         revisedPrompt: result.revisedPrompt,
+      });
+    }
+
+    case "generate_music_status": {
+      const result = await executeMusicStatus({ taskId: args.taskId as string });
+      if (!result.success) return `Music status check failed: ${result.error}`;
+      return JSON.stringify({
+        success: true,
+        taskId: result.taskId,
+        status: result.status,
+        audioUrl: result.audioUrl,
+        error: result.error,
       });
     }
 

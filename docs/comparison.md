@@ -69,7 +69,7 @@ ahead because Chrome warm-up amortises across more frames.
 | **Word-sync captions** | manual JS hardcoding (see [`hyperframe-learn` example](https://github.com/heygen-com/hyperframes)) | `vibe scene add` emits `<span class="word">` from transcript automatically |
 | One-shot STORYBOARD → MP4 | not in scope | `vibe scene build` (v0.60+) |
 | Provider routing (TTS/image/video) | n/a | `--tts auto\|kokoro\|elevenlabs`, `--image-provider gemini\|openai`, `-g grok\|kling\|runway\|veo` |
-| Agent + MCP tool surface | n/a | 61 MCP tools incl. `scene_init/add/build/lint/render/styles` |
+| Agent + MCP tool surface | n/a | 63 MCP tools incl. `scene_init/add/build/lint/render/styles` |
 | Pricing | $0 (local) | $0 with Kokoro+Gemini, ≤$0.10 with ElevenLabs+OpenAI |
 
 ## What VibeFrame is *not* solving

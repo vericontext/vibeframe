@@ -131,6 +131,10 @@
       "import": "./src/commands/_shared/visual-styles.ts",
       "types": "./src/commands/_shared/visual-styles.ts"
     },
+    "./commands/ai-suggest-edit": {
+      "import": "./src/commands/ai-suggest-edit.ts",
+      "types": "./src/commands/ai-suggest-edit.ts"
+    },
     "./pipeline": {
       "import": "./src/pipeline/index.ts",
       "types": "./src/pipeline/index.ts"

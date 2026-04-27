@@ -33,6 +33,7 @@ import {
   executeUpscale,
 } from "../../commands/edit-cmd.js";
 import { executeReview } from "../../commands/ai-review.js";
+import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { executeThumbnailBestFrame } from "../../commands/ai-image.js";
 import { sanitizeAIResult } from "../../commands/sanitize.js";
 
@@ -836,6 +837,41 @@ const translateSrtHandler: ToolHandler = async (args, context): Promise<ToolResu
 };
 
 // ============================================================================
+// analyze_suggest — Gemini-driven edit suggestions for a project
+// ============================================================================
+
+const analyzeSuggestDef: ToolDefinition = {
+  name: "analyze_suggest",
+  description: "Get natural-language edit suggestions for a project from Gemini. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
+  parameters: {
+    type: "object",
+    properties: {
+      projectPath: { type: "string",  description: "Project file path (.vibe.json)" },
+      instruction: { type: "string",  description: "Natural-language instruction (e.g. 'trim all clips to 5 seconds')" },
+      apply:       { type: "boolean", description: "Apply the first suggestion in place" },
+    },
+    required: ["projectPath", "instruction"],
+  },
+};
+
+const analyzeSuggestHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const result = await executeSuggestEdit({
+    projectPath: resolve(context.workingDirectory, args.projectPath as string),
+    instruction: args.instruction as string,
+    apply: args.apply as boolean | undefined,
+  });
+  if (!result.success) {
+    return { toolCallId: "", success: false, output: "", error: result.error ?? "analyze_suggest failed" };
+  }
+  const lines: string[] = [`Found ${result.suggestions?.length ?? 0} suggestion(s)`];
+  result.suggestions?.forEach((s, i) => {
+    lines.push(`  [${i + 1}] ${s.type.toUpperCase()} (conf ${(s.confidence * 100).toFixed(0)}%) — ${s.description}`);
+  });
+  if (result.applied) lines.push(`Applied first suggestion → ${result.outputPath}`);
+  return { toolCallId: "", success: true, output: lines.join("\n") };
+};
+
+// ============================================================================
 // v0.55+ edit primitives — colour grade / speed ramp / reframe / interpolate / upscale
 // ============================================================================
 
@@ -998,4 +1034,5 @@ export function registerEditingTools(registry: ToolRegistry): void {
   registry.register(editReframeDef, editReframeHandler);
   registry.register(editInterpolateDef, editInterpolateHandler);
   registry.register(editUpscaleDef, editUpscaleHandler);
+  registry.register(analyzeSuggestDef, analyzeSuggestHandler);
 }

@@ -1,6 +1,7 @@
 import { executeAnalyze, executeGeminiVideo } from "@vibeframe/cli/commands/ai-analyze";
 import { executeReview } from "@vibeframe/cli/commands/ai-review";
 import { executeThumbnailBestFrame } from "@vibeframe/cli/commands/ai-image";
+import { executeSuggestEdit } from "@vibeframe/cli/commands/ai-suggest-edit";
 
 export const aiAnalysisTools = [
   {
@@ -79,6 +80,19 @@ export const aiAnalysisTools = [
       required: ["videoPath", "outputPath"],
     },
   },
+  {
+    name: "analyze_suggest",
+    description: "Get natural-language edit suggestions for a project from Gemini. Returns suggestions array with type/confidence/clipIds. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        projectPath: { type: "string", description: "Project file path (.vibe.json)" },
+        instruction: { type: "string", description: "Natural-language instruction (e.g. 'trim all clips to 5 seconds', 'add transitions between every clip')" },
+        apply:       { type: "boolean", description: "Apply the first suggestion in place" },
+      },
+      required: ["projectPath", "instruction"],
+    },
+  },
 ];
 
 export async function handleAiAnalysisToolCall(
@@ -153,6 +167,23 @@ export async function handleAiAnalysisToolCall(
         outputPath: result.outputPath,
         timestamp: result.timestamp,
         reason: result.reason,
+      });
+    }
+
+    case "analyze_suggest": {
+      const result = await executeSuggestEdit({
+        projectPath: args.projectPath as string,
+        instruction: args.instruction as string,
+        apply: args.apply as boolean | undefined,
+      });
+      if (!result.success) return `Suggest failed: ${result.error}`;
+      return JSON.stringify({
+        success: true,
+        suggestionCount: result.suggestions?.length ?? 0,
+        suggestions: result.suggestions,
+        applied: result.applied,
+        appliedSuggestion: result.appliedSuggestion,
+        outputPath: result.outputPath,
       });
     }
 
