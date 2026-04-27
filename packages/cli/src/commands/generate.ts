@@ -2427,3 +2427,63 @@ export async function executeStoryboard(options: ExecuteStoryboardOptions): Prom
     return { success: false, error: `Storyboard failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
+
+export interface ExecuteBackgroundOptions {
+  description: string;
+  aspect?: "16:9" | "9:16" | "1:1" | string;
+  output?: string;
+  apiKey?: string;
+}
+export interface ExecuteBackgroundResult {
+  success: boolean;
+  imageUrl?: string;
+  outputPath?: string;
+  base64?: string;
+  revisedPrompt?: string;
+  error?: string;
+}
+
+export async function executeBackground(options: ExecuteBackgroundOptions): Promise<ExecuteBackgroundResult> {
+  try {
+    const apiKey = options.apiKey
+      ?? (hasApiKey("OPENAI_API_KEY")
+        ? ((await getApiKeyFromConfig("openai")) || process.env.OPENAI_API_KEY!)
+        : null);
+    if (!apiKey) return { success: false, error: "OPENAI_API_KEY required for background generation" };
+
+    const openaiImage = new OpenAIImageProvider();
+    await openaiImage.initialize({ apiKey });
+
+    const result = await openaiImage.generateBackground(options.description, options.aspect ?? "16:9");
+    if (!result.success || !result.images || result.images.length === 0) {
+      return { success: false, error: result.error || "Background generation failed" };
+    }
+
+    const img = result.images[0];
+
+    let outputPath: string | undefined;
+    if (options.output) {
+      let buffer: Buffer;
+      if (img.url) {
+        buffer = Buffer.from(await (await fetch(img.url)).arrayBuffer());
+      } else if (img.base64) {
+        buffer = Buffer.from(img.base64, "base64");
+      } else {
+        return { success: false, error: "Provider returned no image data" };
+      }
+      outputPath = resolve(process.cwd(), options.output);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, buffer);
+    }
+
+    return {
+      success: true,
+      imageUrl: img.url,
+      outputPath,
+      base64: img.base64,
+      revisedPrompt: img.revisedPrompt,
+    };
+  } catch (error) {
+    return { success: false, error: `Background generation failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}

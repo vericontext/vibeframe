@@ -1,7 +1,7 @@
 import { executeMotion } from "@vibeframe/cli/commands/ai-motion";
 import { executeAnimatedCaption } from "@vibeframe/cli/commands/ai-animated-caption";
 import { executeRegenerateScene } from "@vibeframe/cli/commands/ai-script-pipeline";
-import { executeSpeech, executeSoundEffect, executeMusic, executeStoryboard } from "@vibeframe/cli/commands/generate";
+import { executeSpeech, executeSoundEffect, executeMusic, executeStoryboard, executeBackground } from "@vibeframe/cli/commands/generate";
 import { executeImageGenerate, executeGeminiEdit } from "@vibeframe/cli/commands/ai-image";
 
 export const aiGenerationTools = [
@@ -204,6 +204,19 @@ export const aiGenerationTools = [
       required: ["content"],
     },
   },
+  {
+    name: "generate_background",
+    description: "Generate a cinematic backdrop image (OpenAI gpt-image-2 / DALL·E variant tuned for video backgrounds). Returns the image URL and, when `output` is provided, downloads the PNG to disk. Requires OPENAI_API_KEY.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        description: { type: "string", description: "Background description / image prompt." },
+        aspect: { type: "string", enum: ["16:9", "9:16", "1:1"], description: "Aspect ratio. Default '16:9'." },
+        output: { type: "string", description: "Output PNG path. Relative paths resolve against the MCP server's cwd." },
+      },
+      required: ["description"],
+    },
+  },
 ];
 
 export async function handleAiGenerationToolCall(
@@ -349,6 +362,21 @@ export async function handleAiGenerationToolCall(
       });
       if (!result.success) return `Storyboard generation failed: ${result.error}`;
       return JSON.stringify({ success: true, segmentCount: result.segmentCount, outputPath: result.outputPath });
+    }
+
+    case "generate_background": {
+      const result = await executeBackground({
+        description: args.description as string,
+        aspect: args.aspect as "16:9" | "9:16" | "1:1" | undefined,
+        output: args.output as string | undefined,
+      });
+      if (!result.success) return `Background generation failed: ${result.error}`;
+      return JSON.stringify({
+        success: true,
+        imageUrl: result.imageUrl,
+        outputPath: result.outputPath,
+        revisedPrompt: result.revisedPrompt,
+      });
     }
 
     default:

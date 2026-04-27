@@ -63,24 +63,27 @@ Once connected, your MCP host can resolve prompts like these into typed tool cal
 > "Remove silent segments and add captions to my interview"
 > *→ `edit_silence_cut` + `edit_caption`*
 
-## Available Tools (58)
+## Available Tools (61)
 
 Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows them as `mcp__vibeframe__scene_init`). Each one wraps the same engine call as the matching `vibe` CLI subcommand.
 
-### Scene authoring (4) — v0.58+
+### Scene authoring (6) — v0.58–v0.60
 
 | Tool | Description |
 |------|-------------|
 | `scene_init` | Scaffold a scene project with `STORYBOARD.md` + `DESIGN.md` |
+| `scene_styles` | List the 8 vendored visual identities (Swiss Pulse, Data Drift, …) or fetch one |
 | `scene_add` | Append a beat (narration + backdrop + composed HTML) |
 | `scene_lint` | Validate composition HTML against the visual identity |
 | `scene_render` | Deterministic Hyperframes render → MP4 |
+| `scene_build` | **v0.60 one-shot**: STORYBOARD.md cues → TTS + image + compose + render → MP4 (cached, idempotent) |
 
-### Generation (11)
+### Generation (12)
 
 | Tool | Description | Providers |
 |------|-------------|-----------|
 | `generate_image` | Text-to-image | OpenAI, Google, Stability |
+| `generate_background` | Cinematic backdrop image (video-tuned prompt) | OpenAI |
 | `generate_video` | Text/image-to-video (long-running) | Runway, Kling, FAL Seedance, Google Veo |
 | `generate_video_status` / `_cancel` / `_extend` | Manage long-running video jobs | (provider-specific) |
 | `generate_motion` | Animate a still image | FAL Seedance, Runway |
@@ -157,10 +160,12 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | Tool | Description |
 |------|-------------|
 | `pipeline_run` | Execute a multi-stage YAML pipeline |
-| `pipeline_script_to_video` | Script → narration → video → mux |
+| `pipeline_script_to_video` | **[DEPRECATED v0.63]** Script → narration → video → mux. Use `scene_build` instead. |
 | `pipeline_highlights` | Long-form → highlight clips |
 | `pipeline_auto_shorts` | Long-form → vertical shorts |
 | `pipeline_regenerate_scene` | Re-render a single scene of an existing render |
+
+> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark known TODOs (currently `edit_fill_gaps` and `analyze_suggest`).
 
 ## Resources
 
