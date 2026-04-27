@@ -14,7 +14,6 @@ import { registerProjectTools } from "./project.js";
 import { registerTimelineTools } from "./timeline.js";
 import { registerFilesystemTools } from "./filesystem.js";
 import { registerMediaTools } from "./media.js";
-import { registerAITools } from "./ai.js";
 import { registerExportTools } from "./export.js";
 import { registerBatchTools } from "./batch.js";
 import { manifest } from "../../tools/manifest/index.js";
@@ -181,7 +180,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     registerTimelineTools(registry);
     registerFilesystemTools(registry);
     registerMediaTools(registry);
-    registerAITools(registry);
     registerExportTools(registry);
     registerBatchTools(registry);
   });
@@ -759,7 +757,6 @@ describe("Tool Name Consistency", () => {
     registerTimelineTools(registry);
     registerFilesystemTools(registry);
     registerMediaTools(registry);
-    registerAITools(registry);
     registerExportTools(registry);
     registerBatchTools(registry);
   });
@@ -817,7 +814,6 @@ describe("Manifest is SSOT for Agent surface", () => {
     registerTimelineTools(registry);
     registerFilesystemTools(registry);
     registerMediaTools(registry);
-    registerAITools(registry);
     registerExportTools(registry);
     registerBatchTools(registry);
   });

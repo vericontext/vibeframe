@@ -1,46 +1,13 @@
 /**
- * Export Tools - Export projects to video, audio, or subtitles
+ * Export Tools — agent-only `export_audio`, `export_subtitles` stubs.
+ *
+ * After v0.66 PR2 the working `export_video` definition lives in the
+ * manifest. The remaining two are still stubs ("not yet implemented");
+ * they're kept here until we either remove them entirely or wire them up.
  */
 
-import { resolve, basename } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
-import { runExport } from "../../commands/export.js";
-import { MIGRATED } from "../../tools/define-tool.js";
-
-// Tool Definitions
-const exportVideoDef: ToolDefinition = {
-  name: "export_video",
-  description: "Export a project to a video file",
-  parameters: {
-    type: "object",
-    properties: {
-      project: {
-        type: "string",
-        description: "Project file path",
-      },
-      output: {
-        type: "string",
-        description: "Output video file path",
-      },
-      format: {
-        type: "string",
-        description: "Output format (mp4, webm, mov)",
-        enum: ["mp4", "webm", "mov"],
-      },
-      preset: {
-        type: "string",
-        description: "Quality preset (draft, standard, high, ultra)",
-        enum: ["draft", "standard", "high", "ultra"],
-      },
-      overwrite: {
-        type: "boolean",
-        description: "Overwrite existing file",
-      },
-    },
-    required: ["project"],
-  },
-};
 
 const exportAudioDef: ToolDefinition = {
   name: "export_audio",
@@ -90,97 +57,25 @@ const exportSubtitlesDef: ToolDefinition = {
   },
 };
 
-// Tool Handlers
-const exportVideo: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const projectPath = args.project as string;
-  const format = (args.format as string) || "mp4";
-  const preset = (args.preset as "draft" | "standard" | "high" | "ultra") || "standard";
-  const overwrite = (args.overwrite as boolean) || false;
-
-  // Determine output path
-  const output = (args.output as string) ||
-    `${basename(projectPath, ".vibe.json")}.${format}`;
-
-  const absProjectPath = resolve(context.workingDirectory, projectPath);
-  const absOutputPath = resolve(context.workingDirectory, output);
-
-  try {
-    const result = await runExport(absProjectPath, absOutputPath, {
-      format: format as "mp4" | "webm" | "mov",
-      preset,
-      overwrite,
-    });
-
-    if (!result.success) {
-      return {
-        toolCallId: "",
-        success: false,
-        output: "",
-        error: result.message,
-      };
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: `Video exported: ${output}\nFormat: ${format}\nPreset: ${preset}`,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to export video: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
 const exportAudio: ToolHandler = async (_args, _context): Promise<ToolResult> => {
-
-  try {
-    // Audio export would be implemented similarly to video export
-    // For now, provide a helpful message
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: "Audio-only export not yet implemented. Use export_video and extract audio with FFmpeg: ffmpeg -i video.mp4 -vn -acodec mp3 audio.mp3",
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to export audio: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
+  return {
+    toolCallId: "",
+    success: false,
+    output: "",
+    error: "Audio-only export not yet implemented. Use export_video and extract audio with FFmpeg: ffmpeg -i video.mp4 -vn -acodec mp3 audio.mp3",
+  };
 };
 
 const exportSubtitles: ToolHandler = async (_args, _context): Promise<ToolResult> => {
-
-  try {
-    // Subtitle export would extract transcription data from project
-    // For now, provide a helpful message
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: "Subtitle export not yet implemented. Use ai_transcribe to generate subtitles from audio: ai_transcribe audio.mp3 --output subtitles.srt",
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to export subtitles: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
+  return {
+    toolCallId: "",
+    success: false,
+    output: "",
+    error: "Subtitle export not yet implemented. Use audio_transcribe to generate subtitles from audio.",
+  };
 };
 
-// Registration function
 export function registerExportTools(registry: ToolRegistry): void {
-  // Manifest takes precedence — export_audio/subtitles stay hand-written here.
-  if (!MIGRATED.has(exportVideoDef.name))      registry.register(exportVideoDef, exportVideo);
-  if (!MIGRATED.has(exportAudioDef.name))      registry.register(exportAudioDef, exportAudio);
-  if (!MIGRATED.has(exportSubtitlesDef.name))  registry.register(exportSubtitlesDef, exportSubtitles);
+  registry.register(exportAudioDef, exportAudio);
+  registry.register(exportSubtitlesDef, exportSubtitles);
 }

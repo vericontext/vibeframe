@@ -1,22 +1,19 @@
 /**
- * Media Tools - Analyze media files (scenes, silence, beats, transcription)
+ * Media Tools — agent-only FFmpeg wrappers (info / compress / convert / concat).
+ *
+ * After v0.66 PR2 the detect_* / audio_transcribe / audio_isolate /
+ * audio_voice_clone / audio_dub / audio_duck definitions live in the
+ * manifest (`packages/cli/src/tools/manifest`). The four tools that remain
+ * here are pure FFmpeg wrappers with no manifest entry yet — they're
+ * candidates for a future agent-only manifest pass.
  */
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
-import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
-import { MIGRATED } from "../../tools/define-tool.js";
-import {
-  executeIsolate,
-  executeVoiceClone,
-  executeDub,
-  executeDuck,
-} from "../../commands/ai-audio.js";
+import { execSafe } from "../../utils/exec-safe.js";
 
-// Tool Definitions
 const mediaInfoDef: ToolDefinition = {
   name: "media_info",
   description: "Get information about a media file (duration, resolution, codec, etc.)",
@@ -31,420 +28,6 @@ const mediaInfoDef: ToolDefinition = {
     required: ["path"],
   },
 };
-
-const detectScenesDef: ToolDefinition = {
-  name: "detect_scenes",
-  description: "Detect scene changes in a video file",
-  parameters: {
-    type: "object",
-    properties: {
-      video: {
-        type: "string",
-        description: "Video file path",
-      },
-      threshold: {
-        type: "number",
-        description: "Scene change threshold (0-1, default: 0.3)",
-      },
-      output: {
-        type: "string",
-        description: "Output JSON file path for timestamps",
-      },
-    },
-    required: ["video"],
-  },
-};
-
-const detectSilenceDef: ToolDefinition = {
-  name: "detect_silence",
-  description: "Detect silence periods in audio/video",
-  parameters: {
-    type: "object",
-    properties: {
-      media: {
-        type: "string",
-        description: "Media file path",
-      },
-      noise: {
-        type: "string",
-        description: "Noise threshold in dB (default: -30)",
-      },
-      duration: {
-        type: "number",
-        description: "Minimum silence duration in seconds (default: 0.5)",
-      },
-      output: {
-        type: "string",
-        description: "Output JSON file path",
-      },
-    },
-    required: ["media"],
-  },
-};
-
-const detectBeatsDef: ToolDefinition = {
-  name: "detect_beats",
-  description: "Detect beats in audio for music sync",
-  parameters: {
-    type: "object",
-    properties: {
-      audio: {
-        type: "string",
-        description: "Audio file path",
-      },
-      output: {
-        type: "string",
-        description: "Output JSON file path",
-      },
-    },
-    required: ["audio"],
-  },
-};
-
-const transcribeDef: ToolDefinition = {
-  name: "audio_transcribe",
-  description: "Transcribe audio using Whisper AI",
-  parameters: {
-    type: "object",
-    properties: {
-      audio: {
-        type: "string",
-        description: "Audio file path",
-      },
-      language: {
-        type: "string",
-        description: "Language code (e.g., en, ko)",
-      },
-      output: {
-        type: "string",
-        description: "Output file path (supports .json, .srt, .vtt)",
-      },
-    },
-    required: ["audio"],
-  },
-};
-
-// Helper to format timestamp
-function formatTimestamp(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = (seconds % 60).toFixed(2);
-  return `${mins.toString().padStart(2, "0")}:${secs.padStart(5, "0")}`;
-}
-
-// Tool Handlers
-const mediaInfo: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const mediaPath = args.path as string;
-
-  try {
-    const absPath = resolve(context.workingDirectory, mediaPath);
-
-    // Get detailed info using ffprobe
-    const { stdout } = await execSafe("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", absPath], { maxBuffer: 10 * 1024 * 1024 });
-
-    const info = JSON.parse(stdout);
-    const format = info.format || {};
-    const streams = info.streams || [];
-
-    const output: string[] = [`File: ${mediaPath}`];
-
-    // General info
-    if (format.duration) {
-      output.push(`Duration: ${parseFloat(format.duration).toFixed(2)}s`);
-    }
-    if (format.size) {
-      const sizeMB = (parseInt(format.size) / (1024 * 1024)).toFixed(2);
-      output.push(`Size: ${sizeMB} MB`);
-    }
-    if (format.bit_rate) {
-      const bitrateMbps = (parseInt(format.bit_rate) / 1000000).toFixed(2);
-      output.push(`Bitrate: ${bitrateMbps} Mbps`);
-    }
-
-    // Stream info
-    for (const stream of streams) {
-      if (stream.codec_type === "video") {
-        output.push(`\nVideo:`);
-        output.push(`  Resolution: ${stream.width}x${stream.height}`);
-        output.push(`  Codec: ${stream.codec_name}`);
-        if (stream.r_frame_rate) {
-          const [num, den] = stream.r_frame_rate.split("/");
-          const fps = (parseInt(num) / parseInt(den)).toFixed(2);
-          output.push(`  Frame Rate: ${fps} fps`);
-        }
-      } else if (stream.codec_type === "audio") {
-        output.push(`\nAudio:`);
-        output.push(`  Codec: ${stream.codec_name}`);
-        output.push(`  Sample Rate: ${stream.sample_rate} Hz`);
-        output.push(`  Channels: ${stream.channels}`);
-      }
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: output.join("\n"),
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to get media info: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-const detectScenes: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const videoPath = args.video as string;
-  const threshold = (args.threshold as number) || 0.3;
-
-  try {
-    const absPath = resolve(context.workingDirectory, videoPath);
-
-    // Detect scenes using FFmpeg
-    const { stdout, stderr } = await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `select='gt(scene,${threshold})',showinfo`, "-f", "null", "-"], { maxBuffer: 50 * 1024 * 1024 });
-    const output = stdout + stderr;
-
-    // Parse scene timestamps
-    const scenes: { timestamp: number; score: number }[] = [];
-    const regex = /pts_time:(\d+\.?\d*)/g;
-    let match;
-
-    scenes.push({ timestamp: 0, score: 1 });
-    while ((match = regex.exec(output)) !== null) {
-      scenes.push({ timestamp: parseFloat(match[1]), score: threshold });
-    }
-
-    // Get duration
-    const totalDuration = await ffprobeDuration(absPath);
-
-    // Format output
-    const sceneList = scenes.map((s, i) => {
-      const end = i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration;
-      return `[${i + 1}] ${formatTimestamp(s.timestamp)} - ${formatTimestamp(end)} (${(end - s.timestamp).toFixed(1)}s)`;
-    }).join("\n");
-
-    // Save to file if requested
-    if (args.output) {
-      const outputPath = resolve(context.workingDirectory, args.output as string);
-      const result = {
-        source: absPath,
-        totalDuration,
-        threshold,
-        scenes: scenes.map((s, i) => ({
-          index: i,
-          startTime: s.timestamp,
-          endTime: i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration,
-          duration: (i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration) - s.timestamp,
-        })),
-      };
-      await writeFile(outputPath, JSON.stringify(result, null, 2), "utf-8");
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: `Detected ${scenes.length} scenes:\n${sceneList}`,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to detect scenes: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-const detectSilence: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const mediaPath = args.media as string;
-  const noise = (args.noise as string) || "-30";
-  const duration = (args.duration as number) || 0.5;
-
-  try {
-    const absPath = resolve(context.workingDirectory, mediaPath);
-
-    const { stdout, stderr } = await execSafe("ffmpeg", ["-i", absPath, "-af", `silencedetect=noise=${noise}dB:d=${duration}`, "-f", "null", "-"], { maxBuffer: 50 * 1024 * 1024 });
-    const output = stdout + stderr;
-
-    // Parse silence periods
-    const silences: { start: number; end: number; duration: number }[] = [];
-    const startRegex = /silence_start: (\d+\.?\d*)/g;
-    const endRegex = /silence_end: (\d+\.?\d*) \| silence_duration: (\d+\.?\d*)/g;
-
-    const starts: number[] = [];
-    let match;
-
-    while ((match = startRegex.exec(output)) !== null) {
-      starts.push(parseFloat(match[1]));
-    }
-
-    let i = 0;
-    while ((match = endRegex.exec(output)) !== null) {
-      if (i < starts.length) {
-        silences.push({
-          start: starts[i],
-          end: parseFloat(match[1]),
-          duration: parseFloat(match[2]),
-        });
-        i++;
-      }
-    }
-
-    // Format output
-    const silenceList = silences.map((s, idx) =>
-      `[${idx + 1}] ${formatTimestamp(s.start)} - ${formatTimestamp(s.end)} (${s.duration.toFixed(1)}s)`
-    ).join("\n");
-
-    // Save to file if requested
-    if (args.output) {
-      const outputPath = resolve(context.workingDirectory, args.output as string);
-      await writeFile(
-        outputPath,
-        JSON.stringify({ source: absPath, silences }, null, 2),
-        "utf-8"
-      );
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: silences.length > 0
-        ? `Detected ${silences.length} silence periods:\n${silenceList}`
-        : "No silence periods detected.",
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to detect silence: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-const detectBeats: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const audioPath = args.audio as string;
-
-  try {
-    const absPath = resolve(context.workingDirectory, audioPath);
-
-    // Get duration
-    const totalDuration = await ffprobeDuration(absPath);
-
-    // Use interval-based detection (120 BPM default)
-    const estimatedBPM = 120;
-    const beatInterval = 60 / estimatedBPM;
-    const beats: number[] = [];
-
-    for (let t = 0; t < totalDuration; t += beatInterval) {
-      beats.push(t);
-    }
-
-    // Show first 20 beats
-    const beatList = beats.slice(0, 20).map((t, i) =>
-      `[${i + 1}] ${formatTimestamp(t)}`
-    ).join("\n");
-
-    // Save to file if requested
-    if (args.output) {
-      const outputPath = resolve(context.workingDirectory, args.output as string);
-      await writeFile(
-        outputPath,
-        JSON.stringify({ source: absPath, beatCount: beats.length, beats }, null, 2),
-        "utf-8"
-      );
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: `Detected ${beats.length} beats (${estimatedBPM} BPM):\n${beatList}${beats.length > 20 ? `\n... and ${beats.length - 20} more` : ""}`,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to detect beats: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-const transcribe: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const audioPath = args.audio as string;
-  const language = args.language as string | undefined;
-
-  try {
-    const apiKey = await getApiKeyFromConfig("openai");
-    if (!apiKey) {
-      return {
-        toolCallId: "",
-        success: false,
-        output: "",
-        error: "OpenAI API key required for transcription. Set OPENAI_API_KEY or configure via 'vibe setup'.",
-      };
-    }
-
-    const absPath = resolve(context.workingDirectory, audioPath);
-    const audioBuffer = await readFile(absPath);
-
-    // Dynamic import of WhisperProvider
-    const { WhisperProvider } = await import("@vibeframe/ai-providers");
-    const whisper = new WhisperProvider();
-    await whisper.initialize({ apiKey });
-
-    const audioBlob = new Blob([audioBuffer]);
-    const result = await whisper.transcribe(audioBlob, language);
-
-    if (result.status === "failed") {
-      return {
-        toolCallId: "",
-        success: false,
-        output: "",
-        error: `Transcription failed: ${result.error}`,
-      };
-    }
-
-    // Format output
-    let output = `Transcript:\n${result.fullText}`;
-
-    if (result.segments && result.segments.length > 0) {
-      output += "\n\nSegments:";
-      for (const seg of result.segments.slice(0, 10)) {
-        output += `\n[${formatTimestamp(seg.startTime)} - ${formatTimestamp(seg.endTime)}] ${seg.text}`;
-      }
-      if (result.segments.length > 10) {
-        output += `\n... and ${result.segments.length - 10} more segments`;
-      }
-    }
-
-    // Save to file if requested
-    if (args.output) {
-      const outputPath = resolve(context.workingDirectory, args.output as string);
-      const { detectFormat, formatTranscript } = await import("../../utils/subtitle.js");
-      const format = detectFormat(args.output as string, undefined);
-      const content = formatTranscript(result, format);
-      await writeFile(outputPath, content, "utf-8");
-      output += `\n\nSaved to: ${args.output}`;
-    }
-
-    return {
-      toolCallId: "",
-      success: true,
-      output,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to transcribe: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-// Media Manipulation Tools
 
 const compressDef: ToolDefinition = {
   name: "media_compress",
@@ -525,11 +108,71 @@ const concatDef: ToolDefinition = {
   },
 };
 
+const mediaInfo: ToolHandler = async (args, context): Promise<ToolResult> => {
+  const mediaPath = args.path as string;
+
+  try {
+    const absPath = resolve(context.workingDirectory, mediaPath);
+
+    // Get detailed info using ffprobe
+    const { stdout } = await execSafe("ffprobe", ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", absPath], { maxBuffer: 10 * 1024 * 1024 });
+
+    const info = JSON.parse(stdout);
+    const format = info.format || {};
+    const streams = info.streams || [];
+
+    const output: string[] = [`File: ${mediaPath}`];
+
+    // General info
+    if (format.duration) {
+      output.push(`Duration: ${parseFloat(format.duration).toFixed(2)}s`);
+    }
+    if (format.size) {
+      const sizeMB = (parseInt(format.size) / (1024 * 1024)).toFixed(2);
+      output.push(`Size: ${sizeMB} MB`);
+    }
+    if (format.bit_rate) {
+      const bitrateMbps = (parseInt(format.bit_rate) / 1000000).toFixed(2);
+      output.push(`Bitrate: ${bitrateMbps} Mbps`);
+    }
+
+    // Stream info
+    for (const stream of streams) {
+      if (stream.codec_type === "video") {
+        output.push(`\nVideo:`);
+        output.push(`  Resolution: ${stream.width}x${stream.height}`);
+        output.push(`  Codec: ${stream.codec_name}`);
+        if (stream.r_frame_rate) {
+          const [num, den] = stream.r_frame_rate.split("/");
+          const fps = (parseInt(num) / parseInt(den)).toFixed(2);
+          output.push(`  Frame Rate: ${fps} fps`);
+        }
+      } else if (stream.codec_type === "audio") {
+        output.push(`\nAudio:`);
+        output.push(`  Codec: ${stream.codec_name}`);
+        output.push(`  Sample Rate: ${stream.sample_rate} Hz`);
+        output.push(`  Channels: ${stream.channels}`);
+      }
+    }
+
+    return {
+      toolCallId: "",
+      success: true,
+      output: output.join("\n"),
+    };
+  } catch (error) {
+    return {
+      toolCallId: "",
+      success: false,
+      output: "",
+      error: `Failed to get media info: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+};
+
 const compress: ToolHandler = async (args, context): Promise<ToolResult> => {
   const inputPath = args.input as string;
   const quality = (args.quality as string) || "medium";
-  // maxSize is accepted as a parameter but not yet implemented
-  // const maxSize = args.maxSize as string | undefined;
 
   try {
     const absInput = resolve(context.workingDirectory, inputPath);
@@ -581,7 +224,6 @@ const convert: ToolHandler = async (args, context): Promise<ToolResult> => {
     const absInput = resolve(context.workingDirectory, inputPath);
     const absOutput = resolve(context.workingDirectory, outputPath);
 
-    // Build codec options
     let videoCodecName = "copy";
     let audioCodecName = "copy";
 
@@ -657,7 +299,6 @@ const concat: ToolHandler = async (args, context): Promise<ToolResult> => {
 
       await execSafe("ffmpeg", ["-f", "concat", "-safe", "0", "-i", tempList, "-c", "copy", absOutput, "-y"], { maxBuffer: 100 * 1024 * 1024 });
 
-      // Clean up temp file
       const { unlink } = await import("node:fs/promises");
       await unlink(tempList).catch(() => {});
     }
@@ -677,7 +318,6 @@ const concat: ToolHandler = async (args, context): Promise<ToolResult> => {
   }
 };
 
-// Helper function
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -691,142 +331,9 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-// ─── ElevenLabs / FFmpeg audio post-processing ─────────────────────────────
-
-const audioIsolateDef: ToolDefinition = {
-  name: "audio_isolate",
-  description: "Isolate vocals from background music using ElevenLabs Audio Isolation. Requires ELEVENLABS_API_KEY.",
-  parameters: {
-    type: "object",
-    properties: {
-      audioPath: { type: "string", description: "Input audio file path" },
-      output:    { type: "string", description: "Output file path (default: vocals.mp3)" },
-    },
-    required: ["audioPath"],
-  },
-};
-
-const audioIsolateHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const result = await executeIsolate({
-    audioPath: resolve(context.workingDirectory, args.audioPath as string),
-    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
-  });
-  if (!result.success) {
-    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_isolate failed" };
-  }
-  return { toolCallId: "", success: true, output: `✅ Vocals isolated → ${result.outputPath}` };
-};
-
-const audioVoiceCloneDef: ToolDefinition = {
-  name: "audio_voice_clone",
-  description: "Clone a voice from 1-25 audio samples using ElevenLabs Instant Voice Cloning. Requires ELEVENLABS_API_KEY.",
-  parameters: {
-    type: "object",
-    properties: {
-      samplePaths: { type: "array", items: { type: "string", description: "Audio sample file path" }, description: "1-25 audio sample file paths" },
-      name:        { type: "string", description: "Voice name" },
-      description: { type: "string", description: "Voice description" },
-      removeNoise: { type: "boolean", description: "Remove background noise from samples" },
-    },
-    required: ["samplePaths", "name"],
-  },
-};
-
-const audioVoiceCloneHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const samples = (args.samplePaths as string[]).map((p) => resolve(context.workingDirectory, p));
-  const result = await executeVoiceClone({
-    samplePaths: samples,
-    name: args.name as string,
-    description: args.description as string | undefined,
-    removeNoise: args.removeNoise as boolean | undefined,
-  });
-  if (!result.success) {
-    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_voice_clone failed" };
-  }
-  return { toolCallId: "", success: true, output: `✅ Voice cloned: ${result.name} (id=${result.voiceId})` };
-};
-
-const audioDubDef: ToolDefinition = {
-  name: "audio_dub",
-  description: "Dub audio/video to another language: transcribe (Whisper) → translate (Claude) → TTS (ElevenLabs). Requires OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY.",
-  parameters: {
-    type: "object",
-    properties: {
-      mediaPath:   { type: "string",  description: "Input media file (video or audio)" },
-      language:    { type: "string",  description: "Target language code (e.g., en, ko, ja)" },
-      source:      { type: "string",  description: "Source language code (auto-detect if omitted)" },
-      output:      { type: "string",  description: "Output file path" },
-      voice:       { type: "string",  description: "ElevenLabs voice id or name" },
-      analyzeOnly: { type: "boolean", description: "Cost analysis only — don't actually dub" },
-    },
-    required: ["mediaPath", "language"],
-  },
-};
-
-const audioDubHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const result = await executeDub({
-    mediaPath: resolve(context.workingDirectory, args.mediaPath as string),
-    language: args.language as string,
-    source: args.source as string | undefined,
-    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
-    voice: args.voice as string | undefined,
-    analyzeOnly: args.analyzeOnly as boolean | undefined,
-  });
-  if (!result.success) {
-    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_dub failed" };
-  }
-  return { toolCallId: "", success: true, output: `✅ Dubbed ${result.sourceLanguage}→${result.targetLanguage} (${result.segmentCount} segments) → ${result.outputPath}` };
-};
-
-const audioDuckDef: ToolDefinition = {
-  name: "audio_duck",
-  description: "Auto-duck background music when voice is present using FFmpeg sidechain compression. No API key needed.",
-  parameters: {
-    type: "object",
-    properties: {
-      musicPath: { type: "string", description: "Background music file path" },
-      voicePath: { type: "string", description: "Voice/narration file path (the trigger)" },
-      output:    { type: "string", description: "Output file path (default: ducked.mp3)" },
-      threshold: { type: "string", description: "Sidechain threshold (e.g. '0.05'). FFmpeg sidechaincompress param." },
-      ratio:     { type: "string", description: "Compression ratio (e.g. '8')" },
-      attack:    { type: "string", description: "Attack time in ms (e.g. '20')" },
-      release:   { type: "string", description: "Release time in ms (e.g. '500')" },
-    },
-    required: ["musicPath", "voicePath"],
-  },
-};
-
-const audioDuckHandler: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const result = await executeDuck({
-    musicPath: resolve(context.workingDirectory, args.musicPath as string),
-    voicePath: resolve(context.workingDirectory, args.voicePath as string),
-    output: args.output ? resolve(context.workingDirectory, args.output as string) : undefined,
-    threshold: args.threshold as string | undefined,
-    ratio: args.ratio as string | undefined,
-    attack: args.attack as string | undefined,
-    release: args.release as string | undefined,
-  });
-  if (!result.success) {
-    return { toolCallId: "", success: false, output: "", error: result.error ?? "audio_duck failed" };
-  }
-  return { toolCallId: "", success: true, output: `✅ Music ducked → ${result.outputPath}` };
-};
-
-// Registration function
 export function registerMediaTools(registry: ToolRegistry): void {
-  // Manifest takes precedence — the 8 detect_* / audio_* tools are
-  // manifest-sourced; the 4 media_* tools (info/compress/convert/concat) stay
-  // hand-written here. Same pattern as scene.ts/timeline.ts.
-  if (!MIGRATED.has(mediaInfoDef.name))         registry.register(mediaInfoDef, mediaInfo);
-  if (!MIGRATED.has(detectScenesDef.name))      registry.register(detectScenesDef, detectScenes);
-  if (!MIGRATED.has(detectSilenceDef.name))     registry.register(detectSilenceDef, detectSilence);
-  if (!MIGRATED.has(detectBeatsDef.name))       registry.register(detectBeatsDef, detectBeats);
-  if (!MIGRATED.has(transcribeDef.name))        registry.register(transcribeDef, transcribe);
-  if (!MIGRATED.has(compressDef.name))          registry.register(compressDef, compress);
-  if (!MIGRATED.has(convertDef.name))           registry.register(convertDef, convert);
-  if (!MIGRATED.has(concatDef.name))            registry.register(concatDef, concat);
-  if (!MIGRATED.has(audioIsolateDef.name))      registry.register(audioIsolateDef, audioIsolateHandler);
-  if (!MIGRATED.has(audioVoiceCloneDef.name))   registry.register(audioVoiceCloneDef, audioVoiceCloneHandler);
-  if (!MIGRATED.has(audioDubDef.name))          registry.register(audioDubDef, audioDubHandler);
-  if (!MIGRATED.has(audioDuckDef.name))         registry.register(audioDuckDef, audioDuckHandler);
+  registry.register(mediaInfoDef, mediaInfo);
+  registry.register(compressDef, compress);
+  registry.register(convertDef, convert);
+  registry.register(concatDef, concat);
 }

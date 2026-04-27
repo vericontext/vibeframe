@@ -119,33 +119,29 @@ export class ToolRegistry {
 // Global registry instance
 export const toolRegistry = new ToolRegistry();
 
-// Re-export tool modules
+// Re-export tool modules — these expose only the agent-only tools that
+// could not be migrated to the manifest (mostly ones that mutate
+// AgentContext or wrap dynamic provider imports the bundler can't trace).
 export { registerProjectTools } from "./project.js";
 export { registerTimelineTools } from "./timeline.js";
 export { registerFilesystemTools } from "./filesystem.js";
 export { registerMediaTools } from "./media.js";
-export { registerAITools } from "./ai.js";
 export { registerExportTools } from "./export.js";
 export { registerBatchTools } from "./batch.js";
-export { registerSceneTools } from "./scene.js";
 
 /**
- * Register all tools.
- *
- * During the v0.65 migration we register the manifest first (manifest
- * entries take precedence) and then call the legacy `register*Tools`
- * functions, which skip any name in `MIGRATED`. After C6 this collapses to
- * a single `registerManifestIntoAgent(registry, manifest)` call.
+ * Register all tools. The manifest is the source of truth for ~79 tools;
+ * the legacy register*Tools calls below add the agent-only stragglers
+ * (project_set/open/save, timeline_clear, fs_*, media_info/compress/
+ * convert/concat, export_audio/subtitles, batch_*).
  */
 export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   const { registerProjectTools } = await import("./project.js");
   const { registerTimelineTools } = await import("./timeline.js");
   const { registerFilesystemTools } = await import("./filesystem.js");
   const { registerMediaTools } = await import("./media.js");
-  const { registerAITools } = await import("./ai.js");
   const { registerExportTools } = await import("./export.js");
   const { registerBatchTools } = await import("./batch.js");
-  const { registerSceneTools } = await import("./scene.js");
   const { manifest } = await import("../../tools/manifest/index.js");
   const { registerManifestIntoAgent } = await import(
     "../../tools/adapters/agent.js"
@@ -156,8 +152,6 @@ export async function registerAllTools(registry: ToolRegistry): Promise<void> {
   registerTimelineTools(registry);
   registerFilesystemTools(registry);
   registerMediaTools(registry);
-  registerAITools(registry);
   registerExportTools(registry);
   registerBatchTools(registry);
-  registerSceneTools(registry);
 }

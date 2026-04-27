@@ -1,5 +1,10 @@
 /**
- * Project Tools - Create, open, save, and manage projects
+ * Project Tools — agent-only `project_set`, `project_open`, `project_save`.
+ *
+ * After v0.66 PR2 the `project_create` and `project_info` definitions live
+ * in the manifest. The remaining three operate on `AgentContext` (mutating
+ * `context.projectPath` for open/save) so they're staying agent-only until
+ * the manifest's ExecuteContext gains projectPath plumbing.
  */
 
 import { readFile, writeFile, stat } from "node:fs/promises";
@@ -7,51 +12,6 @@ import { resolve } from "node:path";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { ToolRegistry, ToolHandler } from "./index.js";
 import type { ToolDefinition, ToolResult } from "../types.js";
-import { MIGRATED } from "../../tools/define-tool.js";
-
-// Tool Definitions
-const projectCreateDef: ToolDefinition = {
-  name: "project_create",
-  description: "Create a new video project",
-  parameters: {
-    type: "object",
-    properties: {
-      name: {
-        type: "string",
-        description: "Project name",
-      },
-      output: {
-        type: "string",
-        description: "Output file path (default: ./project.vibe.json)",
-      },
-      aspectRatio: {
-        type: "string",
-        description: "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
-        enum: ["16:9", "9:16", "1:1", "4:5"],
-      },
-      fps: {
-        type: "number",
-        description: "Frame rate (default: 30)",
-      },
-    },
-    required: ["name"],
-  },
-};
-
-const projectInfoDef: ToolDefinition = {
-  name: "project_info",
-  description: "Get information about a project",
-  parameters: {
-    type: "object",
-    properties: {
-      path: {
-        type: "string",
-        description: "Project file path",
-      },
-    },
-    required: ["path"],
-  },
-};
 
 const projectSetDef: ToolDefinition = {
   name: "project_set",
@@ -111,7 +71,6 @@ const projectSaveDef: ToolDefinition = {
   },
 };
 
-// Helper function to resolve project path
 async function resolveProjectPath(inputPath: string, cwd: string): Promise<string> {
   const filePath = resolve(cwd, inputPath);
 
@@ -126,79 +85,6 @@ async function resolveProjectPath(inputPath: string, cwd: string): Promise<strin
 
   return filePath;
 }
-
-// Tool Handlers
-const projectCreate: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const name = args.name as string;
-  const output = (args.output as string) || "./project.vibe.json";
-  const aspectRatio = (args.aspectRatio as string) || "16:9";
-  const fps = (args.fps as number) || 30;
-
-  try {
-    const project = new Project(name);
-    project.setAspectRatio(aspectRatio as "16:9" | "9:16" | "1:1" | "4:5");
-    project.setFrameRate(fps);
-
-    const outputPath = resolve(context.workingDirectory, output);
-    const data = JSON.stringify(project.toJSON(), null, 2);
-    await writeFile(outputPath, data, "utf-8");
-
-    // Update context
-    context.projectPath = outputPath;
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: `Project created: ${outputPath}\nName: ${name}\nAspect Ratio: ${aspectRatio}\nFrame Rate: ${fps} fps`,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to create project: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
-
-const projectInfo: ToolHandler = async (args, context): Promise<ToolResult> => {
-  const path = (args.path || args.project) as string;
-
-  try {
-    const filePath = await resolveProjectPath(path, context.workingDirectory);
-    const content = await readFile(filePath, "utf-8");
-    const data: ProjectFile = JSON.parse(content);
-    const project = Project.fromJSON(data);
-
-    const summary = project.getSummary();
-    const meta = project.getMeta();
-
-    const info = [
-      `Project: ${summary.name}`,
-      `Duration: ${summary.duration.toFixed(1)}s`,
-      `Aspect Ratio: ${summary.aspectRatio}`,
-      `Frame Rate: ${summary.frameRate} fps`,
-      `Tracks: ${summary.trackCount}`,
-      `Clips: ${summary.clipCount}`,
-      `Sources: ${summary.sourceCount}`,
-      `Created: ${meta.createdAt.toLocaleString()}`,
-      `Updated: ${meta.updatedAt.toLocaleString()}`,
-    ].join("\n");
-
-    return {
-      toolCallId: "",
-      success: true,
-      output: info,
-    };
-  } catch (error) {
-    return {
-      toolCallId: "",
-      success: false,
-      output: "",
-      error: `Failed to load project: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-};
 
 const projectSet: ToolHandler = async (args, context): Promise<ToolResult> => {
   const path = (args.path || args.project) as string;
@@ -249,7 +135,6 @@ const projectOpen: ToolHandler = async (args, context): Promise<ToolResult> => {
     const data: ProjectFile = JSON.parse(content);
     const project = Project.fromJSON(data);
 
-    // Update context
     context.projectPath = filePath;
 
     const summary = project.getSummary();
@@ -286,7 +171,6 @@ const projectSave: ToolHandler = async (args, context): Promise<ToolResult> => {
     const data: ProjectFile = JSON.parse(content);
     const project = Project.fromJSON(data);
 
-    // Update timestamp and save
     await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
     return {
@@ -304,12 +188,8 @@ const projectSave: ToolHandler = async (args, context): Promise<ToolResult> => {
   }
 };
 
-// Registration function
 export function registerProjectTools(registry: ToolRegistry): void {
-  // Manifest takes precedence — project_set/open/save stay hand-written here.
-  if (!MIGRATED.has(projectCreateDef.name))  registry.register(projectCreateDef, projectCreate);
-  if (!MIGRATED.has(projectInfoDef.name))    registry.register(projectInfoDef, projectInfo);
-  if (!MIGRATED.has(projectSetDef.name))     registry.register(projectSetDef, projectSet);
-  if (!MIGRATED.has(projectOpenDef.name))    registry.register(projectOpenDef, projectOpen);
-  if (!MIGRATED.has(projectSaveDef.name))    registry.register(projectSaveDef, projectSave);
+  registry.register(projectSetDef, projectSet);
+  registry.register(projectOpenDef, projectOpen);
+  registry.register(projectSaveDef, projectSave);
 }

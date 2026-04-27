@@ -28,7 +28,6 @@ import { existsSync, mkdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { execSync } from "node:child_process";
 import { ToolRegistry } from "./index.js";
-import { registerAITools } from "./ai.js";
 import { manifest } from "../../tools/manifest/index.js";
 import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 import type { AgentContext } from "../types.js";
@@ -92,11 +91,9 @@ describe.skipIf(!RUN_E2E)("E2E: AI Pipeline Tools", () => {
   beforeAll(() => {
     printCostWarning();
 
-    // Setup registry — mirror production: manifest first, then legacy
-    // register*Tools (which skip names already in MIGRATED).
+    // Setup registry — manifest is the SSOT for AI tools post-v0.66.
     registry = new ToolRegistry();
     registerManifestIntoAgent(registry, manifest);
-    registerAITools(registry);
 
     // Create test output directory
     if (!existsSync(TEST_OUTPUT_DIR)) {

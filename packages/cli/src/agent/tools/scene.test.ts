@@ -3,7 +3,6 @@ import { mkdtemp, readFile, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ToolRegistry } from "./index.js";
-import { registerSceneTools, sceneToolDefinitions } from "./scene.js";
 import { manifest } from "../../tools/manifest/index.js";
 import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 import type { AgentContext, ToolDefinition } from "../types.js";
@@ -23,17 +22,15 @@ function ctx(workingDirectory: string): AgentContext {
 let registry: ToolRegistry;
 beforeEach(() => {
   registry = new ToolRegistry();
-  // During the v0.65 migration, scene_styles is sourced from the manifest
-  // and the legacy `registerSceneTools` skips it (gated on MIGRATED).
-  // Registering both gives the same final set the production agent runtime
-  // sees in `registerAllTools`.
   registerManifestIntoAgent(registry, manifest);
-  registerSceneTools(registry);
 });
+
+const sceneToolDefinitions = (): ReadonlyArray<ToolDefinition> =>
+  registry.getDefinitions().filter((d) => d.name.startsWith("scene_"));
 
 describe("scene agent tools — registration + schema", () => {
   it("registers exactly six scene_* tools", () => {
-    const names = registry.getDefinitions().map((t) => t.name).filter((n) => n.startsWith("scene_")).sort();
+    const names = sceneToolDefinitions().map((t) => t.name).sort();
     expect(names).toEqual([
       "scene_add",
       "scene_build",
@@ -44,38 +41,24 @@ describe("scene agent tools — registration + schema", () => {
     ]);
   });
 
-  it("exports definitions matching the registered scene set (parity with sceneToolDefinitions)", () => {
-    const exported = sceneToolDefinitions.map((d) => d.name).sort();
-    const registered = registry
-      .getDefinitions()
-      .map((t) => t.name)
-      .filter((n) => n.startsWith("scene_"))
-      .sort();
-    expect(exported).toEqual(registered);
-  });
-
-  it.each(sceneToolDefinitions.map((d) => [d.name, d] as const))(
-    "%s has well-formed JSON-schema-ish parameters",
-    (name: string, def: ToolDefinition) => {
-      expect(def.name).toBe(name);
+  it("scene tools all have well-formed JSON-schema-ish parameters", () => {
+    for (const def of sceneToolDefinitions()) {
       expect(def.description.length).toBeGreaterThan(20);
       expect(def.parameters.type).toBe("object");
       expect(def.parameters.properties).toBeTypeOf("object");
       expect(Array.isArray(def.parameters.required)).toBe(true);
-      // Every property has a string description.
       for (const [key, prop] of Object.entries(def.parameters.properties)) {
-        expect(prop.description, `${name}.${key} missing description`).toBeTruthy();
+        expect(prop.description, `${def.name}.${key} missing description`).toBeTruthy();
         expect(["string", "number", "boolean", "array", "object"]).toContain(prop.type);
       }
-      // Every required arg is actually declared.
       for (const req of def.parameters.required) {
         expect(def.parameters.properties).toHaveProperty(req);
       }
-    },
-  );
+    }
+  });
 
   it("scene_init requires only `dir`; scene_add requires only `name`; lint+render are arg-free", () => {
-    const byName = Object.fromEntries(sceneToolDefinitions.map((d) => [d.name, d]));
+    const byName = Object.fromEntries(sceneToolDefinitions().map((d) => [d.name, d]));
     expect(byName.scene_init.parameters.required).toEqual(["dir"]);
     expect(byName.scene_add.parameters.required).toEqual(["name"]);
     expect(byName.scene_lint.parameters.required).toEqual([]);
