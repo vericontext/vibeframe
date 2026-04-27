@@ -1,27 +1,30 @@
 /**
- * CLI ↔ MCP sync hook.
+ * CLI ↔ MCP ↔ Agent sync hook.
  *
- * The two surfaces — `vibe <verb> <noun>` (CLI) and `<verb>_<noun>` (MCP) —
- * must stay in sync. Whenever a CLI subcommand is added, removed, or renamed,
- * the corresponding MCP tool needs the same change. This test fails CI on
- * drift in either direction:
+ * VibeFrame ships three surfaces that wrap the same engine: the `vibe` CLI,
+ * the MCP server (this package), and the in-process agent (`vibe agent`
+ * REPL). They must stay in sync. Whenever a CLI subcommand is added,
+ * removed, or renamed, both the MCP tool and the agent tool need matching
+ * updates. This test fails CI on drift in any direction:
  *
  *   1. A CLI subcommand exists with no entry in SYNC_TABLE → fail (must
- *      either be wired into MCP or explicitly marked CLI-only with `null`).
- *   2. An MCP tool is registered that no SYNC_TABLE row points at and is not
- *      in MCP_ONLY → fail (orphaned MCP tool).
+ *      either be wired into both MCP & Agent or explicitly marked with
+ *      `null` per surface for a tracked TODO).
+ *   2. A registered MCP/Agent tool that no SYNC_TABLE row points at and
+ *      isn't in the corresponding *_ONLY set → fail (orphan).
  *   3. SYNC_TABLE claims a tool exists but it isn't actually registered →
  *      fail (broken mapping).
  *
- * To track a known gap (a CLI command we have not yet exposed as MCP), set
- * its value to `null`. The test still passes, but the gap is visible. To
- * close the gap: register the MCP tool, then change the value to its name.
+ * Set a value to `null` on either side to track a known gap. The test still
+ * passes but the gap surfaces in CI. Close the gap by registering the tool
+ * and flipping the null to its name.
  */
 
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
 import { sceneCommand } from "@vibeframe/cli/commands/scene";
 import { generateCommand } from "@vibeframe/cli/commands/generate";
+import { ToolRegistry, registerAllTools } from "@vibeframe/cli/agent";
 import { tools } from "./index.js";
 
 // Lazy: most CLI command modules don't pre-export their root Command instance.
@@ -45,91 +48,93 @@ const CLI_ONLY_TOP_LEVEL = new Set([
   "context", "media", "help", "export",
 ]);
 
-// Maps `<group> <subname>` → MCP tool name, or null when the gap is tracked
-// (CLI command exists but MCP tool not yet implemented). The null entries are
-// the live TODO list — close them by adding the MCP tool then flipping the
-// value to its name.
-const SYNC_TABLE: Record<string, string | null> = {
+// SYNC_TABLE: per-CLI-subcommand expected MCP and Agent tool names.
+// `null` on either side = tracked TODO (test passes, CI surfaces gap).
+// Close the gap by registering the tool, then flip null → "<name>".
+type SyncEntry = { mcp: string | null; agent: string | null };
+
+const SYNC_TABLE: Record<string, SyncEntry> = {
   // scene
-  "scene init":         "scene_init",
-  "scene styles":       "scene_styles",
-  "scene add":          "scene_add",
-  "scene lint":         "scene_lint",
-  "scene render":       "scene_render",
-  "scene build":        "scene_build",
+  "scene init":         { mcp: "scene_init",        agent: "scene_init" },
+  "scene styles":       { mcp: "scene_styles",      agent: null }, // TODO Phase B
+  "scene add":          { mcp: "scene_add",         agent: "scene_add" },
+  "scene lint":         { mcp: "scene_lint",        agent: "scene_lint" },
+  "scene render":       { mcp: "scene_render",      agent: "scene_render" },
+  "scene build":        { mcp: "scene_build",       agent: null }, // TODO Phase B
 
   // generate
-  "generate image":         "generate_image",
-  "generate video":         "generate_video",
-  "generate speech":        "generate_speech",
-  "generate sound-effect":  "generate_sound_effect",
-  "generate music":         "generate_music",
-  "generate storyboard":    "generate_storyboard",
-  "generate motion":        "generate_motion",
-  "generate thumbnail":     "generate_thumbnail",
-  "generate background":    "generate_background",
-  "generate video-status":  "generate_video_status",
-  "generate video-cancel":  "generate_video_cancel",
-  "generate video-extend":  "generate_video_extend",
-  "generate music-status":  null, // TODO: async music job status not yet exposed via MCP
+  "generate image":         { mcp: "generate_image",        agent: "generate_image" },
+  "generate video":         { mcp: "generate_video",        agent: "generate_video" },
+  "generate speech":        { mcp: "generate_speech",       agent: "generate_speech" },
+  "generate sound-effect":  { mcp: "generate_sound_effect", agent: "generate_sound_effect" },
+  "generate music":         { mcp: "generate_music",        agent: "generate_music" },
+  "generate storyboard":    { mcp: "generate_storyboard",   agent: "generate_storyboard" },
+  "generate motion":        { mcp: "generate_motion",       agent: "generate_motion" },
+  "generate thumbnail":     { mcp: "generate_thumbnail",    agent: "generate_thumbnail" },
+  "generate background":    { mcp: "generate_background",   agent: null }, // TODO Phase B
+  "generate video-status":  { mcp: "generate_video_status", agent: null }, // TODO Phase B
+  "generate video-cancel":  { mcp: "generate_video_cancel", agent: null }, // TODO Phase B
+  "generate video-extend":  { mcp: "generate_video_extend", agent: null }, // TODO Phase B
+  "generate music-status":  { mcp: null, agent: null }, // TODO async music job status everywhere
 
   // edit
-  "edit silence-cut":       "edit_silence_cut",
-  "edit caption":           "edit_caption",
-  "edit noise-reduce":      "edit_noise_reduce",
-  "edit fade":              "edit_fade",
-  "edit translate-srt":     "edit_translate_srt",
-  "edit jump-cut":          "edit_jump_cut",
-  "edit fill-gaps":         null, // TODO: extract executeFillGaps + add MCP tool
-  "edit grade":             "edit_grade",
-  "edit text-overlay":      "edit_text_overlay",
-  "edit speed-ramp":        "edit_speed_ramp",
-  "edit reframe":           "edit_reframe",
-  "edit image":             "edit_image",
-  "edit interpolate":       "edit_interpolate",
-  "edit upscale-video":     "edit_upscale", // CLI is upscale-video, MCP is edit_upscale
+  "edit silence-cut":       { mcp: "edit_silence_cut",   agent: "edit_silence_cut" },
+  "edit caption":           { mcp: "edit_caption",       agent: "edit_caption" },
+  "edit noise-reduce":      { mcp: "edit_noise_reduce",  agent: "edit_noise_reduce" },
+  "edit fade":              { mcp: "edit_fade",          agent: "edit_fade" },
+  "edit translate-srt":     { mcp: "edit_translate_srt", agent: "edit_translate_srt" },
+  "edit jump-cut":          { mcp: "edit_jump_cut",      agent: "edit_jump_cut" },
+  "edit fill-gaps":         { mcp: null, agent: null },  // TODO: extract executeFillGaps + wire both
+  "edit grade":             { mcp: "edit_grade",         agent: null }, // TODO Phase B
+  "edit text-overlay":      { mcp: "edit_text_overlay",  agent: "edit_text_overlay" },
+  "edit speed-ramp":        { mcp: "edit_speed_ramp",    agent: null }, // TODO Phase B
+  "edit reframe":           { mcp: "edit_reframe",       agent: null }, // TODO Phase B
+  "edit image":             { mcp: "edit_image",         agent: "edit_image" },
+  "edit interpolate":       { mcp: "edit_interpolate",   agent: null }, // TODO Phase B
+  "edit upscale-video":     { mcp: "edit_upscale",       agent: null }, // TODO Phase B
 
   // audio
-  "audio transcribe":   "audio_transcribe",
-  "audio voices":       null, // CLI lists ElevenLabs voices — diagnostic only
-  "audio isolate":      "audio_isolate",
-  "audio voice-clone":  "audio_voice_clone",
-  "audio dub":          "audio_dub",
-  "audio duck":         "audio_duck",
+  "audio transcribe":   { mcp: "audio_transcribe",  agent: "audio_transcribe" },
+  "audio voices":       { mcp: null, agent: null },               // diagnostic — CLI-only by design
+  "audio isolate":      { mcp: "audio_isolate",     agent: null }, // TODO Phase B
+  "audio voice-clone":  { mcp: "audio_voice_clone", agent: null }, // TODO Phase B
+  "audio dub":          { mcp: "audio_dub",         agent: null }, // TODO Phase B
+  "audio duck":         { mcp: "audio_duck",        agent: null }, // TODO Phase B
 
   // pipeline
-  "pipeline highlights":       "pipeline_highlights",
-  "pipeline auto-shorts":      "pipeline_auto_shorts",
-  "pipeline animated-caption": "edit_animated_caption", // surfaced via edit_ in MCP
-  "pipeline script-to-video":  "pipeline_script_to_video", // [DEPRECATED v0.63]
+  "pipeline highlights":       { mcp: "pipeline_highlights",      agent: "pipeline_highlights" },
+  "pipeline auto-shorts":      { mcp: "pipeline_auto_shorts",     agent: "pipeline_auto_shorts" },
+  "pipeline animated-caption": { mcp: "edit_animated_caption",    agent: "pipeline_animated_caption" }, // naming inconsistency tracked
+  "pipeline script-to-video":  { mcp: "pipeline_script_to_video", agent: "pipeline_script_to_video" }, // [DEPRECATED v0.63]
 
   // detect
-  "detect scenes":  "detect_scenes",
-  "detect silence": "detect_silence",
-  "detect beats":   "detect_beats",
+  "detect scenes":  { mcp: "detect_scenes",  agent: "detect_scenes" },
+  "detect silence": { mcp: "detect_silence", agent: "detect_silence" },
+  "detect beats":   { mcp: "detect_beats",   agent: "detect_beats" },
 
-  // timeline
-  "timeline add-source":  "timeline_add_source",
-  "timeline add-clip":    "timeline_add_clip",
-  "timeline add-track":   "timeline_add_track",
-  "timeline add-effect":  "timeline_add_effect",
-  "timeline trim":        "timeline_trim_clip",
-  "timeline list":        "timeline_list",
-  "timeline split":       "timeline_split_clip",
-  "timeline duplicate":   "timeline_duplicate_clip",
-  "timeline delete":      "timeline_delete_clip",
-  "timeline move":        "timeline_move_clip",
+  // timeline — agent uses short names (timeline_split), MCP uses _clip suffix.
+  // Tracked as known naming drift — TODO unify in v0.64 (Phase D follow-up).
+  "timeline add-source":  { mcp: "timeline_add_source",     agent: "timeline_add_source" },
+  "timeline add-clip":    { mcp: "timeline_add_clip",       agent: "timeline_add_clip" },
+  "timeline add-track":   { mcp: "timeline_add_track",      agent: "timeline_add_track" },
+  "timeline add-effect":  { mcp: "timeline_add_effect",     agent: "timeline_add_effect" },
+  "timeline trim":        { mcp: "timeline_trim_clip",      agent: "timeline_trim" },
+  "timeline list":        { mcp: "timeline_list",           agent: "timeline_list" },
+  "timeline split":       { mcp: "timeline_split_clip",     agent: "timeline_split" },
+  "timeline duplicate":   { mcp: "timeline_duplicate_clip", agent: "timeline_duplicate" },
+  "timeline delete":      { mcp: "timeline_delete_clip",    agent: "timeline_delete" },
+  "timeline move":        { mcp: "timeline_move_clip",      agent: "timeline_move" },
 
   // project
-  "project create": "project_create",
-  "project info":   "project_info",
-  "project set":    null, // CLI-only config writer; MCP equivalent not designed yet
+  "project create": { mcp: "project_create", agent: "project_create" },
+  "project info":   { mcp: "project_info",   agent: "project_info" },
+  "project set":    { mcp: null, agent: null }, // CLI-only config writer
 
   // analyze
-  "analyze media":   "analyze_media",
-  "analyze video":   "analyze_video",
-  "analyze review":  "analyze_review",
-  "analyze suggest": null, // TODO: ai-suggest-edit not yet exposed as MCP
+  "analyze media":   { mcp: "analyze_media",  agent: "analyze_media" },
+  "analyze video":   { mcp: "analyze_video",  agent: "analyze_video" },
+  "analyze review":  { mcp: "analyze_review", agent: "analyze_review" },
+  "analyze suggest": { mcp: null, agent: null }, // TODO: ai-suggest-edit not exposed anywhere
 };
 
 // MCP tools that have no direct CLI subcommand by design — namespace shifts,
@@ -140,6 +145,36 @@ const MCP_ONLY = new Map<string, string>([
   ["pipeline_run",               "wraps the top-level `vibe run <pipeline>` command (different namespace)"],
   ["export_video",               "wraps top-level `vibe export <project>`"],
 ]);
+
+// Agent tools that have no CLI subcommand — agent-internal helpers
+// (filesystem IO, batch ops, in-process media probes, REPL niceties).
+const AGENT_ONLY = new Map<string, string>([
+  ["fs_read",              "in-process file IO — agent reads project files directly"],
+  ["fs_write",             "in-process file IO"],
+  ["fs_list",              "in-process file IO"],
+  ["fs_exists",            "in-process file IO"],
+  ["media_info",           "in-process ffprobe wrapper for the agent loop"],
+  ["media_convert",        "in-process ffmpeg wrapper"],
+  ["media_concat",         "in-process ffmpeg wrapper"],
+  ["media_compress",       "in-process ffmpeg wrapper"],
+  ["batch_import",         "agent batch helper — wraps vibe batch import"],
+  ["batch_concat",         "agent batch helper"],
+  ["batch_apply_effect",   "agent batch helper"],
+  ["export_audio",         "agent-only — extract audio track to file"],
+  ["export_subtitles",     "agent-only — extract subtitles track to file"],
+  ["export_video",         "agent loop variant of top-level `vibe export <project>`"],
+  ["project_open",         "REPL session state — load .vibe.json into context"],
+  ["project_save",         "REPL session state — flush context back to .vibe.json"],
+  ["project_set",          "agent helper — wraps vibe project set; CLI surface is for humans"],
+  ["timeline_clear",       "REPL session state — discard in-memory edits"],
+  ["pipeline_regenerate_scene",  "agent-only render path; mirrors MCP_ONLY entry"],
+]);
+
+async function getAgentToolNames(): Promise<Set<string>> {
+  const registry = new ToolRegistry();
+  await registerAllTools(registry);
+  return new Set(registry.getAll().map((t) => t.name));
+}
 
 // ── Verifications ────────────────────────────────────────────────────────
 
@@ -168,17 +203,30 @@ describe("CLI ↔ MCP tool sync", () => {
   it("every mapped MCP tool name in SYNC_TABLE is actually registered", () => {
     const registered = new Set(tools.map((t) => t.name));
     const broken: Array<{ cli: string; mcp: string }> = [];
-    for (const [cli, mcp] of Object.entries(SYNC_TABLE)) {
-      if (mcp !== null && !registered.has(mcp)) {
-        broken.push({ cli, mcp });
+    for (const [cli, entry] of Object.entries(SYNC_TABLE)) {
+      if (entry.mcp !== null && !registered.has(entry.mcp)) {
+        broken.push({ cli, mcp: entry.mcp });
       }
     }
     expect(broken, `SYNC_TABLE points at MCP tools that are not registered: ${JSON.stringify(broken)}`).toEqual([]);
   });
 
+  it("every mapped Agent tool name in SYNC_TABLE is actually registered", async () => {
+    const registered = await getAgentToolNames();
+    const broken: Array<{ cli: string; agent: string }> = [];
+    for (const [cli, entry] of Object.entries(SYNC_TABLE)) {
+      if (entry.agent !== null && !registered.has(entry.agent)) {
+        broken.push({ cli, agent: entry.agent });
+      }
+    }
+    expect(broken, `SYNC_TABLE points at Agent tools that are not registered: ${JSON.stringify(broken)}`).toEqual([]);
+  });
+
   it("every registered MCP tool is either mapped from a CLI command or explicitly MCP-only", () => {
     const mapped = new Set(
-      Object.values(SYNC_TABLE).filter((v): v is string => v !== null),
+      Object.values(SYNC_TABLE)
+        .map((entry) => entry.mcp)
+        .filter((v): v is string => v !== null),
     );
     const orphans: string[] = [];
     for (const t of tools) {
@@ -187,13 +235,36 @@ describe("CLI ↔ MCP tool sync", () => {
     expect(orphans, `MCP tools with no CLI mapping and not in MCP_ONLY: ${orphans.join(", ")}. Either map to a CLI command or add to MCP_ONLY with justification.`).toEqual([]);
   });
 
-  it("MCP_ONLY entries are real registered tools", () => {
+  it("every registered Agent tool is either mapped from a CLI command or explicitly Agent-only", async () => {
+    const registered = await getAgentToolNames();
+    const mapped = new Set(
+      Object.values(SYNC_TABLE)
+        .map((entry) => entry.agent)
+        .filter((v): v is string => v !== null),
+    );
+    const orphans: string[] = [];
+    for (const name of registered) {
+      if (!mapped.has(name) && !AGENT_ONLY.has(name)) orphans.push(name);
+    }
+    expect(orphans, `Agent tools with no CLI mapping and not in AGENT_ONLY: ${orphans.join(", ")}. Either map to a CLI command or add to AGENT_ONLY with justification.`).toEqual([]);
+  });
+
+  it("MCP_ONLY entries are real registered MCP tools", () => {
     const registered = new Set(tools.map((t) => t.name));
     const dead: string[] = [];
     for (const tool of MCP_ONLY.keys()) {
       if (!registered.has(tool)) dead.push(tool);
     }
     expect(dead, `MCP_ONLY references unregistered tools: ${dead.join(", ")}`).toEqual([]);
+  });
+
+  it("AGENT_ONLY entries are real registered Agent tools", async () => {
+    const registered = await getAgentToolNames();
+    const dead: string[] = [];
+    for (const tool of AGENT_ONLY.keys()) {
+      if (!registered.has(tool)) dead.push(tool);
+    }
+    expect(dead, `AGENT_ONLY references unregistered tools: ${dead.join(", ")}`).toEqual([]);
   });
 
   it("CLI_ONLY_TOP_LEVEL is sane (no overlap with mapped CLI commands)", () => {

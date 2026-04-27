@@ -247,5 +247,5 @@ export class AgentExecutor {
 // Re-export types
 export type { AgentConfig, AgentContext, AgentMessage, ToolCall, ToolResult } from "./types.js";
 export type { LLMAdapter } from "./adapters/index.js";
-export { ToolRegistry } from "./tools/index.js";
+export { ToolRegistry, registerAllTools } from "./tools/index.js";
 export { ConversationMemory } from "./memory/index.js";
