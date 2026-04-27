@@ -105,6 +105,11 @@ export function defineTool<S extends ZodTypeAny>(t: ToolDefinition<S>): ToolDefi
  * comes from the manifest.
  */
 export const MIGRATED: Set<string> = new Set([
-  // Phase A pilot (C1)
+  // C2: full scene group
+  "scene_init",
+  "scene_add",
+  "scene_lint",
+  "scene_render",
+  "scene_build",
   "scene_styles",
 ]);

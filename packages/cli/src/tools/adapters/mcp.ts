@@ -33,6 +33,17 @@ export type McpDispatcher = (
 ) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
 
 function formatZodError(err: ZodError): string {
+  // Surface Zod's "Required" issues as the legacy "missing required argument"
+  // phrasing so existing MCP-host integrations that match on that string keep
+  // working.
+  const missing = err.issues
+    .filter((i) => i.code === "invalid_type" && i.message === "Required")
+    .map((i) => i.path.join("."))
+    .filter(Boolean);
+  if (missing.length > 0) {
+    const plural = missing.length > 1 ? "s" : "";
+    return `missing required argument${plural}: ${missing.join(", ")}`;
+  }
   return err.issues
     .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
     .join("; ");
