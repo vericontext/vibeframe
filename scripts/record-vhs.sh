@@ -17,9 +17,10 @@
 #   assets/demos/build.gif    — `vibe scene build examples/vibeframe-promo --skip-render`
 #
 #   ── User-facing surfaces (real API calls, real videos) ──────────
-#   assets/demos/cli.mp4      — Surface 1: vibe CLI directly, hand-authored STORYBOARD
-#   assets/demos/agent.mp4    — Surface 2: vibe agent REPL, natural-language driven
-#   assets/demos/claude.mp4      — Surface 3: claude --dangerously-skip-permissions, end-to-end
+#   assets/demos/cli.mp4         — Surface 1: vibe CLI directly, hand-authored STORYBOARD
+#   assets/demos/agent.mp4       — Surface 2: vibe agent REPL, natural-language driven
+#   assets/demos/claude.mp4      — Surface 3: Claude Code → scene-build (story, multi-beat)
+#   assets/demos/claude-i2v.mp4  — Surface 4: Claude Code → t2i + i2v + narration (primitive chain)
 #
 # The MP4s replace the v0.57-era asciinema SVGs in README + landing
 # (vibeframe-quickstart.svg, vibeframe-agent.svg, vibeframe-claude-code.svg).
@@ -58,6 +59,9 @@ SURFACE_TAPES=(
   "assets/demos/cli.tape"
   "assets/demos/agent.tape"
   "assets/demos/claude.tape"
+  # Claude + primitive chain (t2i → i2v → narration → mux). Showcases
+  # the non-scene-build path through gpt-image-2 + Seedance 2.0 + TTS.
+  "assets/demos/claude-i2v.tape"
 )
 
 ALL_TAPES=("${WIZARD_TAPES[@]}")
