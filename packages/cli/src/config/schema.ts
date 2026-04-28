@@ -61,20 +61,16 @@ export const PROVIDER_NAMES: Record<LLMProvider, string> = {
   openrouter: "OpenRouter",
 };
 
-/** Environment variable mappings */
-export const PROVIDER_ENV_VARS: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  google: "GOOGLE_API_KEY",
-  elevenlabs: "ELEVENLABS_API_KEY",
-  runway: "RUNWAY_API_SECRET",
-  kling: "KLING_API_KEY",
-  fal: "FAL_KEY",
-  imgbb: "IMGBB_API_KEY",
-  replicate: "REPLICATE_API_TOKEN",
-  xai: "XAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-};
+/**
+ * Environment variable mappings, derived from the provider registry.
+ * Pre-v0.68 this was a hardcoded record cross-validated against four
+ * other files via `scripts/sync-counts.sh`. Now it auto-derives from
+ * `@vibeframe/ai-providers` `defineApiKey` declarations — adding a new
+ * apiKey is a single line in `api-keys.ts`.
+ */
+import { getProviderEnvVars } from "@vibeframe/ai-providers";
+
+export const PROVIDER_ENV_VARS: Record<string, string> = getProviderEnvVars();
 
 /** Default configuration */
 export function createDefaultConfig(): VibeConfig {

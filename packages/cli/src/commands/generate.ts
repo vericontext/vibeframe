@@ -50,6 +50,7 @@ import { uploadToImgbb } from "./ai-script-pipeline.js";
 import { downloadVideo, formatTime } from "./ai-helpers.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { resolveProvider } from "../utils/provider-resolver.js";
+import { getProvidersFor } from "@vibeframe/ai-providers";
 import { executeThumbnailBestFrame } from "./ai-image.js";
 import { registerMotionCommand } from "./ai-motion.js";
 import { executeOpenAIImageGenerate } from "./_shared/openai-image.js";
@@ -154,18 +155,41 @@ Examples:
 
       // Resolve provider:
       //  - explicit -p flag wins (validated, then key-presence checked)
-      //  - no flag → IMAGE_PROVIDERS priority list (openai > gemini > grok)
+      //  - no flag → image registry priority list (openai > gemini > grok)
       //  - if no keys at all → keep gemini as last-resort default so the
       //    later requireApiKey() prints a friendly Gemini-specific message
-      const validProviders = ["openai", "dalle", "gemini", "grok", "runway"];
-      const providerEnvMap: Record<string, string> = {
-        gemini: "GOOGLE_API_KEY", openai: "OPENAI_API_KEY", grok: "XAI_API_KEY",
+      //
+      // The registry (`@vibeframe/ai-providers`) is the source of truth for
+      // image-kind providers. `dalle` (deprecated alias) and `runway`
+      // (image variant accepted by CLI but not in auto-resolver) are
+      // explicit overrides — adding a new image provider in the registry
+      // auto-propagates here.
+      const imageRegistry = getProvidersFor("image");
+      const validProviders = [...imageRegistry.map((p) => p.name), "dalle", "runway"];
+      const providerEnvMap: Record<string, string> = Object.fromEntries(
+        imageRegistry
+          .filter((p): p is typeof p & { envVar: string } => p.envVar !== null)
+          .map((p) => [p.name, p.envVar]),
+      );
+      const envKeyMap: Record<string, string> = {
+        ...providerEnvMap,
+        dalle: "OPENAI_API_KEY",
+        runway: "RUNWAY_API_SECRET",
+      };
+      const providerNameMap: Record<string, string> = {
+        ...Object.fromEntries(imageRegistry.map((p) => [p.name, p.label])),
+        // Override Gemini's resolver label "Gemini" with the more specific
+        // "Google" used in error messages, and add aliases.
+        gemini: "Google",
+        grok: "xAI Grok",
+        dalle: "OpenAI",
+        runway: "Runway",
       };
       let provider: string;
       if (options.provider) {
         provider = options.provider.toLowerCase();
         if (!validProviders.includes(provider)) {
-          exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: openai, gemini, grok, runway`));
+          exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${imageRegistry.map((p) => p.name).join(", ")}, runway`));
         }
         // Explicit choice's key missing → fall back via resolver
         if (providerEnvMap[provider] && !hasApiKey(providerEnvMap[provider]) && !options.apiKey) {
@@ -191,21 +215,6 @@ Examples:
         return;
       }
 
-      // Get API key based on provider
-      const envKeyMap: Record<string, string> = {
-        openai: "OPENAI_API_KEY",
-        dalle: "OPENAI_API_KEY",
-        gemini: "GOOGLE_API_KEY",
-        grok: "XAI_API_KEY",
-        runway: "RUNWAY_API_SECRET",
-      };
-      const providerNameMap: Record<string, string> = {
-        openai: "OpenAI",
-        dalle: "OpenAI",
-        gemini: "Google",
-        grok: "xAI Grok",
-        runway: "Runway",
-      };
       const envKey = envKeyMap[provider];
       const providerName = providerNameMap[provider];
 

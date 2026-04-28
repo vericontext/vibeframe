@@ -2,69 +2,22 @@
  * Smart provider auto-resolution
  * 1. Check ~/.vibeframe/config.yaml defaults (if set)
  * 2. Fall back to first provider with a configured API key
+ *
+ * Provider candidate lists (image / video / speech) are derived from the
+ * `defineProvider` registry in `@vibeframe/ai-providers/api-keys.ts` +
+ * each provider's `index.ts`. Priority order, label, and envvar mapping
+ * all live there now — adding a new provider is a single declaration.
+ *
+ * Pre-v0.68 the IMAGE_PROVIDERS / VIDEO_PROVIDERS / SPEECH_PROVIDERS
+ * arrays were hardcoded here and cross-validated against four other
+ * files via `scripts/sync-counts.sh` category B. v0.68 collapsed all
+ * five into a single registry; the cross-validation became structural.
  */
 
+import { getProvidersFor, type ProviderCandidate } from "@vibeframe/ai-providers";
 import { hasApiKey } from "./api-key.js";
 
-interface ProviderCandidate {
-  name: string;
-  /**
-   * Environment variable that must be set for this provider to be available.
-   * `null` means the provider is always available (e.g. local on-device models
-   * with no API key).
-   */
-  envVar: string | null;
-  label: string;
-}
-
-// As of v0.56, OpenAI is the preferred image provider — gpt-image-2
-// holds Artificial Analysis ELO 1332 on the text-to-image leaderboard
-// (#1; ~70 ELO above any non-OpenAI model). Users without an OpenAI
-// key automatically fall through to Gemini, so Gemini-only setups are
-// unaffected. Set `defaults.imageProvider: gemini` in
-// `~/.vibeframe/config.yaml` to keep the previous behaviour even when
-// both keys are present.
-const IMAGE_PROVIDERS: ProviderCandidate[] = [
-  { name: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
-  { name: "gemini", envVar: "GOOGLE_API_KEY", label: "Gemini" },
-  { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
-];
-
-// As of v0.57, fal.ai (Seedance 2.0) leads when its key is set —
-// Artificial Analysis ELO 1270 #2 on text-to-video, 1347 #2 on
-// image-to-video (the only model ahead of it on either chart is
-// Alibaba's HappyHorse-1.0 which has no public API).
-//
-//   text-to-video  Seedance 2.0  1270 (#2)  vs Grok 1230 (#6) → +40 ELO
-//   image-to-video Seedance 2.0  1347 (#2)  vs Grok 1327 (#3) → +20 ELO
-//
-// References:
-//   https://artificialanalysis.ai/video/leaderboard/text-to-video
-//   https://artificialanalysis.ai/video/leaderboard/image-to-video
-//
-// Users without a FAL_KEY fall through to Grok / Veo / Kling / Runway
-// in that order, so existing setups are unchanged.
-const VIDEO_PROVIDERS: ProviderCandidate[] = [
-  { name: "fal", envVar: "FAL_KEY", label: "fal.ai (Seedance 2.0)" },
-  { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
-  { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
-  { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
-  { name: "runway", envVar: "RUNWAY_API_SECRET", label: "Runway" },
-];
-
-// `kokoro` runs locally with no API key — it's the always-available fallback
-// behind ElevenLabs. Listing it last keeps existing key-holding users on
-// ElevenLabs by default while letting key-less users land on Kokoro.
-const SPEECH_PROVIDERS: ProviderCandidate[] = [
-  { name: "elevenlabs", envVar: "ELEVENLABS_API_KEY", label: "ElevenLabs" },
-  { name: "kokoro", envVar: null, label: "Kokoro (local)" },
-];
-
-const PROVIDER_MAP: Record<string, ProviderCandidate[]> = {
-  image: IMAGE_PROVIDERS,
-  video: VIDEO_PROVIDERS,
-  speech: SPEECH_PROVIDERS,
-};
+export type { ProviderCandidate };
 
 /** Cached config defaults (loaded once per process) */
 let configDefaults: Record<string, string> | null = null;
@@ -94,8 +47,8 @@ export async function loadProviderDefaults(): Promise<void> {
 export function resolveProvider(
   category: "image" | "video" | "speech"
 ): { name: string; label: string } | null {
-  const candidates = PROVIDER_MAP[category];
-  if (!candidates) return null;
+  const candidates = getProvidersFor(category);
+  if (candidates.length === 0) return null;
 
   // Check config default first
   if (configDefaults?.[category]) {

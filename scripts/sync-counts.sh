@@ -185,66 +185,21 @@ if grep -qE 'same [0-9]+ tools' apps/web/app/demo/page.tsx; then
     err "apps/web/app/demo/page.tsx: 'same ${D_TOOLS} tools' but agent tools = ${AGENT_TOOLS}"
 fi
 
-# ── B1. .env.example completeness vs PROVIDER_ENV_VARS ──────────────────
-# Every env var referenced in schema PROVIDER_ENV_VARS must have a
-# `KEY=` line in .env.example, with a `# ...` comment block above it.
+# ── B. Provider plugin registry validation ──────────────────────────────
+# v0.68 collapsed the previous 4-array cross-validation (provider-resolver,
+# schema PROVIDER_ENV_VARS, doctor COMMAND_KEY_MAP, setup allProviders)
+# into a single registry in `packages/ai-providers/src/api-keys.ts` +
+# each provider's `index.ts`. The arrays now structurally derive from the
+# registry — drift is impossible at the language level.
+#
+# What remains: `.env.example` is generated text (not a derived array),
+# so we still need a check. `print-env-example.mts --check` regenerates
+# from the registry and diffs against the committed file.
 
-SCHEMA_VARS=$(awk '/PROVIDER_ENV_VARS.*=.*\{/,/^\};/' packages/cli/src/config/schema.ts \
-  | grep -oE '"[A-Z_]+"' | tr -d '"' | grep -E '^[A-Z_]+_(KEY|SECRET|TOKEN)$|^FAL_KEY$' | sort -u)
-
-for var in $SCHEMA_VARS; do
-  LINE=$(grep -nE "^${var}=" .env.example | head -1 | cut -d: -f1)
-  if [ -z "$LINE" ]; then
-    err ".env.example missing '${var}=' line (defined in schema PROVIDER_ENV_VARS)"
-    continue
-  fi
-  # Walk upward until we hit a non-blank line; that line should be a # comment.
-  PREV=$((LINE - 1))
-  PREV_LINE=""
-  while [ "$PREV" -gt 0 ]; do
-    PREV_LINE=$(sed -n "${PREV}p" .env.example)
-    if [ -n "$PREV_LINE" ]; then
-      break
-    fi
-    PREV=$((PREV - 1))
-  done
-  if ! echo "$PREV_LINE" | grep -qE '^#.+'; then
-    err ".env.example: ${var} has no '# ...' comment block above it (other keys all have descriptive headers)"
-  fi
-done
-
-# ── B2. provider-resolver.ts envVars ⊂ schema PROVIDER_ENV_VARS ─────────
-
-RESOLVER_VARS=$(grep -oE 'envVar: "[A-Z_]+"' packages/cli/src/utils/provider-resolver.ts \
-  | grep -oE '"[A-Z_]+"' | tr -d '"' | sort -u)
-
-for var in $RESOLVER_VARS; do
-  if ! echo "$SCHEMA_VARS" | grep -qx "$var"; then
-    err "provider-resolver.ts uses ${var} but schema PROVIDER_ENV_VARS doesn't include it. Add it to packages/cli/src/config/schema.ts"
-  fi
-done
-
-# ── B3. doctor.ts COMMAND_KEY_MAP ⊇ provider-resolver envVars ───────────
-
-DOCTOR_VARS=$(awk '/^const COMMAND_KEY_MAP/,/^};/' packages/cli/src/commands/doctor.ts \
-  | grep -oE '^\s*[A-Z_]+:' | grep -oE '[A-Z_]+' | sort -u)
-
-for var in $RESOLVER_VARS; do
-  if ! echo "$DOCTOR_VARS" | grep -qx "$var"; then
-    err "doctor.ts COMMAND_KEY_MAP missing ${var} (used in provider-resolver.ts). 'vibe doctor' won't list any commands for this provider."
-  fi
-done
-
-# ── B4. setup.ts allProviders envVars ⊂ schema PROVIDER_ENV_VARS ────────
-
-SETUP_VARS=$(awk '/const allProviders/,/^\s*\];/' packages/cli/src/commands/setup.ts \
-  | grep -oE 'env: "[A-Z_]+"' | grep -oE '"[A-Z_]+"' | tr -d '"' | sort -u)
-
-for var in $SETUP_VARS; do
-  if ! echo "$SCHEMA_VARS" | grep -qx "$var"; then
-    err "setup.ts allProviders uses ${var} but schema PROVIDER_ENV_VARS doesn't include it"
-  fi
-done
+if ! pnpm exec tsx scripts/print-env-example.mts --check > /dev/null 2>&1; then
+  PRINT_OUTPUT=$(pnpm exec tsx scripts/print-env-example.mts --check 2>&1 || true)
+  err ".env.example out of sync with provider registry: $PRINT_OUTPUT"
+fi
 
 # ── D. Commander `-p` defaults vs resolver leaders ──────────────────────
 # Commander default *should* be empty so the resolver picks the priority

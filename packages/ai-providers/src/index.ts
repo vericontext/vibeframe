@@ -13,6 +13,26 @@
 export * from "./interface/index.js";
 export { providerRegistry, getBestProviderForCapability } from "./interface/registry.js";
 
+// Plugin metadata registry — must be imported before any provider's index.ts
+// since `defineProvider` calls assert their referenced apiKey was registered.
+// `api-keys.ts` declares all 11 apiKeys + 1 virtual provider (openrouter).
+import "./api-keys.js";
+export {
+  defineApiKey,
+  defineProvider,
+  getProvidersFor,
+  getProviderEnvVars,
+  getCommandKeyMap,
+  getSetupProviders,
+  getAllApiKeys,
+  getAllProviders,
+  type ApiKeyMeta,
+  type ProviderMeta,
+  type ProviderKind,
+  type ProviderCandidate,
+  type SetupProviderEntry,
+} from "./define-provider.js";
+
 // Individual providers
 export { WhisperProvider, whisperProvider } from "./whisper/index.js";
 export { GeminiProvider, geminiProvider } from "./gemini/index.js";

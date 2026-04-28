@@ -28,6 +28,7 @@ import {
   detectedAgentHosts,
   summariseAgentHosts,
 } from "../utils/agent-host-detect.js";
+import { getSetupProviders } from "@vibeframe/ai-providers";
 
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
@@ -361,18 +362,11 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
   console.log(chalk.dim("   Press Enter to skip any provider you don't need."));
   console.log();
 
-  const allProviders = [
-    { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY", desc: "gpt-image-2 image gen ($, default since v0.56), Whisper transcribe, Agent" },
-    { key: "anthropic", name: "Anthropic", env: "ANTHROPIC_API_KEY", desc: "Claude — storyboard, color grade, reframe, Agent ($)" },
-    { key: "fal", name: "fal.ai", env: "FAL_KEY", desc: "Seedance 2.0 video gen ($$, default since v0.57)" },
-    { key: "google", name: "Google", env: "GOOGLE_API_KEY", desc: "Gemini — image gen (free tier), video analysis ($), Veo ($$)" },
-    { key: "xai", name: "xAI", env: "XAI_API_KEY", desc: "Grok — video gen with audio ($$), image ($), Agent" },
-    { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY", desc: "TTS ($), SFX, music, voice clone, dubbing — skip to use local Kokoro" },
-    { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET", desc: "Gen-4.5 video generation ($$)" },
-    { key: "kling", name: "Kling", env: "KLING_API_KEY", desc: "v2.5/v3 video — std ($$) and pro ($$$) modes" },
-    { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY", desc: "300+ models via one key — Agent only (pay per model)" },
-    { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN", desc: "MusicGen background music ($, max 30s)" },
-  ];
+  // Derived from the provider registry — adding/editing a row means
+  // editing `defineApiKey({...setupDescription})` in
+  // `packages/ai-providers/src/api-keys.ts`. The order follows declaration
+  // order in api-keys.ts.
+  const allProviders = getSetupProviders();
 
   for (const p of allProviders) {
     const existing = config.providers[p.key as keyof typeof config.providers];

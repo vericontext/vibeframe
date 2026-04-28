@@ -9,63 +9,20 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { CONFIG_PATH } from "../config/index.js";
 import { PROVIDER_ENV_VARS } from "../config/schema.js";
+import { getCommandKeyMap } from "@vibeframe/ai-providers";
 import { commandExists } from "../utils/exec-safe.js";
 import { execSafe } from "../utils/exec-safe.js";
 import { loadEnv } from "../utils/api-key.js";
 import { detectAgentHosts, summariseAgentHosts } from "../utils/agent-host-detect.js";
 import { outputResult } from "./output.js";
 
-/** Mapping of env vars to the commands they unlock */
-const COMMAND_KEY_MAP: Record<string, string[]> = {
-  GOOGLE_API_KEY: [
-    "generate image",
-    "generate video -p veo",
-    "edit image",
-    "analyze media",
-    "analyze video",
-    "analyze review",
-  ],
-  OPENAI_API_KEY: [
-    "agent -p openai",
-    "generate image -p openai",
-    "edit image -p openai",
-    "audio transcribe",
-    "edit caption",
-    "edit jump-cut",
-  ],
-  ANTHROPIC_API_KEY: [
-    "agent -p claude",
-    "generate storyboard",
-    "generate motion",
-    "edit grade",
-    "edit reframe",
-    "edit speed-ramp",
-    "pipeline script-to-video",
-  ],
-  XAI_API_KEY: [
-    "agent -p xai",
-    "generate image -p grok",
-    "generate video -p grok",
-    "edit image -p grok",
-  ],
-  FAL_KEY: [
-    "generate video -p fal (Seedance 2.0 — default since v0.57)",
-    "generate video -p fal -m fast (lower-latency variant)",
-    "generate video -p fal -i <image> (image-to-video)",
-  ],
-  ELEVENLABS_API_KEY: [
-    "generate speech",
-    "generate sound-effect",
-    "generate music",
-    "audio voices",
-    "audio voice-clone",
-    "audio dub",
-  ],
-  KLING_API_KEY: ["generate video -p kling"],
-  RUNWAY_API_SECRET: ["generate video -p runway"],
-  REPLICATE_API_TOKEN: ["generate music -p replicate"],
-  IMGBB_API_KEY: ["generate video -p kling/fal (image-to-video upload host)"],
-};
+/**
+ * Mapping of env vars to the commands they unlock. Derived from the
+ * provider registry — each provider's `commandsUnlocked` aggregates by
+ * apiKey. Pre-v0.68 this was hand-maintained alongside the provider
+ * arrays; v0.68 collapsed both into the registry.
+ */
+const COMMAND_KEY_MAP: Record<string, readonly string[]> = getCommandKeyMap();
 
 /** Commands that need no API key (FFmpeg only) */
 const FREE_COMMANDS = [
@@ -191,7 +148,7 @@ interface DiagnosticResults {
   };
   providers: Record<
     string,
-    { envVar: string; configured: boolean; commands: string[] }
+    { envVar: string; configured: boolean; commands: readonly string[] }
   >;
   readyCount: number;
   totalCount: number;
