@@ -41,6 +41,11 @@ const CLI_TREE: Record<string, string[]> = {
   timeline: ["add-source", "add-clip", "add-track", "add-effect", "trim", "list", "split", "duplicate", "delete", "move"],
   project:  ["create", "info", "set"],
   analyze:  ["media", "video", "review", "suggest"],
+  // `vibe walkthrough <topic>` is a top-level command with a positional
+  // arg, not a real subcommand group. We model the topics as "subs" here
+  // so each one ↔ manifest mapping is verifiable; the single backing
+  // manifest tool (`walkthrough`) handles them all by routing on `topic`.
+  walkthrough: ["scene", "pipeline"],
 };
 
 // Top-level CLI commands with no manifest equivalent — pure ergonomics
@@ -129,6 +134,10 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "analyze video":   "analyze_video",
   "analyze review":  "analyze_review",
   "analyze suggest": "analyze_suggest",
+  // walkthrough — both topics route through the single `walkthrough`
+  // manifest tool (the topic is a tool arg, not a separate tool)
+  "walkthrough scene":    "walkthrough",
+  "walkthrough pipeline": "walkthrough",
 };
 
 describe("CLI ↔ manifest sync", () => {
