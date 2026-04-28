@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/ai-providers",
-  "version": "0.63.0",
+  "version": "0.67.0",
   "description": "VibeFrame AI Providers - pluggable AI integrations (OpenAI, Claude, Gemini, etc.)",
   "private": true,
   "license": "MIT",

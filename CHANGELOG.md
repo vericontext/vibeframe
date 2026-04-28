@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.67.0] - 2026-04-28
+
+This release closes the manifest-as-SSOT migration that began in v0.65.
+Every Agent and MCP tool now lives in a single Zod-typed manifest at
+`packages/cli/src/tools/manifest/`; legacy hand-written tool definitions
+in `packages/cli/src/agent/tools/*.ts` are gone, and the `MIGRATED` gating
+mechanism has been removed.
+
+### Manifest SSOT closure (v0.65/0.66 internal labels)
+
+- v0.65 (#154) — tool manifest as single source of truth (MCP + Agent)
+- v0.66 PR1 (#155) — fix Agent manifest silent overwrite
+- v0.66 PR2 (#156) — delete migrated legacy tool definitions
+- v0.66 PR3 (#157) — agent-only manifest entries (`fs_*`, `batch_*`)
+
+### v0.67 PRs
+
+- PR1 (#158) — migrate `media_*`, `timeline_clear`, `export_*` stubs into the manifest
+- PR2 (#159) — migrate `project_set/open/save` and remove the `MIGRATED` Set;
+  `ExecuteContext` gains an optional `agent?` field for the in-process agent's
+  mutable project pointer
+- PR3 (#160) — manifest-driven SSOT counts (`scripts/print-counts.mts`)
+  replaces fragile regex greps in `scripts/sync-counts.sh`
+
+### Other
+
+- VHS tape files for v0.61+ wizard flow + DEMO.md rewrite (#147) *(demo)*
+- align landing with v0.63 — drop deprecated script-to-video, add wizard section (#153) *(web)*
+
+### Counts
+
+`MCP=63 · Agent=79 · CLI=78 · 13 AI providers · 6 LLM providers`
+
 ## [0.63.0] - 2026-04-26
 
 ### Added
