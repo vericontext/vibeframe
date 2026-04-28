@@ -239,15 +239,19 @@ export function outputSuccess(opts: SuccessEnvelopeOptions): void {
   if (isJsonMode()) {
     const fields = process.env.VIBE_OUTPUT_FIELDS;
     if (fields) {
+      // --fields filters keys *inside* data, leaving envelope meta
+      // (command, elapsedMs, costUsd, warnings, dryRun) intact. This
+      // matches the documented `--fields response,model` UX from analyze.*
+      // and avoids agents having to write `--fields data` to keep the payload.
       const keys = fields.split(",").map((k) => k.trim());
-      const filtered: Record<string, unknown> = {};
+      const data = opts.data as Record<string, unknown>;
+      const filteredData: Record<string, unknown> = {};
       for (const key of keys) {
-        if (key in envelope) filtered[key] = envelope[key];
+        if (key in data) filteredData[key] = data[key];
       }
-      console.log(JSON.stringify(filtered, null, 2));
-    } else {
-      console.log(JSON.stringify(envelope, null, 2));
+      envelope.data = filteredData;
     }
+    console.log(JSON.stringify(envelope, null, 2));
     return;
   }
 

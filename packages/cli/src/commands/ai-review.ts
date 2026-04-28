@@ -21,7 +21,7 @@ import { GeminiProvider } from "@vibeframe/ai-providers";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
-import { exitWithError, outputResult, apiError, generalError } from "./output.js";
+import { exitWithError, outputSuccess, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /** Options for {@link executeReview}. */
@@ -232,22 +232,26 @@ export function registerReviewCommand(aiCommand: Command): void {
     .option("-o, --output <path>", "Output video file path (for auto-apply)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
+      const startedAt = Date.now();
       try {
         if (options.output) {
           validateOutputPath(options.output);
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "ai review",
-            params: {
-              videoPath,
-              storyboard: options.storyboard,
-              autoApply: options.autoApply ?? false,
-              verify: options.verify ?? false,
-              model: options.model,
-              output: options.output,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                videoPath,
+                storyboard: options.storyboard,
+                autoApply: options.autoApply ?? false,
+                verify: options.verify ?? false,
+                model: options.model,
+                output: options.output,
+              },
             },
           });
           return;

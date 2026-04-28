@@ -30,7 +30,7 @@ import { Project } from "../engine/index.js";
 import { getApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, outputResult, authError, notFoundError, apiError, generalError } from "./output.js";
+import { exitWithError, outputSuccess, authError, notFoundError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ============================================================================
@@ -687,6 +687,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (mediaPath: string, options) => {
+      const startedAt = Date.now();
       try {
         if (options.output) {
           validateOutputPath(options.output);
@@ -698,20 +699,23 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "ai highlights",
-            params: {
-              mediaPath,
-              output: options.output,
-              project: options.project,
-              duration: options.duration,
-              count: options.count,
-              threshold: options.threshold,
-              criteria: options.criteria,
-              language: options.language,
-              useGemini: options.useGemini ?? false,
-              lowRes: options.lowRes ?? false,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                mediaPath,
+                output: options.output,
+                project: options.project,
+                duration: options.duration,
+                count: options.count,
+                threshold: options.threshold,
+                criteria: options.criteria,
+                language: options.language,
+                useGemini: options.useGemini ?? false,
+                lowRes: options.lowRes ?? false,
+              },
             },
           });
           return;
@@ -1042,6 +1046,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {
+      const startedAt = Date.now();
       try {
         if (options.output) {
           validateOutputPath(options.output);
@@ -1053,22 +1058,25 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "ai auto-shorts",
-            params: {
-              videoPath,
-              output: options.output,
-              duration: options.duration,
-              count: options.count,
-              aspect: options.aspect,
-              outputDir: options.outputDir,
-              addCaptions: options.addCaptions ?? false,
-              captionStyle: options.captionStyle,
-              analyzeOnly: options.analyzeOnly ?? false,
-              language: options.language,
-              useGemini: options.useGemini ?? false,
-              lowRes: options.lowRes ?? false,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                videoPath,
+                output: options.output,
+                duration: options.duration,
+                count: options.count,
+                aspect: options.aspect,
+                outputDir: options.outputDir,
+                addCaptions: options.addCaptions ?? false,
+                captionStyle: options.captionStyle,
+                analyzeOnly: options.analyzeOnly ?? false,
+                language: options.language,
+                useGemini: options.useGemini ?? false,
+                lowRes: options.lowRes ?? false,
+              },
             },
           });
           return;

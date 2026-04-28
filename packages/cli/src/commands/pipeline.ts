@@ -28,7 +28,7 @@ import ora from "ora";
 import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
-import { isJsonMode, outputResult, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
 
 export const pipelineCommand = new Command("pipeline")
   .alias("pipe")
@@ -118,6 +118,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
 `,
   )
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       const absVideoPath = resolve(process.cwd(), videoPath);
       if (!existsSync(absVideoPath)) {
@@ -132,20 +133,23 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
       const outputFile = options.output || videoPath.replace(/(\.\w+)$/, "-captioned$1");
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "pipeline animated-caption",
-          params: {
-            videoPath: absVideoPath,
-            outputPath: outputFile,
-            style: options.style,
-            highlightColor: options.highlightColor,
-            fontSize: options.fontSize ? parseInt(options.fontSize) : "auto",
-            position: options.position,
-            wordsPerGroup: options.wordsPerGroup ? parseInt(options.wordsPerGroup) : "auto",
-            maxChars: options.maxChars ? parseInt(options.maxChars) : "auto",
-            language: options.language || "auto",
-            fast: !!options.fast,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absVideoPath,
+              outputPath: outputFile,
+              style: options.style,
+              highlightColor: options.highlightColor,
+              fontSize: options.fontSize ? parseInt(options.fontSize) : "auto",
+              position: options.position,
+              wordsPerGroup: options.wordsPerGroup ? parseInt(options.wordsPerGroup) : "auto",
+              maxChars: options.maxChars ? parseInt(options.maxChars) : "auto",
+              language: options.language || "auto",
+              fast: !!options.fast,
+            },
           },
         });
         return;
@@ -182,13 +186,16 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
       spinner.succeed(chalk.green("Animated captions applied successfully"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          outputPath: result.outputPath,
-          wordCount: result.wordCount,
-          groupCount: result.groupCount,
-          style: result.style,
-          tier: result.tier,
+        outputSuccess({
+          command: "pipeline animated-caption",
+          startedAt,
+          data: {
+            outputPath: result.outputPath,
+            wordCount: result.wordCount,
+            groupCount: result.groupCount,
+            style: result.style,
+            tier: result.tier,
+          },
         });
         return;
       }
