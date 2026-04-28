@@ -61,82 +61,85 @@ pnpm test
 7. Commit your changes with a conventional commit message
 8. Push to your fork and submit a Pull Request
 
-## Adding a New AI Command
+## Adding a New AI Provider
 
-VibeFrame has a specific pattern for adding AI commands. Follow these steps:
+Post-v0.68 (Plan G Phase 1) the provider plugin pattern collapses what used to be **8 file edits** into **1–2 declarations**. The CLI's provider-resolver, config schema, doctor, setup wizard, and `.env.example` all derive from a single registry, so adding a provider auto-propagates.
 
-### 1. Create or extend a command module
+### Quickest path: scaffold
 
-Commands live in `packages/cli/src/commands/`. Each module group has its own file:
-
-| File | Commands |
-|------|----------|
-| `ai-image.ts` | Image generation |
-| `ai-video.ts` | Video generation |
-| `ai-audio.ts` | Audio (TTS, SFX, music) |
-| `ai-edit.ts` | Post-production editing |
-| `ai-highlights.ts` | Highlights and auto-shorts |
-| `ai-script-pipeline.ts` | Script-to-video pipeline |
-| `ai-review.ts` | AI review and auto-fix |
-| `ai-analyze.ts` | Media analysis |
-| `ai-motion.ts` | Motion graphics |
-
-### 2. Export an execute function
-
-```typescript
-// packages/cli/src/commands/ai-example.ts
-export interface MyCommandOptions {
-  input: string;
-  // ...
-}
-
-export interface MyCommandResult {
-  success: boolean;
-  outputPath: string;
-}
-
-export async function executeMyCommand(options: MyCommandOptions): Promise<MyCommandResult> {
-  // Implementation
-}
-
-export function registerMyCommands(ai: Command): void {
-  ai.command("my-command")
-    .description("Description here")
-    .argument("<input>", "Input file")
-    .action(async (input, options) => {
-      const result = await executeMyCommand({ input, ...options });
-    });
-}
+```bash
+pnpm scaffold:provider <name>      # e.g. pnpm scaffold:provider stability
 ```
 
-### 3. Register in `ai.ts`
+This creates `packages/ai-providers/src/<name>/` with a stub `<Name>Provider.ts` (implements `AIProvider` interface) + `index.ts` (calls `defineProvider({...})`), and adds the re-export line to `packages/ai-providers/src/index.ts`.
 
-```typescript
-// packages/cli/src/commands/ai.ts
-import { registerMyCommands } from "./ai-example.js";
-registerMyCommands(ai);
+### Then fill in the metadata
+
+1. **`packages/ai-providers/src/<name>/<Name>Provider.ts`** — implement the methods you need from the `AIProvider` interface. The base contract is in `packages/ai-providers/src/interface/types.ts`. Common methods: `initialize`, `isConfigured`, `generateImage`, `generateVideo`, `transcribe`.
+
+2. **`packages/ai-providers/src/<name>/index.ts`** — fill in the `defineProvider({...})` block:
+   - `apiKey`: reference an existing configKey from `api-keys.ts` (e.g. `"openai"`, `"google"`), or set to `null` if your provider runs locally.
+   - `kinds`: array of `"image" | "video" | "speech" | "llm" | "transcription" | "music"`.
+   - `commandsUnlocked`: list of CLI command strings shown in `vibe doctor`.
+   - `resolverPriority` (optional): `{ image: 4 }` — lower = higher priority.
+
+3. **(If new credential)** Add a `defineApiKey({...})` block to `packages/ai-providers/src/api-keys.ts` with the configKey, envVar, label, setup wizard description, and `.env.example` comment/URL. Skip this step if your provider shares an existing apiKey (e.g. another OpenAI service uses the existing `"openai"` configKey).
+
+### Verify
+
+```bash
+pnpm -F @vibeframe/ai-providers build   # compile the new provider class
+pnpm -r exec tsc --noEmit               # 0 errors
+pnpm -F @vibeframe/cli test             # snapshot tests catch resolver drift
+bash scripts/sync-counts.sh --check     # verifies .env.example regen
 ```
 
-### 4. Add Agent tool (if applicable)
+`vibe doctor --json` should show your new provider under `result.providers`. The setup wizard (`vibe setup --full`) prompts for the apiKey if `showInSetup: true`.
 
-If the command benefits from natural language invocation, add an Agent tool wrapper:
+That's it. No need to edit `provider-resolver.ts`, `schema.ts`, `doctor.ts`, `setup.ts`, or `.env.example` — the registry derives them all.
 
-```typescript
-// packages/cli/src/agent/tools/ai.ts
-import { executeMyCommand } from "../../commands/ai-example.js";
+## Adding a New CLI Subcommand
 
-const myCommandTool: ToolDefinition = {
-  name: "ai_my_command",
-  description: "...",
-  parameters: { /* ... */ }
-};
+Each `vibe <group> <name>` command is a self-contained file. Post-v0.69 (Plan G Phase 2/3), `generate.ts` and `ai-edit.ts` are barrels that call register functions from per-subcommand files.
+
+### Quickest path: scaffold
+
+```bash
+pnpm scaffold:command <group> <name>        # e.g. pnpm scaffold:command generate my-feature
 ```
 
-### 5. Update documentation
+Supported groups: `generate`, `edit`.
 
-- `CLAUDE.md` - Update tool counts and tables
-- `ROADMAP.md` - Mark completed items
-- `MODELS.md` - If adding a new AI model/provider
+For `generate`: creates `packages/cli/src/commands/generate/<name>.ts` and adds the `register*Command(generateCommand)` call to `commands/generate.ts`.
+
+For `edit`: creates `packages/cli/src/commands/_shared/edit/<name>.ts` and adds re-exports to the `ai-edit.ts` barrel.
+
+### Then fill in the logic
+
+Each scaffolded file contains:
+- `XxxOptions` and `XxxResult` interfaces — define the shape of inputs/outputs.
+- `executeXxx(options)` — pure function returning `{ success, ... }`. Used by the manifest layer (MCP/Agent) and the CLI handler.
+- `registerXxxCommand(parent)` — wraps `executeXxx` in a Commander chain with options, action handler, JSON-mode output, etc.
+
+The split makes new contributions a single file edit. The CLI surface auto-updates because the parent group file already registers the new command.
+
+### Optional: expose to MCP/Agent
+
+If the command should be available as an MCP tool or agent tool, add a `defineTool({...})` entry to the appropriate `packages/cli/src/tools/manifest/<group>.ts`. The manifest is the single source of truth for both surfaces — see `packages/cli/src/tools/define-tool.ts` for the schema.
+
+### Verify
+
+```bash
+pnpm -F @vibeframe/cli build
+node packages/cli/dist/index.js <group> <name> --help
+pnpm -F @vibeframe/cli test
+```
+
+### 5. Update documentation (when changing user-visible surface)
+
+- `CLAUDE.md` — tool counts and tables
+- `ROADMAP.md` — mark completed items
+- `MODELS.md` — if adding a new AI model/provider
 
 ## Commit Message Guidelines
 
