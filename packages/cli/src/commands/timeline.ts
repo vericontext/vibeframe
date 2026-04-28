@@ -6,7 +6,7 @@ import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
-import { exitWithError, generalError, notFoundError, outputSuccess, usageError } from "./output.js";
+import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
 
 export const timelineCommand = new Command("timeline")
   .description("Timeline editing commands")
@@ -75,6 +75,22 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Source added: ${source.id}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline add-source",
+          startedAt,
+          data: {
+            id: source.id,
+            name: mediaName,
+            type: mediaType,
+            path: absMediaPath,
+            duration,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Name:"), mediaName);
       console.log(chalk.dim("  Type:"), mediaType);
@@ -163,6 +179,23 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Clip added: ${clip.id}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline add-clip",
+          startedAt,
+          data: {
+            id: clip.id,
+            sourceId,
+            sourceName: source.name,
+            trackId,
+            startTime,
+            duration,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Source:"), source.name);
       console.log(chalk.dim("  Track:"), trackId);
@@ -224,6 +257,20 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Track added: ${track.id}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline add-track",
+          startedAt,
+          data: {
+            id: track.id,
+            name: track.name,
+            type: track.type,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Name:"), track.name);
       console.log(chalk.dim("  Type:"), track.type);
@@ -300,6 +347,23 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Effect added: ${effect.id}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline add-effect",
+          startedAt,
+          data: {
+            id: effect.id,
+            type: effectType,
+            clipId,
+            startTime,
+            duration,
+            params,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Type:"), effectType);
       console.log(chalk.dim("  Start:"), startTime, "s");
@@ -365,6 +429,20 @@ timelineCommand
 
       const updatedClip = project.getClip(clipId)!;
       spinner.succeed(chalk.green("Clip trimmed"));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline trim",
+          startedAt,
+          data: {
+            id: updatedClip.id,
+            startTime: updatedClip.startTime,
+            duration: updatedClip.duration,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Start:"), updatedClip.startTime, "s");
       console.log(chalk.dim("  Duration:"), updatedClip.duration, "s");
@@ -383,6 +461,7 @@ timelineCommand
   .option("--tracks", "List tracks only")
   .option("--clips", "List clips only")
   .action(async (projectPath: string, options) => {
+    const startedAt = Date.now();
     try {
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -390,12 +469,56 @@ timelineCommand
       const project = Project.fromJSON(data);
 
       const showAll = !options.sources && !options.tracks && !options.clips;
+      const sources = project.getSources();
+      const tracks = project.getTracks();
+      const clips = project.getClips();
+
+      if (isJsonMode()) {
+        const result: Record<string, unknown> = {};
+        if (showAll || options.sources) {
+          result.sources = sources.map((s) => ({
+            id: s.id,
+            name: s.name,
+            type: s.type,
+            duration: s.duration,
+          }));
+        }
+        if (showAll || options.tracks) {
+          result.tracks = tracks.map((t) => ({
+            id: t.id,
+            name: t.name,
+            type: t.type,
+            isMuted: t.isMuted,
+            isLocked: t.isLocked,
+            isVisible: t.isVisible,
+          }));
+        }
+        if (showAll || options.clips) {
+          result.clips = clips.map((c) => {
+            const source = project.getSource(c.sourceId);
+            return {
+              id: c.id,
+              sourceId: c.sourceId,
+              sourceName: source?.name ?? null,
+              trackId: c.trackId,
+              startTime: c.startTime,
+              duration: c.duration,
+              effects: c.effects.map((e) => ({ id: e.id, type: e.type })),
+            };
+          });
+        }
+        outputSuccess({
+          command: "timeline list",
+          startedAt,
+          data: result,
+        });
+        return;
+      }
 
       if (showAll || options.sources) {
         console.log();
         console.log(chalk.bold.cyan("Sources"));
         console.log(chalk.dim("─".repeat(60)));
-        const sources = project.getSources();
         if (sources.length === 0) {
           console.log(chalk.dim("  (none)"));
         } else {
@@ -410,7 +533,6 @@ timelineCommand
         console.log();
         console.log(chalk.bold.cyan("Tracks"));
         console.log(chalk.dim("─".repeat(60)));
-        const tracks = project.getTracks();
         for (const track of tracks) {
           const status = [
             track.isMuted ? "muted" : null,
@@ -426,7 +548,6 @@ timelineCommand
         console.log();
         console.log(chalk.bold.cyan("Clips"));
         console.log(chalk.dim("─".repeat(60)));
-        const clips = project.getClips();
         if (clips.length === 0) {
           console.log(chalk.dim("  (none)"));
         } else {
@@ -505,6 +626,19 @@ timelineCommand
 
       const [first, second] = result;
       spinner.succeed(chalk.green("Clip split successfully"));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline split",
+          startedAt,
+          data: {
+            first: { id: first.id, duration: first.duration },
+            second: { id: second.id, duration: second.duration },
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  First clip:"), first.id, `(${first.duration.toFixed(2)}s)`);
       console.log(chalk.dim("  Second clip:"), second.id, `(${second.duration.toFixed(2)}s)`);
@@ -567,6 +701,21 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Clip duplicated: ${duplicated.id}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline duplicate",
+          startedAt,
+          data: {
+            id: duplicated.id,
+            sourceClipId: clipId,
+            startTime: duplicated.startTime,
+            duration: duplicated.duration,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Start:"), duplicated.startTime, "s");
       console.log(chalk.dim("  Duration:"), duplicated.duration, "s");
@@ -625,6 +774,18 @@ timelineCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green("Clip deleted"));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline delete",
+          startedAt,
+          data: {
+            id: clipId,
+            deleted: true,
+          },
+        });
+        return;
+      }
     } catch (error) {
       spinner.fail("Failed to delete clip");
       const msg = error instanceof Error ? error.message : String(error);
@@ -689,6 +850,20 @@ timelineCommand
 
       const updated = project.getClip(clipId)!;
       spinner.succeed(chalk.green("Clip moved"));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "timeline move",
+          startedAt,
+          data: {
+            id: updated.id,
+            trackId: updated.trackId,
+            startTime: updated.startTime,
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Track:"), updated.trackId);
       console.log(chalk.dim("  Start:"), updated.startTime, "s");

@@ -301,9 +301,13 @@ describe("timeline commands", () => {
     });
 
     it("lists all timeline contents", () => {
+      // VIBE_HUMAN_OUTPUT=1 forces human render even when piped (non-TTY).
+      // Without it, auto-JSON mode kicks in for execSync (no TTY) and the
+      // test would parse JSON instead of asserting on the human table.
       const output = execSync(`${CLI} timeline list "${projectFile}"`, {
         cwd: process.cwd(),
         encoding: "utf-8",
+        env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
       });
 
       expect(output).toContain("Sources");
@@ -316,7 +320,11 @@ describe("timeline commands", () => {
     it("lists only sources", () => {
       const output = execSync(
         `${CLI} timeline list "${projectFile}" --sources`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
+        }
       );
 
       expect(output).toContain("Sources");
@@ -328,7 +336,11 @@ describe("timeline commands", () => {
     it("lists only tracks", () => {
       const output = execSync(
         `${CLI} timeline list "${projectFile}" --tracks`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
+        }
       );
 
       expect(output).toContain("Tracks");

@@ -6,7 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, notFoundError, outputSuccess, usageError } from "./output.js";
+import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -389,6 +389,26 @@ Run 'vibe schema export' for structured parameter info.`)
       });
 
       spinner.succeed(chalk.green(`Exported: ${outputPath}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "export",
+          startedAt,
+          data: {
+            outputPath,
+            backend: "ffmpeg",
+            format: options.format,
+            preset: options.preset,
+            resolution: presetSettings.resolution,
+            duration: summary.duration,
+            clipCount: summary.clipCount,
+            bitrate: options.bitrate ?? null,
+            fps: options.fps ?? null,
+            codec: options.codec ?? null,
+          },
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.dim("  Duration:"), `${summary.duration.toFixed(1)}s`);

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import { exitWithError, generalError, outputSuccess } from "./output.js";
+import { exitWithError, generalError, isJsonMode, outputSuccess } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -95,6 +95,21 @@ projectCommand
       await writeFile(outputPath, data, "utf-8");
 
       spinner.succeed(chalk.green(`Project created: ${outputPath}`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "project create",
+          startedAt,
+          data: {
+            outputPath,
+            name: projectName,
+            aspectRatio: options.ratio,
+            frameRate: parseInt(options.fps, 10),
+          },
+        });
+        return;
+      }
+
       console.log();
       console.log(chalk.dim("  Name:"), projectName);
       console.log(chalk.dim("  Aspect Ratio:"), options.ratio);
@@ -111,6 +126,7 @@ projectCommand
   .description("Show project information")
   .argument("<file>", "Project file path")
   .action(async (file: string) => {
+    const startedAt = Date.now();
     const spinner = ora("Loading project...").start();
 
     try {
@@ -123,6 +139,25 @@ projectCommand
 
       const summary = project.getSummary();
       const meta = project.getMeta();
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "project info",
+          startedAt,
+          data: {
+            name: summary.name,
+            duration: summary.duration,
+            aspectRatio: summary.aspectRatio,
+            frameRate: summary.frameRate,
+            trackCount: summary.trackCount,
+            clipCount: summary.clipCount,
+            sourceCount: summary.sourceCount,
+            createdAt: meta.createdAt.toISOString(),
+            updatedAt: meta.updatedAt.toISOString(),
+          },
+        });
+        return;
+      }
 
       console.log();
       console.log(chalk.bold.cyan("Project Info"));
@@ -188,6 +223,22 @@ projectCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green("Project updated"));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "project set",
+          startedAt,
+          data: {
+            file: filePath,
+            updates: {
+              name: options.name ?? null,
+              ratio: options.ratio ?? null,
+              fps: options.fps ? parseInt(options.fps, 10) : null,
+            },
+          },
+        });
+        return;
+      }
     } catch (error) {
       spinner.fail("Failed to update project");
       const msg = error instanceof Error ? error.message : String(error);
