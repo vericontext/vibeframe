@@ -30,6 +30,14 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
       "provider": {
         "default": "openai",
         "description": "LLM provider (openai, claude, gemini, ollama, xai, openrouter)",
+        "enum": [
+          "openai",
+          "claude",
+          "gemini",
+          "ollama",
+          "xai",
+          "openrouter",
+        ],
         "type": "string",
       },
       "verbose": {
@@ -374,6 +382,11 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
       },
       "format": {
         "description": "Output format: json, srt, vtt (auto-detected from extension)",
+        "enum": [
+          "json",
+          "srt",
+          "vtt",
+        ],
         "type": "string",
       },
       "language": {
@@ -841,11 +854,22 @@ exports[`CLI --describe schemas (drift detection) > vibe edit caption --describe
       "position": {
         "default": "bottom",
         "description": "Caption position: top, center, bottom (default: bottom)",
+        "enum": [
+          "top",
+          "center",
+          "bottom",
+        ],
         "type": "string",
       },
       "style": {
         "default": "bold",
         "description": "Caption style: minimal, bold, outline, karaoke (default: bold)",
+        "enum": [
+          "minimal",
+          "bold",
+          "outline",
+          "karaoke",
+        ],
         "type": "string",
       },
       "video": {
@@ -945,6 +969,11 @@ exports[`CLI --describe schemas (drift detection) > vibe edit fill-gaps --descri
       "ratio": {
         "default": "16:9",
         "description": "Aspect ratio: 16:9, 9:16, or 1:1",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+        ],
         "type": "string",
       },
     },
@@ -1035,6 +1064,8 @@ exports[`CLI --describe schemas (drift detection) > vibe edit image --describe 1
         "description": "Provider: gemini (default), openai, grok",
         "enum": [
           "gemini",
+          "openai",
+          "grok",
         ],
         "type": "string",
       },
@@ -1068,6 +1099,11 @@ exports[`CLI --describe schemas (drift detection) > vibe edit interpolate --desc
       "factor": {
         "default": 2,
         "description": "Slow motion factor: 2, 4, or 8",
+        "enum": [
+          "2",
+          "4",
+          "8",
+        ],
         "type": "number",
       },
       "fps": {
@@ -1169,6 +1205,11 @@ exports[`CLI --describe schemas (drift detection) > vibe edit noise-reduce --des
       "strength": {
         "default": "medium",
         "description": "Noise reduction strength: low, medium, high (default: medium)",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+        ],
         "type": "string",
       },
     },
@@ -1197,6 +1238,11 @@ exports[`CLI --describe schemas (drift detection) > vibe edit reframe --describe
       "aspect": {
         "default": "9:16",
         "description": "Target aspect ratio: 9:16, 1:1, 4:5",
+        "enum": [
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
         "type": "string",
       },
       "dryRun": {
@@ -1206,6 +1252,12 @@ exports[`CLI --describe schemas (drift detection) > vibe edit reframe --describe
       "focus": {
         "default": "auto",
         "description": "Focus mode: auto, face, center, action",
+        "enum": [
+          "auto",
+          "face",
+          "center",
+          "action",
+        ],
         "type": "string",
       },
       "keyframes": {
@@ -1390,6 +1442,12 @@ exports[`CLI --describe schemas (drift detection) > vibe edit text-overlay --des
       "style": {
         "default": "lower-third",
         "description": "Overlay style: lower-third, center-bold, subtitle, minimal",
+        "enum": [
+          "lower-third",
+          "center-bold",
+          "subtitle",
+          "minimal",
+        ],
         "type": "string",
       },
       "text": {
@@ -1536,6 +1594,12 @@ exports[`CLI --describe schemas (drift detection) > vibe export --describe 1`] =
       "format": {
         "default": "mp4",
         "description": "Output format (mp4, webm, mov, gif)",
+        "enum": [
+          "mp4",
+          "webm",
+          "mov",
+          "gif",
+        ],
         "type": "string",
       },
       "fps": {
@@ -1545,6 +1609,10 @@ exports[`CLI --describe schemas (drift detection) > vibe export --describe 1`] =
       "gapFill": {
         "default": "extend",
         "description": "Gap filling strategy (black, extend)",
+        "enum": [
+          "black",
+          "extend",
+        ],
         "type": "string",
       },
       "output": {
@@ -1559,6 +1627,12 @@ exports[`CLI --describe schemas (drift detection) > vibe export --describe 1`] =
       "preset": {
         "default": "standard",
         "description": "Quality preset (draft, standard, high, ultra)",
+        "enum": [
+          "draft",
+          "standard",
+          "high",
+          "ultra",
+        ],
         "type": "string",
       },
       "project": {
@@ -1591,6 +1665,11 @@ exports[`CLI --describe schemas (drift detection) > vibe generate background --d
       "aspect": {
         "default": "16:9",
         "description": "Aspect ratio: 16:9, 9:16, 1:1",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+        ],
         "type": "string",
       },
       "description": {
@@ -1649,6 +1728,9 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "description": "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway",
         "enum": [
           "openai",
+          "gemini",
+          "grok",
+          "runway",
         ],
         "type": "string",
       },
@@ -1743,6 +1825,12 @@ exports[`CLI --describe schemas (drift detection) > vibe generate motion --descr
       },
       "style": {
         "description": "Style preset: minimal, corporate, playful, cinematic",
+        "enum": [
+          "minimal",
+          "corporate",
+          "playful",
+          "cinematic",
+        ],
         "type": "string",
       },
       "video": {
@@ -1793,6 +1881,12 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
       "model": {
         "default": "stereo-large",
         "description": "Model variant (Replicate only): large, stereo-large, melody-large, stereo-melody-large",
+        "enum": [
+          "large",
+          "stereo-large",
+          "melody-large",
+          "stereo-melody-large",
+        ],
         "type": "string",
       },
       "noWait": {
@@ -1813,6 +1907,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
         "description": "Provider: elevenlabs (default, up to 10min), replicate (MusicGen, max 30s)",
         "enum": [
           "elevenlabs",
+          "replicate",
         ],
         "type": "string",
       },
@@ -1995,6 +2090,11 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
       "model": {
         "default": "flash",
         "description": "Gemini model: flash, latest, pro (default: flash)",
+        "enum": [
+          "flash",
+          "latest",
+          "pro",
+        ],
         "type": "string",
       },
       "output": {
@@ -2007,6 +2107,12 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
       },
       "style": {
         "description": "Platform style: youtube, instagram, tiktok, twitter",
+        "enum": [
+          "youtube",
+          "instagram",
+          "tiktok",
+          "twitter",
+        ],
         "type": "string",
       },
     },
@@ -2071,11 +2177,20 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "description": "Provider: fal (Seedance 2.0, default when FAL_KEY set), grok, kling, runway, veo",
         "enum": [
           "fal",
+          "grok",
+          "kling",
+          "runway",
+          "veo",
         ],
         "type": "string",
       },
       "ratio": {
         "description": "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+        ],
         "type": "string",
       },
       "refImages": {
@@ -2084,6 +2199,11 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "resolution": {
         "description": "Video resolution: 720p, 1080p, 4k (Veo only)",
+        "enum": [
+          "720p",
+          "1080p",
+          "4k",
+        ],
         "type": "string",
       },
       "runwayModel": {
@@ -2351,6 +2471,11 @@ exports[`CLI --describe schemas (drift detection) > vibe pipeline animated-capti
       "position": {
         "default": "bottom",
         "description": "Caption position: top, center, bottom",
+        "enum": [
+          "top",
+          "center",
+          "bottom",
+        ],
         "type": "string",
       },
       "style": {
@@ -2392,11 +2517,20 @@ exports[`CLI --describe schemas (drift detection) > vibe pipeline auto-shorts --
       "aspect": {
         "default": "9:16",
         "description": "Aspect ratio: 9:16, 1:1",
+        "enum": [
+          "9:16",
+          "1:1",
+        ],
         "type": "string",
       },
       "captionStyle": {
         "default": "bold",
         "description": "Caption style: minimal, bold, animated",
+        "enum": [
+          "minimal",
+          "bold",
+          "animated",
+        ],
         "type": "string",
       },
       "count": {
@@ -2601,6 +2735,12 @@ exports[`CLI --describe schemas (drift detection) > vibe project create --descri
       "ratio": {
         "default": "16:9",
         "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
         "type": "string",
       },
     },
@@ -2655,6 +2795,12 @@ exports[`CLI --describe schemas (drift detection) > vibe project set --describe 
       },
       "ratio": {
         "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
         "type": "string",
       },
     },
@@ -2793,6 +2939,13 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
       "style": {
         "default": "simple",
         "description": "Style preset: simple, announcement, explainer, kinetic-type, product-shot",
+        "enum": [
+          "simple",
+          "announcement",
+          "explainer",
+          "kinetic-type",
+          "product-shot",
+        ],
         "type": "string",
       },
       "transcribeLanguage": {
@@ -2851,9 +3004,6 @@ exports[`CLI --describe schemas (drift detection) > vibe scene build --describe 
       },
       "imageProvider": {
         "description": "Image provider: openai (only one supported in v0.60)",
-        "enum": [
-          "openai",
-        ],
         "type": "string",
       },
       "imageSize": {
@@ -2947,6 +3097,12 @@ exports[`CLI --describe schemas (drift detection) > vibe scene init --describe 1
       "ratio": {
         "default": "16:9",
         "description": "Aspect ratio: 16:9, 9:16, 1:1, 4:5",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
         "type": "string",
       },
       "visualStyle": {
@@ -3230,6 +3386,12 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --d
       },
       "type": {
         "description": "Media type (video, audio, image, lottie)",
+        "enum": [
+          "video",
+          "audio",
+          "image",
+          "lottie",
+        ],
         "type": "string",
       },
     },

@@ -107,27 +107,61 @@ function listCommands(program: Command): void {
 }
 
 function extractEnumFromDescription(description: string): string[] | undefined {
-  // Match patterns like "Provider: gemini, openai, grok, runway"
-  const providerMatch = description.match(
-    /(?:Provider|Providers?):\s*([a-z0-9,\s-]+?)(?:\s*\(|$)/i
+  // Strip parentheticals first so "(default ...)" / "(when X is set)" don't
+  // truncate downstream parsing. We re-add a paren-list match at the end as
+  // pattern 3 for descriptions whose enum IS the parenthesized list.
+  const cleaned = description.replace(/\s*\([^()]*\)/g, "");
+
+  const finalize = (raw: string[]): string[] | undefined => {
+    const values = raw
+      .map((v) => v.trim().replace(/^or\s+/i, "")) // "a, b, or c" → "a, b, c"
+      .filter(Boolean);
+    // Reject if any value still has whitespace inside it (indicates prose
+    // like "5 or 10" or "auto-detected" rather than a clean enum).
+    if (values.some((v) => /\s/.test(v))) return undefined;
+    if (values.length >= 2 && values.length <= 12) return values;
+    return undefined;
+  };
+
+  // Pattern 1: "Provider: gemini, openai, grok"
+  const providerMatch = cleaned.match(
+    /(?:Provider|Providers?):\s*([a-z0-9,\s-]+?)$/i
   );
   if (providerMatch) {
-    return providerMatch[1]
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const values = finalize(providerMatch[1].split(","));
+    if (values) return values;
   }
 
-  // Match patterns like "Style: vivid, natural"
-  const styleMatch = description.match(
-    /^[A-Z][a-z]+:\s*([a-z0-9,\s-]+?)(?:\s*\(|$)/
+  // Pattern 2: "<Multi-word label>: val1, val2, val3"
+  // (extends the original "Style: vivid, natural" to allow 1-3-word labels
+  //  and ratio-shaped values like "16:9")
+  const labeledMatch = cleaned.match(
+    /^([A-Z][a-z]+(?:\s+[a-z]+){0,2}):\s*([a-z0-9:,\s/-]+?)$/
   );
-  if (styleMatch) {
-    const values = styleMatch[1]
+  if (labeledMatch) {
+    return finalize(labeledMatch[2].split(","));
+  }
+
+  // Pattern 3: "Anything (val1, val2, val3)" — parenthesized list
+  // This is the most common shape for option descriptions in the CLI.
+  // Restrict to lists where every value is alphanumeric+ratio-shaped so
+  // we don't accidentally enum-ify free-form prose like "(default: 30)".
+  const parenMatch = description.match(/\(([^()]+)\)\s*$/);
+  if (parenMatch) {
+    const inner = parenMatch[1].trim();
+    // Skip "default: X" annotations and prose
+    if (/^default:|^e\.g\.|^or\s|via\s|run\s/i.test(inner)) return undefined;
+    const rawValues = inner
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    if (values.length >= 2 && values.length <= 10) return values;
+    // Strip "or " from oxford-comma list ("a, b, or c" → "a, b, c")
+    const values = rawValues.map((v) => v.replace(/^or\s+/i, "").trim());
+    // Each value must look like an enum candidate: short, no spaces (or ratio-shaped)
+    const looksLikeEnum = values.every((v) =>
+      /^[a-z0-9][a-z0-9:/_-]*$/i.test(v) && v.length <= 24
+    );
+    if (looksLikeEnum && values.length >= 2 && values.length <= 12) return values;
   }
 
   return undefined;
