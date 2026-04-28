@@ -33,6 +33,7 @@ import {
   type InstallSkillHost,
 } from "../../commands/_shared/install-skill.js";
 import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
+import { getComposePrompts } from "../../commands/_shared/compose-prompts.js";
 
 const SCENE_PRESETS = [
   "simple",
@@ -488,6 +489,51 @@ export const sceneInstallSkillTool = defineTool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// scene_compose_prompts — Phase H2 agentic primitive
+// ---------------------------------------------------------------------------
+
+const sceneComposePromptsSchema = z.object({
+  projectDir: z.string().describe("Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit."),
+  beat: z.string().optional().describe("Restrict the plan to a single beat by id (e.g. 'hook', '1'). Omit to emit every beat in the storyboard."),
+});
+
+export const sceneComposePromptsTool = defineTool({
+  name: "scene_compose_prompts",
+  category: "scene",
+  cost: "free",
+  description:
+    "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus references to the project's SKILL.md (Hyperframes rules) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here. Pairs with scene_install_skill (Phase H1). Phase H2 of the agentic-native composer plan; the internal-LLM batch path (scene_build) remains as a fallback for non-agent contexts.",
+  schema: sceneComposePromptsSchema,
+  async execute(args, ctx) {
+    const projectDir = resolve(ctx.workingDirectory, args.projectDir);
+    const result = await getComposePrompts({
+      projectDir,
+      beatId: args.beat,
+    });
+    if (!result.success) {
+      return { success: false, error: result.error ?? "compose-prompts failed" };
+    }
+    return {
+      success: true,
+      data: {
+        projectDir: relative(ctx.workingDirectory, result.projectDir) || ".",
+        designReference: result.designReference,
+        storyboardReference: result.storyboardReference,
+        skillReference: result.skillReference,
+        compositionsDir: result.compositionsDir,
+        beats: result.beats,
+        instructions: result.instructions,
+        bundleVersion: result.bundleVersion,
+        warnings: result.warnings,
+      },
+      humanLines: [
+        `Compose plan ready: ${result.beats.length} beat(s)${result.warnings.length > 0 ? ` (${result.warnings.length} warning(s))` : ""}.`,
+      ],
+    };
+  },
+});
+
 /** All scene-category manifest entries (type-erased for heterogeneous aggregation). */
 export const sceneTools: readonly AnyTool[] = [
   sceneInitTool as unknown as AnyTool,
@@ -497,4 +543,5 @@ export const sceneTools: readonly AnyTool[] = [
   sceneBuildTool as unknown as AnyTool,
   sceneStylesTool as unknown as AnyTool,
   sceneInstallSkillTool as unknown as AnyTool,
+  sceneComposePromptsTool as unknown as AnyTool,
 ];

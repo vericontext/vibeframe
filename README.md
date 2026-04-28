@@ -1,6 +1,6 @@
 # VibeFrame
 
-**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 64 MCP tools bundled.
+**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 65 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -75,7 +75,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | Layer | Hyperframes | VibeFrame |
 |---|---|---|
 | **AI generation** | — | OpenAI gpt-image-2 (image default since v0.56), fal.ai Seedance 2.0 (video default since v0.57), Veo, Kling, Runway, Grok, ElevenLabs, Replicate |
-| **Agent integrations** | — | MCP server (64 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
+| **Agent integrations** | — | MCP server (65 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
 | **Traditional editing** | — | `vibe edit` silence-cut · jump-cut · caption · grade · reframe · speed-ramp · fade · noise-reduce (84+ commands total) |
 | **AI analysis** | — | `vibe analyze` media/video/review/suggest (multimodal LLMs) |
 | **BUILD from text** | composition format only | `vibe scene build` (v0.60 one-shot driver) — STORYBOARD.md → MP4 |
@@ -84,7 +84,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
 | **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibe-pipeline`, `/vibe-scene` (overview lives in `AGENTS.md` scaffolded by `vibe init`) |
-| **MCP server** | ❌ | ✅ 64 tools |
+| **MCP server** | ❌ | ✅ 65 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
 | **OSS provider plugin** | — | `defineProvider({...})` registry — adding an AI provider is a single declaration; resolver / config / setup / doctor / `.env.example` all auto-derive (`pnpm scaffold:provider <name>` for the boilerplate) |
@@ -210,7 +210,7 @@ Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/v
 
 ## MCP Integration (Claude Desktop / Cursor)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (64 MCP tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (65 MCP tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {

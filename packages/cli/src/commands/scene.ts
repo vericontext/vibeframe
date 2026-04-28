@@ -84,6 +84,7 @@ import {
   deriveInstallHosts,
   type InstallSkillHost,
 } from "./_shared/install-skill.js";
+import { getComposePrompts } from "./_shared/compose-prompts.js";
 
 const VALID_ASPECTS: SceneAspect[] = ["16:9", "9:16", "1:1", "4:5"];
 
@@ -329,6 +330,78 @@ sceneCommand
       console.log();
       console.log(chalk.dim("Dry run — no files written. Re-run without --dry-run to apply."));
     }
+  });
+
+// ---------------------------------------------------------------------------
+// `vibe scene compose-prompts` — Phase H2 agentic primitive
+// ---------------------------------------------------------------------------
+// Emit the prompt + skill-bundle reference plan for the host agent to
+// author per-beat HTML files itself. No LLM call from the CLI. Pairs
+// with `vibe scene install-skill` (H1) — skill files in the project,
+// reasoning in the host agent.
+
+sceneCommand
+  .command("compose-prompts")
+  .description("Emit the per-beat compose plan for the host agent to author HTML itself (Phase H2 — no LLM call)")
+  .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
+  .option("--beat <id>", "Restrict the plan to a single beat by id (e.g. 'hook', '1')")
+  .action(async (projectDirArg: string, options) => {
+    const projectDir = resolve(projectDirArg);
+    const result = await getComposePrompts({
+      projectDir,
+      beatId: options.beat as string | undefined,
+    });
+
+    if (!result.success) {
+      if (isJsonMode()) {
+        outputResult({
+          command: "scene compose-prompts",
+          ...result,
+        });
+        process.exit(1);
+      }
+      exitWithError(generalError(result.error ?? "compose-prompts failed"));
+    }
+
+    if (isJsonMode()) {
+      outputResult({
+        command: "scene compose-prompts",
+        ...result,
+      });
+      return;
+    }
+
+    console.log();
+    console.log(chalk.bold.cyan("Scene compose plan"));
+    console.log(chalk.dim("─".repeat(60)));
+    console.log(chalk.dim(`Project:    ${projectDir}`));
+    console.log(chalk.dim(`Skill ref:  ${result.skillReference ?? chalk.yellow("not installed")}`));
+    console.log(chalk.dim(`Design ref: ${result.designReference}`));
+    console.log(chalk.dim(`Beats:      ${result.beats.length}${options.beat ? " (filtered)" : ""}`));
+    console.log(chalk.dim(`Bundle:     ${result.bundleVersion}`));
+    console.log();
+
+    if (result.warnings.length > 0) {
+      console.log(chalk.yellow("Warnings"));
+      console.log(chalk.dim("─".repeat(60)));
+      for (const w of result.warnings) console.log(chalk.yellow(`  ⚠ ${w}`));
+      console.log();
+    }
+
+    console.log(chalk.bold.cyan("Beats"));
+    console.log(chalk.dim("─".repeat(60)));
+    for (const b of result.beats) {
+      const status = b.exists ? chalk.dim("(exists)") : chalk.green("(new)");
+      const dur = b.duration !== undefined ? chalk.dim(` ${b.duration}s`) : "";
+      console.log(`  ${chalk.bold(b.id)}${dur} → ${b.outputPath} ${status}`);
+    }
+    console.log();
+
+    console.log(chalk.bold.cyan("Instructions for the host agent"));
+    console.log(chalk.dim("─".repeat(60)));
+    for (const line of result.instructions) console.log(`  ${line}`);
+    console.log();
+    console.log(chalk.dim("Re-run with --json to get the full per-beat userPrompt + cues for direct consumption."));
   });
 
 // ---------------------------------------------------------------------------

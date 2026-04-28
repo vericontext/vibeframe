@@ -32,7 +32,7 @@ interface CommanderLike {
 // `<group> <subname>` CLI invocation paired with the canonical manifest
 // tool name (or null if explicitly CLI-only).
 const CLI_TREE: Record<string, string[]> = {
-  scene:    ["init", "styles", "add", "lint", "render", "build", "install-skill"],
+  scene:    ["init", "styles", "add", "lint", "render", "build", "install-skill", "compose-prompts"],
   generate: ["image", "video", "video-status", "video-cancel", "video-extend", "speech", "sound-effect", "music", "music-status", "storyboard", "motion", "thumbnail", "background"],
   edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale-video"],
   audio:    ["transcribe", "voices", "isolate", "voice-clone", "dub", "duck"],
@@ -63,6 +63,7 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "scene render":        "scene_render",
   "scene build":         "scene_build",
   "scene install-skill": "scene_install_skill",
+  "scene compose-prompts": "scene_compose_prompts",
   // generate
   "generate image":         "generate_image",
   "generate video":         "generate_video",

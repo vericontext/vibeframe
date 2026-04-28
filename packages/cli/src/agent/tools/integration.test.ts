@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(80);
+      expect(tools.length).toBe(81);
     });
 
     it("should register all project tools (5)", () => {
@@ -573,9 +573,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(pipelineTools.length).toBe(3);  // pipeline_script_to_video removed (cleanup PR3); pipeline_animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
-      expect(sceneTools.length).toBe(7);  // v0.70 H1: scene_install_skill added (init/add/lint/render/build/styles/install-skill)
+      expect(sceneTools.length).toBe(8);  // v0.70 H1+H2: install-skill + compose-prompts (init/add/lint/render/build/styles/install-skill/compose-prompts)
 
-      // Total: 5+11+4+12+13+15+4+3+3+3+7 = 80
+      // Total: 5+11+4+12+13+15+4+3+3+3+8 = 81
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -587,7 +587,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           exportTools.length +
           batchTools.length +
           sceneTools.length;
-      expect(totalTools).toBe(80);
+      expect(totalTools).toBe(81);
     });
   });
 });

@@ -24,11 +24,12 @@ async function callScene(name: string, args: Record<string, unknown>): Promise<s
 }
 
 describe("MCP scene tools — registration", () => {
-  it("exports seven tools with the canonical names", () => {
+  it("exports eight tools with the canonical names", () => {
     const names = sceneMcpTools.map((t) => t.name).sort();
     expect(names).toEqual([
       "scene_add",
       "scene_build",
+      "scene_compose_prompts",
       "scene_init",
       "scene_install_skill",
       "scene_lint",
