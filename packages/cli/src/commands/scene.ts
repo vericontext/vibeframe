@@ -1205,8 +1205,9 @@ sceneCommand
   .command("build")
   .description("One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 (v0.60)")
   .argument("[project-dir]", "Project directory containing STORYBOARD.md", ".")
-  .option("--effort <level>", "Compose effort tier: low|medium|high", "medium")
-  .option("--composer <provider>", "LLM that composes scene HTML: claude|openai|gemini (default: auto-resolve from available API keys, claude > gemini > openai)")
+  .option("--mode <mode>", "Build mode: agent (host-agent authors HTML) | batch (CLI's internal LLM authors HTML) | auto (agent if any host detected) [Plan H — Phase 3]", "auto")
+  .option("--effort <level>", "Compose effort tier (batch mode only): low|medium|high", "medium")
+  .option("--composer <provider>", "LLM that composes scene HTML in batch mode: claude|openai|gemini (default: auto-resolve from available API keys, claude > gemini > openai)")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
   .option("--skip-backdrop", "Don't dispatch image-gen even when beats declare backdrop cues")
   .option("--skip-render", "Compose only — don't render to MP4")
@@ -1226,6 +1227,7 @@ sceneCommand
         command: "scene build",
         params: {
           projectDir,
+          mode: options.mode,
           effort: options.effort,
           composer: options.composer,
           skipNarration: options.skipNarration ?? false,
@@ -1252,10 +1254,16 @@ sceneCommand
       exitWithError(usageError(`Invalid --composer: ${options.composer}`, `Must be one of: ${validComposers.join(", ")}`));
     }
 
+    const validModes = ["agent", "batch", "auto"] as const;
+    if (options.mode !== undefined && !validModes.includes(options.mode)) {
+      exitWithError(usageError(`Invalid --mode: ${options.mode}`, `Must be one of: ${validModes.join(", ")}`));
+    }
+
     const spinner = isJsonMode() ? null : ora("Reading STORYBOARD.md...").start();
 
     const result = await executeSceneBuild({
       projectDir,
+      mode: options.mode as "agent" | "batch" | "auto" | undefined,
       effort: options.effort,
       composer: options.composer,
       skipNarration: options.skipNarration,
@@ -1298,6 +1306,36 @@ sceneCommand
 
     if (isJsonMode()) {
       outputResult({ command: "scene build", ...result });
+      return;
+    }
+
+    // Phase H3: agent mode may pause with a "needs-author" plan instead
+    // of producing an MP4. Render this distinctly so the host agent (and
+    // human users) know what to do next.
+    if (result.phase === "needs-author") {
+      spinner?.info(chalk.cyan("Agent mode — host agent must author scene HTML before rendering"));
+      console.log();
+      console.log(chalk.bold.cyan("Beats requiring authorship"));
+      console.log(chalk.dim("─".repeat(60)));
+      const plan = result.composePrompts;
+      if (plan) {
+        for (const b of plan.beats) {
+          const status = b.exists ? chalk.dim("(exists)") : chalk.green("(needs author)");
+          const dur = b.duration !== undefined ? chalk.dim(` ${b.duration}s`) : "";
+          console.log(`  ${chalk.bold(b.id)}${dur} → ${b.outputPath} ${status}`);
+        }
+        console.log();
+        console.log(chalk.bold.cyan("Instructions"));
+        console.log(chalk.dim("─".repeat(60)));
+        for (const line of plan.instructions) console.log(`  ${line}`);
+        if (plan.warnings.length > 0) {
+          console.log();
+          for (const w of plan.warnings) console.log(chalk.yellow(`  ⚠ ${w}`));
+        }
+      }
+      console.log();
+      console.log(chalk.dim("Once you've authored each beat's HTML, re-run `vibe scene build` to lint + render."));
+      console.log(chalk.dim("Or pass `--mode batch` to use the internal LLM compose path instead."));
       return;
     }
 

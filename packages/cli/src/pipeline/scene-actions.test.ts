@@ -38,6 +38,8 @@ describe("pipeline action: scene-build", () => {
   it("forwards storyboard cues to executeSceneBuild and surfaces the output path", async () => {
     vi.mocked(executeSceneBuild).mockResolvedValueOnce({
       success: true,
+      phase: "done",
+      mode: "batch",
       beats: [{ beatId: "hook", narrationStatus: "generated", backdropStatus: "generated" }],
       outputPath: "/tmp/render.mp4",
       totalLatencyMs: 1234,
@@ -73,6 +75,8 @@ steps:
   it("surfaces failure from executeSceneBuild as a failed step", async () => {
     vi.mocked(executeSceneBuild).mockResolvedValueOnce({
       success: false,
+      phase: "failed",
+      mode: "batch",
       error: "STORYBOARD.md not found",
       beats: [],
       totalLatencyMs: 0,
@@ -91,6 +95,8 @@ steps: [{ id: b, action: scene-build, project: missing }]
   it("respects --skip-render via params", async () => {
     vi.mocked(executeSceneBuild).mockResolvedValueOnce({
       success: true,
+      phase: "compose-only",
+      mode: "batch",
       beats: [],
       totalLatencyMs: 0,
     });
@@ -166,6 +172,8 @@ describe("pipeline action: scene-build chained with scene-render", () => {
   it("two steps run sequentially, $ref between them resolves", async () => {
     vi.mocked(executeSceneBuild).mockResolvedValueOnce({
       success: true,
+      phase: "done",
+      mode: "batch",
       beats: [],
       outputPath: "/tmp/build-out",
       totalLatencyMs: 0,

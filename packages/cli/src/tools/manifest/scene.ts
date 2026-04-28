@@ -366,8 +366,9 @@ export const sceneRenderTool = defineTool({
 
 const sceneBuildSchema = z.object({
   projectDir: z.string().optional().describe("Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd."),
-  effort: z.enum(["low", "medium", "high"]).optional().describe("Compose effort tier passed to compose-scenes-with-skills. Default 'medium'."),
-  composer: z.enum(["claude", "openai", "gemini"]).optional().describe("LLM provider that composes the per-beat scene HTML. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest."),
+  mode: z.enum(["agent", "batch", "auto"]).optional().describe("Build mode dispatch [Plan H — Phase 3]. 'agent' = the calling host agent authors per-beat HTML itself (no internal LLM call); on missing compositions/scene-*.html files, returns a needs-author plan with prompts for the agent to consume. 'batch' = current internal-LLM compose path (Claude/OpenAI/Gemini). 'auto' (default) = agent if any agent host is detected, else batch. Override via VIBE_BUILD_MODE env var."),
+  effort: z.enum(["low", "medium", "high"]).optional().describe("Compose effort tier (batch mode only) passed to compose-scenes-with-skills. Default 'medium'."),
+  composer: z.enum(["claude", "openai", "gemini"]).optional().describe("LLM provider that composes the per-beat scene HTML in batch mode. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest. Ignored in agent mode."),
   skipNarration: z.boolean().optional().describe("Skip TTS for every beat (use existing audio assets if present)."),
   skipBackdrop: z.boolean().optional().describe("Skip image generation for every beat (use existing PNG assets if present)."),
   skipRender: z.boolean().optional().describe("Stop after compose — produces compositions/*.html but no final MP4."),
@@ -392,6 +393,7 @@ export const sceneBuildTool = defineTool({
       : ctx.workingDirectory;
     const result = await executeSceneBuild({
       projectDir,
+      mode: args.mode,
       effort: args.effort,
       composer: args.composer,
       skipNarration: args.skipNarration,
@@ -410,6 +412,8 @@ export const sceneBuildTool = defineTool({
     return {
       success: true,
       data: {
+        phase: result.phase,
+        mode: result.mode,
         outputPath: result.outputPath,
         beats: result.beats.map((b) => ({
           beatId: b.beatId,
@@ -420,10 +424,13 @@ export const sceneBuildTool = defineTool({
           backdropPath: b.backdropPath,
           backdropError: b.backdropError,
         })),
+        composePrompts: result.composePrompts,
         totalLatencyMs: result.totalLatencyMs,
       },
       humanLines: [
-        `✅ Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
+        result.phase === "needs-author"
+          ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan.`
+          : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
         `   beats: ${result.beats.length}`,
         `   wall-clock: ${(result.totalLatencyMs / 1000).toFixed(1)}s`,
         ...result.beats.map(

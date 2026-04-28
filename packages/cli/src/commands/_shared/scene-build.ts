@@ -32,6 +32,8 @@ import {
   type ComposeScenesActionResult,
 } from "./compose-scenes-skills.js";
 import type { ComposerProvider } from "./composer-resolve.js";
+import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
+import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import {
@@ -73,9 +75,32 @@ export interface BeatBuildOutcome {
   backdropError?: string;
 }
 
+/**
+ * Build mode dispatch (Phase H3 / Plan H).
+ *
+ * - `agent` — host agent (Claude Code, Cursor, Codex, Aider …) is the
+ *   sole reasoner. The CLI runs primitives + render, but skips its own
+ *   LLM compose call. If any `compositions/scene-<id>.html` is missing,
+ *   `vibe scene build` returns a structured "needs author" plan from
+ *   `getComposePrompts()` and exits successfully — the host agent is
+ *   expected to fill the missing files and re-invoke. Otherwise lint +
+ *   render proceed.
+ * - `batch` — current internal-LLM path (PR #176, multi-provider). The
+ *   CLI calls Claude / OpenAI / Gemini directly to produce HTML. Right
+ *   choice for CI, headless automation, and "no agent host" contexts.
+ * - `auto` (default) — pick `agent` when (a) `VIBE_BUILD_MODE=agent`
+ *   forces it, OR (b) any agent host is detected via
+ *   `detectedAgentHosts()`. Falls back to `batch`.
+ */
+export type SceneBuildMode = "agent" | "batch" | "auto";
+
 export interface SceneBuildOptions {
   /** Project directory containing STORYBOARD.md, DESIGN.md, index.html. */
   projectDir: string;
+  /**
+   * Build mode dispatch. See {@link SceneBuildMode}. Default: `auto`.
+   */
+  mode?: SceneBuildMode;
   /** Compose effort tier — passed through to `compose-scenes-with-skills`. */
   effort?: ComposeEffort;
   /**
@@ -105,14 +130,46 @@ export interface SceneBuildOptions {
   onProgress?: (e: SceneBuildProgressEvent) => void;
 }
 
+/**
+ * Resulting state after dispatch. `phase` makes the agent contract
+ * explicit:
+ *   - `done` — render succeeded, MP4 at {@link outputPath}.
+ *   - `compose-only` — `--skip-render` was set; compositions written.
+ *   - `needs-author` — agent mode and one or more `compositions/*.html`
+ *     missing. {@link composePrompts} carries the plan the host agent
+ *     needs to author. Re-invoke `vibe scene build` after writing.
+ *   - `failed` — primitives, compose, or render errored. {@link error}
+ *     carries the message; {@link beats} reflects partial state.
+ */
+export type SceneBuildPhase = "done" | "compose-only" | "needs-author" | "failed";
+
 export interface SceneBuildResult {
   success: boolean;
+  /** Final phase reached — see {@link SceneBuildPhase}. */
+  phase: SceneBuildPhase;
+  /** Mode the dispatcher actually ran (after auto-resolve). */
+  mode: "agent" | "batch";
   error?: string;
   beats: BeatBuildOutcome[];
   /** MP4 path when `skipRender` is false and render succeeded. */
   outputPath?: string;
   composeData?: ComposeScenesActionResult["data"];
   renderResult?: SceneRenderResult;
+  /**
+   * Populated only in agent mode when {@link phase} === `"needs-author"`.
+   * The host agent should consume this to write each beat's HTML, then
+   * re-run `vibe scene build`.
+   */
+  composePrompts?: {
+    skillReference: string | null;
+    designReference: string;
+    storyboardReference: string;
+    compositionsDir: string;
+    instructions: string[];
+    beats: ComposePromptsBeat[];
+    bundleVersion: string;
+    warnings: string[];
+  };
   /** Wall-clock total. */
   totalLatencyMs: number;
 }
@@ -123,6 +180,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const startedAt = Date.now();
   const projectDir = resolve(opts.projectDir);
   const onProgress = opts.onProgress ?? (() => {});
+  const mode = resolveSceneBuildMode(opts);
 
   const storyboardPath = join(projectDir, "STORYBOARD.md");
   if (!existsSync(storyboardPath)) {
@@ -164,34 +222,73 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   );
 
   // ── Phase 2: compose ──────────────────────────────────────────────────
-  onProgress({ type: "phase-start", phase: "compose" });
-  const composeResult = await executeComposeScenesWithSkills(
-    {
-      project: ".",
-      effort: opts.effort,
-      composer: opts.composer,
-      cacheDir: opts.cacheDir,
-      onProgress: (e) => onProgress(e),
-    },
-    projectDir,
-  );
-  if (!composeResult.success) {
-    return {
-      success: false,
-      error: `compose failed: ${composeResult.error ?? "unknown"}`,
-      beats: beatOutcomes,
-      composeData: composeResult.data,
-      totalLatencyMs: Date.now() - startedAt,
-    };
+  // Mode dispatch: agent mode hands authorship to the host agent. We
+  // check whether each beat's compositions/scene-<id>.html exists and,
+  // if any are missing, return a `needs-author` plan from
+  // `getComposePrompts()`. The host agent fills in the files and
+  // re-invokes `vibe scene build`; this branch then sees all files
+  // present and skips straight to lint+render.
+  let composeData: ComposeScenesActionResult["data"] | undefined;
+  if (mode === "agent") {
+    const compositionsDir = join(projectDir, "compositions");
+    const missingBeats = parsed.beats.filter(
+      (b) => !existsSync(join(compositionsDir, `scene-${b.id}.html`)),
+    );
+    if (missingBeats.length > 0) {
+      const plan = await getComposePrompts({ projectDir });
+      return {
+        success: true,
+        phase: "needs-author",
+        mode,
+        beats: beatOutcomes,
+        composePrompts: plan.success
+          ? {
+              skillReference: plan.skillReference,
+              designReference: plan.designReference,
+              storyboardReference: plan.storyboardReference,
+              compositionsDir: plan.compositionsDir,
+              instructions: plan.instructions,
+              beats: plan.beats,
+              bundleVersion: plan.bundleVersion,
+              warnings: plan.warnings,
+            }
+          : undefined,
+        totalLatencyMs: Date.now() - startedAt,
+      };
+    }
+    // All compositions present — fall through to render (no compose call).
+    onProgress({ type: "phase-start", phase: "compose" });
+  } else {
+    // batch — current internal-LLM compose path (PR #176, multi-provider).
+    onProgress({ type: "phase-start", phase: "compose" });
+    const composeResult = await executeComposeScenesWithSkills(
+      {
+        project: ".",
+        effort: opts.effort,
+        composer: opts.composer,
+        cacheDir: opts.cacheDir,
+        onProgress: (e) => onProgress(e),
+      },
+      projectDir,
+    );
+    if (!composeResult.success) {
+      return {
+        success: false,
+        phase: "failed",
+        mode,
+        error: `compose failed: ${composeResult.error ?? "unknown"}`,
+        beats: beatOutcomes,
+        composeData: composeResult.data,
+        totalLatencyMs: Date.now() - startedAt,
+      };
+    }
+    composeData = composeResult.data;
   }
 
   // ── Phase 2.5: wire scene compositions into root index.html ───────────
-  // compose-scenes-with-skills writes per-beat HTML to compositions/, but
-  // doesn't touch the root index.html. Without `<div class="clip"
-  // data-composition-src="compositions/scene-X.html">` references in the
-  // root, the producer renders a black 9-second video. Patch the root
-  // here so users (and agents) get a working render straight from `vibe
-  // scene build` on a fresh `vibe scene init` project.
+  // Both batch and agent modes need this — agents that just authored
+  // composition HTML still need them referenced from the root index for
+  // the producer to find them.
   await syncRootClipReferences(parsed.beats, projectDir, beatOutcomes);
 
   // ── Phase 3: render (optional) ────────────────────────────────────────
@@ -204,9 +301,11 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     if (!renderResult.success) {
       return {
         success: false,
+        phase: "failed",
+        mode,
         error: `render failed: ${renderResult.error ?? "unknown"}`,
         beats: beatOutcomes,
-        composeData: composeResult.data,
+        composeData,
         renderResult,
         totalLatencyMs: Date.now() - startedAt,
       };
@@ -217,9 +316,11 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
 
   return {
     success: true,
+    phase: opts.skipRender ? "compose-only" : "done",
+    mode,
     beats: beatOutcomes,
     outputPath,
-    composeData: composeResult.data,
+    composeData,
     renderResult,
     totalLatencyMs: Date.now() - startedAt,
   };
@@ -369,10 +470,35 @@ async function skipped(
 function failBeforePrimitives(error: string, startedAt: number): SceneBuildResult {
   return {
     success: false,
+    phase: "failed",
+    mode: "batch",
     error,
     beats: [],
     totalLatencyMs: Date.now() - startedAt,
   };
+}
+
+/**
+ * Decide which build mode to actually run. `auto` (default) prefers
+ * `agent` whenever an agent host is detected — assumption: if the user
+ * has Claude Code / Cursor / Codex / Aider installed, they're driving
+ * VibeFrame from there and want the agent to do reasoning. Falls back to
+ * `batch` for headless / CI contexts where no agent host is reachable.
+ *
+ * `VIBE_BUILD_MODE` env var overrides everything (`agent` or `batch`).
+ * Useful for CI that has Claude installed but wants the deterministic
+ * batch path, or for an agent that wants to force batch for benchmarking.
+ */
+export function resolveSceneBuildMode(opts: { mode?: SceneBuildMode }): "agent" | "batch" {
+  const envOverride = process.env.VIBE_BUILD_MODE?.toLowerCase();
+  if (envOverride === "agent" || envOverride === "batch") return envOverride;
+
+  const requested = opts.mode ?? "auto";
+  if (requested === "agent") return "agent";
+  if (requested === "batch") return "batch";
+
+  // auto — pick agent when any host is present, batch otherwise.
+  return detectedAgentHosts().length > 0 ? "agent" : "batch";
 }
 
 // ── Root index.html sync ────────────────────────────────────────────────

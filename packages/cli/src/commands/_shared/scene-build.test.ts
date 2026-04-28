@@ -22,9 +22,16 @@ vi.mock("@vibeframe/ai-providers", () => ({
   OpenAIImageProvider: vi.fn(),
 }));
 
-vi.mock("./compose-scenes-skills.js", () => ({
-  executeComposeScenesWithSkills: vi.fn(),
-}));
+vi.mock("./compose-scenes-skills.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./compose-scenes-skills.js")>();
+  // Keep the real `buildUserPrompt` (and other pure helpers) so
+  // `getComposePrompts` works, but stub the LLM-dependent
+  // `executeComposeScenesWithSkills`.
+  return {
+    ...actual,
+    executeComposeScenesWithSkills: vi.fn(),
+  };
+});
 
 vi.mock("./scene-render.js", () => ({
   executeSceneRender: vi.fn(),
@@ -106,12 +113,18 @@ beforeEach(() => {
   });
 
   process.env.OPENAI_API_KEY = "test-key";
+  // Force the batch dispatch path so existing tests keep exercising the
+  // internal-LLM compose call regardless of whether an agent host is
+  // present on the developer's machine. Phase H3 dispatch behaviour is
+  // covered by `scene-build-mode.test.ts`.
+  process.env.VIBE_BUILD_MODE = "batch";
 });
 
 afterEach(() => {
   rmSync(projectDir, { recursive: true, force: true });
   vi.clearAllMocks();
   delete process.env.OPENAI_API_KEY;
+  delete process.env.VIBE_BUILD_MODE;
 });
 
 describe("executeSceneBuild", () => {

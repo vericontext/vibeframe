@@ -245,6 +245,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const projectRel = (params.project as string | undefined) ?? ".";
     const r = await executeSceneBuild({
       projectDir: resolve(outputDir, projectRel),
+      mode: params.mode as "agent" | "batch" | "auto" | undefined,
       effort: params.effort as "low" | "medium" | "high" | undefined,
       composer: params.composer as "claude" | "openai" | "gemini" | undefined,
       skipNarration: params.skipNarration as boolean | undefined,
