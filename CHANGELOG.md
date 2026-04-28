@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.0] - 2026-04-28
+
+**Plan H — agentic-native composer.** Closes the architectural smell where `vibe scene build` made VibeFrame's CLI run its own Anthropic / OpenAI / Gemini call hidden behind the host agent. Now the host agent (Claude Code, Cursor, Codex, Aider) is the sole reasoner; VibeFrame ships skill files into the user's project and provides a deterministic toolbelt around them. The internal-LLM batch path is preserved as a fallback for CI / non-agent contexts.
+
+Counts: MCP 63 → 65, Agent 79 → 81.
+
+### Added
+
+- **Multi-provider scene composer (#176)** — `vibe scene build --composer <claude|openai|gemini>` (default: auto-resolve from available API keys, claude > gemini > openai). The Phase 0 spike showed all three providers pass first-shot lint on the vibeframe-promo fixture; the new `composer-resolve.ts` helper picks the right one. Cost / latency table (per beat): Claude $0.060 / 9.4 s, Gemini $0.023 / 20 s, OpenAI gpt-5 $0.056 / 71 s. Backed by a generic `LLMCallFn` injection in `compose-scenes-skills.ts` (replaces the direct Anthropic SDK calls).
+- **Plan H Phase 1 — install Hyperframes skill (#177)** — `vibe scene install-skill [project-dir]` and `scene_install_skill` manifest tool. Writes a universal `SKILL.md` + `references/*.md` at the project root, plus host-specific layouts: `.claude/skills/hyperframes/SKILL.md` (Agent Skills standard, Claude Code) and `.cursor/rules/hyperframes.mdc` (Cursor frontmatter with auto-activate globs on `compositions/**/*.html`). Codex / Aider read the universal `SKILL.md` via AGENTS.md. `vibe scene init` auto-installs for detected hosts. Idempotent (skip-on-exist), `--force` to overwrite, `--dry-run` reports.
+- **Plan H Phase 2 — agentic compose primitive (#178)** — `vibe scene compose-prompts <project-dir> [--beat <id>]` and `scene_compose_prompts` manifest tool. Reads STORYBOARD.md + DESIGN.md and emits a structured plan: each beat's `outputPath`, `userPrompt`, `body`, `cues`, `duration`, `exists`, plus `skillReference` / `designReference` and a 5-step instruction list for the host agent. **No LLM call from inside VibeFrame.** Pairs with the H1 skill files: host agent reads SKILL.md, authors HTML at the indicated paths, runs `vibe scene lint --fix`, then `vibe scene render`.
+- **Plan H Phase 3 — `vibe scene build` mode dispatch (#180)** — `--mode <agent|batch|auto>` with auto-resolve (`agent` if any agent host is detected, `batch` otherwise). `VIBE_BUILD_MODE` env var overrides everything. Agent mode skips the internal-LLM compose call: when any `compositions/scene-*.html` is missing, returns `phase: "needs-author"` with the H2 plan; when all are present, proceeds to lint + render. New `phase: "done" | "compose-only" | "needs-author" | "failed"` discriminator on `SceneBuildResult` so callers branch on actual outcome.
+- **Plan H Phase 4 — doctor + setup readiness (#181)** — `vibe doctor` gains a "Scene composer (vibe scene build)" section reporting the resolved mode, the auto-picked composer (with env var), and SKILL.md status for the cwd. `pickNextStep()` nudges `vibe scene install-skill` when the cwd is a scene project missing the skill. Setup wizard surfaces the agent-mode auto-dispatch on its "Setup complete" screen.
+
+### Changed
+
+- `compose-scenes-skills.ts` refactored from direct Anthropic SDK calls to a generic `LLMCallFn` injection point (#176). `MODEL_SETTINGS` keyed on `(provider, effort)`. `computeCacheKey` folds provider id into the hash so switching composers doesn't serve cached HTML produced by a different model.
+- `vibe init` AGENTS.md template gains a "Scene composer" section pointing at `--composer` and the skill install (#176, #177).
+
+### Removed
+
+Nothing. Plan H is purely additive — the internal-LLM batch path stays as the fallback so CI and non-agent users keep working.
+
+### Maintenance
+
+- v0.70.0 release — bump version + CHANGELOG (this PR)
+
 ## [0.69.0] - 2026-04-28
 
 Plan G Phases 2–5 (OSS-first refactor) + a 3-PR CLI cleanup pass that retired ~6,000 lines of dead/deprecated surface. Counts: MCP 64 → 63, Agent 80 → 79.
