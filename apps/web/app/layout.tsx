@@ -17,7 +17,7 @@ const SHARE_DESCRIPTION = `YAML pipelines, ${AI_PROVIDERS} AI providers, ${MCP_T
 export const metadata: Metadata = {
   title: "VibeFrame — The video CLI for AI agents",
   description: `A CLI agents can compose, pipe, and script. ${SHARE_DESCRIPTION}`,
-  keywords: ["video CLI", "AI agent", "agentic CLI", "YAML pipelines", "MCP", "video editor", "Claude Code", "open source"],
+  keywords: ["video CLI", "AI agent", "agentic CLI", "YAML pipelines", "MCP", "video editor", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
   metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
     title: "VibeFrame — The video CLI for AI agents",

@@ -2,6 +2,8 @@
 
 **The video CLI for AI agents.** YAML pipelines. 13 AI providers. 65 MCP tools bundled.
 
+> Works with **Claude Code**, **OpenAI Codex**, **Cursor**, **Aider**, **Gemini CLI**, **OpenCode** — any bash-capable AI coding agent. `vibe doctor` auto-detects all six and `vibe init` scaffolds the right project files.
+
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
@@ -35,16 +37,18 @@ deterministically by Hyperframes' producer.
 ```bash
 brew install vhs
 vhs assets/demos/cli.tape          # Surface 1 — vibe CLI directly
-vhs assets/demos/agent.tape        # Surface 2 — vibe agent (natural language)
-vhs assets/demos/claude.tape       # Surface 3 — Claude Code → vibe scene build
-vhs assets/demos/claude-i2v.tape   # Surface 4 — Claude Code → t2i + i2v + narration
+vhs assets/demos/agent.tape        # Surface 2 — vibe agent (built-in REPL, BYO LLM)
+vhs assets/demos/claude.tape       # Surface 3 — host agent driving vibe scene build (recorded with Claude Code)
+vhs assets/demos/claude-i2v.tape   # Surface 4 — host agent t2i + i2v + narration (recorded with Claude Code)
 ```
+
+> The Surface 3/4 tapes were recorded with Claude Code, but the same `vibe` commands run identically when driven by Codex / Cursor / Aider / Gemini CLI / OpenCode — the host agent is just translating natural language into the same shell command.
 
 > **New in v0.60:** `vibe scene build` is the one-shot driver — write a `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration), and a single command dispatches TTS + GPT Image 2 + composes scene HTML via the `compose-scenes-with-skills` pipeline (v0.59) and renders to MP4. `vibe scene init --visual-style "Swiss Pulse"` (v0.58) still seeds the `DESIGN.md` hard-gate + 8 named visual identities. Hyperframes' `/hyperframes` skill (`npx skills add heygen-com/hyperframes`) is loaded as the LLM system prompt for composition craft.
 
-For the typed MCP route into Claude Code / Cursor, see [`packages/mcp-server/README.md`](packages/mcp-server/README.md).
+For the typed MCP route (Claude Desktop, Cursor, OpenCode, or Claude Code via `claude mcp add`), see [`packages/mcp-server/README.md`](packages/mcp-server/README.md).
 
-**Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Claude Code integration](https://youtu.be/sdf930sZ7co)
+**Older long-form videos**: [CLI walkthrough](https://youtu.be/EJUUpPp2d_8) · [Host-agent walkthrough (recorded with Claude Code)](https://youtu.be/sdf930sZ7co)
 
 ---
 
@@ -89,7 +93,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **License** | Apache 2.0 | MIT |
 | **OSS provider plugin** | — | `defineProvider({...})` registry — adding an AI provider is a single declaration; resolver / config / setup / doctor / `.env.example` all auto-derive (`pnpm scaffold:provider <name>` for the boilerplate) |
 
-The short version: **if you already write HTML compositions and want them rendered well, use Hyperframes directly. If you want AI to *write* those compositions for you, edit them traditionally, surface them to Claude Code via MCP, or stitch a multi-stage AI pipeline — that's VibeFrame.**
+The short version: **if you already write HTML compositions and want them rendered well, use Hyperframes directly. If you want AI to *write* those compositions for you, edit them traditionally, surface them to your AI coding agent via MCP or shell, or stitch a multi-stage AI pipeline — that's VibeFrame.**
 
 **Design Principles:** CLI-First — AI-Native — Provider Agnostic — MCP Compatible
 
@@ -173,12 +177,12 @@ render:
 
 ---
 
-## Use with Claude Code
+## Use with your AI agent
 
-Already have the CLI installed? Claude Code runs `vibe` commands for you — just describe what you want in natural language.
+VibeFrame is a bash CLI. Any AI coding agent that can shell out to a terminal can drive it — describe what you want in natural language, and the agent invokes the right `vibe` command.
 
-| You say | Claude Code runs |
-|---------|-----------------|
+| You say | Agent runs |
+|---------|-----------|
 | "Remove silence from interview.mp4" | `vibe edit silence-cut interview.mp4 -o clean.mp4` |
 | "Extract 3 best moments from podcast.mp4" | `vibe pipeline highlights podcast.mp4 -c 3` |
 | "Add Korean subtitles to video.mp4" | `vibe edit caption video.mp4 -o captioned.mp4` |
@@ -186,31 +190,48 @@ Already have the CLI installed? Claude Code runs `vibe` commands for you — jus
 | "Remove background noise" | `vibe edit noise-reduce noisy.mp4 -o clean.mp4` |
 | "Make a 60-second highlight reel" | `vibe pipeline highlights long-video.mp4 -d 60` |
 
-No setup needed beyond installing the CLI. Claude Code discovers and runs `vibe` commands directly.
+The example above is host-agnostic — every command works identically across Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode, or any other agent that runs bash.
 
-### Install as a Claude Code Skill
+### Agent host support
 
-For richer guidance, install the Claude Code Skill pack — it adds three slash commands that walk Claude through common workflows:
+`vibe doctor` auto-detects six host families today and `vibe init` scaffolds the right project guidance file for each. Anyone running another bash-capable agent still gets the universal `AGENTS.md` fallback.
+
+| Host | `vibe init` writes | Plan H skill layout (`vibe scene install-skill`) |
+|---|---|---|
+| **Claude Code** | `CLAUDE.md` (imports `@AGENTS.md`) + `AGENTS.md` | `.claude/skills/hyperframes/` (multi-file, Agent Skills standard) |
+| **OpenAI Codex** | `AGENTS.md` | universal `SKILL.md` (read via `AGENTS.md` ref) |
+| **Cursor** | `AGENTS.md` | `.cursor/rules/hyperframes.mdc` (auto-activates on `compositions/**/*.html`) |
+| **Aider** | `AGENTS.md` | universal `SKILL.md` |
+| **Gemini CLI** | `AGENTS.md` (its primary `GEMINI.md` is on the roadmap) | universal `SKILL.md` |
+| **OpenCode** | `AGENTS.md` | universal `SKILL.md` |
+| Any other bash agent | `AGENTS.md` (with `--agent all`) | universal `SKILL.md` |
+
+`vibe scene build --mode auto` auto-flips to the agentic compose path (no internal LLM call — host agent authors per-beat HTML directly) whenever any of the above hosts is present. Set `VIBE_BUILD_MODE=batch` to force the internal-LLM compose path instead.
+
+### Claude Code deeper integration
+
+Claude Code is the only host today with a slash-command pack on top of the universal CLI surface. After running `vibe scene init`, two slash commands are registered:
 
 ```bash
-# From the repo root (or any project where you want the skill active)
+# From any project where you want the skill pack active
 mkdir -p .claude/skills
 curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
 ```
 
-This registers:
 - **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
 - **`/vibe-scene`** — per-scene HTML authoring + `vibe scene build` (Hyperframes-backed)
 
 > The skill pack was consolidated 4 → 2 in v0.62: the older `/vibeframe` overview moved to `AGENTS.md` (scaffolded by `vibe init`), and `/vibe-script-to-video` was retired in v0.63 in favour of `/vibe-scene` driving `vibe scene build`.
 
+Other host families (Codex / Cursor / Aider / Gemini CLI / OpenCode) get their own equivalents on demand — see [`packages/cli/src/utils/agent-host-detect.ts`](packages/cli/src/utils/agent-host-detect.ts) + [`packages/cli/src/commands/_shared/install-skill.ts`](packages/cli/src/commands/_shared/install-skill.ts) for the registration shape, or open an issue / PR if your host needs first-class scaffolds.
+
 Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
 
 ---
 
-## MCP Integration (Claude Desktop / Cursor)
+## MCP Integration (Claude Desktop / Cursor / OpenCode / Claude Code)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (65 MCP tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for hosts that prefer typed JSON-RPC tool calls over shelling out. 65 MCP tools exposed via [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server). No clone needed — add to your config and restart:
 
 ```json
 {
@@ -227,6 +248,8 @@ Config file locations:
 - **Claude Desktop (macOS):** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Claude Desktop (Windows):** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Cursor:** `.cursor/mcp.json` in your workspace
+- **OpenCode:** `.opencode/mcp.json` in your workspace
+- **Claude Code:** add via `claude mcp add @vibeframe/mcp-server -- npx -y @vibeframe/mcp-server` (Claude Code has both shell and MCP routes — pick whichever fits)
 
 See [packages/mcp-server/README.md](packages/mcp-server/README.md) for full tool, resource, and prompt reference.
 
@@ -390,7 +413,7 @@ See [Cookbook](docs/cookbook.md) for 10 practical recipes combining multiple com
 
 ## Agent Mode (Standalone)
 
-For environments without Claude Code, Codex, or MCP — a built-in interactive session:
+For environments with no AI coding agent set up — a built-in interactive session:
 
 ```bash
 vibe agent                     # Start (default: OpenAI)
@@ -398,7 +421,7 @@ vibe agent -p claude           # Use Claude
 vibe agent -p ollama           # Free, local, no API key
 ```
 
-Best used for onboarding and quick experiments. For production workflows, use CLI commands directly or via Claude Code / MCP.
+Best used for onboarding and quick experiments. For production workflows, use CLI commands directly or via your host agent / MCP.
 
 ---
 

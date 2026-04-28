@@ -79,7 +79,7 @@ export default function LandingPage() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
             A CLI agents can compose, pipe, and script.
             YAML pipelines, {process.env.NEXT_PUBLIC_AI_PROVIDERS} AI providers, {process.env.NEXT_PUBLIC_MCP_TOOLS} MCP tools bundled.
-            Works with Claude Code, Claude Desktop, Cursor — no GUI required.
+            Works with Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode — any bash-capable AI coding agent. No GUI required.
           </p>
 
           {/* Install Command */}
@@ -257,23 +257,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ② Claude Code Section */}
+      {/* ② Use with your AI agent — host-agnostic showcase + Tier 2 callout */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/5 px-4 py-1.5 text-sm text-orange-400 mb-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-4">
               <Code2 className="w-4 h-4" />
-              <span>Claude Code</span>
+              <span>Use with your AI agent</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Natural language, real commands
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Describe what you want — Claude Code runs the right <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> command for you.
+              Describe what you want — your AI coding agent runs the right <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> command. The CLI surface is identical across every host that can shell out to bash.
             </p>
           </div>
 
-          <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="space-y-4 max-w-3xl mx-auto mb-12">
             <ClaudeCodeExample
               input="Remove silence from interview.mp4"
               command="vibe edit silence-cut interview.mp4 -o clean.mp4"
@@ -288,8 +288,71 @@ export default function LandingPage() {
             />
           </div>
 
+          {/* Six-host grid — equal cards, same example, different scaffold target */}
+          <div className="text-center mb-6">
+            <p className="text-sm text-muted-foreground">
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe doctor</code> auto-detects six host families today and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe init</code> scaffolds the right project file for each.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
+            {[
+              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "+ /vibe-* slash commands" },
+              { name: "OpenAI Codex", scaffold: "AGENTS.md", note: "agents.md spec" },
+              { name: "Cursor", scaffold: "AGENTS.md + .cursor/rules", note: "MCP-ready" },
+              { name: "Aider", scaffold: "AGENTS.md", note: "binary-detected" },
+              { name: "Gemini CLI", scaffold: "AGENTS.md", note: "GEMINI.md on roadmap" },
+              { name: "OpenCode", scaffold: "AGENTS.md", note: "MCP-ready" },
+            ].map((host) => (
+              <div key={host.name} className="bg-secondary/40 border border-border/50 rounded-xl px-4 py-3">
+                <div className="font-mono text-sm font-semibold text-foreground">{host.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">{host.scaffold}</div>
+                <div className="text-xs text-muted-foreground/70 mt-0.5">{host.note}</div>
+              </div>
+            ))}
+          </div>
+
           <p className="text-center text-muted-foreground text-sm mt-8">
-            No extra setup — install the CLI, and Claude Code discovers all <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe</code> commands automatically.
+            Anyone running another bash-capable agent (Continue, Sourcegraph Cody, your own loop) gets the universal <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">AGENTS.md</code> fallback. Open a PR to <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">agent-host-detect.ts</code> if your host wants first-class detection.
+          </p>
+        </div>
+      </section>
+
+      {/* ②.5 — Claude Code deeper integration (Tier 2) */}
+      <section className="py-20 px-4 border-t border-border/50 relative">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/5 px-4 py-1.5 text-sm text-orange-400 mb-4">
+              <Sparkles className="w-4 h-4" />
+              <span>Claude Code deeper integration</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Slash commands, beyond the CLI
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Claude Code is the only host today with a slash-command pack on top of the universal CLI. Every other agent host gets the same <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> commands; Claude Code adds two guided flows.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
+              <div className="font-mono text-sm font-semibold text-orange-400 mb-2">/vibe-pipeline</div>
+              <p className="text-sm text-muted-foreground">YAML pipeline authoring helper — Video as Code with cost estimates and step references.</p>
+            </div>
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
+              <div className="font-mono text-sm font-semibold text-orange-400 mb-2">/vibe-scene</div>
+              <p className="text-sm text-muted-foreground">Per-scene HTML authoring + <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code> driver (Hyperframes-backed).</p>
+            </div>
+          </div>
+
+          <div className="bg-background/50 border border-border/50 rounded-xl p-4 max-w-3xl mx-auto">
+            <div className="text-xs text-muted-foreground mb-2">Install (one-shot):</div>
+            <code className="font-mono text-xs text-foreground block break-all">
+              curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
+            </code>
+          </div>
+
+          <p className="text-center text-muted-foreground text-sm mt-6 max-w-3xl mx-auto">
+            Plan H also auto-installs the Hyperframes skill bundle into <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">.claude/skills/hyperframes/</code> when you run <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene init</code> — Claude Code reads it as system context for cinematic scene authoring. Other host families get the same content as a universal <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">SKILL.md</code> at the project root.
           </p>
         </div>
       </section>
@@ -310,7 +373,7 @@ export default function LandingPage() {
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
                   <p className="text-muted-foreground">
-                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools in Claude Desktop and Cursor — add one JSON config and go
+                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, OpenCode, or Claude Code — add one JSON config and go
                   </p>
                 </div>
               </div>
@@ -350,8 +413,8 @@ export default function LandingPage() {
               Built-in AI Agent
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              No Claude Code or Codex? Run <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe agent</code> for a standalone natural language session.
-              Great for quick onboarding and environments without AI coding tools.
+              No AI coding agent set up? Run <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe agent</code> for a standalone natural-language session.
+              Great for quick onboarding and environments without an installed agent host.
             </p>
           </div>
 
@@ -390,7 +453,7 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Terminal className="w-5 h-5" />}
                 title="Standalone"
-                description="No Claude Code or Codex needed — built-in fallback for any environment"
+                description="No agent host needed — built-in fallback for any environment"
                 gradient="from-green-500 to-emerald-500"
               />
             </div>
