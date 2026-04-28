@@ -69,6 +69,12 @@ export function registerManifestIntoAgent(
         const result = await tool.execute(parsed.data, {
           workingDirectory: context.workingDirectory,
           surface: "agent",
+          agent: {
+            projectPath: context.projectPath,
+            setProjectPath(path: string) {
+              context.projectPath = path;
+            },
+          },
         });
         if (!result.success) {
           return {

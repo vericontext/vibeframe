@@ -29,6 +29,16 @@ export interface ExecuteContext {
   workingDirectory: string;
   /** The surface invoking the tool. Lets executes branch on JSON vs human output if needed. */
   surface: "cli" | Surface;
+  /**
+   * Agent-only mutable state. Populated when invoked via the in-process agent
+   * REPL; `undefined` for MCP/CLI. Tools that read or set the "current
+   * project" pointer (e.g. project_open/project_save) declare
+   * `surfaces: ["agent"]` and access this via `ctx.agent?`.
+   */
+  agent?: {
+    projectPath: string | null;
+    setProjectPath(path: string): void;
+  };
 }
 
 export interface ToolExecuteResult {
@@ -94,104 +104,3 @@ export function defineTool<S extends ZodTypeAny>(t: ToolDefinition<S>): ToolDefi
   return t;
 }
 
-/**
- * During the v0.65 migration (commits C1–C5), tools are moved from the legacy
- * hand-written definitions in `packages/cli/src/agent/tools/*.ts` and
- * `packages/mcp-server/src/tools/*.ts` into the manifest one group at a time.
- * Both legacy and manifest sources are wired up simultaneously; legacy paths
- * skip any tool whose name appears here (manifest takes over).
- *
- * After C6 (legacy collapse), this set is deleted — every registered tool
- * comes from the manifest.
- */
-export const MIGRATED: Set<string> = new Set([
-  // C2: scene
-  "scene_init",
-  "scene_add",
-  "scene_lint",
-  "scene_render",
-  "scene_build",
-  "scene_styles",
-  // C3: audio
-  "audio_transcribe",
-  "audio_isolate",
-  "audio_voice_clone",
-  "audio_dub",
-  "audio_duck",
-  // C3: edit
-  "edit_silence_cut",
-  "edit_caption",
-  "edit_fade",
-  "edit_noise_reduce",
-  "edit_jump_cut",
-  "edit_text_overlay",
-  "edit_translate_srt",
-  "edit_grade",
-  "edit_speed_ramp",
-  "edit_reframe",
-  "edit_interpolate",
-  "edit_upscale",
-  "edit_animated_caption",
-  "edit_image",
-  // C3: analyze
-  "analyze_media",
-  "analyze_video",
-  "analyze_review",
-  "analyze_suggest",
-  // C4: generate
-  "generate_motion",
-  "generate_speech",
-  "generate_sound_effect",
-  "generate_music",
-  "generate_music_status",
-  "generate_image",
-  "generate_storyboard",
-  "generate_background",
-  "generate_thumbnail",
-  "generate_video",
-  "generate_video_status",
-  "generate_video_cancel",
-  "generate_video_extend",
-  // C4: pipeline
-  "pipeline_script_to_video",
-  "pipeline_highlights",
-  "pipeline_auto_shorts",
-  "pipeline_run",
-  "pipeline_regenerate_scene",
-  // C5: detect
-  "detect_scenes",
-  "detect_silence",
-  "detect_beats",
-  // C5: timeline
-  "timeline_add_source",
-  "timeline_add_clip",
-  "timeline_split_clip",
-  "timeline_trim_clip",
-  "timeline_move_clip",
-  "timeline_delete_clip",
-  "timeline_duplicate_clip",
-  "timeline_add_effect",
-  "timeline_add_track",
-  "timeline_list",
-  // C5: project
-  "project_create",
-  "project_info",
-  // C5: export
-  "export_video",
-  // v0.66 PR3: agent-only manifest entries (surfaces=["agent"])
-  "fs_list",
-  "fs_read",
-  "fs_write",
-  "fs_exists",
-  "batch_import",
-  "batch_concat",
-  "batch_apply_effect",
-  // v0.67 PR1: media_* / timeline_clear / export_* agent-only manifest entries
-  "media_info",
-  "media_compress",
-  "media_convert",
-  "media_concat",
-  "timeline_clear",
-  "export_audio",
-  "export_subtitles",
-]);
