@@ -57,7 +57,7 @@ describe("vibe init (black-box)", () => {
     const result = JSON.parse(stdout);
 
     expect(result.command).toBe("init");
-    expect(result.actions.every((a: { status: string }) => a.status === "wrote")).toBe(true);
+    expect(result.data.actions.every((a: { status: string }) => a.status === "wrote")).toBe(true);
 
     expect(existsSync(join(projectDir, "AGENTS.md"))).toBe(true);
     expect(existsSync(join(projectDir, "CLAUDE.md"))).toBe(true);
@@ -78,16 +78,16 @@ describe("vibe init (black-box)", () => {
     const { stdout } = runInit(["--agent", "all"]);
     const result = JSON.parse(stdout);
 
-    const skipped = result.actions.filter((a: { status: string }) => a.status === "skipped-exists");
+    const skipped = result.data.actions.filter((a: { status: string }) => a.status === "skipped-exists");
     expect(skipped.length).toBeGreaterThan(0);
-    expect(result.actions.every((a: { status: string }) => a.status !== "wrote")).toBe(true);
+    expect(result.data.actions.every((a: { status: string }) => a.status !== "wrote")).toBe(true);
   });
 
   it("with --agent claude-code writes CLAUDE.md but skips AGENTS.md (Claude-only mode)", () => {
     const { stdout } = runInit(["--agent", "claude-code"]);
     const result = JSON.parse(stdout);
 
-    const paths = result.actions.map((a: { path: string }) => a.path);
+    const paths = result.data.actions.map((a: { path: string }) => a.path);
     expect(paths.some((p: string) => p.endsWith("CLAUDE.md"))).toBe(true);
     expect(paths.some((p: string) => p.endsWith("AGENTS.md"))).toBe(false);
   });
@@ -96,7 +96,7 @@ describe("vibe init (black-box)", () => {
     const { stdout } = runInit(["--agent", "codex"]);
     const result = JSON.parse(stdout);
 
-    const paths = result.actions.map((a: { path: string }) => a.path);
+    const paths = result.data.actions.map((a: { path: string }) => a.path);
     expect(paths.some((p: string) => p.endsWith("AGENTS.md"))).toBe(true);
     expect(paths.some((p: string) => p.endsWith("CLAUDE.md"))).toBe(false);
   });
@@ -106,9 +106,9 @@ describe("vibe init (black-box)", () => {
     const { stdout } = runInit(["--agent", "auto"]);
     const result = JSON.parse(stdout);
 
-    const paths = result.actions.map((a: { path: string }) => a.path);
+    const paths = result.data.actions.map((a: { path: string }) => a.path);
     expect(paths.some((p: string) => p.endsWith("AGENTS.md"))).toBe(true);
-    expect(result.targetHosts).toEqual([]);
+    expect(result.data.targetHosts).toEqual([]);
   });
 
   it("merges .gitignore additions instead of overwriting an existing file", () => {
@@ -127,7 +127,7 @@ describe("vibe init (black-box)", () => {
     const result = JSON.parse(stdout);
 
     expect(result.dryRun).toBe(true);
-    expect(result.actions.every((a: { status: string }) => a.status === "would-write")).toBe(true);
+    expect(result.data.actions.every((a: { status: string }) => a.status === "would-write")).toBe(true);
     expect(existsSync(join(projectDir, "AGENTS.md"))).toBe(false);
   });
 

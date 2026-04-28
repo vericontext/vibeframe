@@ -23,21 +23,25 @@ import {
   loadWalkthrough,
   type WalkthroughTopic,
 } from "./_shared/walkthroughs/walkthroughs.js";
-import { exitWithError, isJsonMode, outputResult, usageError } from "./output.js";
+import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
 export const walkthroughCommand = new Command("walkthrough")
   .description("Step-by-step authoring guide for a vibe workflow (universal /vibe-* slash-command equivalent)")
   .argument("[topic]", `Walkthrough topic: ${WALKTHROUGH_TOPICS.join(" | ")}. Omit to list all.`)
   .option("--list", "List available walkthroughs and exit")
   .action(async (topicArg: string | undefined, options) => {
+    const startedAt = Date.now();
     if (!topicArg || options.list) {
       const topics = listWalkthroughs();
 
       if (isJsonMode()) {
-        outputResult({
+        outputSuccess({
           command: "walkthrough",
-          action: "list",
-          topics,
+          startedAt,
+          data: {
+            action: "list",
+            topics,
+          },
         });
         return;
       }
@@ -66,10 +70,13 @@ export const walkthroughCommand = new Command("walkthrough")
     const result = loadWalkthrough(topic);
 
     if (isJsonMode()) {
-      outputResult({
+      outputSuccess({
         command: "walkthrough",
-        action: "show",
-        ...result,
+        startedAt,
+        data: {
+          action: "show",
+          ...result,
+        },
       });
       return;
     }

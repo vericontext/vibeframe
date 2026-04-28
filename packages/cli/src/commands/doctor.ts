@@ -22,7 +22,7 @@ import {
   type ComposerProvider,
 } from "./_shared/composer-resolve.js";
 import { resolveSceneBuildMode } from "./_shared/scene-build.js";
-import { outputResult } from "./output.js";
+import { outputSuccess } from "./output.js";
 
 /**
  * Mapping of env vars to the commands they unlock. Derived from the
@@ -59,15 +59,16 @@ Examples:
 `
   )
   .action(async (options) => {
+    const startedAt = Date.now();
     if (options.json) process.env.VIBE_JSON_OUTPUT = "1";
     const isJson = process.env.VIBE_JSON_OUTPUT === "1";
     const results = await runDiagnostics();
 
     if (isJson) {
-      outputResult({
-        success: true,
+      outputSuccess({
         command: "doctor",
-        result: results,
+        startedAt,
+        data: results,
       });
       return;
     }

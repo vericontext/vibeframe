@@ -36,7 +36,7 @@ import {
   renderEnvExample,
   renderProjectYaml,
 } from "./_shared/init-templates.js";
-import { exitWithError, isJsonMode, outputResult, usageError } from "./output.js";
+import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
 type AgentSelection = AgentHostId | "all" | "auto";
 
@@ -55,6 +55,7 @@ export const initCommand = new Command("init")
   .option("--force", "Overwrite existing files instead of skipping")
   .option("--dry-run", "Print the file list without writing anything")
   .action(async (projectDirArg: string, options) => {
+    const startedAt = Date.now();
     const agent = options.agent as AgentSelection;
     if (!VALID_AGENTS.includes(agent)) {
       exitWithError(usageError(`Invalid --agent: ${agent}`, `Must be one of: ${VALID_AGENTS.join(", ")}`));
@@ -142,13 +143,16 @@ export const initCommand = new Command("init")
 
     // ── Output ─────────────────────────────────────────────────────────
     if (isJsonMode()) {
-      outputResult({
+      outputSuccess({
         command: "init",
-        projectDir,
-        agent,
-        targetHosts,
-        actions,
-        dryRun: options.dryRun ?? false,
+        startedAt,
+        ...(options.dryRun ? { dryRun: true } : {}),
+        data: {
+          projectDir,
+          agent,
+          targetHosts,
+          actions,
+        },
       });
       return;
     }

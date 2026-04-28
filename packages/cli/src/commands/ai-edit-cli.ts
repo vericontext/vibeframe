@@ -26,7 +26,7 @@ import {
   executeJumpCut,
   type CaptionStyle,
 } from './ai-edit.js';
-import { isJsonMode, outputResult, exitWithError, authError, notFoundError, apiError, usageError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, authError, notFoundError, apiError, usageError, generalError } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 
 // ── Command registrations ───────────────────────────────────────────────────
@@ -59,6 +59,7 @@ Examples:
 
 No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires GOOGLE_API_KEY).`)
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -81,16 +82,19 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
       const useGemini = options.useGemini || false;
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit silence-cut",
-          params: {
-            videoPath: absVideoPath,
-            noiseThreshold: parseFloat(options.noise),
-            minDuration: parseFloat(options.minDuration),
-            padding: parseFloat(options.padding),
-            useGemini,
-            analyzeOnly: options.analyzeOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absVideoPath,
+              noiseThreshold: parseFloat(options.noise),
+              minDuration: parseFloat(options.minDuration),
+              padding: parseFloat(options.padding),
+              useGemini,
+              analyzeOnly: options.analyzeOnly || false,
+            },
           },
         });
         return;
@@ -122,13 +126,16 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
       spinner.succeed(chalk.green("Silence detection complete"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          method: result.method,
-          totalDuration: result.totalDuration,
-          silentPeriods: result.silentPeriods,
-          silentDuration: result.silentDuration,
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit silence-cut",
+          startedAt,
+          data: {
+            method: result.method,
+            totalDuration: result.totalDuration,
+            silentPeriods: result.silentPeriods,
+            silentDuration: result.silentDuration,
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
@@ -188,6 +195,7 @@ Examples:
 
 Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -204,16 +212,19 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit caption",
-          params: {
-            videoPath: absVideoPath,
-            style: options.style,
-            fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
-            fontColor: options.color,
-            language: options.language,
-            position: options.position,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absVideoPath,
+              style: options.style,
+              fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
+              fontColor: options.color,
+              language: options.language,
+              position: options.position,
+            },
           },
         });
         return;
@@ -249,12 +260,15 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
       spinner.succeed(chalk.green("Captions applied"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          segmentCount: result.segmentCount,
-          style: options.style || "bold",
-          outputPath: result.outputPath,
-          srtPath: result.srtPath,
+        outputSuccess({
+          command: "edit caption",
+          startedAt,
+          data: {
+            segmentCount: result.segmentCount,
+            style: options.style || "bold",
+            outputPath: result.outputPath,
+            srtPath: result.srtPath,
+          },
         });
         return;
       }
@@ -287,6 +301,7 @@ aiCommand
   .option("-n, --noise-floor <dB>", "Custom noise floor in dB (overrides strength preset)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (inputPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -302,13 +317,16 @@ aiCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit noise-reduce",
-          params: {
-            inputPath: absInputPath,
-            strength: options.strength,
-            noiseFloor: options.noiseFloor ? parseFloat(options.noiseFloor) : undefined,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              inputPath: absInputPath,
+              strength: options.strength,
+              noiseFloor: options.noiseFloor ? parseFloat(options.noiseFloor) : undefined,
+            },
           },
         });
         return;
@@ -335,11 +353,14 @@ aiCommand
       spinner.succeed(chalk.green("Noise reduction complete"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          inputDuration: result.inputDuration,
-          strength: options.strength || "medium",
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit noise-reduce",
+          startedAt,
+          data: {
+            inputDuration: result.inputDuration,
+            strength: options.strength || "medium",
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
@@ -371,6 +392,7 @@ aiCommand
   .option("--video-only", "Apply fade to video only (audio stream copied)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -386,15 +408,18 @@ aiCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit fade",
-          params: {
-            videoPath: absVideoPath,
-            fadeIn: parseFloat(options.fadeIn),
-            fadeOut: parseFloat(options.fadeOut),
-            audioOnly: options.audioOnly || false,
-            videoOnly: options.videoOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absVideoPath,
+              fadeIn: parseFloat(options.fadeIn),
+              fadeOut: parseFloat(options.fadeOut),
+              audioOnly: options.audioOnly || false,
+              videoOnly: options.videoOnly || false,
+            },
           },
         });
         return;
@@ -423,12 +448,15 @@ aiCommand
       spinner.succeed(chalk.green("Fade effects applied"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          totalDuration: result.totalDuration,
-          fadeInApplied: result.fadeInApplied,
-          fadeOutApplied: result.fadeOutApplied,
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit fade",
+          startedAt,
+          data: {
+            totalDuration: result.totalDuration,
+            fadeInApplied: result.fadeInApplied,
+            fadeOutApplied: result.fadeOutApplied,
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
@@ -461,6 +489,7 @@ aiCommand
   .option("-k, --api-key <key>", "API key (or set ANTHROPIC_API_KEY / OPENAI_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (srtPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -476,14 +505,17 @@ aiCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit translate-srt",
-          params: {
-            srtPath: absSrtPath,
-            targetLanguage: options.target,
-            provider: options.provider || "claude",
-            sourceLanguage: options.source,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              srtPath: absSrtPath,
+              targetLanguage: options.target,
+              provider: options.provider || "claude",
+              sourceLanguage: options.source,
+            },
           },
         });
         return;
@@ -521,12 +553,15 @@ aiCommand
       spinner.succeed(chalk.green("Translation complete"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          segmentCount: result.segmentCount,
-          sourceLanguage: result.sourceLanguage,
-          targetLanguage: result.targetLanguage,
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit translate-srt",
+          startedAt,
+          data: {
+            segmentCount: result.segmentCount,
+            sourceLanguage: result.sourceLanguage,
+            targetLanguage: result.targetLanguage,
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
@@ -560,6 +595,7 @@ aiCommand
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -580,15 +616,18 @@ aiCommand
         const fillers = options.fillers
           ? options.fillers.split(",").map((f: string) => f.trim())
           : undefined;
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit jump-cut",
-          params: {
-            videoPath: absVideoPath,
-            fillers,
-            padding: parseFloat(options.padding),
-            language: options.language,
-            analyzeOnly: options.analyzeOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absVideoPath,
+              fillers,
+              padding: parseFloat(options.padding),
+              language: options.language,
+              analyzeOnly: options.analyzeOnly || false,
+            },
           },
         });
         return;
@@ -627,13 +666,16 @@ aiCommand
       spinner.succeed(chalk.green("Filler detection complete"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          totalDuration: result.totalDuration,
-          fillerCount: result.fillerCount,
-          fillerDuration: result.fillerDuration,
-          fillers: result.fillers,
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit jump-cut",
+          startedAt,
+          data: {
+            totalDuration: result.totalDuration,
+            fillerCount: result.fillerCount,
+            fillerDuration: result.fillerDuration,
+            fillers: result.fillers,
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
