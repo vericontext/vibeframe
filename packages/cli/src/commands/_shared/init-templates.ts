@@ -13,9 +13,11 @@
 
 /**
  * agents.md spec-compliant cross-tool agent declaration. Recognised by
- * Codex, Cursor, Aider, Sourcegraph Cody, and (via the @AGENTS.md
- * import) Claude Code. Keep this as the canonical source of truth for
- * agent guidance — CLAUDE.md just imports it.
+ * OpenAI Codex, Cursor, Aider, Sourcegraph Cody, OpenCode, and (via
+ * the @AGENTS.md import) Claude Code. Gemini CLI users may want to
+ * also keep a sibling \`GEMINI.md\` since that's its primary context
+ * file. Keep this as the canonical source of truth for agent guidance —
+ * \`CLAUDE.md\` and \`GEMINI.md\` just import it.
  */
 export const AGENTS_MD = `# AGENTS.md
 
@@ -24,6 +26,27 @@ a CLI for AI-powered video editing. The \`vibe\` command provides 80+
 subcommands for video generation, editing, analysis, and pipeline
 orchestration. Cost tiers below — **always confirm with the user before
 running High / Very High tier commands**.
+
+## Agent host coverage
+
+VibeFrame's CLI works with any bash-capable AI coding agent. Six host
+families have first-class auto-detection and scaffolds today:
+
+- **Claude Code** — \`CLAUDE.md\` (this file's import wrapper) +
+  \`AGENTS.md\` + \`/vibe-*\` slash commands.
+- **OpenAI Codex** — reads \`AGENTS.md\` natively (agents.md spec).
+- **Cursor** — reads \`AGENTS.md\` plus \`.cursor/rules/\` for project
+  rules; supports MCP via \`.cursor/mcp.json\`.
+- **Aider** — reads \`AGENTS.md\` (binary-only detection by VibeFrame).
+- **Gemini CLI** — primary context file is \`GEMINI.md\`; also reads
+  \`AGENTS.md\` if present.
+- **OpenCode** — reads \`AGENTS.md\` (officially supported per
+  \`opencode.ai/docs/rules\`); supports MCP via \`.opencode/mcp.json\`.
+
+Run \`vibe doctor\` to see which host(s) the CLI detects in your
+environment. Anyone running another bash-capable agent (Continue,
+Sourcegraph Cody, etc.) still gets this \`AGENTS.md\` as the universal
+fallback.
 
 ## Self-discovery
 
@@ -34,6 +57,8 @@ vibe --help                    # command groups overview
 vibe schema --list             # full machine-readable catalog (80+)
 vibe schema generate.video     # JSON Schema for any single command
 vibe doctor                    # available providers + system health
+vibe walkthrough scene         # step-by-step authoring guide (scene)
+vibe walkthrough pipeline      # step-by-step authoring guide (pipeline)
 \`\`\`
 
 ## Two flows — pick by intent
@@ -168,7 +193,7 @@ export const CLAUDE_MD = `@AGENTS.md
 
 This file imports \`AGENTS.md\` (above) — that's the canonical source.
 Add anything Claude-Code-specific *below*; everything generic should
-stay in AGENTS.md so other agent hosts (Codex, Cursor, Aider) see it
+stay in AGENTS.md so other agent hosts (Codex, Cursor, Aider, Gemini CLI, OpenCode) see it
 too.
 
 ## Skills
