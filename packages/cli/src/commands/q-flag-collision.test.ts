@@ -18,11 +18,14 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+// Note: `ai-video-fx.ts` previously appeared here but was deleted alongside the
+// dead `commands/ai.ts` orchestrator (the `vibe ai *` namespace was never
+// `addCommand`'d to `program`). Its `-q` regression now lives in `edit-cmd.ts`
+// (where the upscale-video / interpolate commands moved).
 const FILES_THAT_PREVIOUSLY_HAD_DASH_Q = [
   "generate.ts",
   "ai-image.ts",
   "edit-cmd.ts",
-  "ai-video-fx.ts",
 ];
 
 describe("-q flag collision regression", () => {
