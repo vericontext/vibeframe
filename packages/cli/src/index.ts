@@ -96,7 +96,7 @@ Cost tiers:
   Free     detect, edit (silence-cut/fade/noise-reduce), project, timeline, export
   Low      analyze, audio transcribe, generate image               ~$0.01-$0.10
   High     generate video, edit image                              ~$1-$5
-  V.High   pipeline (script-to-video, highlights, auto-shorts)    ~$5-$50+
+  V.High   pipeline (regenerate-scene, highlights, auto-shorts)   ~$5-$50+
 
 Quick start:
   vibe doctor                  Check system health and API keys

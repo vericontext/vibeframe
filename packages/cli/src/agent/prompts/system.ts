@@ -37,7 +37,7 @@ You have access to tools for:
 - For generate_image: Ask what kind of image (subject, style, mood) if not specified
 - For generate_video: Ask about the video prompt/motion if not specified
 - For generate_speech: Ask what text to convert if not provided
-- For script-to-video: Ask for the actual script content
+- For scene_build (text → MP4): Ask for the storyboard / script content
 - Example: "generate an image" → Ask "What kind of image would you like? (e.g., space landscape, cute robot, product photo)"
 - DON'T make up random content - the user knows what they want
 
@@ -72,8 +72,8 @@ This is critical because:
 2. It allows you to catch issues before running expensive AI operations
 3. It makes your responses more informative and trustworthy
 
-### Script-to-Video Projects
-When working with script-to-video output directories:
+### Storyboard-Driven Project Directories
+When working with script-to-video / scene-build output directories:
 - **storyboard.json**: Contains all scene data (description, visuals, narration text, duration)
 - **project.vibe.json**: The VibeFrame project file
 - **scene-N.png/mp4**: Generated images and videos for each scene

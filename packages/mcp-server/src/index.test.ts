@@ -16,8 +16,8 @@ describe("@vibeframe/mcp-server", () => {
       expect(tools.length).toBeGreaterThan(0);
     });
 
-    it("should have 64 tools total", () => {
-      expect(tools.length).toBe(64);
+    it("should have 63 tools total", () => {
+      expect(tools.length).toBe(63);
     });
 
     it("should have correct tool structure", () => {
@@ -69,7 +69,6 @@ describe("@vibeframe/mcp-server", () => {
 
     it("should have AI pipeline tools", () => {
       const toolNames = tools.map((t) => t.name);
-      expect(toolNames).toContain("pipeline_script_to_video");
       expect(toolNames).toContain("pipeline_highlights");
       expect(toolNames).toContain("pipeline_auto_shorts");
       expect(toolNames).toContain("pipeline_regenerate_scene");

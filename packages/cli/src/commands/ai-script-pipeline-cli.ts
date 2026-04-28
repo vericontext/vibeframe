@@ -1,356 +1,32 @@
 /**
  * @module ai-script-pipeline-cli
- * @description CLI command registration for the script-to-video pipeline and
- *   scene regeneration commands. Execute functions and helpers live in
- *   ai-script-pipeline.ts; this file wires them up as Commander.js subcommands.
+ * @description Commander wiring for `vibe pipeline regenerate-scene`. The
+ *   sibling `script-to-video` subcommand and its execute function were
+ *   removed in favour of the skill-driven `vibe scene build` flow; only
+ *   regenerate-scene survives because it operates on existing on-disk
+ *   storyboards. Execute function lives in `ai-script-pipeline.ts`.
  */
 
 import { Command } from "commander";
-import { readFile, writeFile, stat } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
 import { parse as yamlParse } from "yaml";
-import { getApiKey, loadEnv } from "../utils/api-key.js";
+import { getApiKey } from "../utils/api-key.js";
 import { type ProjectFile } from "../engine/index.js";
-import { type TextOverlayStyle } from "./ai-edit.js";
 import {
   type StoryboardSegment,
   DEFAULT_VIDEO_RETRIES,
-  executeScriptToVideo,
   executeRegenerateScene,
 } from "./ai-script-pipeline.js";
-import { exitWithError, outputResult, isJsonMode, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
-import { validateOutputPath } from "./validate.js";
+import { exitWithError, outputResult, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
 
 export function registerScriptPipelineCommands(aiCommand: Command): void {
-// Script-to-Video command
-aiCommand
-  .command("script-to-video")
-  .alias("s2v")
-  .description("[DEPRECATED v0.63 — removal scheduled v0.64] Generate complete video from text script using AI pipeline. Use `vibe scene build` with a STORYBOARD.md instead — same outcome, idempotent, agent-editable")
-  .argument("<script>", "Script text or file path (use -f for file)")
-  .option("-f, --file", "Treat script argument as file path")
-  .option("-o, --output <path>", "Output project file path", "script-video.vibe.json")
-  .option("-d, --duration <seconds>", "Target total duration in seconds")
-  .option("-v, --voice <id>", "ElevenLabs voice ID for narration")
-  .option("-g, --generator <engine>", "Video generator: grok | kling | runway | veo", "grok")
-  .option("-i, --image-provider <provider>", "Image provider: gemini | openai | grok", "gemini")
-  .option("-a, --aspect-ratio <ratio>", "Aspect ratio: 16:9 | 9:16 | 1:1", "16:9")
-  .option("--images-only", "Generate images only, skip video generation")
-  .option("--no-voiceover", "Skip voiceover generation")
-  .option("--output-dir <dir>", "Directory for generated assets", "script-video-output")
-  .option("--retries <count>", "Number of retries for video generation failures", String(DEFAULT_VIDEO_RETRIES))
-  .option("--sequential", "Generate videos one at a time (slower but more reliable)")
-  .option("--concurrency <count>", "Max concurrent video tasks in parallel mode (default: 3)", "3")
-  .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
-  .option("-s, --storyboard-provider <provider>", "Storyboard provider: claude (default), openai, or gemini", "claude")
-  .option("--no-text-overlay", "Skip text overlay step")
-  .option("--text-style <style>", "Text overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
-  .option("--review", "Run AI review after assembly (requires GOOGLE_API_KEY)")
-  .option("--review-auto-apply", "Auto-apply fixable issues from AI review")
-  .option("--format <mode>", "Output format: mp4 (default, full pipeline) or scenes (DEPRECATED in v0.62 — use `vibe scene build` with STORYBOARD frontmatter cues; removal scheduled for v0.63)", "mp4")
-  .option("--scene-style <preset>", "Style preset for --format scenes: simple | announcement | explainer | kinetic-type | product-shot", "explainer")
-  .option("--dry-run", "Preview parameters without executing")
-  .action(async (script: string, options) => {
-    try {
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
-
-      // v0.63: the entire `pipeline script-to-video` command is deprecated.
-      // Storyboard inference is brittle (LLM hallucinates beats, no per-beat
-      // cues, no idempotent re-runs); `vibe scene build` covers the same
-      // outcome with explicit STORYBOARD.md frontmatter and asset reuse.
-      // Warning fires for ANY invocation in human mode (JSON mode swallows
-      // it so automation isn't disrupted). Removal scheduled for v0.64.
-      if (!isJsonMode()) {
-        console.warn();
-        console.warn(chalk.yellow("⚠  `vibe pipeline script-to-video` is deprecated and will be removed in v0.64."));
-        console.warn(chalk.dim("   The skills-driven storyboard flow (vibe scene build) replaces it:"));
-        console.warn(chalk.dim("     1. Write STORYBOARD.md with per-beat YAML cues (narration / backdrop / duration)."));
-        console.warn(chalk.dim("     2. `vibe scene build <project-dir>` — single command, idempotent re-runs."));
-        console.warn(chalk.dim("   See examples/scene-promo-pipeline.yaml for the YAML pipeline form."));
-        if (options.format === "scenes") {
-          console.warn(chalk.yellow("   (--format scenes is doubly deprecated — already slated for v0.63 removal.)"));
-        }
-        console.warn();
-      }
-
-      if (options.dryRun) {
-        outputResult({
-          dryRun: true,
-          command: "pipeline script-to-video",
-          params: {
-            script: script.slice(0, 200),
-            file: options.file ?? false,
-            output: options.output,
-            duration: options.duration,
-            generator: options.generator,
-            imageProvider: options.imageProvider,
-            aspectRatio: options.aspectRatio,
-            imagesOnly: options.imagesOnly ?? false,
-            voiceover: options.voiceover,
-            outputDir: options.outputDir,
-            creativity: options.creativity,
-            storyboardProvider: options.storyboardProvider,
-            textOverlay: options.textOverlay,
-            textStyle: options.textStyle,
-            review: options.review ?? false,
-          },
-        });
-        return;
-      }
-
-      // Load environment variables from .env file
-      loadEnv();
-
-      // Pre-check API keys so we surface friendly exit codes (AUTH instead
-      // of API_ERROR) before executeScriptToVideo's internal re-check fires.
-      const storyboardProvider = (options.storyboardProvider || "claude") as "claude" | "openai" | "gemini";
-      const storyboardKeyMap: Record<typeof storyboardProvider, { envVar: string; name: string }> = {
-        claude: { envVar: "ANTHROPIC_API_KEY", name: "Anthropic" },
-        openai: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
-        gemini: { envVar: "GOOGLE_API_KEY", name: "Google" },
-      };
-      {
-        const info = storyboardKeyMap[storyboardProvider];
-        if (!info) {
-          exitWithError(usageError(`Unknown storyboard provider: ${storyboardProvider}`, "Use claude, openai, or gemini"));
-        }
-        if (!(await getApiKey(info.envVar, info.name))) {
-          exitWithError(authError(info.envVar, info.name));
-        }
-      }
-
-      const imageProvider = (options.imageProvider || "openai") as "openai" | "dalle" | "gemini" | "grok";
-      const imageKeyMap: Record<typeof imageProvider, { envVar: string; name: string }> = {
-        openai: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
-        dalle: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
-        gemini: { envVar: "GOOGLE_API_KEY", name: "Google" },
-        grok: { envVar: "XAI_API_KEY", name: "xAI" },
-      };
-      {
-        const info = imageKeyMap[imageProvider];
-        if (!info) {
-          exitWithError(usageError(`Unknown image provider: ${imageProvider}`, "Use openai, gemini, or grok"));
-        }
-        if (!(await getApiKey(info.envVar, info.name))) {
-          exitWithError(authError(info.envVar, info.name));
-        }
-      }
-
-      if (options.voiceover !== false) {
-        if (!(await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs"))) {
-          exitWithError(authError("ELEVENLABS_API_KEY", "ElevenLabs"));
-        }
-      }
-
-      if (!options.imagesOnly) {
-        const generatorKeyMap: Record<string, { envVar: string; name: string }> = {
-          grok: { envVar: "XAI_API_KEY", name: "xAI" },
-          kling: { envVar: "KLING_API_KEY", name: "Kling" },
-          runway: { envVar: "RUNWAY_API_SECRET", name: "Runway" },
-          veo: { envVar: "GOOGLE_API_KEY", name: "Google" },
-        };
-        const generator = options.generator || "grok";
-        const genInfo = generatorKeyMap[generator];
-        if (!genInfo) {
-          exitWithError(usageError(`Invalid generator: ${generator}`, `Available: ${Object.keys(generatorKeyMap).join(", ")}`));
-        }
-        if (!(await getApiKey(genInfo.envVar, genInfo.name))) {
-          exitWithError(authError(genInfo.envVar, genInfo.name));
-        }
-      }
-
-      // Read script content
-      let scriptContent = script;
-      if (options.file) {
-        const filePath = resolve(process.cwd(), script);
-        scriptContent = await readFile(filePath, "utf-8");
-      }
-
-      // Resolve -o / --output-dir semantics (identical to the old inline path):
-      //   -o foo/           → outputDir = foo,       project = foo/project.vibe.json
-      //   -o foo.vibe.json  → outputDir = default,   project = foo.vibe.json
-      //   -o foo            → outputDir = foo,       project = foo/project.vibe.json
-      let effectiveOutputDir = options.outputDir;
-      const outputLooksLikeDirectory =
-        options.output.endsWith("/") ||
-        (!options.output.endsWith(".json") && !options.output.endsWith(".vibe.json"));
-      if (outputLooksLikeDirectory && options.outputDir === "script-video-output") {
-        effectiveOutputDir = options.output;
-      }
-
-      let projectFilePath = resolve(process.cwd(), options.output);
-      if (outputLooksLikeDirectory) {
-        projectFilePath = resolve(projectFilePath, "project.vibe.json");
-      } else if (existsSync(projectFilePath) && (await stat(projectFilePath)).isDirectory()) {
-        projectFilePath = resolve(projectFilePath, "project.vibe.json");
-      }
-
-      const creativity = (options.creativity ?? "low").toLowerCase();
-      if (creativity !== "low" && creativity !== "high") {
-        exitWithError(usageError("Invalid creativity level.", "Use 'low' or 'high'."));
-      }
-
-      console.log();
-      console.log(chalk.bold.cyan("🎬 Script-to-Video Pipeline"));
-      console.log(chalk.dim("─".repeat(60)));
-      if (creativity === "high") {
-        console.log(chalk.yellow("🎨 High creativity mode: Generating varied, unexpected scenes"));
-      }
-      console.log();
-
-      const pipelineSpinner = ora(`🎬 Running script-to-video with ${options.generator}...`).start();
-      const format = (options.format ?? "mp4") as "mp4" | "scenes";
-      if (format !== "mp4" && format !== "scenes") {
-        exitWithError(usageError(`Invalid --format: ${options.format}`, "Valid: mp4, scenes"));
-      }
-      const validScenePresets = ["simple", "announcement", "explainer", "kinetic-type", "product-shot"] as const;
-      type ScenePresetCli = typeof validScenePresets[number];
-      const scenePreset = options.sceneStyle as ScenePresetCli;
-      if (format === "scenes" && !validScenePresets.includes(scenePreset)) {
-        exitWithError(usageError(`Invalid --scene-style: ${scenePreset}`, `Valid: ${validScenePresets.join(", ")}`));
-      }
-
-      const result = await executeScriptToVideo({
-        script: scriptContent,
-        outputDir: effectiveOutputDir,
-        projectFilePath,
-        duration: options.duration ? parseFloat(options.duration) : undefined,
-        voice: options.voice,
-        generator: options.generator as "grok" | "runway" | "kling" | "veo",
-        imageProvider: options.imageProvider as "openai" | "gemini" | "grok" | undefined,
-        aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1" | undefined,
-        imagesOnly: options.imagesOnly,
-        noVoiceover: options.voiceover === false,
-        retries: parseInt(options.retries) || DEFAULT_VIDEO_RETRIES,
-        creativity: creativity as "low" | "high",
-        storyboardProvider: options.storyboardProvider as "claude" | "openai" | "gemini" | undefined,
-        noTextOverlay: options.textOverlay === false,
-        textStyle: options.textStyle as TextOverlayStyle | undefined,
-        review: options.review,
-        reviewAutoApply: options.reviewAutoApply,
-        format,
-        scenePreset,
-        onProgress: (msg: string) => { pipelineSpinner.text = msg; },
-      });
-
-      if (!result.success) {
-        pipelineSpinner.fail(chalk.red(result.error || "Script-to-Video failed"));
-        exitWithError(apiError(result.error || "Script-to-Video failed", true));
-      }
-
-      // ---- Scene-project output path -------------------------------------
-      if (result.format === "scenes") {
-        pipelineSpinner.succeed(chalk.green(`Generated ${result.scenes} scene HTML file(s) → ${effectiveOutputDir}/`));
-
-        const lint = result.sceneLint;
-        const lintLine = lint
-          ? `  🧪 Lint: ${lint.errorCount} error(s), ${lint.warningCount} warning(s), ${lint.infoCount} info`
-          : "  🧪 Lint: skipped";
-
-        console.log();
-        console.log(chalk.bold.green("Script-to-Scenes complete!"));
-        console.log(chalk.dim("─".repeat(60)));
-        console.log();
-        console.log(`  📁 Project: ${chalk.cyan(effectiveOutputDir)}/`);
-        console.log(`  🎬 Scenes: ${result.scenes}`);
-        console.log(`  ⏱️  Duration: ${result.totalDuration ?? 0}s`);
-        console.log(lintLine);
-        console.log();
-        console.log(chalk.dim("Next steps:"));
-        console.log(chalk.dim(`  vibe scene lint --project ${effectiveOutputDir}`));
-        console.log(chalk.dim(`  vibe scene render --project ${effectiveOutputDir}`));
-        console.log();
-
-        outputResult({
-          success: true,
-          command: "pipeline script-to-video",
-          result: {
-            format: "scenes",
-            outputDir: result.outputDir,
-            scenes: result.scenes,
-            totalDuration: result.totalDuration,
-            scenePaths: result.scenePaths ?? [],
-            lint: lint
-              ? { ok: lint.ok, errorCount: lint.errorCount, warningCount: lint.warningCount, infoCount: lint.infoCount }
-              : undefined,
-          },
-        });
-        return;
-      }
-
-      pipelineSpinner.succeed(chalk.green(`Generated ${result.scenes} scene(s) → ${result.projectPath}`));
-
-      // Final summary (presentational; keeps parity with the pre-thin-wrap CLI).
-      const narrationCount = (result.narrationEntries ?? []).filter((e) => e.path).length;
-      const failedNarrationNums = result.failedNarrations ?? [];
-      const failedSceneNums = [...new Set(result.failedScenes ?? [])].sort((a, b) => a - b);
-      const imageCount = result.images?.length ?? 0;
-      const videoCount = result.videos?.length ?? 0;
-
-      console.log();
-      console.log(chalk.bold.green("Script-to-Video complete!"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log();
-      console.log(`  📄 Project: ${chalk.cyan(result.projectPath)}`);
-      console.log(`  🎬 Scenes: ${result.scenes}`);
-      console.log(`  ⏱️  Duration: ${result.totalDuration ?? 0}s`);
-      console.log(`  📁 Assets: ${effectiveOutputDir}/`);
-      if (narrationCount > 0 || failedNarrationNums.length > 0) {
-        console.log(`  🎙️  Narrations: ${narrationCount}/${result.scenes} narration-*.mp3`);
-        if (failedNarrationNums.length > 0) {
-          console.log(chalk.yellow(`     ⚠ Failed: scene ${failedNarrationNums.join(", ")}`));
-        }
-      }
-      console.log(`  🖼️  Images: ${imageCount} scene-*.png`);
-      if (!options.imagesOnly) {
-        console.log(`  🎥 Videos: ${videoCount}/${result.scenes} scene-*.mp4`);
-        if (failedSceneNums.length > 0) {
-          console.log(chalk.yellow(`     ⚠ Failed: scene ${failedSceneNums.join(", ")} (fallback to image)`));
-        }
-      }
-      console.log();
-      console.log(chalk.dim("Next steps:"));
-      console.log(chalk.dim(`  vibe project info ${options.output}`));
-      console.log(chalk.dim(`  vibe export ${options.output} -o final.mp4`));
-      if (!options.imagesOnly && failedSceneNums.length > 0) {
-        console.log();
-        console.log(chalk.dim("💡 To regenerate failed scenes:"));
-        for (const sceneNum of failedSceneNums) {
-          console.log(chalk.dim(`  vibe ai regenerate-scene ${effectiveOutputDir}/ --scene ${sceneNum} --video-only`));
-        }
-      }
-      console.log();
-
-      // JSON shape is byte-identical to the pre-thin-wrap delegation block;
-      // agent callers depend on these exact fields and counts.
-      outputResult({
-        success: true,
-        command: "pipeline script-to-video",
-        result: {
-          projectPath: result.projectPath,
-          outputDir: result.outputDir,
-          scenes: result.scenes,
-          totalDuration: result.totalDuration,
-          images: result.images?.length ?? 0,
-          videos: result.videos?.length ?? 0,
-          failedScenes: result.failedScenes ?? [],
-        },
-      });
-
-    } catch (error) {
-      exitWithError(generalError(error instanceof Error ? error.message : "Script-to-Video failed"));
-    }
-  });
-
-// Regenerate Scene command
 aiCommand
   .command("regenerate-scene")
-  .description("Regenerate a specific scene in a script-to-video project")
+  .description("Regenerate a specific scene in a script-to-video output directory")
   .argument("<project-dir>", "Path to the script-to-video output directory")
   .requiredOption("--scene <numbers>", "Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5")
   .option("--video-only", "Only regenerate video")
@@ -372,10 +48,6 @@ aiCommand
         exitWithError(notFoundError(outputDir));
       }
 
-      // Storyboard: prefer YAML (current executeScriptToVideo output), fall back
-      // to JSON (pre-0.48.6 inline kling/runway output). Track source format so
-      // the CLI's project-file update can re-read it after the library has
-      // rewritten segment durations.
       const yamlPath = resolve(outputDir, "storyboard.yaml");
       const jsonPath = resolve(outputDir, "storyboard.json");
       const storyboardPath = existsSync(yamlPath) ? yamlPath : existsSync(jsonPath) ? jsonPath : null;
@@ -429,12 +101,10 @@ aiCommand
       const regenerateNarration = options.narrationOnly || (!options.videoOnly && !options.imageOnly);
       const regenerateImage = options.imageOnly || (!options.videoOnly && !options.narrationOnly);
 
-      // API-key pre-check for friendly AUTH exit codes (library re-checks).
       if (regenerateImage) {
-        const provider = (options.imageProvider || "openai") as "openai" | "dalle" | "gemini" | "grok";
+        const provider = (options.imageProvider || "openai") as "openai" | "gemini" | "grok";
         const keyMap: Record<typeof provider, { envVar: string; name: string }> = {
           openai: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
-          dalle: { envVar: "OPENAI_API_KEY", name: "OpenAI" },
           gemini: { envVar: "GOOGLE_API_KEY", name: "Google" },
           grok: { envVar: "XAI_API_KEY", name: "xAI" },
         };
@@ -476,9 +146,7 @@ aiCommand
         narrationOnly: options.narrationOnly,
         imageOnly: options.imageOnly,
         generator: options.generator as "grok" | "kling" | "runway" | "veo" | undefined,
-        // `dalle` is a CLI alias for OpenAI image generation; the library only
-        // knows `openai`.
-        imageProvider: (options.imageProvider === "dalle" ? "openai" : options.imageProvider) as "openai" | "gemini" | "grok" | undefined,
+        imageProvider: options.imageProvider as "openai" | "gemini" | "grok" | undefined,
         voice: options.voice,
         aspectRatio: options.aspectRatio as "16:9" | "9:16" | "1:1" | undefined,
         retries: parseInt(options.retries) || DEFAULT_VIDEO_RETRIES,
@@ -559,5 +227,4 @@ aiCommand
       exitWithError(generalError(error instanceof Error ? error.message : "Scene regeneration failed"));
     }
   });
-
 }

@@ -9,14 +9,13 @@
  * here process media you already have.
  *
  * Commands:
- *   pipeline script-to-video  - [DEPRECATED v0.63] Full script-to-video pipeline (use `vibe scene build`)
- *   pipeline regenerate-scene - Regenerate specific scene(s) of a script-to-video output
+ *   pipeline regenerate-scene - Regenerate specific scene(s) against an existing storyboard
  *   pipeline highlights       - Extract highlights from long-form content
  *   pipeline auto-shorts      - Generate short-form clips from long-form video
  *   pipeline animated-caption - Add word-by-word animated captions
  *
- * Removed in v0.63 (skills + agent flows replaced these):
- *   pipeline viral, pipeline b-roll, pipeline narrate
+ * Removed in earlier cycles (skills + agent flows replaced these):
+ *   pipeline script-to-video, pipeline viral, pipeline b-roll, pipeline narrate
  *
  * @dependencies Whisper, Claude, Gemini, ElevenLabs, Kling, Runway, FFmpeg
  */
@@ -62,15 +61,18 @@ Cost tiers:
   highlights:          $   Low (~$0.05)
   auto-shorts:         $$  Medium (~$0.10-$1)
   animated-caption:    $   Low (~$0.01)
+  regenerate-scene:    $$$ High (per-scene re-run; depends on provider)
 
-  script-to-video:     $$$ DEPRECATED v0.63 — use \`vibe scene build\` (~$0.18 cached).
+Note: \`pipeline script-to-video\` was removed — use \`vibe scene build\` for
+text → MP4. \`pipeline regenerate-scene\` still operates on the
+storyboard.{yaml,json} layout produced by older runs.
 
 Use '--dry-run' to preview parameters before execution.
 Run 'vibe schema pipeline.<command>' for structured parameter info.
 `
   );
 
-// ── pipeline script-to-video & regenerate-scene ────────────────────────
+// ── pipeline regenerate-scene ──────────────────────────────────────────
 
 registerScriptPipelineCommands(pipelineCommand);
 

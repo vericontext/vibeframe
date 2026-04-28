@@ -34,9 +34,9 @@ export function registerImageCommand(parent: Command): void {
   parent
     .command("image")
     .alias("img")
-    .description("Generate image using AI (Gemini, DALL-E, or Runway)")
+    .description("Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)")
     .argument("[prompt]", "Image description prompt (interactive if omitted)")
-    .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway (dalle is deprecated)")
+    .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway")
     .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)")
     .option("-o, --output <path>", "Output file path (downloads image)")
     .option("-s, --size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
@@ -85,12 +85,11 @@ Examples:
         //    later requireApiKey() prints a friendly Gemini-specific message
         //
         // The registry (`@vibeframe/ai-providers`) is the source of truth for
-        // image-kind providers. `dalle` (deprecated alias) and `runway`
-        // (image variant accepted by CLI but not in auto-resolver) are
-        // explicit overrides — adding a new image provider in the registry
-        // auto-propagates here.
+        // image-kind providers. `runway` is accepted by the CLI as an image
+        // variant but isn't part of the auto-resolver; everything else flows
+        // from the registry, so adding a new image provider auto-propagates.
         const imageRegistry = getProvidersFor("image");
-        const validProviders = [...imageRegistry.map((p) => p.name), "dalle", "runway"];
+        const validProviders = [...imageRegistry.map((p) => p.name), "runway"];
         const providerEnvMap: Record<string, string> = Object.fromEntries(
           imageRegistry
             .filter((p): p is typeof p & { envVar: string } => p.envVar !== null)
@@ -98,14 +97,12 @@ Examples:
         );
         const envKeyMap: Record<string, string> = {
           ...providerEnvMap,
-          dalle: "OPENAI_API_KEY",
           runway: "RUNWAY_API_SECRET",
         };
         const providerNameMap: Record<string, string> = {
           ...Object.fromEntries(imageRegistry.map((p) => [p.name, p.label])),
           gemini: "Google",
           grok: "xAI Grok",
-          dalle: "OpenAI",
           runway: "Runway",
         };
         let provider: string;
@@ -136,11 +133,6 @@ Examples:
           provider = resolved?.name ?? "gemini";
         }
 
-        // Show deprecation warning for "dalle"
-        if (provider === "dalle") {
-          console.log(chalk.yellow('Warning: "dalle" is deprecated. Use "openai" instead.'));
-        }
-
         // Dry-run check
         if (options.dryRun) {
           outputResult({
@@ -167,7 +159,7 @@ Examples:
 
         const spinner = ora(`Generating image with ${providerName}...`).start();
 
-        if (provider === "dalle" || provider === "openai") {
+        if (provider === "openai") {
           const { result, modelLabel } = await executeOpenAIImageGenerate(
             prompt,
             options,

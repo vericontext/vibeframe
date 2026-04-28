@@ -164,7 +164,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   const topLabels = [
     `Edit videos offline ${chalk.dim("(silence-cut, fade, noise-reduce, detect)")} ${chalk.green("no API keys")}`,
     `AI features ${chalk.dim("(pick what you need — images, videos, audio, editing)")}`,
-    `Full AI pipeline ${chalk.dim("(script-to-video, highlights, auto-shorts)")}`,
+    `Full AI pipeline ${chalk.dim("(scene build, highlights, auto-shorts)")}`,
     `Custom setup ${chalk.dim("(choose providers one by one)")}`,
   ];
 
@@ -202,7 +202,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
     await collectKeys(config, pipelineKeys);
 
     await saveConfig(config);
-    showComplete(config, 'vibe pipeline script-to-video "A day in the life..." -o ./output/');
+    showComplete(config, 'vibe scene build my-story/   # see CONTRIBUTING.md for STORYBOARD.md format');
     return;
   }
 

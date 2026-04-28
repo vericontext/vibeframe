@@ -157,15 +157,14 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `project_create` / `project_info` | `.vibe.json` lifecycle |
 | `export_video` | Export project to MP4/WebM/MOV via FFmpeg |
 
-### Pipelines (5)
+### Pipelines (4)
 
 | Tool | Description |
 |------|-------------|
 | `pipeline_run` | Execute a multi-stage YAML pipeline |
-| `pipeline_script_to_video` | **[DEPRECATED v0.63]** Script → narration → video → mux. Use `scene_build` instead. |
 | `pipeline_highlights` | Long-form → highlight clips |
 | `pipeline_auto_shorts` | Long-form → vertical shorts |
-| `pipeline_regenerate_scene` | Re-render a single scene of an existing render |
+| `pipeline_regenerate_scene` | Re-render a single scene against an existing storyboard.{yaml,json} |
 
 > **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark known TODOs (currently `edit_fill_gaps` and `analyze_suggest`).
 

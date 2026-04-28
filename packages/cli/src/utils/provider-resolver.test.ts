@@ -94,7 +94,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "edit grade",
         "edit reframe",
         "edit speed-ramp",
-        "pipeline script-to-video",
       ],
       XAI_API_KEY: [
         "agent -p xai",

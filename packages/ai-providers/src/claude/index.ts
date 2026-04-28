@@ -21,6 +21,5 @@ defineProvider({
     "edit grade",
     "edit reframe",
     "edit speed-ramp",
-    "pipeline script-to-video",
   ],
 });

@@ -165,7 +165,6 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "generate video": { min: 0.50, max: 5.00, unit: "per video" },
   "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
   // Very High
-  "pipeline script-to-video": { min: 5, max: 50, unit: "per project" },
   "pipeline highlights": { min: 0.05, max: 1.00, unit: "per analysis" },
   "pipeline auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
   "pipeline animated-caption": { min: 0.01, max: 0.10, unit: "per video" },

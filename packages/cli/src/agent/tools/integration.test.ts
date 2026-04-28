@@ -14,18 +14,6 @@ import { manifest } from "../../tools/manifest/index.js";
 import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 // Mock the imported CLI functions to avoid actual API calls
 vi.mock("../../commands/ai-script-pipeline.js", () => ({
-  executeScriptToVideo: vi.fn().mockResolvedValue({
-    success: true,
-    outputDir: "/test/output",
-    scenes: 3,
-    storyboardPath: "/test/output/storyboard.json",
-    projectPath: "/test/output/project.vibe.json",
-    narrationEntries: [{ path: "/test/output/narration-1.mp3", duration: 3, segmentIndex: 0, failed: false }],
-    images: ["/test/output/scene-1.png"],
-    videos: ["/test/output/scene-1.mp4"],
-    totalDuration: 30,
-    failedScenes: [],
-  }),
   executeRegenerateScene: vi.fn().mockResolvedValue({ success: true }),
 }));
 
@@ -174,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(80);
+      expect(tools.length).toBe(79);
     });
 
     it("should register all project tools (5)", () => {
@@ -267,8 +255,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         "analyze_review",
         "analyze_video",
         "analyze_media",
-        // Pipeline tools (4)
-        "pipeline_script_to_video",
+        // Pipeline tools (3)
         "pipeline_highlights",
         "pipeline_auto_shorts",
         "pipeline_regenerate_scene",
@@ -324,55 +311,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
   });
 
   describe("AI Pipeline Tools - Parameter Mapping", () => {
-    describe("pipeline_script_to_video", () => {
-      it("should have all CLI options as parameters", () => {
-        const tool = registry.get("pipeline_script_to_video");
-        expect(tool).toBeDefined();
-
-        const params = tool!.parameters.properties;
-        // Required
-        expect(params.script).toBeDefined();
-        // Optional (matching CLI options). Manifest is SSOT — if a param
-        // diverges from the CLI, the fix is in the manifest, not here.
-        expect(params.outputDir).toBeDefined();
-        expect(params.duration).toBeDefined();
-        expect(params.voice).toBeDefined();
-        expect(params.generator).toBeDefined();
-        expect(params.imageProvider).toBeDefined();
-        expect(params.aspectRatio).toBeDefined();
-        expect(params.imagesOnly).toBeDefined();
-        expect(params.noVoiceover).toBeDefined();
-      });
-
-      it("should have correct enum values for generator", () => {
-        const tool = registry.get("pipeline_script_to_video");
-        const generator = tool!.parameters.properties.generator as {
-          enum?: string[];
-        };
-        expect(generator.enum).toContain("runway");
-        expect(generator.enum).toContain("kling");
-      });
-
-      it("should have correct enum values for imageProvider", () => {
-        const tool = registry.get("pipeline_script_to_video");
-        const imageProvider = tool!.parameters.properties.imageProvider as {
-          enum?: string[];
-        };
-        expect(imageProvider.enum).toContain("openai");
-        expect(imageProvider.enum).toContain("gemini");
-      });
-
-      it("should have correct enum values for aspectRatio", () => {
-        const tool = registry.get("pipeline_script_to_video");
-        const aspectRatio = tool!.parameters.properties.aspectRatio as {
-          enum?: string[];
-        };
-        expect(aspectRatio.enum).toContain("16:9");
-        expect(aspectRatio.enum).toContain("9:16");
-        expect(aspectRatio.enum).toContain("1:1");
-      });
-    });
-
     describe("pipeline_highlights", () => {
       it("should have all CLI options as parameters", () => {
         const tool = registry.get("pipeline_highlights");
@@ -476,55 +414,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       workingDirectory: "/test/workdir",
       projectPath: "/test/project.vibe.json",
     };
-
-    describe("pipeline_script_to_video handler", () => {
-      it("should call executeScriptToVideo with correct parameters", async () => {
-        const { executeScriptToVideo } = await import("../../commands/ai-script-pipeline.js");
-        const handler = registry.getHandler("pipeline_script_to_video");
-        expect(handler).toBeDefined();
-
-        const result = await handler!(
-          {
-            script: "Test script. Scene two. Conclusion.",
-            outputDir: "output",
-            generator: "runway",
-            imageProvider: "gemini",
-            aspectRatio: "16:9",
-          },
-          mockContext
-        );
-
-        expect(executeScriptToVideo).toHaveBeenCalledWith(
-          expect.objectContaining({
-            script: "Test script. Scene two. Conclusion.",
-            generator: "runway",
-            imageProvider: "gemini",
-            aspectRatio: "16:9",
-          })
-        );
-        expect(result.success).toBe(true);
-        // Manifest's pipeline_script_to_video humanLines uses "Script-to-video"
-        // (lower-cased "video"). The legacy handler's "Script-to-Video complete"
-        // wording is gone post-v0.66.
-        expect(result.output).toContain("Script-to-video");
-      });
-
-      it("should handle failure gracefully", async () => {
-        const { executeScriptToVideo } = await import("../../commands/ai-script-pipeline.js");
-        vi.mocked(executeScriptToVideo).mockResolvedValueOnce({
-          success: false,
-          outputDir: "/test/output",
-          scenes: 0,
-          error: "API key missing",
-        });
-
-        const handler = registry.getHandler("pipeline_script_to_video");
-        const result = await handler!({ script: "Test" }, mockContext);
-
-        expect(result.success).toBe(false);
-        expect(result.error).toContain("API key missing");
-      });
-    });
 
     describe("pipeline_highlights handler", () => {
       it("should call executeHighlights with correct parameters", async () => {
@@ -681,12 +570,12 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(generateTools.length).toBe(13);  // +background, video_status/cancel/extend, music_status (Phase B v0.64)
       expect(editTools.length).toBe(15);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption (Phase B+D v0.64), edit_fill_gaps (Plan G Phase 4)
       expect(analyzeTools.length).toBe(4);  // video, media, review, suggest
-      expect(pipelineTools.length).toBe(4);  // animated_caption renamed to edit_animated_caption (Phase D)
+      expect(pipelineTools.length).toBe(3);  // pipeline_script_to_video removed (cleanup PR3); pipeline_animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
       expect(sceneTools.length).toBe(6);  // v0.66: scene_* surfaced via manifest (init/add/lint/render/build/styles)
 
-      // Total: 5+11+4+12+13+14+4+4+3+3+6 = 79
+      // Total: 5+11+4+12+13+15+4+3+3+3+6 = 79
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -698,19 +587,13 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           exportTools.length +
           batchTools.length +
           sceneTools.length;
-      expect(totalTools).toBe(80);
+      expect(totalTools).toBe(79);
     });
   });
 });
 
 describe("Exported CLI Functions", () => {
   describe("Function signatures match Agent tool parameters", () => {
-    it("executeScriptToVideo accepts ScriptToVideoOptions", async () => {
-      // Type check - this will fail at compile time if signatures don't match
-      const { executeScriptToVideo } = await import("../../commands/ai-script-pipeline.js");
-      expect(typeof executeScriptToVideo).toBe("function");
-    });
-
     it("executeHighlights accepts HighlightsOptions", async () => {
       const { executeHighlights } = await import("../../commands/ai-highlights.js");
       expect(typeof executeHighlights).toBe("function");

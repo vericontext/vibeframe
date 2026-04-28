@@ -95,7 +95,7 @@ PROCESS.
 | **Free** | \`detect *\`, \`edit silence-cut/fade/noise-reduce\`, \`schema\`, \`project\`, \`timeline\` | $0 |
 | **Low** | \`analyze *\`, \`audio transcribe\`, \`generate image\` | $0.01–$0.10 |
 | **High** | \`generate video\`, \`edit image\` | $1–$5 |
-| **Very High** | \`pipeline *\` (script-to-video, highlights, auto-shorts) | $5–$50+ |
+| **Very High** | \`pipeline *\` (highlights, auto-shorts, regenerate-scene), \`scene build\` | $5–$50+ |
 
 ## Agent invariants
 
@@ -107,7 +107,7 @@ When you run vibe commands programmatically:
 3. **Use \`vibe schema <command>\`** to discover parameters; do not guess flags
 4. **Pass complex options via \`--stdin\`**:
    \`\`\`bash
-   echo '{"prompt":"...","aspect":"9:16"}' | vibe pipeline script-to-video --stdin --json
+   echo '{"video":"long.mp4","count":3,"aspect":"9:16"}' | vibe pipeline auto-shorts --stdin --json
    \`\`\`
 
 ## Provider keys

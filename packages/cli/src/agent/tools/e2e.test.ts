@@ -326,89 +326,10 @@ describe.skipIf(!RUN_E2E)("E2E: AI Pipeline Tools", () => {
     );
   });
 
-  describe("pipeline_script_to_video (images-only)", () => {
-    const hasClaudeKey = checkApiKey("ANTHROPIC_API_KEY");
-    const hasGeminiKey = checkApiKey("GOOGLE_API_KEY");
-    const hasTTSKey = checkApiKey("ELEVENLABS_API_KEY");
-
-    it.skipIf(!hasClaudeKey || !hasGeminiKey)(
-      "generates images from script (no video, no voiceover)",
-      async () => {
-        console.log("\n🎬 Testing ai_script_to_video (images-only)...");
-        console.log("  ⚠️ This test may take 1-2 minutes");
-
-        // Create subdirectory for this test
-        const outputDir = join(TEST_OUTPUT_DIR, "script-to-video-test");
-        if (!existsSync(outputDir)) {
-          mkdirSync(outputDir, { recursive: true });
-        }
-
-        const handler = registry.getHandler("pipeline_script_to_video");
-        expect(handler).toBeDefined();
-
-        const result = await handler!(
-          {
-            script: "A sunrise over mountains. Birds flying in the sky.",
-            outputDir: "script-to-video-test",
-            imageProvider: "gemini",
-            imagesOnly: true,
-            noVoiceover: true,
-          },
-          createContext()
-        );
-
-        console.log(`  Result: ${result.success ? "✅" : "❌"}`);
-        if (result.success) {
-          console.log(`  Output: ${result.output.substring(0, 200)}...`);
-
-          // Check if files were created
-          const storyboardPath = join(outputDir, "storyboard.json");
-          console.log(`  Storyboard exists: ${existsSync(storyboardPath)}`);
-        } else {
-          console.log(`  Error: ${result.error}`);
-        }
-
-        expect(result.success).toBe(true);
-      },
-      180000 // 3 minutes timeout
-    );
-
-    it.skipIf(!hasClaudeKey || !hasGeminiKey || !hasTTSKey)(
-      "generates images with voiceover (no video)",
-      async () => {
-        console.log("\n🎬 Testing ai_script_to_video (images + voiceover)...");
-        console.log("  ⚠️ This test may take 2-3 minutes");
-
-        const outputDir = join(TEST_OUTPUT_DIR, "script-to-video-with-tts");
-        if (!existsSync(outputDir)) {
-          mkdirSync(outputDir, { recursive: true });
-        }
-
-        const handler = registry.getHandler("pipeline_script_to_video");
-
-        const result = await handler!(
-          {
-            script: "Welcome to our demo. This is amazing technology.",
-            outputDir: "script-to-video-with-tts",
-            imageProvider: "gemini",
-            imagesOnly: true,
-            // voiceover enabled by default
-          },
-          createContext()
-        );
-
-        console.log(`  Result: ${result.success ? "✅" : "❌"}`);
-        if (result.success) {
-          console.log(`  Output: ${result.output.substring(0, 200)}...`);
-        } else {
-          console.log(`  Error: ${result.error}`);
-        }
-
-        expect(result.success).toBe(true);
-      },
-      300000 // 5 minutes timeout
-    );
-  });
+  // pipeline_script_to_video (and the executeScriptToVideo library function)
+  // were removed in cleanup PR3 — text → MP4 is now driven by the
+  // skill-based `vibe scene build` flow. The corresponding e2e cases
+  // were dropped here.
 
   describe("pipeline_highlights (with Gemini)", () => {
     const hasGeminiKey = checkApiKey("GOOGLE_API_KEY");

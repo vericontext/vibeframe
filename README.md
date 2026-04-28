@@ -1,6 +1,6 @@
 # VibeFrame
 
-**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 64 MCP tools bundled.
+**The video CLI for AI agents.** YAML pipelines. 13 AI providers. 63 MCP tools bundled.
 
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -75,7 +75,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | Layer | Hyperframes | VibeFrame |
 |---|---|---|
 | **AI generation** | — | OpenAI gpt-image-2 (image default since v0.56), fal.ai Seedance 2.0 (video default since v0.57), Veo, Kling, Runway, Grok, ElevenLabs, Replicate |
-| **Agent integrations** | — | MCP server (64 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
+| **Agent integrations** | — | MCP server (63 tools, `@vibeframe/mcp-server`) · `vibe agent` REPL (BYO LLM × 6) |
 | **Traditional editing** | — | `vibe edit` silence-cut · jump-cut · caption · grade · reframe · speed-ramp · fade · noise-reduce (84+ commands total) |
 | **AI analysis** | — | `vibe analyze` media/video/review/suggest (multimodal LLMs) |
 | **BUILD from text** | composition format only | `vibe scene build` (v0.60 one-shot driver) — STORYBOARD.md → MP4 |
@@ -84,7 +84,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
 | **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibe-pipeline`, `/vibe-scene` (overview lives in `AGENTS.md` scaffolded by `vibe init`) |
-| **MCP server** | ❌ | ✅ 64 tools |
+| **MCP server** | ❌ | ✅ 63 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
 
@@ -209,7 +209,7 @@ Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/v
 
 ## MCP Integration (Claude Desktop / Cursor)
 
-The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (64 MCP tools exposed). No clone needed — add to your config and restart:
+The CLI is the primary interface; MCP is the gateway for Claude Desktop & Cursor users (63 MCP tools exposed). No clone needed — add to your config and restart:
 
 ```json
 {
@@ -275,8 +275,10 @@ vibe pipeline auto-shorts podcast.mp4
 vibe pipeline animated-caption video.mp4 -s bounce -o captioned.mp4
 ```
 
-> `pipeline script-to-video` is **deprecated as of v0.63** — `vibe scene build`
-> is the supported one-shot driver (cheaper, cached, deterministic).
+> `pipeline script-to-video` was **removed** in favour of `vibe scene build` —
+> the skill-driven flow is cheaper, idempotent, and per-beat editable.
+> `pipeline regenerate-scene` is preserved for re-rendering individual scenes
+> against an existing storyboard.{yaml,json}.
 
 ---
 
@@ -369,7 +371,7 @@ Every command supports `--help`. Run `vibe --help` for a full list.
 | **`vibe edit`** | `silence-cut`, `jump-cut`, `caption`, `grade`, `reframe`, `speed-ramp`, `text-overlay`, `fade`, `noise-reduce`, `image`, `fill-gaps` | `vibe edit caption video.mp4 -o out.mp4` |
 | **`vibe analyze`** | `media`, `video`, `review`, `suggest` | `vibe analyze media video.mp4 "summarize"` |
 | **`vibe audio`** | `transcribe` (Whisper), `tts` (ElevenLabs · Kokoro local fallback), `voices`, `isolate`, `voice-clone`, `dub`, `duck` | `vibe audio transcribe audio.mp3` |
-| **`vibe pipeline`** | `highlights`, `auto-shorts`, `animated-caption` (`script-to-video` deprecated v0.63 — see `vibe scene build`) | `vibe pipeline highlights long.mp4 -d 60` |
+| **`vibe pipeline`** | `highlights`, `auto-shorts`, `animated-caption`, `regenerate-scene` (text → MP4 lives in `vibe scene build` since v0.63) | `vibe pipeline highlights long.mp4 -d 60` |
 | **`vibe scene`** | `init`, `add`, `lint`, `render`, `build` (v0.60) | `vibe scene build my-promo` |
 | **`vibe project`** | `create`, `info`, `set` | `vibe project create "name"` |
 | **`vibe timeline`** | `add-source`, `add-clip`, `split`, `trim`, `move`, `delete`, `list` | `vibe timeline add-source project file` |

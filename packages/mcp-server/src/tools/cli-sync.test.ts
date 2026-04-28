@@ -36,7 +36,7 @@ const CLI_TREE: Record<string, string[]> = {
   generate: ["image", "video", "video-status", "video-cancel", "video-extend", "speech", "sound-effect", "music", "music-status", "storyboard", "motion", "thumbnail", "background"],
   edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale-video"],
   audio:    ["transcribe", "voices", "isolate", "voice-clone", "dub", "duck"],
-  pipeline: ["highlights", "auto-shorts", "animated-caption", "script-to-video"],
+  pipeline: ["highlights", "auto-shorts", "animated-caption", "regenerate-scene"],
   detect:   ["scenes", "silence", "beats"],
   timeline: ["add-source", "add-clip", "add-track", "add-effect", "trim", "list", "split", "duplicate", "delete", "move"],
   project:  ["create", "info", "set"],
@@ -99,10 +99,10 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "audio dub":         "audio_dub",
   "audio duck":        "audio_duck",
   // pipeline
-  "pipeline highlights":       "pipeline_highlights",
-  "pipeline auto-shorts":      "pipeline_auto_shorts",
-  "pipeline animated-caption": "edit_animated_caption",
-  "pipeline script-to-video":  "pipeline_script_to_video",
+  "pipeline highlights":         "pipeline_highlights",
+  "pipeline auto-shorts":        "pipeline_auto_shorts",
+  "pipeline animated-caption":   "edit_animated_caption",
+  "pipeline regenerate-scene":   "pipeline_regenerate_scene",
   // detect
   "detect scenes":  "detect_scenes",
   "detect silence": "detect_silence",

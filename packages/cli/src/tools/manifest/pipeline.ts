@@ -1,10 +1,14 @@
 /**
  * @module manifest/pipeline
  * @description Pipeline tools.
- *   pipeline_script_to_video (DEPRECATED v0.63),
  *   pipeline_highlights, pipeline_auto_shorts (long-form → clips),
  *   pipeline_run (YAML pipeline executor — wraps top-level `vibe run`),
- *   pipeline_regenerate_scene (scene re-render in script-to-video projects).
+ *   pipeline_regenerate_scene (scene re-render against an existing
+ *     storyboard.{yaml,json} on disk).
+ *
+ * `pipeline_script_to_video` was retired alongside the CLI subcommand —
+ * the skill-driven `scene_build` flow replaces it (idempotent, cheaper,
+ * per-beat editable).
  */
 
 import { writeFile } from "node:fs/promises";
@@ -12,61 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool } from "../define-tool.js";
-import {
-  executeScriptToVideo,
-  executeRegenerateScene,
-} from "../../commands/ai-script-pipeline.js";
+import { executeRegenerateScene } from "../../commands/ai-script-pipeline.js";
 import {
   executeHighlights,
   executeAutoShorts,
 } from "../../commands/ai-highlights.js";
 import { loadPipeline, executePipeline } from "../../pipeline/index.js";
-
-export const pipelineScriptToVideoTool = defineTool({
-  name: "pipeline_script_to_video",
-  category: "pipeline",
-  cost: "very-high",
-  description:
-    "[DEPRECATED v0.63 — prefer scene_build] Full script-to-video pipeline: script -> storyboard -> images -> voiceover -> video. Kept for backwards compatibility, but scene_build is the supported one-shot driver (cheaper, cached, deterministic). Requires multiple API keys depending on providers chosen.",
-  schema: z.object({
-    script: z.string().describe("Video script text or path to script file"),
-    outputDir: z.string().optional().describe("Output directory for generated assets"),
-    duration: z.number().optional().describe("Target video duration in seconds"),
-    voice: z.string().optional().describe("ElevenLabs voice name (default: Rachel)"),
-    generator: z.enum(["runway", "kling"]).optional().describe("Video generation provider (default: kling)"),
-    imageProvider: z.enum(["openai", "gemini", "grok"]).optional().describe("Image generation provider (default: gemini)"),
-    aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Video aspect ratio (default: 16:9)"),
-    imagesOnly: z.boolean().optional().describe("Generate only images, skip video generation"),
-    noVoiceover: z.boolean().optional().describe("Skip voiceover generation"),
-    creativity: z.enum(["low", "high"]).optional().describe("Storyboard creativity level"),
-    storyboardProvider: z.enum(["claude", "openai", "gemini"]).optional().describe("LLM provider for storyboard generation (default: claude)"),
-    noTextOverlay: z.boolean().optional().describe("Skip text overlays"),
-    textStyle: z.enum(["lower-third", "center-bold", "subtitle", "minimal"]).optional().describe("Text overlay style"),
-    review: z.boolean().optional().describe("Run AI review after generation"),
-    reviewAutoApply: z.boolean().optional().describe("Auto-apply review fixes"),
-  }),
-  async execute(args) {
-    const result = await executeScriptToVideo({
-      ...args,
-      imageProvider: args.imageProvider as "openai" | "dalle" | "gemini" | undefined,
-    });
-    if (!result.success) return { success: false, error: result.error ?? "Script-to-video failed" };
-    return {
-      success: true,
-      data: {
-        outputDir: result.outputDir,
-        scenes: result.scenes,
-        storyboardPath: result.storyboardPath,
-        projectPath: result.projectPath,
-        images: result.images?.length,
-        videos: result.videos?.length,
-        totalDuration: result.totalDuration,
-        failedScenes: result.failedScenes,
-      },
-      humanLines: [`✅ Script-to-video: ${result.scenes} scenes → ${result.outputDir}`],
-    };
-  },
-});
 
 export const pipelineHighlightsTool = defineTool({
   name: "pipeline_highlights",
@@ -235,7 +190,7 @@ export const pipelineRegenerateSceneTool = defineTool({
   category: "pipeline",
   cost: "high",
   description:
-    "Regenerate specific scenes in an existing script-to-video project. Can regenerate video, image, or narration independently.",
+    "Regenerate specific scenes against an existing storyboard.{yaml,json} on disk. Can regenerate video, image, or narration independently.",
   schema: z.object({
     projectDir: z.string().describe("Path to the project output directory containing storyboard.json"),
     scenes: z.array(z.number()).describe("1-indexed scene numbers to regenerate"),
@@ -260,7 +215,6 @@ export const pipelineRegenerateSceneTool = defineTool({
 });
 
 export const pipelineTools: readonly AnyTool[] = [
-  pipelineScriptToVideoTool as unknown as AnyTool,
   pipelineHighlightsTool as unknown as AnyTool,
   pipelineAutoShortsTool as unknown as AnyTool,
   pipelineRunTool as unknown as AnyTool,
