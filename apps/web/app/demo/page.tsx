@@ -50,30 +50,28 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      {/* Cinematic hero — v0.60 promo MP4 rendered end-to-end via the
-          v0.59 compose-scenes-with-skills pipeline. Restores an MP4 hero
-          (the v0.57 5-scene one was demoted during the architectural
-          pivot; this is the post-pivot replacement). */}
+      {/* Current storyboard demo MP4: composed scenes, local narration, and
+          Seedance motion media mounted into the final timeline. */}
       <section className="pt-32 pb-12 px-4">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-6 animate-fade-in">
               <Video className="w-4 h-4" />
-              <span>Built with <code className="font-mono text-xs">compose-scenes-with-skills</code></span>
+              <span>Built with <code className="font-mono text-xs">vibe build</code> + <code className="font-mono text-xs">vibe render</code></span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-              What you<br />
+              What agents<br />
               <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">can build.</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in-up delay-100">
-              A 1920×1080 cinematic promo, end-to-end from a STORYBOARD.md +
-              DESIGN.md. GPT Image 2 backdrops, ElevenLabs narration + cinematic
-              BGM, deterministically rendered by Hyperframes' producer.
+              A 1920×1080 storyboard video with local Kokoro narration,
+              editable HTML scenes, and a Seedance image-to-video clip composed
+              into the final timeline.
             </p>
           </div>
           <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black animate-fade-in-up delay-200">
             <video
-              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/cinematic-v060.mp4"
+              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/sample-demo-final.mp4"
               controls
               muted
               autoPlay

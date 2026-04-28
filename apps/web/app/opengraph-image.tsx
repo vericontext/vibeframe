@@ -117,7 +117,7 @@ export default async function Image() {
             textAlign: "center",
           }}
         >
-          AI-native video editing. CLI-first. MCP-ready.
+          Video workflows from terminal, YAML, and MCP.
         </div>
 
         {/* Terminal preview */}
@@ -161,19 +161,19 @@ export default async function Image() {
           >
             <div style={{ display: "flex", gap: "8px" }}>
               <span style={{ color: "#a855f7" }}>$</span>
-              <span style={{ color: "#f5f5f5" }}>vibe gen img &quot;sunset over mountains&quot;</span>
+              <span style={{ color: "#f5f5f5" }}>vibe generate image &quot;sunset over mountains&quot;</span>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <span style={{ color: "#22c55e" }}>✓</span>
-              <span style={{ color: "#22c55e" }}>Generated with Gemini</span>
+              <span style={{ color: "#22c55e" }}>Image saved to sunset.png</span>
             </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
               <span style={{ color: "#a855f7" }}>$</span>
-              <span style={{ color: "#f5f5f5" }}>vibe gen vid -i sunset.png -o scene.mp4</span>
+              <span style={{ color: "#f5f5f5" }}>vibe generate video -p seedance -i sunset.png</span>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <span style={{ color: "#22c55e" }}>✓</span>
-              <span style={{ color: "#22c55e" }}>Generated 5s video with Grok</span>
+              <span style={{ color: "#22c55e" }}>Generated video with Seedance</span>
             </div>
           </div>
         </div>
@@ -188,7 +188,7 @@ export default async function Image() {
             color: "#71717a",
           }}
         >
-          <span>Ship videos, not clicks.</span>
+          <span>Open source video CLI</span>
           <span>•</span>
           <span>Open Source</span>
           <span>•</span>

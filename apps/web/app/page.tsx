@@ -37,12 +37,6 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/demo"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Demo
-            </Link>
-            <Link
               href="https://github.com/vericontext/vibeframe"
               target="_blank"
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -52,7 +46,7 @@ export default function LandingPage() {
             </Link>
             <ThemeToggle />
             <Link
-              href="https://github.com/vericontext/vibeframe#cli-reference"
+              href="https://github.com/vericontext/vibeframe#quick-start"
               target="_blank"
               className="rounded-lg bg-gradient-to-r from-primary to-purple-600 px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
             >
@@ -72,8 +66,8 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
-            Ship videos,<br />
-            <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">not clicks.</span>
+            Create videos<br />
+            <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">from the terminal.</span>
           </h1>
 
           <p className="text-2xl sm:text-3xl font-semibold text-foreground/90 mb-6 animate-fade-in-up delay-75">
@@ -81,7 +75,7 @@ export default function LandingPage() {
           </p>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            A video CLI for the era when your AI coding agent ships the work.
+            VibeFrame helps humans and AI coding agents create, edit, analyze, and render video from shell commands.
             {" "}{process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands, {process.env.NEXT_PUBLIC_AI_PROVIDERS} AI providers, {process.env.NEXT_PUBLIC_MCP_TOOLS} MCP tools.
             Works with Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode — any bash-capable AI agent.
           </p>
@@ -116,68 +110,26 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why CLI? — Three-stat evidence strip grounding the agent-era thesis.
-          Tight by design — three numbers + sources, no preamble. Positioned
-          here so visitors see "why care" before the demo. */}
-      <section className="py-12 px-4 border-t border-border/50 relative">
-        <div className="mx-auto max-w-5xl">
-          <div className="grid sm:grid-cols-3 gap-6 text-center">
-            <a
-              href="https://thenewstack.io/ai-coding-tools-in-2025-welcome-to-the-agentic-cli-era/"
-              target="_blank"
-              rel="noreferrer"
-              className="group block"
-            >
-              <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent mb-1">10–32×</div>
-              <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">cheaper than MCP per task<br /><span className="text-xs opacity-70">75-task CLI vs MCP study</span></div>
-            </a>
-            <a
-              href="https://ossinsight.io/blog/agent-native-cli-wave-2026"
-              target="_blank"
-              rel="noreferrer"
-              className="group block"
-            >
-              <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent mb-1">6 repos</div>
-              <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">launched Q1 2026, same premise<br /><span className="text-xs opacity-70">"agent-native CLI wave" — OSS Insight</span></div>
-            </a>
-            <a
-              href="https://blog.jetbrains.com/research/2026/04/which-ai-coding-tools-do-developers-actually-use-at-work/"
-              target="_blank"
-              rel="noreferrer"
-              className="group block"
-            >
-              <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent mb-1">74%</div>
-              <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">of devs use AI coding tools today<br /><span className="text-xs opacity-70">JetBrains AI Pulse, Jan 2026</span></div>
-            </a>
-          </div>
-          <p className="text-center text-sm text-muted-foreground mt-8 max-w-2xl mx-auto">
-            Today's software was built for humans clicking buttons. VibeFrame is built for the era when your software's primary user is an AI agent.
-          </p>
-        </div>
-      </section>
-
-      {/* ⓪ What you can build — v0.62 cinematic demo MP4 anchored above the
-          three-surface walkthroughs. Shows OUTPUT first, then surfaces.
-          Replaces the section the v0.58 pivot left blank. */}
+      {/* What you can build — current storyboard demo MP4 anchored above the
+          surface walkthroughs. Shows OUTPUT first, then surfaces. */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
               <Video className="w-4 h-4" />
-              <span>What you can build · v0.60 demo</span>
+              <span>What you can build · storyboard demo</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              STORYBOARD.md → MP4, in one command
+              Storyboard scenes → MP4
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              {`Author cues in YAML, run \`vibe scene build\`. The pipeline dispatches `}
-              narration TTS, GPT Image 2 backdrops, composes scene HTML via the
-              Hyperframes skill bundle, and renders deterministically.
+              Author storyboard beats, generate AI media when useful, compose
+              editable HTML scenes, and render a final video with narration.
             </p>
           </div>
           <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black mx-auto max-w-4xl">
             <video
-              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/cinematic-v060.mp4"
+              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/sample-demo-final.mp4"
               controls
               muted
               autoPlay
@@ -187,34 +139,34 @@ export default function LandingPage() {
             />
           </div>
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Source:{" "}
+            Sample:{" "}
             <Link
-              href="https://github.com/vericontext/vibeframe/tree/main/examples/vibeframe-promo"
+              href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/sample-demo-final.mp4"
               target="_blank"
               className="underline hover:text-foreground"
             >
-              examples/vibeframe-promo/
+              assets/demos/sample-demo-final.mp4
             </Link>
-            {" — STORYBOARD.md + DESIGN.md, ~$0.18 fresh / $0 cached."}
+            {" — Kokoro narration, composed scenes, Seedance motion asset."}
           </p>
         </div>
       </section>
 
-      {/* ⓪.5 — From install to MP4: the v0.61 4-step on-ramp */}
+      {/* From install to MP4 */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/5 px-4 py-1.5 text-sm text-purple-400 mb-4">
               <Wand2 className="w-4 h-4" />
-              <span>From install to MP4 · v0.61 wizard</span>
+              <span>From install to MP4</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Four steps. Same flow on every agent host.
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Use <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe init</code> for
-              host guidance, then <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene init</code>
-              for the storyboard project you will render.
+              Use the project-level commands first. The lower-level
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs ml-1">vibe scene</code>
+              namespace is still available when you need it.
             </p>
           </div>
 
@@ -230,23 +182,23 @@ export default function LandingPage() {
               <p className="text-xs text-muted-foreground mt-3">API keys + LLM provider, once per machine. Detects your agent host.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Init · scene project</div>
-              <code className="font-mono text-xs text-foreground">vibe scene init my-promo</code>
+              <div className="text-xs text-muted-foreground mb-2">3. Init · video project</div>
+              <code className="font-mono text-xs text-foreground">vibe init my-video --profile agent</code>
               <p className="text-xs text-muted-foreground mt-3">
                 Scaffolds <code className="text-primary">DESIGN.md</code> + <code className="text-primary">STORYBOARD.md</code> + <code className="text-primary">SKILL.md</code>.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Build · edit STORYBOARD → MP4</div>
-              <code className="font-mono text-xs text-foreground">vibe scene build my-promo</code>
-              <p className="text-xs text-muted-foreground mt-3">Dispatches narration + backdrops, composes scenes via skills, renders.</p>
+              <div className="text-xs text-muted-foreground mb-2">4. Build + render</div>
+              <code className="font-mono text-xs text-foreground">vibe build my-video && vibe render my-video</code>
+              <p className="text-xs text-muted-foreground mt-3">Builds storyboard assets/compositions, then exports MP4.</p>
             </div>
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
             Two flows depending on intent —{" "}
             <span className="text-foreground font-medium">BUILD</span> from text via{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code>,{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code>,{" "}
             <span className="text-foreground font-medium">PROCESS</span> existing media via{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe pipeline</code> /{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code> /{" "}
@@ -268,7 +220,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands for video editing, generation, and post-production.
-              No GUI required — just your terminal.
+              Scriptable from your terminal, an agent host, or MCP.
             </p>
           </div>
 
@@ -281,15 +233,15 @@ export default function LandingPage() {
             </div>
             <pre className="p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto">
               <code className="text-muted-foreground"># Generate an image, then animate it{"\n"}</code>
-              <code className="text-foreground">vibe gen img "sunset over mountains" -o sunset.png{"\n"}</code>
-              <code className="text-green-400">{"✓ Generated with OpenAI gpt-image-2 (default since v0.56)\n\n"}</code>
+              <code className="text-foreground">vibe generate image "sunset over mountains" -o sunset.png{"\n"}</code>
+              <code className="text-green-400">{"✓ Image saved to sunset.png\n\n"}</code>
 
               <code className="text-muted-foreground"># Image-to-video (recommended workflow){"\n"}</code>
-              <code className="text-foreground">vibe gen vid "camera zooms in slowly" -i sunset.png -o scene.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Generated 5s video with fal.ai Seedance 2.0 (default since v0.57)\n\n"}</code>
+              <code className="text-foreground">vibe generate video "camera zooms in slowly" -p seedance -i sunset.png -d 8 -o scene.mp4{"\n"}</code>
+              <code className="text-green-400">{"✓ Generated video with Seedance via fal.ai\n\n"}</code>
 
               <code className="text-muted-foreground"># Add captions and remove silence{"\n"}</code>
-              <code className="text-foreground">vibe ed cap video.mp4 -o captioned.mp4{"\n"}</code>
+              <code className="text-foreground">vibe edit caption video.mp4 -o captioned.mp4{"\n"}</code>
               <code className="text-green-400">{"✓ Transcribed 3:24, burned 156 caption segments\n\n"}</code>
 
               <code className="text-muted-foreground"># Export final video{"\n"}</code>
@@ -312,22 +264,22 @@ export default function LandingPage() {
               Natural language, real commands
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Describe what you want — your AI coding agent runs the right <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> command. The CLI surface is identical across every host that can shell out to bash.
+              Describe what you want. Your AI coding agent can run the same <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> commands you would run by hand.
             </p>
           </div>
 
           <div className="space-y-4 max-w-3xl mx-auto mb-12">
-            <ClaudeCodeExample
+            <AgentCommandExample
               input="Remove silence from interview.mp4"
               command="vibe edit silence-cut interview.mp4 -o clean.mp4"
             />
-            <ClaudeCodeExample
+            <AgentCommandExample
               input="Add Korean subtitles to video.mp4"
-              command="vibe edit caption video.mp4 -o captioned.mp4 && vibe edit translate-srt captions.srt -t ko"
+              command="vibe edit caption video.mp4 -o captioned.mp4"
             />
-            <ClaudeCodeExample
+            <AgentCommandExample
               input="Build a 9:16 promo from STORYBOARD.md"
-              command={`vibe scene build my-promo --image-size 1024x1536`}
+              command={`vibe init promo -r 9:16 && vibe build promo && vibe render promo`}
             />
           </div>
 
@@ -339,11 +291,11 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {[
-              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "slash menu shortcut to walkthroughs" },
+              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "project guidance" },
               { name: "OpenAI Codex", scaffold: "AGENTS.md", note: "agents.md spec" },
               { name: "Cursor", scaffold: "AGENTS.md + .cursor/rules", note: "MCP-ready" },
               { name: "Aider", scaffold: "AGENTS.md", note: "binary-detected" },
-              { name: "Gemini CLI", scaffold: "AGENTS.md", note: "GEMINI.md on roadmap" },
+              { name: "Gemini CLI", scaffold: "AGENTS.md", note: "universal fallback" },
               { name: "OpenCode", scaffold: "AGENTS.md", note: "MCP-ready" },
             ].map((host) => (
               <div key={host.name} className="bg-secondary/40 border border-border/50 rounded-xl px-4 py-3">
@@ -355,7 +307,9 @@ export default function LandingPage() {
           </div>
 
           <p className="text-center text-muted-foreground text-sm mt-8">
-            Anyone running another bash-capable agent (Continue, Sourcegraph Cody, your own loop) gets the universal <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">AGENTS.md</code> fallback. Open a PR to <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">agent-host-detect.ts</code> if your host wants first-class detection.
+            Anyone running another bash-capable agent gets the universal
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs mx-1">AGENTS.md</code>
+            fallback.
           </p>
         </div>
       </section>
@@ -372,14 +326,14 @@ export default function LandingPage() {
               <code className="text-primary bg-primary/10 px-3 py-1 rounded">vibe walkthrough</code>
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Step-by-step authoring guides built into the CLI — discoverable by every host, not just Claude Code's slash menu.
+              Step-by-step authoring guides built into the CLI. Agents can inspect the same walkthroughs as humans.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
               <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe walkthrough scene</div>
-              <p className="text-sm text-muted-foreground">Scene authoring — STORYBOARD.md → MP4 via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code> (Hyperframes-backed, Plan H agentic compose).</p>
+              <p className="text-sm text-muted-foreground">Scene authoring — STORYBOARD.md → composed video via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe render</code>.</p>
             </div>
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
               <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe walkthrough pipeline</div>
@@ -398,7 +352,9 @@ export default function LandingPage() {
           </div>
 
           <p className="text-center text-muted-foreground text-sm mt-6 max-w-3xl mx-auto">
-            Same content the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">/vibe-scene</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">/vibe-pipeline</code> slash commands deliver in Claude Code. Claude Code users can keep the slash menu as a one-keystroke shortcut — the underlying guide is identical.
+            Walkthroughs are plain CLI commands, so they work the same from a
+            terminal, Codex, Claude Code, Cursor, Aider, Gemini CLI, OpenCode,
+            or any other host that can run shell commands.
           </p>
         </div>
       </section>
@@ -419,7 +375,8 @@ export default function LandingPage() {
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
                   <p className="text-muted-foreground">
-                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, OpenCode, or Claude Code — add one JSON config and go
+                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, OpenCode, or Claude Code.
+                    Use MCP when your host prefers typed JSON-RPC tool calls.
                   </p>
                 </div>
               </div>
@@ -427,13 +384,13 @@ export default function LandingPage() {
               <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 mb-6 border border-border/50">
                 <p className="text-sm text-muted-foreground mb-2">In Claude Desktop:</p>
                 <p className="text-foreground italic">
-                  "Create a new video project called 'Demo', add the intro.mp4 file,
-                  trim it to 10 seconds, and add a fade out effect"
+                  "Load the scene walkthrough, build the storyboard project in
+                  demo-video, then render the final MP4"
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {["scene_build", "project_create", "timeline_add_source", "export_video", "edit_silence_cut", "walkthrough"].map((tool) => (
+                {["scene_build", "generate_image", "generate_video", "export_video", "edit_silence_cut", "walkthrough"].map((tool) => (
                   <span key={tool} className="text-xs bg-background/50 backdrop-blur-sm border border-border/50 px-3 py-1.5 rounded-full font-mono">
                     {tool}
                   </span>
@@ -460,7 +417,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               No AI coding agent set up? Run <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe agent</code> for a standalone natural-language session.
-              Great for quick onboarding and environments without an installed agent host.
+              It uses the same tool surface as the MCP server and external agent hosts.
             </p>
           </div>
 
@@ -520,7 +477,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Define reproducible video workflows. Version control your production.
-              Resume from failures. Share pipeline templates.
+              Dry-run costs, resume from checkpoints, and share pipeline templates.
             </p>
           </div>
 
@@ -566,7 +523,7 @@ export default function LandingPage() {
               AI Pipelines
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              End-to-end automation. One command does it all.
+              Reusable workflows for common video tasks.
             </p>
           </div>
 
@@ -574,7 +531,7 @@ export default function LandingPage() {
             <PipelineCard
               icon={<Film className="w-6 h-6" />}
               title="Scene Build"
-              command="vibe scene build my-promo"
+              command="vibe build my-promo"
               description="STORYBOARD.md + DESIGN.md → narrated, captioned MP4"
               gradient="from-blue-500 to-purple-500"
             />
@@ -617,21 +574,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* v0.62: removed the "Built for AI agents" Features Grid — every
-          point it made (CLI-First, Claude Code, MCP, AI Providers) was
-          already covered by its own dedicated section above, so the
-          4-card grid was pure restatement. The cinematic demo at the
-          top + the four detailed surface sections cover the same ground
-          with less repetition. */}
-
       {/* CTA */}
       <section className="py-20 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Hand it to your agent.
+            Open source video workflows for agents.
           </h2>
           <p className="text-muted-foreground text-lg mb-8">
-            Open source · MIT · v{process.env.NEXT_PUBLIC_VERSION} · {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands ready for your terminal.
+            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands for terminal, YAML, and MCP workflows.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -645,11 +595,11 @@ export default function LandingPage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="https://github.com/vericontext/vibeframe#cli-reference"
+              href="https://github.com/vericontext/vibeframe#quick-start"
               target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary hover:border-primary/30 transition-all"
             >
-              CLI Reference
+              Read the docs
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -716,8 +666,8 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-// Claude Code Example Component
-function ClaudeCodeExample({ input, command }: { input: string; command: string }) {
+// Agent command example component
+function AgentCommandExample({ input, command }: { input: string; command: string }) {
   return (
     <div className="grid md:grid-cols-2 gap-3">
       <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3">
@@ -816,9 +766,6 @@ function TerminalAnimation() {
     </div>
   );
 }
-
-// FeatureCard removed in v0.62 along with the redundant "Built for AI agents"
-// section. Reintroduce here if a future grid needs it.
 
 // Feature Item Component (for Agent section)
 function FeatureItem({

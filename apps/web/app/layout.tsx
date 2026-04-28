@@ -9,14 +9,14 @@ const inter = Inter({ subsets: ["latin"] });
 
 // Counts come from next.config.js (auto-derived from packages/ai-providers
 // directory listing + MCP tool name regex), so they stay in sync with the
-// source. Falls back to the post-v0.57 numbers if env var lookup fails.
+// source. Falls back to conservative static numbers if env var lookup fails.
 const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "13";
 const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "66";
-const SHARE_DESCRIPTION = `YAML pipelines, ${AI_PROVIDERS} AI providers, ${MCP_TOOLS} MCP tools bundled. Ship videos, not clicks.`;
+const SHARE_DESCRIPTION = `Create, edit, generate, and render video from the terminal with YAML pipelines, ${AI_PROVIDERS} AI providers, and ${MCP_TOOLS} MCP tools.`;
 
 export const metadata: Metadata = {
   title: "VibeFrame — The video CLI for AI agents",
-  description: `A CLI agents can compose, pipe, and script. ${SHARE_DESCRIPTION}`,
+  description: SHARE_DESCRIPTION,
   keywords: ["video CLI", "AI agent", "agentic CLI", "YAML pipelines", "MCP", "video editor", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
   metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
