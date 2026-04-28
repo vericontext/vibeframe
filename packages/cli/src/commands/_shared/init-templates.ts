@@ -217,6 +217,31 @@ curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/
      slash commands you've added, conversational style preferences, etc. -->
 `;
 
+/**
+ * Gemini CLI project file. Gemini CLI's primary context file is
+ * `GEMINI.md` (per https://geminicli.com/docs/cli/gemini-md/), so this
+ * scaffold gives Gemini CLI users a top-level entry point that points
+ * at the canonical `AGENTS.md`. The leading `@AGENTS.md` follows the
+ * same import convention Claude Code's `CLAUDE.md` uses; Gemini CLI
+ * also honours sibling-file references in context, and the
+ * human-readable note below ensures the agent picks up `AGENTS.md`
+ * either way.
+ */
+export const GEMINI_MD = `@AGENTS.md
+
+# Gemini CLI overrides
+
+This project's canonical agent guidance lives in \`AGENTS.md\` — read
+it first. The \`@AGENTS.md\` line above is the import marker; if
+Gemini CLI doesn't inline imported files in your version, open
+\`AGENTS.md\` directly. Both files are kept in sync by \`vibe init\`.
+
+## Project-specific guidance
+
+<!-- Add Gemini-CLI-specific notes here: any conventions specific to
+     how you drive vibe from Gemini CLI (preferred models, tone, etc.). -->
+`;
+
 /** Shape the init renderer can fill in for the .env.example body. */
 export interface EnvExampleOptions {
   /** When true, surfaces a "tier: free local fallbacks" section at the top. */
