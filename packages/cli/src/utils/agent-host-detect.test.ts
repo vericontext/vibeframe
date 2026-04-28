@@ -40,9 +40,9 @@ function makeConfigDir(rel: string): void {
 }
 
 describe("detectAgentHosts", () => {
-  it("returns all 4 hosts with detected=false in a clean environment", () => {
+  it("returns all 6 hosts with detected=false in a clean environment", () => {
     const hosts = detectAgentHosts({ PATH: PATH_DIR });
-    expect(hosts).toHaveLength(4);
+    expect(hosts).toHaveLength(6);
     for (const h of hosts) {
       expect(h.detected).toBe(false);
       expect(h.signals).toEqual([]);
@@ -52,6 +52,8 @@ describe("detectAgentHosts", () => {
       "codex",
       "cursor",
       "aider",
+      "gemini-cli",
+      "opencode",
     ]);
   });
 
@@ -98,6 +100,49 @@ describe("detectAgentHosts", () => {
     makeBinary("aider");
     const withBinary = detectAgentHosts({ PATH: PATH_DIR });
     expect(withBinary.find((h) => h.id === "aider")!.detected).toBe(true);
+  });
+
+  it("detects Gemini CLI via gemini binary OR ~/.gemini config dir", () => {
+    makeBinary("gemini");
+    const a = detectAgentHosts({ PATH: PATH_DIR });
+    expect(a.find((h) => h.id === "gemini-cli")!.detected).toBe(true);
+    expect(a.find((h) => h.id === "gemini-cli")!.signals).toEqual([{ kind: "binary", name: "gemini" }]);
+  });
+
+  it("detects Gemini CLI via ~/.gemini config dir alone", () => {
+    makeConfigDir(".gemini");
+    const hosts = detectAgentHosts({ PATH: PATH_DIR });
+    const gemini = hosts.find((h) => h.id === "gemini-cli")!;
+    expect(gemini.detected).toBe(true);
+    expect(gemini.signals).toEqual([{ kind: "configDir", path: join(HOME, ".gemini") }]);
+  });
+
+  it("detects OpenCode via opencode binary OR ~/.config/opencode dir", () => {
+    makeBinary("opencode");
+    const a = detectAgentHosts({ PATH: PATH_DIR });
+    expect(a.find((h) => h.id === "opencode")!.detected).toBe(true);
+    expect(a.find((h) => h.id === "opencode")!.signals).toEqual([{ kind: "binary", name: "opencode" }]);
+  });
+
+  it("detects OpenCode via XDG ~/.config/opencode/ even with no binary", () => {
+    makeConfigDir(".config/opencode");
+    const hosts = detectAgentHosts({ PATH: PATH_DIR });
+    const oc = hosts.find((h) => h.id === "opencode")!;
+    expect(oc.detected).toBe(true);
+    expect(oc.signals).toEqual([{ kind: "configDir", path: join(HOME, ".config/opencode") }]);
+  });
+
+  it("Gemini CLI projectFiles include both GEMINI.md (primary) and AGENTS.md (cross-tool)", () => {
+    const hosts = detectAgentHosts({ PATH: PATH_DIR });
+    const gemini = hosts.find((h) => h.id === "gemini-cli")!;
+    expect(gemini.projectFiles).toContain("GEMINI.md");
+    expect(gemini.projectFiles).toContain("AGENTS.md");
+  });
+
+  it("OpenCode projectFiles include AGENTS.md (per agents.md spec)", () => {
+    const hosts = detectAgentHosts({ PATH: PATH_DIR });
+    const oc = hosts.find((h) => h.id === "opencode")!;
+    expect(oc.projectFiles).toContain("AGENTS.md");
   });
 });
 

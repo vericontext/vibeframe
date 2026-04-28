@@ -39,7 +39,7 @@ import { exitWithError, isJsonMode, outputResult, usageError } from "./output.js
 
 type AgentSelection = AgentHostId | "all" | "auto";
 
-const VALID_AGENTS: readonly AgentSelection[] = ["claude-code", "codex", "cursor", "aider", "all", "auto"];
+const VALID_AGENTS: readonly AgentSelection[] = ["claude-code", "codex", "cursor", "aider", "gemini-cli", "opencode", "all", "auto"];
 
 interface InitFileAction {
   path: string;
@@ -173,7 +173,7 @@ export const initCommand = new Command("init")
 
 function resolveTargets(agent: AgentSelection): AgentHostId[] {
   if (agent === "all") {
-    return ["claude-code", "codex", "cursor", "aider"];
+    return ["claude-code", "codex", "cursor", "aider", "gemini-cli", "opencode"];
   }
   if (agent === "auto") {
     const detected = detectedAgentHosts().map((h) => h.id);

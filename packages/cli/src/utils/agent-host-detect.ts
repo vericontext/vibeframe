@@ -24,7 +24,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /** Agent hosts VibeFrame knows how to scaffold for. */
-export type AgentHostId = "claude-code" | "codex" | "cursor" | "aider";
+export type AgentHostId = "claude-code" | "codex" | "cursor" | "aider" | "gemini-cli" | "opencode";
 
 export interface AgentHostInfo {
   id: AgentHostId;
@@ -79,6 +79,26 @@ export function detectAgentHosts(env: NodeJS.ProcessEnv = process.env): AgentHos
       detected: false,
       signals: [],
       projectFiles: ["AGENTS.md", ".aider.conf.yml"],
+    },
+    {
+      id: "gemini-cli",
+      label: "Gemini CLI",
+      detected: false,
+      signals: [],
+      // Per https://geminicli.com/docs/cli/gemini-md/ Gemini CLI's primary
+      // context file is GEMINI.md; AGENTS.md is the cross-tool fallback
+      // VibeFrame writes by default. Both are honoured.
+      projectFiles: ["GEMINI.md", "AGENTS.md", ".gemini/"],
+    },
+    {
+      id: "opencode",
+      label: "OpenCode",
+      detected: false,
+      signals: [],
+      // sst/opencode officially supports the agents.md spec — AGENTS.md at
+      // project root is the standard place. Local config also under
+      // `.opencode/` per https://opencode.ai/docs/config/.
+      projectFiles: ["AGENTS.md", ".opencode/"],
     },
   ].map((host) => {
     const signals: AgentHostSignal[] = [];
@@ -148,6 +168,8 @@ const HOST_BINARIES: Record<AgentHostId, string | null> = {
   codex: "codex",
   cursor: "cursor",
   aider: "aider",
+  "gemini-cli": "gemini",
+  opencode: "opencode",
 };
 
 /**
@@ -159,6 +181,11 @@ const HOST_CONFIG_DIRS: Record<AgentHostId, string | null> = {
   codex: ".codex",
   cursor: ".cursor", // some installs; macOS app stores prefs elsewhere
   aider: null,
+  "gemini-cli": ".gemini",
+  // sst/opencode uses XDG-style `~/.config/opencode/` per
+  // https://opencode.ai/docs/config/. The path is relative to $HOME so
+  // the join in detectAgentHosts() resolves correctly.
+  opencode: ".config/opencode",
 };
 
 /**
