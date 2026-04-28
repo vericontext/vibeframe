@@ -20,7 +20,7 @@ import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   log,
   exitWithError,
   apiError,
@@ -56,6 +56,7 @@ Examples:
   $ vibe gen img "portrait" -o portrait.png -p gemini -m pro
   $ vibe gen img "product shot" --dry-run --json`)
     .action(async (prompt: string | undefined, options) => {
+      const startedAt = Date.now();
       try {
         // Interactive prompt if no argument provided
         if (!prompt) {
@@ -135,18 +136,21 @@ Examples:
 
         // Dry-run check
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate image",
-            params: {
-              prompt,
-              provider,
-              model: options.model,
-              ratio: options.ratio,
-              size: options.size,
-              quality: options.quality,
-              count: options.count,
-              output: options.output,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                prompt,
+                provider,
+                model: options.model,
+                ratio: options.ratio,
+                size: options.size,
+                quality: options.quality,
+                count: options.count,
+                output: options.output,
+              },
             },
           });
           return;
@@ -193,14 +197,17 @@ Examples:
               await mkdir(dirname(outputPath), { recursive: true });
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              provider: "openai",
-              images: result.images.map((img) => ({
-                url: img.url,
-                revisedPrompt: img.revisedPrompt,
-              })),
-              outputPath,
+            outputSuccess({
+              command: "generate image",
+              startedAt,
+              data: {
+                provider: "openai",
+                images: result.images.map((img) => ({
+                  url: img.url,
+                  revisedPrompt: img.revisedPrompt,
+                })),
+                outputPath,
+              },
             });
             return;
           }
@@ -321,13 +328,18 @@ Examples:
               await mkdir(dirname(outputPath), { recursive: true });
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              provider: "gemini",
-              images: result.images.map((img: { mimeType?: string }) => ({
-                mimeType: img.mimeType,
-              })),
-              outputPath,
+            outputSuccess({
+              command: "generate image",
+              startedAt,
+              warnings: usedLabel.includes("fallback") ? [`Model "${options.model}" failed; fell back to flash`] : [],
+              data: {
+                provider: "gemini",
+                model: usedLabel,
+                images: result.images.map((img: { mimeType?: string }) => ({
+                  mimeType: img.mimeType,
+                })),
+                outputPath,
+              },
             });
             return;
           }
@@ -411,11 +423,14 @@ Examples:
               await mkdir(dirname(outputPath), { recursive: true });
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              provider: "grok",
-              images: result.images.map((img) => ({ url: img.url })),
-              outputPath,
+            outputSuccess({
+              command: "generate image",
+              startedAt,
+              data: {
+                provider: "grok",
+                images: result.images.map((img) => ({ url: img.url })),
+                outputPath,
+              },
             });
             return;
           }
@@ -498,11 +513,14 @@ Examples:
             proc.on("close", (code) => {
               if (code === 0) {
                 if (isJsonMode()) {
-                  outputResult({
-                    success: true,
-                    provider: "runway",
-                    images: [{ format: "file" }],
-                    outputPath,
+                  outputSuccess({
+                    command: "generate image",
+                    startedAt,
+                    data: {
+                      provider: "runway",
+                      images: [{ format: "file" }],
+                      outputPath,
+                    },
                   });
                 } else {
                   spinner.succeed(chalk.green("Generated image with Runway"));
