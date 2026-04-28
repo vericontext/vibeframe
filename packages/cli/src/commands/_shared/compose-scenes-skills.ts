@@ -26,6 +26,8 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -40,8 +42,13 @@ import {
 import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
 import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import {
+  type ComposerProvider,
+  resolveComposer,
+  composerEnvVar,
+} from "./composer-resolve.js";
 
-/** Effort level → model + token caps. */
+/** Effort level → token caps. Model is per-provider (see MODEL_SETTINGS_BY_PROVIDER). */
 export type ComposeEffort = "low" | "medium" | "high";
 
 interface ModelSettings {
@@ -52,11 +59,34 @@ interface ModelSettings {
   costPerMTokOut: number;
 }
 
-const MODEL_SETTINGS: Record<ComposeEffort, ModelSettings> = {
-  // Sonnet 4.6 — pre-flight validated default. $3/$15 per MTok.
-  low:    { model: "claude-sonnet-4-6", maxTokens: 4_000, costPerMTokIn: 3,  costPerMTokOut: 15 },
-  medium: { model: "claude-sonnet-4-6", maxTokens: 6_000, costPerMTokIn: 3,  costPerMTokOut: 15 },
-  high:   { model: "claude-sonnet-4-6", maxTokens: 8_000, costPerMTokIn: 3,  costPerMTokOut: 15 },
+/**
+ * Model + cost caps per (provider, effort). Tier currently only varies
+ * `maxTokens`; quality differences across tiers were collapsed in the v0.70
+ * spike (all three providers passed first-shot lint at every tier on the
+ * vibeframe-promo beats — see `scripts-spike-composer-providers.mts`).
+ */
+const MODEL_SETTINGS_BY_PROVIDER: Record<ComposerProvider, Record<ComposeEffort, ModelSettings>> = {
+  // Anthropic Claude Sonnet 4.6 — v0.69 baseline. ~9 s/beat, $3/$15 per MTok.
+  claude: {
+    low:    { model: "claude-sonnet-4-6", maxTokens: 4_000, costPerMTokIn: 3, costPerMTokOut: 15 },
+    medium: { model: "claude-sonnet-4-6", maxTokens: 6_000, costPerMTokIn: 3, costPerMTokOut: 15 },
+    high:   { model: "claude-sonnet-4-6", maxTokens: 8_000, costPerMTokIn: 3, costPerMTokOut: 15 },
+  },
+  // OpenAI gpt-5 — high reasoning latency (~70 s/beat in spike) but matches
+  // Claude on cost. Picked as default because spike-validated; users may
+  // prefer a faster/lower model via env override in a follow-up.
+  openai: {
+    low:    { model: "gpt-5", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
+    medium: { model: "gpt-5", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
+    high:   { model: "gpt-5", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
+  },
+  // Google Gemini 2.5 Pro — ~2.6× cheaper than Claude per spike, ~20 s/beat.
+  // Strong instruction-following on the Hyperframes skill bundle.
+  gemini: {
+    low:    { model: "gemini-2.5-pro", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+    medium: { model: "gemini-2.5-pro", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+    high:   { model: "gemini-2.5-pro", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+  },
 };
 
 export interface ComposeBeatContext {
@@ -76,7 +106,13 @@ export interface ComposeBeatContext {
    * the cached first-shot HTML.
    */
   retryFeedback?: string;
-  /** Anthropic API key. */
+  /**
+   * LLM provider that powers the composer. Picked by `resolveComposer()` at
+   * the entry point (CLI flag → env auto-resolve). The `apiKey` field below
+   * is the matching key for this provider.
+   */
+  provider: ComposerProvider;
+  /** API key for {@link ComposeBeatContext.provider}. */
   apiKey: string;
   /**
    * Cache directory override. Defaults to `~/.vibeframe/cache/compose-scenes/`.
@@ -92,9 +128,9 @@ export interface ComposeBeatResult {
   cached: boolean;
   /** Cache key used (sha256 hex). */
   cacheKey: string;
-  /** Anthropic input tokens (only set on fresh API call). */
+  /** Provider input tokens (only set on fresh API call). */
   inputTokens?: number;
-  /** Anthropic output tokens (only set on fresh API call). */
+  /** Provider output tokens (only set on fresh API call). */
   outputTokens?: number;
   /** USD cost of this beat (only set on fresh API call). */
   costUsd?: number;
@@ -102,6 +138,8 @@ export interface ComposeBeatResult {
   latencyMs?: number;
   /** Resolved model id (e.g. "claude-sonnet-4-6"). */
   model: string;
+  /** Composer provider that produced this beat. */
+  provider: ComposerProvider;
 }
 
 // ── Prompt construction (pure) ──────────────────────────────────────────
@@ -274,15 +312,22 @@ ${ctx.retryFeedback.trim()}`;
   return baseRequirements;
 }
 
-/** Compute the sha256 cache key for a (system, user, model) triple. */
+/**
+ * Compute the sha256 cache key for a (provider, model, system, user) tuple.
+ * Provider id is folded in so switching `--composer` doesn't serve cached
+ * HTML produced by a different model.
+ */
 export function computeCacheKey(parts: {
+  provider: ComposerProvider;
   systemPrompt: string;
   userPrompt: string;
   model: string;
 }): string {
   return createHash("sha256")
-    .update(parts.model)
+    .update(parts.provider)
     .update("␞") // RECORD SEPARATOR
+    .update(parts.model)
+    .update("␞")
     .update(parts.systemPrompt)
     .update("␞")
     .update(parts.userPrompt)
@@ -321,24 +366,107 @@ export class ComposeBeatError extends Error {
   }
 }
 
+// ── Provider dispatch ───────────────────────────────────────────────────
+
+/** Raw text-completion result from any of the three providers. */
+export interface LLMCallResult {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Injectable LLM call function — used by tests to mock the SDK calls. */
+export type LLMCallFn = (req: {
+  provider: ComposerProvider;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  systemPrompt: string;
+  userPrompt: string;
+}) => Promise<LLMCallResult>;
+
+const defaultCallLLM: LLMCallFn = async (req) => {
+  if (req.provider === "claude") {
+    const client = new Anthropic({ apiKey: req.apiKey });
+    const response = await client.messages.create({
+      model: req.model,
+      max_tokens: req.maxTokens,
+      system: req.systemPrompt,
+      messages: [{ role: "user", content: req.userPrompt }],
+    });
+    if (!("content" in response) || !Array.isArray(response.content)) {
+      throw new ComposeBeatError("unexpected-response-shape", "Anthropic response missing `content` array.");
+    }
+    const block = response.content.find((b) => b.type === "text");
+    if (!block || block.type !== "text") {
+      throw new ComposeBeatError("no-text-block", "Anthropic response had no text block.");
+    }
+    return {
+      text: block.text,
+      inputTokens: (response as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0,
+      outputTokens: (response as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0,
+    };
+  }
+  if (req.provider === "openai") {
+    const client = new OpenAI({ apiKey: req.apiKey });
+    const response = await client.chat.completions.create({
+      model: req.model,
+      max_completion_tokens: req.maxTokens,
+      messages: [
+        { role: "system", content: req.systemPrompt },
+        { role: "user", content: req.userPrompt },
+      ],
+    });
+    const text = response.choices[0]?.message?.content ?? "";
+    if (!text) {
+      throw new ComposeBeatError("no-text-block", "OpenAI response had no text content.");
+    }
+    return {
+      text,
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
+    };
+  }
+  // gemini
+  const client = new GoogleGenerativeAI(req.apiKey);
+  const model = client.getGenerativeModel({ model: req.model, systemInstruction: req.systemPrompt });
+  const response = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: req.userPrompt }] }],
+    generationConfig: { maxOutputTokens: req.maxTokens },
+  });
+  const text = response.response.text();
+  if (!text) {
+    throw new ComposeBeatError("no-text-block", "Gemini response had no text content.");
+  }
+  const usage = response.response.usageMetadata;
+  return {
+    text,
+    inputTokens: usage?.promptTokenCount ?? 0,
+    outputTokens: usage?.candidatesTokenCount ?? 0,
+  };
+};
+
 // ── Main entry ──────────────────────────────────────────────────────────
 
 /**
- * Compose one beat into HTML. Cache-first; on miss, call Claude.
+ * Compose one beat into HTML. Cache-first; on miss, call the configured
+ * composer provider (Claude / OpenAI / Gemini — picked at the entry point
+ * via `resolveComposer()` and threaded through `ctx.provider`).
  *
- * @param overrides allows tests to inject a mock Anthropic client. In prod
- *   we always construct from `ctx.apiKey`.
+ * @param overrides allows tests to inject a mocked LLM call. In prod we use
+ *   `defaultCallLLM` which dispatches to the matching SDK.
  */
 export async function composeBeatHtml(
   ctx: ComposeBeatContext,
-  overrides?: { client?: Anthropic; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number },
 ): Promise<ComposeBeatResult> {
   const effort: ComposeEffort = ctx.effort ?? "medium";
-  const settings = MODEL_SETTINGS[effort];
+  const settings = MODEL_SETTINGS_BY_PROVIDER[ctx.provider][effort];
 
   const systemPrompt = buildSystemPrompt(ctx);
   const userPrompt = buildUserPrompt(ctx);
   const cacheKey = computeCacheKey({
+    provider: ctx.provider,
     systemPrompt,
     userPrompt,
     model: settings.model,
@@ -350,49 +478,41 @@ export async function composeBeatHtml(
   // Cache-first.
   if (existsSync(cachePath)) {
     const html = await readFile(cachePath, "utf-8");
-    return { html, cached: true, cacheKey, model: settings.model };
+    return { html, cached: true, cacheKey, model: settings.model, provider: ctx.provider };
   }
 
-  // Cache miss → call Claude.
+  // Cache miss → call provider.
   if (!ctx.apiKey) {
     throw new ComposeBeatError(
       "missing-api-key",
-      "ANTHROPIC_API_KEY required for compose-scenes-with-skills (set it in env or .env).",
+      `${composerEnvVar(ctx.provider)} required for compose-scenes-with-skills (set it in env or .env).`,
     );
   }
-  const client = overrides?.client ?? new Anthropic({ apiKey: ctx.apiKey });
+  const callLLM = overrides?.callLLM ?? defaultCallLLM;
   const now = overrides?.now ?? (() => Date.now());
 
   const t0 = now();
-  let response: Awaited<ReturnType<Anthropic["messages"]["create"]>>;
+  let result: LLMCallResult;
   try {
-    response = await client.messages.create({
+    result = await callLLM({
+      provider: ctx.provider,
+      apiKey: ctx.apiKey,
       model: settings.model,
-      max_tokens: settings.maxTokens,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      maxTokens: settings.maxTokens,
+      systemPrompt,
+      userPrompt,
     });
   } catch (err) {
+    if (err instanceof ComposeBeatError) throw err;
     throw new ComposeBeatError(
       "api-call-failed",
-      `Anthropic API call failed: ${err instanceof Error ? err.message : String(err)}`,
+      `${ctx.provider} API call failed: ${err instanceof Error ? err.message : String(err)}`,
       err,
     );
   }
   const latencyMs = now() - t0;
 
-  // Anthropic SDK v0.39 returns either a Message (non-streaming) or a stream.
-  // Our `stream` is unset so we get a Message. Narrow + extract text.
-  if (!("content" in response) || !Array.isArray(response.content)) {
-    throw new ComposeBeatError("unexpected-response-shape", "Anthropic response missing `content` array.");
-  }
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new ComposeBeatError("no-text-block", "Anthropic response had no text block.");
-  }
-
-  // textBlock.type === "text" narrows to TextBlock which has `text: string`.
-  const html = extractHtml(textBlock.text);
+  const html = extractHtml(result.text);
 
   // Persist to cache (best-effort — failures don't surface as composer
   // errors; the html is still returned).
@@ -403,21 +523,19 @@ export async function composeBeatHtml(
     // ignore — caller still gets the HTML
   }
 
-  // SDK shape: response.usage.{input_tokens, output_tokens}. Both numbers.
-  const inputTokens = (response as { usage?: { input_tokens?: number } }).usage?.input_tokens ?? 0;
-  const outputTokens = (response as { usage?: { output_tokens?: number } }).usage?.output_tokens ?? 0;
-  const costUsd = (inputTokens / 1_000_000) * settings.costPerMTokIn
-    + (outputTokens / 1_000_000) * settings.costPerMTokOut;
+  const costUsd = (result.inputTokens / 1_000_000) * settings.costPerMTokIn
+    + (result.outputTokens / 1_000_000) * settings.costPerMTokOut;
 
   return {
     html,
     cached: false,
     cacheKey,
-    inputTokens,
-    outputTokens,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
     costUsd: Number(costUsd.toFixed(4)),
     latencyMs,
     model: settings.model,
+    provider: ctx.provider,
   };
 }
 
@@ -491,7 +609,7 @@ export interface ComposeBeatWithRetryResult extends ComposeBeatResult {
  */
 export async function composeBeatWithRetry(
   ctx: ComposeBeatContext,
-  overrides?: { client?: Anthropic; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number },
 ): Promise<ComposeBeatWithRetryResult> {
   // Attempt 1 — no retry feedback (cache-friendly first shot).
   const first = await composeBeatHtml(ctx, overrides);
@@ -550,6 +668,11 @@ export interface ComposeScenesParams {
   project?: string;
   /** Effort tier — low/medium/high. Defaults to medium. */
   effort?: ComposeEffort;
+  /**
+   * Composer provider override. When undefined, `resolveComposer()` picks
+   * one based on env keys (`claude > gemini > openai` order).
+   */
+  composer?: ComposerProvider;
   /** Override the cache directory (tests). */
   cacheDir?: string;
   /** Optional per-beat progress callback (CLI spinner / pipeline reporter). */
@@ -590,7 +713,7 @@ export interface ComposeScenesActionResult {
 export async function executeComposeScenesWithSkills(
   params: ComposeScenesParams,
   outputDir: string,
-  overrides?: { client?: Anthropic; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number },
 ): Promise<ComposeScenesActionResult> {
   const projectRoot = params.project ? resolve(outputDir, params.project) : resolve(outputDir);
   const designPath = resolve(projectRoot, params.design ?? "DESIGN.md");
@@ -617,8 +740,25 @@ export async function executeComposeScenesWithSkills(
   const skillBundleLoaded = loadHyperframesSkillBundle();
   const skillBundle = { content: skillBundleLoaded.content, hash: skillBundleLoaded.hash };
 
-  // Allow cache hit even when no API key — only fail when an actual call would be made.
-  const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+  // Resolve the composer provider + key. Cache hits are still allowed when
+  // no key is present, so we only surface an error if a fresh call needs
+  // to be made (handled inside `composeBeatHtml`). For cache-only runs,
+  // pick the explicit provider if supplied, else default to claude (so the
+  // cache key matches whatever wrote the entry).
+  let provider: ComposerProvider;
+  let apiKey: string;
+  try {
+    const resolved = resolveComposer(params.composer);
+    provider = resolved.provider;
+    apiKey = resolved.apiKey;
+  } catch {
+    // No keys present — degrade gracefully so cache hits still work. The
+    // mismatch (e.g. cache was written by claude but we now report 'claude'
+    // even though the user has no Anthropic key) is fine: cache lookup
+    // succeeds → result returned without API call.
+    provider = params.composer ?? "claude";
+    apiKey = "";
+  }
 
   const compositionsDir = join(projectRoot, "compositions");
   await mkdir(compositionsDir, { recursive: true });
@@ -653,6 +793,7 @@ export async function executeComposeScenesWithSkills(
           designMd,
           storyboardGlobal,
           skillBundle,
+          provider,
           apiKey,
           effort: params.effort,
           cacheDir: params.cacheDir,

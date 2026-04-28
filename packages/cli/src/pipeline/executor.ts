@@ -223,6 +223,7 @@ async function ensureActionsRegistered(): Promise<void> {
         storyboard: params.storyboard as string | undefined,
         project: params.project as string | undefined,
         effort: params.effort as "low" | "medium" | "high" | undefined,
+        composer: params.composer as "claude" | "openai" | "gemini" | undefined,
       },
       outputDir,
     );
@@ -245,6 +246,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const r = await executeSceneBuild({
       projectDir: resolve(outputDir, projectRel),
       effort: params.effort as "low" | "medium" | "high" | undefined,
+      composer: params.composer as "claude" | "openai" | "gemini" | undefined,
       skipNarration: params.skipNarration as boolean | undefined,
       skipBackdrop: params.skipBackdrop as boolean | undefined,
       skipRender: params.skipRender as boolean | undefined,

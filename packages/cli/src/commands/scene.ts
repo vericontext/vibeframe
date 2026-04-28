@@ -1017,6 +1017,7 @@ sceneCommand
   .description("One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 (v0.60)")
   .argument("[project-dir]", "Project directory containing STORYBOARD.md", ".")
   .option("--effort <level>", "Compose effort tier: low|medium|high", "medium")
+  .option("--composer <provider>", "LLM that composes scene HTML: claude|openai|gemini (default: auto-resolve from available API keys, claude > gemini > openai)")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
   .option("--skip-backdrop", "Don't dispatch image-gen even when beats declare backdrop cues")
   .option("--skip-render", "Compose only — don't render to MP4")
@@ -1037,6 +1038,7 @@ sceneCommand
         params: {
           projectDir,
           effort: options.effort,
+          composer: options.composer,
           skipNarration: options.skipNarration ?? false,
           skipBackdrop: options.skipBackdrop ?? false,
           skipRender: options.skipRender ?? false,
@@ -1056,11 +1058,17 @@ sceneCommand
       exitWithError(usageError(`Invalid --effort: ${options.effort}`, `Must be one of: ${validEfforts.join(", ")}`));
     }
 
+    const validComposers = ["claude", "openai", "gemini"] as const;
+    if (options.composer !== undefined && !validComposers.includes(options.composer)) {
+      exitWithError(usageError(`Invalid --composer: ${options.composer}`, `Must be one of: ${validComposers.join(", ")}`));
+    }
+
     const spinner = isJsonMode() ? null : ora("Reading STORYBOARD.md...").start();
 
     const result = await executeSceneBuild({
       projectDir,
       effort: options.effort,
+      composer: options.composer,
       skipNarration: options.skipNarration,
       skipBackdrop: options.skipBackdrop,
       skipRender: options.skipRender,

@@ -360,6 +360,7 @@ export const sceneRenderTool = defineTool({
 const sceneBuildSchema = z.object({
   projectDir: z.string().optional().describe("Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd."),
   effort: z.enum(["low", "medium", "high"]).optional().describe("Compose effort tier passed to compose-scenes-with-skills. Default 'medium'."),
+  composer: z.enum(["claude", "openai", "gemini"]).optional().describe("LLM provider that composes the per-beat scene HTML. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest."),
   skipNarration: z.boolean().optional().describe("Skip TTS for every beat (use existing audio assets if present)."),
   skipBackdrop: z.boolean().optional().describe("Skip image generation for every beat (use existing PNG assets if present)."),
   skipRender: z.boolean().optional().describe("Stop after compose — produces compositions/*.html but no final MP4."),
@@ -385,6 +386,7 @@ export const sceneBuildTool = defineTool({
     const result = await executeSceneBuild({
       projectDir,
       effort: args.effort,
+      composer: args.composer,
       skipNarration: args.skipNarration,
       skipBackdrop: args.skipBackdrop,
       skipRender: args.skipRender,
