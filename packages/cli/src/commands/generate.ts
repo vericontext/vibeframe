@@ -5,7 +5,7 @@
  *
  * Commands:
  *   generate image          - Generate image (Gemini, OpenAI, Grok, Runway)
- *   generate video          - Generate video (Kling, Runway, Veo, Grok)
+ *   generate video          - Generate video (Seedance, Grok, Kling, Runway, Veo)
  *   generate speech         - Text-to-speech (ElevenLabs)
  *   generate sound-effect   - Sound effects (ElevenLabs)
  *   generate music          - Music generation (ElevenLabs default, Replicate MusicGen)
@@ -63,7 +63,8 @@ export const generateCommand = new Command("generate")
 Examples:
   $ vibe generate image "a sunset over the ocean" -o sunset.png
   $ vibe generate image "logo design" -o logo.png -p openai
-  $ vibe generate video "dancing cat" -o cat.mp4                  # Grok (default, native audio)
+  $ vibe generate video "dancing cat" -o cat.mp4                  # Seedance when FAL_KEY is set
+  $ vibe generate video "city timelapse" -o city.mp4 -p seedance  # Seedance via fal.ai
   $ vibe generate video "city timelapse" -o city.mp4 -p kling     # Kling
   $ vibe generate video "epic scene" -i frame.png -o out.mp4 -p runway  # Image-to-video
   $ vibe generate speech "Hello world" -o hello.mp3
@@ -73,7 +74,8 @@ Examples:
 API Keys (per provider):
   GOOGLE_API_KEY     Image (default), Veo video
   OPENAI_API_KEY     Image (-p openai)
-  XAI_API_KEY        Grok image/video (default video)
+  FAL_KEY            Seedance video (-p seedance, default video)
+  XAI_API_KEY        Grok image/video
   KLING_API_KEY      Kling video (-p kling)
   RUNWAY_API_SECRET  Runway video (-p runway)
   ELEVENLABS_API_KEY Speech, sound effects, music
@@ -162,4 +164,3 @@ registerVideoCancelCommand(generateCommand);
 // ============================================================================
 
 registerVideoExtendCommand(generateCommand);
-

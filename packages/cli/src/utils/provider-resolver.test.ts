@@ -102,9 +102,9 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "edit image -p grok",
       ],
       FAL_KEY: [
-        "generate video -p fal (Seedance 2.0 — default since v0.57)",
-        "generate video -p fal -m fast (lower-latency variant)",
-        "generate video -p fal -i <image> (image-to-video)",
+        "generate video -p seedance (Seedance 2.0 via fal.ai — default since v0.57)",
+        "generate video -p seedance --seedance-model fast (lower-latency variant)",
+        "generate video -p seedance -i <image> (image-to-video)",
       ],
       ELEVENLABS_API_KEY: [
         "generate speech",
@@ -118,7 +118,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       RUNWAY_API_SECRET: ["generate video -p runway"],
       REPLICATE_API_TOKEN: ["generate music -p replicate"],
       IMGBB_API_KEY: [
-        "generate video -p kling/fal (image-to-video upload host)",
+        "generate video -p kling/seedance (image-to-video upload host)",
       ],
     };
 

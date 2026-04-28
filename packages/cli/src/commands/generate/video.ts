@@ -39,16 +39,21 @@ export function registerVideoCommand(parent: Command): void {
   parent
     .command("video")
     .alias("vid")
-    .description("Generate video using AI (Kling, Runway, Veo, or Grok)")
+    .description("Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)")
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
-    .option("-p, --provider <provider>", "Provider: fal (Seedance 2.0, default when FAL_KEY set), grok, kling, runway, veo")
-    .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
+    .option("-p, --provider <provider>", "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a backwards-compatible alias for seedance.")
+    .option("-k, --api-key <key>", "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
     .option("-o, --output <path>", "Output file path (downloads video)")
     .option("-i, --image <path>", "Reference image for image-to-video")
-    .option("-d, --duration <sec>", "Duration: 5 or 10 seconds", "5")
+    .option(
+      "-d, --duration <sec>",
+      "Duration in seconds. Seedance accepts 4-15 (`fal` alias supported); Kling accepts 5 or 10; Veo maps to 6 or 8.",
+      "5",
+    )
     .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)")
     .option("-s, --seed <number>", "Random seed for reproducibility (Runway only)")
     .option("-m, --mode <mode>", "Generation mode: std or pro (Kling only)", "std")
+    .option("--seedance-model <model>", "Seedance variant: quality or fast (fal.ai only)", "quality")
     .option("-n, --negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
     .option("--resolution <res>", "Video resolution: 720p, 1080p, 4k (Veo only)")
     .option("--last-frame <path>", "Last frame image for frame interpolation (Veo only)")
@@ -60,7 +65,8 @@ export function registerVideoCommand(parent: Command): void {
     .option("--dry-run", "Preview parameters without executing")
     .addHelpText("after", `
 Examples:
-  $ vibe generate video "dancing cat" -o cat.mp4                      # Grok (default)
+  $ vibe generate video "dancing cat" -o cat.mp4                      # Seedance when FAL_KEY is set
+  $ vibe gen vid "cinematic city timelapse" -o city.mp4 -p seedance   # Seedance via fal.ai
   $ vibe gen vid "city timelapse" -o city.mp4 -p kling                # Kling
   $ vibe gen vid "epic scene" -i frame.png -o out.mp4 -p runway       # Image-to-video
   $ vibe gen vid "ocean waves" -o waves.mp4 -p veo --resolution 1080p # Veo
@@ -91,15 +97,16 @@ Examples:
 
         // Resolve provider:
         //  - explicit -p flag wins (validated, then key-presence checked)
-        //  - no flag → VIDEO_PROVIDERS priority list (fal > grok > veo > kling > runway)
+        //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > veo > kling > runway)
         //  - if no keys at all → keep grok as last-resort default so the
         //    later requireApiKey() prints a friendly Grok-specific message
-        const validProviders = ["runway", "kling", "veo", "grok", "fal"];
+        const validProviders = ["runway", "kling", "veo", "grok", "seedance", "fal"];
         const videoEnvMap: Record<string, string> = {
           grok: "XAI_API_KEY",
           veo: "GOOGLE_API_KEY",
           kling: "KLING_API_KEY",
           runway: "RUNWAY_API_SECRET",
+          seedance: "FAL_KEY",
           fal: "FAL_KEY",
         };
         let provider: string;
@@ -109,7 +116,7 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-                `Available providers: ${validProviders.join(", ")}`,
+              "Available providers: seedance, grok, kling, runway, veo. `fal` is a backwards-compatible alias for seedance.",
               ),
             );
           }
@@ -185,7 +192,7 @@ Examples:
             data: {
               params: {
                 prompt,
-                provider,
+                provider: provider === "fal" ? "seedance" : provider,
                 duration: options.duration,
                 ratio: options.ratio,
                 image: options.image,
@@ -193,6 +200,7 @@ Examples:
                 negative: options.negative,
                 resolution: options.resolution,
                 veoModel: options.veoModel,
+                seedanceModel: options.seedanceModel,
               },
             },
           });
@@ -204,6 +212,7 @@ Examples:
           kling: "KLING_API_KEY",
           veo: "GOOGLE_API_KEY",
           grok: "XAI_API_KEY",
+          seedance: "FAL_KEY",
           fal: "FAL_KEY",
         };
         const providerNameMap: Record<string, string> = {
@@ -211,7 +220,8 @@ Examples:
           kling: "Kling",
           veo: "Veo",
           grok: "Grok",
-          fal: "fal.ai (Seedance 2.0)",
+          seedance: "Seedance 2.0 via fal.ai",
+          fal: "Seedance 2.0 via fal.ai",
         };
         const envKey = envKeyMap[provider];
         const providerName = providerNameMap[provider];
@@ -474,7 +484,7 @@ Examples:
             },
             300000,
           );
-        } else if (provider === "fal") {
+        } else if (provider === "fal" || provider === "seedance") {
           // fal.ai → ByteDance Seedance 2.0 (Artificial Analysis #2 on
           // both video leaderboards). The fal client's `subscribe` blocks
           // until the queue produces a final URL, so we don't need a
@@ -487,10 +497,10 @@ Examples:
           // Kling uses when an image was passed via `-i`.
           let falImage = referenceImage;
           if (falImage && falImage.startsWith("data:")) {
-            spinner.text = "Uploading image to ImgBB for fal...";
+            spinner.text = "Uploading image to ImgBB for Seedance...";
             const imgbbKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
             if (!imgbbKey) {
-              spinner.fail("ImgBB API key required for fal image-to-video");
+              spinner.fail("ImgBB API key required for Seedance image-to-video");
               exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
             }
             const base64Data = falImage.split(",")[1];
@@ -503,9 +513,12 @@ Examples:
             falImage = uploadResult.url;
           }
 
-          spinner.text = "Generating video with Seedance 2.0 (this may take 1-3 minutes)...";
+          spinner.text = "Generating video with fal.ai Seedance 2.0 (this may take 1-3 minutes)...";
+          const seedanceModel = String(options.seedanceModel ?? "quality").toLowerCase();
           const falModel =
-            options.model === "fast" ? "seedance-2.0-fast" : "seedance-2.0";
+            seedanceModel === "fast" || seedanceModel === "seedance-2.0-fast"
+              ? "seedance-2.0-fast"
+              : "seedance-2.0";
           result = await fal.generateVideo(prompt, {
             prompt,
             referenceImage: falImage,

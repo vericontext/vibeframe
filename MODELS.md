@@ -150,8 +150,8 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 | Provider | Model | Duration | Audio | Env Key | CLI Option | Notes |
 |----------|-------|----------|-------|---------|------------|-------|
-| fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_KEY` | `-p fal` | **Auto-default when `FAL_KEY` set** (since v0.57). Artificial Analysis ELO 1270 #2 text, 1347 #2 image. ByteDance has no public API — fal.ai is the gateway. |
-| fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_KEY` | `-p fal -m fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
+| Seedance via fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_KEY` | `-p seedance` | **Auto-default when `FAL_KEY` set** (since v0.57). Artificial Analysis ELO 1270 #2 text, 1347 #2 image. ByteDance has no public API — fal.ai is the gateway. |
+| Seedance via fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_KEY` | `-p seedance --seedance-model fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
 | xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Fallback default when `FAL_KEY` is unset. Best lip-sync/native audio. $0.07/s (720p) |
 | Kling | `kling-v2-5-turbo` | 5-10 sec | No | `KLING_API_KEY` | `-p kling` | Fast (~36s generation) |
 | Kling | `kling-v2-6` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v2.6` | High quality |

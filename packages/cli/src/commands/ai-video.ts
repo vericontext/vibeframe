@@ -15,7 +15,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { GeminiProvider, GrokProvider, KlingProvider, RunwayProvider } from "@vibeframe/ai-providers";
+import { FalProvider, GeminiProvider, GrokProvider, KlingProvider, RunwayProvider } from "@vibeframe/ai-providers";
 import { uploadToImgbb } from "./ai-script-pipeline.js";
 import { downloadVideo } from "./ai-helpers.js";
 
@@ -25,7 +25,7 @@ import { downloadVideo } from "./ai-helpers.js";
 
 export interface VideoGenerateOptions {
   prompt: string;
-  provider?: "grok" | "runway" | "kling" | "veo";
+  provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal";
   image?: string;
   duration?: number;
   ratio?: string;
@@ -35,6 +35,7 @@ export interface VideoGenerateOptions {
   resolution?: string;
   veoModel?: string;
   runwayModel?: string;
+  seedanceModel?: string;
   output?: string;
   wait?: boolean;
   apiKey?: string;
@@ -63,13 +64,21 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     negative,
     resolution,
     veoModel = "3.1-fast",
+    seedanceModel = "quality",
     output,
     wait = true,
     apiKey,
   } = options;
 
   try {
-    const envKeyMap: Record<string, string> = { grok: "XAI_API_KEY", runway: "RUNWAY_API_SECRET", kling: "KLING_API_KEY", veo: "GOOGLE_API_KEY" };
+    const envKeyMap: Record<string, string> = {
+      grok: "XAI_API_KEY",
+      runway: "RUNWAY_API_SECRET",
+      kling: "KLING_API_KEY",
+      veo: "GOOGLE_API_KEY",
+      seedance: "FAL_KEY",
+      fal: "FAL_KEY",
+    };
     const key = apiKey || process.env[envKeyMap[provider] || ""];
     if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
@@ -83,7 +92,44 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
     }
 
-    if (provider === "runway") {
+    if (provider === "seedance" || provider === "fal") {
+      const fal = new FalProvider();
+      await fal.initialize({ apiKey: key });
+
+      let falImage = referenceImage;
+      if (falImage && falImage.startsWith("data:")) {
+        const imgbbKey = process.env.IMGBB_API_KEY;
+        if (!imgbbKey) return { success: false, error: "IMGBB_API_KEY required for Seedance image-to-video" };
+        const base64Data = falImage.split(",")[1];
+        const uploadResult = await uploadToImgbb(Buffer.from(base64Data, "base64"), imgbbKey);
+        if (!uploadResult.success || !uploadResult.url) return { success: false, error: `ImgBB upload failed: ${uploadResult.error}` };
+        falImage = uploadResult.url;
+      }
+
+      const model =
+        seedanceModel === "fast" || seedanceModel === "seedance-2.0-fast"
+          ? "seedance-2.0-fast"
+          : "seedance-2.0";
+      const result = await fal.generateVideo(prompt, {
+        prompt,
+        referenceImage: falImage,
+        duration,
+        aspectRatio: ratio as "16:9" | "9:16" | "1:1" | "4:5",
+        negativePrompt: negative,
+        model,
+      });
+
+      if (result.status === "failed") return { success: false, error: result.error || "Seedance generation failed" };
+
+      let outputPath: string | undefined;
+      if (output && result.videoUrl) {
+        const buffer = await downloadVideo(result.videoUrl, key);
+        outputPath = resolve(process.cwd(), output);
+        await writeFile(outputPath, buffer);
+      }
+
+      return { success: true, taskId: result.id, status: "completed", videoUrl: result.videoUrl, outputPath, provider: "seedance" };
+    } else if (provider === "runway") {
       const runway = new RunwayProvider();
       await runway.initialize({ apiKey: key });
 

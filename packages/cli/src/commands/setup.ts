@@ -103,7 +103,7 @@ const AI_FEATURES: AIFeature[] = [
   {
     label: "Videos",
     desc: "generate + extend",
-    defaultProvider: "fal.ai Seedance 2.0 (Artificial Analysis #2 t2v + i2v, since v0.57)",
+    defaultProvider: "Seedance 2.0 via fal.ai (Artificial Analysis #2 t2v + i2v, since v0.57)",
     alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
     keys: [{ configKey: "fal", envVar: "FAL_KEY", name: "fal.ai", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" }],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',
@@ -202,7 +202,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
     await collectKeys(config, pipelineKeys);
 
     await saveConfig(config);
-    showComplete(config, 'vibe scene build my-story/   # see CONTRIBUTING.md for STORYBOARD.md format');
+    showComplete(config, 'vibe build my-story/   # see CONTRIBUTING.md for STORYBOARD.md format');
     return;
   }
 
@@ -440,14 +440,14 @@ function showComplete(
     console.log(
       chalk.dim(
         `  Scene composer will auto-dispatch to ${primary.label} (${chalk.bold("--mode agent")}). ` +
-        `Run \`vibe scene init my-promo\` to scaffold a scene project + install the Hyperframes skill.`,
+        `Run \`vibe init my-promo\` to scaffold a video project + install local composition rules.`,
       ),
     );
   } else {
     console.log();
     console.log(
       chalk.dim(
-        `  No agent host detected — \`vibe scene build\` will use the internal LLM composer (${chalk.bold("--mode batch")}).`,
+        `  No agent host detected — \`vibe build\` will use the internal LLM composer (${chalk.bold("--mode batch")}).`,
       ),
     );
   }

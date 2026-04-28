@@ -78,6 +78,16 @@ export interface ProviderMeta {
   id: string;
   /** Human-readable label (resolver UI, doctor output). */
   label: string;
+  /** User-facing product/model family name when different from the API gateway. */
+  displayName?: string;
+  /** API gateway or host service, e.g. fal.ai for Seedance. */
+  gateway?: string;
+  /** Backward-compatible provider ids accepted by CLI flags. */
+  aliases?: readonly string[];
+  /** User-selectable model variants for this provider. */
+  models?: readonly string[];
+  /** Capability tags used by docs/help; intentionally lightweight for now. */
+  capabilities?: readonly string[];
   /** ApiKey configKey reference, or `null` for keyless providers (kokoro,
    *  ollama). Multiple providers may share a configKey. */
   apiKey: string | null;

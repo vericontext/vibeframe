@@ -143,12 +143,12 @@ defineApiKey({
   label: "ImgBB",
   showInSetup: false, // not prompted in setup wizard — internal upload host
   envExampleComment:
-    "ImgBB API Key (image hosting — used by Kling and fal.ai for image-to-video uploads)",
+    "ImgBB API Key (image hosting — used by Kling and Seedance for image-to-video uploads)",
   envExampleUrl: "https://api.imgbb.com/",
   // ImgBB has no provider class (envvar-only); doctor still shows what it
   // unlocks at the apiKey level.
   commandsUnlocked: [
-    "generate video -p kling/fal (image-to-video upload host)",
+    "generate video -p kling/seedance (image-to-video upload host)",
   ],
 });
 
