@@ -32,7 +32,7 @@ interface CommanderLike {
 // `<group> <subname>` CLI invocation paired with the canonical manifest
 // tool name (or null if explicitly CLI-only).
 const CLI_TREE: Record<string, string[]> = {
-  scene:    ["init", "styles", "add", "lint", "render", "build"],
+  scene:    ["init", "styles", "add", "lint", "render", "build", "install-skill"],
   generate: ["image", "video", "video-status", "video-cancel", "video-extend", "speech", "sound-effect", "music", "music-status", "storyboard", "motion", "thumbnail", "background"],
   edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale-video"],
   audio:    ["transcribe", "voices", "isolate", "voice-clone", "dub", "duck"],
@@ -56,12 +56,13 @@ const CLI_ONLY_TOP_LEVEL = new Set([
 // manifest `edit_animated_caption`; `edit upscale-video` → `edit_upscale`).
 const CLI_TO_MANIFEST: Record<string, string | null> = {
   // scene
-  "scene init":   "scene_init",
-  "scene styles": "scene_styles",
-  "scene add":    "scene_add",
-  "scene lint":   "scene_lint",
-  "scene render": "scene_render",
-  "scene build":  "scene_build",
+  "scene init":          "scene_init",
+  "scene styles":        "scene_styles",
+  "scene add":           "scene_add",
+  "scene lint":          "scene_lint",
+  "scene render":        "scene_render",
+  "scene build":         "scene_build",
+  "scene install-skill": "scene_install_skill",
   // generate
   "generate image":         "generate_image",
   "generate video":         "generate_video",

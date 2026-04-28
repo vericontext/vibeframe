@@ -29,12 +29,13 @@ const sceneToolDefinitions = (): ReadonlyArray<ToolDefinition> =>
   registry.getDefinitions().filter((d) => d.name.startsWith("scene_"));
 
 describe("scene agent tools — registration + schema", () => {
-  it("registers exactly six scene_* tools", () => {
+  it("registers exactly seven scene_* tools", () => {
     const names = sceneToolDefinitions().map((t) => t.name).sort();
     expect(names).toEqual([
       "scene_add",
       "scene_build",
       "scene_init",
+      "scene_install_skill",
       "scene_lint",
       "scene_render",
       "scene_styles",
