@@ -87,3 +87,75 @@ describe("vibe doctor — scope diagnostics", () => {
     expect(json.result.scope.agentHosts.detected).toContain("Claude Code");
   });
 });
+
+describe("vibe doctor — Plan H scene composer readiness", () => {
+  it("reports recommendedMode=batch when no agent host is detected", () => {
+    const { json } = runDoctor();
+    const sc = json.result.scope.sceneComposer;
+    expect(sc.recommendedMode).toBe("batch");
+    expect(sc.sceneProjectInCwd).toBe(false);
+    expect(sc.skillInstalled).toBe(false);
+  });
+
+  it("flips recommendedMode=agent when ~/.claude is present", () => {
+    mkdirSync(join(fakeHome, ".claude"));
+    const { json } = runDoctor();
+    expect(json.result.scope.sceneComposer.recommendedMode).toBe("agent");
+  });
+
+  it("VIBE_BUILD_MODE env override beats host auto-detection", () => {
+    mkdirSync(join(fakeHome, ".claude"));
+    const out = execFileSync(
+      process.execPath,
+      [CLI, "doctor", "--json"],
+      {
+        cwd: projectDir,
+        env: {
+          ...process.env,
+          HOME: fakeHome,
+          PATH: "/usr/bin:/bin",
+          NO_COLOR: "1",
+          VIBE_BUILD_MODE: "batch",
+        },
+        encoding: "utf-8",
+      },
+    );
+    const json = JSON.parse(out);
+    expect(json.result.scope.sceneComposer.recommendedMode).toBe("batch");
+  });
+
+  it("composer=null when no API keys are present", () => {
+    const out = execFileSync(
+      process.execPath,
+      [CLI, "doctor", "--json"],
+      {
+        cwd: projectDir,
+        env: {
+          // Sterilise — drop every composer key so resolveComposer fails cleanly.
+          HOME: fakeHome,
+          PATH: "/usr/bin:/bin",
+          NO_COLOR: "1",
+        },
+        encoding: "utf-8",
+      },
+    );
+    const json = JSON.parse(out);
+    expect(json.result.scope.sceneComposer.composer).toBeNull();
+    expect(json.result.scope.sceneComposer.composerEnvVar).toBeNull();
+  });
+
+  it("flags scene project + missing SKILL.md when STORYBOARD.md is in cwd", () => {
+    writeFileSync(join(projectDir, "STORYBOARD.md"), "## Beat 1 — x\nbody\n");
+    const { json } = runDoctor();
+    expect(json.result.scope.sceneComposer.sceneProjectInCwd).toBe(true);
+    expect(json.result.scope.sceneComposer.skillInstalled).toBe(false);
+  });
+
+  it("flips skillInstalled=true once SKILL.md is in the project", () => {
+    writeFileSync(join(projectDir, "STORYBOARD.md"), "## Beat 1 — x\nbody\n");
+    writeFileSync(join(projectDir, "SKILL.md"), "---\nname: hyperframes\n---\n");
+    const { json } = runDoctor();
+    expect(json.result.scope.sceneComposer.sceneProjectInCwd).toBe(true);
+    expect(json.result.scope.sceneComposer.skillInstalled).toBe(true);
+  });
+});
