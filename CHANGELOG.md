@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.0] - 2026-04-28
+
+Phase 1 of [Plan G](https://github.com/vericontext/vibeframe/blob/main/.claude/plans/logical-wibbling-sonnet.md) — OSS-first refactor. Collapses the previous 8-place "add a new AI provider" matrix into a single declaration via `defineApiKey` + `defineProvider`. Five derived consumers (provider-resolver IMAGE/VIDEO/SPEECH arrays, schema PROVIDER_ENV_VARS, doctor COMMAND_KEY_MAP, setup allProviders, `.env.example`) now structurally share one source of truth — drift is impossible at the language level.
+
+### Added
+
+- `packages/ai-providers/src/define-provider.ts` — plugin metadata registry with `defineApiKey` / `defineProvider` helpers + derivation functions (`getProvidersFor`, `getProviderEnvVars`, `getCommandKeyMap`, `getSetupProviders`)
+- `packages/ai-providers/src/api-keys.ts` — centralized 11 apiKey declarations + 1 virtual provider (openrouter)
+- `scripts/print-env-example.mts` — regenerate `.env.example` from registry; `--check` mode wired into `sync-counts.sh`
+- `packages/cli/src/utils/provider-resolver.test.ts` — snapshot tests pinning derived shapes to v0.67 hardcoded arrays (+6 tests, total 652)
+
+### Changed
+
+- `provider-resolver.ts` IMAGE/VIDEO/SPEECH_PROVIDERS arrays → derived from `getProvidersFor(kind)`
+- `config/schema.ts` PROVIDER_ENV_VARS → derived from `getProviderEnvVars()`
+- `doctor.ts` COMMAND_KEY_MAP → derived from `getCommandKeyMap()`
+- `setup.ts` allProviders → derived from `getSetupProviders()`
+- `generate.ts` `vibe generate image` inline maps (validProviders, providerEnvMap, envKeyMap, providerNameMap) → derived from `getProvidersFor("image")` + explicit `dalle`/`runway` aliases
+- `scripts/sync-counts.sh` category B (5-array cross-validation) deleted — replaced by `print-env-example.mts --check` (structural derivation makes drift impossible)
+- 13 provider `index.ts` files each add a `defineProvider({...})` call (claude, elevenlabs, fal, gemini+veo, grok, kling, kokoro, ollama, openai, replicate, runway). `openai-image` and `whisper` directories are now implementation details of the user-facing `openai` provider (kinds=[llm,image,transcription])
+
+### Counts
+
+`MCP=63 · Agent=79 · CLI=78 · 11 apiKeys · ~13 user-facing providers · 6 LLM providers`
+
 ## [0.67.0] - 2026-04-28
 
 This release closes the manifest-as-SSOT migration that began in v0.65.
