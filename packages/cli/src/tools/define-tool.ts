@@ -186,4 +186,12 @@ export const MIGRATED: Set<string> = new Set([
   "batch_import",
   "batch_concat",
   "batch_apply_effect",
+  // v0.67 PR1: media_* / timeline_clear / export_* agent-only manifest entries
+  "media_info",
+  "media_compress",
+  "media_convert",
+  "media_concat",
+  "timeline_clear",
+  "export_audio",
+  "export_subtitles",
 ]);

@@ -11,9 +11,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ToolRegistry } from "./index.js";
 import { registerProjectTools } from "./project.js";
-import { registerTimelineTools } from "./timeline.js";
-import { registerMediaTools } from "./media.js";
-import { registerExportTools } from "./export.js";
 import { manifest } from "../../tools/manifest/index.js";
 import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 // Mock the imported CLI functions to avoid actual API calls
@@ -175,9 +172,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     // skip names already in MIGRATED).
     registerManifestIntoAgent(registry, manifest);
     registerProjectTools(registry);
-    registerTimelineTools(registry);
-    registerMediaTools(registry);
-    registerExportTools(registry);
   });
 
   describe("Tool Registration", () => {
@@ -750,9 +744,6 @@ describe("Tool Name Consistency", () => {
     // skip names already in MIGRATED).
     registerManifestIntoAgent(registry, manifest);
     registerProjectTools(registry);
-    registerTimelineTools(registry);
-    registerMediaTools(registry);
-    registerExportTools(registry);
   });
 
   it("all tool names should follow naming convention", () => {
@@ -805,9 +796,6 @@ describe("Manifest is SSOT for Agent surface", () => {
     registry = new ToolRegistry();
     registerManifestIntoAgent(registry, manifest);
     registerProjectTools(registry);
-    registerTimelineTools(registry);
-    registerMediaTools(registry);
-    registerExportTools(registry);
   });
 
   it("every manifest entry with agent surface has its description served by registry", () => {

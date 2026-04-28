@@ -1,25 +1,26 @@
 /**
  * @module manifest/agent-only
  * @description Tools that only make sense inside the in-process agent REPL —
- * filesystem access (`fs_*`) and project-level batch operations (`batch_*`).
+ * filesystem access (`fs_*`), project-level batch operations (`batch_*`),
+ * and FFmpeg-driven media wrappers (`media_*`).
  *
  * These all use `surfaces: ["agent"]` so the MCP adapter filters them out.
  * MCP clients have their own host-side filesystem affordances and would
  * never call into our handler shell anyway.
  *
  * Dependencies are deliberately limited to Node `fs` + `@vibeframe/core`
- * (Project class) + `ffprobeDuration`. No AI provider SDKs — adding any
- * would balloon the mcp-server esbuild bundle even though the entries
- * never reach MCP at runtime.
+ * (Project class) + `execSafe`/`ffprobeDuration`. No AI provider SDKs —
+ * adding any would balloon the mcp-server esbuild bundle even though the
+ * entries never reach MCP at runtime.
  */
 
-import { readFile, writeFile, readdir, stat, access } from "node:fs/promises";
+import { readFile, writeFile, readdir, stat, access, unlink } from "node:fs/promises";
 import { resolve, join, basename, extname } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool } from "../define-tool.js";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-import { ffprobeDuration } from "../../utils/exec-safe.js";
+import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -395,6 +396,439 @@ export const batchApplyEffectTool = defineTool({
   },
 });
 
+// ─── timeline_clear ────────────────────────────────────────────────────────
+
+async function resolveProjectPath(inputPath: string, cwd: string): Promise<string> {
+  const filePath = resolve(cwd, inputPath);
+  try {
+    const stats = await stat(filePath);
+    if (stats.isDirectory()) {
+      return resolve(filePath, "project.vibe.json");
+    }
+  } catch {
+    // Path doesn't exist — caller surfaces the error
+  }
+  return filePath;
+}
+
+export const timelineClearTool = defineTool({
+  name: "timeline_clear",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Clear timeline contents (remove clips, tracks, or sources)",
+  schema: z.object({
+    project: z.string().describe("Project file path"),
+    what: z
+      .enum(["clips", "tracks", "sources", "all"])
+      .optional()
+      .describe("What to clear: clips (default), tracks, sources, or all"),
+    keepTracks: z
+      .boolean()
+      .optional()
+      .describe("When clearing 'all', keep default empty tracks (default: true)"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const filePath = await resolveProjectPath(args.project, ctx.workingDirectory);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const what = args.what ?? "clips";
+      const keepTracks = args.keepTracks ?? true;
+      const removed = { clips: 0, tracks: 0, sources: 0 };
+
+      if (what === "clips" || what === "all") {
+        for (const clip of project.getClips()) {
+          project.removeClip(clip.id);
+          removed.clips++;
+        }
+      }
+
+      if (what === "tracks" || what === "all") {
+        for (const track of project.getTracks()) {
+          project.removeTrack(track.id);
+          removed.tracks++;
+        }
+        if (what === "all" && keepTracks) {
+          project.addTrack({
+            name: "Video 1",
+            type: "video",
+            order: 1,
+            isMuted: false,
+            isLocked: false,
+            isVisible: true,
+          });
+          project.addTrack({
+            name: "Audio 1",
+            type: "audio",
+            order: 0,
+            isMuted: false,
+            isLocked: false,
+            isVisible: true,
+          });
+        }
+      }
+
+      if (what === "sources" || what === "all") {
+        for (const source of project.getSources()) {
+          project.removeSource(source.id);
+          removed.sources++;
+        }
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      const parts: string[] = [];
+      if (removed.clips > 0) parts.push(`${removed.clips} clips`);
+      if (removed.tracks > 0) parts.push(`${removed.tracks} tracks`);
+      if (removed.sources > 0) parts.push(`${removed.sources} sources`);
+
+      return {
+        success: true,
+        data: { removed },
+        humanLines: [parts.length > 0 ? `Cleared: ${parts.join(", ")}` : "Nothing to clear"],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to clear timeline: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+// ─── export_audio / export_subtitles ───────────────────────────────────────
+// These are intentional stubs: the canonical paths are export_video + FFmpeg
+// extraction (audio) and audio_transcribe (subtitles). They live in the
+// manifest so the surface is explicit and discoverable; the handler just
+// surfaces the redirect message.
+
+export const exportAudioTool = defineTool({
+  name: "export_audio",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description:
+    "Export audio track from a project. Not implemented — use export_video then strip audio with FFmpeg.",
+  schema: z.object({
+    project: z.string().describe("Project file path"),
+    output: z.string().optional().describe("Output audio file path"),
+    format: z.enum(["mp3", "wav", "aac"]).optional().describe("Output format (mp3, wav, aac)"),
+  }),
+  async execute() {
+    return {
+      success: false,
+      error:
+        "Audio-only export not yet implemented. Use export_video and extract audio with FFmpeg: ffmpeg -i video.mp4 -vn -acodec mp3 audio.mp3",
+    };
+  },
+});
+
+export const exportSubtitlesTool = defineTool({
+  name: "export_subtitles",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description:
+    "Export subtitles from transcription. Not implemented — use audio_transcribe to generate subtitles from audio.",
+  schema: z.object({
+    project: z.string().describe("Project file path"),
+    output: z.string().optional().describe("Output subtitle file path"),
+    format: z.enum(["srt", "vtt"]).optional().describe("Subtitle format (srt, vtt)"),
+  }),
+  async execute() {
+    return {
+      success: false,
+      error:
+        "Subtitle export not yet implemented. Use audio_transcribe to generate subtitles from audio.",
+    };
+  },
+});
+
+// ─── media_* ───────────────────────────────────────────────────────────────
+
+export const mediaInfoTool = defineTool({
+  name: "media_info",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Get information about a media file (duration, resolution, codec, etc.)",
+  schema: z.object({
+    path: z.string().describe("Media file path"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const absPath = resolve(ctx.workingDirectory, args.path);
+      const { stdout } = await execSafe(
+        "ffprobe",
+        ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", absPath],
+        { maxBuffer: 10 * 1024 * 1024 },
+      );
+      const info = JSON.parse(stdout) as {
+        format?: { duration?: string; size?: string; bit_rate?: string };
+        streams?: Array<{
+          codec_type?: string;
+          codec_name?: string;
+          width?: number;
+          height?: number;
+          r_frame_rate?: string;
+          sample_rate?: string;
+          channels?: number;
+        }>;
+      };
+      const format = info.format ?? {};
+      const streams = info.streams ?? [];
+
+      const lines: string[] = [`File: ${args.path}`];
+      const data: Record<string, unknown> = { path: args.path };
+
+      if (format.duration) {
+        const duration = parseFloat(format.duration);
+        lines.push(`Duration: ${duration.toFixed(2)}s`);
+        data.duration = duration;
+      }
+      if (format.size) {
+        const sizeBytes = parseInt(format.size);
+        lines.push(`Size: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`);
+        data.sizeBytes = sizeBytes;
+      }
+      if (format.bit_rate) {
+        const bitrate = parseInt(format.bit_rate);
+        lines.push(`Bitrate: ${(bitrate / 1_000_000).toFixed(2)} Mbps`);
+        data.bitrate = bitrate;
+      }
+
+      const videoStreams: Array<Record<string, unknown>> = [];
+      const audioStreams: Array<Record<string, unknown>> = [];
+      for (const stream of streams) {
+        if (stream.codec_type === "video") {
+          lines.push(`\nVideo:`);
+          lines.push(`  Resolution: ${stream.width}x${stream.height}`);
+          lines.push(`  Codec: ${stream.codec_name}`);
+          let fps: number | undefined;
+          if (stream.r_frame_rate) {
+            const [num, den] = stream.r_frame_rate.split("/");
+            const parsed = parseInt(num) / parseInt(den);
+            if (Number.isFinite(parsed)) {
+              fps = parsed;
+              lines.push(`  Frame Rate: ${parsed.toFixed(2)} fps`);
+            }
+          }
+          videoStreams.push({
+            width: stream.width,
+            height: stream.height,
+            codec: stream.codec_name,
+            fps,
+          });
+        } else if (stream.codec_type === "audio") {
+          lines.push(`\nAudio:`);
+          lines.push(`  Codec: ${stream.codec_name}`);
+          lines.push(`  Sample Rate: ${stream.sample_rate} Hz`);
+          lines.push(`  Channels: ${stream.channels}`);
+          audioStreams.push({
+            codec: stream.codec_name,
+            sampleRate: stream.sample_rate,
+            channels: stream.channels,
+          });
+        }
+      }
+      data.video = videoStreams;
+      data.audio = audioStreams;
+
+      return { success: true, data, humanLines: lines };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get media info: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+export const mediaCompressTool = defineTool({
+  name: "media_compress",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Compress a video or audio file using FFmpeg",
+  schema: z.object({
+    input: z.string().describe("Input media file path"),
+    output: z.string().optional().describe("Output file path (default: input-compressed.ext)"),
+    quality: z
+      .enum(["low", "medium", "high"])
+      .optional()
+      .describe("Quality preset: low, medium (default), high"),
+    maxSize: z.string().optional().describe("Target max file size (e.g., '10M', '100M')"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const absInput = resolve(ctx.workingDirectory, args.input);
+      const ext = args.input.split(".").pop() || "mp4";
+      const baseName = args.input.replace(/\.[^/.]+$/, "");
+      const outputPath = args.output
+        ? resolve(ctx.workingDirectory, args.output)
+        : resolve(ctx.workingDirectory, `${baseName}-compressed.${ext}`);
+
+      const crfValues: Record<string, number> = { low: 28, medium: 23, high: 18 };
+      const crf = crfValues[args.quality ?? "medium"];
+
+      await execSafe(
+        "ffmpeg",
+        [
+          "-i", absInput,
+          "-c:v", "libx264", "-crf", String(crf), "-preset", "medium",
+          "-c:a", "aac", "-b:a", "128k",
+          outputPath, "-y",
+        ],
+        { maxBuffer: 50 * 1024 * 1024 },
+      );
+
+      const inputBuf = await readFile(absInput);
+      const outputBuf = await readFile(outputPath);
+      const inputSize = inputBuf.length;
+      const outputSize = outputBuf.length;
+      const reduction = ((inputSize - outputSize) / inputSize) * 100;
+
+      return {
+        success: true,
+        data: { inputSize, outputSize, reductionPct: reduction, output: outputPath },
+        humanLines: [
+          `Compressed: ${args.input} → ${outputPath}`,
+          `Size: ${formatSize(inputSize)} → ${formatSize(outputSize)} (${reduction.toFixed(1)}% reduction)`,
+        ],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to compress: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+export const mediaConvertTool = defineTool({
+  name: "media_convert",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Convert media file to a different format using FFmpeg",
+  schema: z.object({
+    input: z.string().describe("Input media file path"),
+    output: z.string().describe("Output file path with desired extension (e.g., 'video.webm')"),
+    codec: z.string().optional().describe("Video codec (h264, h265, vp9, av1)"),
+    audioCodec: z.string().optional().describe("Audio codec (aac, mp3, opus)"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const absInput = resolve(ctx.workingDirectory, args.input);
+      const absOutput = resolve(ctx.workingDirectory, args.output);
+
+      const codecMap: Record<string, string> = {
+        h264: "libx264",
+        h265: "libx265",
+        vp9: "libvpx-vp9",
+        av1: "libaom-av1",
+      };
+      const audioCodecMap: Record<string, string> = {
+        aac: "aac",
+        mp3: "libmp3lame",
+        opus: "libopus",
+      };
+
+      const videoCodecName = args.codec ? (codecMap[args.codec] ?? args.codec) : "copy";
+      const audioCodecName = args.audioCodec ? (audioCodecMap[args.audioCodec] ?? args.audioCodec) : "copy";
+
+      await execSafe(
+        "ffmpeg",
+        ["-i", absInput, "-c:v", videoCodecName, "-c:a", audioCodecName, absOutput, "-y"],
+        { maxBuffer: 50 * 1024 * 1024 },
+      );
+
+      return {
+        success: true,
+        data: { input: args.input, output: args.output, videoCodec: videoCodecName, audioCodec: audioCodecName },
+        humanLines: [`Converted: ${args.input} → ${args.output}`],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to convert: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+export const mediaConcatTool = defineTool({
+  name: "media_concat",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Concatenate multiple media files into one using FFmpeg",
+  schema: z.object({
+    inputs: z.array(z.string()).describe("Array of input file paths to concatenate"),
+    output: z.string().describe("Output file path"),
+    reencode: z
+      .boolean()
+      .optional()
+      .describe("Re-encode files (slower but works with different codecs)"),
+  }),
+  async execute(args, ctx) {
+    if (args.inputs.length < 2) {
+      return {
+        success: false,
+        error: "At least 2 input files required for concatenation",
+      };
+    }
+
+    try {
+      const absOutput = resolve(ctx.workingDirectory, args.output);
+
+      if (args.reencode) {
+        const ffmpegArgs: string[] = [];
+        for (const i of args.inputs) {
+          ffmpegArgs.push("-i", resolve(ctx.workingDirectory, i));
+        }
+        const filterComplex = args.inputs.map((_, i) => `[${i}:v][${i}:a]`).join("");
+        ffmpegArgs.push(
+          "-filter_complex",
+          `${filterComplex}concat=n=${args.inputs.length}:v=1:a=1[outv][outa]`,
+          "-map", "[outv]", "-map", "[outa]",
+          absOutput, "-y",
+        );
+        await execSafe("ffmpeg", ffmpegArgs, { maxBuffer: 100 * 1024 * 1024 });
+      } else {
+        const tempList = resolve(ctx.workingDirectory, `concat-list-${Date.now()}.txt`);
+        const listContent = args.inputs
+          .map((i) => `file '${resolve(ctx.workingDirectory, i)}'`)
+          .join("\n");
+        await writeFile(tempList, listContent, "utf-8");
+        try {
+          await execSafe(
+            "ffmpeg",
+            ["-f", "concat", "-safe", "0", "-i", tempList, "-c", "copy", absOutput, "-y"],
+            { maxBuffer: 100 * 1024 * 1024 },
+          );
+        } finally {
+          await unlink(tempList).catch(() => {});
+        }
+      }
+
+      return {
+        success: true,
+        data: { count: args.inputs.length, output: args.output },
+        humanLines: [`Concatenated ${args.inputs.length} files → ${args.output}`],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to concatenate: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
 export const agentOnlyTools: readonly AnyTool[] = [
   fsListTool as unknown as AnyTool,
   fsReadTool as unknown as AnyTool,
@@ -403,4 +837,11 @@ export const agentOnlyTools: readonly AnyTool[] = [
   batchImportTool as unknown as AnyTool,
   batchConcatTool as unknown as AnyTool,
   batchApplyEffectTool as unknown as AnyTool,
+  timelineClearTool as unknown as AnyTool,
+  exportAudioTool as unknown as AnyTool,
+  exportSubtitlesTool as unknown as AnyTool,
+  mediaInfoTool as unknown as AnyTool,
+  mediaCompressTool as unknown as AnyTool,
+  mediaConvertTool as unknown as AnyTool,
+  mediaConcatTool as unknown as AnyTool,
 ];
