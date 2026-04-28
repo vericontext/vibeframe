@@ -14,6 +14,14 @@ import { commandExists } from "../utils/exec-safe.js";
 import { execSafe } from "../utils/exec-safe.js";
 import { loadEnv } from "../utils/api-key.js";
 import { detectAgentHosts, summariseAgentHosts } from "../utils/agent-host-detect.js";
+import {
+  composerEnvVar,
+  composerLabel,
+  resolveComposer,
+  ComposerResolveError,
+  type ComposerProvider,
+} from "./_shared/composer-resolve.js";
+import { resolveSceneBuildMode } from "./_shared/scene-build.js";
 import { outputResult } from "./output.js";
 
 /**
@@ -145,6 +153,23 @@ interface DiagnosticResults {
       detected: string[];
       summary: string;
     };
+    /**
+     * Plan H — `vibe scene build` agentic dispatch readiness.
+     *
+     * `recommendedMode` mirrors `resolveSceneBuildMode()` so the user
+     * sees what `vibe scene build` will actually do without flags.
+     * `composer` reports the auto-resolved batch fallback (claude /
+     * gemini / openai) so they know which key powers `--mode batch`.
+     * `sceneProjectInCwd` + `skillInstalled` flag whether the local
+     * cwd is a scene project that already has SKILL.md from H1.
+     */
+    sceneComposer: {
+      recommendedMode: "agent" | "batch";
+      composer: ComposerProvider | null;
+      composerEnvVar: string | null;
+      sceneProjectInCwd: boolean;
+      skillInstalled: boolean;
+    };
   };
   providers: Record<
     string,
@@ -266,6 +291,21 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   const hosts = detectAgentHosts();
   const detectedNames = hosts.filter((h) => h.detected).map((h) => h.label);
 
+  // Plan H — scene composer readiness ───────────────────────────────────
+  const recommendedMode = resolveSceneBuildMode({});
+  let composerResolved: ComposerProvider | null = null;
+  let composerEnv: string | null = null;
+  try {
+    const r = resolveComposer();
+    composerResolved = r.provider;
+    composerEnv = composerEnvVar(r.provider);
+  } catch (err) {
+    if (!(err instanceof ComposerResolveError)) throw err;
+    // No composer key — composerResolved stays null. Reported in render.
+  }
+  const sceneProjectInCwd = existsSync(resolve(cwd, "STORYBOARD.md"));
+  const skillInstalled = existsSync(resolve(cwd, "SKILL.md"));
+
   return {
     system: {
       node: { version: nodeVersion, ok: true },
@@ -277,6 +317,13 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
       user: { configured: configExists, configPath: CONFIG_PATH },
       project: { cwd, initialized: projectInitialized, files: projectFiles },
       agentHosts: { detected: detectedNames, summary: summariseAgentHosts(hosts) },
+      sceneComposer: {
+        recommendedMode,
+        composer: composerResolved,
+        composerEnvVar: composerEnv,
+        sceneProjectInCwd,
+        skillInstalled,
+      },
     },
     providers,
     readyCount,
@@ -354,6 +401,36 @@ function printReport(results: DiagnosticResults): void {
   // Agent hosts — informational
   console.log(`    Agents     ${chalk.dim(results.scope.agentHosts.summary)}`);
 
+  // Plan H — scene composer ─────────────────────────────────────────────
+  console.log();
+  console.log(chalk.bold("  Scene composer (vibe scene build)"));
+  const sc = results.scope.sceneComposer;
+  const modeBadge = sc.recommendedMode === "agent"
+    ? chalk.cyan("agent")
+    : chalk.dim("batch");
+  const modeNote = sc.recommendedMode === "agent"
+    ? chalk.dim("host agent authors HTML; no internal LLM call")
+    : chalk.dim("CLI's internal LLM authors HTML");
+  console.log(`    Mode (auto)  ${modeBadge}  ${modeNote}`);
+  if (sc.composer) {
+    console.log(
+      `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`,
+    );
+  } else {
+    console.log(
+      `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`,
+    );
+  }
+  if (sc.sceneProjectInCwd) {
+    if (sc.skillInstalled) {
+      console.log(`    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`);
+    } else {
+      console.log(`    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`);
+    }
+  } else {
+    console.log(`    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`);
+  }
+
   console.log();
   console.log(chalk.bold("  API Keys"));
 
@@ -416,6 +493,12 @@ function pickNextStep(results: DiagnosticResults, hasMissingProviders: boolean):
   }
   if (!results.scope.project.initialized) {
     return "Next: run 'vibe init' in your project directory to scaffold AGENTS.md / CLAUDE.md / .env.example.";
+  }
+  // Plan H — nudge a scene project that's missing the skill files.
+  // Without SKILL.md the agentic compose path can't run.
+  const sc = results.scope.sceneComposer;
+  if (sc.sceneProjectInCwd && !sc.skillInstalled) {
+    return "Next: run 'vibe scene install-skill' so your host agent can read the Hyperframes rules from this project.";
   }
   if (hasMissingProviders) {
     return "Run 'vibe setup' to add more provider keys.";

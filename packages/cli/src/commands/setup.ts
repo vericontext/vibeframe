@@ -425,7 +425,9 @@ function showComplete(
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
 
   // Tailored hint when an agent host is detected — points at the file
-  // `vibe init` will scaffold for that host.
+  // `vibe init` will scaffold for that host, and surfaces the Plan H
+  // agentic compose path so they know `vibe scene build` will dispatch
+  // to their host agent automatically.
   const hosts = detectedAgentHosts();
   const primary = hosts[0];
   if (primary) {
@@ -433,6 +435,19 @@ function showComplete(
     console.log(
       chalk.dim(
         `  Detected ${primary.label} — \`vibe init\` will scaffold ${primary.projectFiles.join(" + ")} in your project.`,
+      ),
+    );
+    console.log(
+      chalk.dim(
+        `  Scene composer will auto-dispatch to ${primary.label} (${chalk.bold("--mode agent")}). ` +
+        `Run \`vibe scene init my-promo\` to scaffold a scene project + install the Hyperframes skill.`,
+      ),
+    );
+  } else {
+    console.log();
+    console.log(
+      chalk.dim(
+        `  No agent host detected — \`vibe scene build\` will use the internal LLM composer (${chalk.bold("--mode batch")}).`,
       ),
     );
   }
