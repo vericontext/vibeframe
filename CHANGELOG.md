@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-04-28
+
+**Issue #33 — CLI UX standardization.** Every CLI command now emits a canonical `--json` envelope. **Breaking change** for agents that parse `--json` output: payload moved from top-level keys into a `data` namespace, the redundant `success: true` key was dropped (exit code 0 is the success signal), and `estimatedCost` (formatted string) was replaced with numeric `costUsd`. Pre-1.0 → no transition shim; one-version migration via `jq .data | <existing>`.
+
+Closes part of #33. Sub-PRs: #192 (audit baseline), #193 (raw `process.exit` cleanup), #194 (canary), #195/#196/#197 (sweep). Remaining work tracked in #33: 2c-coverage (commands lacking `--json`), 2d (`--describe` quality sweep), 2e (snapshot tests).
+
+### Breaking changes
+
+- **`--json` envelope shape** — every command's success output is now:
+  ```json
+  {
+    "command": "generate image",
+    "dryRun"?: true,
+    "elapsedMs": 1234,
+    "costUsd": 0.04,
+    "warnings": [],
+    "data": { /* domain-specific keys (provider, images, outputPath, …) */ }
+  }
+  ```
+  Agent migration:
+  - `jq .images` / `.video` / `.outputPath` / etc. → `jq .data.<same>`
+  - `jq .estimatedCost` (string) → `jq .costUsd` (number)
+  - `jq .success` → drop; rely on exit code (`$?`) or check `data.success: false` for the few sites that emit failure metadata to stdout (scene render/build/compose-prompts when JSON mode is on)
+
+- **Errors still go to stderr** (unchanged): `{ success: false, error, code, exitCode, suggestion?, retryable }` via `exitWithError()`. The new envelope only changes the **stdout success** shape.
+
+- **`--fields` filter now targets `data` keys, not envelope keys** — `vibe analyze video x.mp4 "..." --fields response,model` now returns the envelope with `data.response` and `data.model` filled in, not an empty envelope. Matches the documented `--fields response,model` UX.
+
+### Added
+
+- **Canonical `outputSuccess()` helper** in `packages/cli/src/commands/output.ts` — takes `{ command, data, startedAt, costUsd?, warnings?, dryRun? }`, computes `elapsedMs`, defaults `costUsd` to `COST_ESTIMATES[command].max` for dry-run / 0 for real run.
+- **First real demo case for `warnings`** — `generate image` with Gemini's `latest`/`3.1-flash` auto-fallback to `flash` now surfaces the fallback as a structured warning in `data.warnings` instead of a stderr-mixed log line.
+- **CLI UX audit doc** at `docs/CLI_UX_AUDIT.md` (#192) — inventories every command's `--json` / `--dry-run` / envelope shape / exit code path; defines the `ExitCode` enum (0–6) as the canonical scheme.
+
+### Changed
+
+- **Raw `process.exit()` replaced** in 7 sites inside Commander action handlers (#193): `ai-highlights.ts` (2× `process.exit(0)` → `return`), `scene.ts` (5× `process.exit(1)` → `process.exitCode = 1; return;`). Lets Commander finish cleanly so `finally` blocks run, multiple actions can run in one process for tests, etc.
+- **Doctor JSON shape flattened** — `data: { result: { scope, system, … } }` → `data: { scope, system, … }`. Saves one nesting level for agents.
+
+### Note for downstream consumers
+
+VibeFrame is pre-1.0 (semver allows breaking minor bumps). 105 stars, no known npm-package downstream consumers, so we skipped the dual-emit transition shim. If your agent code parses `--json` output and breaks, the migration is a one-liner: `jq .data | <existing-jq-expression>`. The full migration table is in the audit doc.
+
 ## [0.71.0] - 2026-04-28
 
 Agent-host coverage + CLI-only walkthroughs. Closes the last Claude-Code-only positioning gap on top of Plan H. All changes are additive — no breaking changes. Counts: MCP 65 → 66, Agent 81 → 82.
