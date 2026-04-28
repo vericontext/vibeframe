@@ -17,7 +17,7 @@ import {
 import { requireApiKey } from "../../utils/api-key.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   authError,
@@ -41,6 +41,7 @@ export function registerVideoExtendCommand(parent: Command): void {
     .option("--no-wait", "Start extension and return task ID without waiting")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (id: string, options) => {
+      const startedAt = Date.now();
       try {
         const provider = (options.provider || "kling").toLowerCase();
         if (options.output) {
@@ -48,16 +49,19 @@ export function registerVideoExtendCommand(parent: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate video-extend",
-            params: {
-              id,
-              provider,
-              prompt: options.prompt,
-              duration: options.duration,
-              negative: options.negative,
-              veoModel: options.veoModel,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                id,
+                provider,
+                prompt: options.prompt,
+                duration: options.duration,
+                negative: options.negative,
+                veoModel: options.veoModel,
+              },
             },
           });
           return;
@@ -128,13 +132,16 @@ export function registerVideoExtendCommand(parent: Command): void {
               outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              provider: "kling",
-              taskId: result.id,
-              videoUrl: finalResult.videoUrl,
-              duration: finalResult.duration,
-              outputPath,
+            outputSuccess({
+              command: "generate video-extend",
+              startedAt,
+              data: {
+                provider: "kling",
+                taskId: result.id,
+                videoUrl: finalResult.videoUrl,
+                duration: finalResult.duration,
+                outputPath,
+              },
             });
             return;
           }
@@ -231,13 +238,16 @@ export function registerVideoExtendCommand(parent: Command): void {
               outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              provider: "veo",
-              taskId: result.id,
-              videoUrl: finalResult.videoUrl,
-              duration: finalResult.duration,
-              outputPath,
+            outputSuccess({
+              command: "generate video-extend",
+              startedAt,
+              data: {
+                provider: "veo",
+                taskId: result.id,
+                videoUrl: finalResult.videoUrl,
+                duration: finalResult.duration,
+                outputPath,
+              },
             });
             return;
           }

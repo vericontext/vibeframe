@@ -16,7 +16,7 @@ import { requireApiKey } from "../../utils/api-key.js";
 import { commandExists } from "../../utils/exec-safe.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   notFoundError,
@@ -42,6 +42,7 @@ export function registerThumbnailCommand(parent: Command): void {
     .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
     .option("--model <model>", "Gemini model: flash, latest, pro (default: flash)", "flash")
     .action(async (description: string | undefined, options) => {
+      const startedAt = Date.now();
       try {
         if (description) rejectControlChars(description);
         if (options.output) {
@@ -87,11 +88,14 @@ export function registerThumbnailCommand(parent: Command): void {
           spinner.succeed(chalk.green("Best frame extracted"));
 
           if (isJsonMode()) {
-            outputResult({
-              success: true,
-              timestamp: result.timestamp,
-              reason: result.reason,
-              outputPath: result.outputPath,
+            outputSuccess({
+              command: "generate thumbnail",
+              startedAt,
+              data: {
+                timestamp: result.timestamp,
+                reason: result.reason,
+                outputPath: result.outputPath,
+              },
             });
             return;
           }
@@ -150,7 +154,11 @@ export function registerThumbnailCommand(parent: Command): void {
             await mkdir(dirname(outputPath), { recursive: true });
             await writeFile(outputPath, buffer);
           }
-          outputResult({ success: true, imageUrl: img.url, outputPath });
+          outputSuccess({
+            command: "generate thumbnail",
+            startedAt,
+            data: { imageUrl: img.url, outputPath },
+          });
           return;
         }
 

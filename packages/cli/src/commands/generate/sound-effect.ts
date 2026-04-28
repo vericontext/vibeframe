@@ -12,7 +12,7 @@ import ora from "ora";
 import { ElevenLabsProvider } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-import { isJsonMode, outputResult, exitWithError, apiError } from "../output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 
 // ── Library: executeSoundEffect (used by pipeline executor + manifest) ──
@@ -86,6 +86,7 @@ export function registerSoundEffectCommand(parent: Command): void {
     .option("--prompt-influence <value>", "Prompt influence (0-1, default: 0.3)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {
+      const startedAt = Date.now();
       try {
         rejectControlChars(prompt);
         if (options.output) {
@@ -93,14 +94,17 @@ export function registerSoundEffectCommand(parent: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate sound-effect",
-            params: {
-              prompt,
-              duration: options.duration,
-              promptInfluence: options.promptInfluence,
-              output: options.output,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                prompt,
+                duration: options.duration,
+                promptInfluence: options.promptInfluence,
+                output: options.output,
+              },
             },
           });
           return;
@@ -137,7 +141,11 @@ export function registerSoundEffectCommand(parent: Command): void {
         spinner.succeed(chalk.green("Sound effect generated"));
 
         if (isJsonMode()) {
-          outputResult({ success: true, outputPath });
+          outputSuccess({
+            command: "generate sound-effect",
+            startedAt,
+            data: { outputPath },
+          });
           return;
         }
 

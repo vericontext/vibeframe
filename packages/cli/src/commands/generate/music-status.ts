@@ -10,7 +10,7 @@ import chalk from "chalk";
 import { ReplicateProvider } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-import { isJsonMode, outputResult, exitWithError, apiError } from "../output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 
 // ── Library: executeMusicStatus ─────────────────────────────────────────
 
@@ -73,6 +73,7 @@ export function registerMusicStatusCommand(parent: Command): void {
     .argument("<task-id>", "Task ID from music generation")
     .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
     .action(async (taskId: string, options) => {
+      const startedAt = Date.now();
       try {
         const apiKey = await requireApiKey(
           "REPLICATE_API_TOKEN",
@@ -91,12 +92,15 @@ export function registerMusicStatusCommand(parent: Command): void {
             : result.error
               ? "failed"
               : "processing";
-          outputResult({
-            success: true,
-            taskId,
-            status,
-            audioUrl: result.audioUrl,
-            error: result.error,
+          outputSuccess({
+            command: "generate music-status",
+            startedAt,
+            data: {
+              taskId,
+              status,
+              audioUrl: result.audioUrl,
+              error: result.error,
+            },
           });
           return;
         }

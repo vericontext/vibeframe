@@ -14,7 +14,7 @@ import { requireApiKey } from "../../utils/api-key.js";
 import { sanitizeLLMResponse } from "../sanitize.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   usageError,
@@ -98,6 +98,7 @@ export function registerStoryboardCommand(parent: Command): void {
     .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (content: string, options) => {
+      const startedAt = Date.now();
       try {
         rejectControlChars(content);
         if (options.output) {
@@ -117,13 +118,16 @@ export function registerStoryboardCommand(parent: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate storyboard",
-            params: {
-              content: textContent.substring(0, 200),
-              duration: options.duration,
-              creativity,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                content: textContent.substring(0, 200),
+                duration: options.duration,
+                creativity,
+              },
             },
           });
           return;
@@ -165,16 +169,23 @@ export function registerStoryboardCommand(parent: Command): void {
           const outputPath = resolve(process.cwd(), options.output);
           await writeFile(outputPath, JSON.stringify(segments, null, 2), "utf-8");
           if (isJsonMode()) {
-            outputResult({
-              success: true,
-              segmentCount: segments.length,
-              segments,
-              outputPath,
+            outputSuccess({
+              command: "generate storyboard",
+              startedAt,
+              data: {
+                segmentCount: segments.length,
+                segments,
+                outputPath,
+              },
             });
             return;
           }
         } else if (isJsonMode()) {
-          outputResult({ success: true, segmentCount: segments.length, segments });
+          outputSuccess({
+            command: "generate storyboard",
+            startedAt,
+            data: { segmentCount: segments.length, segments },
+          });
           return;
         }
 

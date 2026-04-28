@@ -19,7 +19,7 @@ import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   notFoundError,
@@ -138,6 +138,7 @@ export function registerMusicCommand(parent: Command): void {
     .option("--no-wait", "Don't wait for generation to complete (Replicate async mode)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {
+      const startedAt = Date.now();
       try {
         rejectControlChars(prompt);
         if (options.output) {
@@ -147,16 +148,19 @@ export function registerMusicCommand(parent: Command): void {
         const provider = (options.provider || "elevenlabs").toLowerCase();
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate music",
-            params: {
-              prompt,
-              provider,
-              duration: options.duration,
-              model: options.model,
-              output: options.output,
-              instrumental: options.instrumental,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                prompt,
+                provider,
+                duration: options.duration,
+                model: options.model,
+                output: options.output,
+                instrumental: options.instrumental,
+              },
             },
           });
           return;
@@ -192,11 +196,14 @@ export function registerMusicCommand(parent: Command): void {
           spinner.succeed(chalk.green("Music generated successfully"));
 
           if (isJsonMode()) {
-            outputResult({
-              success: true,
-              provider: "elevenlabs",
-              outputPath,
-              duration,
+            outputSuccess({
+              command: "generate music",
+              startedAt,
+              data: {
+                provider: "elevenlabs",
+                outputPath,
+                duration,
+              },
             });
             return;
           }
@@ -286,12 +293,15 @@ export function registerMusicCommand(parent: Command): void {
           spinner.succeed(chalk.green("Music generated successfully"));
 
           if (isJsonMode()) {
-            outputResult({
-              success: true,
-              provider: "replicate",
-              taskId: result.taskId,
-              audioUrl: finalResult.audioUrl,
-              outputPath,
+            outputSuccess({
+              command: "generate music",
+              startedAt,
+              data: {
+                provider: "replicate",
+                taskId: result.taskId,
+                audioUrl: finalResult.audioUrl,
+                outputPath,
+              },
             });
             return;
           }

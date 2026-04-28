@@ -18,7 +18,7 @@ import {
 import { requireApiKey } from "../../utils/api-key.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   usageError,
@@ -52,6 +52,7 @@ export function registerVideoStatusCommand(parent: Command): void {
     .option("-w, --wait", "Wait for completion")
     .option("-o, --output <path>", "Download video when complete")
     .action(async (taskId: string, options) => {
+      const startedAt = Date.now();
       try {
         const provider = (options.provider || "grok").toLowerCase();
 
@@ -81,14 +82,17 @@ export function registerVideoStatusCommand(parent: Command): void {
               outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              taskId,
-              provider: "grok",
-              status: result.status,
-              videoUrl: result.videoUrl,
-              error: result.error,
-              outputPath,
+            outputSuccess({
+              command: "generate video-status",
+              startedAt,
+              data: {
+                taskId,
+                provider: "grok",
+                status: result.status,
+                videoUrl: result.videoUrl,
+                error: result.error,
+                outputPath,
+              },
             });
             return;
           }
@@ -159,15 +163,18 @@ export function registerVideoStatusCommand(parent: Command): void {
               outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              taskId,
-              provider: "runway",
-              status: result.status,
-              videoUrl: result.videoUrl,
-              progress: result.progress,
-              error: result.error,
-              outputPath,
+            outputSuccess({
+              command: "generate video-status",
+              startedAt,
+              data: {
+                taskId,
+                provider: "runway",
+                status: result.status,
+                videoUrl: result.videoUrl,
+                progress: result.progress,
+                error: result.error,
+                outputPath,
+              },
             });
             return;
           }
@@ -236,15 +243,18 @@ export function registerVideoStatusCommand(parent: Command): void {
               outputPath = resolve(process.cwd(), options.output);
               await writeFile(outputPath, buffer);
             }
-            outputResult({
-              success: true,
-              taskId,
-              provider: "kling",
-              status: result.status,
-              videoUrl: result.videoUrl,
-              duration: result.duration,
-              error: result.error,
-              outputPath,
+            outputSuccess({
+              command: "generate video-status",
+              startedAt,
+              data: {
+                taskId,
+                provider: "kling",
+                status: result.status,
+                videoUrl: result.videoUrl,
+                duration: result.duration,
+                error: result.error,
+                outputPath,
+              },
             });
             return;
           }

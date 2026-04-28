@@ -16,7 +16,7 @@ import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   log,
   exitWithError,
   apiError,
@@ -89,6 +89,7 @@ export function registerSpeechCommand(parent: Command): void {
     .option("--fit-duration <seconds>", "Speed up audio to fit target duration (via FFmpeg atempo)", parseFloat)
     .option("--dry-run", "Preview parameters without executing")
     .action(async (text: string | undefined, options) => {
+      const startedAt = Date.now();
       try {
         // Interactive prompt if no argument provided
         if (!text) {
@@ -112,10 +113,11 @@ export function registerSpeechCommand(parent: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate speech",
-            params: { text, voice: options.voice, output: options.output },
+            startedAt,
+            dryRun: true,
+            data: { params: { text, voice: options.voice, output: options.output } },
           });
           return;
         }
@@ -217,10 +219,13 @@ export function registerSpeechCommand(parent: Command): void {
         }
 
         if (isJsonMode()) {
-          outputResult({
-            success: true,
-            characterCount: result.characterCount,
-            outputPath,
+          outputSuccess({
+            command: "generate speech",
+            startedAt,
+            data: {
+              characterCount: result.characterCount,
+              outputPath,
+            },
           });
           return;
         }

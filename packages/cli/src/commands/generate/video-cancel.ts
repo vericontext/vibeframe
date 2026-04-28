@@ -12,7 +12,7 @@ import { GrokProvider, RunwayProvider } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   exitWithError,
   apiError,
   usageError,
@@ -26,6 +26,7 @@ export function registerVideoCancelCommand(parent: Command): void {
     .option("-p, --provider <provider>", "Provider: grok, runway", "grok")
     .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET env)")
     .action(async (taskId: string, options) => {
+      const startedAt = Date.now();
       try {
         const provider = (options.provider || "grok").toLowerCase();
 
@@ -42,7 +43,11 @@ export function registerVideoCancelCommand(parent: Command): void {
           if (success) {
             spinner.succeed(chalk.green("Generation cancelled"));
             if (isJsonMode()) {
-              outputResult({ success: true, taskId, provider: "grok", cancelled: true });
+              outputSuccess({
+                command: "generate video-cancel",
+                startedAt,
+                data: { taskId, provider: "grok", cancelled: true },
+              });
               return;
             }
           } else {
@@ -64,7 +69,11 @@ export function registerVideoCancelCommand(parent: Command): void {
           if (success) {
             spinner.succeed(chalk.green("Generation cancelled"));
             if (isJsonMode()) {
-              outputResult({ success: true, taskId, provider: "runway", cancelled: true });
+              outputSuccess({
+                command: "generate video-cancel",
+                startedAt,
+                data: { taskId, provider: "runway", cancelled: true },
+              });
               return;
             }
           } else {
