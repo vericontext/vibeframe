@@ -87,6 +87,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **MCP server** | ❌ | ✅ 64 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
+| **OSS provider plugin** | — | `defineProvider({...})` registry — adding an AI provider is a single declaration; resolver / config / setup / doctor / `.env.example` all auto-derive (`pnpm scaffold:provider <name>` for the boilerplate) |
 
 The short version: **if you already write HTML compositions and want them rendered well, use Hyperframes directly. If you want AI to *write* those compositions for you, edit them traditionally, surface them to Claude Code via MCP, or stitch a multi-stage AI pipeline — that's VibeFrame.**
 
@@ -462,6 +463,20 @@ pnpm lint      # Lint code
 ```
 
 Contributions welcome — AI provider integrations, CLI improvements, docs, bug fixes & tests. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Quickest contribution path** (post-v0.69 scaffold tooling):
+
+```bash
+# Add a new AI provider — single declaration, 5 derived consumers auto-update
+pnpm scaffold:provider <name>
+
+# Add a new CLI subcommand under generate or edit
+pnpm scaffold:command <generate|edit> <name>
+```
+
+Both scaffolds generate the file skeleton + wire the registration. Fill in the `defineProvider({...})` metadata or `executeXxx` body, run `pnpm -r exec tsc --noEmit && pnpm -F @vibeframe/cli test`, and submit.
+
+The walkthroughs in [CONTRIBUTING.md](CONTRIBUTING.md) cover both flows step by step (≤5 min each).
 
 ### Contributors
 
