@@ -23,7 +23,7 @@ import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import {
   isJsonMode,
-  outputResult,
+  outputSuccess,
   log,
   exitWithError,
   apiError,
@@ -66,6 +66,7 @@ Examples:
   $ vibe gen vid "ocean waves" -o waves.mp4 -p veo --resolution 1080p # Veo
   $ vibe gen vid "sunset" -o sun.mp4 -d 10 --dry-run --json`)
     .action(async (prompt: string | undefined, options) => {
+      const startedAt = Date.now();
       try {
         // Interactive prompt if no argument provided
         if (!prompt) {
@@ -177,19 +178,22 @@ Examples:
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate video",
-            params: {
-              prompt,
-              provider,
-              duration: options.duration,
-              ratio: options.ratio,
-              image: options.image,
-              mode: options.mode,
-              negative: options.negative,
-              resolution: options.resolution,
-              veoModel: options.veoModel,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                prompt,
+                provider,
+                duration: options.duration,
+                ratio: options.ratio,
+                image: options.image,
+                mode: options.mode,
+                negative: options.negative,
+                resolution: options.resolution,
+                veoModel: options.veoModel,
+              },
             },
           });
           return;
@@ -527,13 +531,16 @@ Examples:
             outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
           }
-          outputResult({
-            success: true,
-            provider,
-            taskId: result?.id,
-            videoUrl: finalResult.videoUrl,
-            duration: finalResult.duration,
-            outputPath,
+          outputSuccess({
+            command: "generate video",
+            startedAt,
+            data: {
+              provider,
+              taskId: result?.id,
+              videoUrl: finalResult.videoUrl,
+              duration: finalResult.duration,
+              outputPath,
+            },
           });
           return;
         }

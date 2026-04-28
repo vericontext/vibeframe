@@ -12,7 +12,7 @@ import ora from "ora";
 import { OpenAIImageProvider } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-import { isJsonMode, outputResult, exitWithError, apiError } from "../output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 
 // ── Library: executeBackground ──────────────────────────────────────────
@@ -98,6 +98,7 @@ export function registerBackgroundCommand(parent: Command): void {
     .option("-a, --aspect <ratio>", "Aspect ratio: 16:9, 9:16, 1:1", "16:9")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (description: string, options) => {
+      const startedAt = Date.now();
       try {
         rejectControlChars(description);
         if (options.output) {
@@ -105,10 +106,11 @@ export function registerBackgroundCommand(parent: Command): void {
         }
 
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "generate background",
-            params: { description, aspect: options.aspect, output: options.output },
+            startedAt,
+            dryRun: true,
+            data: { params: { description, aspect: options.aspect, output: options.output } },
           });
           return;
         }
@@ -151,7 +153,11 @@ export function registerBackgroundCommand(parent: Command): void {
             await mkdir(dirname(outputPath), { recursive: true });
             await writeFile(outputPath, buffer);
           }
-          outputResult({ success: true, imageUrl: img.url, outputPath });
+          outputSuccess({
+            command: "generate background",
+            startedAt,
+            data: { imageUrl: img.url, outputPath },
+          });
           return;
         }
 
