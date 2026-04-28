@@ -1,10 +1,6 @@
 /**
  * @module manifest/scene
  * @description Scene authoring tools (scene_init/add/lint/render/build/styles).
- * v0.65 migration is incremental: only the entries listed in `MIGRATED`
- * (define-tool.ts) are sourced from the manifest; the rest still come from
- * `packages/cli/src/agent/tools/scene.ts` and
- * `packages/mcp-server/src/tools/scene.ts`.
  */
 
 import { z } from "zod";

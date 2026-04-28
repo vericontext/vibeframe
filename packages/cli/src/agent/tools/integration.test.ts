@@ -10,7 +10,6 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ToolRegistry } from "./index.js";
-import { registerProjectTools } from "./project.js";
 import { manifest } from "../../tools/manifest/index.js";
 import { registerManifestIntoAgent } from "../../tools/adapters/agent.js";
 // Mock the imported CLI functions to avoid actual API calls
@@ -168,18 +167,12 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
 
   beforeEach(() => {
     registry = new ToolRegistry();
-    // Mirror production: manifest first, then legacy register*Tools (which
-    // skip names already in MIGRATED).
     registerManifestIntoAgent(registry, manifest);
-    registerProjectTools(registry);
   });
 
   describe("Tool Registration", () => {
-    it("should register the full manifest + legacy agent-only tools", () => {
-      // Production registers manifest (79 entries with agent surface) plus
-      // legacy register*Tools (gated on MIGRATED). 6 scene tools come from
-      // manifest now, so the previous "73 non-scene" framing no longer
-      // applies — assert the post-v0.66 unified count.
+    it("should register the full manifest", () => {
+      // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
       expect(tools.length).toBe(79);
     });
@@ -740,10 +733,7 @@ describe("Tool Name Consistency", () => {
 
   beforeEach(() => {
     registry = new ToolRegistry();
-    // Mirror production: manifest first, then legacy register*Tools (which
-    // skip names already in MIGRATED).
     registerManifestIntoAgent(registry, manifest);
-    registerProjectTools(registry);
   });
 
   it("all tool names should follow naming convention", () => {
@@ -783,11 +773,12 @@ describe("Tool Name Consistency", () => {
 });
 
 /**
- * Regression for v0.65 silent overwrite bug: legacy register*Tools functions
- * in ai-editing/ai-generation/ai-pipeline/media did NOT gate on MIGRATED, so
- * they ran AFTER registerManifestIntoAgent and overwrote manifest definitions
- * via Map.set. v0.66 PR1 added MIGRATED gates to all four files. This test
- * proves the manifest definition is what the registry actually serves.
+ * Manifest = SSOT invariant. Originally added in v0.66 PR1 as a regression
+ * for the silent-overwrite bug (legacy register*Tools running AFTER
+ * registerManifestIntoAgent and clobbering definitions via Map.set). After
+ * v0.67 PR2 there are no more legacy register*Tools paths — this test now
+ * acts as an adapter-roundtrip check: registry descriptions stay in sync
+ * with manifest descriptions.
  */
 describe("Manifest is SSOT for Agent surface", () => {
   let registry: ToolRegistry;
@@ -795,7 +786,6 @@ describe("Manifest is SSOT for Agent surface", () => {
   beforeEach(() => {
     registry = new ToolRegistry();
     registerManifestIntoAgent(registry, manifest);
-    registerProjectTools(registry);
   });
 
   it("every manifest entry with agent surface has its description served by registry", () => {

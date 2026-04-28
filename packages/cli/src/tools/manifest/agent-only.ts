@@ -21,6 +21,7 @@ import { defineTool, type AnyTool } from "../define-tool.js";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
+import { loadProject, saveProject } from "./_project-io.js";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -499,6 +500,140 @@ export const timelineClearTool = defineTool({
   },
 });
 
+// ─── project_set / project_open / project_save ────────────────────────────
+// These three operate on the agent's "current project" pointer
+// (`ctx.agent?.projectPath`) — that's why they're surfaces=["agent"]. The
+// pointer is a UX nicety: it shows up in the system prompt and in the REPL
+// header so the LLM doesn't need to repeat the project path every turn.
+
+export const projectSetTool = defineTool({
+  name: "project_set",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Update project settings (name, aspect ratio, frame rate)",
+  schema: z.object({
+    projectPath: z.string().describe("Project file path"),
+    name: z.string().optional().describe("New project name"),
+    aspectRatio: z.enum(["16:9", "9:16", "1:1", "4:5"]).optional().describe("New aspect ratio"),
+    fps: z.number().optional().describe("New frame rate"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const filePath = await resolveProjectPath(args.projectPath, ctx.workingDirectory);
+      const content = await readFile(filePath, "utf-8");
+      const data: ProjectFile = JSON.parse(content);
+      const project = Project.fromJSON(data);
+
+      const updates: string[] = [];
+      if (args.name) {
+        project.setName(args.name);
+        updates.push(`Name: ${args.name}`);
+      }
+      if (args.aspectRatio) {
+        project.setAspectRatio(args.aspectRatio);
+        updates.push(`Aspect Ratio: ${args.aspectRatio}`);
+      }
+      if (args.fps) {
+        project.setFrameRate(args.fps);
+        updates.push(`Frame Rate: ${args.fps} fps`);
+      }
+
+      await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+
+      return {
+        success: true,
+        data: { updates },
+        humanLines: updates.length > 0 ? [`Project updated:`, ...updates] : ["No changes specified"],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to update project: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+export const projectOpenTool = defineTool({
+  name: "project_open",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Open an existing project and set it as the current context",
+  schema: z.object({
+    projectPath: z.string().describe("Project file path"),
+  }),
+  async execute(args, ctx) {
+    try {
+      const filePath = await resolveProjectPath(args.projectPath, ctx.workingDirectory);
+      const { project } = await loadProject(filePath, "");
+      ctx.agent?.setProjectPath(filePath);
+
+      const summary = project.getSummary();
+      return {
+        success: true,
+        data: {
+          path: filePath,
+          name: summary.name,
+          clips: summary.clipCount,
+          duration: summary.duration,
+        },
+        humanLines: [
+          `Project opened: ${filePath}`,
+          `Name: ${summary.name}`,
+          `Clips: ${summary.clipCount}`,
+          `Duration: ${summary.duration.toFixed(1)}s`,
+        ],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to open project: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
+export const projectSaveTool = defineTool({
+  name: "project_save",
+  category: "agent-only",
+  cost: "free",
+  surfaces: ["agent"],
+  description: "Save the current project (uses ctx.agent.projectPath if no path given)",
+  schema: z.object({
+    projectPath: z
+      .string()
+      .optional()
+      .describe("Project file path (uses current agent project if omitted)"),
+  }),
+  async execute(args, ctx) {
+    const path = args.projectPath ?? ctx.agent?.projectPath ?? null;
+    if (!path) {
+      return {
+        success: false,
+        error: "No project path specified and no project in context. Open one with project_open first.",
+      };
+    }
+
+    try {
+      const filePath = await resolveProjectPath(path, ctx.workingDirectory);
+      const { project, absPath } = await loadProject(filePath, "");
+      await saveProject(absPath, project);
+      return {
+        success: true,
+        data: { path: absPath },
+        humanLines: [`Project saved: ${absPath}`],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to save project: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+});
+
 // ─── export_audio / export_subtitles ───────────────────────────────────────
 // These are intentional stubs: the canonical paths are export_video + FFmpeg
 // extraction (audio) and audio_transcribe (subtitles). They live in the
@@ -838,6 +973,9 @@ export const agentOnlyTools: readonly AnyTool[] = [
   batchConcatTool as unknown as AnyTool,
   batchApplyEffectTool as unknown as AnyTool,
   timelineClearTool as unknown as AnyTool,
+  projectSetTool as unknown as AnyTool,
+  projectOpenTool as unknown as AnyTool,
+  projectSaveTool as unknown as AnyTool,
   exportAudioTool as unknown as AnyTool,
   exportSubtitlesTool as unknown as AnyTool,
   mediaInfoTool as unknown as AnyTool,

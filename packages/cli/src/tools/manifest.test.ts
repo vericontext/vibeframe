@@ -9,13 +9,10 @@
  * - MCP adapter round-trip: every entry tagged `mcp` produces a valid
  *   inputSchema
  * - Agent adapter round-trip: every entry tagged `agent` registers cleanly
- * - Every name in `MIGRATED` is actually present in the manifest (catches
- *   "added MIGRATED entry but forgot to add the manifest tool")
  */
 
 import { describe, expect, it } from "vitest";
 import { manifest } from "./manifest/index.js";
-import { MIGRATED } from "./define-tool.js";
 import { manifestToMcpTools } from "./adapters/mcp.js";
 import {
   registerManifestIntoAgent,
@@ -78,13 +75,4 @@ describe("tool manifest invariants", () => {
     expect(registered).toEqual(expected.map((t) => t.name).sort());
   });
 
-  it("every name in MIGRATED is present in the manifest", () => {
-    const manifestNames = new Set(manifest.map((t) => t.name));
-    for (const migrated of MIGRATED) {
-      expect(
-        manifestNames.has(migrated),
-        `MIGRATED has "${migrated}" but the manifest does not define it`,
-      ).toBe(true);
-    }
-  });
 });

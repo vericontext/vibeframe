@@ -119,26 +119,16 @@ export class ToolRegistry {
 // Global registry instance
 export const toolRegistry = new ToolRegistry();
 
-// Re-export tool modules — these expose only the agent-only tools that
-// could not be migrated to the manifest (ones that mutate AgentContext
-// like project_open/save). fs_* / batch_* moved to manifest agent-only in
-// v0.66 PR3; media_* / timeline_clear / export_* stubs in v0.67 PR1.
-export { registerProjectTools } from "./project.js";
-
 /**
- * Register all tools. The manifest is the source of truth for ~86 tools
- * (72 mcp+agent + 14 agent-only); the legacy register*Tools call below
- * adds the only remaining stragglers — project_set/open/save which mutate
- * AgentContext.projectPath. They stay agent-only until ExecuteContext
- * gains projectPath plumbing.
+ * Register all tools. The manifest (`packages/cli/src/tools/manifest/`) is
+ * now the single source of truth for every Agent tool. v0.67 PR2 finished
+ * the migration — there are no legacy `register*Tools` left.
  */
 export async function registerAllTools(registry: ToolRegistry): Promise<void> {
-  const { registerProjectTools } = await import("./project.js");
   const { manifest } = await import("../../tools/manifest/index.js");
   const { registerManifestIntoAgent } = await import(
     "../../tools/adapters/agent.js"
   );
 
   registerManifestIntoAgent(registry, manifest);
-  registerProjectTools(registry);
 }

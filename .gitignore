@@ -1,5 +1,6 @@
 # Secrets / local config
 .mcp.json
+.claude/scheduled_tasks.lock
 
 # Dependencies
 node_modules
