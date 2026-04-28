@@ -1,13 +1,15 @@
 # @vibeframe/mcp-server
 
-The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe). This package is *only* the MCP adapter — it exposes VibeFrame's operations as typed MCP tools so a host (Claude Desktop, Claude Code, Cursor, …) can call them by natural language.
+The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe). This package is *only* the MCP adapter — it exposes VibeFrame's operations as typed MCP tools so an MCP-capable host can call them by natural language.
+
+Confirmed MCP hosts today: **Claude Desktop**, **Cursor**, **OpenCode**, and **Claude Code** (Claude Code can drive `vibe` natively via shell + `AGENTS.md`; the `claude mcp add` route below adds the typed-tool option for users who prefer it). For non-MCP hosts (Codex, Aider, Gemini CLI, anything else that shells out to bash), use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) directly — same operations.
 
 > **Just want a CLI?** Use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) instead — same operations, invoked directly in your shell as `vibe <command>`. This package and the CLI wrap the same underlying engine; pick whichever fits your workflow. Many users install both.
 
 | Surface | Package | How you call it |
 |---------|---------|-----------------|
-| MCP host (Claude Desktop / Cursor / Claude Code) | `@vibeframe/mcp-server` *(this)* | host calls tool by name → `mcp__vibeframe__scene_init({...})` |
-| Shell / scripts | `@vibeframe/cli` | `vibe scene init my-promo` |
+| MCP host (Claude Desktop / Cursor / OpenCode / Claude Code) | `@vibeframe/mcp-server` *(this)* | host calls tool by name → `mcp__vibeframe__scene_init({...})` |
+| Shell / scripts (any agent host: Codex / Aider / Gemini CLI / etc.) | `@vibeframe/cli` | `vibe scene init my-promo` |
 | Standalone agent REPL | `@vibeframe/cli` (`vibe agent`) | natural language → CLI calls |
 
 The tool list below is what the MCP host sees. The same operations exist as `vibe <verb> <noun>` subcommands in the CLI — see `vibe --help`.
@@ -44,7 +46,24 @@ Add to `.cursor/mcp.json`:
 }
 ```
 
+### OpenCode
+
+Add to `.opencode/mcp.json` (or your global config per [opencode.ai/docs/config](https://opencode.ai/docs/config/)):
+
+```json
+{
+  "mcpServers": {
+    "vibeframe": {
+      "command": "npx",
+      "args": ["-y", "@vibeframe/mcp-server"]
+    }
+  }
+}
+```
+
 ### Claude Code
+
+Claude Code drives `vibe` natively via shell + the scaffolded `AGENTS.md` / `CLAUDE.md` — MCP isn't required. If you'd like the typed-tool surface anyway:
 
 ```bash
 claude mcp add vibeframe -- npx -y @vibeframe/mcp-server
@@ -63,20 +82,22 @@ Once connected, your MCP host can resolve prompts like these into typed tool cal
 > "Remove silent segments and add captions to my interview"
 > *→ `edit_silence_cut` + `edit_caption`*
 
-## Available Tools (63)
+## Available Tools (66)
 
 Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows them as `mcp__vibeframe__scene_init`). Each one wraps the same engine call as the matching `vibe` CLI subcommand.
 
-### Scene authoring (6) — v0.58–v0.60
+### Scene authoring (8) — v0.58–v0.70
 
 | Tool | Description |
 |------|-------------|
-| `scene_init` | Scaffold a scene project with `STORYBOARD.md` + `DESIGN.md` |
+| `scene_init` | Scaffold a scene project with `STORYBOARD.md` + `DESIGN.md` (auto-installs Hyperframes skill) |
 | `scene_styles` | List the 8 vendored visual identities (Swiss Pulse, Data Drift, …) or fetch one |
 | `scene_add` | Append a beat (narration + backdrop + composed HTML) |
+| `scene_install_skill` | Retroactive install of the Hyperframes skill bundle into a scene project (Plan H — Phase 1) |
 | `scene_lint` | Validate composition HTML against the visual identity |
 | `scene_render` | Deterministic Hyperframes render → MP4 |
-| `scene_build` | **v0.60 one-shot**: STORYBOARD.md cues → TTS + image + compose + render → MP4 (cached, idempotent) |
+| `scene_compose_prompts` | Emit the per-beat compose plan (no LLM call) — host agent authors HTML itself (Plan H — Phase 2) |
+| `scene_build` | **v0.60 one-shot**: STORYBOARD.md cues → TTS + image + compose + render → MP4 (cached, idempotent). `--mode <agent\|batch\|auto>` dispatch added in Plan H Phase 3. |
 
 ### Generation (13)
 
@@ -94,7 +115,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `generate_thumbnail` | AI thumbnail composition | OpenAI, Google |
 | `generate_storyboard` | Multi-beat storyboard frames | OpenAI, Google |
 
-### Editing (14)
+### Editing (15)
 
 | Tool | Description |
 |------|-------------|
@@ -111,6 +132,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `edit_image` | Image editing (gpt-image-2, Gemini) |
 | `edit_noise_reduce` | Audio/video denoise |
 | `edit_translate_srt` | Translate SRT subtitles |
+| `edit_fill_gaps` | Detect & fill missing video segments via TTS narration timing (Plan G — Phase 4) |
 
 ### Audio (5)
 
@@ -166,7 +188,13 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `pipeline_auto_shorts` | Long-form → vertical shorts |
 | `pipeline_regenerate_scene` | Re-render a single scene against an existing storyboard.{yaml,json} |
 
-> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark known TODOs (currently `edit_fill_gaps` and `analyze_suggest`).
+### Walkthrough (1)
+
+| Tool | Description |
+|------|-------------|
+| `walkthrough` | Cross-host equivalent of Claude Code's `/vibe-*` slash commands — interactive guides for `scene` and `pipeline` flows (v0.71) |
+
+> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio voices`, `vibe project set`) that are intentionally not exposed via MCP.
 
 ## Resources
 
