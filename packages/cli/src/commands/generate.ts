@@ -54,6 +54,15 @@ import { getProvidersFor } from "@vibeframe/ai-providers";
 import { executeThumbnailBestFrame } from "./ai-image.js";
 import { registerMotionCommand } from "./ai-motion.js";
 import { executeOpenAIImageGenerate } from "./_shared/openai-image.js";
+import { registerSoundEffectCommand } from "./generate/sound-effect.js";
+import { registerMusicStatusCommand } from "./generate/music-status.js";
+import { registerVideoCancelCommand } from "./generate/video-cancel.js";
+// Re-export for backward compat (pipeline/executor.ts and other consumers
+// import these from `./generate.js`).
+export { executeSoundEffect } from "./generate/sound-effect.js";
+export type { ExecuteSoundEffectOptions, ExecuteSoundEffectResult } from "./generate/sound-effect.js";
+export { executeMusicStatus } from "./generate/music-status.js";
+export type { ExecuteMusicStatusOptions, ExecuteMusicStatusResult } from "./generate/music-status.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1128,65 +1137,10 @@ generateCommand
   });
 
 // ============================================================================
-// 4. Sound Effect (was: ai sfx)
-// Note: -p is reserved for --provider; --prompt-influence is long-only
+// 4. Sound Effect → moved to commands/generate/sound-effect.ts (v0.69 Phase 2)
 // ============================================================================
 
-generateCommand
-  .command("sound-effect")
-  .description("Generate sound effect using ElevenLabs")
-  .argument("<prompt>", "Description of the sound effect")
-  .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
-  .option("-o, --output <path>", "Output audio file path", "sound-effect.mp3")
-  .option("-d, --duration <seconds>", "Duration in seconds (0.5-22, default: auto)")
-  .option("--prompt-influence <value>", "Prompt influence (0-1, default: 0.3)")
-  .option("--dry-run", "Preview parameters without executing")
-  .action(async (prompt: string, options) => {
-    try {
-      rejectControlChars(prompt);
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
-
-      if (options.dryRun) {
-        outputResult({ dryRun: true, command: "generate sound-effect", params: { prompt, duration: options.duration, promptInfluence: options.promptInfluence, output: options.output } });
-        return;
-      }
-
-      const apiKey = await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
-
-      const spinner = ora("Generating sound effect...").start();
-
-      const elevenlabs = new ElevenLabsProvider();
-      await elevenlabs.initialize({ apiKey });
-
-      const result = await elevenlabs.generateSoundEffect(prompt, {
-        duration: options.duration ? parseFloat(options.duration) : undefined,
-        promptInfluence: options.promptInfluence ? parseFloat(options.promptInfluence) : undefined,
-      });
-
-      if (!result.success || !result.audioBuffer) {
-        spinner.fail(result.error || "Sound effect generation failed");
-        exitWithError(apiError(result.error || "Sound effect generation failed", true));
-      }
-
-      const outputPath = resolve(process.cwd(), options.output);
-      await writeFile(outputPath, result.audioBuffer);
-
-      spinner.succeed(chalk.green("Sound effect generated"));
-
-      if (isJsonMode()) {
-        outputResult({ success: true, outputPath });
-        return;
-      }
-
-      console.log(chalk.green(`Saved to: ${outputPath}`));
-      console.log();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(apiError(`Sound effect generation failed: ${msg}`, true));
-    }
-  });
+registerSoundEffectCommand(generateCommand);
 
 // ============================================================================
 // 5. Music
@@ -1336,49 +1290,10 @@ generateCommand
   });
 
 // ============================================================================
-// 6. Music Status
+// 6. Music Status → moved to commands/generate/music-status.ts (v0.69 Phase 2)
 // ============================================================================
 
-generateCommand
-  .command("music-status", { hidden: true })
-  .description("Check music generation status")
-  .argument("<task-id>", "Task ID from music generation")
-  .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
-  .action(async (taskId: string, options) => {
-    try {
-      const apiKey = await requireApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
-
-      const replicate = new ReplicateProvider();
-      await replicate.initialize({ apiKey });
-
-      const result = await replicate.getMusicStatus(taskId);
-
-      if (isJsonMode()) {
-        const status = result.audioUrl ? "completed" : result.error ? "failed" : "processing";
-        outputResult({ success: true, taskId, status, audioUrl: result.audioUrl, error: result.error });
-        return;
-      }
-
-      console.log();
-      console.log(chalk.bold.cyan("Music Generation Status"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log(`Task ID: ${taskId}`);
-
-      if (result.audioUrl) {
-        console.log(`Status: ${chalk.green("completed")}`);
-        console.log(`Audio URL: ${result.audioUrl}`);
-      } else if (result.error) {
-        console.log(`Status: ${chalk.red("failed")}`);
-        console.log(`Error: ${result.error}`);
-      } else {
-        console.log(`Status: ${chalk.yellow("processing")}`);
-      }
-      console.log();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(apiError(`Failed to get music status: ${msg}`, true));
-    }
-  });
+registerMusicStatusCommand(generateCommand);
 
 // ============================================================================
 // 7. Storyboard
@@ -1949,65 +1864,10 @@ generateCommand
   });
 
 // ============================================================================
-// 12. Video Cancel
+// 12. Video Cancel → moved to commands/generate/video-cancel.ts (v0.69 Phase 2)
 // ============================================================================
 
-generateCommand
-  .command("video-cancel", { hidden: true })
-  .description("Cancel video generation (Grok or Runway)")
-  .argument("<task-id>", "Task ID to cancel")
-  .option("-p, --provider <provider>", "Provider: grok, runway", "grok")
-  .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET env)")
-  .action(async (taskId: string, options) => {
-    try {
-      const provider = (options.provider || "grok").toLowerCase();
-
-      let success = false;
-
-      if (provider === "grok") {
-        const apiKey = await requireApiKey("XAI_API_KEY", "xAI", options.apiKey);
-
-        const spinner = ora("Cancelling generation...").start();
-        const grok = new GrokProvider();
-        await grok.initialize({ apiKey });
-        success = await grok.cancelGeneration(taskId);
-
-        if (success) {
-          spinner.succeed(chalk.green("Generation cancelled"));
-          if (isJsonMode()) {
-            outputResult({ success: true, taskId, provider: "grok", cancelled: true });
-            return;
-          }
-        } else {
-          spinner.fail("Failed to cancel generation");
-          exitWithError(apiError("Failed to cancel generation", true));
-        }
-      } else if (provider === "runway") {
-        const apiKey = await requireApiKey("RUNWAY_API_SECRET", "Runway", options.apiKey);
-
-        const spinner = ora("Cancelling generation...").start();
-        const runway = new RunwayProvider();
-        await runway.initialize({ apiKey });
-        success = await runway.cancelGeneration(taskId);
-
-        if (success) {
-          spinner.succeed(chalk.green("Generation cancelled"));
-          if (isJsonMode()) {
-            outputResult({ success: true, taskId, provider: "runway", cancelled: true });
-            return;
-          }
-        } else {
-          spinner.fail("Failed to cancel generation");
-          exitWithError(apiError("Failed to cancel generation", true));
-        }
-      } else {
-        exitWithError(usageError(`Invalid provider: ${provider}. Use grok or runway.`));
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(apiError(`Failed to cancel: ${msg}`, true));
-    }
-  });
+registerVideoCancelCommand(generateCommand);
 
 // ============================================================================
 // 13. Video Extend (merged: ai video-extend + ai veo-extend)
@@ -2264,45 +2124,7 @@ export async function executeSpeech(options: ExecuteSpeechOptions): Promise<Exec
   }
 }
 
-export interface ExecuteSoundEffectOptions {
-  prompt: string;
-  output?: string;
-  duration?: number;
-  promptInfluence?: number;
-}
-export interface ExecuteSoundEffectResult {
-  success: boolean;
-  outputPath?: string;
-  error?: string;
-}
-
-export async function executeSoundEffect(options: ExecuteSoundEffectOptions): Promise<ExecuteSoundEffectResult> {
-  try {
-    const apiKey = hasApiKey("ELEVENLABS_API_KEY")
-      ? (await getApiKeyFromConfig("elevenlabs") || process.env.ELEVENLABS_API_KEY!)
-      : null;
-    if (!apiKey) return { success: false, error: "ElevenLabs API key required. Set ELEVENLABS_API_KEY or run: vibe setup" };
-
-    const elevenlabs = new ElevenLabsProvider();
-    await elevenlabs.initialize({ apiKey });
-
-    const result = await elevenlabs.generateSoundEffect(options.prompt, {
-      duration: options.duration,
-      promptInfluence: options.promptInfluence,
-    });
-
-    if (!result.success || !result.audioBuffer) {
-      return { success: false, error: result.error || "Sound effect generation failed" };
-    }
-
-    const outputPath = resolve(process.cwd(), options.output || "sound-effect.mp3");
-    await writeFile(outputPath, result.audioBuffer);
-
-    return { success: true, outputPath };
-  } catch (error) {
-    return { success: false, error: `SFX failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
+// executeSoundEffect moved to commands/generate/sound-effect.ts (v0.69)
 
 export interface ExecuteMusicOptions {
   prompt: string;
@@ -2499,44 +2321,4 @@ export async function executeBackground(options: ExecuteBackgroundOptions): Prom
   }
 }
 
-export interface ExecuteMusicStatusOptions {
-  taskId: string;
-  apiKey?: string;
-}
-export interface ExecuteMusicStatusResult {
-  success: boolean;
-  taskId?: string;
-  status?: "completed" | "failed" | "processing";
-  audioUrl?: string;
-  error?: string;
-}
-
-export async function executeMusicStatus(options: ExecuteMusicStatusOptions): Promise<ExecuteMusicStatusResult> {
-  try {
-    const apiKey = options.apiKey
-      ?? (hasApiKey("REPLICATE_API_TOKEN")
-        ? ((await getApiKeyFromConfig("replicate")) || process.env.REPLICATE_API_TOKEN!)
-        : null);
-    if (!apiKey) return { success: false, error: "REPLICATE_API_TOKEN required for music status" };
-
-    const replicate = new ReplicateProvider();
-    await replicate.initialize({ apiKey });
-    const result = await replicate.getMusicStatus(options.taskId);
-
-    const status: "completed" | "failed" | "processing" = result.audioUrl
-      ? "completed"
-      : result.error
-      ? "failed"
-      : "processing";
-
-    return {
-      success: true,
-      taskId: options.taskId,
-      status,
-      audioUrl: result.audioUrl,
-      error: result.error,
-    };
-  } catch (error) {
-    return { success: false, error: `Music status check failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
+// executeMusicStatus moved to commands/generate/music-status.ts (v0.69)
