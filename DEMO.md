@@ -3,9 +3,10 @@
 Four steps from `curl install.sh | bash` to a rendered MP4 — every step is
 copy-pasteable and produces a real artifact on disk.
 
-> The screen recordings below are produced by the three [VHS](https://github.com/charmbracelet/vhs)
-> tapes in [`assets/demos/`](assets/demos/). To regenerate them after
-> changes, install vhs (`brew install vhs`) and run
+> The screen recordings below are produced by [VHS](https://github.com/charmbracelet/vhs)
+> tapes in [`assets/demos/`](assets/demos/) — see [`assets/demos/README.md`](assets/demos/README.md)
+> for the full index of 7 tapes (3 quick-aids + 4 surfaces). To regenerate them
+> after changes, install vhs (`brew install vhs`) and run
 > [`scripts/record-vhs.sh`](scripts/record-vhs.sh).
 
 | Step | Command | Scope | What happens |
@@ -16,7 +17,7 @@ copy-pasteable and produces a real artifact on disk.
 | 4. Build | `vibe scene build my-promo` | project | STORYBOARD.md → narration TTS → backdrop image-gen → compose → MP4 |
 
 Steps 2-4 each have a recording below. Step 1 is just an `npm install`
-under the hood and isn't worth a GIF.
+under the hood and isn't worth a recording.
 
 ---
 
@@ -38,7 +39,7 @@ v0.61), so it tells you what's missing and which command fixes it
 
 ## 2. Setup — user scope (once per machine)
 
-> 📼 [`assets/demos/setup.tape`](assets/demos/setup.tape) — VHS recipe. Run `vhs assets/demos/setup.tape` to capture a fresh GIF locally.
+> 📼 [`assets/demos/setup.tape`](assets/demos/setup.tape) — VHS recipe. Run `vhs assets/demos/setup.tape` to capture a fresh MP4 locally.
 
 `vibe setup` is interactive — it detects which agent hosts you have
 installed (Claude Code / Codex / Cursor / Aider) and offers to install
@@ -61,7 +62,7 @@ and FFmpeg-only edits (`silence-cut`, `fade`, `noise-reduce`).
 
 ## 3. Init — project scope (once per project)
 
-> 📼 [`assets/demos/init.tape`](assets/demos/init.tape) — VHS recipe. Run `vhs assets/demos/init.tape` to capture a fresh GIF locally.
+> 📼 [`assets/demos/init.tape`](assets/demos/init.tape) — VHS recipe. Run `vhs assets/demos/init.tape` to capture a fresh MP4 locally.
 
 `vibe init` writes the agent-aware project files. The default
 `--agent auto` reads which agent host you have configured and picks the
@@ -92,7 +93,7 @@ cursor .                            # Cursor reads AGENTS.md
 
 ## 4. Build — STORYBOARD.md → MP4
 
-> 📼 [`assets/demos/build.tape`](assets/demos/build.tape) — VHS recipe. Run `vhs assets/demos/build.tape` to capture a fresh GIF locally.
+> 📼 [`assets/demos/build.tape`](assets/demos/build.tape) — VHS recipe. Run `vhs assets/demos/build.tape` to capture a fresh MP4 locally.
 
 `vibe scene build` is the v0.60 one-shot driver. Author your storyboard
 once, then this command:
@@ -150,16 +151,20 @@ for the reference fixture.
 
 ---
 
-## Three agent hosts, one project
+## Six agent hosts, one project
 
 Once `vibe init` has scaffolded the project, every supported agent host
-sees the same guidance:
+sees the same guidance. `vibe doctor` auto-detects all six and `vibe init`
+writes the right project files for each.
 
 | Host | File read | How it integrates |
 |---|---|---|
 | Claude Code | `CLAUDE.md` (imports `@AGENTS.md`) | Slash commands `/vibe-pipeline`, `/vibe-scene` (install via [`scripts/install-skills.sh`](scripts/install-skills.sh)) |
-| Codex | `AGENTS.md` | CLI shell access; agent reads `vibe schema --list` for tool catalog |
-| Cursor | `AGENTS.md` | Same; pairs with `.cursor/mcp.json` if you also want MCP |
+| OpenAI Codex | `AGENTS.md` | CLI shell access; agent reads `vibe schema --list` for tool catalog |
+| Cursor | `AGENTS.md` (+ `.cursor/rules/hyperframes.mdc` from `vibe scene install-skill`) | Same; pairs with `.cursor/mcp.json` if you also want MCP |
+| Aider | `AGENTS.md` | Universal `SKILL.md` for scene authoring |
+| Gemini CLI | `AGENTS.md` (`GEMINI.md` scaffold also written) | Universal `SKILL.md` |
+| OpenCode | `AGENTS.md` | Universal `SKILL.md`; MCP-ready |
 
 For Claude Desktop / any MCP-only host, drop the `vibe` package in via:
 
@@ -191,8 +196,9 @@ any MCP host, the standalone REPL discovers the same tools the MCP
 server exposes:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-vibe agent                             # default: Claude
+export OPENAI_API_KEY=sk-...
+vibe agent                             # default: OpenAI (GPT-5-mini)
+vibe agent -p claude                   # use Claude (needs ANTHROPIC_API_KEY)
 vibe agent -p ollama --model llama3.1  # offline, no key
 vibe agent --max-turns 6 --json        # CI/cron mode
 ```
@@ -220,4 +226,5 @@ rm ~/.vibeframe/config.yaml
 | See every CLI command at a glance | `vibe --help` or [README › CLI Reference](README.md#cli-reference) |
 | Author a multi-step pipeline as code | [`examples/`](examples/), [`docs/cookbook.md`](docs/cookbook.md) |
 | Compare scene render vs. raw Hyperframes | [`docs/comparison.md`](docs/comparison.md) |
+| Re-record / customise the demo videos | [`assets/demos/README.md`](assets/demos/README.md) |
 | Track what's coming next | [`ROADMAP.md`](ROADMAP.md) |

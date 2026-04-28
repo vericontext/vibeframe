@@ -1,32 +1,28 @@
-# assets/demos/host-agent-i2v.tape — Surface 4: a host agent drives
-# the primitive pipeline (t2i → i2v → narration → mux), no scene
-# authoring. Recorded with Claude Code; the same flow works on any
-# host that reads AGENTS.md.
+# host-agent-i2v.tape — Surface 4: host agent driving primitive chain
+#                       (t2i → i2v → narration → mux)
 #
-# Renders → assets/demos/host-agent-i2v.mp4
+# Output:     assets/demos/host-agent-i2v.mp4
+# Family:     surface
+# Prereqs:    lab dir at ~/dev/personal/lab/vibeframe-lab,
+#             `claude` CLI on PATH (recorded with Claude Code)
+# Env:        ANTHROPIC_API_KEY (Claude Code),
+#             OPENAI_API_KEY (gpt-image-2),
+#             FAL_KEY (Seedance 2.0),
+#             ELEVENLABS_API_KEY (TTS)
+# Wall-clock: ~6–8 min (Seedance i2v dominates: 60–180s, non-cacheable)
+# Cost:       ~$1–$2 per recording
 #
-# Where host-agent.tape demonstrates skills + scene build (a STORYBOARD
-# becomes a multi-beat cinematic), this one demonstrates the OTHER
-# canonical VibeFrame flow: chain individual generation primitives to
-# produce a single short clip. Same surface (any host agent),
-# different CLI subcommands.
+# Where host-agent.tape demonstrates skills + scene build (a
+# STORYBOARD becomes a multi-beat cinematic), this one demonstrates
+# the OTHER canonical VibeFrame flow: chain individual generation
+# primitives to produce a single short clip. Same surface (any host
+# agent), different CLI subcommands.
 #
 # Primitive chain:
 #   1. gpt-image-2 (text-to-image, HD)              — $0.04
 #   2. fal.ai Seedance 2.0 (image-to-video, 5s)     — $0.50–$1.50
 #   3. ElevenLabs (TTS narration)                    — $0.01
 #   4. ffmpeg / vibe audio mux (overlay narration)
-#
-# Total cost: ~$1–$2 per recording. Wall-clock: ~5–8 min. The Seedance
-# call dominates (i2v rendering can take 60–180s) and is non-cacheable.
-#
-# Recipe:
-#   brew install vhs
-#   export ANTHROPIC_API_KEY=...    # Claude Code
-#   export OPENAI_API_KEY=...       # gpt-image-2
-#   export FAL_KEY=...              # Seedance 2.0
-#   export ELEVENLABS_API_KEY=...   # TTS
-#   vhs assets/demos/host-agent-i2v.tape
 
 Output assets/demos/host-agent-i2v.mp4
 
@@ -34,9 +30,9 @@ Set FontSize 12
 Set Width 1400
 Set Height 900
 Set Padding 20
+Set TypingSpeed 30ms
 Set Theme "Catppuccin Mocha"
 Set Shell "bash"
-Set TypingSpeed 30ms
 
 Type "cd ~/dev/personal/lab/vibeframe-lab && mkdir -p claude-i2v-demo && cd claude-i2v-demo && pwd"
 Enter
