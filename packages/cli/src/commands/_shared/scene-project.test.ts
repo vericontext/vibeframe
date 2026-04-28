@@ -11,6 +11,7 @@ import {
   buildHyperframesConfig,
   buildHyperframesMeta,
   buildProjectClaudeMd,
+  buildStoryboardMd,
   buildSceneGitignore,
   defaultVibeProjectConfig,
   mergeHyperframesConfig,
@@ -120,8 +121,23 @@ describe("buildProjectClaudeMd", () => {
   it("introduces the DESIGN.md hard-gate and hyperframes skill install", () => {
     const md = buildProjectClaudeMd("my-promo");
     expect(md).toContain("DESIGN.md");
+    expect(md).toContain("STORYBOARD.md");
     expect(md).toContain("hard-gate");
     expect(md).toContain("npx skills add heygen-com/hyperframes");
+  });
+});
+
+describe("buildStoryboardMd", () => {
+  it("emits a starter storyboard with three cue-bearing beats", () => {
+    const md = buildStoryboardMd("my-promo", 12);
+    expect(md).toContain("# my-promo");
+    expect(md).toContain("## Beat hook");
+    expect(md).toContain("## Beat proof");
+    expect(md).toContain("## Beat close");
+    expect(md).toContain("```yaml");
+    expect(md).toContain("narration:");
+    expect(md).toContain("backdrop:");
+    expect(md).toContain("duration:");
   });
 });
 
@@ -209,6 +225,7 @@ describe("scaffoldSceneProject", () => {
       "vibe.project.yaml",
       "CLAUDE.md",
       "DESIGN.md",
+      "STORYBOARD.md",
       ".gitignore",
     ];
     for (const f of expected) {
@@ -254,6 +271,18 @@ describe("scaffoldSceneProject", () => {
     const after = await readFile(designPath, "utf-8");
     expect(after).toBe("# Custom design\n\nMy notes.\n");
     expect(second.skipped.some((p) => p.endsWith("DESIGN.md"))).toBe(true);
+  });
+
+  it("preserves a user-edited STORYBOARD.md across re-init", async () => {
+    const dir = await makeTmp();
+    await scaffoldSceneProject({ dir, name: "fixture" });
+    const storyboardPath = resolve(dir, "STORYBOARD.md");
+    await writeFile(storyboardPath, "# Custom storyboard\n\n## Beat x — X\n", "utf-8");
+
+    const second = await scaffoldSceneProject({ dir, name: "fixture" });
+    const after = await readFile(storyboardPath, "utf-8");
+    expect(after).toBe("# Custom storyboard\n\n## Beat x — X\n");
+    expect(second.skipped.some((p) => p.endsWith("STORYBOARD.md"))).toBe(true);
   });
 
   it("vibe.project.yaml parses as valid YAML and carries the chosen aspect", async () => {

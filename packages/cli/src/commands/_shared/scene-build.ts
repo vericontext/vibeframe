@@ -184,7 +184,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
 
   const storyboardPath = join(projectDir, "STORYBOARD.md");
   if (!existsSync(storyboardPath)) {
-    return failBeforePrimitives(`STORYBOARD.md not found at ${storyboardPath}`, startedAt);
+    return failBeforePrimitives(
+      `STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`,
+      startedAt,
+    );
   }
   const storyboardMd = await readFile(storyboardPath, "utf-8");
   const parsed = parseStoryboard(storyboardMd);

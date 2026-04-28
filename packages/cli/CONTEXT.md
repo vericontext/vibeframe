@@ -40,7 +40,7 @@ Check which keys are configured: `vibe doctor --json`
 ## Schema Introspection
 
 ```bash
-vibe schema --list --json          # List all 69 commands
+vibe schema --list --json          # List all 81 commands
 vibe schema generate.video --json  # Parameter schema for specific command
 ```
 

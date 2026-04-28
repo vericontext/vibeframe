@@ -121,6 +121,9 @@ CLI-first. Every video edit is a command.
 # Install
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
+# Full install, including the web UI
+curl -fsSL https://vibeframe.ai/install.sh | bash -s -- --full
+
 # Remove silence from an interview
 vibe edit silence-cut interview.mp4 -o clean.mp4
 
@@ -129,7 +132,7 @@ vibe edit caption video.mp4 -o captioned.mp4
 
 # Build a cinematic promo from a STORYBOARD (v0.60)
 vibe scene init my-promo --visual-style "Swiss Pulse" -d 12
-# (edit STORYBOARD.md with three beats)
+# (edit the generated STORYBOARD.md beats)
 vibe scene build my-promo
 
 # Export to MP4
@@ -161,6 +164,9 @@ For development:
 git clone https://github.com/vericontext/vibeframe.git
 cd vibeframe
 pnpm install && pnpm build
+
+# Run only the web app
+pnpm -F @vibeframe/web dev
 ```
 
 ### Render backends
@@ -198,7 +204,7 @@ VibeFrame is a bash CLI. Any AI coding agent that can shell out to a terminal ca
 | "Remove silence from interview.mp4" | `vibe edit silence-cut interview.mp4 -o clean.mp4` |
 | "Extract 3 best moments from podcast.mp4" | `vibe pipeline highlights podcast.mp4 -c 3` |
 | "Add Korean subtitles to video.mp4" | `vibe edit caption video.mp4 -o captioned.mp4` |
-| "Build a 12-second cinematic promo" | `vibe scene init promo && vibe scene build promo` |
+| "Build a 12-second cinematic promo" | `vibe scene init promo && $EDITOR promo/STORYBOARD.md && vibe scene build promo` |
 | "Remove background noise" | `vibe edit noise-reduce noisy.mp4 -o clean.mp4` |
 | "Make a 60-second highlight reel" | `vibe pipeline highlights long-video.mp4 -d 60` |
 
@@ -334,6 +340,8 @@ When the project has a `STORYBOARD.md` with per-beat YAML cues, a single
 command dispatches all primitives + composes + renders:
 
 ```bash
+vibe scene init my-promo --visual-style "Swiss Pulse" -d 12
+# edit the generated STORYBOARD.md beats
 vibe scene build my-promo                 # storyboard → narration + backdrops + MP4
 vibe scene build --skip-render            # compose only (review HTML before rendering)
 vibe scene build --tts kokoro --voice af_heart   # override frontmatter providers
@@ -391,7 +399,7 @@ feedback loop pattern (`--json --fix`, ≤3 retries, template fallback).
 
 ## CLI Reference
 
-Every command supports `--help`, `--json`, `--dry-run`, `--stdin`, and `--describe`. Run `vibe --help` for a full list, or `vibe schema --list` for a machine-readable index.
+Every command supports `--help`, `--json`, `--stdin`, and `--describe`; most execution commands also support `--dry-run`. Run `vibe --help` for a full list, or `vibe schema --list` for the 81-command machine-readable index.
 
 | Group | Commands | Example |
 |-------|----------|---------|
@@ -442,7 +450,7 @@ Best used for onboarding and quick experiments. For production workflows, use CL
 | **TTS** | ElevenLabs, Kokoro (local) | ElevenLabs · Kokoro local fallback when no `ELEVENLABS_API_KEY` (since v0.54) |
 | **Transcription** | Whisper | OpenAI Whisper (`OPENAI_API_KEY`) |
 
-**Required API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`, `FAL_KEY`
+**Provider API Keys:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `RUNWAY_API_SECRET`, `KLING_API_KEY`, `XAI_API_KEY`, `FAL_KEY`, `REPLICATE_API_TOKEN`, `IMGBB_API_KEY`
 
 ---
 
@@ -467,7 +475,7 @@ vibeframe/
 
 ### Now — v0.72.0 (April 2026)
 - 100+ CLI commands across `edit` / `generate` / `analyze` / `audio` / `scene` / `pipeline`
-- 11 AI providers · 66 MCP tools · 6 agent host scaffolds (Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode)
+- 13 AI providers · 66 MCP tools · 6 agent host scaffolds (Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode)
 - Hyperframes-backed scene composition · Video as Code (YAML pipelines, `--resume`, budget gates)
 - `vibe scene build` one-shot STORYBOARD.md → MP4 · standardized `--json` envelope
 

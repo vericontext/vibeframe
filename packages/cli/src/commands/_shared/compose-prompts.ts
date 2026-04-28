@@ -132,7 +132,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     return baseError(`DESIGN.md not found at ${designPath}. Run \`vibe scene init <dir>\` first.`);
   }
   if (!existsSync(storyboardPath)) {
-    return baseError(`STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` first.`);
+    return baseError(`STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`);
   }
 
   if (!existsSync(skillPath)) {

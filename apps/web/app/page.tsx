@@ -212,17 +212,16 @@ export default function LandingPage() {
               Four steps. Same flow on every agent host.
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Once <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe init</code> scaffolds
-              {" "}<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">AGENTS.md</code> + {" "}
-              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">CLAUDE.md</code>, Claude Code,
-              Codex, and Cursor all see the same project guidance.
+              Use <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe init</code> for
+              host guidance, then <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene init</code>
+              for the storyboard project you will render.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
               <div className="text-xs text-muted-foreground mb-2">1. Install · global</div>
-              <code className="font-mono text-xs text-foreground block break-all">curl -fsSL vibeframe.ai/install.sh | bash</code>
+              <code className="font-mono text-xs text-foreground block break-all">curl -fsSL https://vibeframe.ai/install.sh | bash</code>
               <p className="text-xs text-muted-foreground mt-3">Adds the <code className="text-primary">vibe</code> CLI.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
@@ -231,14 +230,14 @@ export default function LandingPage() {
               <p className="text-xs text-muted-foreground mt-3">API keys + LLM provider, once per machine. Detects your agent host.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Init · project scope</div>
-              <code className="font-mono text-xs text-foreground">vibe init my-promo</code>
+              <div className="text-xs text-muted-foreground mb-2">3. Init · scene project</div>
+              <code className="font-mono text-xs text-foreground">vibe scene init my-promo</code>
               <p className="text-xs text-muted-foreground mt-3">
-                Scaffolds <code className="text-primary">AGENTS.md</code> (cross-tool) + <code className="text-primary">CLAUDE.md</code> + <code className="text-primary">.env.example</code>.
+                Scaffolds <code className="text-primary">DESIGN.md</code> + <code className="text-primary">STORYBOARD.md</code> + <code className="text-primary">SKILL.md</code>.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Build · STORYBOARD → MP4</div>
+              <div className="text-xs text-muted-foreground mb-2">4. Build · edit STORYBOARD → MP4</div>
               <code className="font-mono text-xs text-foreground">vibe scene build my-promo</code>
               <p className="text-xs text-muted-foreground mt-3">Dispatches narration + backdrops, composes scenes via skills, renders.</p>
             </div>

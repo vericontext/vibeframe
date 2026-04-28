@@ -52,7 +52,7 @@ Examples (PROCESS):
   $ vibe pipeline animated-caption video.mp4 -o captioned.mp4 -s highlight
   $ vibe pipeline animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
 
-Required API Keys:
+Provider API Keys:
   highlights:          GOOGLE_API_KEY (Gemini analysis)
   auto-shorts:         GOOGLE_API_KEY + OPENAI_API_KEY (optional captions)
   animated-caption:    OPENAI_API_KEY (Whisper transcription)

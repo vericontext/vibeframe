@@ -102,7 +102,7 @@ Cost tiers:
 Quick start:
   vibe doctor                  Check system health and API keys
   vibe setup                   Configure API keys interactively
-  vibe schema --list           Discover all commands (69 commands)
+  vibe schema --list           Discover all commands (81 commands)
 
 Agent integration:
   echo '{"provider":"kling"}' | vibe generate video "prompt" --stdin --json

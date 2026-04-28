@@ -421,7 +421,7 @@ function showComplete(
   console.log(chalk.bold("  Next steps:"));
   console.log(chalk.dim("    cd <project>; vibe init   Scaffold AGENTS.md / CLAUDE.md / .env.example (project scope)"));
   console.log(chalk.dim("    vibe doctor               Check system health + available commands"));
-  console.log(chalk.dim("    vibe schema --list        Discover all 69 commands"));
+  console.log(chalk.dim("    vibe schema --list        Discover all 81 commands"));
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
 
   // Tailored hint when an agent host is detected — points at the file

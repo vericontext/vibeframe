@@ -257,6 +257,56 @@ ${style ? `_This file was seeded by \`vibe scene init --visual-style "${style.na
 `;
 }
 
+/** Starter `STORYBOARD.md` for the one-shot `vibe scene build` flow. */
+export function buildStoryboardMd(name: string, duration = 12): string {
+  return `---
+title: ${name}
+duration: ${duration}
+aspect: 16:9
+tts: auto
+imageProvider: openai
+---
+
+# ${name} — Storyboard
+
+Edit these beats before running \`vibe scene build\`. Each beat starts with
+YAML cues that drive narration, backdrop generation, and timing.
+
+## Beat hook — Hook
+
+\`\`\`yaml
+narration: "Introduce the promise in one crisp sentence."
+backdrop: "Cinematic abstract technology backdrop, precise light, premium editorial feel"
+duration: 4
+\`\`\`
+
+Show the core visual identity immediately. Keep copy short enough for one
+screen and one spoken breath.
+
+## Beat proof — Proof
+
+\`\`\`yaml
+narration: "Show the mechanism or proof point that makes the promise believable."
+backdrop: "Layered interface details, subtle motion trails, high-contrast product storytelling"
+duration: 4
+\`\`\`
+
+Use this beat for the concrete differentiator: command, workflow, metric, or
+before/after.
+
+## Beat close — Close
+
+\`\`\`yaml
+narration: "Close with the action the viewer should remember."
+backdrop: "Resolved hero frame, confident final composition, clean negative space"
+duration: 4
+\`\`\`
+
+End on the product name, offer, or command. Avoid adding a new idea in the
+final beat.
+`;
+}
+
 /** Project-local CLAUDE.md that orients an AI agent to both toolchains. */
 export function buildProjectClaudeMd(name: string): string {
   return `# ${name} — Scene Authoring Project
@@ -300,6 +350,7 @@ the framework-level minimum, not the cinematic craft layer.
 ## Project structure
 
 - \`DESIGN.md\` — visual identity contract (palette, type, motion, transitions)
+- \`STORYBOARD.md\` — per-beat narration/backdrop/duration cues for \`vibe scene build\`
 - \`index.html\` — root composition (timeline)
 - \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
 - \`assets/\` — shared media (narration audio, images, video)
@@ -312,6 +363,7 @@ the framework-level minimum, not the cinematic craft layer.
 
 \`\`\`bash
 vibe scene add <name> --narration "..." --visuals "..."   # Author a new scene via AI
+vibe scene build                                           # STORYBOARD.md → narrated MP4
 vibe scene lint                                             # Validate scenes (in-process HF linter)
 vibe scene render                                           # Render to MP4
 
@@ -478,6 +530,16 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
       "utf-8",
     );
     created.push(designPath);
+  }
+
+  // STORYBOARD.md — starter cues for the one-shot build flow.
+  // Preserve existing so users can hand-edit between init runs.
+  const storyboardPath = resolve(dir, "STORYBOARD.md");
+  if (await pathExists(storyboardPath)) {
+    skipped.push(storyboardPath);
+  } else {
+    await writeFile(storyboardPath, buildStoryboardMd(name, duration), "utf-8");
+    created.push(storyboardPath);
   }
 
   // .gitignore — preserve existing.

@@ -4,46 +4,56 @@ const pkg = require("./package.json");
 
 // ── Extract counts from CLI source (build-time SSOT) ────────────────────
 
-function countPattern(dir, pattern) {
-  let total = 0;
+function countCliCommands() {
+  const distCli = path.resolve(__dirname, "../../packages/cli/dist/index.js");
   try {
-    // Exclude *.test.ts — fixture strings in tests (e.g. `name: "intro"`
-    // inside a handleSceneToolCall arg) get caught by the production regex
-    // and over-count by 1+. The MCP server actually registers 63 tools at
-    // runtime, not 64.
-    const files = fs.readdirSync(dir).filter(
-      (f) => f.endsWith(".ts") && !f.endsWith(".test.ts"),
+    const { execFileSync } = require("child_process");
+    const raw = execFileSync(process.execPath, [distCli, "schema", "--list"], {
+      cwd: path.resolve(__dirname, "../.."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.length;
+  } catch {
+    // Fallback below covers Vercel/source-only builds where dist is absent.
+  }
+  return 81;
+}
+
+function countManifestTools() {
+  const manifestDir = path.resolve(__dirname, "../../packages/cli/src/tools/manifest");
+  let total = 0;
+  let agentOnly = 0;
+  let mcpOnly = 0;
+  try {
+    const files = fs.readdirSync(manifestDir).filter(
+      (f) => f.endsWith(".ts") && f !== "index.ts",
     );
     for (const file of files) {
-      const content = fs.readFileSync(path.join(dir, file), "utf8");
-      const matches = content.match(new RegExp(pattern, "g"));
-      if (matches) total += matches.length;
+      const content = fs.readFileSync(path.join(manifestDir, file), "utf8");
+      total += (content.match(/defineTool\(\{/g) ?? []).length;
+      const lines = content.split(/\r?\n/).map((line) => line.trim());
+      agentOnly += lines.filter((line) => line === 'surfaces: ["agent"],').length;
+      mcpOnly += lines.filter((line) => line === 'surfaces: ["mcp"],').length;
     }
   } catch {
-    // Fallback: directory not found (e.g., Vercel build without full monorepo)
+    return { mcp: 66, agent: 82 };
   }
-  return total;
+  if (total === 0) return { mcp: 66, agent: 82 };
+  return {
+    mcp: total - agentOnly,
+    agent: total - mcpOnly,
+  };
 }
 
-function countInFile(filePath, pattern) {
-  try {
-    const content = fs.readFileSync(filePath, "utf8");
-    const matches = content.match(new RegExp(pattern, "g"));
-    return matches ? matches.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
-const cliToolsDir = path.resolve(__dirname, "../../packages/cli/src/agent/tools");
-const cliCommandsDir = path.resolve(__dirname, "../../packages/cli/src/commands");
-const mcpToolsDir = path.resolve(__dirname, "../../packages/mcp-server/src/tools");
 const agentTypesFile = path.resolve(__dirname, "../../packages/cli/src/agent/types.ts");
 const aiProvidersDir = path.resolve(__dirname, "../../packages/ai-providers/src");
 
-const agentTools = countPattern(cliToolsDir, "ToolDefinition = \\{") || 58;
-const cliCommands = countPattern(cliCommandsDir, '\\.command\\("[a-z]') || 107;
-const mcpTools = countPattern(mcpToolsDir, 'name: "') || 27;
+const cliCommands = countCliCommands();
+const toolCounts = countManifestTools();
+const agentTools = toolCounts.agent;
+const mcpTools = toolCounts.mcp;
 // Count LLM providers from the LLMProvider type union (e.g., "openai" | "claude" | ...)
 let llmProviders = 6;
 try {
@@ -68,7 +78,7 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@vibe-edit/core", "@vibe-edit/ui"],
+  transpilePackages: ["@vibeframe/core", "@vibeframe/ui"],
   experimental: {
     optimizePackageImports: ["@radix-ui/react-icons"],
   },
