@@ -83,7 +83,7 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "edit fade":          "edit_fade",
   "edit translate-srt": "edit_translate_srt",
   "edit jump-cut":      "edit_jump_cut",
-  "edit fill-gaps":     null, // TODO v0.66 — extract executeFillGaps from ~400-line .action()
+  "edit fill-gaps":     "edit_fill_gaps",
   "edit grade":         "edit_grade",
   "edit text-overlay":  "edit_text_overlay",
   "edit speed-ramp":    "edit_speed_ramp",

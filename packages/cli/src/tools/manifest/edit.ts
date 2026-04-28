@@ -1,14 +1,12 @@
 /**
  * @module manifest/edit
- * @description Editing tools spread across the legacy
- * `ai-editing.ts` (silence-cut/caption/fade/noise-reduce/jump-cut/text-overlay/translate-srt),
- * `ai-edit-advanced.ts` (grade/speed-ramp/reframe/interpolate/upscale), and
- * `ai-generation.ts` (edit_image/edit_animated_caption).
- *
- * `edit_fill_gaps` is intentionally NOT in the manifest: its CLI .action()
- * body is ~400 lines of stateful Kling i2v + imgbb + ffmpeg orchestration
- * that hasn't been refactored into an `executeFillGaps()` shape yet
- * (tracked in cli-sync.test.ts SYNC_TABLE as null/null TODO v0.65 follow-up).
+ * @description Manifest entries for `vibe edit *` subcommands. The
+ * underlying executes live in:
+ *   - `commands/_shared/edit/*.ts` (silence-cut, caption, fade, noise-reduce,
+ *     jump-cut, text-overlay, translate-srt — Plan G Phase 3 split)
+ *   - `commands/edit-cmd.ts` (grade, speed-ramp, reframe, interpolate, upscale)
+ *   - `commands/ai-animated-caption.ts` + `commands/ai-image.ts`
+ *   - `commands/_shared/execute-fill-gaps.ts` (Plan G Phase 4 finishing piece)
  */
 
 import { z } from "zod";
@@ -31,6 +29,7 @@ import {
 } from "../../commands/edit-cmd.js";
 import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
 import { executeGeminiEdit } from "../../commands/ai-image.js";
+import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 
 // ── edit_silence_cut ────────────────────────────────────────────────────────
 
@@ -418,6 +417,52 @@ export const editImageTool = defineTool({
   },
 });
 
+// ── edit_fill_gaps ─────────────────────────────────────────────────────────
+
+export const editFillGapsTool = defineTool({
+  name: "edit_fill_gaps",
+  category: "edit",
+  cost: "high",
+  description:
+    "Fill timeline gaps with AI-generated video using Kling image-to-video. Detects empty regions in a project's timeline, extracts the last frame of the preceding clip, and generates a continuation video. Requires KLING_API_KEY and IMGBB_API_KEY (image hosting for Kling).",
+  schema: z.object({
+    projectPath: z.string().describe("Project file path (.vibe.json)"),
+    output: z.string().optional().describe("Output project path (default: overwrite input)"),
+    dir: z.string().optional().describe("Directory to save generated videos (default: <projectDir>/footage)"),
+    prompt: z.string().optional().describe("Custom prompt for video generation (default: 'Continue the scene naturally with subtle motion')"),
+    dryRun: z.boolean().optional().describe("Show gaps without generating videos"),
+    mode: z.enum(["std", "pro"]).optional().describe("Kling generation mode (default: std)"),
+    ratio: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Aspect ratio (default: 16:9)"),
+  }),
+  async execute(args) {
+    const result = await executeFillGaps({
+      projectPath: args.projectPath,
+      output: args.output,
+      dir: args.dir,
+      prompt: args.prompt,
+      dryRun: args.dryRun,
+      mode: args.mode,
+      ratio: args.ratio,
+    });
+    if (!result.success) {
+      return { success: false, error: result.error ?? "Fill gaps failed" };
+    }
+    return {
+      success: true,
+      data: {
+        outputPath: result.outputPath,
+        generatedCount: result.generatedCount ?? 0,
+        gaps: result.gaps,
+        gapsNeedingAI: result.gapsNeedingAI,
+        noGaps: result.noGaps ?? false,
+        allExtendable: result.allExtendable ?? false,
+        dryRun: result.dryRun ?? false,
+      },
+      humanLines: result.humanLines,
+    };
+  },
+});
+
 export const editTools: readonly AnyTool[] = [
   editSilenceCutTool as unknown as AnyTool,
   editCaptionTool as unknown as AnyTool,
@@ -433,4 +478,5 @@ export const editTools: readonly AnyTool[] = [
   editUpscaleTool as unknown as AnyTool,
   editAnimatedCaptionTool as unknown as AnyTool,
   editImageTool as unknown as AnyTool,
+  editFillGapsTool as unknown as AnyTool,
 ];

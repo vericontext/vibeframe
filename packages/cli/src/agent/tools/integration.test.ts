@@ -174,7 +174,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(79);
+      expect(tools.length).toBe(80);
     });
 
     it("should register all project tools (5)", () => {
@@ -679,7 +679,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(fsTools.length).toBe(4);
       expect(mediaTools.length).toBe(12);  // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
       expect(generateTools.length).toBe(13);  // +background, video_status/cancel/extend, music_status (Phase B v0.64)
-      expect(editTools.length).toBe(14);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption (Phase B+D v0.64)
+      expect(editTools.length).toBe(15);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption (Phase B+D v0.64), edit_fill_gaps (Plan G Phase 4)
       expect(analyzeTools.length).toBe(4);  // video, media, review, suggest
       expect(pipelineTools.length).toBe(4);  // animated_caption renamed to edit_animated_caption (Phase D)
       expect(exportTools.length).toBe(3);
@@ -698,7 +698,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           exportTools.length +
           batchTools.length +
           sceneTools.length;
-      expect(totalTools).toBe(79);
+      expect(totalTools).toBe(80);
     });
   });
 });
