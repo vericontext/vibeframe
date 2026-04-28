@@ -296,7 +296,7 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {[
-              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "+ /vibe-* slash commands" },
+              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "slash menu shortcut to walkthroughs" },
               { name: "OpenAI Codex", scaffold: "AGENTS.md", note: "agents.md spec" },
               { name: "Cursor", scaffold: "AGENTS.md + .cursor/rules", note: "MCP-ready" },
               { name: "Aider", scaffold: "AGENTS.md", note: "binary-detected" },
@@ -317,42 +317,45 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ②.5 — Claude Code deeper integration (Tier 2) */}
+      {/* ②.5 — Step-by-step authoring guides (universal walkthroughs) */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/5 px-4 py-1.5 text-sm text-orange-400 mb-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-4">
               <Sparkles className="w-4 h-4" />
-              <span>Claude Code deeper integration</span>
+              <span>Universal walkthroughs</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Slash commands, beyond the CLI
+              <code className="text-primary bg-primary/10 px-3 py-1 rounded">vibe walkthrough</code>
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Claude Code is the only host today with a slash-command pack on top of the universal CLI. Every other agent host gets the same <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> commands; Claude Code adds two guided flows.
+              Step-by-step authoring guides built into the CLI — discoverable by every host, not just Claude Code's slash menu.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
-              <div className="font-mono text-sm font-semibold text-orange-400 mb-2">/vibe-pipeline</div>
-              <p className="text-sm text-muted-foreground">YAML pipeline authoring helper — Video as Code with cost estimates and step references.</p>
+              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe walkthrough scene</div>
+              <p className="text-sm text-muted-foreground">Scene authoring — STORYBOARD.md → MP4 via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code> (Hyperframes-backed, Plan H agentic compose).</p>
             </div>
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
-              <div className="font-mono text-sm font-semibold text-orange-400 mb-2">/vibe-scene</div>
-              <p className="text-sm text-muted-foreground">Per-scene HTML authoring + <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene build</code> driver (Hyperframes-backed).</p>
+              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe walkthrough pipeline</div>
+              <p className="text-sm text-muted-foreground">YAML pipeline authoring — Video as Code with cost estimates, checkpoints, and step references.</p>
             </div>
           </div>
 
           <div className="bg-background/50 border border-border/50 rounded-xl p-4 max-w-3xl mx-auto">
-            <div className="text-xs text-muted-foreground mb-2">Install (one-shot):</div>
-            <code className="font-mono text-xs text-foreground block break-all">
-              curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
+            <div className="text-xs text-muted-foreground mb-2">List + load:</div>
+            <code className="font-mono text-xs text-foreground block">
+              vibe walkthrough              <span className="text-muted-foreground"># list available topics</span>
+            </code>
+            <code className="font-mono text-xs text-foreground block mt-1">
+              vibe walkthrough scene --json <span className="text-muted-foreground"># structured shape for an agent host</span>
             </code>
           </div>
 
           <p className="text-center text-muted-foreground text-sm mt-6 max-w-3xl mx-auto">
-            Plan H also auto-installs the Hyperframes skill bundle into <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">.claude/skills/hyperframes/</code> when you run <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe scene init</code> — Claude Code reads it as system context for cinematic scene authoring. Other host families get the same content as a universal <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">SKILL.md</code> at the project root.
+            Same content the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">/vibe-scene</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">/vibe-pipeline</code> slash commands deliver in Claude Code. Claude Code users can keep the slash menu as a one-keystroke shortcut — the underlying guide is identical.
           </p>
         </div>
       </section>
