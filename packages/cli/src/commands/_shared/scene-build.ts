@@ -31,6 +31,7 @@ import {
   type ComposeProgressEvent,
   type ComposeScenesActionResult,
 } from "./compose-scenes-skills.js";
+import type { ComposerProvider } from "./composer-resolve.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import {
@@ -77,6 +78,12 @@ export interface SceneBuildOptions {
   projectDir: string;
   /** Compose effort tier — passed through to `compose-scenes-with-skills`. */
   effort?: ComposeEffort;
+  /**
+   * Composer LLM provider. Defaults to whatever `resolveComposer()` picks
+   * based on env keys (claude > gemini > openai). Pass an explicit value
+   * to require that provider's key.
+   */
+  composer?: ComposerProvider;
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   skipRender?: boolean;
@@ -162,6 +169,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     {
       project: ".",
       effort: opts.effort,
+      composer: opts.composer,
       cacheDir: opts.cacheDir,
       onProgress: (e) => onProgress(e),
     },

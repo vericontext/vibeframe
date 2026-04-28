@@ -116,6 +116,22 @@ API keys live in \`.env\` (gitignored). Copy \`.env.example\` to start. Run
 \`vibe doctor\` to see which keys are currently detected and which providers
 they unlock.
 
+### Scene composer (LLM that writes scene HTML for \`scene build\`)
+
+\`vibe scene build\` runs an LLM with the vendored Hyperframes skill bundle
+to compose per-beat HTML. It auto-picks based on available keys
+(\`claude > gemini > openai\`) — pass \`--composer <name>\` to force one:
+
+| Provider | Env var | Spike notes (v0.70) |
+|---|---|---|
+| Claude (default) | \`ANTHROPIC_API_KEY\` | ~9 s/beat. Fastest, validated baseline. |
+| Gemini | \`GOOGLE_API_KEY\` | ~20 s/beat. ~2.6× cheaper than Claude. |
+| OpenAI | \`OPENAI_API_KEY\` | ~70 s/beat. gpt-5 reasoning latency — opt-in only. |
+
+All three pass first-shot lint at every effort tier on the \`vibeframe-promo\`
+fixture. Quality on more complex storyboards may differ — fall back to
+\`--composer claude\` if a non-default provider repeatedly fails lint.
+
 ## Project conventions
 
 <!-- Edit this section with YOUR project's specifics. Examples below. -->
