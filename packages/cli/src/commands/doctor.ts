@@ -68,7 +68,7 @@ Examples:
       outputSuccess({
         command: "doctor",
         startedAt,
-        data: results,
+        data: { ...results },
       });
       return;
     }
