@@ -73,7 +73,7 @@ import {
   exitWithError,
   generalError,
   usageError,
-  outputResult,
+  outputSuccess,
   isJsonMode,
 } from "./output.js";
 import { getApiKey } from "../utils/api-key.js";
@@ -154,6 +154,7 @@ sceneCommand
   .option("--visual-style <name>", `Seed DESIGN.md from a named style (browse via \`vibe scene styles\`). E.g. "Swiss Pulse"`)
   .option("--dry-run", "Preview parameters without writing files")
   .action(async (dir: string, options) => {
+    const startedAt = Date.now();
     const aspect = validateAspect(options.ratio);
     const duration = validateDuration(options.duration);
     const name = (options.name as string | undefined) ?? basename(dir.replace(/\/+$/, ""));
@@ -162,15 +163,18 @@ sceneCommand
       : undefined;
 
     if (options.dryRun) {
-      outputResult({
-        dryRun: true,
+      outputSuccess({
         command: "scene init",
-        params: {
-          dir,
-          name,
-          aspect,
-          duration,
-          visualStyle: visualStyle?.name ?? null,
+        startedAt,
+        dryRun: true,
+        data: {
+          params: {
+            dir,
+            name,
+            aspect,
+            duration,
+            visualStyle: visualStyle?.name ?? null,
+          },
         },
       });
       return;
@@ -196,19 +200,21 @@ sceneCommand
       });
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
+        outputSuccess({
           command: "scene init",
-          dir,
-          name,
-          aspect,
-          duration,
-          visualStyle: visualStyle?.name ?? null,
-          created: result.created,
-          merged: result.merged,
-          skipped: result.skipped,
-          skillFiles: skillResult.files,
-          skillBundleVersion: skillResult.bundleVersion,
+          startedAt,
+          data: {
+            dir,
+            name,
+            aspect,
+            duration,
+            visualStyle: visualStyle?.name ?? null,
+            created: result.created,
+            merged: result.merged,
+            skipped: result.skipped,
+            skillFiles: skillResult.files,
+            skillBundleVersion: skillResult.bundleVersion,
+          },
         });
         return;
       }
@@ -269,6 +275,7 @@ sceneCommand
   .option("--force", "Overwrite existing skill files (default: skip-on-exist)")
   .option("--dry-run", "Preview which files would be written without changing anything")
   .action(async (projectDirArg: string, options) => {
+    const startedAt = Date.now();
     const hostFlag = (options.host as InstallSkillHostFlag) ?? "auto";
     if (!VALID_INSTALL_SKILL_HOSTS.includes(hostFlag)) {
       exitWithError(usageError(`Invalid --host: ${hostFlag}`, `Valid: ${VALID_INSTALL_SKILL_HOSTS.join(", ")}`));
@@ -291,15 +298,17 @@ sceneCommand
     });
 
     if (isJsonMode()) {
-      outputResult({
-        success: true,
+      outputSuccess({
         command: "scene install-skill",
-        projectDir,
-        host: hostFlag,
-        resolvedHosts: hosts,
-        bundleVersion: result.bundleVersion,
-        files: result.files,
+        startedAt,
         dryRun: options.dryRun ?? false,
+        data: {
+          projectDir,
+          host: hostFlag,
+          resolvedHosts: hosts,
+          bundleVersion: result.bundleVersion,
+          files: result.files,
+        },
       });
       return;
     }
@@ -346,6 +355,7 @@ sceneCommand
   .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
   .option("--beat <id>", "Restrict the plan to a single beat by id (e.g. 'hook', '1')")
   .action(async (projectDirArg: string, options) => {
+    const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
     const result = await getComposePrompts({
       projectDir,
@@ -354,9 +364,10 @@ sceneCommand
 
     if (!result.success) {
       if (isJsonMode()) {
-        outputResult({
+        outputSuccess({
           command: "scene compose-prompts",
-          ...result,
+          startedAt,
+          data: { ...result },
         });
         process.exitCode = 1;
         return;
@@ -365,9 +376,10 @@ sceneCommand
     }
 
     if (isJsonMode()) {
-      outputResult({
+      outputSuccess({
         command: "scene compose-prompts",
-        ...result,
+        startedAt,
+        data: { ...result },
       });
       return;
     }
@@ -414,20 +426,23 @@ sceneCommand
   .description("List vendored visual styles (or show one) for DESIGN.md seeding")
   .argument("[name]", "Style name to inspect (omit to list all)")
   .action((name?: string) => {
+    const startedAt = Date.now();
     if (!name) {
       const all = listVisualStyles();
       if (isJsonMode()) {
-        outputResult({
-          success: true,
+        outputSuccess({
           command: "scene styles",
-          count: all.length,
-          styles: all.map((s) => ({
-            name: s.name,
-            slug: s.slug,
-            designer: s.designer,
-            mood: s.mood,
-            bestFor: s.bestFor,
-          })),
+          startedAt,
+          data: {
+            count: all.length,
+            styles: all.map((s) => ({
+              name: s.name,
+              slug: s.slug,
+              designer: s.designer,
+              mood: s.mood,
+              bestFor: s.bestFor,
+            })),
+          },
         });
         return;
       }
@@ -457,7 +472,11 @@ sceneCommand
     }
 
     if (isJsonMode()) {
-      outputResult({ success: true, command: "scene styles", style });
+      outputSuccess({
+        command: "scene styles",
+        startedAt,
+        data: { style },
+      });
       return;
     }
 
@@ -507,6 +526,7 @@ sceneCommand
   .option("--force", "Overwrite an existing compositions/scene-<id>.html")
   .option("--dry-run", "Preview parameters without writing files or calling APIs")
   .action(async (name: string, options) => {
+    const startedAt = Date.now();
     if (options.style) options.style = validatePreset(options.style);
     if (options.duration !== undefined) options.duration = validateDuration(options.duration);
     let tts: TtsProviderName;
@@ -518,24 +538,27 @@ sceneCommand
 
     if (options.dryRun) {
       const id = slugifySceneName(name);
-      outputResult({
-        dryRun: true,
+      outputSuccess({
         command: "scene add",
-        params: {
-          name,
-          id,
-          preset: options.style,
-          narration: !!options.narration,
-          visuals: !!options.visuals,
-          duration: options.duration,
-          headline: options.headline,
-          kicker: options.kicker,
-          project: options.project,
-          insertInto: options.insertInto,
-          imageProvider: options.imageProvider,
-          tts,
-          audio: options.audio,   // commander sets `audio: false` when --no-audio is passed
-          image: options.image,
+        startedAt,
+        dryRun: true,
+        data: {
+          params: {
+            name,
+            id,
+            preset: options.style,
+            narration: !!options.narration,
+            visuals: !!options.visuals,
+            duration: options.duration,
+            headline: options.headline,
+            kicker: options.kicker,
+            project: options.project,
+            insertInto: options.insertInto,
+            imageProvider: options.imageProvider,
+            tts,
+            audio: options.audio,   // commander sets `audio: false` when --no-audio is passed
+            image: options.image,
+          },
         },
       });
       return;
@@ -574,9 +597,10 @@ sceneCommand
       }
 
       if (isJsonMode()) {
-        outputResult({
+        outputSuccess({
           command: "scene add",
-          ...result,
+          startedAt,
+          data: { ...result },
         });
         return;
       }
@@ -1009,6 +1033,7 @@ sceneCommand
   .option("--project <dir>", "Project directory", ".")
   .option("--fix", "Apply mechanical auto-fixes (currently: missing class=\"clip\")")
   .action(async (root: string, options) => {
+    const startedAt = Date.now();
     const projectDir = resolve(options.project as string);
     if (!(await rootExists(projectDir, root))) {
       exitWithError(generalError(
@@ -1028,9 +1053,10 @@ sceneCommand
     }
 
     if (isJsonMode()) {
-      outputResult({
+      outputSuccess({
         command: "scene lint",
-        ...result,
+        startedAt,
+        data: { ...result },
       });
       if (!result.ok) process.exitCode = 1;
       return;
@@ -1129,6 +1155,7 @@ sceneCommand
   .option("--workers <n>", "Capture workers (1-16, default 1)", "1")
   .option("--dry-run", "Preview parameters without rendering")
   .action(async (root: string, options) => {
+    const startedAt = Date.now();
     const fps = validateFps(options.fps);
     const quality = validateQuality(options.quality);
     const format = validateFormat(options.format);
@@ -1136,17 +1163,20 @@ sceneCommand
     const projectDir = resolve(options.project as string);
 
     if (options.dryRun) {
-      outputResult({
-        dryRun: true,
+      outputSuccess({
         command: "scene render",
-        params: {
-          projectDir,
-          root,
-          output: options.out,
-          fps,
-          quality,
-          format,
-          workers,
+        startedAt,
+        dryRun: true,
+        data: {
+          params: {
+            projectDir,
+            root,
+            output: options.out,
+            fps,
+            quality,
+            format,
+            workers,
+          },
         },
       });
       return;
@@ -1170,7 +1200,11 @@ sceneCommand
     if (!result.success) {
       spinner?.fail("Render failed");
       if (isJsonMode()) {
-        outputResult({ command: "scene render", ...result });
+        outputSuccess({
+          command: "scene render",
+          startedAt,
+          data: { ...result },
+        });
         process.exitCode = 1;
         return;
       }
@@ -1178,7 +1212,11 @@ sceneCommand
     }
 
     if (isJsonMode()) {
-      outputResult({ command: "scene render", ...result });
+      outputSuccess({
+        command: "scene render",
+        startedAt,
+        data: { ...result },
+      });
       return;
     }
 
@@ -1221,26 +1259,30 @@ sceneCommand
   .option("--force", "Re-dispatch primitives even when assets already exist")
   .option("--dry-run", "Preview parameters without dispatching")
   .action(async (projectDirArg: string, options) => {
+    const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
 
     if (options.dryRun) {
-      outputResult({
-        dryRun: true,
+      outputSuccess({
         command: "scene build",
-        params: {
-          projectDir,
-          mode: options.mode,
-          effort: options.effort,
-          composer: options.composer,
-          skipNarration: options.skipNarration ?? false,
-          skipBackdrop: options.skipBackdrop ?? false,
-          skipRender: options.skipRender ?? false,
-          ttsProvider: options.tts,
-          voice: options.voice,
-          imageProvider: options.imageProvider,
-          imageQuality: options.quality,
-          imageSize: options.imageSize,
-          force: options.force ?? false,
+        startedAt,
+        dryRun: true,
+        data: {
+          params: {
+            projectDir,
+            mode: options.mode,
+            effort: options.effort,
+            composer: options.composer,
+            skipNarration: options.skipNarration ?? false,
+            skipBackdrop: options.skipBackdrop ?? false,
+            skipRender: options.skipRender ?? false,
+            ttsProvider: options.tts,
+            voice: options.voice,
+            imageProvider: options.imageProvider,
+            imageQuality: options.quality,
+            imageSize: options.imageSize,
+            force: options.force ?? false,
+          },
         },
       });
       return;
@@ -1300,7 +1342,11 @@ sceneCommand
     if (!result.success) {
       spinner?.fail(`Build failed: ${result.error}`);
       if (isJsonMode()) {
-        outputResult({ command: "scene build", ...result });
+        outputSuccess({
+          command: "scene build",
+          startedAt,
+          data: { ...result },
+        });
         process.exitCode = 1;
         return;
       }
@@ -1308,7 +1354,11 @@ sceneCommand
     }
 
     if (isJsonMode()) {
-      outputResult({ command: "scene build", ...result });
+      outputSuccess({
+        command: "scene build",
+        startedAt,
+        data: { ...result },
+      });
       return;
     }
 

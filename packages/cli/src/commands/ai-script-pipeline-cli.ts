@@ -21,7 +21,7 @@ import {
   DEFAULT_VIDEO_RETRIES,
   executeRegenerateScene,
 } from "./ai-script-pipeline.js";
-import { exitWithError, outputResult, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { exitWithError, outputSuccess, authError, notFoundError, usageError, apiError, generalError } from "./output.js";
 
 export function registerScriptPipelineCommands(aiCommand: Command): void {
 aiCommand
@@ -40,6 +40,7 @@ aiCommand
   .option("--reference-scene <num>", "Use another scene's image as reference for character consistency")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectDir: string, options) => {
+    const startedAt = Date.now();
     try {
       const outputDir = resolve(process.cwd(), projectDir);
       const projectPath = resolve(outputDir, "project.vibe.json");
@@ -65,20 +66,23 @@ aiCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "pipeline regenerate-scene",
-          params: {
-            projectDir,
-            scene: sceneNums,
-            videoOnly: options.videoOnly ?? false,
-            narrationOnly: options.narrationOnly ?? false,
-            imageOnly: options.imageOnly ?? false,
-            generator: options.generator,
-            imageProvider: options.imageProvider,
-            aspectRatio: options.aspectRatio,
-            retries: options.retries,
-            referenceScene: options.referenceScene,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              projectDir,
+              scene: sceneNums,
+              videoOnly: options.videoOnly ?? false,
+              narrationOnly: options.narrationOnly ?? false,
+              imageOnly: options.imageOnly ?? false,
+              generator: options.generator,
+              imageProvider: options.imageProvider,
+              aspectRatio: options.aspectRatio,
+              retries: options.retries,
+              referenceScene: options.referenceScene,
+            },
           },
         });
         return;

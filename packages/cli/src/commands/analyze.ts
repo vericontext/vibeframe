@@ -23,7 +23,7 @@ import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze, executeGeminiVideo } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
-import { isJsonMode, outputResult, exitWithError, apiError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError } from "./output.js";
 import { sanitizeLLMResponse } from "./sanitize.js";
 import { rejectControlChars } from "./validate.js";
 
@@ -65,6 +65,7 @@ analyzeCommand
   .option("-v, --verbose", "Show token usage")
   .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
   .action(async (source: string, prompt: string, options) => {
+    const startedAt = Date.now();
     try {
       rejectControlChars(prompt);
 
@@ -95,15 +96,17 @@ analyzeCommand
       const response = sanitizeLLMResponse(result.response || "");
 
       if (isJsonMode()) {
-        let result_obj: Record<string, unknown> = { success: true, response, sourceType: result.sourceType, model: result.model };
+        const data: Record<string, unknown> = { response, sourceType: result.sourceType, model: result.model };
         if (result.totalTokens) {
-          result_obj = { ...result_obj, promptTokens: result.promptTokens, responseTokens: result.responseTokens, totalTokens: result.totalTokens };
+          data.promptTokens = result.promptTokens;
+          data.responseTokens = result.responseTokens;
+          data.totalTokens = result.totalTokens;
         }
-        if (options.fields) {
-          const fields = options.fields.split(",").map((f: string) => f.trim());
-          result_obj = Object.fromEntries(Object.entries(result_obj).filter(([k]) => fields.includes(k) || k === "success"));
-        }
-        outputResult(result_obj);
+        outputSuccess({
+          command: "analyze media",
+          startedAt,
+          data,
+        });
         return;
       }
 
@@ -144,6 +147,7 @@ analyzeCommand
   .option("-v, --verbose", "Show token usage")
   .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
   .action(async (source: string, prompt: string, options) => {
+    const startedAt = Date.now();
     try {
       rejectControlChars(prompt);
 
@@ -174,15 +178,17 @@ analyzeCommand
       const response = sanitizeLLMResponse(result.response || "");
 
       if (isJsonMode()) {
-        let result_obj: Record<string, unknown> = { success: true, response, model: result.model };
+        const data: Record<string, unknown> = { response, model: result.model };
         if (result.totalTokens) {
-          result_obj = { ...result_obj, promptTokens: result.promptTokens, responseTokens: result.responseTokens, totalTokens: result.totalTokens };
+          data.promptTokens = result.promptTokens;
+          data.responseTokens = result.responseTokens;
+          data.totalTokens = result.totalTokens;
         }
-        if (options.fields) {
-          const fields = options.fields.split(",").map((f: string) => f.trim());
-          result_obj = Object.fromEntries(Object.entries(result_obj).filter(([k]) => fields.includes(k) || k === "success"));
-        }
-        outputResult(result_obj);
+        outputSuccess({
+          command: "analyze video",
+          startedAt,
+          data,
+        });
         return;
       }
 
@@ -220,6 +226,7 @@ analyzeCommand
   .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
   .option("--apply", "Apply the first suggestion automatically")
   .action(async (projectPath: string, instruction: string, options) => {
+    const startedAt = Date.now();
     try {
       rejectControlChars(instruction);
 
@@ -242,7 +249,13 @@ analyzeCommand
       spinner.succeed(chalk.green(`Found ${suggestions.length} suggestion(s)`));
 
       if (isJsonMode()) {
-        outputResult({ success: true, suggestions: suggestions.map(s => ({ type: s.type, description: s.description, confidence: s.confidence, clipIds: s.clipIds, params: s.params })) });
+        outputSuccess({
+          command: "analyze suggest",
+          startedAt,
+          data: {
+            suggestions: suggestions.map(s => ({ type: s.type, description: s.description, confidence: s.confidence, clipIds: s.clipIds, params: s.params })),
+          },
+        });
         return;
       }
 
