@@ -18,7 +18,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { ClaudeProvider, GeminiProvider } from '@vibeframe/ai-providers';
 import { getApiKey } from '../utils/api-key.js';
-import { exitWithError, outputResult, apiError, generalError } from './output.js';
+import { exitWithError, outputSuccess, apiError, generalError } from './output.js';
 import { validateOutputPath } from "./validate.js";
 
 // ── Motion: exported function for Agent tool ────────────────────────────────
@@ -287,28 +287,32 @@ export function registerMotionCommand(aiCommand: Command): void {
     .option("-m, --model <alias>", "LLM model: sonnet (default), opus, gemini, gemini-3.1-pro", "sonnet")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (description: string, options) => {
+      const startedAt = Date.now();
       try {
         if (options.output) {
           validateOutputPath(options.output);
         }
 
         if (options.dryRun) {
-          outputResult({
+          outputSuccess({
+            command: "generate motion",
+            startedAt,
             dryRun: true,
-            command: "ai motion",
-            params: {
-              description: description.slice(0, 200),
-              duration: options.duration,
-              width: options.width,
-              height: options.height,
-              fps: options.fps,
-              style: options.style,
-              render: options.render ?? false,
-              video: options.video,
-              image: options.image,
-              fromTsx: options.fromTsx,
-              model: options.model,
-              output: options.output,
+            data: {
+              params: {
+                description: description.slice(0, 200),
+                duration: options.duration,
+                width: options.width,
+                height: options.height,
+                fps: options.fps,
+                style: options.style,
+                render: options.render ?? false,
+                video: options.video,
+                image: options.image,
+                fromTsx: options.fromTsx,
+                model: options.model,
+                output: options.output,
+              },
             },
           });
           return;

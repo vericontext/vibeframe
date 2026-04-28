@@ -45,7 +45,7 @@ function runDoctor(): { json: ReturnType<typeof JSON.parse>; stderr: string } {
 describe("vibe doctor — scope diagnostics", () => {
   it("reports user scope unconfigured + project uninitialized in a fresh environment", () => {
     const { json } = runDoctor();
-    const scope = json.result.scope;
+    const scope = json.data.scope;
 
     expect(scope.user.configured).toBe(false);
     expect(scope.project.initialized).toBe(false);
@@ -61,9 +61,9 @@ describe("vibe doctor — scope diagnostics", () => {
   it("flips project.initialized=true when AGENTS.md is present", () => {
     writeFileSync(join(projectDir, "AGENTS.md"), "# AGENTS\n");
     const { json } = runDoctor();
-    expect(json.result.scope.project.initialized).toBe(true);
+    expect(json.data.scope.project.initialized).toBe(true);
 
-    const agents = json.result.scope.project.files.find((f: { path: string }) => f.path === "AGENTS.md");
+    const agents = json.data.scope.project.files.find((f: { path: string }) => f.path === "AGENTS.md");
     expect(agents.exists).toBe(true);
   });
 
@@ -71,27 +71,27 @@ describe("vibe doctor — scope diagnostics", () => {
     mkdirSync(join(fakeHome, ".vibeframe"));
     writeFileSync(join(fakeHome, ".vibeframe", "config.yaml"), "providers: {}\n");
     const { json } = runDoctor();
-    expect(json.result.scope.user.configured).toBe(true);
-    expect(json.result.scope.user.configPath).toContain(".vibeframe");
+    expect(json.data.scope.user.configured).toBe(true);
+    expect(json.data.scope.user.configPath).toContain(".vibeframe");
   });
 
   it("agentHosts.detected is empty in a sterilised environment", () => {
     const { json } = runDoctor();
-    expect(json.result.scope.agentHosts.detected).toEqual([]);
-    expect(json.result.scope.agentHosts.summary).toBe("(none detected)");
+    expect(json.data.scope.agentHosts.detected).toEqual([]);
+    expect(json.data.scope.agentHosts.summary).toBe("(none detected)");
   });
 
   it("agentHosts.detected picks up Claude Code via ~/.claude config dir", () => {
     mkdirSync(join(fakeHome, ".claude"));
     const { json } = runDoctor();
-    expect(json.result.scope.agentHosts.detected).toContain("Claude Code");
+    expect(json.data.scope.agentHosts.detected).toContain("Claude Code");
   });
 });
 
 describe("vibe doctor — Plan H scene composer readiness", () => {
   it("reports recommendedMode=batch when no agent host is detected", () => {
     const { json } = runDoctor();
-    const sc = json.result.scope.sceneComposer;
+    const sc = json.data.scope.sceneComposer;
     expect(sc.recommendedMode).toBe("batch");
     expect(sc.sceneProjectInCwd).toBe(false);
     expect(sc.skillInstalled).toBe(false);
@@ -100,7 +100,7 @@ describe("vibe doctor — Plan H scene composer readiness", () => {
   it("flips recommendedMode=agent when ~/.claude is present", () => {
     mkdirSync(join(fakeHome, ".claude"));
     const { json } = runDoctor();
-    expect(json.result.scope.sceneComposer.recommendedMode).toBe("agent");
+    expect(json.data.scope.sceneComposer.recommendedMode).toBe("agent");
   });
 
   it("VIBE_BUILD_MODE env override beats host auto-detection", () => {
@@ -121,7 +121,7 @@ describe("vibe doctor — Plan H scene composer readiness", () => {
       },
     );
     const json = JSON.parse(out);
-    expect(json.result.scope.sceneComposer.recommendedMode).toBe("batch");
+    expect(json.data.scope.sceneComposer.recommendedMode).toBe("batch");
   });
 
   it("composer=null when no API keys are present", () => {
@@ -140,22 +140,22 @@ describe("vibe doctor — Plan H scene composer readiness", () => {
       },
     );
     const json = JSON.parse(out);
-    expect(json.result.scope.sceneComposer.composer).toBeNull();
-    expect(json.result.scope.sceneComposer.composerEnvVar).toBeNull();
+    expect(json.data.scope.sceneComposer.composer).toBeNull();
+    expect(json.data.scope.sceneComposer.composerEnvVar).toBeNull();
   });
 
   it("flags scene project + missing SKILL.md when STORYBOARD.md is in cwd", () => {
     writeFileSync(join(projectDir, "STORYBOARD.md"), "## Beat 1 — x\nbody\n");
     const { json } = runDoctor();
-    expect(json.result.scope.sceneComposer.sceneProjectInCwd).toBe(true);
-    expect(json.result.scope.sceneComposer.skillInstalled).toBe(false);
+    expect(json.data.scope.sceneComposer.sceneProjectInCwd).toBe(true);
+    expect(json.data.scope.sceneComposer.skillInstalled).toBe(false);
   });
 
   it("flips skillInstalled=true once SKILL.md is in the project", () => {
     writeFileSync(join(projectDir, "STORYBOARD.md"), "## Beat 1 — x\nbody\n");
     writeFileSync(join(projectDir, "SKILL.md"), "---\nname: hyperframes\n---\n");
     const { json } = runDoctor();
-    expect(json.result.scope.sceneComposer.sceneProjectInCwd).toBe(true);
-    expect(json.result.scope.sceneComposer.skillInstalled).toBe(true);
+    expect(json.data.scope.sceneComposer.sceneProjectInCwd).toBe(true);
+    expect(json.data.scope.sceneComposer.skillInstalled).toBe(true);
   });
 });

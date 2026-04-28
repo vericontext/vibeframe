@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import { exitWithError, generalError, outputResult } from "./output.js";
+import { exitWithError, generalError, outputSuccess } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -47,6 +47,7 @@ projectCommand
   .option("-f, --fps <fps>", "Frame rate", "30")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (name: string, options) => {
+    const startedAt = Date.now();
     const spinner = ora("Creating project...").start();
 
     try {
@@ -55,14 +56,17 @@ projectCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "project create",
-          params: {
-            name,
-            output: options.output || null,
-            aspectRatio: options.ratio,
-            frameRate: options.fps,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              name,
+              output: options.output || null,
+              aspectRatio: options.ratio,
+              frameRate: options.fps,
+            },
           },
         });
         return;
@@ -151,18 +155,22 @@ projectCommand
   .option("-f, --fps <fps>", "Frame rate")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (file: string, options) => {
+    const startedAt = Date.now();
     const spinner = ora("Updating project...").start();
 
     try {
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "project set",
-          params: {
-            file,
-            name: options.name || null,
-            ratio: options.ratio || null,
-            fps: options.fps || null,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              file,
+              name: options.name || null,
+              ratio: options.ratio || null,
+              fps: options.fps || null,
+            },
           },
         });
         return;

@@ -40,7 +40,7 @@ import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
-import { isJsonMode, outputResult, exitWithError, usageError, notFoundError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 
 export const editCommand = new Command("edit")
@@ -92,6 +92,7 @@ editCommand
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.style) rejectControlChars(options.style);
       if (options.output) {
@@ -111,13 +112,16 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit grade",
-          params: {
-            videoPath: resolve(process.cwd(), videoPath),
-            style: options.style || options.preset,
-            analyzeOnly: options.analyzeOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: resolve(process.cwd(), videoPath),
+              style: options.style || options.preset,
+              analyzeOnly: options.analyzeOnly || false,
+            },
           },
         });
         return;
@@ -151,12 +155,15 @@ editCommand
         const gradeOutputPath = options.output
           ? resolve(process.cwd(), options.output)
           : absPath.replace(/(\.[^.]+)$/, "-graded$1");
-        outputResult({
-          success: true,
-          style: options.preset || options.style,
-          description: gradeResult.description,
-          ffmpegFilter: gradeResult.ffmpegFilter,
-          outputPath: options.analyzeOnly ? undefined : gradeOutputPath,
+        outputSuccess({
+          command: "edit grade",
+          startedAt,
+          data: {
+            style: options.preset || options.style,
+            description: gradeResult.description,
+            ffmpegFilter: gradeResult.ffmpegFilter,
+            outputPath: options.analyzeOnly ? undefined : gradeOutputPath,
+          },
         });
         return;
       }
@@ -209,6 +216,7 @@ editCommand
   .option("-o, --output <path>", "Output video file path")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (!options.text || options.text.length === 0) {
         exitWithError(usageError("At least one --text option is required", 'Example: vibe edit text-overlay video.mp4 -t "NEXUS AI" --style center-bold'));
@@ -225,18 +233,21 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit text-overlay",
-          params: {
-            videoPath: resolve(process.cwd(), videoPath),
-            texts: options.text,
-            style: options.style,
-            fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
-            fontColor: options.fontColor,
-            fade: parseFloat(options.fade),
-            start: parseFloat(options.start),
-            end: options.end ? parseFloat(options.end) : undefined,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: resolve(process.cwd(), videoPath),
+              texts: options.text,
+              style: options.style,
+              fontSize: options.fontSize ? parseInt(options.fontSize) : undefined,
+              fontColor: options.fontColor,
+              fade: parseFloat(options.fade),
+              start: parseFloat(options.start),
+              end: options.end ? parseFloat(options.end) : undefined,
+            },
           },
         });
         return;
@@ -269,11 +280,14 @@ editCommand
       spinner.succeed(chalk.green("Text overlays applied"));
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          style: options.style,
-          texts: options.text,
-          outputPath: result.outputPath,
+        outputSuccess({
+          command: "edit text-overlay",
+          startedAt,
+          data: {
+            style: options.style,
+            texts: options.text,
+            outputPath: result.outputPath,
+          },
         });
         return;
       }
@@ -306,6 +320,7 @@ editCommand
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -317,15 +332,18 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit speed-ramp",
-          params: {
-            videoPath: resolve(process.cwd(), videoPath),
-            style: options.style,
-            minSpeed: parseFloat(options.minSpeed),
-            maxSpeed: parseFloat(options.maxSpeed),
-            analyzeOnly: options.analyzeOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: resolve(process.cwd(), videoPath),
+              style: options.style,
+              minSpeed: parseFloat(options.minSpeed),
+              maxSpeed: parseFloat(options.maxSpeed),
+              analyzeOnly: options.analyzeOnly || false,
+            },
           },
         });
         return;
@@ -391,11 +409,14 @@ editCommand
         const speedRampOutputPath = options.output
           ? resolve(process.cwd(), options.output)
           : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
-        outputResult({
-          success: true,
-          keyframes: speedResult.keyframes,
-          avgSpeed,
-          outputPath: options.analyzeOnly ? undefined : speedRampOutputPath,
+        outputSuccess({
+          command: "edit speed-ramp",
+          startedAt,
+          data: {
+            keyframes: speedResult.keyframes,
+            avgSpeed,
+            outputPath: options.analyzeOnly ? undefined : speedRampOutputPath,
+          },
         });
         return;
       }
@@ -468,6 +489,7 @@ editCommand
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -479,14 +501,17 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit reframe",
-          params: {
-            videoPath: resolve(process.cwd(), videoPath),
-            aspect: options.aspect,
-            focus: options.focus,
-            analyzeOnly: options.analyzeOnly || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: resolve(process.cwd(), videoPath),
+              aspect: options.aspect,
+              focus: options.focus,
+              analyzeOnly: options.analyzeOnly || false,
+            },
           },
         });
         return;
@@ -581,13 +606,16 @@ editCommand
         const reframeOutputPath = options.output
           ? resolve(process.cwd(), options.output)
           : absPath.replace(/(\.[^.]+)$/, `-${options.aspect.replace(":", "x")}$1`);
-        outputResult({
-          success: true,
-          sourceWidth,
-          sourceHeight,
-          aspect: options.aspect,
-          cropKeyframes,
-          outputPath: options.analyzeOnly ? undefined : reframeOutputPath,
+        outputSuccess({
+          command: "edit reframe",
+          startedAt,
+          data: {
+            sourceWidth,
+            sourceHeight,
+            aspect: options.aspect,
+            cropKeyframes,
+            outputPath: options.analyzeOnly ? undefined : reframeOutputPath,
+          },
         });
         return;
       }
@@ -665,6 +693,7 @@ editCommand
   .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Gemini Pro only)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (args: string[], options) => {
+    const startedAt = Date.now();
     try {
       // Last argument is the prompt, rest are image paths
       if (args.length < 2) {
@@ -685,16 +714,19 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit image",
-          params: {
-            imagePaths: imagePaths.map((p: string) => resolve(process.cwd(), p)),
-            prompt,
-            provider,
-            model: options.model,
-            ratio: options.ratio,
-            size: options.size,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              imagePaths: imagePaths.map((p: string) => resolve(process.cwd(), p)),
+              prompt,
+              provider,
+              model: options.model,
+              ratio: options.ratio,
+              size: options.size,
+            },
           },
         });
         return;
@@ -792,11 +824,14 @@ editCommand
       const resultModel = (result as { model?: string }).model;
 
       if (isJsonMode()) {
-        outputResult({
-          success: true,
-          provider,
-          model: resultModel || options.model,
-          outputPath,
+        outputSuccess({
+          command: "edit image",
+          startedAt,
+          data: {
+            provider,
+            model: resultModel || options.model,
+            outputPath,
+          },
         });
         await saveImage();
         return;
@@ -827,6 +862,7 @@ editCommand
   .option("--quality <mode>", "Quality: fast or quality", "quality")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -840,14 +876,17 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit interpolate",
-          params: {
-            videoPath: absPath,
-            factor,
-            fps: options.fps ? parseInt(options.fps) : undefined,
-            quality: options.quality,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absPath,
+              factor,
+              fps: options.fps ? parseInt(options.fps) : undefined,
+              quality: options.quality,
+            },
           },
         });
         return;
@@ -881,12 +920,15 @@ editCommand
         spinner.succeed(chalk.green(`Created ${factor}x slow motion`));
 
         if (isJsonMode()) {
-          outputResult({
-            success: true,
-            originalFps,
-            targetFps,
-            factor,
-            outputPath,
+          outputSuccess({
+            command: "edit interpolate",
+            startedAt,
+            data: {
+              originalFps,
+              targetFps,
+              factor,
+              outputPath,
+            },
           });
           return;
         }
@@ -927,6 +969,7 @@ editCommand
   .option("--no-wait", "Start processing and return task ID without waiting")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -940,14 +983,17 @@ editCommand
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "edit upscale-video",
-          params: {
-            videoPath: absPath,
-            scale,
-            model: options.model,
-            ffmpeg: options.ffmpeg || false,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              videoPath: absPath,
+              scale,
+              model: options.model,
+              ffmpeg: options.ffmpeg || false,
+            },
           },
         });
         return;
@@ -976,10 +1022,13 @@ editCommand
           spinner.succeed(chalk.green(`Upscaled to ${newWidth}x${newHeight}`));
 
           if (isJsonMode()) {
-            outputResult({
-              success: true,
-              dimensions: `${newWidth}x${newHeight}`,
-              outputPath,
+            outputSuccess({
+              command: "edit upscale-video",
+              startedAt,
+              data: {
+                dimensions: `${newWidth}x${newHeight}`,
+                outputPath,
+              },
             });
             return;
           }

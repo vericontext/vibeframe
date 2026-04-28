@@ -5,7 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-import { exitWithError, generalError, outputResult, usageError } from "./output.js";
+import { exitWithError, generalError, outputSuccess, usageError } from "./output.js";
 
 export const batchCommand = new Command("batch")
   .description("Batch operations for processing multiple items");
@@ -50,19 +50,23 @@ batchCommand
   .option("--filter <pattern>", "Filter files by extension (e.g., '.mp4,.mov')")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, directory: string, options) => {
+    const startedAt = Date.now();
     const spinner = ora("Scanning directory...").start();
 
     try {
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "batch import",
-          params: {
-            project: projectPath,
-            directory,
-            recursive: options.recursive,
-            duration: options.duration,
-            filter: options.filter || null,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              project: projectPath,
+              directory,
+              recursive: options.recursive,
+              duration: options.duration,
+              filter: options.filter || null,
+            },
           },
         });
         return;
@@ -160,20 +164,24 @@ batchCommand
   .option("--gap <seconds>", "Gap between clips", "0")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, sourceIds: string[], options) => {
+    const startedAt = Date.now();
     const spinner = ora("Creating clips...").start();
 
     try {
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "batch concat",
-          params: {
-            project: projectPath,
-            sourceIds,
-            all: options.all,
-            track: options.track || null,
-            start: options.start,
-            gap: options.gap,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              project: projectPath,
+              sourceIds,
+              all: options.all,
+              track: options.track || null,
+              start: options.start,
+              gap: options.gap,
+            },
           },
         });
         return;
@@ -273,21 +281,25 @@ batchCommand
       clipIds: string[],
       options
     ) => {
+      const startedAt = Date.now();
       const spinner = ora("Applying effects...").start();
 
       try {
         if (options.dryRun) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "batch apply-effect",
-            params: {
-              project: projectPath,
-              effectType,
-              clipIds,
-              all: options.all,
-              duration: options.duration,
-              start: options.start,
-              intensity: options.intensity,
+            startedAt,
+            dryRun: true,
+            data: {
+              params: {
+                project: projectPath,
+                effectType,
+                clipIds,
+                all: options.all,
+                duration: options.duration,
+                start: options.start,
+                intensity: options.intensity,
+              },
             },
           });
           return;
@@ -365,18 +377,22 @@ batchCommand
   .option("--track <track-id>", "Remove clips from specific track only")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipIds: string[], options) => {
+    const startedAt = Date.now();
     const spinner = ora("Removing clips...").start();
 
     try {
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "batch remove-clips",
-          params: {
-            project: projectPath,
-            clipIds,
-            all: options.all,
-            track: options.track || null,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              project: projectPath,
+              clipIds,
+              all: options.all,
+              track: options.track || null,
+            },
           },
         });
         return;

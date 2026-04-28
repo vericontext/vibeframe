@@ -29,7 +29,7 @@ import { getApiKey, requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists, execSafeSync } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { formatTime } from "./ai-helpers.js";
-import { isJsonMode, outputResult, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 
 export const audioCommand = new Command("audio")
@@ -68,6 +68,7 @@ audioCommand
   .option("-o, --output <path>", "Output file path")
   .option("-f, --format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
   .action(async (audioPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.output) {
         validateOutputPath(options.output);
@@ -96,7 +97,16 @@ audioCommand
       spinner.succeed(chalk.green("Transcription complete"));
 
       if (isJsonMode()) {
-        outputResult({ success: true, fullText: result.fullText, segments: result.segments, language: result.detectedLanguage, outputPath: options.output ? resolve(process.cwd(), options.output) : undefined });
+        outputSuccess({
+          command: "audio transcribe",
+          startedAt,
+          data: {
+            fullText: result.fullText,
+            segments: result.segments,
+            language: result.detectedLanguage,
+            outputPath: options.output ? resolve(process.cwd(), options.output) : undefined,
+          },
+        });
         return;
       }
 
@@ -136,6 +146,7 @@ audioCommand
   .description("List available ElevenLabs voices")
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
   .action(async (options) => {
+    const startedAt = Date.now();
     try {
       const apiKey = await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
 
@@ -147,7 +158,13 @@ audioCommand
       spinner.succeed(chalk.green(`Found ${voices.length} voices`));
 
       if (isJsonMode()) {
-        outputResult({ success: true, voices: voices.map(v => ({ name: v.name, voiceId: v.voice_id, category: v.category, labels: v.labels })) });
+        outputSuccess({
+          command: "audio voices",
+          startedAt,
+          data: {
+            voices: voices.map(v => ({ name: v.name, voiceId: v.voice_id, category: v.category, labels: v.labels })),
+          },
+        });
         return;
       }
 
@@ -177,9 +194,15 @@ audioCommand
   .option("-o, --output <path>", "Output audio file path", "vocals.mp3")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.dryRun) {
-        outputResult({ dryRun: true, command: "audio isolate", audioPath });
+        outputSuccess({
+          command: "audio isolate",
+          startedAt,
+          dryRun: true,
+          data: { params: { audioPath } },
+        });
         return;
       }
 
@@ -212,7 +235,11 @@ audioCommand
       spinner.succeed(chalk.green("Vocals isolated"));
 
       if (isJsonMode()) {
-        outputResult({ success: true, outputPath });
+        outputSuccess({
+          command: "audio isolate",
+          startedAt,
+          data: { outputPath },
+        });
         return;
       }
 
@@ -238,9 +265,15 @@ audioCommand
   .option("--list", "List all available voices")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (samples: string[], options) => {
+    const startedAt = Date.now();
     try {
       if (options.dryRun) {
-        outputResult({ dryRun: true, command: "audio voice-clone", samples: samples?.length, name: options.name });
+        outputSuccess({
+          command: "audio voice-clone",
+          startedAt,
+          dryRun: true,
+          data: { params: { samples: samples?.length, name: options.name } },
+        });
         return;
       }
 
@@ -314,7 +347,11 @@ audioCommand
       spinner.succeed(chalk.green("Voice cloned successfully"));
 
       if (isJsonMode()) {
-        outputResult({ success: true, name: options.name, voiceId: result.voiceId });
+        outputSuccess({
+          command: "audio voice-clone",
+          startedAt,
+          data: { name: options.name, voiceId: result.voiceId },
+        });
         return;
       }
 
@@ -346,9 +383,15 @@ audioCommand
   .option("-o, --output <path>", "Output file path")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (mediaPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.dryRun) {
-        outputResult({ dryRun: true, command: "audio dub", mediaPath, targetLanguage: options.language, sourceLanguage: options.source, voice: options.voice });
+        outputSuccess({
+          command: "audio dub",
+          startedAt,
+          dryRun: true,
+          data: { params: { mediaPath, targetLanguage: options.language, sourceLanguage: options.source, voice: options.voice } },
+        });
         return;
       }
 
@@ -543,7 +586,16 @@ audioCommand
       spinner.succeed(chalk.green("Dubbing complete"));
 
       if (isJsonMode()) {
-        outputResult({ success: true, sourceLanguage: transcriptResult.detectedLanguage || options.source || "auto", targetLanguage: options.language, segmentCount: translatedSegments.length, outputPath: finalOutputPath });
+        outputSuccess({
+          command: "audio dub",
+          startedAt,
+          data: {
+            sourceLanguage: transcriptResult.detectedLanguage || options.source || "auto",
+            targetLanguage: options.language,
+            segmentCount: translatedSegments.length,
+            outputPath: finalOutputPath,
+          },
+        });
         return;
       }
 
@@ -580,13 +632,19 @@ audioCommand
   .option("-l, --release <ms>", "Release time in ms", "200")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (musicPath: string, options) => {
+    const startedAt = Date.now();
     try {
       if (options.dryRun) {
         const threshold = parseFloat(options.threshold);
         const ratio = parseFloat(options.ratio);
         const attack = parseFloat(options.attack);
         const release = parseFloat(options.release);
-        outputResult({ dryRun: true, command: "audio duck", musicPath, voicePath: options.voice, threshold, ratio, attack, release });
+        outputSuccess({
+          command: "audio duck",
+          startedAt,
+          dryRun: true,
+          data: { params: { musicPath, voicePath: options.voice, threshold, ratio, attack, release } },
+        });
         return;
       }
 
@@ -627,7 +685,11 @@ audioCommand
       spinner.succeed(chalk.green("Audio ducking complete"));
 
       if (isJsonMode()) {
-        outputResult({ success: true, musicPath: absMusic, voicePath: options.voice, threshold: thresholdDb, ratio, outputPath });
+        outputSuccess({
+          command: "audio duck",
+          startedAt,
+          data: { musicPath: absMusic, voicePath: options.voice, threshold: thresholdDb, ratio, outputPath },
+        });
         return;
       }
 

@@ -16,7 +16,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { loadPipeline, executePipeline } from "../pipeline/index.js";
 import type { PipelineBudget } from "../pipeline/types.js";
-import { outputResult, exitWithError, generalError, usageError } from "./output.js";
+import { outputSuccess, exitWithError, generalError, usageError } from "./output.js";
 import { loadEnv } from "../utils/api-key.js";
 
 export const runCommand = new Command("run")
@@ -64,6 +64,7 @@ Cost: Depends on steps. Use --dry-run to preview before executing.
 Run 'vibe schema run' for structured parameter info.
 `)
   .action(async (pipelinePath: string, options) => {
+    const startedAt = Date.now();
     // Pipeline steps call execute*() functions directly (not CLI actions),
     // so we must ensure .env is loaded before executor dispatches steps.
     loadEnv();
@@ -107,13 +108,16 @@ Run 'vibe schema run' for structured parameter info.
         });
 
         if (isJson) {
-          outputResult({
-            dryRun: true,
+          outputSuccess({
             command: "run",
-            name: manifest.name,
-            steps: result.steps.map(s => ({ id: s.id, action: s.action, estimatedCost: (s.data as Record<string, unknown>)?.estimatedCost })),
-            totalSteps: result.totalSteps,
-            budget: result.budget,
+            startedAt,
+            dryRun: true,
+            data: {
+              name: manifest.name,
+              steps: result.steps.map(s => ({ id: s.id, action: s.action, estimatedCost: (s.data as Record<string, unknown>)?.estimatedCost })),
+              totalSteps: result.totalSteps,
+              budget: result.budget,
+            },
           });
         } else {
           console.log(chalk.bold("  Execution Plan:"));
@@ -150,24 +154,27 @@ Run 'vibe schema run' for structured parameter info.
       spinner?.stop();
 
       if (isJson) {
-        outputResult({
-          success: result.success,
-          name: result.name,
-          error: result.error,
-          completedSteps: result.completedSteps,
-          totalSteps: result.totalSteps,
-          totalDuration: result.totalDuration,
-          outputDir: result.outputDir,
-          budget: result.budget,
-          steps: result.steps.map(s => ({
-            id: s.id,
-            action: s.action,
-            success: s.success,
-            output: s.output,
-            duration: s.duration,
-            error: s.error,
-            data: s.data,
-          })),
+        outputSuccess({
+          command: "run",
+          startedAt,
+          data: {
+            name: result.name,
+            error: result.error,
+            completedSteps: result.completedSteps,
+            totalSteps: result.totalSteps,
+            totalDuration: result.totalDuration,
+            outputDir: result.outputDir,
+            budget: result.budget,
+            steps: result.steps.map(s => ({
+              id: s.id,
+              action: s.action,
+              success: s.success,
+              output: s.output,
+              duration: s.duration,
+              error: s.error,
+              data: s.data,
+            })),
+          },
         });
       } else {
         console.log();

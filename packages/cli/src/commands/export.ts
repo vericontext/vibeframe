@@ -6,7 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, notFoundError, outputResult, usageError } from "./output.js";
+import { exitWithError, generalError, notFoundError, outputSuccess, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 /**
@@ -258,6 +258,7 @@ GIF format: 15fps, no audio, looping. Good for previews and sharing.
 Custom flags (--bitrate, --fps, --resolution, --codec) override preset values.
 Run 'vibe schema export' for structured parameter info.`)
   .action(async (projectPath: string, options) => {
+    const startedAt = Date.now();
     const spinner = ora("Checking FFmpeg...").start();
 
     try {
@@ -278,21 +279,24 @@ Run 'vibe schema export' for structured parameter info.`)
       }
 
       if (options.dryRun) {
-        outputResult({
-          dryRun: true,
+        outputSuccess({
           command: "export",
-          params: {
-            project: projectPath,
-            output: options.output || null,
-            format: options.format,
-            preset: options.preset,
-            overwrite: options.overwrite,
-            gapFill: options.gapFill,
-            backend: options.backend,
-            bitrate: options.bitrate ?? null,
-            fps: customOverrides.fps ?? null,
-            resolution: options.resolution ?? null,
-            codec: options.codec ?? null,
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              project: projectPath,
+              output: options.output || null,
+              format: options.format,
+              preset: options.preset,
+              overwrite: options.overwrite,
+              gapFill: options.gapFill,
+              backend: options.backend,
+              bitrate: options.bitrate ?? null,
+              fps: customOverrides.fps ?? null,
+              resolution: options.resolution ?? null,
+              codec: options.codec ?? null,
+            },
           },
         });
         return;
@@ -300,7 +304,7 @@ Run 'vibe schema export' for structured parameter info.`)
 
       // Hyperframes backend path
       if (options.backend === "hyperframes") {
-        await runHyperframesExport(projectPath, options, spinner);
+        await runHyperframesExport(projectPath, options, spinner, startedAt);
         return;
       }
 
@@ -1146,14 +1150,15 @@ function getPresetSettings(
 async function runHyperframesExport(
   projectPath: string,
   options: { output?: string; format?: string; preset?: string },
-  spinner: ReturnType<typeof ora>
+  spinner: ReturnType<typeof ora>,
+  startedAt: number
 ): Promise<void> {
   spinner.text = "Loading project...";
   const { readFile } = await import("node:fs/promises");
   const { resolve, basename } = await import("node:path");
   const { Project } = await import("../engine/index.js");
   const { createHyperframesBackend } = await import("../pipeline/renderers/hyperframes.js");
-  const { exitWithError, generalError, outputResult } = await import("./output.js");
+  const { exitWithError, generalError, outputSuccess } = await import("./output.js");
   const chalk = (await import("chalk")).default;
 
   const filePath = resolve(process.cwd(), projectPath);
@@ -1188,10 +1193,10 @@ async function runHyperframesExport(
   }
 
   spinner.succeed(chalk.green(`Exported: ${result.outputPath}`));
-  outputResult({
-    success: true,
+  outputSuccess({
     command: "export",
-    result: {
+    startedAt,
+    data: {
       outputPath: result.outputPath,
       backend: "hyperframes",
       durationMs: result.durationMs,

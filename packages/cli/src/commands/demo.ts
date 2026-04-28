@@ -12,7 +12,7 @@ import ora from "ora";
 import { commandExists, execSafe } from "../utils/exec-safe.js";
 import { executeDetectScenes, executeDetectSilence } from "./detect.js";
 import { executeSilenceCut, executeFade, executeNoiseReduce } from "./ai-edit.js";
-import { outputResult, exitWithError, generalError, isJsonMode } from "./output.js";
+import { outputSuccess, exitWithError, generalError, isJsonMode } from "./output.js";
 
 const DEMO_DIR = resolve(process.cwd(), ".vibeframe-demo");
 
@@ -66,6 +66,7 @@ export const demoCommand = new Command("demo")
   .option("--keep", "Keep demo output files after completion")
   .option("--json", "Output results as JSON")
   .action(async (options) => {
+    const startedAt = Date.now();
     if (options.json) process.env.VIBE_JSON_OUTPUT = "1";
     const isJson = isJsonMode() || !process.stdin.isTTY;
 
@@ -181,11 +182,16 @@ export const demoCommand = new Command("demo")
     const total = results.length;
 
     if (isJson) {
-      outputResult({
-        success: passed === total,
+      outputSuccess({
         command: "demo",
-        result: { passed, total, steps: results },
-        demoDir: DEMO_DIR,
+        startedAt,
+        data: {
+          allPassed: passed === total,
+          passed,
+          total,
+          steps: results,
+          demoDir: DEMO_DIR,
+        },
       });
     } else {
       console.log();
