@@ -116,11 +116,27 @@ API keys live in \`.env\` (gitignored). Copy \`.env.example\` to start. Run
 \`vibe doctor\` to see which keys are currently detected and which providers
 they unlock.
 
-### Scene composer (LLM that writes scene HTML for \`scene build\`)
+### Hyperframes skill (scene HTML rules)
 
-\`vibe scene build\` runs an LLM with the vendored Hyperframes skill bundle
-to compose per-beat HTML. It auto-picks based on available keys
-(\`claude > gemini > openai\`) — pass \`--composer <name>\` to force one:
+\`vibe scene init\` installs the Hyperframes skill into your project. The
+universal copy lives at \`SKILL.md\` (with \`references/*.md\`), and
+host-specific copies are placed where each agent expects them
+(\`.claude/skills/hyperframes/\` for Claude Code, \`.cursor/rules/hyperframes.mdc\`
+for Cursor). **Read \`SKILL.md\` before authoring any scene composition HTML
+under \`compositions/\`** — it defines the framework rules, motion
+principles, type system, and visual-identity hard-gate. The same skill
+governs \`vibe scene lint\` so your authored HTML and the linter stay in
+agreement.
+
+To retro-install on a project scaffolded before this command existed, run
+\`vibe scene install-skill [--host all]\`.
+
+### Scene composer (batch / non-agent fallback)
+
+When you don't want to author HTML yourself, \`vibe scene build\` runs an
+LLM internally with the same skill bundle. It auto-picks a provider based
+on available keys (\`claude > gemini > openai\`) — pass \`--composer <name>\`
+to force one:
 
 | Provider | Env var | Spike notes (v0.70) |
 |---|---|---|

@@ -78,6 +78,12 @@ import {
 } from "./output.js";
 import { getApiKey } from "../utils/api-key.js";
 import { getAudioDuration } from "../utils/audio.js";
+import { detectedAgentHosts } from "../utils/agent-host-detect.js";
+import {
+  installHyperframesSkill,
+  deriveInstallHosts,
+  type InstallSkillHost,
+} from "./_shared/install-skill.js";
 
 const VALID_ASPECTS: SceneAspect[] = ["16:9", "9:16", "1:1", "4:5"];
 
@@ -173,6 +179,21 @@ sceneCommand
     try {
       const result = await scaffoldSceneProject({ dir, name, aspect, duration, visualStyle });
 
+      // Phase H1: drop the Hyperframes skill into the project so the host
+      // agent (Claude Code, Cursor, Codex, Aider, …) can read it directly.
+      // This is what unlocks the agentic compose path — without skill
+      // files in context, the agent can't reason about composition rules.
+      // Only host-specific layouts are written for hosts that the user
+      // actually has installed; the universal `SKILL.md` + `references/`
+      // are always written so AGENTS.md can `@SKILL.md`-reference them.
+      const detectedIds = detectedAgentHosts().map((h) => h.id);
+      const skillHosts = deriveInstallHosts(detectedIds);
+      const projectAbs = resolve(dir);
+      const skillResult = await installHyperframesSkill({
+        projectDir: projectAbs,
+        hosts: skillHosts,
+      });
+
       if (isJsonMode()) {
         outputResult({
           success: true,
@@ -185,6 +206,8 @@ sceneCommand
           created: result.created,
           merged: result.merged,
           skipped: result.skipped,
+          skillFiles: skillResult.files,
+          skillBundleVersion: skillResult.bundleVersion,
         });
         return;
       }
@@ -196,6 +219,18 @@ sceneCommand
       for (const f of result.created) console.log(chalk.green("  +"), f);
       for (const f of result.merged)  console.log(chalk.yellow("  ~"), f, chalk.dim("(merged)"));
       for (const f of result.skipped) console.log(chalk.dim("  ·"), f, chalk.dim("(kept existing)"));
+
+      const skillWritten = skillResult.files.filter((f) => f.status === "wrote");
+      const skillSkipped = skillResult.files.filter((f) => f.status === "skipped-exists");
+      if (skillWritten.length + skillSkipped.length > 0) {
+        console.log();
+        console.log(chalk.bold.cyan("Hyperframes skill"));
+        console.log(chalk.dim("─".repeat(60)));
+        for (const f of skillWritten) console.log(chalk.green("  +"), f.path);
+        for (const f of skillSkipped) console.log(chalk.dim("  ·"), f.path, chalk.dim("(kept existing)"));
+        console.log(chalk.dim(`  Bundle: ${skillResult.bundleVersion}`));
+      }
+
       console.log();
       console.log(chalk.bold.cyan("Next steps"));
       console.log(chalk.dim("─".repeat(60)));
@@ -204,14 +239,95 @@ sceneCommand
       } else {
         console.log(`  ${chalk.cyan("vibe scene styles")}        ${chalk.dim("# pick a named style for DESIGN.md")}`);
       }
-      console.log(`  ${chalk.cyan("npx skills add heygen-com/hyperframes")}  ${chalk.dim("# load the cinematic-craft skill set")}`);
-      console.log(`  ${chalk.cyan("vibe scene add")} <name>    ${chalk.dim("# fallback path: 5-preset emit")}`);
+      console.log(`  ${chalk.dim("Your agent now has Hyperframes rules in")} ${chalk.cyan("SKILL.md")} ${chalk.dim("— ask it to author scene HTML directly.")}`);
+      console.log(`  ${chalk.cyan("vibe scene add")} <name>    ${chalk.dim("# fallback: 5-preset emit (no agent)")}`);
       console.log(`  ${chalk.cyan("vibe scene lint")}          ${chalk.dim("# validate HTML")}`);
       console.log(`  ${chalk.cyan("vibe scene render")}        ${chalk.dim("# render to MP4")}`);
     } catch (error) {
       spinner?.fail("Failed to scaffold scene project");
       const msg = error instanceof Error ? error.message : String(error);
       exitWithError(generalError(`Failed to scaffold: ${msg}`));
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// `vibe scene install-skill` — drop the Hyperframes skill into a project
+// ---------------------------------------------------------------------------
+// Phase H1 — exposed as a separate subcommand for retroactive install on
+// existing scene projects (i.e. projects scaffolded before this command
+// existed). `vibe scene init` calls the same library function eagerly.
+
+const VALID_INSTALL_SKILL_HOSTS = ["claude-code", "cursor", "auto", "all"] as const;
+type InstallSkillHostFlag = (typeof VALID_INSTALL_SKILL_HOSTS)[number];
+
+sceneCommand
+  .command("install-skill")
+  .description("Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)")
+  .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
+  .option("--host <id>", `Host layout target: ${VALID_INSTALL_SKILL_HOSTS.join(" | ")}`, "auto")
+  .option("--force", "Overwrite existing skill files (default: skip-on-exist)")
+  .option("--dry-run", "Preview which files would be written without changing anything")
+  .action(async (projectDirArg: string, options) => {
+    const hostFlag = (options.host as InstallSkillHostFlag) ?? "auto";
+    if (!VALID_INSTALL_SKILL_HOSTS.includes(hostFlag)) {
+      exitWithError(usageError(`Invalid --host: ${hostFlag}`, `Valid: ${VALID_INSTALL_SKILL_HOSTS.join(", ")}`));
+    }
+
+    const projectDir = resolve(projectDirArg);
+    const hosts: InstallSkillHost[] = (() => {
+      if (hostFlag === "all") return ["all"];
+      if (hostFlag === "auto") {
+        return deriveInstallHosts(detectedAgentHosts().map((h) => h.id));
+      }
+      return [hostFlag];
+    })();
+
+    const result = await installHyperframesSkill({
+      projectDir,
+      hosts,
+      force: options.force ?? false,
+      dryRun: options.dryRun ?? false,
+    });
+
+    if (isJsonMode()) {
+      outputResult({
+        success: true,
+        command: "scene install-skill",
+        projectDir,
+        host: hostFlag,
+        resolvedHosts: hosts,
+        bundleVersion: result.bundleVersion,
+        files: result.files,
+        dryRun: options.dryRun ?? false,
+      });
+      return;
+    }
+
+    console.log();
+    console.log(chalk.bold.cyan("Hyperframes skill install"));
+    console.log(chalk.dim("─".repeat(60)));
+    console.log(chalk.dim(`Project:   ${projectDir}`));
+    console.log(chalk.dim(`Host:      ${hostFlag}${hostFlag === "auto" ? ` (resolved → ${hosts.join(", ") || "universal-only"})` : ""}`));
+    console.log(chalk.dim(`Bundle:    ${result.bundleVersion}`));
+    console.log();
+
+    for (const f of result.files) {
+      const icon =
+        f.status === "wrote" ? chalk.green("+")
+        : f.status === "skipped-exists" ? chalk.dim("·")
+        : f.status === "would-write" ? chalk.cyan("~")
+        : chalk.dim("·");
+      const note =
+        f.status === "skipped-exists" ? chalk.dim(" (kept existing — pass --force to overwrite)")
+        : f.status === "would-write" ? chalk.dim(" (would write)")
+        : f.status === "would-skip-exists" ? chalk.dim(" (would skip — exists)")
+        : "";
+      console.log(`  ${icon} ${f.path}${note}`);
+    }
+
+    if (options.dryRun) {
+      console.log();
+      console.log(chalk.dim("Dry run — no files written. Re-run without --dry-run to apply."));
     }
   });
 

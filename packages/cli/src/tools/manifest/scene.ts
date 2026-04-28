@@ -27,6 +27,12 @@ import {
 } from "../../commands/_shared/scene-render.js";
 import { executeSceneBuild } from "../../commands/_shared/scene-build.js";
 import type { ScenePreset } from "../../commands/_shared/scene-html-emit.js";
+import {
+  installHyperframesSkill,
+  deriveInstallHosts,
+  type InstallSkillHost,
+} from "../../commands/_shared/install-skill.js";
+import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 
 const SCENE_PRESETS = [
   "simple",
@@ -428,6 +434,60 @@ export const sceneBuildTool = defineTool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// scene_install_skill — Phase H1 agentic-CLI primitive
+// ---------------------------------------------------------------------------
+
+const sceneInstallSkillSchema = z.object({
+  projectDir: z.string().describe("Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit and prevent accidental installs in unintended cwd."),
+  host: z.enum(["claude-code", "cursor", "auto", "all"]).optional().describe("Host layout target. 'auto' (default) detects installed agent hosts; 'all' writes every layout; 'claude-code' / 'cursor' force a single host. Codex / Aider read the universal SKILL.md via AGENTS.md so don't need a host-specific layout."),
+  force: z.boolean().optional().describe("Overwrite existing skill files. Default: skip-on-exist (preserves user customisations)."),
+  dryRun: z.boolean().optional().describe("Report which files would be written without writing them."),
+});
+
+export const sceneInstallSkillTool = defineTool({
+  name: "scene_install_skill",
+  category: "scene",
+  cost: "free",
+  description:
+    "Install the vendored Hyperframes skill bundle into a scene project so the host agent (Claude Code, Cursor, Codex, Aider) can read framework rules + house style directly. Writes a universal SKILL.md + references/ at the project root, plus per-host layouts (.claude/skills/hyperframes/ for Claude Code, .cursor/rules/hyperframes.mdc for Cursor) when those hosts are detected. Phase H1 of the agentic-native composer plan — once installed, the host agent itself can author scene HTML using the rules instead of relying on vibe's internal LLM call.",
+  schema: sceneInstallSkillSchema,
+  async execute(args, ctx) {
+    const projectDir = resolve(ctx.workingDirectory, args.projectDir);
+
+    const hostFlag = args.host ?? "auto";
+    const hosts: InstallSkillHost[] = (() => {
+      if (hostFlag === "all") return ["all"];
+      if (hostFlag === "auto") {
+        return deriveInstallHosts(detectedAgentHosts().map((h) => h.id));
+      }
+      return [hostFlag];
+    })();
+
+    const result = await installHyperframesSkill({
+      projectDir,
+      hosts,
+      force: args.force ?? false,
+      dryRun: args.dryRun ?? false,
+    });
+
+    return {
+      success: true,
+      data: {
+        projectDir: relative(ctx.workingDirectory, projectDir) || ".",
+        host: hostFlag,
+        resolvedHosts: hosts,
+        bundleVersion: result.bundleVersion,
+        files: result.files,
+        dryRun: args.dryRun ?? false,
+      },
+      humanLines: [
+        `Installed Hyperframes skill (${result.bundleVersion}) — ${result.files.filter((f) => f.status === "wrote" || f.status === "would-write").length} file(s) ${args.dryRun ? "would be written" : "written"}.`,
+      ],
+    };
+  },
+});
+
 /** All scene-category manifest entries (type-erased for heterogeneous aggregation). */
 export const sceneTools: readonly AnyTool[] = [
   sceneInitTool as unknown as AnyTool,
@@ -436,4 +496,5 @@ export const sceneTools: readonly AnyTool[] = [
   sceneRenderTool as unknown as AnyTool,
   sceneBuildTool as unknown as AnyTool,
   sceneStylesTool as unknown as AnyTool,
+  sceneInstallSkillTool as unknown as AnyTool,
 ];
