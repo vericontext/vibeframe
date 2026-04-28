@@ -2,15 +2,13 @@
 #
 # Output:     assets/demos/cli.mp4
 # Family:     surface
-# Prereqs:    - assets/demos/fixtures/storyboard-cli.md (the 3-beat fixture)
-#             - lab dir at ~/dev/personal/lab/vibeframe-lab
+# Prereqs:    - lab dir at ~/dev/personal/lab/vibeframe-lab
 # Env:        OPENAI_API_KEY (gpt-image-2), ELEVENLABS_API_KEY (TTS)
 # Wall-clock: ~6 min (3 beats × HD backdrop + TTS + render)
 #
 # Hand-authored STORYBOARD with rich per-beat YAML cues, then
 # `vibe scene build` → narrated, captioned 12-second cinematic MP4.
-# The fixture lives at assets/demos/fixtures/storyboard-cli.md so the
-# recording stays focused on the user-facing flow (init → cp → build).
+# The storyboard is written inline so this tape is self-contained.
 
 Output assets/demos/cli.mp4
 
@@ -38,9 +36,60 @@ Type "clear"
 Enter
 Sleep 500ms
 
-# Drop the prepared storyboard fixture into the project (replaces the
-# 32-line heredoc the previous tape revision typed line by line).
-Type "cp ~/dev/vericontext/vibeframe/assets/demos/fixtures/storyboard-cli.md my-promo/STORYBOARD.md"
+# Write the storyboard into the project.
+Type "cat > my-promo/STORYBOARD.md <<'EOF'"
+Enter
+Type "# VibeFrame promo storyboard"
+Enter
+Type ""
+Enter
+Type "## Beat hook — Hook"
+Enter
+Type ""
+Enter
+Type "\`\`\`yaml"
+Enter
+Type "narration: \"Stop fighting timelines. Author scenes the way you write code — every edit a command, every workflow scriptable.\""
+Enter
+Type "backdrop: \"Abstract minimalist tech aesthetic, electric blue volumetric light glow on near-black, faint grain texture, cinematic Apple keynote mood, no text\""
+Enter
+Type "duration: 4"
+Enter
+Type "\`\`\`"
+Enter
+Type ""
+Enter
+Type "## Beat claim — Claim"
+Enter
+Type ""
+Enter
+Type "\`\`\`yaml"
+Enter
+Type "narration: \"VibeFrame composes videos from your storyboard. Thirteen AI providers. Skills-driven scene authoring. One command from text to MP4.\""
+Enter
+Type "backdrop: \"Cinematic close-up of a glowing code editor on a dark monitor, electric blue YAML syntax visible, shallow depth of field bokeh, premium developer aesthetic\""
+Enter
+Type "duration: 4"
+Enter
+Type "\`\`\`"
+Enter
+Type ""
+Enter
+Type "## Beat close — Close"
+Enter
+Type ""
+Enter
+Type "\`\`\`yaml"
+Enter
+Type "narration: \"VibeFrame is open source under MIT. Install with one curl line, ship cinematic video as code.\""
+Enter
+Type "backdrop: \"Premium dark hardware surface with subtle electric blue LED dot pattern grid, soft rim lighting, deep blacks, abstract geometric tech aesthetic\""
+Enter
+Type "duration: 4"
+Enter
+Type "\`\`\`"
+Enter
+Type "EOF"
 Enter
 Sleep 1s
 
