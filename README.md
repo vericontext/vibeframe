@@ -36,13 +36,13 @@ deterministically by Hyperframes' producer.
 
 ```bash
 brew install vhs
-vhs assets/demos/cli.tape          # Surface 1 — vibe CLI directly
-vhs assets/demos/agent.tape        # Surface 2 — vibe agent (built-in REPL, BYO LLM)
-vhs assets/demos/claude.tape       # Surface 3 — host agent driving vibe scene build (recorded with Claude Code)
-vhs assets/demos/claude-i2v.tape   # Surface 4 — host agent t2i + i2v + narration (recorded with Claude Code)
+vhs assets/demos/cli.tape              # Surface 1 — vibe CLI directly
+vhs assets/demos/agent.tape            # Surface 2 — vibe agent (built-in REPL, BYO LLM)
+vhs assets/demos/host-agent.tape       # Surface 3 — host agent driving vibe scene build
+vhs assets/demos/host-agent-i2v.tape   # Surface 4 — host agent t2i + i2v + narration
 ```
 
-> The Surface 3/4 tapes were recorded with Claude Code, but the same `vibe` commands run identically when driven by Codex / Cursor / Aider / Gemini CLI / OpenCode — the host agent is just translating natural language into the same shell command.
+> The Surface 3/4 tapes were recorded with Claude Code (it's the agent we use day-to-day), but the same `vibe` commands run identically when driven by Codex / Cursor / Aider / Gemini CLI / OpenCode — the host agent is just translating natural language into the same shell command. Re-record on your favourite host with `vhs <tape>` after exporting that host's API key.
 
 > **New in v0.60:** `vibe scene build` is the one-shot driver — write a `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration), and a single command dispatches TTS + GPT Image 2 + composes scene HTML via the `compose-scenes-with-skills` pipeline (v0.59) and renders to MP4. `vibe scene init --visual-style "Swiss Pulse"` (v0.58) still seeds the `DESIGN.md` hard-gate + 8 named visual identities. Hyperframes' `/hyperframes` skill (`npx skills add heygen-com/hyperframes`) is loaded as the LLM system prompt for composition craft.
 

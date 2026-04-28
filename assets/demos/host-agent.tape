@@ -1,12 +1,15 @@
-# assets/demos/claude.tape — Surface 3: end-to-end via Claude Code
+# assets/demos/host-agent.tape — Surface 3: end-to-end via a host agent
+# (recorded with Claude Code; the same flow works on any host that
+# reads AGENTS.md — Codex / Cursor / Aider / Gemini CLI / OpenCode).
 #
-# Renders → assets/demos/claude.mp4
+# Renders → assets/demos/host-agent.mp4
 #
-# Captures: curl install → vibe init → claude --dangerously-skip-permissions
-# → natural-language prompt → Claude reads AGENTS.md → drives full
-# scene build flow → cinematic 12-second MP4.
+# Captures: curl install → vibe init → host agent (Claude Code in the
+# recording) reads AGENTS.md → user describes the video in natural
+# language → agent drives the full scene build flow → cinematic
+# 12-second MP4.
 
-Output assets/demos/claude.mp4
+Output assets/demos/host-agent.mp4
 
 Set FontSize 12
 Set Width 1400

@@ -1,13 +1,15 @@
-# assets/demos/claude-i2v.tape — Surface 4: Claude Code drives the
-# primitive pipeline (t2i → i2v → narration → mux), no scene authoring.
+# assets/demos/host-agent-i2v.tape — Surface 4: a host agent drives
+# the primitive pipeline (t2i → i2v → narration → mux), no scene
+# authoring. Recorded with Claude Code; the same flow works on any
+# host that reads AGENTS.md.
 #
-# Renders → assets/demos/claude-i2v.mp4
+# Renders → assets/demos/host-agent-i2v.mp4
 #
-# Where claude.tape demonstrates skills + scene build (a STORYBOARD
+# Where host-agent.tape demonstrates skills + scene build (a STORYBOARD
 # becomes a multi-beat cinematic), this one demonstrates the OTHER
 # canonical VibeFrame flow: chain individual generation primitives to
-# produce a single short clip. Same surface (Claude Code), different
-# CLI subcommands.
+# produce a single short clip. Same surface (any host agent),
+# different CLI subcommands.
 #
 # Primitive chain:
 #   1. gpt-image-2 (text-to-image, HD)              — $0.04
@@ -24,9 +26,9 @@
 #   export OPENAI_API_KEY=...       # gpt-image-2
 #   export FAL_KEY=...              # Seedance 2.0
 #   export ELEVENLABS_API_KEY=...   # TTS
-#   vhs assets/demos/claude-i2v.tape
+#   vhs assets/demos/host-agent-i2v.tape
 
-Output assets/demos/claude-i2v.mp4
+Output assets/demos/host-agent-i2v.mp4
 
 Set FontSize 12
 Set Width 1400

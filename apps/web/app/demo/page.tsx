@@ -128,16 +128,16 @@ export default function DemoPage() {
               command="vhs assets/demos/agent.tape"
             />
             <TapeCard
-              badge="3 · Claude Code"
+              badge="3 · Host agent"
               title="scene build"
-              note="Claude Code drives storyboard → multi-beat MP4"
-              command="vhs assets/demos/claude.tape"
+              note="Host agent drives storyboard → multi-beat MP4 (recorded with Claude Code)"
+              command="vhs assets/demos/host-agent.tape"
             />
             <TapeCard
-              badge="4 · Claude Code"
+              badge="4 · Host agent"
               title="primitive chain"
-              note="t2i (gpt-image-2) → i2v (Seedance 2.0) → narration → mux"
-              command="vhs assets/demos/claude-i2v.tape"
+              note="t2i (gpt-image-2) → i2v (Seedance 2.0) → narration → mux (recorded with Claude Code)"
+              command="vhs assets/demos/host-agent-i2v.tape"
             />
           </div>
 
