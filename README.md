@@ -87,7 +87,7 @@ See [`docs/comparison.md`](docs/comparison.md) for a measured side-by-side of `v
 | **Video as Code** | composition is somewhat declarative | `vibe run pipeline.yaml` · `--dry-run` cost preview · `--resume` checkpoints · step references (`$step.output`) |
 | **Local Kokoro TTS** | ✅ Python `kokoro-onnx` | ✅ Node `kokoro-js` — same Kokoro-82M model, auto-fallback when no `ELEVENLABS_API_KEY` |
 | **Local Whisper transcribe** | ✅ whisper-cpp (offline) | OpenAI Whisper API (cloud, word-level) |
-| **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ ships `/vibe-pipeline`, `/vibe-scene` (overview lives in `AGENTS.md` scaffolded by `vibe init`) |
+| **Agent skills** | ✅ `npx skills add heygen-com/hyperframes` (5 skills via vercel-labs/skills) | ✅ universal `vibe walkthrough <topic>` (scene / pipeline) — same content as Claude Code's `/vibe-scene` and `/vibe-pipeline` slash commands, callable from any host. Project guidance in `AGENTS.md` (`vibe init`). |
 | **MCP server** | ❌ | ✅ 66 tools |
 | **Render** | ✅ native (BeginFrame, parity, HDR, Studio NLE) | uses Hyperframes backend or FFmpeg |
 | **License** | Apache 2.0 | MIT |
@@ -208,24 +208,18 @@ The example above is host-agnostic — every command works identically across Cl
 
 `vibe scene build --mode auto` auto-flips to the agentic compose path (no internal LLM call — host agent authors per-beat HTML directly) whenever any of the above hosts is present. Set `VIBE_BUILD_MODE=batch` to force the internal-LLM compose path instead.
 
-### Claude Code deeper integration
+### Step-by-step authoring guides
 
-Claude Code is the only host today with a slash-command pack on top of the universal CLI surface. After running `vibe scene init`, two slash commands are registered:
+`vibe walkthrough` ships a built-in catalog of authoring guides — universal across every host, no slash menu required:
 
 ```bash
-# From any project where you want the skill pack active
-mkdir -p .claude/skills
-curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
+vibe walkthrough              # list available topics
+vibe walkthrough scene        # full scene-authoring guide (BUILD flow)
+vibe walkthrough pipeline     # full YAML-pipeline authoring guide (Video as Code)
+vibe walkthrough scene --json # structured shape for an agent host to consume
 ```
 
-- **`/vibe-pipeline`** — YAML pipeline authoring helper (Video as Code)
-- **`/vibe-scene`** — per-scene HTML authoring + `vibe scene build` (Hyperframes-backed)
-
-> The skill pack was consolidated 4 → 2 in v0.62: the older `/vibeframe` overview moved to `AGENTS.md` (scaffolded by `vibe init`), and `/vibe-script-to-video` was retired in v0.63 in favour of `/vibe-scene` driving `vibe scene build`.
-
-Other host families (Codex / Cursor / Aider / Gemini CLI / OpenCode) get their own equivalents on demand — see [`packages/cli/src/utils/agent-host-detect.ts`](packages/cli/src/utils/agent-host-detect.ts) + [`packages/cli/src/commands/_shared/install-skill.ts`](packages/cli/src/commands/_shared/install-skill.ts) for the registration shape, or open an issue / PR if your host needs first-class scaffolds.
-
-Prefer manual install? Copy [`.claude/skills/`](https://github.com/vericontext/vibeframe/tree/main/.claude/skills) from this repo into your project.
+Same content the `/vibe-scene` and `/vibe-pipeline` slash commands deliver in Claude Code — works identically when called from any other host. Claude Code users can keep the slash menu as a one-keystroke shortcut (install via `curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash`); the underlying guide is the same.
 
 ---
 
