@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.71.0] - 2026-04-28
+
+Agent-host coverage + CLI-only walkthroughs. Closes the last Claude-Code-only positioning gap on top of Plan H. All changes are additive — no breaking changes. Counts: MCP 65 → 66, Agent 81 → 82.
+
+### Added
+
+- **Gemini CLI + OpenCode host detection (#183)** — \`agent-host-detect.ts\` now recognises six hosts (Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode). \`vibe doctor\` auto-detects, \`vibe init --agent gemini-cli|opencode\` scaffolds AGENTS.md, \`--agent all\` covers everyone. Detection follows the existing pattern (binary on PATH OR config dir in \$HOME).
+- **\`vibe walkthrough <topic>\` command (#185)** — universal CLI equivalent of Claude Code's \`/vibe-scene\` and \`/vibe-pipeline\` slash commands. Topics: \`scene\`, \`pipeline\`. Without a topic, lists the catalog. \`--json\` returns a structured \`{topic, title, summary, steps, relatedCommands, content}\` shape for agent hosts. Source content vendored as TS template literals (zero filesystem dependencies). Manifest tool \`walkthrough\` exposes the same primitive on MCP / Agent surfaces.
+
+### Changed
+
+- **README + landing rewritten for agent-agnostic positioning (#184)** — closes issue #52. New "Agent host support" matrix in the README enumerates all six detected hosts with their \`vibe init\` scaffold + Plan H skill layout. Hero / Section ② / SEO keywords updated to lead with "any bash-capable AI coding agent" instead of Claude Code only. Honest matrix — only host-specific signals the codebase actually emits, no fabricated capability claims.
+- **"Claude Code deeper integration" → "Universal walkthroughs" (#186)** — once \`vibe walkthrough\` shipped, the slash-command-as-Tier-2 framing became misleading. Slash commands are now positioned as a one-keystroke shortcut to the same universal walkthrough content, not a Claude-Code-exclusive feature. \`.claude/skills/vibe-{scene,pipeline}/\` files unchanged — same install path still works.
+
+### Maintenance
+
+- v0.71.0 release — bump version + CHANGELOG (this PR)
+
 ## [0.70.0] - 2026-04-28
 
 **Plan H — agentic-native composer.** Closes the architectural smell where `vibe scene build` made VibeFrame's CLI run its own Anthropic / OpenAI / Gemini call hidden behind the host agent. Now the host agent (Claude Code, Cursor, Codex, Aider) is the sole reasoner; VibeFrame ships skill files into the user's project and provides a deterministic toolbelt around them. The internal-LLM batch path is preserved as a fallback for CI / non-agent contexts.
