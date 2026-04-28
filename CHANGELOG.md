@@ -5,63 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.68.0] - 2026-04-28
+## [0.69.0] - 2026-04-28
 
-Phase 1 of [Plan G](https://github.com/vericontext/vibeframe/blob/main/.claude/plans/logical-wibbling-sonnet.md) — OSS-first refactor. Collapses the previous 8-place "add a new AI provider" matrix into a single declaration via `defineApiKey` + `defineProvider`. Five derived consumers (provider-resolver IMAGE/VIDEO/SPEECH arrays, schema PROVIDER_ENV_VARS, doctor COMMAND_KEY_MAP, setup allProviders, `.env.example`) now structurally share one source of truth — drift is impossible at the language level.
+Plan G Phases 2–5 (OSS-first refactor) + a 3-PR CLI cleanup pass that retired ~6,000 lines of dead/deprecated surface. Counts: MCP 64 → 63, Agent 80 → 79.
+
+### ⚠ Breaking
+
+- **`pipeline_script_to_video` MCP tool / `vibe pipeline script-to-video` CLI subcommand / `executeScriptToVideo` library function removed (#174)** — text → MP4 lives in the skill-driven `vibe scene build` flow (idempotent, cached, per-beat editable). `pipeline regenerate-scene` is preserved for re-rendering individual scenes against an existing storyboard.{yaml,json}.
+- **`dalle` provider alias on `vibe generate image` removed (#174)** — soft-warned for 6+ minor versions; use `--provider openai` instead.
 
 ### Added
 
-- `packages/ai-providers/src/define-provider.ts` — plugin metadata registry with `defineApiKey` / `defineProvider` helpers + derivation functions (`getProvidersFor`, `getProviderEnvVars`, `getCommandKeyMap`, `getSetupProviders`)
-- `packages/ai-providers/src/api-keys.ts` — centralized 11 apiKey declarations + 1 virtual provider (openrouter)
-- `scripts/print-env-example.mts` — regenerate `.env.example` from registry; `--check` mode wired into `sync-counts.sh`
-- `packages/cli/src/utils/provider-resolver.test.ts` — snapshot tests pinning derived shapes to v0.67 hardcoded arrays (+6 tests, total 652)
+- `pnpm scaffold:provider <name>` and `pnpm scaffold:command <group> <name>` (#169) — generate boilerplate for new AI providers / CLI subcommands. Closes the OSS contributor 8-place-edit problem from Plan G's premise.
+- "Adding a New AI Provider" + "Adding a New CLI Subcommand" walkthroughs in CONTRIBUTING.md (#169).
+- `edit_fill_gaps` manifest entry (#170) — `executeFillGaps` extracted from the inline `.action()` body, now exposed to MCP + Agent. cli-sync SYNC_TABLE has zero `null` rows post-Plan G.
+- `commands/_shared/video-utils.ts` + `commands/_shared/video-providers.ts` (#168) — shared helpers for the regenerate-scene flow (uploadToImgbb, generateVideoWithRetry*, extendVideoToTarget, etc.). Re-exported from `ai-script-pipeline.ts` for backward compat.
 
 ### Changed
 
-- `provider-resolver.ts` IMAGE/VIDEO/SPEECH_PROVIDERS arrays → derived from `getProvidersFor(kind)`
-- `config/schema.ts` PROVIDER_ENV_VARS → derived from `getProviderEnvVars()`
-- `doctor.ts` COMMAND_KEY_MAP → derived from `getCommandKeyMap()`
-- `setup.ts` allProviders → derived from `getSetupProviders()`
-- `generate.ts` `vibe generate image` inline maps (validProviders, providerEnvMap, envKeyMap, providerNameMap) → derived from `getProvidersFor("image")` + explicit `dalle`/`runway` aliases
-- `scripts/sync-counts.sh` category B (5-array cross-validation) deleted — replaced by `print-env-example.mts --check` (structural derivation makes drift impossible)
-- 13 provider `index.ts` files each add a `defineProvider({...})` call (claude, elevenlabs, fal, gemini+veo, grok, kling, kokoro, ollama, openai, replicate, runway). `openai-image` and `whisper` directories are now implementation details of the user-facing `openai` provider (kinds=[llm,image,transcription])
+- **`commands/generate.ts` split into per-subcommand files (#164, #165)** — 2,533 → ~80 L barrel. Each of the 13 generate subcommands now lives in `commands/generate/<name>.ts` with its own schema + `executeXxx` + `register*Command`.
+- **`commands/ai-edit.ts` split into per-subcommand files (#166, #167)** — 1,589 L library file is now a thin re-export barrel; real implementations under `commands/_shared/edit/<name>.ts`. 9 consumer files mechanically updated.
+- `commands/ai-script-pipeline.ts`: 1,565 → 556 L (#168, #174). `executeRegenerateScene` retained; `executeScriptToVideo` removed.
+- `commands/ai-image/video/audio.ts`: pure library files now (#173). Kept the `executeXxx` exports manifest tools consume; dropped the dead `register*Commands` Commander chains (~2,560 L).
+- `commands/ai-suggest-edit.ts`: 323 → 75 L (#172). Pure library; manifest tool `analyze_suggest_edit` is the only caller.
+- `tools/manifest/edit.ts`: added `editFillGapsTool`; cli-sync mapping closes the v0.65 TODO row.
+- README + landing: refreshed scaffold workflow callout, OSS provider plugin comparison row, MCP tool count 64 → 63 (#171, #174).
 
-### Counts
+### Removed
 
-`MCP=63 · Agent=79 · CLI=78 · 11 apiKeys · ~13 user-facing providers · 6 LLM providers`
+- **`commands/ai.ts`** (#172) — dead orchestrator. `program.addCommand(aiCommand)` was never called, so the entire `vibe ai *` namespace was unreachable. Library exports re-routed to their actual sources.
+- **`commands/ai-video-fx.ts`, `commands/ai-visual-fx.ts`** (#172) — only consumer was the dead `ai.ts`. The `upscale-video / interpolate / inpaint / track-object / grade / speed-ramp / reframe / style-transfer` subcommands have lived under `vibe edit *` (`edit-cmd.ts` + manifest) for several minor versions already.
+- **`commands/_shared/segments-to-scenes.ts`** + its test (#174) — only consumer was `executeScriptToVideo --format scenes`.
+- `pipelineScriptToVideoTool` from the manifest; CLI cost map, agent prompt references, e2e + integration tests, sync-counts entries, README rows for the deprecated tool (#174).
+
+### Documentation
+
+- highlight scaffold workflow + OSS provider plugin row (#171) *(readme)*
+
+## [0.68.0] - 2026-04-28
+
+### Maintenance
+
+- v0.68.0 release — Plan G Phase 1 (#163)
 
 ## [0.67.0] - 2026-04-28
 
-This release closes the manifest-as-SSOT migration that began in v0.65.
-Every Agent and MCP tool now lives in a single Zod-typed manifest at
-`packages/cli/src/tools/manifest/`; legacy hand-written tool definitions
-in `packages/cli/src/agent/tools/*.ts` are gone, and the `MIGRATED` gating
-mechanism has been removed.
-
-### Manifest SSOT closure (v0.65/0.66 internal labels)
-
-- v0.65 (#154) — tool manifest as single source of truth (MCP + Agent)
-- v0.66 PR1 (#155) — fix Agent manifest silent overwrite
-- v0.66 PR2 (#156) — delete migrated legacy tool definitions
-- v0.66 PR3 (#157) — agent-only manifest entries (`fs_*`, `batch_*`)
-
-### v0.67 PRs
-
-- PR1 (#158) — migrate `media_*`, `timeline_clear`, `export_*` stubs into the manifest
-- PR2 (#159) — migrate `project_set/open/save` and remove the `MIGRATED` Set;
-  `ExecuteContext` gains an optional `agent?` field for the in-process agent's
-  mutable project pointer
-- PR3 (#160) — manifest-driven SSOT counts (`scripts/print-counts.mts`)
-  replaces fragile regex greps in `scripts/sync-counts.sh`
-
-### Other
+### Added
 
 - VHS tape files for v0.61+ wizard flow + DEMO.md rewrite (#147) *(demo)*
+
+### Fixed
+
 - align landing with v0.63 — drop deprecated script-to-video, add wizard section (#153) *(web)*
 
-### Counts
+### Maintenance
 
-`MCP=63 · Agent=79 · CLI=78 · 13 AI providers · 6 LLM providers`
+- v0.67.0 release — bump version + CHANGELOG (#161)
 
 ## [0.63.0] - 2026-04-26
 
