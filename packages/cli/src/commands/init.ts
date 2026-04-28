@@ -31,6 +31,7 @@ import { detectedAgentHosts, type AgentHostId } from "../utils/agent-host-detect
 import {
   AGENTS_MD,
   CLAUDE_MD,
+  GEMINI_MD,
   GITIGNORE_ADDITIONS,
   renderEnvExample,
   renderProjectYaml,
@@ -66,6 +67,7 @@ export const initCommand = new Command("init")
     // "all" = every host we know about; otherwise the explicit set.
     const targetHosts = resolveTargets(agent);
     const wantsClaude = targetHosts.includes("claude-code");
+    const wantsGemini = targetHosts.includes("gemini-cli");
     const wantsCrossTool = targetHosts.some((h) => h !== "claude-code");
 
     const actions: InitFileAction[] = [];
@@ -96,6 +98,20 @@ export const initCommand = new Command("init")
       actions.push(await writeIfMissing(
         resolve(projectDir, "CLAUDE.md"),
         CLAUDE_MD,
+        options.force,
+        options.dryRun,
+      ));
+    }
+
+    // ── GEMINI.md (Gemini CLI, parallels CLAUDE.md) ────────────────────
+    // Gemini CLI's primary context file is GEMINI.md (per
+    // https://geminicli.com/docs/cli/gemini-md/). Same import-from-
+    // AGENTS.md pattern as CLAUDE.md so the canonical guidance lives
+    // in one place and host-specific overrides go in the wrapper.
+    if (wantsGemini) {
+      actions.push(await writeIfMissing(
+        resolve(projectDir, "GEMINI.md"),
+        GEMINI_MD,
         options.force,
         options.dryRun,
       ));
