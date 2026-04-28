@@ -358,7 +358,8 @@ sceneCommand
           command: "scene compose-prompts",
           ...result,
         });
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
       exitWithError(generalError(result.error ?? "compose-prompts failed"));
     }
@@ -1031,7 +1032,7 @@ sceneCommand
         command: "scene lint",
         ...result,
       });
-      if (!result.ok) process.exit(1);
+      if (!result.ok) process.exitCode = 1;
       return;
     }
 
@@ -1069,7 +1070,7 @@ sceneCommand
       }
     }
 
-    if (!result.ok) process.exit(1);
+    if (!result.ok) process.exitCode = 1;
   });
 
 function severityTag(severity: "error" | "warning" | "info"): string {
@@ -1170,7 +1171,8 @@ sceneCommand
       spinner?.fail("Render failed");
       if (isJsonMode()) {
         outputResult({ command: "scene render", ...result });
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
       exitWithError(generalError(result.error ?? "Render failed"));
     }
@@ -1299,7 +1301,8 @@ sceneCommand
       spinner?.fail(`Build failed: ${result.error}`);
       if (isJsonMode()) {
         outputResult({ command: "scene build", ...result });
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
       exitWithError(generalError(result.error ?? "Build failed"));
     }

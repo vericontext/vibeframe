@@ -926,7 +926,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           if (allHighlights.length === 0) {
             analyzeSpinner.warn(chalk.yellow("No highlights detected in the content"));
-            process.exit(0);
+            return;
           }
 
           analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
@@ -934,7 +934,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
         if (allHighlights.length === 0) {
           console.log(chalk.yellow("No highlights detected in the content"));
-          process.exit(0);
+          return;
         }
 
         const filterSpinner = ora("📊 Filtering and ranking...").start();

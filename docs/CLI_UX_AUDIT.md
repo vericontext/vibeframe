@@ -444,17 +444,96 @@ shape was re-grepped.
 
 ---
 
-## Open questions for the user
+## Decisions (resolved 2026-04-28)
 
-1. **Envelope migration**: adopt F1 hybrid (`{ success, command, elapsedMs,
-   costUsd, data }`) or stay with the implicit flat-domain pattern?
-2. **Issue #33 acceptance criteria**: update the issue body to reflect
-   the existing `ExitCode` enum (0–6) instead of the original 0/1/2/3/64+
-   proposal? Closing as done is easier if the docs match the code.
-3. **2b/2c sequencing**: do 2b (raw `process.exit` cleanup) before 2c
-   (envelope), since 2c will touch the same files? Or interleave to
-   keep PRs reviewable?
-4. **`scene build --json`**: this is the v0.60 multi-stage one-shot.
-   Should `--json` emit a single envelope at the end, or stream
-   per-stage results (NDJSON)? Streaming is more useful for agents
-   watching long jobs but would need a new helper in `output.ts`.
+The four open questions from the original 2a baseline are now decided.
+Issue #33 body (https://github.com/vericontext/vibeframe/issues/33) was
+updated to match.
+
+1. **Envelope** → modern shape, no `success` / `ok` key, nested `data`,
+   first-class `warnings`, breaking pre-1.0 change:
+   ```json
+   {
+     "command": "generate image",
+     "elapsedMs": 1234,
+     "costUsd": 0.04,
+     "warnings": [],
+     "data": { "provider": "openai", "images": [...], "outputPath": "..." }
+   }
+   ```
+   Reasoning: exit code 0 is the UNIX success signal — duplicating it
+   on stdout invites buggy agents that check both. `data` namespace
+   isolates new meta fields (e.g. future `traceId`) from domain keys.
+   `warnings` gives non-fatal signals (provider fallback, deprecated
+   flag, partial cache miss) a structured channel. Matches the
+   `gh` / `kubectl` / `aws` cli patterns.
+2. **Issue #33 body** → updated. Existing `ExitCode` enum (0-6) is the
+   canonical scheme; the original 0/1/2/3/64+ proposal is dropped.
+3. **Sequencing** → 2b first (mechanical, no design decisions), then a
+   2c-canary on `generate image` to validate envelope ergonomics, then
+   2c-sweep for everything else. Adds one PR but de-risks the envelope.
+4. **`scene build --json`** → single end-of-run envelope for 2c. NDJSON
+   streaming is a separate `--json --stream` opt-in flag, scoped to
+   v0.72+ for the four long-running commands (`scene build`, `pipeline
+   highlights`, `pipeline auto-shorts`, `generate video`).
+
+---
+
+## Appendix A — Exit code reference (2b)
+
+The canonical scheme. Adopt these via `exitWithError(StructuredError)`,
+never `process.exit(N)` directly. Defined in `packages/cli/src/commands/output.ts`.
+
+| Code | Symbol | When |
+|---|---|---|
+| 0 | `SUCCESS` | command completed |
+| 1 | `GENERAL` | uncategorized error |
+| 2 | `USAGE` | bad args / unknown option / missing required arg (Commander) |
+| 3 | `NOT_FOUND` | input file or resource not found |
+| 4 | `AUTH` | API key missing or invalid |
+| 5 | `API_ERROR` | provider returned an error response |
+| 6 | `NETWORK` | connection / timeout / DNS |
+
+### Approved `process.exit` sites (do not replace)
+
+- `output.ts:114` — inside `exitWithError()`. The canonical exit hook.
+- `index.ts:258, 261, 279` — top-level hooks for `--describe` and
+  Commander `CommanderError` mapping. Outside any action handler.
+- `setup.ts:68` — `process.exit(0)` after interactive wizard. The TTY
+  stream can keep the event loop alive; explicit exit is documented in
+  a comment above the call.
+- `agent.ts:135` — `process.exit(0)` after one-shot agent run. Same
+  rationale (long-lived clients can pin the event loop).
+
+### Replaced sites (this PR — 2b)
+
+| File:Line (pre-2b) | Was | Now | Why |
+|---|---|---|---|
+| `ai-highlights.ts:929` | `process.exit(0)` (no highlights found) | `return;` | Inside action handler — let Commander finish |
+| `ai-highlights.ts:937` | `process.exit(0)` (outer no-highlights guard) | `return;` | Same |
+| `scene.ts:361` | `process.exit(1)` after `outputResult` (compose-prompts error in JSON mode) | `process.exitCode = 1; return;` | Preserves the result-shape JSON on stdout while signalling exit code 1 |
+| `scene.ts:1034` | `if (!result.ok) process.exit(1);` (lint error in JSON mode) | `if (!result.ok) process.exitCode = 1;` | Falls through to existing `return;` on next line |
+| `scene.ts:1072` | `if (!result.ok) process.exit(1);` (lint end-of-action) | `if (!result.ok) process.exitCode = 1;` | End of action — handler returns naturally |
+| `scene.ts:1173` | `process.exit(1)` after `outputResult` (render error in JSON mode) | `process.exitCode = 1; return;` | Same pattern as compose-prompts |
+| `scene.ts:1302` | `process.exit(1)` after `outputResult` (build error in JSON mode) | `process.exitCode = 1; return;` | Same |
+
+`process.exitCode = N; return;` is the standard Node pattern for
+"deferred exit code" — used by ESLint, Prettier, and others. The
+process exits when the event loop drains, so any pending I/O completes.
+
+### Why not just `exitWithError()` for everything?
+
+`exitWithError()` writes a `StructuredError` to **stderr**:
+```json
+{ "success": false, "error": "...", "code": "...", "exitCode": 1, ... }
+```
+
+The 5 `scene.ts` sites that emit a *result-shape* JSON to **stdout**
+(`{ command, success: false, error, ...result }`) would lose that
+data if routed through `exitWithError()`. Render/build/lint failures
+carry useful structured metadata (which beat failed, which violation,
+etc.) that agents want to consume. Keeping the result envelope on
+stdout *and* setting the exit code is the right behavior.
+
+This split (data → stdout, error envelope → stderr) is intentional and
+will be revisited in 2c when the new envelope shape is rolled out.
