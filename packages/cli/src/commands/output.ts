@@ -180,6 +180,85 @@ function formatCost(min: number, max: number, unit: string): string {
   return `~$${min.toFixed(2)}-$${max.toFixed(2)} ${unit}`;
 }
 
+// ── New envelope (Issue #33 — 2c) ────────────────────────────────────────
+// {
+//   "command": "generate image",
+//   "dryRun"?: true,
+//   "elapsedMs": 1234,
+//   "costUsd": 0.04,
+//   "warnings": [],
+//   "data": { ...domain shape... }
+// }
+//
+// Errors still go to stderr via exitWithError(StructuredError) — unchanged.
+// `success` / `ok` keys are intentionally omitted: exit code 0 is the UNIX
+// success signal. Duplicating it on stdout invites buggy agents that check
+// both. See docs/CLI_UX_AUDIT.md "Decisions" section for the rationale.
+
+export interface SuccessEnvelopeOptions {
+  /** Canonical command name, e.g. "generate image". Matches `vibe schema --list`. */
+  command: string;
+  /** Domain payload — provider-specific success keys (`provider`, `images`, `outputPath`, etc.). */
+  data: Record<string, unknown>;
+  /** Wallclock start. Use `Date.now()` at the top of the action handler. */
+  startedAt: number;
+  /** Actual cost. Omit for free ops (defaults to 0). For dry-run, defaults to COST_ESTIMATES upper bound. */
+  costUsd?: number;
+  /** Non-fatal signals (provider fallback, deprecated flag, partial cache miss). */
+  warnings?: string[];
+  /** Pass-through of `--dry-run` flag — surfaces as a top-level `dryRun: true` in the envelope. */
+  dryRun?: boolean;
+}
+
+/** Look up the upper-bound cost estimate for a command (used by dry-run). */
+function lookupCostEstimateUpperBound(command: string): number {
+  return COST_ESTIMATES[command]?.max ?? 0;
+}
+
+/**
+ * Emit a canonical success envelope (#33 — 2c). JSON mode prints the
+ * envelope; quiet mode prints a single primary value extracted from
+ * `data.outputPath ?? data.output ?? data.path ?? data.url ?? data.id`;
+ * human mode prints nothing — the caller renders human output itself.
+ *
+ * Canary scope: `generate image` only in 2c-canary. 2c-sweep migrates
+ * the rest. Old `outputResult()` remains for the sweep transition.
+ */
+export function outputSuccess(opts: SuccessEnvelopeOptions): void {
+  const elapsedMs = Math.max(0, Date.now() - opts.startedAt);
+  const costUsd = opts.costUsd ?? (opts.dryRun ? lookupCostEstimateUpperBound(opts.command) : 0);
+  const envelope: Record<string, unknown> = {
+    command: opts.command,
+    ...(opts.dryRun ? { dryRun: true } : {}),
+    elapsedMs,
+    costUsd,
+    warnings: opts.warnings ?? [],
+    data: opts.data,
+  };
+
+  if (isJsonMode()) {
+    const fields = process.env.VIBE_OUTPUT_FIELDS;
+    if (fields) {
+      const keys = fields.split(",").map((k) => k.trim());
+      const filtered: Record<string, unknown> = {};
+      for (const key of keys) {
+        if (key in envelope) filtered[key] = envelope[key];
+      }
+      console.log(JSON.stringify(filtered, null, 2));
+    } else {
+      console.log(JSON.stringify(envelope, null, 2));
+    }
+    return;
+  }
+
+  if (isQuietMode()) {
+    const data = opts.data;
+    const primary =
+      data.outputPath ?? data.output ?? data.path ?? data.url ?? data.id;
+    if (primary !== undefined) console.log(String(primary));
+  }
+}
+
 /** Output result - JSON mode outputs JSON, quiet mode outputs primary value only */
 export function outputResult(result: Record<string, unknown>): void {
   // Inject cost estimate for dry-run results
