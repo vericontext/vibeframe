@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(81);
+      expect(tools.length).toBe(82);
     });
 
     it("should register all project tools (5)", () => {
@@ -562,6 +562,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const exportTools = allTools.filter((t) => t.name.startsWith("export_"));
       const batchTools = allTools.filter((t) => t.name.startsWith("batch_"));
       const sceneTools = allTools.filter((t) => t.name.startsWith("scene_"));
+      const walkthroughTools = allTools.filter((t) => t.name === "walkthrough");
 
       expect(projectTools.length).toBe(5);
       expect(timelineTools.length).toBe(11);  // Added timeline_clear
@@ -574,8 +575,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
       expect(sceneTools.length).toBe(8);  // v0.70 H1+H2: install-skill + compose-prompts (init/add/lint/render/build/styles/install-skill/compose-prompts)
+      expect(walkthroughTools.length).toBe(1);  // v0.71: universal slash-command equivalent
 
-      // Total: 5+11+4+12+13+15+4+3+3+3+8 = 81
+      // Total: 5+11+4+12+13+15+4+3+3+3+8+1 = 82
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -586,8 +588,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           pipelineTools.length +
           exportTools.length +
           batchTools.length +
-          sceneTools.length;
-      expect(totalTools).toBe(81);
+          sceneTools.length +
+          walkthroughTools.length;
+      expect(totalTools).toBe(82);
     });
   });
 });
@@ -636,12 +639,18 @@ describe("Tool Name Consistency", () => {
       "batch_",
       "scene_",
     ];
+    // Top-level utility tools that don't fit a category prefix. Keep this
+    // list small — every entry is a deliberate naming exception.
+    const exactMatches = new Set([
+      "walkthrough", // v0.71: universal slash-command equivalent (one tool, multi-topic)
+    ]);
 
     for (const tool of tools) {
       const hasValidPrefix = validPrefixes.some((prefix) =>
         tool.name.startsWith(prefix)
       );
-      expect(hasValidPrefix).toBe(true);
+      const isExactMatch = exactMatches.has(tool.name);
+      expect(hasValidPrefix || isExactMatch, `tool "${tool.name}" doesn't follow naming convention`).toBe(true);
     }
   });
 

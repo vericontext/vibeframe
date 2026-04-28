@@ -35,6 +35,7 @@ import { demoCommand } from "./commands/demo.js";
 import { contextCommand } from "./commands/context.js";
 import { runCommand } from "./commands/run.js";
 import { agentCommand } from "./commands/agent.js";
+import { walkthroughCommand } from "./commands/walkthrough.js";
 import { ApiKeyError } from "./utils/api-key.js";
 import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
 import { exitWithError, usageError } from "./commands/output.js";
@@ -210,6 +211,7 @@ program.addCommand(batchCommand);
 // Agent integration commands
 program.addCommand(schemaCommand);
 program.addCommand(contextCommand);
+program.addCommand(walkthroughCommand);
 
 // Utility commands (less commonly used directly)
 program.addCommand(mediaCommand, { hidden: true });
