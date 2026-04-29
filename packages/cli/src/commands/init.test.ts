@@ -30,10 +30,15 @@ afterEach(() => {
 });
 
 function runInit(args: string[] = []): { stdout: string; stderr: string } {
+  // These tests cover the agent-files scaffolding path. `vibe init` defaults to
+  // `--type scene` (video project) since the build/render refactor, so pass
+  // `--type agent` unless the caller already supplied a --type flag.
+  const hasType = args.some((a) => a === "--type" || a.startsWith("--type="));
+  const typedArgs = hasType ? args : ["--type", "agent", ...args];
   try {
     const out = execFileSync(
       process.execPath,
-      [CLI, "init", projectDir, ...args, "--json"],
+      [CLI, "init", projectDir, ...typedArgs, "--json"],
       {
         env: {
           ...process.env,
