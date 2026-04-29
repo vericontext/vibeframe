@@ -1,13 +1,17 @@
 /**
- * @module analyze
+ * @module inspect
  *
- * Top-level `vibe analyze` command group for media analysis.
+ * Top-level `vibe inspect` command group for media analysis. (Renamed
+ * from `analyze` in v0.74; the old `analyze` and `az` aliases stay
+ * until v1.0 with a deprecation warning. The rename clarifies the
+ * read-only intent — `analyze` doubled as both group and verb in the
+ * old design.)
  *
  * Commands:
- *   analyze media   - Unified analysis for images, videos, and YouTube URLs (Gemini)
- *   analyze video   - Analyze video files or YouTube URLs with Gemini
- *   analyze review  - AI video quality review and auto-fix (Gemini)
- *   analyze suggest - Get AI edit suggestions using Gemini
+ *   inspect media   - Unified analysis for images, videos, and YouTube URLs (Gemini)
+ *   inspect video   - Analyze video files or YouTube URLs with Gemini
+ *   inspect review  - AI video quality review and auto-fix (Gemini)
+ *   inspect suggest - Get AI edit suggestions using Gemini
  *
  * @dependencies Gemini (Google), FFmpeg (auto-fix filters)
  */
@@ -23,29 +27,37 @@ import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze, executeGeminiVideo } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
-import { isJsonMode, outputSuccess, exitWithError, apiError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError, emitDeprecationWarning } from "./output.js";
 import { sanitizeLLMResponse } from "./sanitize.js";
 import { rejectControlChars } from "./validate.js";
 
-export const analyzeCommand = new Command("analyze")
+export const analyzeCommand = new Command("inspect")
+  .alias("analyze")
   .alias("az")
-  .description("Analyze media using AI (images, videos, YouTube URLs)")
+  .description("Inspect media using AI (images, videos, YouTube URLs)")
+  .hook("preAction", () => {
+    const invoked = process.argv[2];
+    if (invoked === "analyze" || invoked === "az") {
+      emitDeprecationWarning(invoked, "inspect", "v1.0");
+    }
+  })
   .addHelpText(
     "after",
     `
 Examples:
-  $ vibe analyze media image.png "Describe this image"
-  $ vibe analyze media video.mp4 "Summarize this video"
-  $ vibe analyze media "https://youtube.com/watch?v=..." "Key takeaways"
-  $ vibe analyze video video.mp4 "List all scene changes" --low-res
-  $ vibe analyze review video.mp4 --auto-apply -o fixed.mp4
-  $ vibe analyze suggest project.vibe.json "make it more dramatic"
+  $ vibe inspect media image.png "Describe this image"
+  $ vibe inspect media video.mp4 "Summarize this video"
+  $ vibe inspect media "https://youtube.com/watch?v=..." "Key takeaways"
+  $ vibe inspect video video.mp4 "List all scene changes" --low-res
+  $ vibe inspect review video.mp4 --auto-apply -o fixed.mp4
+  $ vibe inspect suggest project.vibe.json "make it more dramatic"
 
 API Keys:
-  GOOGLE_API_KEY  Required for all analyze commands (Gemini)
+  GOOGLE_API_KEY  Required for all inspect commands (Gemini)
 
+Aliases: \`analyze\`, \`az\` (deprecated — removed in v1.0).
 Use '--fields response,model' to limit output size.
-Run 'vibe schema analyze.<command>' for structured parameter info.
+Run 'vibe schema inspect.<command>' for structured parameter info.
 `
   );
 

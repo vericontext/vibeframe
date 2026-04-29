@@ -95,32 +95,38 @@ Global flags (work with any command):
   --stdin        Read options from stdin as JSON (for agent/script use)
   --dry-run      Preview without executing (most commands)
 
-Cost tiers:
-  Free     detect, edit (silence-cut/fade/noise-reduce), project, timeline, export
-  Low      analyze, audio transcribe, generate image               ~$0.01-$0.10
-  High     generate video, edit image                              ~$1-$5
-  V.High   pipeline (regenerate-scene, highlights, auto-shorts)   ~$5-$50+
-  Tip      Add --dry-run before paid generation to preview the work.
-
-Project flow:
+Get started (90% of users start here):
   vibe doctor                  Check system health and API keys
   vibe setup                   Configure API keys interactively
   vibe init my-video           Scaffold a video project
   vibe build my-video          Build STORYBOARD.md into scene compositions/assets
   vibe render my-video         Render the project to MP4
+  vibe demo                    Try VibeFrame without API keys
 
-Asset tools:
-  vibe generate image "..."    Generate a still image
-  vibe generate video "..."    Generate a standalone AI video
+One-shot media tools:
+  vibe generate image "..."           Generate a still image
+  vibe generate video "..."           Generate a standalone AI video
+  vibe edit caption clip.mp4 -o out.mp4
+  vibe inspect media clip.mp4 "Summarize this"
+  vibe remix highlights long.mp4 -d 60
 
-Workflow automation:
-  vibe run workflow.yaml       Run a Video-as-YAML pipeline
-  vibe schema --list           Discover all commands
+Advanced authoring:
+  vibe project create my-video        CRUD on .vibe.json
+  vibe scene add intro --headline "Welcome"
+  vibe timeline add-clip project.vibe.json <source-id>
 
-Agent integration:
-  vibe walkthrough scene       Load the scene authoring guide
-  echo '{"provider":"kling"}' | vibe generate video "prompt" --stdin --json
-  vibe schema generate.video   Get parameter schema for any command
+Automation & agents:
+  vibe run workflow.yaml              Run a Video-as-YAML pipeline
+  vibe agent                          Natural-language interface
+  vibe schema generate.video          Tool schema for any command
+  vibe walkthrough scene              Step-by-step authoring guide
+
+Cost tiers (per call):
+  Free     detect, edit (silence-cut/fade/noise-reduce), project, timeline, export
+  Low      inspect, audio transcribe, generate image               ~$0.01-$0.10
+  High     generate video, edit image                              ~$1-$5
+  V.High   remix (regenerate-scene, highlights, auto-shorts)      ~$5-$50+
+  Tip      Add --dry-run before paid generation to preview the work.
 `
   );
 
@@ -220,7 +226,10 @@ program.addCommand(agentCommand);
 program.addCommand(projectCommand);
 program.addCommand(sceneCommand);
 program.addCommand(timelineCommand);
-program.addCommand(exportCommand);
+// `export` is functionally a render variant; in v0.74 we hide it from
+// top-level help (the canonical user-facing command is `vibe render`).
+// Still registered so existing scripts keep working.
+program.addCommand(exportCommand, { hidden: true });
 program.addCommand(detectCommand);
 program.addCommand(batchCommand);
 

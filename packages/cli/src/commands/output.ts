@@ -70,7 +70,7 @@ const PROVIDER_ERROR_HINTS: Array<{ pattern: RegExp; suggestion: string; retryab
   { pattern: /context_length_exceeded|maximum.*context.*length|token.*limit.*exceeded|prompt.*too.*long/i, suggestion: "Input exceeds the model's context window. Shorten the prompt, or use a model with larger context (run 'vibe schema <command>' for options).", retryable: false },
   { pattern: /model.*not.*found|invalid.*model|unknown.*model|model_not_found/i, suggestion: "The specified model is unavailable. Check 'vibe schema <command>' for valid model options.", retryable: false },
   // Provider-specific
-  { pattern: /voice.*not.*found|voice_not_found|invalid.*voice.?id/i, suggestion: "Voice ID not found. Run 'vibe audio voices' to list available voices, then pass --voice <id>.", retryable: false },
+  { pattern: /voice.*not.*found|voice_not_found|invalid.*voice.?id/i, suggestion: "Voice ID not found. Run 'vibe audio list-voices' to list available voices, then pass --voice <id>.", retryable: false },
   { pattern: /character.*(count|limit).*exceeded|invalid_character_count/i, suggestion: "Text exceeds the TTS provider's character limit. Shorten the text or split into chunks.", retryable: false },
   { pattern: /invalid.*aspect.*ratio|unsupported.*aspect.*ratio|unsupported.*resolution/i, suggestion: "This aspect ratio or resolution isn't supported by the chosen model. Check 'vibe schema <command>' for supported values.", retryable: false },
   { pattern: /invalid.*file.*format|unsupported.*(format|codec)|unsupported.*media.?type/i, suggestion: "Input file format not supported. Convert to MP4/MP3/PNG first with 'vibe export' or 'ffmpeg'.", retryable: false },
@@ -314,6 +314,35 @@ export function suggestNext(tip: string): void {
   if (!isJsonMode() && !isQuietMode() && process.stdout.isTTY) {
     console.log(chalk.dim(`\n  Tip: ${tip}`));
   }
+}
+
+/**
+ * Emit a one-line deprecation notice on stderr.
+ *
+ * Suppressed in JSON/quiet mode and when stderr is not a TTY (CI logs,
+ * piped scripts) so it never breaks machine-readable output. Each
+ * (oldName, newName) pair fires at most once per process so a script
+ * looping over a deprecated alias doesn't spam.
+ *
+ * @param oldName  The deprecated name the user invoked (e.g. "pipeline").
+ * @param newName  The replacement (e.g. "remix").
+ * @param removeIn Version where the alias will be removed (e.g. "v1.0").
+ */
+const _seenDeprecations = new Set<string>();
+export function emitDeprecationWarning(oldName: string, newName: string, removeIn: string): void {
+  if (isJsonMode() || isQuietMode()) return;
+  if (!process.stderr.isTTY) return;
+  const key = `${oldName}→${newName}`;
+  if (_seenDeprecations.has(key)) return;
+  _seenDeprecations.add(key);
+  process.stderr.write(
+    chalk.yellow(`[deprecated] '${oldName}' is deprecated; use '${newName}' instead. Alias will be removed in ${removeIn}.`) + "\n",
+  );
+}
+
+/** Test-only: reset deduplication memory between cases. */
+export function _resetDeprecationMemoryForTesting(): void {
+  _seenDeprecations.clear();
 }
 
 /** Output an error - always outputs (JSON mode writes to stdout as JSON) */

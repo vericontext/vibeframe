@@ -65,7 +65,7 @@ export interface VibeProjectConfig {
     tts: "elevenlabs" | "kokoro" | null;
     transcribe: "whisper" | null;
   };
-  /** Cost ceiling for `vibe pipeline` runs in this project. 0 disables. */
+  /** Cost ceiling for `vibe remix` runs in this project. 0 disables. */
   budget: { maxUsd: number };
 }
 

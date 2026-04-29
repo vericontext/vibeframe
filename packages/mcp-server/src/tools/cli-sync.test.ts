@@ -35,12 +35,19 @@ const CLI_TREE: Record<string, string[]> = {
   scene:    ["init", "styles", "add", "lint", "render", "build", "install-skill", "compose-prompts"],
   generate: ["image", "video", "video-status", "video-cancel", "video-extend", "speech", "sound-effect", "music", "music-status", "storyboard", "motion", "thumbnail", "background"],
   edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale-video"],
-  audio:    ["transcribe", "voices", "isolate", "voice-clone", "dub", "duck"],
-  pipeline: ["highlights", "auto-shorts", "animated-caption", "regenerate-scene"],
+  // v0.74: `voices` → `list-voices`, `voice-clone` → `clone-voice`
+  // (verb-first leaf consistency). Old names remain as Commander aliases.
+  audio:    ["transcribe", "list-voices", "isolate", "clone-voice", "dub", "duck"],
+  // `pipeline` was renamed to `remix` in v0.74; the old name + `pipe`
+  // remain registered as Commander aliases (deprecation warning fires)
+  // but the canonical name reported by Commander is `remix`.
+  remix:    ["highlights", "auto-shorts", "animated-caption", "regenerate-scene"],
   detect:   ["scenes", "silence", "beats"],
   timeline: ["add-source", "add-clip", "add-track", "add-effect", "trim", "list", "split", "duplicate", "delete", "move"],
   project:  ["create", "info", "set"],
-  analyze:  ["media", "video", "review", "suggest"],
+  // `analyze` was renamed to `inspect` in v0.74 (see remix note above).
+  // `analyze` and `az` remain as deprecated Commander aliases.
+  inspect:  ["media", "video", "review", "suggest"],
   // `vibe walkthrough <topic>` is a top-level command with a positional
   // arg, not a real subcommand group. We model the topics as "subs" here
   // so each one ↔ manifest mapping is verifiable; the single backing
@@ -100,16 +107,17 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "edit upscale-video": "edit_upscale",
   // audio
   "audio transcribe":  "audio_transcribe",
-  "audio voices":      null, // CLI-only: ElevenLabs voice list dump
+  "audio list-voices": null, // CLI-only: ElevenLabs voice list dump
   "audio isolate":     "audio_isolate",
-  "audio voice-clone": "audio_voice_clone",
+  "audio clone-voice": "audio_voice_clone",
   "audio dub":         "audio_dub",
   "audio duck":        "audio_duck",
-  // pipeline
-  "pipeline highlights":         "pipeline_highlights",
-  "pipeline auto-shorts":        "pipeline_auto_shorts",
-  "pipeline animated-caption":   "edit_animated_caption",
-  "pipeline regenerate-scene":   "pipeline_regenerate_scene",
+  // remix (was: pipeline — manifest tool names keep `pipeline_*` prefix
+  // since MCP tool names are externally locked)
+  "remix highlights":         "pipeline_highlights",
+  "remix auto-shorts":        "pipeline_auto_shorts",
+  "remix animated-caption":   "edit_animated_caption",
+  "remix regenerate-scene":   "pipeline_regenerate_scene",
   // detect
   "detect scenes":  "detect_scenes",
   "detect silence": "detect_silence",
@@ -129,11 +137,11 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "project create": "project_create",
   "project info":   "project_info",
   "project set":    null, // CLI-only: vibe.project.yaml writer; agents use fs_write
-  // analyze
-  "analyze media":   "analyze_media",
-  "analyze video":   "analyze_video",
-  "analyze review":  "analyze_review",
-  "analyze suggest": "analyze_suggest",
+  // inspect (was: analyze — manifest tool names keep `analyze_*` prefix)
+  "inspect media":   "analyze_media",
+  "inspect video":   "analyze_video",
+  "inspect review":  "analyze_review",
+  "inspect suggest": "analyze_suggest",
   // walkthrough — both topics route through the single `walkthrough`
   // manifest tool (the topic is a tool arg, not a separate tool)
   "walkthrough scene":    "walkthrough",

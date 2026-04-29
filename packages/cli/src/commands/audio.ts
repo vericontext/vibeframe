@@ -4,12 +4,12 @@
  * Top-level `vibe audio` command group for audio operations.
  *
  * Commands:
- *   audio transcribe  - Transcribe audio using Whisper
- *   audio voices      - List available ElevenLabs voices
- *   audio isolate     - Isolate vocals from audio (ElevenLabs)
- *   audio voice-clone - Clone a voice from audio samples (ElevenLabs)
- *   audio dub         - Dub audio/video to another language (Whisper + Claude + ElevenLabs)
- *   audio duck        - Auto-duck background music when voice is present (FFmpeg)
+ *   audio transcribe   - Transcribe audio using Whisper
+ *   audio list-voices  - List available ElevenLabs voices (alias: voices)
+ *   audio isolate      - Isolate vocals from audio (ElevenLabs)
+ *   audio clone-voice  - Clone a voice from audio samples (alias: voice-clone)
+ *   audio dub          - Dub audio/video to another language (Whisper + Claude + ElevenLabs)
+ *   audio duck         - Auto-duck background music when voice is present (FFmpeg)
  *
  * @dependencies Whisper (OpenAI), ElevenLabs, Claude (Anthropic), FFmpeg
  */
@@ -29,7 +29,7 @@ import { getApiKey, requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists, execSafeSync } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { formatTime } from "./ai-helpers.js";
-import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError, emitDeprecationWarning } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 
 export const audioCommand = new Command("audio")
@@ -41,18 +41,19 @@ export const audioCommand = new Command("audio")
 Examples:
   $ vibe audio transcribe interview.mp3 -o transcript.srt -f srt
   $ vibe audio transcribe video.mp4 -l ko                  # Specify language
-  $ vibe audio voices                                       # List available voices
+  $ vibe audio list-voices                                  # List available voices
   $ vibe audio isolate song.mp3 -o vocals.mp3
-  $ vibe audio voice-clone sample.mp3 -n "my-voice"
+  $ vibe audio clone-voice sample.mp3 -n "my-voice"
   $ vibe audio dub video.mp4 -l ko -o dubbed.mp4
   $ vibe audio duck music.mp3 --voice narration.mp3 -o ducked.mp3
 
 API Keys:
   OPENAI_API_KEY      transcribe (Whisper)
-  ELEVENLABS_API_KEY  voices, isolate, voice-clone
+  ELEVENLABS_API_KEY  list-voices, isolate, clone-voice
   OPENAI_API_KEY + ANTHROPIC_API_KEY + ELEVENLABS_API_KEY  dub (full pipeline)
   No key needed       duck (FFmpeg only)
 
+Aliases (deprecated, removed in v1.0): voices → list-voices, voice-clone → clone-voice
 Run 'vibe schema audio.<command>' for structured parameter info.
 `
   );
@@ -139,11 +140,18 @@ audioCommand
     }
   });
 
-// ── audio voices ───────────────────────────────────────────────────────
+// ── audio list-voices ──────────────────────────────────────────────────
+// Renamed from `voices` in v0.74 for verb-first leaf consistency
+// (Microsoft CLI design guidance §3.3). The bare `voices` alias stays
+// until v1.0; deprecation warning fires when invoked under that name.
 
 audioCommand
-  .command("voices")
+  .command("list-voices")
+  .alias("voices")
   .description("List available ElevenLabs voices")
+  .hook("preAction", () => {
+    if (process.argv[3] === "voices") emitDeprecationWarning("audio voices", "audio list-voices", "v1.0");
+  })
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
   .action(async (options) => {
     const startedAt = Date.now();
@@ -159,7 +167,7 @@ audioCommand
 
       if (isJsonMode()) {
         outputSuccess({
-          command: "audio voices",
+          command: "audio list-voices",
           startedAt,
           data: {
             voices: voices.map(v => ({ name: v.name, voiceId: v.voice_id, category: v.category, labels: v.labels })),
@@ -251,11 +259,17 @@ audioCommand
     }
   });
 
-// ── audio voice-clone ──────────────────────────────────────────────────
+// ── audio clone-voice ──────────────────────────────────────────────────
+// Renamed from `voice-clone` in v0.74 for verb-first consistency. The
+// `voice-clone` alias stays until v1.0.
 
 audioCommand
-  .command("voice-clone")
+  .command("clone-voice")
+  .alias("voice-clone")
   .description("Clone a voice from audio samples using ElevenLabs")
+  .hook("preAction", () => {
+    if (process.argv[3] === "voice-clone") emitDeprecationWarning("audio voice-clone", "audio clone-voice", "v1.0");
+  })
   .argument("[samples...]", "Audio sample files (1-25 files)")
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
   .option("-n, --name <name>", "Voice name (required)")
@@ -269,7 +283,7 @@ audioCommand
     try {
       if (options.dryRun) {
         outputSuccess({
-          command: "audio voice-clone",
+          command: "audio clone-voice",
           startedAt,
           dryRun: true,
           data: { params: { samples: samples?.length, name: options.name } },
@@ -348,7 +362,7 @@ audioCommand
 
       if (isJsonMode()) {
         outputSuccess({
-          command: "audio voice-clone",
+          command: "audio clone-voice",
           startedAt,
           data: { name: options.name, voiceId: result.voiceId },
         });

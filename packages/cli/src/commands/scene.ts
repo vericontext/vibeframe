@@ -134,11 +134,9 @@ function formatSceneInitProfile(profile: SceneScaffoldProfile): string {
 }
 
 export const sceneCommand = new Command("scene")
-  .description("Advanced scene commands for VibeFrame video projects")
+  .description("Lower-level scene authoring (add, lint, styles). For project flow use `vibe init` / `vibe build` / `vibe render`.")
   .addHelpText("after", `
 Examples:
-  $ vibe scene init my-video                              # Scaffold a new project
-  $ vibe scene init my-video -r 9:16 -d 30                # Vertical 30s project
   $ vibe scene add intro --style announcement \\
       --headline "Welcome to VibeFrame"                   # Headline-only scene
   $ vibe scene add overview --narration "VibeFrame turns scripts into video." \\
@@ -146,17 +144,21 @@ Examples:
   $ vibe scene lint                                       # Validate every scene against composition rules
   $ vibe scene lint --fix                                 # Auto-fix mechanical issues (e.g. missing class="clip")
   $ vibe scene lint --json                                # Structured output for agent loops
-  $ vibe scene render                                     # Render to renders/<name>-<timestamp>.mp4
-  $ vibe scene render -o demo.mp4 --quality high          # Custom output path + quality
-  $ vibe scene render --fps 60 --format webm              # 60fps WebM render
+  $ vibe scene styles                                     # Browse seed visual styles for DESIGN.md
 
-Most users can start with \`vibe init\`, \`vibe build\`, and \`vibe render\`.
-This namespace exposes lower-level scene authoring and rendering controls.
+For the project flow (init / build / render), use the top-level commands.
+The \`scene init\`, \`scene build\`, and \`scene render\` legacy aliases
+are still callable but hidden from this help — they will be removed in v1.0.
 Run 'vibe schema scene.<command>' for structured parameter info.`);
 
+// `vibe scene init` is the legacy entry point; the canonical user-facing
+// command is now `vibe init [project-dir] --type scene`. Hidden from
+// `--help` in v0.74 (Phase 7 of CLI redesign) but kept callable to avoid
+// breaking external scripts. Commander's `hidden: true` just removes it
+// from auto-generated help; it is still parsed normally.
 sceneCommand
-  .command("init")
-  .description("Scaffold a new scene project (or safely augment an existing project)")
+  .command("init", { hidden: true })
+  .description("Scaffold a new scene project (or safely augment an existing project) [legacy — prefer `vibe init`]")
   .argument("<dir>", "Project directory (created if it doesn't exist)")
   .option("-n, --name <name>", "Project name (defaults to directory basename)")
   .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, 1:1, 4:5", "16:9")
@@ -1210,9 +1212,11 @@ function validateWorkers(value: string): number {
   return n;
 }
 
+// Hidden in v0.74 (Phase 7) — canonical is `vibe render`. Still callable
+// for back-compat with existing scripts and the agentic compose path.
 sceneCommand
-  .command("render")
-  .description("Render a scene project to MP4/WebM/MOV via the Hyperframes producer (requires Chrome)")
+  .command("render", { hidden: true })
+  .description("Render a scene project to MP4/WebM/MOV via the Hyperframes producer (requires Chrome) [legacy — prefer `vibe render`]")
   .argument("[root]", "Root composition file relative to --project", "index.html")
   .option("--project <dir>", "Project directory", ".")
   .option("-o, --out <path>", "Output file (default: renders/<name>-<timestamp>.<format>)")
@@ -1307,10 +1311,11 @@ sceneCommand
   });
 
 // ── vibe scene build — v0.60 one-shot storyboard → MP4 ──────────────────
+// Hidden in v0.74 (Phase 7) — canonical is `vibe build`.
 
 sceneCommand
-  .command("build")
-  .description("One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 (v0.60)")
+  .command("build", { hidden: true })
+  .description("One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 [legacy — prefer `vibe build`]")
   .argument("[project-dir]", "Project directory containing STORYBOARD.md", ".")
   .option("--mode <mode>", "Build mode: agent (host-agent authors HTML) | batch (CLI's internal LLM authors HTML) | auto (agent if any host detected) [Plan H — Phase 3]", "auto")
   .option("--effort <level>", "Compose effort tier (batch mode only): low|medium|high", "medium")

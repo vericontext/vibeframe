@@ -50,191 +50,48 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
 }
 `;
 
-exports[`CLI --describe schemas (drift detection) > vibe analyze media --describe 1`] = `
+exports[`CLI --describe schemas (drift detection) > vibe audio clone-voice --describe 1`] = `
 {
-  "description": "Analyze any media: images, videos, or YouTube URLs using Gemini",
-  "name": "analyze.media",
+  "description": "Clone a voice from audio samples using ElevenLabs",
+  "name": "audio.clone-voice",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "Google API key (or set GOOGLE_API_KEY env)",
+        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
         "type": "string",
       },
-      "end": {
-        "description": "End offset in seconds (video only)",
-        "type": "number",
-      },
-      "fields": {
-        "description": "Comma-separated fields to include in output (e.g., response,model)",
+      "description": {
+        "description": "Voice description",
         "type": "string",
-      },
-      "fps": {
-        "description": "Frames per second for video (default: 1)",
-        "type": "number",
-      },
-      "lowRes": {
-        "description": "Use low resolution mode (fewer tokens)",
-        "type": "boolean",
-      },
-      "model": {
-        "default": "flash",
-        "description": "Model: flash (default), flash-2.5, pro",
-        "type": "string",
-      },
-      "prompt": {
-        "description": "Analysis prompt (e.g., 'Describe this image', 'Summarize this video')",
-        "type": "string",
-      },
-      "source": {
-        "description": "Image/video file path, image URL, or YouTube URL",
-        "type": "string",
-      },
-      "start": {
-        "description": "Start offset in seconds (video only)",
-        "type": "number",
-      },
-      "verbose": {
-        "description": "Show token usage",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "source",
-      "prompt",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe analyze review --describe 1`] = `
-{
-  "description": "Review video quality using Gemini AI and optionally auto-fix issues",
-  "name": "analyze.review",
-  "parameters": {
-    "properties": {
-      "autoApply": {
-        "description": "Automatically apply fixable corrections",
-        "type": "boolean",
       },
       "dryRun": {
         "description": "Preview parameters without executing",
         "type": "boolean",
       },
-      "model": {
-        "default": "flash",
-        "description": "Gemini model: flash (default), flash-2.5, pro",
+      "labels": {
+        "description": "Labels as JSON (e.g., '{"accent": "american"}')",
         "type": "string",
       },
-      "output": {
-        "description": "Output video file path (for auto-apply)",
-        "type": "string",
-      },
-      "storyboard": {
-        "description": "Storyboard JSON file for context",
-        "type": "string",
-      },
-      "verify": {
-        "description": "Run verification pass after applying fixes",
+      "list": {
+        "description": "List all available voices",
         "type": "boolean",
       },
-      "video": {
-        "description": "Video file path",
+      "name": {
+        "description": "Voice name (required)",
         "type": "string",
+      },
+      "removeNoise": {
+        "description": "Remove background noise from samples",
+        "type": "boolean",
+      },
+      "samples": {
+        "description": "Audio sample files (1-25 files)",
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
       },
     },
-    "required": [
-      "video",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe analyze suggest --describe 1`] = `
-{
-  "description": "Get AI edit suggestions using Gemini",
-  "name": "analyze.suggest",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "Google API key (or set GOOGLE_API_KEY env)",
-        "type": "string",
-      },
-      "apply": {
-        "description": "Apply the first suggestion automatically",
-        "type": "boolean",
-      },
-      "instruction": {
-        "description": "Natural language instruction",
-        "type": "string",
-      },
-      "project": {
-        "description": "Project file path",
-        "type": "string",
-      },
-    },
-    "required": [
-      "project",
-      "instruction",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe analyze video --describe 1`] = `
-{
-  "description": "Analyze video using Gemini (summarize, Q&A, extract info)",
-  "name": "analyze.video",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "Google API key (or set GOOGLE_API_KEY env)",
-        "type": "string",
-      },
-      "end": {
-        "description": "End offset in seconds (for clipping)",
-        "type": "number",
-      },
-      "fields": {
-        "description": "Comma-separated fields to include in output (e.g., response,model)",
-        "type": "string",
-      },
-      "fps": {
-        "description": "Frames per second (default: 1, higher for action)",
-        "type": "number",
-      },
-      "lowRes": {
-        "description": "Use low resolution mode (fewer tokens, longer videos)",
-        "type": "boolean",
-      },
-      "model": {
-        "default": "flash",
-        "description": "Model: flash (default), flash-2.5, pro",
-        "type": "string",
-      },
-      "prompt": {
-        "description": "Analysis prompt (e.g., 'Summarize this video')",
-        "type": "string",
-      },
-      "source": {
-        "description": "Video file path or YouTube URL",
-        "type": "string",
-      },
-      "start": {
-        "description": "Start offset in seconds (for clipping)",
-        "type": "number",
-      },
-      "verbose": {
-        "description": "Show token usage",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "source",
-      "prompt",
-    ],
     "type": "object",
   },
 }
@@ -366,6 +223,22 @@ exports[`CLI --describe schemas (drift detection) > vibe audio isolate --describ
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe audio list-voices --describe 1`] = `
+{
+  "description": "List available ElevenLabs voices",
+  "name": "audio.list-voices",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --describe 1`] = `
 {
   "description": "Transcribe audio using Whisper",
@@ -401,69 +274,6 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
     "required": [
       "audio",
     ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe audio voice-clone --describe 1`] = `
-{
-  "description": "Clone a voice from audio samples using ElevenLabs",
-  "name": "audio.voice-clone",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
-        "type": "string",
-      },
-      "description": {
-        "description": "Voice description",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "labels": {
-        "description": "Labels as JSON (e.g., '{"accent": "american"}')",
-        "type": "string",
-      },
-      "list": {
-        "description": "List all available voices",
-        "type": "boolean",
-      },
-      "name": {
-        "description": "Voice name (required)",
-        "type": "string",
-      },
-      "removeNoise": {
-        "description": "Remove background noise from samples",
-        "type": "boolean",
-      },
-      "samples": {
-        "description": "Audio sample files (1-25 files)",
-        "items": {
-          "type": "string",
-        },
-        "type": "array",
-      },
-    },
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe audio voices --describe 1`] = `
-{
-  "description": "List available ElevenLabs voices",
-  "name": "audio.voices",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
-        "type": "string",
-      },
-    },
     "type": "object",
   },
 }
@@ -2500,6 +2310,196 @@ exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe inspect media --describe 1`] = `
+{
+  "description": "Analyze any media: images, videos, or YouTube URLs using Gemini",
+  "name": "inspect.media",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "Google API key (or set GOOGLE_API_KEY env)",
+        "type": "string",
+      },
+      "end": {
+        "description": "End offset in seconds (video only)",
+        "type": "number",
+      },
+      "fields": {
+        "description": "Comma-separated fields to include in output (e.g., response,model)",
+        "type": "string",
+      },
+      "fps": {
+        "description": "Frames per second for video (default: 1)",
+        "type": "number",
+      },
+      "lowRes": {
+        "description": "Use low resolution mode (fewer tokens)",
+        "type": "boolean",
+      },
+      "model": {
+        "default": "flash",
+        "description": "Model: flash (default), flash-2.5, pro",
+        "type": "string",
+      },
+      "prompt": {
+        "description": "Analysis prompt (e.g., 'Describe this image', 'Summarize this video')",
+        "type": "string",
+      },
+      "source": {
+        "description": "Image/video file path, image URL, or YouTube URL",
+        "type": "string",
+      },
+      "start": {
+        "description": "Start offset in seconds (video only)",
+        "type": "number",
+      },
+      "verbose": {
+        "description": "Show token usage",
+        "type": "boolean",
+      },
+    },
+    "required": [
+      "source",
+      "prompt",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe inspect review --describe 1`] = `
+{
+  "description": "Review video quality using Gemini AI and optionally auto-fix issues",
+  "name": "inspect.review",
+  "parameters": {
+    "properties": {
+      "autoApply": {
+        "description": "Automatically apply fixable corrections",
+        "type": "boolean",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "model": {
+        "default": "flash",
+        "description": "Gemini model: flash (default), flash-2.5, pro",
+        "type": "string",
+      },
+      "output": {
+        "description": "Output video file path (for auto-apply)",
+        "type": "string",
+      },
+      "storyboard": {
+        "description": "Storyboard JSON file for context",
+        "type": "string",
+      },
+      "verify": {
+        "description": "Run verification pass after applying fixes",
+        "type": "boolean",
+      },
+      "video": {
+        "description": "Video file path",
+        "type": "string",
+      },
+    },
+    "required": [
+      "video",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --describe 1`] = `
+{
+  "description": "Get AI edit suggestions using Gemini",
+  "name": "inspect.suggest",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "Google API key (or set GOOGLE_API_KEY env)",
+        "type": "string",
+      },
+      "apply": {
+        "description": "Apply the first suggestion automatically",
+        "type": "boolean",
+      },
+      "instruction": {
+        "description": "Natural language instruction",
+        "type": "string",
+      },
+      "project": {
+        "description": "Project file path",
+        "type": "string",
+      },
+    },
+    "required": [
+      "project",
+      "instruction",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe inspect video --describe 1`] = `
+{
+  "description": "Analyze video using Gemini (summarize, Q&A, extract info)",
+  "name": "inspect.video",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "Google API key (or set GOOGLE_API_KEY env)",
+        "type": "string",
+      },
+      "end": {
+        "description": "End offset in seconds (for clipping)",
+        "type": "number",
+      },
+      "fields": {
+        "description": "Comma-separated fields to include in output (e.g., response,model)",
+        "type": "string",
+      },
+      "fps": {
+        "description": "Frames per second (default: 1, higher for action)",
+        "type": "number",
+      },
+      "lowRes": {
+        "description": "Use low resolution mode (fewer tokens, longer videos)",
+        "type": "boolean",
+      },
+      "model": {
+        "default": "flash",
+        "description": "Model: flash (default), flash-2.5, pro",
+        "type": "string",
+      },
+      "prompt": {
+        "description": "Analysis prompt (e.g., 'Summarize this video')",
+        "type": "string",
+      },
+      "source": {
+        "description": "Video file path or YouTube URL",
+        "type": "string",
+      },
+      "start": {
+        "description": "Start offset in seconds (for clipping)",
+        "type": "number",
+      },
+      "verbose": {
+        "description": "Show token usage",
+        "type": "boolean",
+      },
+    },
+    "required": [
+      "source",
+      "prompt",
+    ],
+    "type": "object",
+  },
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe media duration --describe 1`] = `
 {
   "description": "Get media duration in seconds (for scripting)",
@@ -2532,282 +2532,6 @@ exports[`CLI --describe schemas (drift detection) > vibe media info --describe 1
     },
     "required": [
       "file",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe pipeline animated-caption --describe 1`] = `
-{
-  "description": "Add animated captions with word-by-word effects (Whisper + Remotion/ASS)",
-  "name": "pipeline.animated-caption",
-  "parameters": {
-    "properties": {
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "fast": {
-        "description": "Use ASS/FFmpeg only (no Remotion, forces ASS tier styles)",
-        "type": "boolean",
-      },
-      "fontSize": {
-        "description": "Font size (default: auto based on resolution)",
-        "type": "string",
-      },
-      "highlightColor": {
-        "default": "#FFFF00",
-        "description": "Active word highlight color",
-        "type": "string",
-      },
-      "language": {
-        "description": "Whisper language hint",
-        "type": "string",
-      },
-      "maxChars": {
-        "description": "Max characters per group",
-        "type": "number",
-      },
-      "output": {
-        "description": "Output file path",
-        "type": "string",
-      },
-      "position": {
-        "default": "bottom",
-        "description": "Caption position: top, center, bottom",
-        "enum": [
-          "top",
-          "center",
-          "bottom",
-        ],
-        "type": "string",
-      },
-      "style": {
-        "default": "highlight",
-        "description": "Style preset (default: highlight)",
-        "type": "string",
-      },
-      "video": {
-        "description": "Video file path",
-        "type": "string",
-      },
-      "wordsPerGroup": {
-        "description": "Words shown at once (default: auto 3-5)",
-        "type": "number",
-      },
-    },
-    "required": [
-      "video",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe pipeline auto-shorts --describe 1`] = `
-{
-  "description": "Auto-generate shorts from long-form video",
-  "name": "pipeline.auto-shorts",
-  "parameters": {
-    "properties": {
-      "addCaptions": {
-        "description": "Add auto-generated captions",
-        "type": "boolean",
-      },
-      "analyzeOnly": {
-        "description": "Show segments without generating",
-        "type": "boolean",
-      },
-      "aspect": {
-        "default": "9:16",
-        "description": "Aspect ratio: 9:16, 1:1",
-        "enum": [
-          "9:16",
-          "1:1",
-        ],
-        "type": "string",
-      },
-      "captionStyle": {
-        "default": "bold",
-        "description": "Caption style: minimal, bold, animated",
-        "enum": [
-          "minimal",
-          "bold",
-          "animated",
-        ],
-        "type": "string",
-      },
-      "count": {
-        "default": 1,
-        "description": "Number of shorts to generate",
-        "type": "number",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "duration": {
-        "default": 60,
-        "description": "Target duration in seconds (15-60)",
-        "type": "number",
-      },
-      "language": {
-        "description": "Language code for transcription",
-        "type": "string",
-      },
-      "lowRes": {
-        "description": "Use low resolution mode for longer videos (Gemini only)",
-        "type": "boolean",
-      },
-      "output": {
-        "description": "Output file (single) or directory (multiple)",
-        "type": "string",
-      },
-      "outputDir": {
-        "description": "Output directory for multiple shorts",
-        "type": "string",
-      },
-      "useGemini": {
-        "description": "Use Gemini Video Understanding for enhanced visual+audio analysis",
-        "type": "boolean",
-      },
-      "video": {
-        "description": "Video file path",
-        "type": "string",
-      },
-    },
-    "required": [
-      "video",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe pipeline highlights --describe 1`] = `
-{
-  "description": "Extract highlights from long-form video/audio content",
-  "name": "pipeline.highlights",
-  "parameters": {
-    "properties": {
-      "count": {
-        "description": "Maximum number of highlights",
-        "type": "number",
-      },
-      "criteria": {
-        "default": "all",
-        "description": "Selection criteria: emotional | informative | funny | all",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "duration": {
-        "default": 60,
-        "description": "Target highlight reel duration",
-        "type": "number",
-      },
-      "language": {
-        "description": "Language code for transcription (e.g., en, ko)",
-        "type": "string",
-      },
-      "lowRes": {
-        "description": "Use low resolution mode for longer videos (Gemini only)",
-        "type": "boolean",
-      },
-      "media": {
-        "description": "Video or audio file path",
-        "type": "string",
-      },
-      "output": {
-        "description": "Output JSON file with highlights",
-        "type": "string",
-      },
-      "project": {
-        "description": "Create project with highlight clips",
-        "type": "string",
-      },
-      "threshold": {
-        "default": 0.7,
-        "description": "Confidence threshold (0-1)",
-        "type": "number",
-      },
-      "useGemini": {
-        "description": "Use Gemini Video Understanding for enhanced visual+audio analysis",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "media",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe pipeline regenerate-scene --describe 1`] = `
-{
-  "description": "Regenerate a specific scene in a script-to-video output directory",
-  "name": "pipeline.regenerate-scene",
-  "parameters": {
-    "properties": {
-      "aspectRatio": {
-        "default": "16:9",
-        "description": "Aspect ratio: 16:9 | 9:16 | 1:1",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "generator": {
-        "default": "grok",
-        "description": "Video generator: grok | kling | runway | veo",
-        "type": "string",
-      },
-      "imageOnly": {
-        "description": "Only regenerate image",
-        "type": "boolean",
-      },
-      "imageProvider": {
-        "default": "gemini",
-        "description": "Image provider: gemini | openai | grok",
-        "type": "string",
-      },
-      "narrationOnly": {
-        "description": "Only regenerate narration",
-        "type": "boolean",
-      },
-      "project-dir": {
-        "description": "Path to the script-to-video output directory",
-        "type": "string",
-      },
-      "referenceScene": {
-        "description": "Use another scene's image as reference for character consistency",
-        "type": "string",
-      },
-      "retries": {
-        "default": 2,
-        "description": "Number of retries for video generation failures",
-        "type": "number",
-      },
-      "scene": {
-        "description": "Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5",
-        "type": "string",
-      },
-      "videoOnly": {
-        "description": "Only regenerate video",
-        "type": "boolean",
-      },
-      "voice": {
-        "description": "ElevenLabs voice ID for narration",
-        "type": "string",
-      },
-    },
-    "required": [
-      "project-dir",
     ],
     "type": "object",
   },
@@ -2911,6 +2635,282 @@ exports[`CLI --describe schemas (drift detection) > vibe project set --describe 
     },
     "required": [
       "file",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption --describe 1`] = `
+{
+  "description": "Add animated captions with word-by-word effects (Whisper + Remotion/ASS)",
+  "name": "remix.animated-caption",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "fast": {
+        "description": "Use ASS/FFmpeg only (no Remotion, forces ASS tier styles)",
+        "type": "boolean",
+      },
+      "fontSize": {
+        "description": "Font size (default: auto based on resolution)",
+        "type": "string",
+      },
+      "highlightColor": {
+        "default": "#FFFF00",
+        "description": "Active word highlight color",
+        "type": "string",
+      },
+      "language": {
+        "description": "Whisper language hint",
+        "type": "string",
+      },
+      "maxChars": {
+        "description": "Max characters per group",
+        "type": "number",
+      },
+      "output": {
+        "description": "Output file path",
+        "type": "string",
+      },
+      "position": {
+        "default": "bottom",
+        "description": "Caption position: top, center, bottom",
+        "enum": [
+          "top",
+          "center",
+          "bottom",
+        ],
+        "type": "string",
+      },
+      "style": {
+        "default": "highlight",
+        "description": "Style preset (default: highlight)",
+        "type": "string",
+      },
+      "video": {
+        "description": "Video file path",
+        "type": "string",
+      },
+      "wordsPerGroup": {
+        "description": "Words shown at once (default: auto 3-5)",
+        "type": "number",
+      },
+    },
+    "required": [
+      "video",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe remix auto-shorts --describe 1`] = `
+{
+  "description": "Auto-generate shorts from long-form video",
+  "name": "remix.auto-shorts",
+  "parameters": {
+    "properties": {
+      "addCaptions": {
+        "description": "Add auto-generated captions",
+        "type": "boolean",
+      },
+      "analyzeOnly": {
+        "description": "Show segments without generating",
+        "type": "boolean",
+      },
+      "aspect": {
+        "default": "9:16",
+        "description": "Aspect ratio: 9:16, 1:1",
+        "enum": [
+          "9:16",
+          "1:1",
+        ],
+        "type": "string",
+      },
+      "captionStyle": {
+        "default": "bold",
+        "description": "Caption style: minimal, bold, animated",
+        "enum": [
+          "minimal",
+          "bold",
+          "animated",
+        ],
+        "type": "string",
+      },
+      "count": {
+        "default": 1,
+        "description": "Number of shorts to generate",
+        "type": "number",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "duration": {
+        "default": 60,
+        "description": "Target duration in seconds (15-60)",
+        "type": "number",
+      },
+      "language": {
+        "description": "Language code for transcription",
+        "type": "string",
+      },
+      "lowRes": {
+        "description": "Use low resolution mode for longer videos (Gemini only)",
+        "type": "boolean",
+      },
+      "output": {
+        "description": "Output file (single) or directory (multiple)",
+        "type": "string",
+      },
+      "outputDir": {
+        "description": "Output directory for multiple shorts",
+        "type": "string",
+      },
+      "useGemini": {
+        "description": "Use Gemini Video Understanding for enhanced visual+audio analysis",
+        "type": "boolean",
+      },
+      "video": {
+        "description": "Video file path",
+        "type": "string",
+      },
+    },
+    "required": [
+      "video",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe remix highlights --describe 1`] = `
+{
+  "description": "Extract highlights from long-form video/audio content",
+  "name": "remix.highlights",
+  "parameters": {
+    "properties": {
+      "count": {
+        "description": "Maximum number of highlights",
+        "type": "number",
+      },
+      "criteria": {
+        "default": "all",
+        "description": "Selection criteria: emotional | informative | funny | all",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "duration": {
+        "default": 60,
+        "description": "Target highlight reel duration",
+        "type": "number",
+      },
+      "language": {
+        "description": "Language code for transcription (e.g., en, ko)",
+        "type": "string",
+      },
+      "lowRes": {
+        "description": "Use low resolution mode for longer videos (Gemini only)",
+        "type": "boolean",
+      },
+      "media": {
+        "description": "Video or audio file path",
+        "type": "string",
+      },
+      "output": {
+        "description": "Output JSON file with highlights",
+        "type": "string",
+      },
+      "project": {
+        "description": "Create project with highlight clips",
+        "type": "string",
+      },
+      "threshold": {
+        "default": 0.7,
+        "description": "Confidence threshold (0-1)",
+        "type": "number",
+      },
+      "useGemini": {
+        "description": "Use Gemini Video Understanding for enhanced visual+audio analysis",
+        "type": "boolean",
+      },
+    },
+    "required": [
+      "media",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe remix regenerate-scene --describe 1`] = `
+{
+  "description": "Regenerate a specific scene in a script-to-video output directory",
+  "name": "remix.regenerate-scene",
+  "parameters": {
+    "properties": {
+      "aspectRatio": {
+        "default": "16:9",
+        "description": "Aspect ratio: 16:9 | 9:16 | 1:1",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "generator": {
+        "default": "grok",
+        "description": "Video generator: grok | kling | runway | veo",
+        "type": "string",
+      },
+      "imageOnly": {
+        "description": "Only regenerate image",
+        "type": "boolean",
+      },
+      "imageProvider": {
+        "default": "gemini",
+        "description": "Image provider: gemini | openai | grok",
+        "type": "string",
+      },
+      "narrationOnly": {
+        "description": "Only regenerate narration",
+        "type": "boolean",
+      },
+      "project-dir": {
+        "description": "Path to the script-to-video output directory",
+        "type": "string",
+      },
+      "referenceScene": {
+        "description": "Use another scene's image as reference for character consistency",
+        "type": "string",
+      },
+      "retries": {
+        "default": 2,
+        "description": "Number of retries for video generation failures",
+        "type": "number",
+      },
+      "scene": {
+        "description": "Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5",
+        "type": "string",
+      },
+      "videoOnly": {
+        "description": "Only regenerate video",
+        "type": "boolean",
+      },
+      "voice": {
+        "description": "ElevenLabs voice ID for narration",
+        "type": "string",
+      },
+    },
+    "required": [
+      "project-dir",
     ],
     "type": "object",
   },
@@ -3135,7 +3135,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
 
 exports[`CLI --describe schemas (drift detection) > vibe scene build --describe 1`] = `
 {
-  "description": "One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 (v0.60)",
+  "description": "One-shot: read STORYBOARD.md cues, dispatch TTS + image-gen per beat, compose, render to MP4 [legacy — prefer \`vibe build\`]",
   "name": "scene.build",
   "parameters": {
     "properties": {
@@ -3227,7 +3227,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
 
 exports[`CLI --describe schemas (drift detection) > vibe scene init --describe 1`] = `
 {
-  "description": "Scaffold a new scene project (or safely augment an existing project)",
+  "description": "Scaffold a new scene project (or safely augment an existing project) [legacy — prefer \`vibe init\`]",
   "name": "scene.init",
   "parameters": {
     "properties": {
@@ -3338,7 +3338,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene lint --describe 1
 
 exports[`CLI --describe schemas (drift detection) > vibe scene render --describe 1`] = `
 {
-  "description": "Render a scene project to MP4/WebM/MOV via the Hyperframes producer (requires Chrome)",
+  "description": "Render a scene project to MP4/WebM/MOV via the Hyperframes producer (requires Chrome) [legacy — prefer \`vibe render\`]",
   "name": "scene.render",
   "parameters": {
     "properties": {

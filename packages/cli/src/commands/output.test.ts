@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
-import { apiError } from "./output.js";
+import { apiError, emitDeprecationWarning, _resetDeprecationMemoryForTesting } from "./output.js";
 
 describe("apiError provider hints", () => {
   it("matches the documented provider-specific patterns", () => {
@@ -179,5 +179,74 @@ describe("apiError provider hints", () => {
       retryable: true,
       suggestion: expect.stringContaining("timed out"),
     });
+  });
+});
+
+describe("emitDeprecationWarning", () => {
+  // Save and restore env + tty so we don't leak between cases.
+  const originalEnv = { ...process.env };
+  const originalIsTTY = process.stderr.isTTY;
+  let stderrChunks: string[] = [];
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrChunks = [];
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      stderrChunks.push(typeof chunk === "string" ? chunk : String(chunk));
+      return true;
+    });
+    _resetDeprecationMemoryForTesting();
+    delete process.env.VIBE_JSON_OUTPUT;
+    delete process.env.VIBE_QUIET_OUTPUT;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    process.env = { ...originalEnv };
+    Object.defineProperty(process.stderr, "isTTY", { value: originalIsTTY, configurable: true });
+  });
+
+  it("writes a single-line warning to stderr in human mode", () => {
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    const output = stderrChunks.join("");
+    expect(output).toContain("[deprecated]");
+    expect(output).toContain("'pipeline'");
+    expect(output).toContain("'remix'");
+    expect(output).toContain("v1.0");
+    expect(output.endsWith("\n")).toBe(true);
+  });
+
+  it("is suppressed in JSON mode", () => {
+    process.env.VIBE_JSON_OUTPUT = "1";
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    expect(stderrChunks.join("")).toBe("");
+  });
+
+  it("is suppressed in quiet mode", () => {
+    process.env.VIBE_QUIET_OUTPUT = "1";
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    expect(stderrChunks.join("")).toBe("");
+  });
+
+  it("is suppressed when stderr is not a TTY (CI / piped logs)", () => {
+    Object.defineProperty(process.stderr, "isTTY", { value: false, configurable: true });
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    expect(stderrChunks.join("")).toBe("");
+  });
+
+  it("dedupes repeat calls for the same (old, new) pair", () => {
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    const lines = stderrChunks.join("").split("\n").filter(Boolean);
+    expect(lines).toHaveLength(1);
+  });
+
+  it("emits separately for distinct (old, new) pairs", () => {
+    emitDeprecationWarning("pipeline", "remix", "v1.0");
+    emitDeprecationWarning("analyze", "inspect", "v1.0");
+    const lines = stderrChunks.join("").split("\n").filter(Boolean);
+    expect(lines).toHaveLength(2);
   });
 });

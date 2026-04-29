@@ -1,21 +1,21 @@
 /**
- * @module pipeline
+ * @module remix
  *
- * Top-level `vibe pipeline` command group for AI media transformations
- * on existing video / audio files.
+ * Top-level `vibe remix` command group for AI media transformations
+ * on existing video / audio files. (Renamed from `pipeline` in v0.74
+ * to avoid the word collision with `vibe run <pipeline.yaml>`. The
+ * `pipeline` and `pipe` aliases stay until v1.0 with a deprecation
+ * warning.)
  *
  * For BUILDING new video from text intent (storyboard -> MP4), see
- * `vibe build` (v0.60+) - that's the skills-driven path. Pipelines
- * here process media you already have.
+ * `vibe build` (v0.60+) - that's the skills-driven path. Remix here
+ * processes media you already have.
  *
  * Commands:
- *   pipeline regenerate-scene - Regenerate specific scene(s) against an existing storyboard
- *   pipeline highlights       - Extract highlights from long-form content
- *   pipeline auto-shorts      - Generate short-form clips from long-form video
- *   pipeline animated-caption - Add word-by-word animated captions
- *
- * Removed in earlier cycles (skills + agent flows replaced these):
- *   pipeline script-to-video, pipeline viral, pipeline b-roll, pipeline narrate
+ *   remix regenerate-scene - Regenerate specific scene(s) against an existing storyboard
+ *   remix highlights       - Extract highlights from long-form content
+ *   remix auto-shorts      - Generate short-form clips from long-form video
+ *   remix animated-caption - Add word-by-word animated captions
  *
  * @dependencies Whisper, Claude, Gemini, ElevenLabs, Kling, Runway, FFmpeg
  */
@@ -28,13 +28,23 @@ import ora from "ora";
 import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
-import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, notFoundError, usageError, apiError, generalError, emitDeprecationWarning } from "./output.js";
 
-export const pipelineCommand = new Command("pipeline")
+export const pipelineCommand = new Command("remix")
+  .alias("pipeline")
   .alias("pipe")
   .description(
     "AI media transformations on existing video / audio (highlights, auto-shorts, animated captions). For BUILD-from-text flows see `vibe build`."
   )
+  .hook("preAction", () => {
+    // Fire deprecation if the user invoked the old alias directly. The
+    // user-typed name is in argv[2] (after `node vibe`); when invoked
+    // through the CLI binary it's argv[2] too.
+    const invoked = process.argv[2];
+    if (invoked === "pipeline" || invoked === "pipe") {
+      emitDeprecationWarning(invoked, "remix", "v1.0");
+    }
+  })
   .addHelpText(
     "after",
     `
@@ -42,15 +52,15 @@ Two flows — pick by intent:
   BUILD     — text → MP4 (intent → AI generation → new video)
               Use \`vibe build\` with a STORYBOARD.md + DESIGN.md.
               Idempotent, agent-editable, skills-driven (v0.60+).
-  PROCESS   — existing video/audio → transformed media
-              Use \`vibe pipeline\` (this group) or \`vibe edit\` / \`vibe audio\`.
+  REMIX     — existing video/audio → transformed media
+              Use \`vibe remix\` (this group) or \`vibe edit\` / \`vibe audio\`.
               One-shot, batch-oriented, no storyboard required.
 
-Examples (PROCESS):
-  $ vibe pipeline highlights long-video.mp4 -o highlights.json -d 60
-  $ vibe pipeline auto-shorts long-video.mp4 -o shorts/ -n 3 --add-captions
-  $ vibe pipeline animated-caption video.mp4 -o captioned.mp4 -s highlight
-  $ vibe pipeline animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
+Examples (REMIX):
+  $ vibe remix highlights long-video.mp4 -o highlights.json -d 60
+  $ vibe remix auto-shorts long-video.mp4 -o shorts/ -n 3 --add-captions
+  $ vibe remix animated-caption video.mp4 -o captioned.mp4 -s highlight
+  $ vibe remix animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
 
 Provider API Keys:
   highlights:          GOOGLE_API_KEY (Gemini analysis)
@@ -63,12 +73,9 @@ Cost tiers:
   animated-caption:    $   Low (~$0.01)
   regenerate-scene:    $$$ High (per-scene re-run; depends on provider)
 
-Note: \`pipeline script-to-video\` was removed — use \`vibe build\` for
-text → MP4. \`pipeline regenerate-scene\` still operates on the
-storyboard.{yaml,json} layout produced by older runs.
-
+Aliases: \`pipeline\`, \`pipe\` (deprecated — removed in v1.0).
 Use '--dry-run' to preview parameters before execution.
-Run 'vibe schema pipeline.<command>' for structured parameter info.
+Run 'vibe schema remix.<command>' for structured parameter info.
 `
   );
 
@@ -102,9 +109,9 @@ pipelineCommand
     "after",
     `
 Examples:
-  $ vibe pipeline animated-caption video.mp4 -o captioned.mp4
-  $ vibe pipeline animated-caption video.mp4 -o out.mp4 -s bounce
-  $ vibe pipeline animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
+  $ vibe remix animated-caption video.mp4 -o captioned.mp4
+  $ vibe remix animated-caption video.mp4 -o out.mp4 -s bounce
+  $ vibe remix animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
 
 Styles:
   highlight (default)  TikTok-style background highlight on active word (Remotion)
