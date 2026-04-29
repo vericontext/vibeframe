@@ -912,7 +912,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit grade --describe 1
 
 exports[`CLI --describe schemas (drift detection) > vibe edit image --describe 1`] = `
 {
-  "description": "Edit image(s) using AI (Gemini/OpenAI/Grok)",
+  "description": "Edit image(s) using AI (Gemini, OpenAI, or Grok)",
   "name": "edit.image",
   "parameters": {
     "properties": {
@@ -992,13 +992,13 @@ exports[`CLI --describe schemas (drift detection) > vibe edit interpolate --desc
         "description": "Target output FPS",
         "type": "number",
       },
-      "output": {
-        "description": "Output file path",
+      "mode": {
+        "default": "quality",
+        "description": "Speed/quality tradeoff: fast or quality",
         "type": "string",
       },
-      "quality": {
-        "default": "quality",
-        "description": "Quality: fast or quality",
+      "output": {
+        "description": "Output file path",
         "type": "string",
       },
       "video": {
@@ -1351,7 +1351,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit text-overlay --des
 
 exports[`CLI --describe schemas (drift detection) > vibe edit translate-srt --describe 1`] = `
 {
-  "description": "Translate SRT subtitle file to another language (Claude/OpenAI)",
+  "description": "Translate SRT subtitle file to another language (Claude or OpenAI)",
   "name": "edit.translate-srt",
   "parameters": {
     "properties": {
@@ -2236,6 +2236,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect media --describ
         "description": "Google API key (or set GOOGLE_API_KEY env)",
         "type": "string",
       },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
       "end": {
         "description": "End offset in seconds (video only)",
         "type": "number",
@@ -2306,6 +2310,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect review --descri
         "description": "Output video file path (for auto-apply)",
         "type": "string",
       },
+      "source": {
+        "description": "Video file path",
+        "type": "string",
+      },
       "storyboard": {
         "description": "Storyboard JSON file for context",
         "type": "string",
@@ -2314,13 +2322,9 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect review --descri
         "description": "Run verification pass after applying fixes",
         "type": "boolean",
       },
-      "video": {
-        "description": "Video file path",
-        "type": "string",
-      },
     },
     "required": [
-      "video",
+      "source",
     ],
     "type": "object",
   },
@@ -2339,6 +2343,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --descr
       },
       "apply": {
         "description": "Apply the first suggestion automatically",
+        "type": "boolean",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
         "type": "boolean",
       },
       "instruction": {
@@ -2368,6 +2376,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect video --describ
       "apiKey": {
         "description": "Google API key (or set GOOGLE_API_KEY env)",
         "type": "string",
+      },
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
       },
       "end": {
         "description": "End offset in seconds (for clipping)",

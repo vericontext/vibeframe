@@ -230,14 +230,14 @@ export const exportCommand = new Command("export")
   .description("Export project to video file")
   .argument("<project>", "Project file path")
   .option("-o, --output <path>", "Output file path")
-  .option("-f, --format <format>", "Output format (mp4, webm, mov, gif)", "mp4")
+  .option("--format <format>", "Output format (mp4, webm, mov, gif)", "mp4")
   .option(
-    "-p, --preset <preset>",
+    "--preset <preset>",
     "Quality preset (draft, standard, high, ultra)",
     "standard"
   )
-  .option("-y, --overwrite", "Overwrite output file if exists", false)
-  .option("-g, --gap-fill <strategy>", "Gap filling strategy (black, extend)", "extend")
+  .option("--overwrite", "Overwrite output file if exists", false)
+  .option("--gap-fill <strategy>", "Gap filling strategy (black, extend)", "extend")
   .option("--backend <name>", "Render backend: ffmpeg (default) | hyperframes (experimental)", "ffmpeg")
   .option("--bitrate <value>", "Video bitrate (e.g. 5000k, 8M) — overrides preset")
   .option("--fps <number>", "Frames per second (e.g. 24, 30, 60) — overrides preset")

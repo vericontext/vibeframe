@@ -84,7 +84,7 @@ export function registerSpeechCommand(parent: Command): void {
     .argument("[text]", "Text to convert to speech (interactive if omitted)")
     .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
     .option("-o, --output <path>", "Output audio file path", "output.mp3")
-    .option("-v, --voice <id>", "Voice ID (default: Rachel)", "21m00Tcm4TlvDq8ikWAM")
+    .option("--voice <id>", "Voice ID (default: Rachel)", "21m00Tcm4TlvDq8ikWAM")
     .option("--list-voices", "List available voices")
     .option("--fit-duration <seconds>", "Speed up audio to fit target duration (via FFmpeg atempo)", parseFloat)
     .option("--dry-run", "Preview parameters without executing")

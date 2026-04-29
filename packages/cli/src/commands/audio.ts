@@ -66,7 +66,7 @@ audioCommand
   .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
   .option("-l, --language <lang>", "Language code (e.g., en, ko)")
   .option("-o, --output <path>", "Output file path")
-  .option("-f, --format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
+  .option("--format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
   .action(async (audioPath: string, options) => {
     const startedAt = Date.now();
     try {
@@ -263,7 +263,7 @@ audioCommand
   .description("Clone a voice from audio samples using ElevenLabs")
   .argument("[samples...]", "Audio sample files (1-25 files)")
   .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
-  .option("-n, --name <name>", "Voice name (required)")
+  .option("--name <name>", "Voice name (required)")
   .option("-d, --description <desc>", "Voice description")
   .option("--labels <json>", "Labels as JSON (e.g., '{\"accent\": \"american\"}')")
   .option("--remove-noise", "Remove background noise from samples")
@@ -383,7 +383,7 @@ audioCommand
   .argument("<media>", "Input media file (video or audio)")
   .option("-l, --language <lang>", "Target language code (e.g., es, ko, ja) (required)")
   .option("--source <lang>", "Source language code (default: auto-detect)")
-  .option("-v, --voice <id>", "ElevenLabs voice ID for output")
+  .option("--voice <id>", "ElevenLabs voice ID for output")
   .option("--analyze-only", "Only analyze and show timing, don't generate audio")
   .option("-o, --output <path>", "Output file path")
   .option("--dry-run", "Preview parameters without executing")
@@ -629,9 +629,9 @@ audioCommand
   .command("duck")
   .description("Auto-duck background music when voice is present (FFmpeg)")
   .argument("<music>", "Background music file path")
-  .option("-v, --voice <path>", "Voice/narration track (required)")
+  .option("--voice <path>", "Voice/narration track (required)")
   .option("-o, --output <path>", "Output audio file path")
-  .option("-t, --threshold <dB>", "Sidechain threshold in dB", "-30")
+  .option("--threshold <dB>", "Sidechain threshold in dB", "-30")
   .option("-r, --ratio <ratio>", "Compression ratio", "3")
   .option("-a, --attack <ms>", "Attack time in ms", "20")
   .option("-l, --release <ms>", "Release time in ms", "200")

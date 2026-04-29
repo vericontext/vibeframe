@@ -37,7 +37,7 @@ export function registerThumbnailCommand(parent: Command): void {
     .argument("[description]", "Thumbnail description (for DALL-E generation)")
     .option("-k, --api-key <key>", "API key (OpenAI for generation, Google for best-frame)")
     .option("-o, --output <path>", "Output file path")
-    .option("-s, --style <style>", "Platform style: youtube, instagram, tiktok, twitter")
+    .option("--style <style>", "Platform style: youtube, instagram, tiktok, twitter")
     .option("--best-frame <video>", "Extract best thumbnail frame from video using Gemini AI")
     .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
     .option("--model <model>", "Gemini model: flash, latest, pro (default: flash)", "flash")

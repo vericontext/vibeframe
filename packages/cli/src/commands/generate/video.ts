@@ -51,10 +51,10 @@ export function registerVideoCommand(parent: Command): void {
       "5",
     )
     .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)")
-    .option("-s, --seed <number>", "Random seed for reproducibility (Runway only)")
-    .option("-m, --mode <mode>", "Generation mode: std or pro (Kling only)", "std")
+    .option("--seed <number>", "Random seed for reproducibility (Runway only)")
+    .option("--mode <mode>", "Generation mode: std or pro (Kling only)", "std")
     .option("--seedance-model <model>", "Seedance variant: quality or fast (fal.ai only)", "quality")
-    .option("-n, --negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
+    .option("--negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
     .option("--resolution <res>", "Video resolution: 720p, 1080p, 4k (Veo only)")
     .option("--last-frame <path>", "Last frame image for frame interpolation (Veo only)")
     .option("--ref-images <paths...>", "Reference images for character consistency (Veo 3.1 only, max 3)")

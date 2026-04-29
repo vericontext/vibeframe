@@ -48,8 +48,8 @@ export function registerVideoStatusCommand(parent: Command): void {
     .argument("<task-id>", "Task ID from video generation")
     .option("-p, --provider <provider>", "Provider: grok, runway, kling", "grok")
     .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY env)")
-    .option("-t, --type <type>", "Task type: text2video or image2video (Kling only)", "text2video")
-    .option("-w, --wait", "Wait for completion")
+    .option("--type <type>", "Task type: text2video or image2video (Kling only)", "text2video")
+    .option("--wait", "Wait for completion")
     .option("-o, --output <path>", "Download video when complete")
     .action(async (taskId: string, options) => {
       const startedAt = Date.now();

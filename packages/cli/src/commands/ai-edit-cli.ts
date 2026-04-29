@@ -40,7 +40,7 @@ aiCommand
   .description("Remove silent segments from video (FFmpeg default, or Gemini for smart detection)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-cut.<ext>)")
-  .option("-n, --noise <dB>", "Silence threshold in dB (default: -30)", "-30")
+  .option("--noise <dB>", "Silence threshold in dB (default: -30)", "-30")
   .option("-d, --min-duration <seconds>", "Minimum silence duration to cut (default: 0.5)", "0.5")
   .option("--padding <seconds>", "Padding around non-silent segments (default: 0.1)", "0.1")
   .option("--analyze-only", "Only detect silence, don't cut")
@@ -178,7 +178,7 @@ aiCommand
   .description("Transcribe and burn styled captions onto video (Whisper + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-captioned.<ext>)")
-  .option("-s, --style <style>", "Caption style: minimal, bold, outline, karaoke (default: bold)", "bold")
+  .option("--style <style>", "Caption style: minimal, bold, outline, karaoke (default: bold)", "bold")
   .option("--font-size <pixels>", "Override auto-calculated font size")
   .option("--color <color>", "Font color (default: white)", "white")
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
@@ -297,8 +297,8 @@ aiCommand
   .description("Remove background noise from audio/video using FFmpeg (no API key needed)")
   .argument("<input>", "Audio or video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-denoised.<ext>)")
-  .option("-s, --strength <level>", "Noise reduction strength: low, medium, high (default: medium)", "medium")
-  .option("-n, --noise-floor <dB>", "Custom noise floor in dB (overrides strength preset)")
+  .option("--strength <level>", "Noise reduction strength: low, medium, high (default: medium)", "medium")
+  .option("--noise-floor <dB>", "Custom noise floor in dB (overrides strength preset)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (inputPath: string, options) => {
     const startedAt = Date.now();
@@ -480,9 +480,9 @@ aiCommand
 
 aiCommand
   .command("translate-srt")
-  .description("Translate SRT subtitle file to another language (Claude/OpenAI)")
+  .description("Translate SRT subtitle file to another language (Claude or OpenAI)")
   .argument("<srt>", "SRT file path")
-  .option("-t, --target <language>", "Target language (e.g., ko, es, fr, ja, zh)")
+  .option("--target <language>", "Target language (e.g., ko, es, fr, ja, zh)")
   .option("-o, --output <path>", "Output file path (default: <name>-<target>.srt)")
   .option("-p, --provider <provider>", "Translation provider: claude, openai (default: claude)", "claude")
   .option("--source <language>", "Source language (auto-detected if omitted)")

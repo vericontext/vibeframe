@@ -271,7 +271,7 @@ batchCommand
   .argument("[clip-ids...]", "Clip IDs to apply effect to (or --all)")
   .option("--all", "Apply to all clips", false)
   .option("-d, --duration <seconds>", "Effect duration", "1")
-  .option("-s, --start <seconds>", "Effect start time (relative to clip)", "0")
+  .option("--start <seconds>", "Effect start time (relative to clip)", "0")
   .option("--intensity <value>", "Effect intensity (0-1)", "1")
   .option("--dry-run", "Preview parameters without executing")
   .action(

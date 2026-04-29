@@ -1,4 +1,4 @@
-# CLI redesign — v0.74 → v0.77
+# CLI redesign — v0.74 → v0.78
 
 VibeFrame's top-level CLI surface was reshaped in v0.74.0 around three
 principles drawn from established CLI design guides. **v0.75.0 dropped all
@@ -119,6 +119,80 @@ MCP tools follow the CLI rename per the v0.76 alignment rule:
 correctly. Timeline manifest tools were already `timeline_trim_clip` /
 `_split_clip` / etc., so v0.77 makes the CLI side 1:1 with the manifest
 (no rename needed on the manifest side).
+
+## v0.78 deep-audit cleanup (CRITICAL bugs + short flag chaos)
+
+A second audit after v0.77 surfaced four genuine bugs and a fundamental
+short-flag consistency problem. v0.78 closes both fronts.
+
+### Critical bug fixes (no breaking surface change)
+
+| Bug | Fix |
+|---|---|
+| `vibe generate motion -h` errored with "argument missing" — `-h, --height` shadowed the standard help flag (Microsoft + clig.dev inviolable rule) | Drop `-h` (and `-w` for symmetry) → `--height` / `--width` long-only |
+| `vibe scene` group description listed `(add, lint, styles)` after v0.77 renamed `styles` → `list-styles` | Updated to `(add, lint, list-styles)` |
+| `vibe detect {scenes,silence,beats} --json --dry-run` emitted a leading spinner line to stdout, breaking JSON parsers (MCP / agents) | Replaced direct `ora()` with the silent-aware `spinner()` helper from `output.ts` (per-mode auto-silence) |
+| `vibe inspect {media,video,suggest} --dry-run` errored "unknown option" although the global help advertises `--dry-run` as global; only `inspect review` had it wired | Added `--dry-run` to all three (param echo + outputSuccess + early return), matching the existing pattern |
+
+Also fixed during the same pass: the JSON envelope's `command:` field
+in three inspect leaves still emitted `analyze media/video/suggest` (the
+v0.74 rename did not propagate into outputSuccess). And `inspect review`
+emitted `ai review` (a stale name from a much earlier reshuffle). All
+four are now their canonical names.
+
+### Short flag dedup (breaking)
+
+Empirical audit of every `.option(...)` declaration found seven letters
+overloaded across multiple meanings — clig.dev's "Be consistent across
+subcommands" hard rule. Policy: a one-letter form is kept only when one
+meaning dominates the letter ≥60% across the surface; everywhere else
+the option becomes long-only.
+
+| Letter | Kept short for | Now long-only |
+|---|---|---|
+| `-p` | `--provider` (10/13) | `--project`, `--preset`, `--params` |
+| `-m` | `--model` (11/14) | `--mode`, `--melody` |
+| `-v` | `--verbose` (5/9) | `--voice` |
+| `-c` | `--confirm` (1/2) | `--creativity` |
+| `-s` | (no dominant — 7-way split) | all → `--style`, `--start`, `--size`, `--seed`, `--scale`, `--strength`, `--storyboard`, `--source` |
+| `-n` | (5-way split) | all → `--name`, `--count`, `--noise`, `--noise-floor`, `--negative` |
+| `-t` | (6-way split) | all → `--time`, `--threshold`, `--type`, `--track`, `--text`, `--target` |
+| `-f` | (5-way split) | all → `--fps`, `--format`, `--focus`, `--file`, `--factor` |
+| `-w`, `-y`, `-g` | (singletons) | `--wait`, `--overwrite`, `--generator`, `--gap-fill` |
+
+Final stable shorts (single dominant meaning):
+
+```
+-o, --output      -k, --api-key    -d, --duration
+-m, --model       -p, --provider   -r, --ratio
+-l, --language    -a, --aspect     -v, --verbose
+-c, --confirm     -i, --image/--input  (per-command, all "input"-y)
+```
+
+### `edit interpolate --quality` → `--mode`
+
+`--quality` previously meant three different things across the surface
+(`generate image standard|hd`, `render draft|standard|high`, `edit
+interpolate fast|quality`). The interpolate one is a speed-vs-quality
+tradeoff; renamed to `--mode` so `--quality` is unambiguous output-quality
+elsewhere.
+
+### `inspect` group argument standardization
+
+`inspect review <video>` was the only leaf in the group not using the
+shared `<source>` argument name. Renamed to `<source>` so all four
+inspect leaves take `<source>` as the input position.
+
+### `vibe project` description
+
+`"Project management commands"` was generic. Replaced with `"Manage
+VibeFrame .vibe.json project files (create, info, set)"`.
+
+### Provider list separator
+
+`(Claude/OpenAI)` and `(Gemini/OpenAI/Grok)` style descriptions
+normalized to `(Claude or OpenAI)` and `(Gemini, OpenAI, or Grok)` to
+match the dominant comma-style elsewhere.
 
 ## What we deliberately did not do (and why)
 

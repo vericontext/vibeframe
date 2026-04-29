@@ -81,7 +81,7 @@ pipelineCommand
   .command("animated-caption")
   .description("Add animated captions with word-by-word effects (Whisper + Remotion/ASS)")
   .argument("<video>", "Video file path")
-  .option("-s, --style <preset>", "Style preset (default: highlight)", "highlight")
+  .option("--style <preset>", "Style preset (default: highlight)", "highlight")
   .option("--highlight-color <color>", "Active word highlight color", "#FFFF00")
   .option("--font-size <px>", "Font size (default: auto based on resolution)")
   .option("--position <pos>", "Caption position: top, center, bottom", "bottom")

@@ -46,7 +46,7 @@ describe("timeline commands", () => {
 
     it("adds source with custom name", () => {
       execSync(
-        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -n "My Video" -d 5`,
+        `${CLI} timeline add-source "${projectFile}" "${mediaFile}" --name "My Video" -d 5`,
         { cwd: process.cwd(), encoding: "utf-8" }
       );
 
@@ -176,7 +176,7 @@ describe("timeline commands", () => {
 
     it("adds track with custom name", () => {
       execSync(
-        `${CLI} timeline add-track "${projectFile}" video -n "Overlay"`,
+        `${CLI} timeline add-track "${projectFile}" video --name "Overlay"`,
         { cwd: process.cwd(), encoding: "utf-8" }
       );
 
@@ -517,7 +517,7 @@ describe("timeline commands", () => {
 
     it("moves a clip to different track", () => {
       // Add audio track
-      execSync(`${CLI} timeline add-track "${projectFile}" audio -n "Audio 2"`, {
+      execSync(`${CLI} timeline add-track "${projectFile}" audio --name "Audio 2"`, {
         cwd: process.cwd(),
         encoding: "utf-8",
       });

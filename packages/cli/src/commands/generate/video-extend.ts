@@ -36,7 +36,7 @@ export function registerVideoExtendCommand(parent: Command): void {
     .option("-o, --output <path>", "Output file path")
     .option("--prompt <text>", "Continuation prompt")
     .option("-d, --duration <sec>", "Duration: 5 or 10 (Kling), 4/6/8 (Veo)", "5")
-    .option("-n, --negative <prompt>", "Negative prompt (what to avoid, Kling only)")
+    .option("--negative <prompt>", "Negative prompt (what to avoid, Kling only)")
     .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast", "3.1")
     .option("--no-wait", "Start extension and return task ID without waiting")
     .option("--dry-run", "Preview parameters without executing")

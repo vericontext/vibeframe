@@ -27,7 +27,7 @@ async function resolveProjectPath(inputPath: string): Promise<string> {
 }
 
 export const projectCommand = new Command("project")
-  .description("Project management commands")
+  .description("Manage VibeFrame .vibe.json project files (create, info, set)")
   .addHelpText("after", `
 Examples:
   $ vibe project create "my-video" -o project.vibe.json
@@ -44,7 +44,7 @@ projectCommand
   .argument("<name>", "Project name or path (e.g., 'my-project' or 'output/my-project')")
   .option("-o, --output <path>", "Output file path (overrides name-based path)")
   .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)", "16:9")
-  .option("-f, --fps <fps>", "Frame rate", "30")
+  .option("--fps <fps>", "Frame rate", "30")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (name: string, options) => {
     const startedAt = Date.now();
@@ -185,9 +185,9 @@ projectCommand
   .command("set")
   .description("Update project settings")
   .argument("<file>", "Project file path")
-  .option("-n, --name <name>", "Project name")
+  .option("--name <name>", "Project name")
   .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)")
-  .option("-f, --fps <fps>", "Frame rate")
+  .option("--fps <fps>", "Frame rate")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (file: string, options) => {
     const startedAt = Date.now();

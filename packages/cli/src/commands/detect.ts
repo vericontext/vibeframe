@@ -2,10 +2,9 @@ import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, basename } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, outputSuccess } from "./output.js";
+import { exitWithError, generalError, outputSuccess, spinner as createSpinner } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ── Execute function interfaces ──────────────────────────────────────
@@ -218,13 +217,13 @@ detectCommand
   .command("scenes")
   .description("Detect scene changes in video")
   .argument("<video>", "Video file path")
-  .option("-t, --threshold <value>", "Scene change threshold (0-1)", "0.3")
+  .option("--threshold <value>", "Scene change threshold (0-1)", "0.3")
   .option("-o, --output <path>", "Output JSON file with timestamps")
-  .option("-p, --project <path>", "Add scenes as clips to project")
+  .option("--project <path>", "Add scenes as clips to project")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Detecting scenes...").start();
+    const spinner = createSpinner("Detecting scenes...").start();
 
     try {
       if (options.output) {
@@ -375,13 +374,13 @@ detectCommand
   .command("silence")
   .description("Detect silence in audio/video")
   .argument("<media>", "Media file path")
-  .option("-n, --noise <dB>", "Noise threshold in dB", "-30")
+  .option("--noise <dB>", "Noise threshold in dB", "-30")
   .option("-d, --duration <sec>", "Minimum silence duration", "0.5")
   .option("-o, --output <path>", "Output JSON file with timestamps")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (mediaPath: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Detecting silence...").start();
+    const spinner = createSpinner("Detecting silence...").start();
 
     try {
       if (options.output) {
@@ -486,7 +485,7 @@ detectCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (audioPath: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Detecting beats...").start();
+    const spinner = createSpinner("Detecting beats...").start();
 
     try {
       if (options.output) {

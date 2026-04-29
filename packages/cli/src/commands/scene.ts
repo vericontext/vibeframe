@@ -92,7 +92,7 @@ function validatePreset(value: string): ScenePreset {
 }
 
 export const sceneCommand = new Command("scene")
-  .description("Lower-level scene authoring (add, lint, styles). For project flow use `vibe init` / `vibe build` / `vibe render`.")
+  .description("Lower-level scene authoring (add, lint, list-styles). For project flow use `vibe init` / `vibe build` / `vibe render`.")
   .addHelpText("after", `
 Examples:
   $ vibe scene add intro --style announcement \\

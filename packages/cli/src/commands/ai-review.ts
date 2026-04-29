@@ -224,8 +224,8 @@ export function registerReviewCommand(aiCommand: Command): void {
   aiCommand
     .command("review")
     .description("Review video quality using Gemini AI and optionally auto-fix issues")
-    .argument("<video>", "Video file path")
-    .option("-s, --storyboard <path>", "Storyboard JSON file for context")
+    .argument("<source>", "Video file path")
+    .option("--storyboard <path>", "Storyboard JSON file for context")
     .option("--auto-apply", "Automatically apply fixable corrections")
     .option("--verify", "Run verification pass after applying fixes")
     .option("-m, --model <model>", "Gemini model: flash (default), flash-2.5, pro", "flash")
@@ -240,7 +240,7 @@ export function registerReviewCommand(aiCommand: Command): void {
 
         if (options.dryRun) {
           outputSuccess({
-            command: "ai review",
+            command: "inspect review",
             startedAt,
             dryRun: true,
             data: {

@@ -28,8 +28,8 @@ timelineCommand
   .description("Add a media source to the project")
   .argument("<project>", "Project file path")
   .argument("<media>", "Media file path")
-  .option("-n, --name <name>", "Source name (defaults to filename)")
-  .option("-t, --type <type>", "Media type (video, audio, image, lottie)")
+  .option("--name <name>", "Source name (defaults to filename)")
+  .option("--type <type>", "Media type (video, audio, image, lottie)")
   .option("-d, --duration <seconds>", "Duration in seconds (required for images)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, mediaPath: string, options) => {
@@ -108,8 +108,8 @@ timelineCommand
   .description("Add a clip to the timeline")
   .argument("<project>", "Project file path")
   .argument("<source-id>", "Source ID to use")
-  .option("-t, --track <id>", "Track ID (defaults to first matching track)")
-  .option("-s, --start <seconds>", "Start time in timeline", "0")
+  .option("--track <id>", "Track ID (defaults to first matching track)")
+  .option("--start <seconds>", "Start time in timeline", "0")
   .option("-d, --duration <seconds>", "Clip duration (defaults to source duration)")
   .option("--offset <seconds>", "Source start offset", "0")
   .option("--dry-run", "Preview parameters without executing")
@@ -213,7 +213,7 @@ timelineCommand
   .description("Add a new track")
   .argument("<project>", "Project file path")
   .argument("<type>", "Track type (video, audio)")
-  .option("-n, --name <name>", "Track name")
+  .option("--name <name>", "Track name")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, type: string, options) => {
     const startedAt = Date.now();
@@ -287,9 +287,9 @@ timelineCommand
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID")
   .argument("<effect-type>", "Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)")
-  .option("-s, --start <seconds>", "Effect start time (relative to clip)", "0")
+  .option("--start <seconds>", "Effect start time (relative to clip)", "0")
   .option("-d, --duration <seconds>", "Effect duration (defaults to clip duration)")
-  .option("-p, --params <json>", "Effect parameters as JSON", "{}")
+  .option("--params <json>", "Effect parameters as JSON", "{}")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, effectType: string, options) => {
     const startedAt = Date.now();
@@ -574,7 +574,7 @@ timelineCommand
   .description("Split a clip at a specific time")
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to split")
-  .option("-t, --time <seconds>", "Split time relative to clip start", "0")
+  .option("--time <seconds>", "Split time relative to clip start", "0")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
@@ -654,7 +654,7 @@ timelineCommand
   .description("Duplicate a clip")
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to duplicate")
-  .option("-t, --time <seconds>", "Start time for duplicate (default: after original)")
+  .option("--time <seconds>", "Start time for duplicate (default: after original)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
@@ -798,7 +798,7 @@ timelineCommand
   .description("Move a clip to a new position")
   .argument("<project>", "Project file path")
   .argument("<clip-id>", "Clip ID to move")
-  .option("-t, --time <seconds>", "New start time")
+  .option("--time <seconds>", "New start time")
   .option("--track <track-id>", "Move to different track")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {

@@ -29,7 +29,7 @@ export function registerFillGapsCommand(aiCommand: Command): void {
     .option("-d, --dir <path>", "Directory to save generated videos")
     .option("--prompt <text>", "Custom prompt for video generation")
     .option("--dry-run", "Show gaps without generating")
-    .option("-m, --mode <mode>", "Generation mode: std or pro (Kling)", "std")
+    .option("--mode <mode>", "Generation mode: std or pro (Kling)", "std")
     .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1", "16:9")
     .action(async (projectPath: string, options) => {
       try {

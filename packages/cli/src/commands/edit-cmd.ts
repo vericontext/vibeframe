@@ -9,12 +9,12 @@
  *   edit caption        - Add styled captions (Whisper + FFmpeg)
  *   edit noise-reduce   - Audio/video noise removal (FFmpeg)
  *   edit fade           - Fade in/out effects (FFmpeg)
- *   edit translate-srt  - Translate SRT subtitles (Claude/OpenAI)
+ *   edit translate-srt  - Translate SRT subtitles (Claude or OpenAI)
  *   edit grade          - Color grading (Claude + FFmpeg)
  *   edit text-overlay   - Text overlays (FFmpeg drawtext)
  *   edit speed-ramp     - Speed ramping (Whisper + Claude + FFmpeg)
  *   edit reframe        - Reframe aspect ratio (Claude Vision + FFmpeg)
- *   edit image          - Image editing (Gemini/OpenAI/Grok)
+ *   edit image          - Image editing (Gemini, OpenAI, or Grok)
  *   edit interpolate    - Frame interpolation / slow motion (FFmpeg)
  *   edit upscale  - Video upscaling (FFmpeg / Replicate)
  *   edit fill-gaps      - Fill timeline gaps with AI video (Kling)
@@ -85,7 +85,7 @@ editCommand
   .command("grade")
   .description("Apply AI-generated color grading (Claude + FFmpeg)")
   .argument("<video>", "Video file path")
-  .option("-s, --style <prompt>", "Style description (e.g., 'cinematic warm')")
+  .option("--style <prompt>", "Style description (e.g., 'cinematic warm')")
   .option("--preset <name>", "Built-in preset: film-noir, vintage, cinematic-warm, cool-tones, high-contrast, pastel, cyberpunk, horror")
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show filter without applying")
@@ -206,8 +206,8 @@ editCommand
   .command("text-overlay")
   .description("Apply text overlays to video (FFmpeg drawtext)")
   .argument("<video>", "Video file path")
-  .option("-t, --text <texts...>", "Text lines to overlay (repeat for multiple)")
-  .option("-s, --style <style>", "Overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
+  .option("--text <texts...>", "Text lines to overlay (repeat for multiple)")
+  .option("--style <style>", "Overlay style: lower-third, center-bold, subtitle, minimal", "lower-third")
   .option("--font-size <size>", "Font size in pixels (auto-calculated if omitted)")
   .option("--font-color <color>", "Font color (default: white)", "white")
   .option("--fade <seconds>", "Fade in/out duration in seconds", "0.3")
@@ -312,7 +312,7 @@ editCommand
   .description("Apply content-aware speed ramping (Whisper + Claude + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output video file path")
-  .option("-s, --style <style>", "Style: dramatic, smooth, action", "dramatic")
+  .option("--style <style>", "Style: dramatic, smooth, action", "dramatic")
   .option("--min-speed <factor>", "Minimum speed factor", "0.25")
   .option("--max-speed <factor>", "Maximum speed factor", "4.0")
   .option("--analyze-only", "Show keyframes without applying")
@@ -482,7 +482,7 @@ editCommand
   .description("Auto-reframe video to different aspect ratio (Claude Vision + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-a, --aspect <ratio>", "Target aspect ratio: 9:16, 1:1, 4:5", "9:16")
-  .option("-f, --focus <mode>", "Focus mode: auto, face, center, action", "auto")
+  .option("--focus <mode>", "Focus mode: auto, face, center, action", "auto")
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show crop regions without applying")
   .option("--keyframes <path>", "Export keyframes to JSON file")
@@ -683,14 +683,14 @@ editCommand
 
 editCommand
   .command("image")
-  .description("Edit image(s) using AI (Gemini/OpenAI/Grok)")
+  .description("Edit image(s) using AI (Gemini, OpenAI, or Grok)")
   .argument("<images...>", "Input image file(s) followed by edit prompt")
   .option("-p, --provider <provider>", "Provider: gemini (default), openai, grok", "gemini")
   .option("-k, --api-key <key>", "API key (or set env variable)")
   .option("-o, --output <path>", "Output file path", "edited.png")
   .option("-m, --model <model>", "Model: flash/3.1-flash/latest/pro (Gemini only)", "flash")
   .option("-r, --ratio <ratio>", "Output aspect ratio")
-  .option("-s, --size <resolution>", "Resolution: 1K, 2K, 4K (Gemini Pro only)")
+  .option("--size <resolution>", "Resolution: 1K, 2K, 4K (Gemini Pro only)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (args: string[], options) => {
     const startedAt = Date.now();
@@ -856,10 +856,13 @@ editCommand
   .description("Create slow motion with frame interpolation (FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path")
-  .option("-f, --factor <number>", "Slow motion factor: 2, 4, or 8", "2")
+  .option("--factor <number>", "Slow motion factor: 2, 4, or 8", "2")
   .option("--fps <number>", "Target output FPS")
-  // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`.
-  .option("--quality <mode>", "Quality: fast or quality", "quality")
+  // Renamed from `--quality` in v0.78. `--quality` clashed semantically
+  // with `generate image --quality standard|hd` and `render --quality
+  // draft|standard|high` — those describe output quality presets, this
+  // describes a speed/quality tradeoff. `--mode` is unambiguous.
+  .option("--mode <mode>", "Speed/quality tradeoff: fast or quality", "quality")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
@@ -885,7 +888,7 @@ editCommand
               videoPath: absPath,
               factor,
               fps: options.fps ? parseInt(options.fps) : undefined,
-              quality: options.quality,
+              mode: options.mode,
             },
           },
         });
@@ -910,7 +913,7 @@ editCommand
         const targetFps = options.fps ? parseInt(options.fps) : originalFps * factor;
 
         // Use minterpolate for frame interpolation
-        const mi = options.quality === "fast" ? "mi_mode=mci" : "mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
+        const mi = options.mode === "fast" ? "mi_mode=mci" : "mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
 
         spinner.text = `Interpolating frames (${originalFps.toFixed(1)} → ${targetFps}fps)...`;
 
@@ -962,7 +965,7 @@ editCommand
   .description("Upscale video resolution using AI or FFmpeg")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path")
-  .option("-s, --scale <factor>", "Scale factor: 2 or 4", "2")
+  .option("--scale <factor>", "Scale factor: 2 or 4", "2")
   .option("-m, --model <model>", "Model: real-esrgan, topaz", "real-esrgan")
   .option("--ffmpeg", "Use FFmpeg lanczos (free, no API)")
   .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")

@@ -148,7 +148,7 @@ describe("CLI command groups", () => {
       expect(output).toContain("--output");
       expect(output).toContain("--factor");
       expect(output).toContain("--fps");
-      expect(output).toContain("--quality");
+      expect(output).toContain("--mode");
     });
 
     it("validates factor option", () => {

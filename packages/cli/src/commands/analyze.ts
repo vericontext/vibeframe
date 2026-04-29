@@ -64,12 +64,33 @@ analyzeCommand
   .option("--start <seconds>", "Start offset in seconds (video only)")
   .option("--end <seconds>", "End offset in seconds (video only)")
   .option("--low-res", "Use low resolution mode (fewer tokens)")
-  .option("-v, --verbose", "Show token usage")
+  .option("--verbose", "Show token usage")
   .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (source: string, prompt: string, options) => {
     const startedAt = Date.now();
     try {
       rejectControlChars(prompt);
+
+      if (options.dryRun) {
+        outputSuccess({
+          command: "inspect media",
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              source,
+              prompt,
+              model: options.model,
+              fps: options.fps,
+              start: options.start,
+              end: options.end,
+              lowRes: options.lowRes ?? false,
+            },
+          },
+        });
+        return;
+      }
 
       if (options.apiKey) {
         process.env.GOOGLE_API_KEY = options.apiKey;
@@ -105,7 +126,7 @@ analyzeCommand
           data.totalTokens = result.totalTokens;
         }
         outputSuccess({
-          command: "analyze media",
+          command: "inspect media",
           startedAt,
           data,
         });
@@ -146,12 +167,33 @@ analyzeCommand
   .option("--start <seconds>", "Start offset in seconds (for clipping)")
   .option("--end <seconds>", "End offset in seconds (for clipping)")
   .option("--low-res", "Use low resolution mode (fewer tokens, longer videos)")
-  .option("-v, --verbose", "Show token usage")
+  .option("--verbose", "Show token usage")
   .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (source: string, prompt: string, options) => {
     const startedAt = Date.now();
     try {
       rejectControlChars(prompt);
+
+      if (options.dryRun) {
+        outputSuccess({
+          command: "inspect video",
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              source,
+              prompt,
+              model: options.model,
+              fps: options.fps,
+              start: options.start,
+              end: options.end,
+              lowRes: options.lowRes ?? false,
+            },
+          },
+        });
+        return;
+      }
 
       if (options.apiKey) {
         process.env.GOOGLE_API_KEY = options.apiKey;
@@ -187,7 +229,7 @@ analyzeCommand
           data.totalTokens = result.totalTokens;
         }
         outputSuccess({
-          command: "analyze video",
+          command: "inspect video",
           startedAt,
           data,
         });
@@ -227,10 +269,27 @@ analyzeCommand
   .argument("<instruction>", "Natural language instruction")
   .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
   .option("--apply", "Apply the first suggestion automatically")
+  .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, instruction: string, options) => {
     const startedAt = Date.now();
     try {
       rejectControlChars(instruction);
+
+      if (options.dryRun) {
+        outputSuccess({
+          command: "inspect suggest",
+          startedAt,
+          dryRun: true,
+          data: {
+            params: {
+              project: projectPath,
+              instruction,
+              apply: options.apply ?? false,
+            },
+          },
+        });
+        return;
+      }
 
       const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
 
@@ -252,7 +311,7 @@ analyzeCommand
 
       if (isJsonMode()) {
         outputSuccess({
-          command: "analyze suggest",
+          command: "inspect suggest",
           startedAt,
           data: {
             suggestions: suggestions.map(s => ({ type: s.type, description: s.description, confidence: s.confidence, clipIds: s.clipIds, params: s.params })),

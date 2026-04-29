@@ -94,8 +94,8 @@ export function registerStoryboardCommand(parent: Command): void {
     .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
     .option("-o, --output <path>", "Output JSON file path")
     .option("-d, --duration <sec>", "Target total duration in seconds")
-    .option("-f, --file", "Treat content argument as file path")
-    .option("-c, --creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
+    .option("--file", "Treat content argument as file path")
+    .option("--creativity <level>", "Creativity level: low (default, consistent) or high (varied, unexpected)", "low")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (content: string, options) => {
       const startedAt = Date.now();

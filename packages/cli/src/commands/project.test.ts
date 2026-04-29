@@ -44,7 +44,7 @@ describe("project commands", () => {
     });
 
     it("creates project with custom frame rate", () => {
-      execSync(`${CLI} project create "HFR" -o "${projectFile}" -f 60`, {
+      execSync(`${CLI} project create "HFR" -o "${projectFile}" --fps 60`, {
         cwd: process.cwd(),
         encoding: "utf-8",
       });
@@ -95,7 +95,7 @@ describe("project commands", () => {
     });
 
     it("updates project name", () => {
-      execSync(`${CLI} project set "${projectFile}" -n "Updated Name"`, {
+      execSync(`${CLI} project set "${projectFile}" --name "Updated Name"`, {
         cwd: process.cwd(),
         encoding: "utf-8",
       });
@@ -115,7 +115,7 @@ describe("project commands", () => {
     });
 
     it("updates frame rate", () => {
-      execSync(`${CLI} project set "${projectFile}" -f 24`, {
+      execSync(`${CLI} project set "${projectFile}" --fps 24`, {
         cwd: process.cwd(),
         encoding: "utf-8",
       });
