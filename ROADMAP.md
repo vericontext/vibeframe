@@ -28,12 +28,12 @@ This is where day-to-day work happens. Major capabilities all delivered through 
 - `vibe init` / `vibe build` / `vibe render` — project-level storyboard → final video workflow
 - `vibe scene ...` — lower-level primitives behind the project commands
 
-### PROCESS existing video (`vibe pipeline`)
-- `vibe pipeline highlights` / `auto-shorts` (FFmpeg + Whisper + Claude analysis)
-- `vibe pipeline animated-caption` (6 styles across ASS fast-path and Remotion overlay)
-- (`vibe pipeline script-to-video` was superseded by the storyboard build/render flow)
+### PROCESS existing video (`vibe remix`)
+- `vibe remix highlights` / `auto-shorts` (FFmpeg + Whisper + Claude analysis)
+- `vibe remix animated-caption` (6 styles across ASS fast-path and Remotion overlay)
+- (`vibe pipeline` and `vibe pipe` are kept as deprecated aliases until v1.0.)
 
-### Smart editing & analysis (`vibe edit` / `vibe analyze`)
+### Smart editing & inspection (`vibe edit` / `vibe inspect`)
 silence-cut, jump-cut, caption, grade, reframe, speed-ramp, fade, noise-reduce, text-overlay, upscale-video, interpolate, fill-gaps, translate-srt, image edit, video review (100+ commands total).
 
 ### Voice & audio

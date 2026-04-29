@@ -72,13 +72,13 @@ skills-driven pipeline (v0.60+) dispatches narration TTS + backdrop
 image-gen per beat, composes scene HTML via the bundled composition rules
 bundle, then renders to MP4. Idempotent re-runs reuse cached assets.
 
-**PROCESS — transform existing video / audio.**
-Use \`vibe pipeline\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
+**REMIX — transform existing video / audio.**
+Use \`vibe remix\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
 batch-oriented operations on a file the user already has on disk.
 
 Decision rule: if the user is starting from intent (a script, a brand,
 an idea), it's BUILD. If the user is starting from a media file, it's
-PROCESS.
+REMIX.
 
 ## Common workflows
 
@@ -93,18 +93,18 @@ PROCESS.
 | Generate a single video | \`vibe generate video "prompt" -i image.png -o clip.mp4\` |
 | Generate narration | \`vibe generate speech "text" -o voice.mp3\` |
 
-### PROCESS (transform existing media)
+### REMIX (transform existing media)
 
 | Task | Command |
 |---|---|
-| Extract highlights from a long video | \`vibe pipeline highlights file.mp4 -d 60\` |
-| Long video → vertical shorts | \`vibe pipeline auto-shorts file.mp4 -n 3 --add-captions\` |
-| Add animated word-by-word captions | \`vibe pipeline animated-caption file.mp4 -s karaoke-sweep\` |
+| Extract highlights from a long video | \`vibe remix highlights file.mp4 -d 60\` |
+| Long video → vertical shorts | \`vibe remix auto-shorts file.mp4 -n 3 --add-captions\` |
+| Add animated word-by-word captions | \`vibe remix animated-caption file.mp4 -s karaoke-sweep\` |
 | Remove silence | \`vibe edit silence-cut in.mp4 -o out.mp4\` |
 | Add static captions | \`vibe edit caption in.mp4 -o out.mp4\` |
 | Translate audio (transcribe → TTS) | \`vibe audio dub file.mp4 -t ko\` |
 | Transcribe (Whisper, word-level) | \`vibe audio transcribe file.mp4 --granularity word\` |
-| Analyze a video | \`vibe analyze video file.mp4 "summarise"\` |
+| Inspect a video | \`vibe inspect video file.mp4 "summarise"\` |
 
 ### Compose pipelines (Video as Code)
 
@@ -118,9 +118,9 @@ PROCESS.
 | Tier | Examples | Approx. per call |
 |---|---|---|
 | **Free** | \`detect *\`, \`edit silence-cut/fade/noise-reduce\`, \`schema\`, \`project\`, \`timeline\` | $0 |
-| **Low** | \`analyze *\`, \`audio transcribe\`, \`generate image\` | $0.01–$0.10 |
+| **Low** | \`inspect *\`, \`audio transcribe\`, \`generate image\` | $0.01–$0.10 |
 | **High** | \`generate video\`, \`edit image\` | $1–$5 |
-| **Very High** | \`pipeline *\` (highlights, auto-shorts, regenerate-scene), \`build\` | $5–$50+ |
+| **Very High** | \`remix *\` (highlights, auto-shorts, regenerate-scene), \`build\` | $5–$50+ |
 
 ## Agent invariants
 
@@ -132,7 +132,7 @@ When you run vibe commands programmatically:
 3. **Use \`vibe schema <command>\`** to discover parameters; do not guess flags
 4. **Pass complex options via \`--stdin\`**:
    \`\`\`bash
-   echo '{"video":"long.mp4","count":3,"aspect":"9:16"}' | vibe pipeline auto-shorts --stdin --json
+   echo '{"video":"long.mp4","count":3,"aspect":"9:16"}' | vibe remix auto-shorts --stdin --json
    \`\`\`
 
 ## Provider keys

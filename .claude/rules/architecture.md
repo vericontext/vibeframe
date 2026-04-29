@@ -36,7 +36,7 @@ When invoking CLI commands from agent context:
 1. Always `--json` for structured output
 2. Always `--dry-run` before mutating operations (84 commands support it)
 3. Use `vibe schema <command>` to discover parameters — never guess
-4. Confirm with user before `pipeline` commands (high cost: $5-$50+)
+4. Confirm with user before `remix` commands (high cost: $5-$50+; was: `pipeline`, deprecated alias)
 5. Use `--stdin` for complex options: `echo '{...}' | vibe <cmd> --stdin --json`
 
 ## API Cost Tiers
@@ -44,9 +44,9 @@ When invoking CLI commands from agent context:
 | Tier | Commands | Est. Cost |
 |------|----------|-----------|
 | Free | `detect *`, `edit silence-cut/noise-reduce/fade`, `schema`, `project`, `timeline` | $0 |
-| Low | `analyze *`, `audio transcribe`, `generate image` | $0.01-$0.10 |
+| Low | `inspect *`, `audio transcribe`, `generate image` | $0.01-$0.10 |
 | High | `generate video`, `edit image` | $1-$5 |
-| Very High | `pipeline *` | $5-$50+ |
+| Very High | `remix *` | $5-$50+ |
 
 ## Error Handling
 

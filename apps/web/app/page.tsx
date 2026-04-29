@@ -199,8 +199,8 @@ export default function LandingPage() {
             Two flows depending on intent —{" "}
             <span className="text-foreground font-medium">BUILD</span> from text via{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code>,{" "}
-            <span className="text-foreground font-medium">PROCESS</span> existing media via{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe pipeline</code> /{" "}
+            <span className="text-foreground font-medium">REMIX</span> existing media via{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe remix</code> /{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code> /{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">audio</code>.
           </p>
@@ -244,9 +244,9 @@ export default function LandingPage() {
               <code className="text-foreground">vibe edit caption video.mp4 -o captioned.mp4{"\n"}</code>
               <code className="text-green-400">{"✓ Transcribed 3:24, burned 156 caption segments\n\n"}</code>
 
-              <code className="text-muted-foreground"># Export final video{"\n"}</code>
-              <code className="text-foreground">vibe export project.vibe.json -o final.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Exported: final.mp4 (3:24, 1080p)"}</code>
+              <code className="text-muted-foreground"># Render final video{"\n"}</code>
+              <code className="text-foreground">vibe render my-video -o final.mp4{"\n"}</code>
+              <code className="text-green-400">{"✓ Rendered: final.mp4 (3:24, 1080p)"}</code>
             </pre>
           </div>
         </div>
@@ -545,21 +545,21 @@ export default function LandingPage() {
             <PipelineCard
               icon={<Sparkles className="w-6 h-6" />}
               title="Auto Highlights"
-              command="vibe pipeline highlights"
+              command="vibe remix highlights"
               description="Long video → AI analysis → best moments"
               gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard
               icon={<MessageSquare className="w-6 h-6" />}
               title="Animated Captions"
-              command="vibe pipeline animated-caption"
+              command="vibe remix animated-caption"
               description="Word-by-word TikTok/Reels-style captions"
               gradient="from-pink-500 to-red-500"
             />
             <PipelineCard
               icon={<Zap className="w-6 h-6" />}
               title="Auto Shorts"
-              command="vibe pipeline auto-shorts"
+              command="vibe remix auto-shorts"
               description="Long video → vertical shorts with captions"
               gradient="from-orange-500 to-yellow-500"
             />

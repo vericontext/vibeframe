@@ -194,7 +194,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 |------|-------------|
 | `walkthrough` | Cross-host guides for scene and pipeline workflows |
 
-> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio voices`, `vibe project set`) that are intentionally not exposed via MCP.
+> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`, `vibe project set`) that are intentionally not exposed via MCP.
 
 ## Resources
 

@@ -21,7 +21,7 @@ Use the lower-level scene namespace only when you need direct scene operations:
 
 ```bash
 vibe scene lint index.html --project my-video --fix
-vibe scene render index.html --project my-video --quality draft
+vibe render index.html --project my-video --quality draft
 ```
 
 Use Hyperframes directly when your task is only HTML composition/rendering and
@@ -37,7 +37,7 @@ editing commands.
 | Storyboard authoring | Not the main abstraction | `STORYBOARD.md` + `DESIGN.md` |
 | Project-level flow | Hyperframes project commands | `vibe init` -> `vibe build` -> `vibe render` |
 | AI image/video generation | Out of scope | `vibe generate image`, `vibe generate video`, YAML actions |
-| Editing existing media | Out of scope | `vibe edit`, `vibe audio`, `vibe pipeline` |
+| Editing existing media | Out of scope | `vibe edit`, `vibe audio`, `vibe remix` |
 | Agent guidance | Host-specific skills/rules | `AGENTS.md`, `SKILL.md`, host scaffolding, walkthroughs |
 | MCP surface | Out of scope | `@vibeframe/mcp-server` typed tools |
 | Video-as-code pipelines | Out of scope | `vibe run pipeline.yaml` |

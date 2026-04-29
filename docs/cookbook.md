@@ -3,7 +3,7 @@
 Verified recipes for common VibeFrame workflows.
 
 These examples use the current top-level CLI surface: `vibe init`, `vibe build`,
-`vibe render`, `vibe generate`, `vibe edit`, `vibe pipeline`, and `vibe run`.
+`vibe render`, `vibe generate`, `vibe edit`, `vibe remix`, and `vibe run`.
 Run `vibe doctor` first to confirm FFmpeg, Chrome/Chromium, and configured API
 keys.
 
@@ -121,7 +121,7 @@ Requires:
 Extract highlight metadata:
 
 ```bash
-vibe pipeline highlights long-video.mp4 \
+vibe remix highlights long-video.mp4 \
   -n 3 \
   -d 60 \
   --use-gemini \
@@ -131,7 +131,7 @@ vibe pipeline highlights long-video.mp4 \
 Generate vertical shorts:
 
 ```bash
-vibe pipeline auto-shorts long-video.mp4 \
+vibe remix auto-shorts long-video.mp4 \
   -n 3 \
   -d 45 \
   -a 9:16 \
@@ -143,7 +143,7 @@ Manual path for one selected clip:
 
 ```bash
 vibe edit reframe highlight-clip.mp4 -a 9:16 -o vertical.mp4
-vibe pipeline animated-caption vertical.mp4 -s bounce -o vertical-captioned.mp4
+vibe remix animated-caption vertical.mp4 -s bounce -o vertical-captioned.mp4
 ```
 
 ## 5. Run A Video-As-YAML Pipeline

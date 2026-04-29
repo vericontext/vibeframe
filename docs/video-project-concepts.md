@@ -3,7 +3,7 @@
 VibeFrame has two main flows:
 
 - **Create a new video from text:** `vibe init`, edit `STORYBOARD.md` and `DESIGN.md`, then run `vibe build` and `vibe render`.
-- **Process existing media:** use `vibe pipeline`, `vibe edit`, `vibe audio`, or `vibe analyze`.
+- **Process existing media:** use `vibe remix`, `vibe edit`, `vibe audio`, or `vibe inspect`.
 
 ## Project Commands
 

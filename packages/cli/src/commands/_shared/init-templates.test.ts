@@ -26,13 +26,13 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("--stdin");
   });
 
-  it("v0.63: declares the BUILD vs PROCESS split so agents route correctly", () => {
+  it("v0.74: declares the BUILD vs REMIX split so agents route correctly", () => {
     expect(AGENTS_MD).toContain("BUILD");
-    expect(AGENTS_MD).toContain("PROCESS");
+    expect(AGENTS_MD).toContain("REMIX");
     // BUILD path canonical command
     expect(AGENTS_MD).toContain("vibe build");
-    // PROCESS path canonical commands
-    expect(AGENTS_MD).toContain("vibe pipeline highlights");
+    // REMIX path canonical commands (renamed from `pipeline` in v0.74)
+    expect(AGENTS_MD).toContain("vibe remix highlights");
     expect(AGENTS_MD).toContain("vibe edit silence-cut");
     expect(AGENTS_MD).toContain("vibe audio dub");
   });
