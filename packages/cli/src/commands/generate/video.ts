@@ -95,6 +95,20 @@ Examples:
           validateOutputPath(options.output);
         }
 
+        // Validate duration up-front so dry-run doesn't echo invalid params.
+        // Without this, `vibe generate video "..." --duration -1 --dry-run`
+        // would happily print a -1s plan, and a user copy-pasting without
+        // `--dry-run` would kick off a paid call with bad input.
+        if (options.duration !== undefined) {
+          const d = parseFloat(options.duration);
+          if (!Number.isFinite(d) || d <= 0 || d > 60) {
+            exitWithError(usageError(
+              `Invalid --duration: ${options.duration}`,
+              "Must be a positive number ≤ 60 seconds.",
+            ));
+          }
+        }
+
         // Resolve provider:
         //  - explicit -p flag wins (validated, then key-presence checked)
         //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > veo > kling > runway)

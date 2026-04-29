@@ -16,7 +16,7 @@
  *   edit reframe        - Reframe aspect ratio (Claude Vision + FFmpeg)
  *   edit image          - Image editing (Gemini, OpenAI, or Grok)
  *   edit interpolate    - Frame interpolation / slow motion (FFmpeg)
- *   edit upscale  - Video upscaling (FFmpeg / Replicate)
+ *   edit upscale       - Video upscaling (FFmpeg or Replicate)
  *   edit fill-gaps      - Fill timeline gaps with AI video (Kling)
  *
  * @dependencies Whisper, Claude, Gemini, Kling, Replicate, FFmpeg
@@ -53,12 +53,12 @@ export const editCommand = new Command("edit")
     `
 Examples:
   $ vibe edit silence-cut interview.mp4 -o clean.mp4
-  $ vibe edit caption video.mp4 -o captioned.mp4 -s bold
+  $ vibe edit caption video.mp4 -o captioned.mp4 --style bold
   $ vibe edit grade video.mp4 -o graded.mp4 --preset cinematic-warm
   $ vibe edit reframe landscape.mp4 -o vertical.mp4 -a 9:16
   $ vibe edit image photo.png "add sunset background" -o edited.png
-  $ vibe edit text-overlay video.mp4 -t "Title" -s center-bold -o out.mp4
-  $ vibe edit noise-reduce noisy.mp4 -o clean.mp4 -s high
+  $ vibe edit text-overlay video.mp4 --text "Title" --style center-bold -o out.mp4
+  $ vibe edit noise-reduce noisy.mp4 -o clean.mp4 --strength high
   $ vibe edit fade video.mp4 -o faded.mp4 --fade-in 1 --fade-out 1
 
 API Keys (varies by subcommand):

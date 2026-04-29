@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve, basename, extname } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
@@ -464,6 +465,9 @@ timelineCommand
     const startedAt = Date.now();
     try {
       const filePath = resolve(process.cwd(), projectPath);
+      if (!existsSync(filePath)) {
+        exitWithError(notFoundError(projectPath));
+      }
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);

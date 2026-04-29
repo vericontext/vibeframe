@@ -133,7 +133,7 @@ export function registerMusicCommand(parent: Command): void {
     .option("-d, --duration <seconds>", "Duration in seconds (elevenlabs: 3-600, replicate: 1-30)", "8")
     .option("--instrumental", "Force instrumental music, no vocals (ElevenLabs only)")
     .option("--melody <file>", "Reference melody audio file for conditioning (Replicate only)")
-    .option("--model <model>", "Model variant (Replicate only): large, stereo-large, melody-large, stereo-melody-large", "stereo-large")
+    .option("-m, --model <model>", "Model variant (Replicate only): large, stereo-large, melody-large, stereo-melody-large", "stereo-large")
     .option("-o, --output <path>", "Output audio file path", "music.mp3")
     .option("--no-wait", "Don't wait for generation to complete (Replicate async mode)")
     .option("--dry-run", "Preview parameters without executing")

@@ -39,11 +39,11 @@ export const audioCommand = new Command("audio")
     "after",
     `
 Examples:
-  $ vibe audio transcribe interview.mp3 -o transcript.srt -f srt
+  $ vibe audio transcribe interview.mp3 -o transcript.srt --format srt
   $ vibe audio transcribe video.mp4 -l ko                  # Specify language
   $ vibe audio list-voices                                  # List available voices
   $ vibe audio isolate song.mp3 -o vocals.mp3
-  $ vibe audio clone-voice sample.mp3 -n "my-voice"
+  $ vibe audio clone-voice sample.mp3 --name "my-voice"
   $ vibe audio dub video.mp4 -l ko -o dubbed.mp4
   $ vibe audio duck music.mp3 --voice narration.mp3 -o ducked.mp3
 

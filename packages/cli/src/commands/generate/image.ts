@@ -79,6 +79,18 @@ Examples:
           validateOutputPath(options.output);
         }
 
+        // Validate count up-front so dry-run rejects nonsense values
+        // before they're echoed as a "plan" the user might copy and run.
+        if (options.count !== undefined) {
+          const n = parseInt(options.count, 10);
+          if (!Number.isFinite(n) || n < 1 || n > 10) {
+            exitWithError(usageError(
+              `Invalid --count: ${options.count}`,
+              "Must be an integer between 1 and 10.",
+            ));
+          }
+        }
+
         // Resolve provider:
         //  - explicit -p flag wins (validated, then key-presence checked)
         //  - no flag → image registry priority list (openai > gemini > grok)

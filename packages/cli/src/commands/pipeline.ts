@@ -45,9 +45,9 @@ Two flows — pick by intent:
 
 Examples (REMIX):
   $ vibe remix highlights long-video.mp4 -o highlights.json -d 60
-  $ vibe remix auto-shorts long-video.mp4 -o shorts/ -n 3 --add-captions
-  $ vibe remix animated-caption video.mp4 -o captioned.mp4 -s highlight
-  $ vibe remix animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
+  $ vibe remix auto-shorts long-video.mp4 -o shorts/ --count 3 --add-captions
+  $ vibe remix animated-caption video.mp4 -o captioned.mp4 --style highlight
+  $ vibe remix animated-caption video.mp4 -o out.mp4 --style karaoke-sweep --fast
 
 Provider API Keys:
   highlights:          GOOGLE_API_KEY (Gemini analysis)
@@ -96,8 +96,8 @@ pipelineCommand
     `
 Examples:
   $ vibe remix animated-caption video.mp4 -o captioned.mp4
-  $ vibe remix animated-caption video.mp4 -o out.mp4 -s bounce
-  $ vibe remix animated-caption video.mp4 -o out.mp4 -s karaoke-sweep --fast
+  $ vibe remix animated-caption video.mp4 -o out.mp4 --style bounce
+  $ vibe remix animated-caption video.mp4 -o out.mp4 --style karaoke-sweep --fast
 
 Styles:
   highlight (default)  TikTok-style background highlight on active word (Remotion)

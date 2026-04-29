@@ -1,15 +1,19 @@
 /**
  * @module scene
  *
- * `vibe scene <sub>` — advanced namespace for authoring, linting, and
- * rendering per-scene HTML projects. Users and AI agents can hand-author rich
- * per-scene animation instead of relying on flat YAML steps or opaque MP4s.
+ * `vibe scene <sub>` — lower-level namespace for scene authoring,
+ * linting, and visual-style browsing. Users and AI agents can
+ * hand-author rich per-scene HTML instead of relying on flat YAML steps
+ * or opaque MP4s.
  *
- * Subcommands land incrementally across MVP 1:
- *   - init      [C1] — scaffold project directory
- *   - add       [C2] — author one scene (template + assets)
- *   - lint      [C3] — in-process Hyperframes lint + --fix
- *   - render    [C4, this commit] — render scene project to MP4/WebM/MOV
+ * For the project flow (init / build / render), see the canonical
+ * top-level commands (`packages/cli/src/commands/{init,build,render}.ts`).
+ * This file owns the lower-level subcommands only:
+ *   - add               — author one scene (template + assets)
+ *   - lint              — in-process Hyperframes lint + --fix
+ *   - list-styles       — browse vendored visual identities
+ *   - install-skill     — retroactive composition-rules install
+ *   - compose-prompts   — emit per-beat plan for a host agent (no LLM call)
  */
 
 import { Command } from "commander";

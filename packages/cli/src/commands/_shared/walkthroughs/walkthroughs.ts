@@ -4,7 +4,7 @@
  * Universal CLI-equivalents of Claude Code's `/vibe-scene` and
  * `/vibe-pipeline` slash commands. After Plan H, host agents
  * (Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode) all read
- * SKILL.md from the user's project and can drive `vibe scene build`
+ * SKILL.md from the user's project and can drive `vibe build`
  * directly — but discoverability of the *workflow* itself was still
  * Claude-Code-only via the slash menu.
  *
@@ -80,28 +80,31 @@ narration / backdrop intent.
 ## Quick-draft path
 
 \`\`\`bash
-vibe scene init my-promo -r 16:9 -d 30
+vibe init my-promo -r 16:9 -d 30
 vibe scene add intro --style announcement \\
     --headline "Ship videos, not clicks"
 vibe scene lint
 vibe render my-promo
 \`\`\`
 
-\`vibe scene init\` is **idempotent** — running it on an existing
-Hyperframes directory merges \`hyperframes.json\` instead of clobbering it.
-Safe to invoke on user-provided projects.
+\`vibe init\` is **idempotent** — running it on an existing Hyperframes
+directory merges \`hyperframes.json\` instead of clobbering it. Safe to
+invoke on user-provided projects.
 
 ## Subcommands
 
 \`\`\`bash
-vibe scene init <dir> [-r 16:9|9:16|1:1|4:5] [-d <sec>] [--visual-style "<name>"]
+# Project flow (top-level — preferred entry points)
+vibe init <dir> [-r 16:9|9:16|1:1|4:5] [-d <sec>] [--visual-style "<name>"]
+vibe build [<dir>] [--mode agent|batch|auto]         # H3 dispatch
+vibe render [<dir>] [--fps 30] [--quality standard] [--format mp4]
+
+# Lower-level scene authoring
 vibe scene list-styles [<name>]                   # list / show vendored visual identities
 vibe scene install-skill [<dir>] [--host all]  # retroactive composition-rules install
 vibe scene add <name> --style <preset> [...]
 vibe scene compose-prompts [<dir>] [--beat <id>]   # H2: emit plan, no LLM call
 vibe scene lint [<root>] [--json] [--fix]
-vibe scene render [<root>] [--fps 30] [--quality standard] [--format mp4]
-vibe build [<dir>] [--mode agent|batch|auto]         # H3 dispatch
 \`\`\`
 
 ## Style presets (for \`vibe scene add --style\`)
@@ -155,7 +158,7 @@ and surface the error to the user.
 | Generate narration + image, then author scene | \`vibe scene add\` |
 | Generate a full scenes project from a STORYBOARD | \`vibe build\` |
 | Hand-tweak a single scene's animation | edit \`compositions/<file>.html\` directly |
-| Render the project | \`vibe render\` *or* \`vibe scene render\` for lower-level control |
+| Render the project | \`vibe render\` (one canonical entry point) |
 | Lint | \`vibe scene lint\` *or* \`npx hyperframes lint\` (equivalent) |
 
 The \`vibe\` CLI adds asset generation, AI orchestration, and pipeline
@@ -285,12 +288,12 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
     ],
     relatedCommands: [
       "vibe init",
+      "vibe build",
+      "vibe render",
       "vibe scene list-styles",
       "vibe scene install-skill",
       "vibe scene compose-prompts",
-      "vibe build",
       "vibe scene lint",
-      "vibe scene render",
       "vibe scene add",
     ],
   },

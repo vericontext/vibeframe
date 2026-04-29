@@ -247,11 +247,11 @@ export const exportCommand = new Command("export")
   .addHelpText("after", `
 Examples:
   $ vibe export project.vibe.json -o output.mp4
-  $ vibe export project.vibe.json -o output.mp4 -p high -y
-  $ vibe export project.vibe.json -o output.webm -f webm
-  $ vibe export project.vibe.json -o output.gif -f gif
+  $ vibe export project.vibe.json -o output.mp4 --preset high --overwrite
+  $ vibe export project.vibe.json -o output.webm --format webm
+  $ vibe export project.vibe.json -o output.gif --format gif
   $ vibe export project.vibe.json -o out.mp4 --bitrate 5000k --fps 24 --codec h265
-  $ vibe export project.vibe.json -o out.mp4 -p high --fps 60
+  $ vibe export project.vibe.json -o out.mp4 --preset high --fps 60
 
 Cost: Free (no API keys needed). Requires FFmpeg.
 GIF format: 15fps, no audio, looping. Good for previews and sharing.
