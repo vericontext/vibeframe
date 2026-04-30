@@ -79,6 +79,13 @@ if ! (cd "$PROJECT_DIR" && pnpm build > /dev/null 2>&1); then
   ERRORS+=("Build failed. Fix: pnpm build")
 fi
 
+# 9. Type check — `pnpm build` uses esbuild (no type validation), so strict
+# TS errors slip past locally and get caught only by CI's typecheck job.
+# Mirror that gate here so local pushes catch the same class of failures.
+if ! (cd "$PROJECT_DIR" && pnpm typecheck > /dev/null 2>&1); then
+  ERRORS+=("Type check failed. Fix: pnpm typecheck")
+fi
+
 # Report
 if [ ${#ERRORS[@]} -gt 0 ]; then
   echo "Pre-push validation failed:" >&2

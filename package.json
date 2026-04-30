@@ -28,6 +28,7 @@
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
+    "typecheck": "pnpm -r exec tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "clean": "turbo clean && rm -rf node_modules",
     "vibe": "tsx packages/cli/src/index.ts",
