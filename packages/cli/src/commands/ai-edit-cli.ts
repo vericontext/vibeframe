@@ -43,7 +43,7 @@ aiCommand
   .option("--noise <dB>", "Silence threshold in dB (default: -30)", "-30")
   .option("-d, --min-duration <seconds>", "Minimum silence duration to cut (default: 0.5)", "0.5")
   .option("--padding <seconds>", "Padding around non-silent segments (default: 0.1)", "0.1")
-  .option("--analyze-only", "Only detect silence, don't cut")
+  .option("--analyze-only", "(deprecated — use `vibe detect silence`) Only detect silence, don't cut")
   .option("--use-gemini", "Use Gemini Video Understanding for context-aware silence detection")
   .option("-m, --model <model>", "Gemini model (default: flash)")
   .option("--low-res", "Low resolution mode for longer videos (Gemini only)")
@@ -80,6 +80,17 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
       const outputPath = options.output || `${name}-cut${ext}`;
 
       const useGemini = options.useGemini || false;
+
+      // Soft-deprecation: `--analyze-only` shadows what `vibe detect silence`
+      // does cleanly. Steer users to the canonical detection path while
+      // keeping the flag working until v1.0.
+      if (options.analyzeOnly) {
+        console.error(
+          chalk.yellow(
+            "⚠ --analyze-only is deprecated. Use `vibe detect silence` for read-only detection. Will be removed in v1.0.",
+          ),
+        );
+      }
 
       if (options.dryRun) {
         outputSuccess({
