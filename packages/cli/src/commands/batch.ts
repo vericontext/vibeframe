@@ -6,6 +6,7 @@ import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { exitWithError, generalError, outputSuccess, usageError } from "./output.js";
+import { applyTiers } from "./_shared/cost-tier.js";
 
 export const batchCommand = new Command("batch")
   .description("Batch operations for processing multiple items");
@@ -511,3 +512,12 @@ batchCommand
       exitWithError(generalError(`Failed to load project: ${msg}`));
     }
   });
+
+// Batch is FFmpeg + filesystem only — no API calls.
+applyTiers(batchCommand, {
+  "import": "free",
+  "concat": "free",
+  "apply-effect": "free",
+  "remove-clips": "free",
+  "info": "free",
+});

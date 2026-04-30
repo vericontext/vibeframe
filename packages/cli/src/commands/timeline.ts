@@ -8,6 +8,7 @@ import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
 import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
+import { applyTiers } from "./_shared/cost-tier.js";
 import { resolveTimelineFile } from "../utils/project-resolver.js";
 import {
   executeTimelineCreate,
@@ -929,3 +930,22 @@ function detectMediaType(path: string): MediaType {
   if (ext === ".lottie") return "lottie";
   return "video"; // Default
 }
+
+// All timeline subcommands are pure JSON-state mutations — no API calls,
+// no FFmpeg renders. Tag every one as `free` so `vibe schema --filter free`
+// finds them and the doctor's cost mix counts them honestly.
+applyTiers(timelineCommand, {
+  "create": "free",
+  "info": "free",
+  "set": "free",
+  "list": "free",
+  "add-source": "free",
+  "add-clip": "free",
+  "add-track": "free",
+  "add-effect": "free",
+  "trim-clip": "free",
+  "split-clip": "free",
+  "duplicate-clip": "free",
+  "delete-clip": "free",
+  "move-clip": "free",
+});

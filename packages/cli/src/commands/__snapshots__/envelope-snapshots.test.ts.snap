@@ -15,7 +15,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
         "type": "string",
       },
       "confirm": {
-        "description": "Confirm before EVERY tool execution (overrides cost gate)",
+        "description": "Confirm before every tool — broadens the default cost gate (paid only) to all calls",
         "type": "boolean",
       },
       "input": {
@@ -299,6 +299,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
 
 exports[`CLI --describe schemas (drift detection) > vibe batch apply-effect --describe 1`] = `
 {
+  "cost": "free",
   "description": "Apply an effect to multiple clips",
   "name": "batch.apply-effect",
   "parameters": {
@@ -354,6 +355,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch apply-effect --de
 
 exports[`CLI --describe schemas (drift detection) > vibe batch concat --describe 1`] = `
 {
+  "cost": "free",
   "description": "Concatenate multiple sources into sequential clips",
   "name": "batch.concat",
   "parameters": {
@@ -403,6 +405,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch concat --describe
 
 exports[`CLI --describe schemas (drift detection) > vibe batch import --describe 1`] = `
 {
+  "cost": "free",
   "description": "Import multiple media files from a directory",
   "name": "batch.import",
   "parameters": {
@@ -445,6 +448,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch import --describe
 
 exports[`CLI --describe schemas (drift detection) > vibe batch info --describe 1`] = `
 {
+  "cost": "free",
   "description": "Show batch processing statistics",
   "name": "batch.info",
   "parameters": {
@@ -464,6 +468,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch info --describe 1
 
 exports[`CLI --describe schemas (drift detection) > vibe batch remove-clips --describe 1`] = `
 {
+  "cost": "free",
   "description": "Remove multiple clips from the timeline",
   "name": "batch.remove-clips",
   "parameters": {
@@ -2490,6 +2495,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect video --describ
 
 exports[`CLI --describe schemas (drift detection) > vibe media duration --describe 1`] = `
 {
+  "cost": "free",
   "description": "Get media duration in seconds (for scripting)",
   "name": "media.duration",
   "parameters": {
@@ -2509,6 +2515,7 @@ exports[`CLI --describe schemas (drift detection) > vibe media duration --descri
 
 exports[`CLI --describe schemas (drift detection) > vibe media info --describe 1`] = `
 {
+  "cost": "free",
   "description": "Get media file information",
   "name": "media.info",
   "parameters": {
@@ -2912,6 +2919,7 @@ exports[`CLI --describe schemas (drift detection) > vibe run --describe 1`] = `
 
 exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`] = `
 {
+  "cost": "free",
   "description": "Add a new scene to a project: AI narration + image + per-scene HTML",
   "name": "scene.add",
   "parameters": {
@@ -3024,6 +3032,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
 
 exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts --describe 1`] = `
 {
+  "cost": "free",
   "description": "Emit the per-beat compose plan for the host agent to author HTML itself (Phase H2 — no LLM call)",
   "name": "scene.compose-prompts",
   "parameters": {
@@ -3044,6 +3053,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
 
 exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --describe 1`] = `
 {
+  "cost": "free",
   "description": "Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)",
   "name": "scene.install-skill",
   "parameters": {
@@ -3073,6 +3083,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --d
 
 exports[`CLI --describe schemas (drift detection) > vibe scene lint --describe 1`] = `
 {
+  "cost": "free",
   "description": "Validate scene HTML against composition rules (in-process, no Chrome required)",
   "name": "scene.lint",
   "parameters": {
@@ -3098,6 +3109,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene lint --describe 1
 
 exports[`CLI --describe schemas (drift detection) > vibe scene list-styles --describe 1`] = `
 {
+  "cost": "free",
   "description": "List vendored visual styles (or show one) for DESIGN.md seeding",
   "name": "scene.list-styles",
   "parameters": {
@@ -3162,6 +3174,7 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline add-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Add a clip to the timeline",
   "name": "timeline.add-clip",
   "parameters": {
@@ -3208,6 +3221,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-clip --des
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --describe 1`] = `
 {
+  "cost": "free",
   "description": "Add an effect to a clip",
   "name": "timeline.add-effect",
   "parameters": {
@@ -3255,6 +3269,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --d
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --describe 1`] = `
 {
+  "cost": "free",
   "description": "Add a media source to the timeline",
   "name": "timeline.add-source",
   "parameters": {
@@ -3301,6 +3316,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --d
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --describe 1`] = `
 {
+  "cost": "free",
   "description": "Add a new track",
   "name": "timeline.add-track",
   "parameters": {
@@ -3333,6 +3349,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --de
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline create --describe 1`] = `
 {
+  "cost": "free",
   "description": "Create a low-level timeline JSON file",
   "name": "timeline.create",
   "parameters": {
@@ -3376,6 +3393,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline create --descr
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline delete-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Delete a clip from the timeline",
   "name": "timeline.delete-clip",
   "parameters": {
@@ -3404,6 +3422,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline delete-clip --
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Duplicate a clip",
   "name": "timeline.duplicate-clip",
   "parameters": {
@@ -3436,6 +3455,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline info --describe 1`] = `
 {
+  "cost": "free",
   "description": "Show timeline information",
   "name": "timeline.info",
   "parameters": {
@@ -3455,6 +3475,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline info --describ
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline list --describe 1`] = `
 {
+  "cost": "free",
   "description": "List timeline contents",
   "name": "timeline.list",
   "parameters": {
@@ -3486,6 +3507,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline list --describ
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Move a clip to a new position",
   "name": "timeline.move-clip",
   "parameters": {
@@ -3522,6 +3544,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --de
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline set --describe 1`] = `
 {
+  "cost": "free",
   "description": "Update timeline settings",
   "name": "timeline.set",
   "parameters": {
@@ -3563,6 +3586,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline set --describe
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline split-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Split a clip at a specific time",
   "name": "timeline.split-clip",
   "parameters": {
@@ -3596,6 +3620,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline split-clip --d
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline trim-clip --describe 1`] = `
 {
+  "cost": "free",
   "description": "Trim a clip",
   "name": "timeline.trim-clip",
   "parameters": {

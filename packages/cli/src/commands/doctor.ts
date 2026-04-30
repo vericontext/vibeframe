@@ -514,34 +514,38 @@ function printReport(
     console.log(`    ${chalk.dim(FREE_COMMANDS.join(", "))}`);
   }
 
-  // Summary
+  // Summary — three counts, each describing a different slice. Three
+  // numbers used to drift unlabeled (catalog total, runnable count,
+  // cost-tagged count) so they're now grouped together with explicit
+  // labels and `vibe schema --list` is the canonical "show me
+  // everything" pointer.
   console.log();
   const pct = Math.round((results.readyCount / results.totalCount) * 100);
   const readyColor = pct >= 80 ? chalk.green : pct >= 40 ? chalk.yellow : chalk.red;
-  console.log(
-    `  Ready: ${readyColor(`${results.readyCount}/${results.totalCount}`)} commands runnable with current keys (${pct}%)`
-  );
-  console.log(
-    chalk.dim(`    Full command catalog: vibe schema --list`)
-  );
 
-  // Cost-tier rollup — counts subcommands across the live program
-  // tree, broken down by tier. Helps users gauge "how much of this CLI
-  // is free?" at a glance. Only renders when we have a program handle
-  // (always true via the action; tests calling printReport directly
-  // can omit it).
+  let catalogTotal = 0;
+  let tierCounts: Record<CostTier, number> = { "free": 0, "low": 0, "high": 0, "very-high": 0 };
   if (program) {
-    const tierCounts = countCostTiers(program);
-    const total = tierCounts.free + tierCounts.low + tierCounts.high + tierCounts["very-high"];
-    if (total > 0) {
-      const parts = [
-        `${TIER_COLOR.free(`${tierCounts.free} free`)}`,
-        `${TIER_COLOR.low(`${tierCounts.low} low`)}`,
-        `${TIER_COLOR.high(`${tierCounts.high} high`)}`,
-        `${TIER_COLOR["very-high"](`${tierCounts["very-high"]} very-high`)}`,
-      ];
-      console.log(chalk.dim(`    Cost mix:`) + ` ${parts.join(chalk.dim(", "))}`);
-    }
+    catalogTotal = countCatalog(program);
+    tierCounts = countCostTiers(program);
+  }
+  const taggedTotal = tierCounts.free + tierCounts.low + tierCounts.high + tierCounts["very-high"];
+
+  console.log(chalk.bold("  Catalog"));
+  if (catalogTotal > 0) {
+    console.log(`    Total commands         ${chalk.bold(catalogTotal)} ${chalk.dim("(see: vibe schema --list)")}`);
+  }
+  console.log(
+    `    Runnable with keys     ${readyColor(`${results.readyCount}/${results.totalCount}`)} ${chalk.dim(`(${pct}%)`)}`
+  );
+  if (taggedTotal > 0) {
+    const parts = [
+      `${TIER_COLOR.free(`${tierCounts.free} free`)}`,
+      `${TIER_COLOR.low(`${tierCounts.low} low`)}`,
+      `${TIER_COLOR.high(`${tierCounts.high} high`)}`,
+      `${TIER_COLOR["very-high"](`${tierCounts["very-high"]} very-high`)}`,
+    ];
+    console.log(`    Cost-tagged            ${chalk.bold(taggedTotal)}  ${parts.join(chalk.dim(", "))}`);
   }
 
   // ── v0.61: scope-aware "what to do next" hint ────────────────────────
@@ -552,6 +556,32 @@ function printReport(
     console.log(chalk.dim(`  ${nextStep}`));
   }
   console.log();
+}
+
+/**
+ * Count every non-deprecated command in the program tree. Mirrors the
+ * filter used by `vibe schema --list` so the doctor's "Total commands"
+ * line stays in sync with what users see when they list the catalog.
+ */
+function countCatalog(program: Command): number {
+  let count = 0;
+  const skipTopLevel = new Set(["help", "schema"]);
+  for (const top of program.commands) {
+    if (skipTopLevel.has(top.name())) continue;
+    const subCmds = top.commands;
+    if (subCmds.length === 0) {
+      const desc = top.description() || "";
+      if (desc.toLowerCase().includes("deprecated")) continue;
+      count++;
+      continue;
+    }
+    for (const sub of subCmds) {
+      const desc = sub.description() || "";
+      if (desc.toLowerCase().includes("deprecated")) continue;
+      count++;
+    }
+  }
+  return count;
 }
 
 /**

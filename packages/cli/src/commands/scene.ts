@@ -38,6 +38,7 @@ import {
   aspectToDims,
   type VibeProjectConfig,
 } from "./_shared/scene-project.js";
+import { applyTiers } from "./_shared/cost-tier.js";
 import {
   getVisualStyle,
   listVisualStyles,
@@ -963,4 +964,16 @@ function severityTag(severity: "error" | "warning" | "info"): string {
   if (severity === "warning") return chalk.yellow("⚠ warn   ");
   return chalk.blue("ℹ info   ");
 }
+
+// Scene subcommands are template scaffolding + linting — baseline free.
+// `scene.add --narration <text>` does invoke TTS internally (low cost),
+// but the default invocation (no narration) is free. Tag baseline as
+// `free`; users hitting TTS opt in explicitly.
+applyTiers(sceneCommand, {
+  "add": "free",
+  "compose-prompts": "free",
+  "install-skill": "free",
+  "lint": "free",
+  "list-styles": "free",
+});
 

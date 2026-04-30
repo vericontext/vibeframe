@@ -5,6 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import * as musicMetadata from "music-metadata";
 import { exitWithError, generalError } from "./output.js";
+import { applyTiers } from "./_shared/cost-tier.js";
 
 export const mediaCommand = new Command("media")
   .description("Media file utilities");
@@ -173,3 +174,9 @@ function formatBitrate(bps: number): string {
   }
   return `${(bps / 1000).toFixed(0)} kbps`;
 }
+
+// Media subcommands are ffprobe-only file inspection — no API calls.
+applyTiers(mediaCommand, {
+  "info": "free",
+  "duration": "free",
+});

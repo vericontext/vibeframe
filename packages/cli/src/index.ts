@@ -42,6 +42,36 @@ import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-r
 import { exitWithError, usageError } from "./commands/output.js";
 import { rejectControlChars } from "./utils/input-validation.js";
 import { buildSchema } from "./commands/schema.js";
+import { getCostTier, TIER_DESCRIPTION, type CostTier } from "./commands/_shared/cost-tier.js";
+
+/**
+ * Build the "Cost tiers" footer for `vibe --help`.
+ *
+ * Walks the live program tree, groups subcommands by cost tier, and
+ * emits one row per tier with up-to-3 example commands and the
+ * canonical price-band string. Pre-fix this section was a hardcoded
+ * block in `addHelpText` that drifted from the SSOT (e.g. it claimed
+ * "V.High remix (...)" while `remix animated-caption` is actually low).
+ */
+function renderCostTierFooter(prog: Command): string {
+  const buckets: Record<CostTier, string[]> = { free: [], low: [], high: [], "very-high": [] };
+  const walk = (cmd: Command, prefix: string) => {
+    const tier = getCostTier(cmd);
+    if (tier) buckets[tier].push(prefix ? `${prefix}.${cmd.name()}` : cmd.name());
+    for (const child of cmd.commands) walk(child, prefix ? `${prefix}.${cmd.name()}` : cmd.name());
+  };
+  for (const top of prog.commands) walk(top, "");
+
+  const order: CostTier[] = ["free", "low", "high", "very-high"];
+  const lines: string[] = ["Cost tiers (`vibe --describe <cmd>` for the per-command tag):"];
+  for (const tier of order) {
+    const examples = buckets[tier].slice(0, 3).join(", ");
+    if (!examples) continue;
+    const label = tier === "very-high" ? "V.High" : tier[0].toUpperCase() + tier.slice(1);
+    lines.push(`  ${label.padEnd(7)}${examples.padEnd(50)} ${TIER_DESCRIPTION[tier]}`);
+  }
+  return "\n" + lines.join("\n") + "\n";
+}
 
 /**
  * Read all data from stdin (non-blocking, only when stdin is piped).
@@ -105,10 +135,6 @@ this section shows the typical entry points by use case):
     vibe inspect media clip.mp4 "Summarize this"
     vibe remix highlights long.mp4 -d 60
 
-  Authoring:
-    vibe timeline create my-video       Low-level timeline JSON
-    vibe scene add intro --headline "Welcome"
-
   Automation & agents:
     vibe run workflow.yaml              Video-as-YAML pipeline
     vibe agent                          Natural-language interface
@@ -117,14 +143,12 @@ this section shows the typical entry points by use case):
 
 Common-flag note: most commands accept --dry-run to preview cost/output
 before invoking paid providers.
-
-Cost tiers:
-  Free   detect, edit (silence-cut/fade/noise-reduce), timeline
-  Low    inspect, audio transcribe, generate image                ~$0.01–$0.10
-  High   generate video, edit image                               ~$1–$5
-  V.High remix (regenerate-scene, highlights, auto-shorts)       ~$5–$50+
-`
-  );
+`,
+  )
+  // Cost tiers block — generated from the live cost-tier registry so
+  // it can't drift from `_shared/cost-tier.ts`. Picks two representative
+  // examples per tier (alphabetical first hits) instead of hand-curating.
+  .addHelpText("after", () => renderCostTierFooter(program));
 
 // Set JSON mode env var before subcommand parsing
 // Also check for first-run, stdin JSON, and show banner
@@ -219,9 +243,16 @@ program.addCommand(runCommand);
 program.addCommand(agentCommand);
 
 // Workflow commands
-program.addCommand(projectCommand);
-program.addCommand(sceneCommand);
-program.addCommand(timelineCommand);
+//
+// `project`, `scene`, `timeline` are hidden from `vibe --help` because
+// their descriptions either self-deprecate ("Deprecated alias…") or
+// nudge users toward `init`/`build`/`render` ("For project flow use
+// `vibe init`…"). They still register, still show in
+// `vibe schema --list`, and tab completion still finds them — they
+// just don't take visual weight in the front-page Commands list.
+program.addCommand(projectCommand, { hidden: true });
+program.addCommand(sceneCommand, { hidden: true });
+program.addCommand(timelineCommand, { hidden: true });
 program.addCommand(detectCommand);
 program.addCommand(batchCommand);
 

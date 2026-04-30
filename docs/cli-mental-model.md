@@ -114,6 +114,8 @@ The audit at `docs/cli-mental-model.md`'s git history surfaced these. They're **
 
 7. **Cost-tier signaling** — `--help` shows tier in `vibe --help`'s "Cost tiers" footer but not in individual subcommand `--help`. Tracked as a future polish item; for now `vibe --help` is the canonical reference.
 
+8. **Untiered utility commands** — `setup`, `doctor`, `init`, `build`, `render`, `agent`, `run`, `demo`, `walkthrough`, `context` carry no cost tier. They're orchestrators or meta-info, not media producers — `build` and `run` orchestrate other tagged commands (their cost depends on what's inside the storyboard / pipeline), and the rest are setup / inspection. `vibe schema --list --filter free` excludes them by design; `vibe schema --list` (no filter) shows them. The doctor's "Cost-tagged: N" line counts only commands that opted in via `applyTier()`.
+
 ## When in doubt
 
 - **"I want to make a thing from text"** → `generate`

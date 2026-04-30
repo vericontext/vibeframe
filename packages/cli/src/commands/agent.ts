@@ -56,7 +56,20 @@ async function promptConfirm(
     "high": chalk.yellow,
     "very-high": chalk.red,
   };
-  const costBadge = cost ? ` ${tierColor[cost](`[${cost.toUpperCase()}]`)}` : "";
+  // Show estimated USD alongside the tier label so the badge is more
+  // than a vague "this is expensive" — the user sees `[VERY-HIGH ~$25]`
+  // and can decide. Midpoints match the agent executor's
+  // `estimateToolCost`; adjust both together if estimates change.
+  const tierUsd: Record<string, string> = {
+    "free": "$0",
+    "low": "~$0.05",
+    "medium": "~$0.50",
+    "high": "~$3",
+    "very-high": "~$25",
+  };
+  const costBadge = cost
+    ? ` ${tierColor[cost](`[${cost.toUpperCase()} ${tierUsd[cost]}]`)}`
+    : "";
   // Print the question + args block above the picker. promptYesNo
   // renders the arrow selector below.
   console.log();
@@ -355,7 +368,7 @@ export const agentCommand = new Command("agent")
   .option("-v, --verbose", "Show verbose output including tool calls")
   .option("--max-turns <n>", "Maximum turns per request", "10")
   .option("-i, --input <query>", "Run a single query and exit (non-interactive)")
-  .option("-c, --confirm", "Confirm before EVERY tool execution (overrides cost gate)")
+  .option("-c, --confirm", "Confirm before every tool — broadens the default cost gate (paid only) to all calls")
   .option("--no-confirm", "Disable all confirm prompts including the high/very-high cost gate (CI / automation)")
   .option("--budget-usd <usd>", "Reject tool calls past this cumulative USD ceiling (tier-estimated, conservative)")
   .action(async (options) => {
