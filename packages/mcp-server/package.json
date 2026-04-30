@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/mcp-server",
-  "version": "0.79.3",
+  "version": "0.80.0",
   "description": "VibeFrame MCP Server - AI-native video editing via Model Context Protocol",
   "type": "module",
   "bin": {

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.0] - 2026-04-30
+
+### Added
+
+- rework setup wizard UX + non-interactive mode *(cli)*
+
+### Changed
+
+- rename project commands to timeline + add timeline.json *(cli)*
+
+### Fixed
+
+- match scoped feat/fix commits in pre-push validator *(hooks)*
+
+### Maintenance
+
+- bump landing MCP tools fallback to 68
+- wire `gen:reference` into the release skill (no CI gate)
+
 ## [0.79.3] - 2026-04-30
 
 ### Documentation
