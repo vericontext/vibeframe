@@ -215,8 +215,13 @@ RUNWAY_API_SECRET
 KLING_API_KEY
 XAI_API_KEY
 REPLICATE_API_TOKEN
+OPENROUTER_API_KEY
 IMGBB_API_KEY
 ```
+
+The canonical list is `vibe doctor --json | jq '.data.providers'` — that
+shape derives from `packages/ai-providers/src/api-keys.ts` and stays in
+sync with new providers automatically.
 
 Use:
 
@@ -255,6 +260,7 @@ docs/                    Design notes, cookbook, comparisons
 - [docs/cli-reference.md](docs/cli-reference.md): every command, flag, and JSON envelope (auto-generated from `vibe schema --list`)
 - [docs/cli-mental-model.md](docs/cli-mental-model.md): when to use which verb (`generate` / `edit` / `remix` / `inspect` / `audio` / `detect`)
 - [docs/cli-architecture.md](docs/cli-architecture.md): when to pick `agent` vs `build` vs `run` (orchestrating entrypoints)
+- [docs/1.0-readiness.md](docs/1.0-readiness.md): public API surface, historical breaking changes (v0.74 / v0.80 renames), 1.0 cut checklist
 - [DEMO.md](DEMO.md): copy-paste demo flow
 - [docs/cookbook.md](docs/cookbook.md): practical recipes
 - [docs/video-project-concepts.md](docs/video-project-concepts.md): project model
@@ -265,7 +271,8 @@ For machine-readable access (agents, scripts) use the live introspection
 hooks instead of this README:
 
 ```bash
-vibe schema --list --json     # all 79 commands
+vibe schema --list --json     # full command catalog (current count via `length`)
+vibe schema --list --filter very-high  # narrow to a cost tier
 vibe schema <command> --json  # JSON Schema for one command
 vibe context                  # agent quickstart (rules, envelope shape, conventions)
 ```

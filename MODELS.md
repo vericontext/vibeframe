@@ -111,7 +111,7 @@ Used for Remotion component code generation (`vibe generate motion`).
 
 ---
 
-## Text-to-Image (5)
+## Text-to-Image (3 providers, 7 models)
 
 | Provider | Model | Env Key | CLI Option | Notes |
 |----------|-------|---------|------------|-------|

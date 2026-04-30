@@ -15,7 +15,7 @@
 ## Shipped (Phases 1-3) ✅
 
 - **Phase 1 — Foundation:** Turborepo monorepo, Zustand+Immer timeline, FFmpeg.wasm export, CLI package.
-- **Phase 2 — AI Providers:** 13 providers across text/audio/image/video (OpenAI, Claude, Gemini, Grok, OpenRouter, Ollama, Whisper, ElevenLabs, Kokoro, Runway, Kling, Veo, Replicate, fal.ai). See [`MODELS.md`](MODELS.md) for the canonical list.
+- **Phase 2 — AI Providers:** 14 providers across text/audio/image/video (OpenAI, Claude, Gemini, Grok, OpenRouter, Ollama, Whisper, ElevenLabs, Kokoro, Runway, Kling, Veo, Replicate, fal.ai). See [`MODELS.md`](MODELS.md) for the canonical list.
 - **Phase 3 — MCP Integration:** `@vibeframe/mcp-server` exposes 66 tools + project state resources for Claude Desktop / Cursor / any MCP host.
 
 ---
