@@ -65,6 +65,16 @@ export interface ApiKeyMeta {
    * Aggregated alongside provider-level `commandsUnlocked`.
    */
   commandsUnlocked?: readonly string[];
+  /**
+   * Optional soft-validation hint. When the user pastes a key during setup, we
+   * test it against `prefix`; on mismatch we print a warning that includes
+   * `example`, then save the value anyway. Omit for providers whose key format
+   * is undocumented or known to vary (fal.ai, ImgBB).
+   */
+  keyFormat?: {
+    prefix: RegExp;
+    example: string;
+  };
 }
 
 /**
@@ -218,6 +228,17 @@ export function getSetupProviders(): SetupProviderEntry[] {
 /** All registered apiKeys in declaration order. Used by `print-env-example.mts`. */
 export function getAllApiKeys(): readonly ApiKeyMeta[] {
   return [...apiKeyRegistry.values()];
+}
+
+/**
+ * Returns the registered `keyFormat` for a configKey, or `undefined` if the
+ * provider has no documented prefix. Used by the setup wizard to soft-validate
+ * pasted keys.
+ */
+export function getKeyFormat(
+  configKey: string,
+): ApiKeyMeta["keyFormat"] | undefined {
+  return apiKeyRegistry.get(configKey)?.keyFormat;
 }
 
 /** All registered providers in declaration order. Mostly diagnostic / testing. */

@@ -3062,12 +3062,24 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
         "description": "Run full setup with all optional providers",
         "type": "boolean",
       },
+      "importEnv": {
+        "description": "Promote API keys from .env / shell env into config.yaml",
+        "type": "boolean",
+      },
+      "provider": {
+        "description": "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)",
+        "type": "string",
+      },
       "reset": {
         "description": "Reset configuration to defaults",
         "type": "boolean",
       },
       "show": {
         "description": "Show current configuration (for debugging)",
+        "type": "boolean",
+      },
+      "yes": {
+        "description": "Non-interactive: write config without prompting (CI / devcontainer)",
         "type": "boolean",
       },
     },

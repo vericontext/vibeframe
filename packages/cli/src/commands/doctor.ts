@@ -474,7 +474,10 @@ function printReport(results: DiagnosticResults): void {
   const pct = Math.round((results.readyCount / results.totalCount) * 100);
   const readyColor = pct >= 80 ? chalk.green : pct >= 40 ? chalk.yellow : chalk.red;
   console.log(
-    `  Ready: ${readyColor(`${results.readyCount}/${results.totalCount}`)} commands (${pct}%)`
+    `  Ready: ${readyColor(`${results.readyCount}/${results.totalCount}`)} commands runnable with current keys (${pct}%)`
+  );
+  console.log(
+    chalk.dim(`    Full command catalog: vibe schema --list`)
   );
 
   // ── v0.61: scope-aware "what to do next" hint ────────────────────────

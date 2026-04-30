@@ -32,6 +32,7 @@ defineApiKey({
   envExampleComment:
     "OpenAI API Key (Whisper transcription, gpt-image-2 — default text-to-image since v0.56)",
   envExampleUrl: "https://platform.openai.com/api-keys",
+  keyFormat: { prefix: /^sk-/, example: "sk-..." },
 });
 
 defineApiKey({
@@ -44,6 +45,7 @@ defineApiKey({
   envExampleComment:
     "Google API Key (Gemini auto-edit suggestions, image gen, Veo video)",
   envExampleUrl: "https://aistudio.google.com/apikey",
+  keyFormat: { prefix: /^AIza/, example: "AIza..." },
 });
 
 defineApiKey({
@@ -55,6 +57,7 @@ defineApiKey({
     "Claude — storyboard, color grade, reframe, Agent ($)",
   envExampleComment: "Anthropic API Key (Claude motion graphics & storyboarding)",
   envExampleUrl: "https://console.anthropic.com/",
+  keyFormat: { prefix: /^sk-ant-/, example: "sk-ant-..." },
 });
 
 defineApiKey({
@@ -67,6 +70,7 @@ defineApiKey({
   envExampleComment:
     "ElevenLabs API Key (text-to-speech — Kokoro local fallback runs when this is unset, since v0.54)",
   envExampleUrl: "https://elevenlabs.io/api",
+  keyFormat: { prefix: /^sk_/, example: "sk_..." },
 });
 
 defineApiKey({
@@ -90,6 +94,7 @@ defineApiKey({
   envExampleComment:
     "xAI API Key (Grok video generation — fallback when no FAL_KEY)",
   envExampleUrl: "https://console.x.ai/",
+  keyFormat: { prefix: /^xai-/, example: "xai-..." },
 });
 
 defineApiKey({
@@ -100,6 +105,7 @@ defineApiKey({
   setupDescription: "Gen-4.5 video generation ($$)",
   envExampleComment: "Runway API Secret (Runway Gen-4.5 video generation)",
   envExampleUrl: "https://app.runwayml.com/settings/api-keys",
+  keyFormat: { prefix: /^key_/, example: "key_..." },
 });
 
 defineApiKey({
@@ -112,6 +118,7 @@ defineApiKey({
   envExampleComment: "Kling API Key (Kling video generation)",
   envExampleUrl: "https://platform.klingai.com/",
   envExampleExtraLines: ["Format: ACCESS_KEY:SECRET_KEY"],
+  keyFormat: { prefix: /:/, example: "ACCESS_KEY:SECRET_KEY" },
 });
 
 defineApiKey({
@@ -123,6 +130,7 @@ defineApiKey({
   envExampleComment:
     "Replicate API Token (music generation, video upscale, audio restoration)",
   envExampleUrl: "https://replicate.com/account/api-tokens",
+  keyFormat: { prefix: /^r8_/, example: "r8_..." },
 });
 
 defineApiKey({
@@ -135,6 +143,7 @@ defineApiKey({
   envExampleComment:
     "OpenRouter API Key (300+ AI models via unified API, used by `vibe agent`)",
   envExampleUrl: "https://openrouter.ai/keys",
+  keyFormat: { prefix: /^sk-or-/, example: "sk-or-..." },
 });
 
 defineApiKey({

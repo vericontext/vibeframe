@@ -20,15 +20,26 @@ import {
   promptHidden,
   promptSelect,
   promptConfirm,
+  promptMultiSelect,
   closeTTYStream,
   hasTTY,
 } from "../utils/tty.js";
 import { loadEnv } from "../utils/api-key.js";
+import { validateKeyFormat } from "../utils/key-format.js";
 import {
   detectedAgentHosts,
   summariseAgentHosts,
 } from "../utils/agent-host-detect.js";
-import { getSetupProviders } from "@vibeframe/ai-providers";
+import { getSetupProviders, getAllApiKeys } from "@vibeframe/ai-providers";
+
+const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
+  "claude",
+  "openai",
+  "gemini",
+  "ollama",
+  "xai",
+  "openrouter",
+];
 
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
@@ -36,6 +47,18 @@ export const setupCommand = new Command("setup")
   .option("--full", "Run full setup with all optional providers")
   .option("--show", "Show current configuration (for debugging)")
   .option("--claude-code", "Show Claude Code integration guide")
+  .option("-y, --yes", "Non-interactive: write config without prompting (CI / devcontainer)")
+  .option("--provider <id>", "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)")
+  .option("--import-env", "Promote API keys from .env / shell env into config.yaml")
+  .addHelpText(
+    "after",
+    `
+Non-interactive examples (no TTY required):
+  vibe setup --yes --provider claude --import-env    Bootstrap CI / devcontainer
+  vibe setup --yes --import-env                      Persist .env keys without changing provider
+  vibe setup --yes --provider openai                 Just switch the agent provider
+`,
+  )
   .action(async (options) => {
     if (options.claudeCode) {
       await setupClaudeCode();
@@ -55,9 +78,24 @@ export const setupCommand = new Command("setup")
       return;
     }
 
+    // Non-interactive path: --yes (or no-TTY combined with --provider/--import-env)
+    const wantsNonInteractive =
+      Boolean(options.yes) ||
+      (!hasTTY() && (options.provider || options.importEnv));
+    if (wantsNonInteractive) {
+      await runNonInteractiveSetup({
+        provider: options.provider,
+        importEnv: Boolean(options.importEnv),
+      });
+      return;
+    }
+
     // Check if TTY is available
     if (!hasTTY()) {
-      exitWithError(generalError("Interactive setup requires a terminal.", "Run 'vibe setup' directly from your terminal."));
+      exitWithError(generalError(
+        "Interactive setup requires a terminal.",
+        "Run 'vibe setup' directly from your terminal, or use 'vibe setup --yes --provider <id> --import-env' for CI.",
+      ));
     }
 
     try {
@@ -130,6 +168,77 @@ const AI_FEATURES: AIFeature[] = [
 ];
 
 /**
+ * Non-interactive setup for CI / devcontainer / scripted bootstrap.
+ *
+ * Exits 0 even when no fields are touched — running `vibe setup --yes` with no
+ * other flags is a valid "ensure config file exists" idempotency op, similar
+ * to `git init`. Prints a one-line summary so callers can grep for it.
+ */
+interface NonInteractiveOptions {
+  provider?: string;
+  importEnv?: boolean;
+}
+
+async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void> {
+  let config = await loadConfig();
+  if (!config) {
+    config = createDefaultConfig();
+  }
+
+  const changes: string[] = [];
+
+  if (opts.provider) {
+    if (!VALID_LLM_PROVIDERS.includes(opts.provider as LLMProvider)) {
+      exitWithError(generalError(
+        `Invalid --provider: ${opts.provider}`,
+        `Must be one of: ${VALID_LLM_PROVIDERS.join(", ")}`,
+      ));
+    }
+    if (config.llm.provider !== opts.provider) {
+      config.llm.provider = opts.provider as LLMProvider;
+      changes.push(`provider=${opts.provider}`);
+    }
+  }
+
+  const warnings: string[] = [];
+  let importedCount = 0;
+  if (opts.importEnv) {
+    loadEnv();
+    for (const meta of getAllApiKeys()) {
+      const envValue = process.env[meta.envVar];
+      if (!envValue) continue;
+      const existing = config.providers[meta.configKey as keyof typeof config.providers];
+      if (existing === envValue) continue;
+      const fmt = validateKeyFormat(meta.configKey, envValue);
+      if (!fmt.ok && fmt.expected) {
+        warnings.push(`${meta.label}: format looks unusual (expected ${fmt.expected})`);
+      }
+      config.providers[meta.configKey as keyof typeof config.providers] = envValue;
+      importedCount++;
+    }
+    if (importedCount > 0) {
+      changes.push(`imported ${importedCount} key${importedCount === 1 ? "" : "s"} from env`);
+    }
+  }
+
+  await saveConfig(config);
+
+  // Output: one structured line per change, plus warnings on stderr.
+  console.log(chalk.green("✓ Setup complete (non-interactive)"));
+  console.log(chalk.dim(`  Config: ${CONFIG_PATH}`));
+  if (changes.length > 0) {
+    for (const c of changes) {
+      console.log(chalk.dim(`  ${c}`));
+    }
+  } else {
+    console.log(chalk.dim("  No changes (config already up to date)"));
+  }
+  for (const w of warnings) {
+    console.error(chalk.yellow(`⚠ ${w}`));
+  }
+}
+
+/**
  * Run the interactive setup wizard
  */
 async function runSetupWizard(fullSetup = false): Promise<void> {
@@ -157,7 +266,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   }
 
   // Step 1: What do you want to do?
-  console.log(chalk.dim("Step 1 of 2"));
+  console.log(chalk.dim("1. Goal"));
   console.log(chalk.bold("What would you like to do?"));
   console.log();
 
@@ -165,7 +274,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
     `Edit videos offline ${chalk.dim("(silence-cut, fade, noise-reduce, detect)")} ${chalk.green("no API keys")}`,
     `AI features ${chalk.dim("(pick what you need — images, videos, audio, editing)")}`,
     `Full AI pipeline ${chalk.dim("(build, remix highlights, auto-shorts)")}`,
-    `Custom setup ${chalk.dim("(choose providers one by one)")}`,
+    `Full provider list ${chalk.dim("(every supported provider, one by one — same as --full)")}`,
   ];
 
   const topIndex = await promptSelect(chalk.cyan("  Select [1-4]: "), topLabels, 0);
@@ -194,7 +303,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
       { configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech narration + music (skip to use local Kokoro)" },
     ];
 
-    console.log(chalk.dim("Step 2 of 2"));
+    console.log(chalk.dim("2. API keys"));
     console.log(chalk.bold("Pipeline requires these API keys:"));
     console.log(chalk.dim("  Saved locally, never shared. Press Enter to skip."));
     console.log();
@@ -207,23 +316,21 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   }
 
   // ── AI generation (mix and match) ──────────────────────────────────
-  console.log(chalk.dim("Step 2 of 2"));
+  console.log(chalk.dim("2. Features"));
   console.log(chalk.bold("Which AI features do you need?"));
-  console.log(chalk.dim("  Select each one you want to use."));
+  console.log(chalk.dim("  ↑↓ navigate · space to toggle · enter to confirm"));
   console.log();
 
-  const selectedFeatures: AIFeature[] = [];
-  for (const feature of AI_FEATURES) {
-    const keyCount = feature.keys.length;
+  const featureLabels = AI_FEATURES.map((f) => {
+    const keyCount = f.keys.length;
     const tag = chalk.dim(`${keyCount} key${keyCount > 1 ? "s" : ""}`);
-    const yes = await promptConfirm(
-      chalk.cyan(`  ${feature.label} ${chalk.dim(`(${feature.desc})`)} ${tag}`),
-      true
-    );
-    if (yes) {
-      selectedFeatures.push(feature);
-    }
-  }
+    return `${f.label} ${chalk.dim(`(${f.desc})`)} ${tag}`;
+  });
+  const picked = await promptMultiSelect(
+    chalk.cyan("  Pick (e.g. 1,3 or 'all'): "),
+    featureLabels,
+  );
+  const selectedFeatures: AIFeature[] = picked.map((i) => AI_FEATURES[i]);
   console.log();
 
   if (selectedFeatures.length === 0) {
@@ -235,6 +342,7 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   }
 
   // Collect keys feature-by-feature with context
+  console.log(chalk.dim("3. API keys"));
   console.log(chalk.bold("API Keys"));
   console.log(chalk.dim("  Saved locally, never shared. Press Enter to skip."));
   console.log();
@@ -276,8 +384,14 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
       console.log(chalk.dim(`  Get key: ${keyDef.url}`));
       const newKey = await promptHidden(chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `));
       if (newKey.trim()) {
-        config.providers[keyDef.configKey as keyof typeof config.providers] = newKey.trim();
-        console.log(`  ${chalk.green("✓")} Saved`);
+        const trimmed = newKey.trim();
+        config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
+        const fmt = validateKeyFormat(keyDef.configKey, trimmed);
+        if (!fmt.ok && fmt.expected) {
+          console.log(`  ${chalk.yellow("⚠")} Saved, but format looks unusual ${chalk.dim(`(expected ${fmt.expected})`)}`);
+        } else {
+          console.log(`  ${chalk.green("✓")} Saved`);
+        }
         collectedKeys.add(keyDef.configKey);
       } else {
         console.log(`  ${chalk.yellow("⚠")} Skipped ${chalk.dim(`(set ${keyDef.envVar} in .env later)`)}`);
@@ -316,8 +430,14 @@ async function collectKeys(
     console.log(chalk.dim(`  Get key: ${keyDef.url}`));
     const newKey = await promptHidden(chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `));
     if (newKey.trim()) {
-      config.providers[keyDef.configKey as keyof typeof config.providers] = newKey.trim();
-      console.log(`  ${chalk.green("✓")} Saved`);
+      const trimmed = newKey.trim();
+      config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
+      const fmt = validateKeyFormat(keyDef.configKey, trimmed);
+      if (!fmt.ok && fmt.expected) {
+        console.log(`  ${chalk.yellow("⚠")} Saved, but format looks unusual ${chalk.dim(`(expected ${fmt.expected})`)}`);
+      } else {
+        console.log(`  ${chalk.green("✓")} Saved`);
+      }
     } else {
       console.log(`  ${chalk.yellow("⚠")} Skipped ${chalk.dim(`(set ${keyDef.envVar} in .env later)`)}`);
     }
@@ -376,15 +496,27 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
       if (change) {
         const newKey = await promptHidden(chalk.cyan("    New key: "));
         if (newKey.trim()) {
-          config.providers[p.key as keyof typeof config.providers] = newKey.trim();
-          console.log(chalk.green("    ✓ Updated"));
+          const trimmed = newKey.trim();
+          config.providers[p.key as keyof typeof config.providers] = trimmed;
+          const fmt = validateKeyFormat(p.key, trimmed);
+          if (!fmt.ok && fmt.expected) {
+            console.log(chalk.yellow(`    ⚠ Updated, but format looks unusual (expected ${fmt.expected})`));
+          } else {
+            console.log(chalk.green("    ✓ Updated"));
+          }
         }
       }
     } else {
       const newKey = await promptHidden(chalk.cyan(`  ${chalk.dim("○")} ${p.name.padEnd(12)} ${chalk.dim(p.desc)}: `));
       if (newKey.trim()) {
-        config.providers[p.key as keyof typeof config.providers] = newKey.trim();
-        console.log(`  ${chalk.green("✓")} Saved`);
+        const trimmed = newKey.trim();
+        config.providers[p.key as keyof typeof config.providers] = trimmed;
+        const fmt = validateKeyFormat(p.key, trimmed);
+        if (!fmt.ok && fmt.expected) {
+          console.log(`  ${chalk.yellow("⚠")} Saved, but format looks unusual ${chalk.dim(`(expected ${fmt.expected})`)}`);
+        } else {
+          console.log(`  ${chalk.green("✓")} Saved`);
+        }
       }
     }
   }
@@ -420,8 +552,9 @@ function showComplete(
   console.log();
   console.log(chalk.bold("  Next steps:"));
   console.log(chalk.dim("    cd <project>; vibe init   Scaffold AGENTS.md / CLAUDE.md / .env.example (project scope)"));
+  console.log(chalk.dim("    vibe walkthrough scene    5-step authoring guide (storyboard → MP4)"));
   console.log(chalk.dim("    vibe doctor               Check system health + available commands"));
-  console.log(chalk.dim("    vibe schema --list        Discover all 81 commands"));
+  console.log(chalk.dim("    vibe schema --list        Discover every command"));
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
 
   // Tailored hint when an agent host is detected — points at the file

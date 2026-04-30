@@ -256,3 +256,110 @@ export async function promptConfirm(
   if (answer === "") return defaultYes;
   return answer.toLowerCase().startsWith("y");
 }
+
+/**
+ * Prompt for multi-select (checkbox) from a list.
+ *
+ * Returns the indexes selected (sorted ascending). ↑↓ navigates, space toggles,
+ * enter confirms. In non-TTY environments accepts comma-separated 1-based
+ * indices, the literal "all", or empty/"none" for no selection.
+ */
+export async function promptMultiSelect(
+  _question: string,
+  options: string[],
+  defaultSelected: boolean[] = []
+): Promise<number[]> {
+  const input = getTTYInputStream() as ReadStream;
+  const selected = options.map((_, i) => Boolean(defaultSelected[i]));
+
+  if (typeof input.setRawMode === "function") {
+    return new Promise((resolve) => {
+      let cursor = 0;
+      let renderCount = 0;
+
+      const render = () => {
+        if (renderCount > 0) {
+          process.stdout.write(`\x1b[${options.length}A`);
+        }
+        for (let i = 0; i < options.length; i++) {
+          const pointer = i === cursor ? "\x1b[36m❯\x1b[0m" : " ";
+          const box = selected[i] ? "\x1b[36m[x]\x1b[0m" : "[ ]";
+          const text = i === cursor ? `\x1b[1m${options[i]}\x1b[0m` : options[i];
+          process.stdout.write(`\x1b[2K   ${pointer} ${box} ${text}\n`);
+        }
+        renderCount++;
+      };
+
+      render();
+
+      input.setRawMode(true);
+      input.resume();
+      input.setEncoding("utf8");
+
+      const finish = () => {
+        input.setRawMode(false);
+        input.removeListener("data", onData);
+        process.stdout.write("\n");
+        const result: number[] = [];
+        for (let i = 0; i < selected.length; i++) {
+          if (selected[i]) result.push(i);
+        }
+        resolve(result);
+      };
+
+      const onData = (char: string) => {
+        if (char === "\r" || char === "\n") {
+          finish();
+        } else if (char === "\u0003") {
+          input.setRawMode(false);
+          process.stdout.write("\n");
+          process.exit(1);
+        } else if (char === " ") {
+          selected[cursor] = !selected[cursor];
+          render();
+        } else if (char === "\x1b[A" || char === "k") {
+          cursor = (cursor - 1 + options.length) % options.length;
+          render();
+        } else if (char === "\x1b[B" || char === "j") {
+          cursor = (cursor + 1) % options.length;
+          render();
+        } else if (char === "a") {
+          // Convenience: 'a' selects all
+          const allOn = selected.every(Boolean);
+          for (let i = 0; i < selected.length; i++) selected[i] = !allOn;
+          render();
+        } else if (char >= "1" && char <= String(Math.min(options.length, 9))) {
+          // Number key — toggle item directly
+          const i = parseInt(char, 10) - 1;
+          selected[i] = !selected[i];
+          render();
+        }
+      };
+
+      input.on("data", onData);
+    });
+  }
+
+  // Fallback for non-TTY: list and accept comma-separated indices
+  for (let i = 0; i < options.length; i++) {
+    const box = selected[i] ? "[x]" : "[ ]";
+    console.log(`   ${box} ${i + 1}. ${options[i]}`);
+  }
+  console.log();
+
+  const answer = (await prompt(_question)).trim().toLowerCase();
+  if (answer === "" || answer === "none") {
+    return [];
+  }
+  if (answer === "all") {
+    return options.map((_, i) => i);
+  }
+  const picked = new Set<number>();
+  for (const tok of answer.split(",")) {
+    const n = parseInt(tok.trim(), 10);
+    if (!isNaN(n) && n >= 1 && n <= options.length) {
+      picked.add(n - 1);
+    }
+  }
+  return [...picked].sort((a, b) => a - b);
+}

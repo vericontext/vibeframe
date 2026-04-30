@@ -26,6 +26,7 @@ export {
   getSetupProviders,
   getAllApiKeys,
   getAllProviders,
+  getKeyFormat,
   type ApiKeyMeta,
   type ProviderMeta,
   type ProviderKind,
