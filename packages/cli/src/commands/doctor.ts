@@ -42,7 +42,7 @@ const FREE_COMMANDS = [
   "detect silence",
   "detect beats",
   "export",
-  "project create/info",
+  "timeline create/info",
   "timeline (all)",
   "batch import/concat",
 ];

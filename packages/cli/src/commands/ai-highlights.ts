@@ -92,7 +92,7 @@ export interface HighlightsOptions {
   media: string;
   /** Path for the output JSON with highlight data */
   output?: string;
-  /** Path for a .vibe.json project with highlight clips */
+  /** Path for a timeline JSON file with highlight clips */
   project?: string;
   /** Target highlight reel duration in seconds */
   duration?: number;
@@ -122,7 +122,7 @@ export interface HighlightsExtractResult {
   totalHighlightDuration: number;
   /** Path to the output JSON (if --output specified) */
   outputPath?: string;
-  /** Path to the generated project file (if --project specified) */
+  /** Path to the generated timeline file (if --project specified) */
   projectPath?: string;
   /** Error message on failure */
   error?: string;

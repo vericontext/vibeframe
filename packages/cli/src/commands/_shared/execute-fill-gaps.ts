@@ -17,10 +17,11 @@ import { KlingProvider } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import { getApiKey } from "../../utils/api-key.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
+import { resolveTimelineFile } from "../../utils/project-resolver.js";
 import { downloadVideo, formatTime } from "../ai-helpers.js";
 
 export interface ExecuteFillGapsOptions {
-  /** Project file path (resolved relative to cwd). */
+  /** Timeline file or directory (resolved relative to cwd). */
   projectPath: string;
   /** Output project path. Defaults to overwriting the input. */
   output?: string;
@@ -203,12 +204,12 @@ export async function executeFillGaps(
   const humanLines: string[] = [];
 
   try {
-    onProgress("Loading project...");
-    const filePath = resolve(process.cwd(), options.projectPath);
+    onProgress("Loading timeline...");
+    const filePath = await resolveTimelineFile(options.projectPath);
     if (!existsSync(filePath)) {
       return {
         success: false,
-        error: `Project file not found: ${filePath}`,
+        error: `Timeline file not found: ${filePath}`,
         humanLines,
       };
     }
@@ -598,7 +599,7 @@ export async function executeFillGaps(
         humanLines.push(`  Added segment, total: ${generatedDuration.toFixed(1)}s`);
       }
 
-      // Add the generated video to the project
+      // Add the generated video to the timeline
       const actualGapStart = gapStart;
       const actualGapDuration = Math.min(remainingGap, generatedDuration);
 

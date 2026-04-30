@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync } from "child_process";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
 
-const CLI = `npx tsx ${resolve(__dirname, "../index.ts")}`;
+const TSX = resolve(__dirname, "../../../../node_modules/.bin/tsx");
+const CLI = `${TSX} ${resolve(__dirname, "../index.ts")}`;
 
 describe("timeline commands", () => {
   let tempDir: string;
@@ -18,7 +19,7 @@ describe("timeline commands", () => {
 
     // Create project
     execSync(`${CLI} project create "Timeline Test" -o "${projectFile}"`, {
-      cwd: process.cwd(),
+      cwd: tempDir,
       encoding: "utf-8",
     });
 
@@ -30,11 +31,90 @@ describe("timeline commands", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  describe("timeline create/info/set", () => {
+    it("creates timeline.json inside the named directory by default", () => {
+      execSync(`${CLI} timeline create "new-timeline"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      const timelineFile = join(tempDir, "new-timeline", "timeline.json");
+      expect(readFileSync(timelineFile, "utf-8")).toContain("new-timeline");
+    });
+
+    it("loads a timeline directory by resolving timeline.json", () => {
+      execSync(`${CLI} timeline create "info-timeline"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      const output = execSync(`${CLI} timeline info "info-timeline"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("info-timeline");
+      expect(output).toContain("16:9");
+    });
+
+    it("falls back to legacy project.vibe.json in a directory", () => {
+      const legacyDir = join(tempDir, "legacy");
+      mkdirSync(legacyDir, { recursive: true });
+      execSync(`${CLI} project create "Legacy" -o "${join(legacyDir, "project.vibe.json")}"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      const output = execSync(`${CLI} timeline info "${legacyDir}"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      expect(output).toContain("Legacy");
+    });
+
+    it("updates settings through a timeline directory", () => {
+      execSync(`${CLI} timeline create "settings"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      execSync(`${CLI} timeline set "settings" --name "Updated" --fps 24`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      const content = JSON.parse(readFileSync(join(tempDir, "settings", "timeline.json"), "utf-8"));
+      expect(content.state.project.name).toBe("Updated");
+      expect(content.state.project.frameRate).toBe(24);
+    });
+
+    it("points scene project directories to build/render instead of timeline info", () => {
+      const sceneDir = join(tempDir, "scene-only");
+      mkdirSync(sceneDir, { recursive: true });
+      writeFileSync(join(sceneDir, "vibe.project.yaml"), "name: scene-only\n");
+
+      try {
+        execSync(`${CLI} timeline info "${sceneDir}"`, {
+          cwd: tempDir,
+          encoding: "utf-8",
+          stdio: "pipe",
+        });
+        throw new Error("Expected command to fail");
+      } catch (error) {
+        const err = error as { status?: number; stderr?: Buffer | string };
+        expect(err.status).toBe(2);
+        expect(String(err.stderr)).toContain("scene project");
+        expect(String(err.stderr)).toContain("vibe build");
+      }
+    });
+  });
+
   describe("timeline add-source", () => {
     it("adds a media source to project", () => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" --duration 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -47,7 +127,7 @@ describe("timeline commands", () => {
     it("adds source with custom name", () => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" --name "My Video" -d 5`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -60,7 +140,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${audioFile}" -d 30`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -73,7 +153,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${lottieFile}"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -86,7 +166,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${jsonFile}" --type lottie`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -100,7 +180,7 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -109,7 +189,7 @@ describe("timeline commands", () => {
 
     it("adds a clip to timeline", () => {
       execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -122,7 +202,7 @@ describe("timeline commands", () => {
     it("adds clip with custom start time", () => {
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --start 5`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -132,7 +212,7 @@ describe("timeline commands", () => {
     it("adds clip with custom duration", () => {
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 3`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -142,7 +222,7 @@ describe("timeline commands", () => {
     it("updates project duration after adding clip", () => {
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --start 5 --duration 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -153,7 +233,7 @@ describe("timeline commands", () => {
   describe("timeline add-track", () => {
     it("adds a video track", () => {
       execSync(`${CLI} timeline add-track "${projectFile}" video`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -165,7 +245,7 @@ describe("timeline commands", () => {
 
     it("adds an audio track", () => {
       execSync(`${CLI} timeline add-track "${projectFile}" audio`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -177,7 +257,7 @@ describe("timeline commands", () => {
     it("adds track with custom name", () => {
       execSync(
         `${CLI} timeline add-track "${projectFile}" video --name "Overlay"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -191,14 +271,14 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
       const sourceId = content.state.sources[0].id;
 
       execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -209,7 +289,7 @@ describe("timeline commands", () => {
     it("adds fadeIn effect to clip", () => {
       execSync(
         `${CLI} timeline add-effect "${projectFile}" ${clipId} fadeIn`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -220,7 +300,7 @@ describe("timeline commands", () => {
     it("adds effect with custom duration", () => {
       execSync(
         `${CLI} timeline add-effect "${projectFile}" ${clipId} fadeOut --duration 2`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -230,11 +310,11 @@ describe("timeline commands", () => {
     it("adds multiple effects to same clip", () => {
       execSync(
         `${CLI} timeline add-effect "${projectFile}" ${clipId} fadeIn`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
       execSync(
         `${CLI} timeline add-effect "${projectFile}" ${clipId} fadeOut`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -248,7 +328,7 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -256,7 +336,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -266,7 +346,7 @@ describe("timeline commands", () => {
     it("trims clip duration", () => {
       execSync(
         `${CLI} timeline trim-clip "${projectFile}" ${clipId} --duration 5`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -276,7 +356,7 @@ describe("timeline commands", () => {
     it("trims clip start", () => {
       execSync(
         `${CLI} timeline trim-clip "${projectFile}" ${clipId} --start 2`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -288,14 +368,14 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
       const sourceId = content.state.sources[0].id;
 
       execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
     });
@@ -305,7 +385,7 @@ describe("timeline commands", () => {
       // Without it, auto-JSON mode kicks in for execSync (no TTY) and the
       // test would parse JSON instead of asserting on the human table.
       const output = execSync(`${CLI} timeline list "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
         env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
       });
@@ -321,7 +401,7 @@ describe("timeline commands", () => {
       const output = execSync(
         `${CLI} timeline list "${projectFile}" --sources`,
         {
-          cwd: process.cwd(),
+          cwd: tempDir,
           encoding: "utf-8",
           env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
         }
@@ -337,7 +417,7 @@ describe("timeline commands", () => {
       const output = execSync(
         `${CLI} timeline list "${projectFile}" --tracks`,
         {
-          cwd: process.cwd(),
+          cwd: tempDir,
           encoding: "utf-8",
           env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
         }
@@ -356,7 +436,7 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -364,7 +444,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -373,7 +453,7 @@ describe("timeline commands", () => {
 
     it("splits a clip at given time", () => {
       execSync(`${CLI} timeline split-clip "${projectFile}" ${clipId} --time 4`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -387,7 +467,7 @@ describe("timeline commands", () => {
     it("fails with invalid split time", () => {
       expect(() => {
         execSync(`${CLI} timeline split-clip "${projectFile}" ${clipId} --time 0`, {
-          cwd: process.cwd(),
+          cwd: tempDir,
           encoding: "utf-8",
           stdio: "pipe",
         });
@@ -401,7 +481,7 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -409,7 +489,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline add-clip "${projectFile}" ${sourceId} --duration 5`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -418,7 +498,7 @@ describe("timeline commands", () => {
 
     it("duplicates a clip after original", () => {
       execSync(`${CLI} timeline duplicate-clip "${projectFile}" ${clipId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -431,7 +511,7 @@ describe("timeline commands", () => {
     it("duplicates a clip at specified time", () => {
       execSync(
         `${CLI} timeline duplicate-clip "${projectFile}" ${clipId} --time 20`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -445,14 +525,14 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
       const sourceId = content.state.sources[0].id;
 
       execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -465,7 +545,7 @@ describe("timeline commands", () => {
       expect(contentBefore.state.clips).toHaveLength(1);
 
       execSync(`${CLI} timeline delete-clip "${projectFile}" ${clipId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -476,7 +556,7 @@ describe("timeline commands", () => {
     it("fails with non-existent clip", () => {
       expect(() => {
         execSync(`${CLI} timeline delete-clip "${projectFile}" non-existent`, {
-          cwd: process.cwd(),
+          cwd: tempDir,
           encoding: "utf-8",
           stdio: "pipe",
         });
@@ -490,14 +570,14 @@ describe("timeline commands", () => {
     beforeEach(() => {
       execSync(
         `${CLI} timeline add-source "${projectFile}" "${mediaFile}" -d 10`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
       const sourceId = content.state.sources[0].id;
 
       execSync(`${CLI} timeline add-clip "${projectFile}" ${sourceId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -507,7 +587,7 @@ describe("timeline commands", () => {
 
     it("moves a clip to new time", () => {
       execSync(`${CLI} timeline move-clip "${projectFile}" ${clipId} --time 15`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -518,7 +598,7 @@ describe("timeline commands", () => {
     it("moves a clip to different track", () => {
       // Add audio track
       execSync(`${CLI} timeline add-track "${projectFile}" audio --name "Audio 2"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -527,7 +607,7 @@ describe("timeline commands", () => {
 
       execSync(
         `${CLI} timeline move-clip "${projectFile}" ${clipId} --track ${newTrackId}`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const updated = JSON.parse(readFileSync(projectFile, "utf-8"));

@@ -129,6 +129,9 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "detect silence": "detect_silence",
   "detect beats":   "detect_beats",
   // timeline (v0.77: now 1:1 token-for-token with manifest names)
+  "timeline create":          "timeline_create",
+  "timeline info":            "timeline_info",
+  "timeline set":             null, // CLI-only settings update; agents can use fs_read/fs_write if needed
   "timeline add-source":      "timeline_add_source",
   "timeline add-clip":        "timeline_add_clip",
   "timeline add-track":       "timeline_add_track",
@@ -140,9 +143,9 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "timeline delete-clip":     "timeline_delete_clip",
   "timeline move-clip":       "timeline_move_clip",
   // project
-  "project create": "project_create",
-  "project info":   "project_info",
-  "project set":    null, // CLI-only: vibe.project.yaml writer; agents use fs_write
+  "project create": "project_create", // deprecated compatibility alias
+  "project info":   "project_info",   // deprecated compatibility alias
+  "project set":    null, // deprecated CLI-only alias
   // inspect (was: analyze — manifest tool names keep `analyze_*` prefix)
   "inspect media":   "inspect_media",
   "inspect video":   "inspect_video",

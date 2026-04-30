@@ -41,7 +41,7 @@ Examples:
   $ vibe inspect media "https://youtube.com/watch?v=..." "Key takeaways"
   $ vibe inspect video video.mp4 "List all scene changes" --low-res
   $ vibe inspect review video.mp4 --auto-apply -o fixed.mp4
-  $ vibe inspect suggest project.vibe.json "make it more dramatic"
+  $ vibe inspect suggest timeline.json "make it more dramatic"
 
 API Keys:
   GOOGLE_API_KEY  Required for all inspect commands (Gemini)
@@ -265,7 +265,7 @@ registerReviewCommand(analyzeCommand);
 analyzeCommand
   .command("suggest")
   .description("Get AI edit suggestions using Gemini")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<instruction>", "Natural language instruction")
   .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
   .option("--apply", "Apply the first suggestion automatically")

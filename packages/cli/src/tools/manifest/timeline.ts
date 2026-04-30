@@ -5,9 +5,12 @@
  */
 
 import { z } from "zod";
-import { resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
 import { defineTool, type AnyTool } from "../define-tool.js";
 import type { EffectType } from "@vibeframe/core";
+import { Project } from "../../engine/index.js";
+import { TIMELINE_FILENAME } from "../../utils/project-resolver.js";
 import { loadProject, saveProject } from "./_project-io.js";
 
 const MEDIA_TYPES: Record<string, "video" | "audio" | "image"> = {
@@ -16,13 +19,74 @@ const MEDIA_TYPES: Record<string, "video" | "audio" | "image"> = {
   jpg: "image", jpeg: "image", png: "image", gif: "image", webp: "image",
 };
 
+export const timelineCreateTool = defineTool({
+  name: "timeline_create",
+  category: "timeline",
+  cost: "free",
+  description: "Create a low-level timeline JSON file for FFmpeg-style editing",
+  schema: z.object({
+    name: z.string().describe("Timeline name or directory path"),
+    outputPath: z.string().optional().describe("Output file path. Defaults to <name>/timeline.json"),
+    fps: z.number().optional().describe("Frames per second (default: 30)"),
+  }),
+  async execute(args, ctx) {
+    const projectName = args.name === "." ? basename(ctx.workingDirectory) : basename(resolve(ctx.workingDirectory, args.name));
+    const project = new Project(projectName);
+    if (args.fps) project.setFrameRate(args.fps);
+
+    let outputPath: string;
+    if (args.outputPath) {
+      outputPath = resolve(ctx.workingDirectory, args.outputPath);
+    } else {
+      const dirPath = resolve(ctx.workingDirectory, args.name);
+      await mkdir(dirPath, { recursive: true });
+      outputPath = resolve(dirPath, TIMELINE_FILENAME);
+    }
+
+    await writeFile(outputPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
+    return {
+      success: true,
+      data: { name: projectName, outputPath },
+      humanLines: [`Created timeline "${projectName}" at ${outputPath}`],
+    };
+  },
+});
+
+export const timelineInfoTool = defineTool({
+  name: "timeline_info",
+  category: "timeline",
+  cost: "free",
+  description: "Get information about a timeline JSON file. Legacy *.vibe.json files are supported.",
+  schema: z.object({
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
+  }),
+  async execute(args, ctx) {
+    const { project } = await loadProject(args.projectPath, ctx.workingDirectory);
+    const meta = project.getMeta();
+    const info = {
+      name: meta.name,
+      aspectRatio: meta.aspectRatio,
+      frameRate: meta.frameRate,
+      duration: meta.duration,
+      sources: project.getSources().length,
+      tracks: project.getTracks().length,
+      clips: project.getClips().length,
+    };
+    return {
+      success: true,
+      data: info,
+      humanLines: [JSON.stringify(info, null, 2)],
+    };
+  },
+});
+
 export const timelineAddSourceTool = defineTool({
   name: "timeline_add_source",
   category: "timeline",
   cost: "free",
-  description: "Add a media source (video, audio, image) to the project",
+  description: "Add a media source (video, audio, image) to the timeline",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     mediaPath: z.string().describe("Path to the media file"),
     name: z.string().optional().describe("Optional name for the source"),
     duration: z.number().optional().describe("Duration of the media in seconds (default: 10)"),
@@ -48,7 +112,7 @@ export const timelineAddClipTool = defineTool({
   cost: "free",
   description: "Add a clip to the timeline from an existing source",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     sourceId: z.string().describe("ID of the media source"),
     trackId: z.string().optional().describe("ID of the track to add clip to (optional, uses first video track)"),
     startTime: z.number().optional().describe("Start time on timeline in seconds (default: 0)"),
@@ -80,7 +144,7 @@ export const timelineSplitClipTool = defineTool({
   cost: "free",
   description: "Split a clip at a specific time",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip to split"),
     splitTime: z.number().describe("Time to split at (relative to clip start) in seconds"),
   }),
@@ -99,7 +163,7 @@ export const timelineTrimClipTool = defineTool({
   cost: "free",
   description: "Trim a clip by adjusting its start or end",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip to trim"),
     trimStart: z.number().optional().describe("New source start offset in seconds"),
     trimEnd: z.number().optional().describe("New duration in seconds"),
@@ -119,7 +183,7 @@ export const timelineMoveClipTool = defineTool({
   cost: "free",
   description: "Move a clip to a new position or track",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip to move"),
     newStartTime: z.number().optional().describe("New start time on timeline in seconds"),
     newTrackId: z.string().optional().describe("ID of the target track (optional)"),
@@ -142,7 +206,7 @@ export const timelineDeleteClipTool = defineTool({
   cost: "free",
   description: "Delete a clip from the timeline",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip to delete"),
   }),
   async execute(args, ctx) {
@@ -161,7 +225,7 @@ export const timelineDuplicateClipTool = defineTool({
   cost: "free",
   description: "Duplicate a clip on the timeline (optionally at a new start time)",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip to duplicate"),
     newStartTime: z.number().optional().describe("Start time for the duplicated clip (optional, places after original)"),
   }),
@@ -180,7 +244,7 @@ export const timelineAddEffectTool = defineTool({
   cost: "free",
   description: "Add an effect to a clip",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     clipId: z.string().describe("ID of the clip"),
     effectType: z.string().describe("Effect type: fadeIn, fadeOut, blur, brightness, contrast, saturation, grayscale, sepia, invert"),
     startTime: z.number().optional().describe("Effect start time relative to clip (default: 0)"),
@@ -207,7 +271,7 @@ export const timelineAddTrackTool = defineTool({
   cost: "free",
   description: "Add a new track to the timeline",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     trackType: z.string().describe("Track type: video or audio"),
     name: z.string().optional().describe("Track name (optional)"),
   }),
@@ -234,7 +298,7 @@ export const timelineListTool = defineTool({
   cost: "free",
   description: "List all sources, tracks, and clips in a project",
   schema: z.object({
-    projectPath: z.string().describe("Path to the project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
   }),
   async execute(args, ctx) {
     const { project } = await loadProject(args.projectPath, ctx.workingDirectory);
@@ -252,6 +316,8 @@ export const timelineListTool = defineTool({
 });
 
 export const timelineTools: readonly AnyTool[] = [
+  timelineCreateTool as unknown as AnyTool,
+  timelineInfoTool as unknown as AnyTool,
   timelineAddSourceTool as unknown as AnyTool,
   timelineAddClipTool as unknown as AnyTool,
   timelineSplitClipTool as unknown as AnyTool,

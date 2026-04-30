@@ -10,7 +10,8 @@ import {
 import { join, resolve } from "path";
 import { tmpdir } from "os";
 
-const CLI = `npx tsx ${resolve(__dirname, "../index.ts")}`;
+const TSX = resolve(__dirname, "../../../../node_modules/.bin/tsx");
+const CLI = `${TSX} ${resolve(__dirname, "../index.ts")}`;
 
 describe("batch commands", () => {
   let tempDir: string;
@@ -25,7 +26,7 @@ describe("batch commands", () => {
 
     // Create project
     execSync(`${CLI} project create "Batch Test" -o "${projectFile}"`, {
-      cwd: process.cwd(),
+      cwd: tempDir,
       encoding: "utf-8",
     });
 
@@ -44,7 +45,7 @@ describe("batch commands", () => {
   describe("batch import", () => {
     it("imports all media files from directory", () => {
       execSync(`${CLI} batch import "${projectFile}" "${mediaDir}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -55,7 +56,7 @@ describe("batch commands", () => {
     it("filters files by extension", () => {
       execSync(
         `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -72,7 +73,7 @@ describe("batch commands", () => {
       writeFileSync(join(subDir, "nested.mp4"), "nested video");
 
       execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" -r`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -86,7 +87,7 @@ describe("batch commands", () => {
       // Import media first
       execSync(
         `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       // Set durations for sources
@@ -99,7 +100,7 @@ describe("batch commands", () => {
 
     it("concatenates all sources", () => {
       execSync(`${CLI} batch concat "${projectFile}" --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -115,7 +116,7 @@ describe("batch commands", () => {
 
     it("concatenates with gap between clips", () => {
       execSync(`${CLI} batch concat "${projectFile}" --all --gap 2`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -127,7 +128,7 @@ describe("batch commands", () => {
 
     it("concatenates from specific start time", () => {
       execSync(`${CLI} batch concat "${projectFile}" --all --start 10`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -143,7 +144,7 @@ describe("batch commands", () => {
       // Import and concat
       execSync(
         `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -153,7 +154,7 @@ describe("batch commands", () => {
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
 
       execSync(`${CLI} batch concat "${projectFile}" --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -163,7 +164,7 @@ describe("batch commands", () => {
 
     it("applies effect to all clips", () => {
       execSync(`${CLI} batch apply-effect "${projectFile}" fadeIn --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -177,7 +178,7 @@ describe("batch commands", () => {
     it("applies effect with custom duration", () => {
       execSync(
         `${CLI} batch apply-effect "${projectFile}" fadeOut --all -d 2`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -187,7 +188,7 @@ describe("batch commands", () => {
     it("applies effect to specific clips", () => {
       execSync(
         `${CLI} batch apply-effect "${projectFile}" blur ${clipIds[0]} ${clipIds[2]}`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -202,7 +203,7 @@ describe("batch commands", () => {
       // Import and concat
       execSync(
         `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -212,7 +213,7 @@ describe("batch commands", () => {
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
 
       execSync(`${CLI} batch concat "${projectFile}" --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
     });
@@ -222,7 +223,7 @@ describe("batch commands", () => {
       expect(before.state.clips).toHaveLength(3);
 
       execSync(`${CLI} batch remove-clips "${projectFile}" --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -235,7 +236,7 @@ describe("batch commands", () => {
       const clipId = before.state.clips[0].id;
 
       execSync(`${CLI} batch remove-clips "${projectFile}" ${clipId}`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -249,7 +250,7 @@ describe("batch commands", () => {
       // Import and concat
       execSync(
         `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: process.cwd(), encoding: "utf-8" }
+        { cwd: tempDir, encoding: "utf-8" }
       );
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
@@ -259,14 +260,14 @@ describe("batch commands", () => {
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
 
       execSync(`${CLI} batch concat "${projectFile}" --all`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
     });
 
     it("shows project statistics", () => {
       const output = execSync(`${CLI} batch info "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 

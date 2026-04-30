@@ -36,7 +36,8 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const CLI = `npx tsx ${resolve(here, "../index.ts")}`;
+const TSX = resolve(here, "../../../../node_modules/.bin/tsx");
+const CLI = `${TSX} ${resolve(here, "../index.ts")}`;
 
 interface SchemaListEntry {
   path: string;

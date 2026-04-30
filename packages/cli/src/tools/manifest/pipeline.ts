@@ -32,7 +32,7 @@ export const pipelineHighlightsTool = defineTool({
   schema: z.object({
     media: z.string().describe("Path to the input video file"),
     output: z.string().optional().describe("Output path for the highlights compilation"),
-    project: z.string().optional().describe("Path to .vibe.json project to add highlights to"),
+    project: z.string().optional().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file to add highlights to"),
     duration: z.number().optional().describe("Maximum duration per highlight in seconds (default: 30)"),
     count: z.number().optional().describe("Maximum number of highlights to extract (default: 5)"),
     threshold: z.number().optional().describe("Minimum confidence threshold 0-1 (default: 0.7)"),

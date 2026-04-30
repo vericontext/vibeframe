@@ -1,6 +1,6 @@
 /**
  * @module manifest/project
- * @description Project lifecycle (create, info). Both surfaces.
+ * @description Deprecated project lifecycle aliases for timeline JSON state.
  */
 
 import { z } from "zod";
@@ -14,10 +14,10 @@ export const projectCreateTool = defineTool({
   name: "project_create",
   category: "project",
   cost: "free",
-  description: "Create a new VibeFrame project file",
+  description: "Deprecated alias for creating low-level timeline state. Prefer timeline_create.",
   schema: z.object({
     name: z.string().describe("Project name"),
-    outputPath: z.string().optional().describe("Output file path (defaults to {name}.vibe.json)"),
+    outputPath: z.string().optional().describe("Output file path (defaults to {name}.vibe.json for legacy compatibility)"),
     width: z.number().optional().describe("Video width in pixels (default: 1920)"),
     height: z.number().optional().describe("Video height in pixels (default: 1080)"),
     fps: z.number().optional().describe("Frames per second (default: 30)"),
@@ -30,7 +30,7 @@ export const projectCreateTool = defineTool({
     return {
       success: true,
       data: { name: args.name, outputPath },
-      humanLines: [`Created project "${args.name}" at ${outputPath}`],
+      humanLines: [`Created legacy timeline project "${args.name}" at ${outputPath}`],
     };
   },
 });
@@ -39,9 +39,9 @@ export const projectInfoTool = defineTool({
   name: "project_info",
   category: "project",
   cost: "free",
-  description: "Get information about a VibeFrame project",
+  description: "Deprecated alias for timeline_info. Legacy *.vibe.json files remain supported.",
   schema: z.object({
-    projectPath: z.string().describe("Path to the .vibe.json project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
   }),
   async execute(args, ctx) {
     const { project } = await loadProject(args.projectPath, ctx.workingDirectory);

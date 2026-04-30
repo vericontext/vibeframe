@@ -11,7 +11,7 @@ export const prompts = [
       },
       {
         name: "projectPath",
-        description: "Path to the project file",
+        description: "Path to timeline.json or a legacy *.vibe.json file",
         required: false,
       },
     ],
@@ -136,7 +136,7 @@ export function getPrompt(
               type: "text",
               text: `Help me edit a video with the following instruction: "${args.instruction}"
 
-${args.projectPath ? `Project file: ${args.projectPath}` : "No project file specified."}
+${args.projectPath ? `Timeline file: ${args.projectPath}` : "No timeline file specified."}
 
 Please analyze the request and suggest the appropriate timeline tools to use. Consider:
 1. What clips need to be affected?

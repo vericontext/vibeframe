@@ -671,6 +671,33 @@ describe("Project", () => {
       expect(state1).not.toBe(state2);
       expect(state1).toEqual(state2);
     });
+
+    it("strips UI runtime fields from toJSON output", () => {
+      const json = project.toJSON();
+      // UI runtime state has no business in a CLI-generated file.
+      // Every CLI invocation is a fresh process — playhead/zoom/selection
+      // have no continuity to preserve.
+      expect(json.state).not.toHaveProperty("currentTime");
+      expect(json.state).not.toHaveProperty("isPlaying");
+      expect(json.state).not.toHaveProperty("zoom");
+      expect(json.state).not.toHaveProperty("scrollX");
+      expect(json.state).not.toHaveProperty("selectedClipIds");
+      expect(json.state).not.toHaveProperty("selectedTrackId");
+    });
+
+    it("re-injects UI defaults on fromJSON load", () => {
+      const json = project.toJSON();
+      const restored = Project.fromJSON(json);
+      const state = restored.getState();
+      // Internal state still has these fields — the Project class needs
+      // them for in-memory operations (removeClip touches selectedClipIds).
+      expect(state.currentTime).toBe(0);
+      expect(state.isPlaying).toBe(false);
+      expect(state.zoom).toBe(50);
+      expect(state.scrollX).toBe(0);
+      expect(state.selectedClipIds).toEqual([]);
+      expect(state.selectedTrackId).toBeNull();
+    });
   });
 
   describe("summary", () => {

@@ -19,7 +19,7 @@ operations.
 ```
 init → build → render          ← 90% users start here  (Tier 1)
 gen / edit / inspect / remix    ← one-shot media tools  (Tier 2)
-project / scene / timeline      ← lower-level authoring (Tier 3)
+scene / timeline                ← lower-level authoring (Tier 3)
 run / agent / schema / context  ← automation + agents   (Tier 4)
 ```
 
@@ -65,7 +65,7 @@ surface and were collapsed to long-only.
 
 | Tier | Commands | Per-call cost |
 |---|---|---|
-| **Free** | `detect *` · `edit silence-cut/fade/noise-reduce/text-overlay/interpolate` · `project *` · `timeline *` · `scene lint` / `list-styles` · `audio duck` | $0 |
+| **Free** | `detect *` · `edit silence-cut/fade/noise-reduce/text-overlay/interpolate` · `timeline *` · `scene lint` / `list-styles` · `audio duck` | $0 |
 | **Low** | `inspect *` · `audio transcribe` / `list-voices` · `generate image` | ~$0.01–0.10 |
 | **High** | `generate video` · `edit image` · `edit grade` / `reframe` / `speed-ramp` (Claude analysis) | ~$1–5 |
 | **Very High** | `remix highlights` / `auto-shorts` / `regenerate-scene` · `vibe build` (full pipeline) | ~$5–50+ |
@@ -141,7 +141,7 @@ Start the AI agent with natural language interface
 
 - `provider` *(string)* *(openai \| claude \| gemini \| ollama \| xai \| openrouter)* *(default: `"openai"`)* — LLM provider (openai, claude, gemini, ollama, xai, openrouter)
 - `model` *(string)* — Model to use (provider-specific)
-- `project` *(string)* — Project file to load
+- `project` *(string)* — Timeline file or directory to load
 - `verbose` *(boolean)* — Show verbose output including tool calls
 - `maxTurns` *(number)* *(default: `10`)* — Maximum turns per request
 - `input` *(string)* — Run a single query and exit (non-interactive)
@@ -497,7 +497,7 @@ Fill timeline gaps with AI-generated video (Kling image-to-video)
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `provider` *(string)* *(default: `"kling"`)* — AI provider (kling)
 - `output` *(string)* — Output project path (default: overwrite)
 - `dir` *(string)* — Directory to save generated videos
@@ -710,7 +710,7 @@ Get AI edit suggestions using Gemini
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `instruction` *(string)* **required** — Natural language instruction
 - `apiKey` *(string)* — Google API key (or set GOOGLE_API_KEY env)
 - `apply` *(boolean)* — Apply the first suggestion automatically
@@ -888,40 +888,6 @@ Regenerate a specific scene in a script-to-video output directory
 - `referenceScene` *(string)* — Use another scene's image as reference for character consistency
 - `dryRun` *(boolean)* — Preview parameters without executing
 
-### `project`
-
-#### `vibe project create`
-
-Create a new project
-
-**Parameters:**
-
-- `name` *(string)* **required** — Project name or path (e.g., 'my-project' or 'output/my-project')
-- `output` *(string)* — Output file path (overrides name-based path)
-- `ratio` *(string)* *(16:9 \| 9:16 \| 1:1 \| 4:5)* *(default: `"16:9"`)* — Aspect ratio (16:9, 9:16, 1:1, 4:5)
-- `fps` *(number)* *(default: `30`)* — Frame rate
-- `dryRun` *(boolean)* — Preview parameters without executing
-
-#### `vibe project info`
-
-Show project information
-
-**Parameters:**
-
-- `file` *(string)* **required** — Project file path
-
-#### `vibe project set`
-
-Update project settings
-
-**Parameters:**
-
-- `file` *(string)* **required** — Project file path
-- `name` *(string)* — Project name
-- `ratio` *(string)* *(16:9 \| 9:16 \| 1:1 \| 4:5)* — Aspect ratio (16:9, 9:16, 1:1, 4:5)
-- `fps` *(number)* — Frame rate
-- `dryRun` *(boolean)* — Preview parameters without executing
-
 ### `scene`
 
 #### `vibe scene add`
@@ -996,7 +962,7 @@ Add a clip to the timeline
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `source-id` *(string)* **required** — Source ID to use
 - `track` *(string)* — Track ID (defaults to first matching track)
 - `start` *(number)* *(default: `0`)* — Start time in timeline
@@ -1010,7 +976,7 @@ Add an effect to a clip
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID
 - `effect-type` *(string)* **required** — Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)
 - `start` *(number)* *(default: `0`)* — Effect start time (relative to clip)
@@ -1020,11 +986,11 @@ Add an effect to a clip
 
 #### `vibe timeline add-source`
 
-Add a media source to the project
+Add a media source to the timeline
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `media` *(string)* **required** — Media file path
 - `name` *(string)* — Source name (defaults to filename)
 - `type` *(string)* *(video \| audio \| image \| lottie)* — Media type (video, audio, image, lottie)
@@ -1037,9 +1003,21 @@ Add a new track
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `type` *(string)* **required** — Track type (video, audio)
 - `name` *(string)* — Track name
+- `dryRun` *(boolean)* — Preview parameters without executing
+
+#### `vibe timeline create`
+
+Create a low-level timeline JSON file
+
+**Parameters:**
+
+- `name` *(string)* **required** — Timeline name or path (e.g., 'my-video' or 'output/my-video')
+- `output` *(string)* — Output file path (overrides name-based path)
+- `ratio` *(string)* *(16:9 \| 9:16 \| 1:1 \| 4:5)* *(default: `"16:9"`)* — Aspect ratio (16:9, 9:16, 1:1, 4:5)
+- `fps` *(number)* *(default: `30`)* — Frame rate
 - `dryRun` *(boolean)* — Preview parameters without executing
 
 #### `vibe timeline delete-clip`
@@ -1048,7 +1026,7 @@ Delete a clip from the timeline
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID to delete
 - `dryRun` *(boolean)* — Preview parameters without executing
 
@@ -1058,10 +1036,18 @@ Duplicate a clip
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID to duplicate
 - `time` *(number)* — Start time for duplicate (default: after original)
 - `dryRun` *(boolean)* — Preview parameters without executing
+
+#### `vibe timeline info`
+
+Show timeline information
+
+**Parameters:**
+
+- `file` *(string)* **required** — Timeline file or directory
 
 #### `vibe timeline list`
 
@@ -1069,7 +1055,7 @@ List timeline contents
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `sources` *(boolean)* — List sources only
 - `tracks` *(boolean)* — List tracks only
 - `clips` *(boolean)* — List clips only
@@ -1080,10 +1066,22 @@ Move a clip to a new position
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID to move
 - `time` *(number)* — New start time
 - `track` *(string)* — Move to different track
+- `dryRun` *(boolean)* — Preview parameters without executing
+
+#### `vibe timeline set`
+
+Update timeline settings
+
+**Parameters:**
+
+- `file` *(string)* **required** — Timeline file or directory
+- `name` *(string)* — Timeline name
+- `ratio` *(string)* *(16:9 \| 9:16 \| 1:1 \| 4:5)* — Aspect ratio (16:9, 9:16, 1:1, 4:5)
+- `fps` *(number)* — Frame rate
 - `dryRun` *(boolean)* — Preview parameters without executing
 
 #### `vibe timeline split-clip`
@@ -1092,7 +1090,7 @@ Split a clip at a specific time
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID to split
 - `time` *(number)* *(default: `0`)* — Split time relative to clip start
 - `dryRun` *(boolean)* — Preview parameters without executing
@@ -1103,7 +1101,7 @@ Trim a clip
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-id` *(string)* **required** — Clip ID
 - `start` *(number)* — New start time
 - `duration` *(number)* — New duration
@@ -1153,7 +1151,7 @@ Apply an effect to multiple clips
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `effect-type` *(string)* **required** — Effect type (fadeIn, fadeOut, blur, etc.)
 - `clip-ids` *(array)* — Clip IDs to apply effect to (or --all)
 - `all` *(boolean)* *(default: `false`)* — Apply to all clips
@@ -1168,7 +1166,7 @@ Concatenate multiple sources into sequential clips
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `source-ids` *(array)* — Source IDs to concatenate (or --all)
 - `all` *(boolean)* *(default: `false`)* — Concatenate all sources in order
 - `track` *(string)* — Track to place clips on
@@ -1182,7 +1180,7 @@ Import multiple media files from a directory
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `directory` *(string)* **required** — Directory containing media files
 - `recursive` *(boolean)* *(default: `false`)* — Search subdirectories
 - `duration` *(number)* *(default: `5`)* — Default duration for images
@@ -1195,7 +1193,7 @@ Show batch processing statistics
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 
 #### `vibe batch remove-clips`
 
@@ -1203,7 +1201,7 @@ Remove multiple clips from the timeline
 
 **Parameters:**
 
-- `project` *(string)* **required** — Project file path
+- `project` *(string)* **required** — Timeline file or directory
 - `clip-ids` *(array)* — Clip IDs to remove
 - `all` *(boolean)* *(default: `false`)* — Remove all clips
 - `track` *(string)* — Remove clips from specific track only

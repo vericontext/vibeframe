@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(82);
+      expect(tools.length).toBe(84);
     });
 
     it("should register all project tools (5)", () => {
@@ -573,7 +573,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const runTools = allTools.filter((t) => t.name === "run");
 
       expect(projectTools.length).toBe(5);
-      expect(timelineTools.length).toBe(11);  // Added timeline_clear
+      expect(timelineTools.length).toBe(13);  // Includes canonical timeline_create/info
       expect(fsTools.length).toBe(4);
       expect(mediaTools.length).toBe(12);  // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
       expect(generateTools.length).toBe(13);  // +background, video_status/cancel/extend, music_status (Phase B v0.64)
@@ -587,9 +587,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(projectFlowTools.length).toBe(3);  // v0.75: init/build/render top-level
       expect(walkthroughTools.length).toBe(1);  // v0.71: universal slash-command equivalent
 
-      // 5+11+4+12+13+15+4+3+0+3+3+5+3+1 = 82. Same total as v0.74 — the
-      // rename was zero-sum across surfaces. (The bare `run` tool is
-      // MCP-only, so it doesn't show up in the agent registry total.)
+      // 5+13+4+12+13+15+4+3+0+3+3+5+3+1 = 84.
+      // timeline_create/info are canonical; project_create/info remain
+      // compatibility aliases until v1.0.
       const totalTools = projectTools.length +
           timelineTools.length +
           fsTools.length +
@@ -604,7 +604,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           sceneTools.length +
           projectFlowTools.length +
           walkthroughTools.length;
-      expect(totalTools).toBe(82);
+      expect(totalTools).toBe(84);
     });
   });
 });

@@ -4,7 +4,8 @@ import { readFileSync, existsSync, mkdtempSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
 
-const CLI = `npx tsx ${resolve(__dirname, "../index.ts")}`;
+const TSX = resolve(__dirname, "../../../../node_modules/.bin/tsx");
+const CLI = `${TSX} ${resolve(__dirname, "../index.ts")}`;
 
 describe("project commands", () => {
   let tempDir: string;
@@ -20,9 +21,18 @@ describe("project commands", () => {
   });
 
   describe("project create", () => {
+    it("keeps the legacy default filename for compatibility", () => {
+      execSync(`${CLI} project create "Legacy Default"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      expect(existsSync(join(tempDir, "project.vibe.json"))).toBe(true);
+    });
+
     it("creates a project file with given name", () => {
       execSync(`${CLI} project create "My Project" -o "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -35,7 +45,7 @@ describe("project commands", () => {
 
     it("creates project with custom aspect ratio", () => {
       execSync(`${CLI} project create "Vertical" -o "${projectFile}" -r 9:16`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -45,7 +55,7 @@ describe("project commands", () => {
 
     it("creates project with custom frame rate", () => {
       execSync(`${CLI} project create "HFR" -o "${projectFile}" --fps 60`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -55,7 +65,7 @@ describe("project commands", () => {
 
     it("creates project with default tracks", () => {
       execSync(`${CLI} project create "Test" -o "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -69,14 +79,14 @@ describe("project commands", () => {
   describe("project info", () => {
     beforeEach(() => {
       execSync(`${CLI} project create "Info Test" -o "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
     });
 
     it("displays project information", () => {
       const output = execSync(`${CLI} project info "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -89,14 +99,14 @@ describe("project commands", () => {
   describe("project set", () => {
     beforeEach(() => {
       execSync(`${CLI} project create "Original" -o "${projectFile}"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
     });
 
     it("updates project name", () => {
       execSync(`${CLI} project set "${projectFile}" --name "Updated Name"`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -106,7 +116,7 @@ describe("project commands", () => {
 
     it("updates aspect ratio", () => {
       execSync(`${CLI} project set "${projectFile}" -r 1:1`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 
@@ -116,7 +126,7 @@ describe("project commands", () => {
 
     it("updates frame rate", () => {
       execSync(`${CLI} project set "${projectFile}" --fps 24`, {
-        cwd: process.cwd(),
+        cwd: tempDir,
         encoding: "utf-8",
       });
 

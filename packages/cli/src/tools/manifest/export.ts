@@ -1,6 +1,6 @@
 /**
  * @module manifest/export
- * @description Export tool — renders a `.vibe.json` project to MP4/WebM/MOV
+ * @description Export tool — renders a timeline JSON file to MP4/WebM/MOV
  * via FFmpeg.
  */
 
@@ -14,9 +14,9 @@ export const exportVideoTool = defineTool({
   category: "export",
   cost: "free",
   description:
-    "Export a VibeFrame project to a video file (MP4, WebM, or MOV). Requires FFmpeg.",
+    "Export a VibeFrame timeline to a video file (MP4, WebM, or MOV). Requires FFmpeg.",
   schema: z.object({
-    projectPath: z.string().describe("Path to the .vibe.json project file"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     outputPath: z.string().describe("Output video file path (e.g., output.mp4)"),
     preset: z.enum(["draft", "standard", "high", "ultra"]).optional().describe("Quality preset (default: standard)"),
     format: z.enum(["mp4", "webm", "mov"]).optional().describe("Output format (default: mp4)"),

@@ -170,6 +170,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 
 | Tool | Description |
 |------|-------------|
+| `timeline_create` / `timeline_info` | Create or inspect low-level timeline JSON state |
 | `timeline_add_source` | Import media (video/audio/image) |
 | `timeline_add_clip` / `_split_clip` / `_trim_clip` | Build & shape clips |
 | `timeline_move_clip` / `_duplicate_clip` / `_delete_clip` | Arrange clips |
@@ -177,12 +178,12 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `timeline_add_effect` | Apply effect (fade, blur, …) |
 | `timeline_list` | List all project contents |
 
-### Project & Export (3)
+### Compatibility & Export
 
 | Tool | Description |
 |------|-------------|
-| `project_create` / `project_info` | `.vibe.json` lifecycle |
-| `export_video` | Export project to MP4/WebM/MOV via FFmpeg |
+| `project_create` / `project_info` | Deprecated compatibility aliases for timeline JSON state |
+| `export_video` | Export timeline JSON to MP4/WebM/MOV via FFmpeg |
 
 ### Remix & pipelines (4)
 
@@ -199,7 +200,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 |------|-------------|
 | `walkthrough` | Cross-host guides for scene and pipeline workflows |
 
-> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`, `vibe project set`) that are intentionally not exposed via MCP.
+> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`, `vibe timeline set`) that are intentionally not exposed via MCP.
 
 ## Resources
 
@@ -237,7 +238,7 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 | `FAL_KEY` | Seedance image-to-video |
 | `RUNWAY_API_SECRET` | Runway video |
 | `KLING_API_KEY` | Kling video |
-| `VIBE_PROJECT_PATH` | Default `.vibe.json` path for resources |
+| `VIBE_PROJECT_PATH` | Default timeline JSON path for resources |
 
 ## Requirements
 

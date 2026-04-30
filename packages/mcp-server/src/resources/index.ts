@@ -79,7 +79,7 @@ export async function readResource(
           uri,
           mimeType: "application/json",
           text: JSON.stringify({
-            error: "No project loaded. Set VIBE_PROJECT_PATH environment variable or use project_create tool.",
+            error: "No timeline loaded. Set VIBE_PROJECT_PATH to timeline.json or use timeline_create.",
           }),
         },
       ],

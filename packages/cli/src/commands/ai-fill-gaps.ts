@@ -23,7 +23,7 @@ export function registerFillGapsCommand(aiCommand: Command): void {
   aiCommand
     .command("fill-gaps")
     .description("Fill timeline gaps with AI-generated video (Kling image-to-video)")
-    .argument("<project>", "Project file path")
+    .argument("<project>", "Timeline file or directory")
     .option("-p, --provider <provider>", "AI provider (kling)", "kling")
     .option("-o, --output <path>", "Output project path (default: overwrite)")
     .option("-d, --dir <path>", "Directory to save generated videos")

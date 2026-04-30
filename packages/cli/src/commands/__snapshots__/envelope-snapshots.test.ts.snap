@@ -24,7 +24,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
         "type": "string",
       },
       "project": {
-        "description": "Project file to load",
+        "description": "Timeline file or directory to load",
         "type": "string",
       },
       "provider": {
@@ -316,7 +316,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch apply-effect --de
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "start": {
@@ -355,7 +355,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch concat --describe
         "type": "number",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "source-ids": {
@@ -407,7 +407,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch import --describe
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "recursive": {
@@ -432,7 +432,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch info --describe 1
   "parameters": {
     "properties": {
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
     },
@@ -467,7 +467,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch remove-clips --de
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "track": {
@@ -836,7 +836,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit fill-gaps --descri
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "prompt": {
@@ -2354,7 +2354,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --descr
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
     },
@@ -2455,109 +2455,6 @@ exports[`CLI --describe schemas (drift detection) > vibe media info --describe 1
     "properties": {
       "file": {
         "description": "Media file path",
-        "type": "string",
-      },
-    },
-    "required": [
-      "file",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe project create --describe 1`] = `
-{
-  "description": "Create a new project",
-  "name": "project.create",
-  "parameters": {
-    "properties": {
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "fps": {
-        "default": 30,
-        "description": "Frame rate",
-        "type": "number",
-      },
-      "name": {
-        "description": "Project name or path (e.g., 'my-project' or 'output/my-project')",
-        "type": "string",
-      },
-      "output": {
-        "description": "Output file path (overrides name-based path)",
-        "type": "string",
-      },
-      "ratio": {
-        "default": "16:9",
-        "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
-        "enum": [
-          "16:9",
-          "9:16",
-          "1:1",
-          "4:5",
-        ],
-        "type": "string",
-      },
-    },
-    "required": [
-      "name",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe project info --describe 1`] = `
-{
-  "description": "Show project information",
-  "name": "project.info",
-  "parameters": {
-    "properties": {
-      "file": {
-        "description": "Project file path",
-        "type": "string",
-      },
-    },
-    "required": [
-      "file",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe project set --describe 1`] = `
-{
-  "description": "Update project settings",
-  "name": "project.set",
-  "parameters": {
-    "properties": {
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "file": {
-        "description": "Project file path",
-        "type": "string",
-      },
-      "fps": {
-        "description": "Frame rate",
-        "type": "number",
-      },
-      "name": {
-        "description": "Project name",
-        "type": "string",
-      },
-      "ratio": {
-        "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
-        "enum": [
-          "16:9",
-          "9:16",
-          "1:1",
-          "4:5",
-        ],
         "type": "string",
       },
     },
@@ -3199,7 +3096,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-clip --des
         "type": "number",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "source-id": {
@@ -3253,7 +3150,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --d
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "start": {
@@ -3274,7 +3171,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --d
 
 exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --describe 1`] = `
 {
-  "description": "Add a media source to the project",
+  "description": "Add a media source to the timeline",
   "name": "timeline.add-source",
   "parameters": {
     "properties": {
@@ -3295,7 +3192,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --d
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "type": {
@@ -3333,7 +3230,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --de
         "type": "string",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "type": {
@@ -3344,6 +3241,49 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --de
     "required": [
       "project",
       "type",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe timeline create --describe 1`] = `
+{
+  "description": "Create a low-level timeline JSON file",
+  "name": "timeline.create",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "fps": {
+        "default": 30,
+        "description": "Frame rate",
+        "type": "number",
+      },
+      "name": {
+        "description": "Timeline name or path (e.g., 'my-video' or 'output/my-video')",
+        "type": "string",
+      },
+      "output": {
+        "description": "Output file path (overrides name-based path)",
+        "type": "string",
+      },
+      "ratio": {
+        "default": "16:9",
+        "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
+        "type": "string",
+      },
+    },
+    "required": [
+      "name",
     ],
     "type": "object",
   },
@@ -3365,7 +3305,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline delete-clip --
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
     },
@@ -3393,7 +3333,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "time": {
@@ -3404,6 +3344,25 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip
     "required": [
       "project",
       "clip-id",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe timeline info --describe 1`] = `
+{
+  "description": "Show timeline information",
+  "name": "timeline.info",
+  "parameters": {
+    "properties": {
+      "file": {
+        "description": "Timeline file or directory",
+        "type": "string",
+      },
+    },
+    "required": [
+      "file",
     ],
     "type": "object",
   },
@@ -3421,7 +3380,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline list --describ
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "sources": {
@@ -3456,7 +3415,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --de
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "time": {
@@ -3471,6 +3430,47 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --de
     "required": [
       "project",
       "clip-id",
+    ],
+    "type": "object",
+  },
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe timeline set --describe 1`] = `
+{
+  "description": "Update timeline settings",
+  "name": "timeline.set",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Preview parameters without executing",
+        "type": "boolean",
+      },
+      "file": {
+        "description": "Timeline file or directory",
+        "type": "string",
+      },
+      "fps": {
+        "description": "Frame rate",
+        "type": "number",
+      },
+      "name": {
+        "description": "Timeline name",
+        "type": "string",
+      },
+      "ratio": {
+        "description": "Aspect ratio (16:9, 9:16, 1:1, 4:5)",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:5",
+        ],
+        "type": "string",
+      },
+    },
+    "required": [
+      "file",
     ],
     "type": "object",
   },
@@ -3492,7 +3492,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline split-clip --d
         "type": "boolean",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "time": {
@@ -3529,7 +3529,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline trim-clip --de
         "type": "number",
       },
       "project": {
-        "description": "Project file path",
+        "description": "Timeline file or directory",
         "type": "string",
       },
       "start": {

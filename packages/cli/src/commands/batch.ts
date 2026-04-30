@@ -43,7 +43,7 @@ function isMediaFile(filePath: string): boolean {
 batchCommand
   .command("import")
   .description("Import multiple media files from a directory")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<directory>", "Directory containing media files")
   .option("-r, --recursive", "Search subdirectories", false)
   .option("-d, --duration <seconds>", "Default duration for images", "5")
@@ -156,7 +156,7 @@ batchCommand
 batchCommand
   .command("concat")
   .description("Concatenate multiple sources into sequential clips")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("[source-ids...]", "Source IDs to concatenate (or --all)")
   .option("--all", "Concatenate all sources in order", false)
   .option("--track <track-id>", "Track to place clips on")
@@ -266,7 +266,7 @@ batchCommand
 batchCommand
   .command("apply-effect")
   .description("Apply an effect to multiple clips")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<effect-type>", "Effect type (fadeIn, fadeOut, blur, etc.)")
   .argument("[clip-ids...]", "Clip IDs to apply effect to (or --all)")
   .option("--all", "Apply to all clips", false)
@@ -371,7 +371,7 @@ batchCommand
 batchCommand
   .command("remove-clips")
   .description("Remove multiple clips from the timeline")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("[clip-ids...]", "Clip IDs to remove")
   .option("--all", "Remove all clips", false)
   .option("--track <track-id>", "Remove clips from specific track only")
@@ -451,7 +451,7 @@ batchCommand
 batchCommand
   .command("info")
   .description("Show batch processing statistics")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .action(async (projectPath: string) => {
     const spinner = ora("Loading project...").start();
 

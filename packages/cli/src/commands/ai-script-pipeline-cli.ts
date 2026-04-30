@@ -43,7 +43,7 @@ aiCommand
     const startedAt = Date.now();
     try {
       const outputDir = resolve(process.cwd(), projectDir);
-      const projectPath = resolve(outputDir, "project.vibe.json");
+      const projectPath = resolve(outputDir, "timeline.json");
 
       if (!existsSync(outputDir)) {
         exitWithError(notFoundError(outputDir));
@@ -164,11 +164,11 @@ aiCommand
       }
       spinner.succeed(chalk.green(`Regenerated ${result.regeneratedScenes.length} scene(s)`));
 
-      // Sync project.vibe.json clip durations with the updated storyboard.
+      // Sync timeline.json clip durations with the updated storyboard.
       // The library rewrites segment.duration when narration changes; we
       // re-read it here so every clip's startTime/duration line up.
       if (existsSync(projectPath) && result.regeneratedScenes.length > 0) {
-        const updateSpinner = ora("📦 Updating project file...").start();
+        const updateSpinner = ora("Updating timeline file...").start();
         try {
           const updatedContent = await readFile(storyboardPath!, "utf-8");
           const updatedSegments: StoryboardSegment[] = storyboardIsYaml
@@ -214,9 +214,9 @@ aiCommand
           }
 
           await writeFile(projectPath, JSON.stringify(projectData, null, 2), "utf-8");
-          updateSpinner.succeed(chalk.green("Updated project file (all clips synced)"));
+          updateSpinner.succeed(chalk.green("Updated timeline file (all clips synced)"));
         } catch (err) {
-          updateSpinner.warn(chalk.yellow(`Could not update project file: ${err}`));
+          updateSpinner.warn(chalk.yellow(`Could not update timeline file: ${err}`));
         }
       }
 

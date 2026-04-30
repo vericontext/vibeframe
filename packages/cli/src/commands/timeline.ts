@@ -8,26 +8,65 @@ import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
 import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
+import { resolveTimelineFile } from "../utils/project-resolver.js";
+import {
+  executeTimelineCreate,
+  executeTimelineInfo,
+  executeTimelineSet,
+} from "./_shared/timeline-project.js";
 
 export const timelineCommand = new Command("timeline")
-  .description("Timeline editing commands")
+  .description("Low-level timeline JSON commands")
   .addHelpText("after", `
 Examples:
-  $ vibe timeline add-source project.vibe.json video.mp4         # Returns source ID
-  $ vibe timeline add-clip project.vibe.json <source-id>         # Add clip from source
-  $ vibe timeline trim-clip project.vibe.json <clip-id> --start 5 --end 30
-  $ vibe timeline split-clip project.vibe.json <clip-id> --time 10
-  $ vibe timeline list project.vibe.json --json
-  $ vibe timeline delete-clip project.vibe.json <clip-id>
+  $ vibe timeline create my-video                               # my-video/timeline.json
+  $ vibe timeline add-source my-video video.mp4                 # Returns source ID
+  $ vibe timeline add-clip my-video <source-id>                 # Add clip from source
+  $ vibe timeline trim-clip my-video <clip-id> --start 5 --end 30
+  $ vibe timeline split-clip my-video <clip-id> --time 10
+  $ vibe timeline list my-video --json
+  $ vibe timeline delete-clip my-video <clip-id>
 
-Typical workflow: create project → add-source → add-clip → trim-clip/split-clip → export
+Typical workflow: create → add-source → add-clip → trim-clip/split-clip → export
 Cost: Free (no API keys needed).
 Run 'vibe schema timeline.<command>' for structured parameter info.`);
 
 timelineCommand
+  .command("create")
+  .description("Create a low-level timeline JSON file")
+  .argument("<name>", "Timeline name or path (e.g., 'my-video' or 'output/my-video')")
+  .option("-o, --output <path>", "Output file path (overrides name-based path)")
+  .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)", "16:9")
+  .option("--fps <fps>", "Frame rate", "30")
+  .option("--dry-run", "Preview parameters without executing")
+  .action(async (name: string, options) => {
+    await executeTimelineCreate(name, options, "timeline create", Date.now());
+  });
+
+timelineCommand
+  .command("info")
+  .description("Show timeline information")
+  .argument("<file>", "Timeline file or directory")
+  .action(async (file: string) => {
+    await executeTimelineInfo(file, "timeline info", Date.now());
+  });
+
+timelineCommand
+  .command("set")
+  .description("Update timeline settings")
+  .argument("<file>", "Timeline file or directory")
+  .option("--name <name>", "Timeline name")
+  .option("-r, --ratio <ratio>", "Aspect ratio (16:9, 9:16, 1:1, 4:5)")
+  .option("--fps <fps>", "Frame rate")
+  .option("--dry-run", "Preview parameters without executing")
+  .action(async (file: string, options) => {
+    await executeTimelineSet(file, options, "timeline set", Date.now());
+  });
+
+timelineCommand
   .command("add-source")
-  .description("Add a media source to the project")
-  .argument("<project>", "Project file path")
+  .description("Add a media source to the timeline")
+  .argument("<project>", "Timeline file or directory")
   .argument("<media>", "Media file path")
   .option("--name <name>", "Source name (defaults to filename)")
   .option("--type <type>", "Media type (video, audio, image, lottie)")
@@ -56,7 +95,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -107,7 +146,7 @@ timelineCommand
 timelineCommand
   .command("add-clip")
   .description("Add a clip to the timeline")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<source-id>", "Source ID to use")
   .option("--track <id>", "Track ID (defaults to first matching track)")
   .option("--start <seconds>", "Start time in timeline", "0")
@@ -141,7 +180,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -212,7 +251,7 @@ timelineCommand
 timelineCommand
   .command("add-track")
   .description("Add a new track")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<type>", "Track type (video, audio)")
   .option("--name <name>", "Track name")
   .option("--dry-run", "Preview parameters without executing")
@@ -237,7 +276,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -285,7 +324,7 @@ timelineCommand
 timelineCommand
   .command("add-effect")
   .description("Add an effect to a clip")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID")
   .argument("<effect-type>", "Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)")
   .option("--start <seconds>", "Effect start time (relative to clip)", "0")
@@ -318,7 +357,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -379,7 +418,7 @@ timelineCommand
 timelineCommand
   .command("trim-clip")
   .description("Trim a clip")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID")
   .option("--start <seconds>", "New start time")
   .option("--duration <seconds>", "New duration")
@@ -408,7 +447,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -457,14 +496,14 @@ timelineCommand
 timelineCommand
   .command("list")
   .description("List timeline contents")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .option("--sources", "List sources only")
   .option("--tracks", "List tracks only")
   .option("--clips", "List clips only")
   .action(async (projectPath: string, options) => {
     const startedAt = Date.now();
     try {
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       if (!existsSync(filePath)) {
         exitWithError(notFoundError(projectPath));
       }
@@ -576,7 +615,7 @@ timelineCommand
 timelineCommand
   .command("split-clip")
   .description("Split a clip at a specific time")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID to split")
   .option("--time <seconds>", "Split time relative to clip start", "0")
   .option("--dry-run", "Preview parameters without executing")
@@ -603,7 +642,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -656,7 +695,7 @@ timelineCommand
 timelineCommand
   .command("duplicate-clip")
   .description("Duplicate a clip")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID to duplicate")
   .option("--time <seconds>", "Start time for duplicate (default: after original)")
   .option("--dry-run", "Preview parameters without executing")
@@ -683,7 +722,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -733,7 +772,7 @@ timelineCommand
 timelineCommand
   .command("delete-clip")
   .description("Delete a clip from the timeline")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID to delete")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options: { dryRun?: boolean }) => {
@@ -758,7 +797,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -800,7 +839,7 @@ timelineCommand
 timelineCommand
   .command("move-clip")
   .description("Move a clip to a new position")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID to move")
   .option("--time <seconds>", "New start time")
   .option("--track <track-id>", "Move to different track")
@@ -830,7 +869,7 @@ timelineCommand
         return;
       }
 
-      const filePath = resolve(process.cwd(), projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);

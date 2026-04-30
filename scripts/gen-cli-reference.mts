@@ -91,7 +91,7 @@ operations.
 \`\`\`
 init → build → render          ← 90% users start here  (Tier 1)
 gen / edit / inspect / remix    ← one-shot media tools  (Tier 2)
-project / scene / timeline      ← lower-level authoring (Tier 3)
+scene / timeline                ← lower-level authoring (Tier 3)
 run / agent / schema / context  ← automation + agents   (Tier 4)
 \`\`\`
 `;
@@ -140,7 +140,7 @@ const COST_TIERS = `## Cost tiers
 
 | Tier | Commands | Per-call cost |
 |---|---|---|
-| **Free** | \`detect *\` · \`edit silence-cut/fade/noise-reduce/text-overlay/interpolate\` · \`project *\` · \`timeline *\` · \`scene lint\` / \`list-styles\` · \`audio duck\` | $0 |
+| **Free** | \`detect *\` · \`edit silence-cut/fade/noise-reduce/text-overlay/interpolate\` · \`timeline *\` · \`scene lint\` / \`list-styles\` · \`audio duck\` | $0 |
 | **Low** | \`inspect *\` · \`audio transcribe\` / \`list-voices\` · \`generate image\` | ~$0.01–0.10 |
 | **High** | \`generate video\` · \`edit image\` · \`edit grade\` / \`reframe\` / \`speed-ramp\` (Claude analysis) | ~$1–5 |
 | **Very High** | \`remix highlights\` / \`auto-shorts\` / \`regenerate-scene\` · \`vibe build\` (full pipeline) | ~$5–50+ |

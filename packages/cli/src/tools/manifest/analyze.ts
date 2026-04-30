@@ -120,7 +120,7 @@ export const analyzeSuggestTool = defineTool({
   description:
     "Get natural-language edit suggestions for a project from Gemini. Returns suggestions array with type/confidence/clipIds. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
   schema: z.object({
-    projectPath: z.string().describe("Project file path (.vibe.json)"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     instruction: z.string().describe("Natural-language instruction (e.g. 'trim all clips to 5 seconds', 'add transitions between every clip')"),
     apply: z.boolean().optional().describe("Apply the first suggestion in place"),
   }),

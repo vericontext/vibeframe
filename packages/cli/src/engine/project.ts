@@ -22,10 +22,24 @@ export const generateId = (): Id => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 };
 
+/**
+ * Persisted timeline shape — what gets written to disk.
+ *
+ * UI runtime fields (currentTime, isPlaying, zoom, scrollX, selectedClipIds,
+ * selectedTrackId) are stripped on save and re-injected with defaults on
+ * load. They have no business in a CLI-generated project file: every CLI
+ * command starts a fresh process, so playhead / zoom / selection have no
+ * continuity to preserve.
+ */
+export type PersistedTimelineState = Omit<
+  TimelineState,
+  "currentTime" | "isPlaying" | "zoom" | "scrollX" | "selectedClipIds" | "selectedTrackId"
+>;
+
 /** Project file format */
 export interface ProjectFile {
   version: string;
-  state: TimelineState;
+  state: PersistedTimelineState;
 }
 
 /** Create default project state */
@@ -396,9 +410,16 @@ export class Project {
   // ============ Serialization ============
 
   toJSON(): ProjectFile {
+    const state = this.getState();
     return {
       version: "1.0.0",
-      state: this.getState(),
+      state: {
+        project: state.project,
+        tracks: state.tracks,
+        clips: state.clips,
+        sources: state.sources,
+        transitions: state.transitions,
+      },
     };
   }
 
@@ -407,7 +428,16 @@ export class Project {
     // Convert date strings back to Date objects
     data.state.project.createdAt = new Date(data.state.project.createdAt);
     data.state.project.updatedAt = new Date(data.state.project.updatedAt);
-    project.state = data.state;
+    // Re-inject UI runtime defaults — they were stripped on save.
+    project.state = {
+      ...data.state,
+      currentTime: 0,
+      isPlaying: false,
+      zoom: 50,
+      scrollX: 0,
+      selectedClipIds: [],
+      selectedTrackId: null,
+    };
     return project;
   }
 

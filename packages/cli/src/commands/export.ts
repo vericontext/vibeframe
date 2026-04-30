@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { readFile, access, stat } from "node:fs/promises";
+import { readFile, access } from "node:fs/promises";
 import { resolve, basename } from "node:path";
 import { spawn } from "node:child_process";
 import chalk from "chalk";
@@ -8,24 +8,13 @@ import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, ffprobeDuration } from "../utils/exec-safe.js";
 import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
+import { resolveTimelineFile } from "../utils/project-resolver.js";
 
-/**
- * Resolve project file path - handles both file paths and directory paths
- * If path is a directory, looks for project.vibe.json inside
- */
-async function resolveProjectPath(inputPath: string): Promise<string> {
-  const filePath = resolve(process.cwd(), inputPath);
-
-  try {
-    const stats = await stat(filePath);
-    if (stats.isDirectory()) {
-      return resolve(filePath, "project.vibe.json");
-    }
-  } catch {
-    // Path doesn't exist or other error - let readFile handle it
-  }
-
-  return filePath;
+function timelineBaseName(path: string): string {
+  const name = basename(path);
+  if (name.endsWith(".vibe.json")) return name.slice(0, -".vibe.json".length);
+  if (name.endsWith(".json")) return name.slice(0, -".json".length);
+  return basename(path, ".vibe.json");
 }
 
 /**
@@ -155,7 +144,7 @@ export async function runExport(
     }
 
     // Load project
-    const filePath = await resolveProjectPath(projectPath);
+    const filePath = await resolveTimelineFile(projectPath);
     const content = await readFile(filePath, "utf-8");
     const data: ProjectFile = JSON.parse(content);
     const project = Project.fromJSON(data);
@@ -228,7 +217,7 @@ export async function runExport(
 
 export const exportCommand = new Command("export")
   .description("Export project to video file")
-  .argument("<project>", "Project file path")
+  .argument("<project>", "Timeline file or directory")
   .option("-o, --output <path>", "Output file path")
   .option("--format <format>", "Output format (mp4, webm, mov, gif)", "mp4")
   .option(
@@ -246,14 +235,14 @@ export const exportCommand = new Command("export")
   .option("--dry-run", "Preview parameters without executing")
   .addHelpText("after", `
 Examples:
-  $ vibe export project.vibe.json -o output.mp4
-  $ vibe export project.vibe.json -o output.mp4 --preset high --overwrite
-  $ vibe export project.vibe.json -o output.webm --format webm
-  $ vibe export project.vibe.json -o output.gif --format gif
-  $ vibe export project.vibe.json -o out.mp4 --bitrate 5000k --fps 24 --codec h265
-  $ vibe export project.vibe.json -o out.mp4 --preset high --fps 60
+  $ vibe export timeline.json -o output.mp4
+  $ vibe export my-video -o output.mp4 --preset high --overwrite
+  $ vibe export timeline.json -o output.webm --format webm
+  $ vibe export timeline.json -o output.gif --format gif
+  $ vibe export timeline.json -o out.mp4 --bitrate 5000k --fps 24 --codec h265
+  $ vibe export timeline.json -o out.mp4 --preset high --fps 60
 
-Cost: Free (no API keys needed). Requires FFmpeg.
+Cost: Free (no API keys needed). Requires FFmpeg. Legacy *.vibe.json files remain supported.
 GIF format: 15fps, no audio, looping. Good for previews and sharing.
 Custom flags (--bitrate, --fps, --resolution, --codec) override preset values.
 Run 'vibe schema export' for structured parameter info.`)
@@ -317,7 +306,7 @@ Run 'vibe schema export' for structured parameter info.`)
 
       // Load project
       spinner.text = "Loading project...";
-      const filePath = await resolveProjectPath(projectPath);
+      const filePath = await resolveTimelineFile(projectPath);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -334,7 +323,7 @@ Run 'vibe schema export' for structured parameter info.`)
         ? resolve(process.cwd(), options.output)
         : resolve(
             process.cwd(),
-            `${basename(projectPath, ".vibe.json")}.${options.format}`
+            `${timelineBaseName(projectPath)}.${options.format}`
           );
 
       // Get preset settings + apply custom overrides
@@ -1175,20 +1164,20 @@ async function runHyperframesExport(
 ): Promise<void> {
   spinner.text = "Loading project...";
   const { readFile } = await import("node:fs/promises");
-  const { resolve, basename } = await import("node:path");
+  const { resolve } = await import("node:path");
   const { Project } = await import("../engine/index.js");
   const { createHyperframesBackend } = await import("../pipeline/renderers/hyperframes.js");
   const { exitWithError, generalError, outputSuccess } = await import("./output.js");
   const chalk = (await import("chalk")).default;
 
-  const filePath = resolve(process.cwd(), projectPath);
+  const filePath = await resolveTimelineFile(projectPath);
   const content = await readFile(filePath, "utf-8");
   const project = Project.fromJSON(JSON.parse(content));
   const state = project.getState();
 
   const outputPath = options.output
     ? resolve(process.cwd(), options.output)
-    : resolve(process.cwd(), `${basename(projectPath, ".vibe.json")}.${options.format ?? "mp4"}`);
+    : resolve(process.cwd(), `${timelineBaseName(projectPath)}.${options.format ?? "mp4"}`);
 
   const quality = (["draft", "standard", "high"].includes(options.preset ?? "")
     ? options.preset

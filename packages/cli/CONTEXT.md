@@ -14,7 +14,7 @@ conventions, and discovery hooks.
 ## Discovery (use these first)
 
 ```bash
-vibe schema --list --json              # All 79 leaves with paths + descriptions
+vibe schema --list --json              # All commands with paths + descriptions
 vibe schema <group>.<leaf> --json      # JSON Schema for one command
 vibe doctor --json                     # Configured API keys + filter availability
 vibe walkthrough <topic> --json        # Step-by-step guides (scene | pipeline)
@@ -39,7 +39,7 @@ vibe walkthrough <topic> --json        # Step-by-step guides (scene | pipeline)
 
 | Tier | Commands | Per-call cost |
 |------|----------|---------------|
-| Free | `detect *`, `edit silence-cut/fade/noise-reduce/text-overlay/interpolate`, `project *`, `timeline *`, `scene lint/list-styles`, `audio duck` | $0 |
+| Free | `detect *`, `edit silence-cut/fade/noise-reduce/text-overlay/interpolate`, `timeline *`, `scene lint/list-styles`, `audio duck` | $0 |
 | Low | `inspect *`, `audio transcribe/list-voices`, `generate image` | $0.01–0.10 |
 | High | `generate video`, `edit image`, `edit grade/reframe/speed-ramp` | $1–5 |
 | Very High | `remix *` (highlights, auto-shorts, regenerate-scene), `vibe build` (full pipeline) | $5–50+ |
@@ -111,7 +111,7 @@ operations.
 ```
 init → build → render          # 90% users start here   (Tier 1 — project flow)
 gen / edit / inspect / remix    # one-shot media tools   (Tier 2)
-project / scene / timeline      # lower-level authoring  (Tier 3)
+scene / timeline                # lower-level authoring  (Tier 3)
 run / agent / schema / context  # automation + agents    (Tier 4)
 ```
 
@@ -153,10 +153,10 @@ vibe render my-video -o renders/final.mp4 --json
 ### Lower-level timeline (NLE-style)
 
 ```bash
-vibe project create "demo" -o demo.vibe.json --json
-vibe timeline add-source demo.vibe.json hero.mp4 --json   # returns sourceId
-vibe timeline add-clip demo.vibe.json <source-id> --json
-vibe timeline list demo.vibe.json --json
+vibe timeline create demo --json              # writes demo/timeline.json
+vibe timeline add-source demo hero.mp4 --json # returns sourceId
+vibe timeline add-clip demo <source-id> --json
+vibe timeline list demo --json
 ```
 
 ### Dry-run before execution

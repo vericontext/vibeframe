@@ -426,7 +426,7 @@ export const editFillGapsTool = defineTool({
   description:
     "Fill timeline gaps with AI-generated video using Kling image-to-video. Detects empty regions in a project's timeline, extracts the last frame of the preceding clip, and generates a continuation video. Requires KLING_API_KEY and IMGBB_API_KEY (image hosting for Kling).",
   schema: z.object({
-    projectPath: z.string().describe("Project file path (.vibe.json)"),
+    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
     output: z.string().optional().describe("Output project path (default: overwrite input)"),
     dir: z.string().optional().describe("Directory to save generated videos (default: <projectDir>/footage)"),
     prompt: z.string().optional().describe("Custom prompt for video generation (default: 'Continue the scene naturally with subtle motion')"),

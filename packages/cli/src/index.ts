@@ -113,9 +113,9 @@ One-shot media tools:
   vibe remix highlights long.mp4 -d 60
 
 Advanced authoring:
-  vibe project create my-video        CRUD on .vibe.json
+  vibe timeline create my-video       Create low-level timeline JSON
   vibe scene add intro --headline "Welcome"
-  vibe timeline add-clip project.vibe.json <source-id>
+  vibe timeline add-clip my-video <source-id>
 
 Automation & agents:
   vibe run workflow.yaml              Run a Video-as-YAML pipeline
@@ -124,7 +124,7 @@ Automation & agents:
   vibe walkthrough scene              Step-by-step authoring guide
 
 Cost tiers (per call):
-  Free     detect, edit (silence-cut/fade/noise-reduce), project, timeline
+  Free     detect, edit (silence-cut/fade/noise-reduce), timeline
   Low      inspect, audio transcribe, generate image               ~$0.01-$0.10
   High     generate video, edit image                              ~$1-$5
   V.High   remix (regenerate-scene, highlights, auto-shorts)      ~$5-$50+

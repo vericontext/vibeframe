@@ -21,6 +21,7 @@ import { defineTool, type AnyTool } from "../define-tool.js";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
+import { resolveTimelineFile } from "../../utils/project-resolver.js";
 import { loadProject, saveProject } from "./_project-io.js";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -184,7 +185,7 @@ export const batchImportTool = defineTool({
   description:
     "Import multiple media files from a directory into a project. Scans directory for video, audio, and image files.",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     directory: z.string().describe("Directory containing media files to import"),
     recursive: z.boolean().optional().describe("Search subdirectories recursively (default: false)"),
     filter: z.string().optional().describe("Filter files by extension, comma-separated (e.g., '.mp4,.mov')"),
@@ -259,7 +260,7 @@ export const batchConcatTool = defineTool({
   surfaces: ["agent"],
   description: "Concatenate multiple sources into sequential clips on the timeline",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     sourceIds: z.array(z.string()).optional().describe("Source IDs to concatenate. If empty with useAll=true, uses all sources."),
     useAll: z.boolean().optional().describe("Use all sources in the project (default: false)"),
     trackId: z.string().optional().describe("Track to place clips on (auto-selects if not specified)"),
@@ -337,7 +338,7 @@ export const batchApplyEffectTool = defineTool({
   surfaces: ["agent"],
   description: "Apply an effect to multiple clips at once",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     clipIds: z.array(z.string()).optional().describe("Clip IDs to apply effect to. If empty with useAll=true, applies to all clips."),
     useAll: z.boolean().optional().describe("Apply to all clips in the project (default: false)"),
     effectType: z
@@ -399,19 +400,6 @@ export const batchApplyEffectTool = defineTool({
 
 // ─── timeline_clear ────────────────────────────────────────────────────────
 
-async function resolveProjectPath(inputPath: string, cwd: string): Promise<string> {
-  const filePath = resolve(cwd, inputPath);
-  try {
-    const stats = await stat(filePath);
-    if (stats.isDirectory()) {
-      return resolve(filePath, "project.vibe.json");
-    }
-  } catch {
-    // Path doesn't exist — caller surfaces the error
-  }
-  return filePath;
-}
-
 export const timelineClearTool = defineTool({
   name: "timeline_clear",
   category: "agent-only",
@@ -419,7 +407,7 @@ export const timelineClearTool = defineTool({
   surfaces: ["agent"],
   description: "Clear timeline contents (remove clips, tracks, or sources)",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     what: z
       .enum(["clips", "tracks", "sources", "all"])
       .optional()
@@ -431,7 +419,7 @@ export const timelineClearTool = defineTool({
   }),
   async execute(args, ctx) {
     try {
-      const filePath = await resolveProjectPath(args.project, ctx.workingDirectory);
+      const filePath = await resolveTimelineFile(args.project, ctx.workingDirectory);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -511,16 +499,16 @@ export const projectSetTool = defineTool({
   category: "agent-only",
   cost: "free",
   surfaces: ["agent"],
-  description: "Update project settings (name, aspect ratio, frame rate)",
+  description: "Update timeline settings (name, aspect ratio, frame rate)",
   schema: z.object({
-    projectPath: z.string().describe("Project file path"),
+    projectPath: z.string().describe("Timeline file or directory"),
     name: z.string().optional().describe("New project name"),
     aspectRatio: z.enum(["16:9", "9:16", "1:1", "4:5"]).optional().describe("New aspect ratio"),
     fps: z.number().optional().describe("New frame rate"),
   }),
   async execute(args, ctx) {
     try {
-      const filePath = await resolveProjectPath(args.projectPath, ctx.workingDirectory);
+      const filePath = await resolveTimelineFile(args.projectPath, ctx.workingDirectory);
       const content = await readFile(filePath, "utf-8");
       const data: ProjectFile = JSON.parse(content);
       const project = Project.fromJSON(data);
@@ -562,11 +550,11 @@ export const projectOpenTool = defineTool({
   surfaces: ["agent"],
   description: "Open an existing project and set it as the current context",
   schema: z.object({
-    projectPath: z.string().describe("Project file path"),
+    projectPath: z.string().describe("Timeline file or directory"),
   }),
   async execute(args, ctx) {
     try {
-      const filePath = await resolveProjectPath(args.projectPath, ctx.workingDirectory);
+      const filePath = await resolveTimelineFile(args.projectPath, ctx.workingDirectory);
       const { project } = await loadProject(filePath, "");
       ctx.agent?.setProjectPath(filePath);
 
@@ -605,7 +593,7 @@ export const projectSaveTool = defineTool({
     projectPath: z
       .string()
       .optional()
-      .describe("Project file path (uses current agent project if omitted)"),
+      .describe("Timeline file or directory (uses current agent timeline if omitted)"),
   }),
   async execute(args, ctx) {
     const path = args.projectPath ?? ctx.agent?.projectPath ?? null;
@@ -617,7 +605,7 @@ export const projectSaveTool = defineTool({
     }
 
     try {
-      const filePath = await resolveProjectPath(path, ctx.workingDirectory);
+      const filePath = await resolveTimelineFile(path, ctx.workingDirectory);
       const { project, absPath } = await loadProject(filePath, "");
       await saveProject(absPath, project);
       return {
@@ -648,7 +636,7 @@ export const exportAudioTool = defineTool({
   description:
     "Export audio track from a project. Not implemented — use export_video then strip audio with FFmpeg.",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     output: z.string().optional().describe("Output audio file path"),
     format: z.enum(["mp3", "wav", "aac"]).optional().describe("Output format (mp3, wav, aac)"),
   }),
@@ -669,7 +657,7 @@ export const exportSubtitlesTool = defineTool({
   description:
     "Export subtitles from transcription. Not implemented — use audio_transcribe to generate subtitles from audio.",
   schema: z.object({
-    project: z.string().describe("Project file path"),
+    project: z.string().describe("Timeline file or directory"),
     output: z.string().optional().describe("Output subtitle file path"),
     format: z.enum(["srt", "vtt"]).optional().describe("Subtitle format (srt, vtt)"),
   }),
