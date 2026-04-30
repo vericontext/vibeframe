@@ -639,6 +639,16 @@ async function showComplete(
   console.log(chalk.dim("    vibe schema --list        Discover every command"));
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
 
+  // Tab-completion install hint — pick the user's likely shell from
+  // $SHELL, fall back to a generic line. Runs once at setup time so
+  // returning users see it.
+  const shellHint = pickCompletionHint(process.env.SHELL);
+  if (shellHint) {
+    console.log();
+    console.log(chalk.bold("  Tab completion:"));
+    console.log(chalk.dim(`    ${shellHint}`));
+  }
+
   // Tailored hint when an agent host is detected — points at the file
   // `vibe init` will scaffold for that host, and surfaces the Plan H
   // agentic compose path so they know `vibe build` will dispatch to
@@ -815,4 +825,24 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     console.log(chalk.dim("  4. Shell environment variables"));
     console.log();
   }
+}
+
+/**
+ * Suggest the appropriate `vibe completion` install one-liner based on
+ * the user's $SHELL. Returns `undefined` for unknown shells (no
+ * suggestion is better than the wrong suggestion).
+ */
+function pickCompletionHint(shellPath: string | undefined): string | undefined {
+  if (!shellPath) return undefined;
+  const shell = shellPath.split("/").pop() ?? "";
+  if (shell.includes("zsh")) {
+    return `echo 'eval "$(vibe completion zsh)"' >> ~/.zshrc`;
+  }
+  if (shell.includes("bash")) {
+    return `echo 'eval "$(vibe completion bash)"' >> ~/.bashrc`;
+  }
+  if (shell.includes("fish")) {
+    return `vibe completion fish > ~/.config/fish/completions/vibe.fish`;
+  }
+  return undefined;
 }

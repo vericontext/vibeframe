@@ -578,6 +578,25 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe completion --describe 1`] = `
+{
+  "description": "Print a shell completion script for \`vibe\`",
+  "name": "completion",
+  "parameters": {
+    "properties": {
+      "shell": {
+        "description": "Target shell: zsh | bash | fish",
+        "type": "string",
+      },
+    },
+    "required": [
+      "shell",
+    ],
+    "type": "object",
+  },
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe context --describe 1`] = `
 {
   "description": "Print CLI context/guidelines for AI agent integration",
