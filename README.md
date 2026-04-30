@@ -253,6 +253,7 @@ docs/                    Design notes, cookbook, comparisons
 ## Useful Docs
 
 - [docs/cli-reference.md](docs/cli-reference.md): every command, flag, and JSON envelope (auto-generated from `vibe schema --list`)
+- [docs/cli-mental-model.md](docs/cli-mental-model.md): when to use which verb (`generate` / `edit` / `remix` / `inspect` / `audio` / `detect`)
 - [DEMO.md](DEMO.md): copy-paste demo flow
 - [docs/cookbook.md](docs/cookbook.md): practical recipes
 - [docs/video-project-concepts.md](docs/video-project-concepts.md): project model
