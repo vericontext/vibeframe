@@ -50,11 +50,13 @@ const FREE_COMMANDS = [
 export const doctorCommand = new Command("doctor")
   .description("Check system health and available commands")
   .option("--json", "Output in JSON format")
+  .option("-v, --verbose", "Show full report (every provider row, scene composer block, free-command list)")
   .addHelpText(
     "after",
     `
 Examples:
-  $ vibe doctor              Show system health and capabilities
+  $ vibe doctor              Compact health summary (issues + Ready %)
+  $ vibe doctor --verbose    Full report — all providers, composer, free commands
   $ vibe doctor --json       Machine-readable output
 `
   )
@@ -73,7 +75,7 @@ Examples:
       return;
     }
 
-    printReport(results);
+    printReport(results, { verbose: Boolean(options.verbose) });
   });
 
 /** FFmpeg filters required by offline commands.
@@ -338,7 +340,8 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   };
 }
 
-function printReport(results: DiagnosticResults): void {
+function printReport(results: DiagnosticResults, opts: { verbose: boolean } = { verbose: false }): void {
+  const { verbose } = opts;
   console.log();
   console.log(chalk.bold("  System"));
 
@@ -375,10 +378,26 @@ function printReport(results: DiagnosticResults): void {
 
   // Optional tools
   if (results.system.optionalTools) {
-    for (const [name, info] of Object.entries(results.system.optionalTools)) {
-      if (info.installed) {
-        console.log(`    ${name.padEnd(11)}${chalk.green("OK")}  ${chalk.dim(info.commands.join(", "))}`);
-      } else {
+    const tools = Object.entries(results.system.optionalTools);
+    if (verbose) {
+      for (const [name, info] of tools) {
+        if (info.installed) {
+          console.log(`    ${name.padEnd(11)}${chalk.green("OK")}  ${chalk.dim(info.commands.join(", "))}`);
+        } else {
+          console.log(
+            `    ${name.padEnd(11)}${chalk.yellow("MISSING")}  ${chalk.dim(`needed by: ${info.commands.join(", ")}`)}`
+          );
+          console.log(`               ${chalk.dim(`Install: ${info.install}`)}`);
+        }
+      }
+    } else {
+      // Compact: collapse OK tools to one line, always show MISSING ones.
+      const okNames = tools.filter(([, t]) => t.installed).map(([n]) => n);
+      const missing = tools.filter(([, t]) => !t.installed);
+      if (okNames.length > 0) {
+        console.log(`    Tools      ${chalk.green("OK")}  ${chalk.dim(okNames.join(", "))}`);
+      }
+      for (const [name, info] of missing) {
         console.log(
           `    ${name.padEnd(11)}${chalk.yellow("MISSING")}  ${chalk.dim(`needed by: ${info.commands.join(", ")}`)}`
         );
@@ -408,34 +427,36 @@ function printReport(results: DiagnosticResults): void {
   // Agent hosts — informational
   console.log(`    Agents     ${chalk.dim(results.scope.agentHosts.summary)}`);
 
-  // Plan H — scene composer ─────────────────────────────────────────────
-  console.log();
-  console.log(chalk.bold("  Scene composer (vibe build)"));
-  const sc = results.scope.sceneComposer;
-  const modeBadge = sc.recommendedMode === "agent"
-    ? chalk.cyan("agent")
-    : chalk.dim("batch");
-  const modeNote = sc.recommendedMode === "agent"
-    ? chalk.dim("host agent authors HTML; no internal LLM call")
-    : chalk.dim("CLI's internal LLM authors HTML");
-  console.log(`    Mode (auto)  ${modeBadge}  ${modeNote}`);
-  if (sc.composer) {
-    console.log(
-      `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`,
-    );
-  } else {
-    console.log(
-      `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`,
-    );
-  }
-  if (sc.sceneProjectInCwd) {
-    if (sc.skillInstalled) {
-      console.log(`    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`);
+  // Plan H — scene composer (verbose only — most users don't tune this).
+  if (verbose) {
+    console.log();
+    console.log(chalk.bold("  Scene composer (vibe build)"));
+    const sc = results.scope.sceneComposer;
+    const modeBadge = sc.recommendedMode === "agent"
+      ? chalk.cyan("agent")
+      : chalk.dim("batch");
+    const modeNote = sc.recommendedMode === "agent"
+      ? chalk.dim("host agent authors HTML; no internal LLM call")
+      : chalk.dim("CLI's internal LLM authors HTML");
+    console.log(`    Mode (auto)  ${modeBadge}  ${modeNote}`);
+    if (sc.composer) {
+      console.log(
+        `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`,
+      );
     } else {
-      console.log(`    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`);
+      console.log(
+        `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`,
+      );
     }
-  } else {
-    console.log(`    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`);
+    if (sc.sceneProjectInCwd) {
+      if (sc.skillInstalled) {
+        console.log(`    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`);
+      } else {
+        console.log(`    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`);
+      }
+    } else {
+      console.log(`    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`);
+    }
   }
 
   console.log();
@@ -456,18 +477,29 @@ function printReport(results: DiagnosticResults): void {
   }
 
   if (missing.length > 0) {
-    for (const name of missing) {
-      const info = results.providers[name];
+    if (verbose) {
+      for (const name of missing) {
+        const info = results.providers[name];
+        console.log(
+          `    ${chalk.red("--")}  ${info.envVar.padEnd(24)} ${chalk.dim(info.commands.join(", "))}`
+        );
+      }
+    } else {
+      // Compact: one summary line — keeps the "what's missing" signal but
+      // doesn't blast 11 rows when the user has only configured 2.
       console.log(
-        `    ${chalk.red("--")}  ${info.envVar.padEnd(24)} ${chalk.dim(info.commands.join(", "))}`
+        chalk.dim(`    ${missing.length} provider${missing.length === 1 ? "" : "s"} unconfigured (${missing.slice(0, 4).join(", ")}${missing.length > 4 ? ", …" : ""}). Run with --verbose to list.`),
       );
     }
   }
 
-  // Free commands
-  console.log();
-  console.log(chalk.bold("  No API key needed"));
-  console.log(`    ${chalk.dim(FREE_COMMANDS.join(", "))}`);
+  // Free commands (verbose only — they're always available, no signal in
+  // the default view).
+  if (verbose) {
+    console.log();
+    console.log(chalk.bold("  No API key needed"));
+    console.log(`    ${chalk.dim(FREE_COMMANDS.join(", "))}`);
+  }
 
   // Summary
   console.log();

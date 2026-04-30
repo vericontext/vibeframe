@@ -87,48 +87,42 @@ program
   .addHelpText(
     "after",
     `
-Global flags (work with any command):
-  -V, --version  Print version and exit
-  -h, --help     Print help for the command and exit
-  --json         Output JSON (auto-enabled when piped)
-  --fields       Limit output fields (e.g., --fields "path,duration")
-  -q, --quiet    Output only the result value (path, URL, or ID)
-  --stdin        Read options from stdin as JSON (for agent/script use)
-  --describe     Print the command's JSON schema and exit (no execution)
-  --dry-run      Preview without executing (most commands)
+Common workflows (the alphabetical list above is the full command set;
+this section shows the typical entry points by use case):
 
-Get started (90% of users start here):
-  vibe doctor                  Check system health and API keys
-  vibe setup                   Configure API keys interactively
-  vibe init my-video           Scaffold a video project
-  vibe build my-video          Build STORYBOARD.md into scene compositions/assets
-  vibe render my-video         Render the project to MP4
-  vibe demo                    Try VibeFrame without API keys
+  Get started:
+    vibe doctor                         System health + key status
+    vibe setup                          Configure API keys interactively
+    vibe init my-video                  Scaffold a video project
+    vibe build my-video                 Build STORYBOARD.md → scene assets
+    vibe render my-video                Render the project to MP4
+    vibe demo                           Try VibeFrame without API keys
 
-One-shot media tools:
-  vibe generate image "..."           Generate a still image
-  vibe generate video "..."           Generate a standalone AI video
-  vibe edit caption clip.mp4 -o out.mp4
-  vibe inspect media clip.mp4 "Summarize this"
-  vibe remix highlights long.mp4 -d 60
+  One-shot media:
+    vibe generate image "..."           Generate a still image
+    vibe generate video "..."           Generate a standalone AI video
+    vibe edit caption clip.mp4 -o out.mp4
+    vibe inspect media clip.mp4 "Summarize this"
+    vibe remix highlights long.mp4 -d 60
 
-Advanced authoring:
-  vibe timeline create my-video       Create low-level timeline JSON
-  vibe scene add intro --headline "Welcome"
-  vibe timeline add-clip my-video <source-id>
+  Authoring:
+    vibe timeline create my-video       Low-level timeline JSON
+    vibe scene add intro --headline "Welcome"
 
-Automation & agents:
-  vibe run workflow.yaml              Run a Video-as-YAML pipeline
-  vibe agent                          Natural-language interface
-  vibe schema generate.video          Tool schema for any command
-  vibe walkthrough scene              Step-by-step authoring guide
+  Automation & agents:
+    vibe run workflow.yaml              Video-as-YAML pipeline
+    vibe agent                          Natural-language interface
+    vibe schema generate.video          JSON schema for any command
+    vibe walkthrough scene              Step-by-step authoring guide
 
-Cost tiers (per call):
-  Free     detect, edit (silence-cut/fade/noise-reduce), timeline
-  Low      inspect, audio transcribe, generate image               ~$0.01-$0.10
-  High     generate video, edit image                              ~$1-$5
-  V.High   remix (regenerate-scene, highlights, auto-shorts)      ~$5-$50+
-  Tip      Add --dry-run before paid generation to preview the work.
+Common-flag note: most commands accept --dry-run to preview cost/output
+before invoking paid providers.
+
+Cost tiers:
+  Free   detect, edit (silence-cut/fade/noise-reduce), timeline
+  Low    inspect, audio transcribe, generate image                ~$0.01–$0.10
+  High   generate video, edit image                               ~$1–$5
+  V.High remix (regenerate-scene, highlights, auto-shorts)       ~$5–$50+
 `
   );
 

@@ -47,6 +47,7 @@ export const setupCommand = new Command("setup")
   .option("--reset", "Reset configuration to defaults")
   .option("--full", "Run full setup with all optional providers")
   .option("--show", "Show current configuration (for debugging)")
+  .option("-v, --verbose", "With --show: include unset providers + Resolution order + Defaults block")
   .option("--claude-code", "Show Claude Code integration guide")
   .option("-y, --yes", "Non-interactive: write config without prompting (CI / devcontainer)")
   .option("--provider <id>", "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)")
@@ -67,7 +68,7 @@ Non-interactive examples (no TTY required):
     }
 
     if (options.show) {
-      await showConfig();
+      await showConfig({ verbose: Boolean(options.verbose) });
       return;
     }
 
@@ -642,9 +643,16 @@ function maskApiKey(key: string): string {
 }
 
 /**
- * Show current configuration for debugging
+ * Show current configuration for debugging.
+ *
+ * Default mode lists only set keys + the LLM provider + config path.
+ * `--verbose` re-adds unset rows, the Defaults block, and the
+ * Resolution order — useful when troubleshooting why a key isn't being
+ * picked up. The default keeps a returning user's status check to
+ * roughly the screen height.
  */
-async function showConfig(): Promise<void> {
+async function showConfig(opts: { verbose: boolean } = { verbose: false }): Promise<void> {
+  const { verbose } = opts;
   // Load CWD .env before showing config
   loadEnv();
 
@@ -709,6 +717,7 @@ async function showConfig(): Promise<void> {
     { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY" },
   ];
 
+  let unsetCount = 0;
   for (const p of providerKeys) {
     const configValue = config?.providers[p.key as keyof typeof config.providers];
     const dotenvValue = dotenvKeys[p.env];
@@ -722,25 +731,33 @@ async function showConfig(): Promise<void> {
       const status = chalk.green("✓");
       console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${sources.join(" + ")})`);
     } else {
-      const status = chalk.dim("○");
-      console.log(`  ${status} ${p.name.padEnd(12)} ${chalk.dim("not set")}`);
+      unsetCount++;
+      if (verbose) {
+        const status = chalk.dim("○");
+        console.log(`  ${status} ${p.name.padEnd(12)} ${chalk.dim("not set")}`);
+      }
     }
   }
+  if (!verbose && unsetCount > 0) {
+    console.log(chalk.dim(`  (${unsetCount} provider${unsetCount === 1 ? "" : "s"} unset — run with --verbose to list)`));
+  }
   console.log();
 
-  // Show defaults
-  if (config) {
-    console.log(chalk.bold("Defaults:"));
-    console.log(`  Aspect Ratio: ${config.defaults.aspectRatio}`);
-    console.log(`  Export Quality: ${config.defaults.exportQuality}`);
+  // Defaults + resolution order are debugging aids — only useful when
+  // something's actually wrong. Hide behind --verbose by default.
+  if (verbose) {
+    if (config) {
+      console.log(chalk.bold("Defaults:"));
+      console.log(`  Aspect Ratio: ${config.defaults.aspectRatio}`);
+      console.log(`  Export Quality: ${config.defaults.exportQuality}`);
+      console.log();
+    }
+
+    console.log(chalk.bold("Resolution order:"));
+    console.log(chalk.dim("  1. --api-key CLI option"));
+    console.log(chalk.dim(`  2. ${CONFIG_PATH}`));
+    console.log(chalk.dim("  3. .env in current directory"));
+    console.log(chalk.dim("  4. Shell environment variables"));
     console.log();
   }
-
-  // Show resolution order
-  console.log(chalk.bold("Resolution order:"));
-  console.log(chalk.dim("  1. --api-key CLI option"));
-  console.log(chalk.dim(`  2. ${CONFIG_PATH}`));
-  console.log(chalk.dim("  3. .env in current directory"));
-  console.log(chalk.dim("  4. Shell environment variables"));
-  console.log();
 }
