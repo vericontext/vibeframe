@@ -208,6 +208,8 @@ export interface SetupProviderEntry {
   name: string;
   env: string;
   desc: string;
+  /** URL where the user obtains this key — used by setup's `[o] open` hotkey. */
+  url: string;
 }
 
 /**
@@ -222,6 +224,7 @@ export function getSetupProviders(): SetupProviderEntry[] {
       name: k.label,
       env: k.envVar,
       desc: k.setupDescription ?? "",
+      url: k.envExampleUrl,
     }));
 }
 

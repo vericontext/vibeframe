@@ -5,6 +5,7 @@
 
 import { createInterface, Interface } from "node:readline";
 import { ReadStream } from "node:tty";
+import { openUrl } from "./open-url.js";
 
 let ttyStream: ReadStream | null = null;
 
@@ -102,10 +103,25 @@ export async function prompt(question: string): Promise<string> {
 }
 
 /**
- * Prompt for hidden input (password/API key)
- * Characters are not echoed to terminal
+ * Prompt for hidden input (password/API key).
+ * Characters are not echoed to the terminal.
+ *
+ * `opts.openHotkeyUrl`: when set, the user can press lowercase `o` as the
+ * very first key (no input typed yet) to launch the URL in their default
+ * browser. Subsequent keys behave normally. Safe for our setup wizard
+ * because every registered API-key prefix (`sk-`, `AIza`, `xai-`, `key_`,
+ * `r8_`, `sk_`, etc.) starts with something other than `o`. Pressing `o`
+ * after typing any character is treated as part of the value, not a hotkey.
  */
-export async function promptHidden(question: string): Promise<string> {
+export interface PromptHiddenOptions {
+  /** URL to launch in the default browser when the user presses `o` first. */
+  openHotkeyUrl?: string;
+}
+
+export async function promptHidden(
+  question: string,
+  opts: PromptHiddenOptions = {}
+): Promise<string> {
   const input = getTTYInputStream() as ReadStream;
 
   return new Promise((resolve) => {
@@ -131,6 +147,15 @@ export async function promptHidden(question: string): Promise<string> {
           input.setRawMode(false);
           process.stdout.write("\n");
           process.exit(1);
+        } else if (
+          opts.openHotkeyUrl &&
+          value.length === 0 &&
+          (char === "o" || char === "O")
+        ) {
+          // Browser-open hotkey: only triggers as the very first key.
+          // Fire-and-forget — we keep accepting input while the OS opens
+          // the URL.
+          void openUrl(opts.openHotkeyUrl);
         } else if (char === "\u007F" || char === "\b") {
           // Backspace
           if (value.length > 0) {
@@ -244,12 +269,82 @@ export async function promptSelect(
 }
 
 /**
- * Prompt for yes/no confirmation
+ * Prompt for yes/no confirmation.
+ *
+ * Renders an arrow-key Yes/No selector when a TTY is available (matching the
+ * paradigm of `promptSelect` / `promptMultiSelect`), falling back to the
+ * legacy `(Y/n)` text prompt for piped/CI input so scripts continue to work
+ * unchanged.
  */
 export async function promptConfirm(
   question: string,
   defaultYes = true
 ): Promise<boolean> {
+  const input = getTTYInputStream() as ReadStream;
+
+  if (typeof input.setRawMode === "function") {
+    return new Promise((resolve) => {
+      const options = ["Yes", "No"];
+      let selected = defaultYes ? 0 : 1;
+      let renderCount = 0;
+
+      // Print the question once above the selector so it stays visible while
+      // the cursor redraws Yes/No below it.
+      process.stdout.write(`${question}\n`);
+
+      const render = () => {
+        if (renderCount > 0) {
+          process.stdout.write(`\x1b[${options.length}A`);
+        }
+        for (let i = 0; i < options.length; i++) {
+          const marker = i === selected ? "\x1b[36m❯\x1b[0m" : " ";
+          const text = i === selected ? `\x1b[1m${options[i]}\x1b[0m` : options[i];
+          process.stdout.write(`\x1b[2K   ${marker} ${text}\n`);
+        }
+        renderCount++;
+      };
+
+      render();
+
+      input.setRawMode(true);
+      input.resume();
+      input.setEncoding("utf8");
+
+      const onData = (char: string) => {
+        if (char === "\r" || char === "\n") {
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          resolve(selected === 0);
+        } else if (char === "\u0003") {
+          input.setRawMode(false);
+          process.stdout.write("\n");
+          process.exit(1);
+        } else if (char === "\x1b[A" || char === "\x1b[B" || char === "k" || char === "j") {
+          // Toggle on any vertical movement — only two options, so there's
+          // nowhere to go but the other one.
+          selected = selected === 0 ? 1 : 0;
+          render();
+        } else if (char === "y" || char === "Y") {
+          selected = 0;
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          render();
+          resolve(true);
+        } else if (char === "n" || char === "N") {
+          selected = 1;
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          render();
+          resolve(false);
+        }
+      };
+
+      input.on("data", onData);
+    });
+  }
+
+  // Non-TTY fallback — preserves the historical text-based contract for CI /
+  // piped invocations like `echo y | vibe ...`.
   const hint = defaultYes ? "(Y/n)" : "(y/N)";
   const answer = await prompt(`${question} ${hint}: `);
 

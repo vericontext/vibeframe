@@ -31,6 +31,7 @@ import {
   summariseAgentHosts,
 } from "../utils/agent-host-detect.js";
 import { getSetupProviders, getAllApiKeys } from "@vibeframe/ai-providers";
+import { listWalkthroughs } from "./_shared/walkthroughs/walkthroughs.js";
 
 const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
   "claude",
@@ -381,8 +382,11 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
       // Show what this key is for + where to get it
       console.log(chalk.dim(`  ${keyDef.what}`));
-      console.log(chalk.dim(`  Get key: ${keyDef.url}`));
-      const newKey = await promptHidden(chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `));
+      console.log(chalk.dim(`  Get key: ${keyDef.url}  [o] open in browser`));
+      const newKey = await promptHidden(
+        chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `),
+        { openHotkeyUrl: keyDef.url },
+      );
       if (newKey.trim()) {
         const trimmed = newKey.trim();
         config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
@@ -427,8 +431,11 @@ async function collectKeys(
     }
 
     console.log(chalk.dim(`  ${keyDef.what}`));
-    console.log(chalk.dim(`  Get key: ${keyDef.url}`));
-    const newKey = await promptHidden(chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `));
+    console.log(chalk.dim(`  Get key: ${keyDef.url}  [o] open in browser`));
+    const newKey = await promptHidden(
+      chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `),
+      { openHotkeyUrl: keyDef.url },
+    );
     if (newKey.trim()) {
       const trimmed = newKey.trim();
       config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
@@ -494,7 +501,11 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
       console.log(`  ${chalk.green("✓")} ${p.name.padEnd(12)} ${maskApiKey(existing)} ${chalk.dim(p.desc)}`);
       const change = await promptConfirm(chalk.cyan("    Update?"), false);
       if (change) {
-        const newKey = await promptHidden(chalk.cyan("    New key: "));
+        console.log(chalk.dim(`    Get key: ${p.url}  [o] open in browser`));
+        const newKey = await promptHidden(
+          chalk.cyan("    New key: "),
+          { openHotkeyUrl: p.url },
+        );
         if (newKey.trim()) {
           const trimmed = newKey.trim();
           config.providers[p.key as keyof typeof config.providers] = trimmed;
@@ -507,7 +518,11 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
         }
       }
     } else {
-      const newKey = await promptHidden(chalk.cyan(`  ${chalk.dim("○")} ${p.name.padEnd(12)} ${chalk.dim(p.desc)}: `));
+      console.log(chalk.dim(`  ${chalk.dim("○")} ${p.name.padEnd(12)} ${chalk.dim(p.desc)}  Get key: ${p.url}  [o] open`));
+      const newKey = await promptHidden(
+        chalk.cyan(`    ${p.env}: `),
+        { openHotkeyUrl: p.url },
+      );
       if (newKey.trim()) {
         const trimmed = newKey.trim();
         config.providers[p.key as keyof typeof config.providers] = trimmed;
@@ -552,7 +567,18 @@ function showComplete(
   console.log();
   console.log(chalk.bold("  Next steps:"));
   console.log(chalk.dim("    cd <project>; vibe init   Scaffold AGENTS.md / CLAUDE.md / .env.example (project scope)"));
-  console.log(chalk.dim("    vibe walkthrough scene    5-step authoring guide (storyboard → MP4)"));
+
+  // Surface every registered walkthrough — the topic table is the single
+  // source of truth (`walkthroughs.ts`), so adding a topic there shows up
+  // here automatically. When an agent host is detected, the `scene` flow
+  // is the canonical entry point so we tag it (recommended).
+  const hostDetected = detectedAgentHosts().length > 0;
+  for (const w of listWalkthroughs()) {
+    const cmd = `vibe walkthrough ${w.topic}`.padEnd(26);
+    const tag = hostDetected && w.topic === "scene" ? chalk.cyan(" (recommended)") : "";
+    console.log(chalk.dim(`    ${cmd}${w.summary}${tag}`));
+  }
+
   console.log(chalk.dim("    vibe doctor               Check system health + available commands"));
   console.log(chalk.dim("    vibe schema --list        Discover every command"));
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
