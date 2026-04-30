@@ -15,7 +15,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # `contents: write` lets the gh-release step create the GitHub
+      # Release. `id-token: write` is preserved for npm provenance.
+      contents: write
       id-token: write
 
     steps:
@@ -65,3 +67,37 @@ jobs:
         run: pnpm -F @vibeframe/cli publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # ── GitHub Release ─────────────────────────────────────────────────
+      # Auto-creates a GitHub Release for every pushed tag, with the
+      # CHANGELOG.md section for that version as the body. Skipped on
+      # workflow_dispatch dry-runs so manual test runs don't spam Releases.
+      - name: Extract release notes from CHANGELOG
+        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          # Extract the section between `## [VERSION]` and the next `## [`
+          # heading. Use index() for a literal substring match — `~` would
+          # treat `[` / `]` as a character class and match unrelated lines.
+          awk -v v="## [$VERSION]" '
+            index($0, v) == 1 {flag=1; next}
+            /^## \[/ && flag {exit}
+            flag {print}
+          ' CHANGELOG.md > /tmp/release-notes.md
+          echo "Extracted $(wc -l < /tmp/release-notes.md) lines for v$VERSION"
+          # Print to logs for diagnosability — body shows up in Release UI.
+          cat /tmp/release-notes.md
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

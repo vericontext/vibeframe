@@ -23,3 +23,8 @@ Steps:
 13. **Tag**: `git tag vX.Y.Z`
 
 Report the new version number. Do NOT push — the user will push when ready.
+
+When the user pushes the tag, `.github/workflows/publish.yml` runs
+automatically: it republishes both packages to npm and (since v0.82)
+creates the GitHub Release with the matching CHANGELOG section as the
+body. No manual Release-page edit needed.
