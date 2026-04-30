@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list --json` and
 `vibe schema <command> --json` directly.
 
-> CLI version: `0.83.0`
+> CLI version: `0.84.0`
 
 ## Mental model
 
@@ -263,7 +263,7 @@ Step-by-step authoring guide for a vibe workflow (universal /vibe-* slash-comman
 
 **Parameters:**
 
-- `topic` *(string)* — Walkthrough topic: scene | pipeline. Omit to list all.
+- `topic` *(string)* — Walkthrough topic: scene | pipeline | architecture. Omit to list all.
 - `list` *(boolean)* — List available walkthroughs and exit
 
 ### `generate`

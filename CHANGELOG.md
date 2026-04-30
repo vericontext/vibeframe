@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.84.0] - 2026-04-30
+
+### Added
+
+- add architecture walkthrough topic *(cli)*
+- cost in schema --list + colorize tier footer *(cli)*
+
+### Maintenance
+
+- add `pnpm typecheck` script + wire into pre-push hook *(ci)*
+- fix strict tsc errors in open-url and key-live-test specs *(test)*
+
 ## [0.83.0] - 2026-04-30
 
 ### Added
