@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list --json` and
 `vibe schema <command> --json` directly.
 
-> CLI version: `0.85.0`
+> CLI version: `0.86.0`
 
 ## Mental model
 
