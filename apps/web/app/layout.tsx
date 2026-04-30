@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 // directory listing + MCP tool name regex), so they stay in sync with the
 // source. Falls back to conservative static numbers if env var lookup fails.
 const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "13";
-const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "66";
+const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "68";
 const SHARE_DESCRIPTION = `Create, edit, generate, and render video from the terminal with YAML pipelines, ${AI_PROVIDERS} AI providers, and ${MCP_TOOLS} MCP tools.`;
 
 export const metadata: Metadata = {
