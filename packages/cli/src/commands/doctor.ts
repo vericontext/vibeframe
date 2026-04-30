@@ -21,6 +21,7 @@ import {
   ComposerResolveError,
   type ComposerProvider,
 } from "./_shared/composer-resolve.js";
+import { getCostTier, TIER_COLOR, type CostTier } from "./_shared/cost-tier.js";
 import { resolveSceneBuildMode } from "./_shared/scene-build.js";
 import { outputSuccess } from "./output.js";
 
@@ -77,7 +78,10 @@ Examples:
       return;
     }
 
-    printReport(results, { verbose: Boolean(options.verbose) });
+    printReport(results, {
+      verbose: Boolean(options.verbose),
+      program: doctorCommand.parent,
+    });
 
     if (options.testKeys) {
       await runLiveKeyTests(results);
@@ -346,8 +350,11 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   };
 }
 
-function printReport(results: DiagnosticResults, opts: { verbose: boolean } = { verbose: false }): void {
-  const { verbose } = opts;
+function printReport(
+  results: DiagnosticResults,
+  opts: { verbose: boolean; program?: Command | null } = { verbose: false },
+): void {
+  const { verbose, program } = opts;
   console.log();
   console.log(chalk.bold("  System"));
 
@@ -518,6 +525,25 @@ function printReport(results: DiagnosticResults, opts: { verbose: boolean } = { 
     chalk.dim(`    Full command catalog: vibe schema --list`)
   );
 
+  // Cost-tier rollup — counts subcommands across the live program
+  // tree, broken down by tier. Helps users gauge "how much of this CLI
+  // is free?" at a glance. Only renders when we have a program handle
+  // (always true via the action; tests calling printReport directly
+  // can omit it).
+  if (program) {
+    const tierCounts = countCostTiers(program);
+    const total = tierCounts.free + tierCounts.low + tierCounts.high + tierCounts["very-high"];
+    if (total > 0) {
+      const parts = [
+        `${TIER_COLOR.free(`${tierCounts.free} free`)}`,
+        `${TIER_COLOR.low(`${tierCounts.low} low`)}`,
+        `${TIER_COLOR.high(`${tierCounts.high} high`)}`,
+        `${TIER_COLOR["very-high"](`${tierCounts["very-high"]} very-high`)}`,
+      ];
+      console.log(chalk.dim(`    Cost mix:`) + ` ${parts.join(chalk.dim(", "))}`);
+    }
+  }
+
   // ── v0.61: scope-aware "what to do next" hint ────────────────────────
   // Prioritise scope problems over provider gaps — a user without setup
   // configured can't run 'vibe setup' to add providers either.
@@ -526,6 +552,27 @@ function printReport(results: DiagnosticResults, opts: { verbose: boolean } = { 
     console.log(chalk.dim(`  ${nextStep}`));
   }
   console.log();
+}
+
+/**
+ * Walk the program command tree and tally subcommand counts per cost
+ * tier. Only counts commands stamped via `applyTier()`; utility
+ * commands like `setup` / `doctor` / `init` are intentionally skipped.
+ */
+function countCostTiers(program: Command): Record<CostTier, number> {
+  const counts: Record<CostTier, number> = {
+    "free": 0,
+    "low": 0,
+    "high": 0,
+    "very-high": 0,
+  };
+  const walk = (cmd: Command) => {
+    const tier = getCostTier(cmd);
+    if (tier) counts[tier]++;
+    for (const child of cmd.commands) walk(child);
+  };
+  for (const top of program.commands) walk(top);
+  return counts;
 }
 
 /**

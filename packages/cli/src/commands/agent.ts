@@ -264,6 +264,14 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
         }
         console.log();
         console.log(chalk.dim(`Total: ${tools.length} tools`));
+        // Cumulative USD: only show when something has actually been
+        // spent OR a budget cap is active. Otherwise the line is noise
+        // for free-tier-only sessions.
+        const spent = agent.getCumulativeUsd();
+        if (spent > 0 || budgetUsd !== undefined) {
+          const budgetStr = budgetUsd !== undefined ? ` / $${budgetUsd.toFixed(2)} cap` : "";
+          console.log(chalk.dim(`Spent (tier-estimated): $${spent.toFixed(2)}${budgetStr}`));
+        }
         console.log();
         rl.prompt();
         return;

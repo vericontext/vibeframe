@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
 
 import {
   executeSceneBuild,
@@ -9,6 +10,7 @@ import {
   type SceneBuildProgressEvent,
   type SceneBuildResult,
 } from "./_shared/scene-build.js";
+import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import { exitWithError, generalError, isJsonMode, isQuietMode, outputSuccess, usageError } from "./output.js";
 
 const VALID_MODES: SceneBuildMode[] = ["agent", "batch", "auto"];
@@ -146,8 +148,75 @@ function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams): voi
   console.log(`  Image:         ${chalk.bold(String(params.imageProvider ?? "openai"))} ${chalk.dim(`${params.imageQuality} ${params.imageSize}`)}${params.skipBackdrop ? chalk.dim(" (skipped)") : ""}`);
   console.log(`  Render:        ${chalk.bold(params.skipRender ? "skip" : "yes")}`);
   console.log(`  Regenerate:    ${chalk.bold(params.force ? "yes" : "cache when possible")}`);
+
+  // Pre-render cost rollup. Counts beats from STORYBOARD.md and applies
+  // the same per-primitive midpoints we use for `vibe agent --budget-usd`.
+  // Conservative — overestimates so a $5 budget doesn't blow past $5.
+  const estimate = estimateBuildCost(params);
+  if (estimate) {
+    console.log();
+    console.log(chalk.bold.cyan("Estimated cost (tier-derived, conservative)"));
+    console.log(chalk.dim("-".repeat(60)));
+    console.log(`  Beats:         ${chalk.bold(estimate.beats)}`);
+    if (!params.skipNarration) {
+      console.log(`  Narration:     ${chalk.cyan(`$${estimate.narrationUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × low)`)}`);
+    }
+    if (!params.skipBackdrop) {
+      console.log(`  Backdrops:     ${chalk.yellow(`$${estimate.backdropUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × high)`)}`);
+    }
+    if (params.mode !== "agent") {
+      console.log(`  Compose (LLM): ${chalk.cyan(`$${estimate.composeUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × ~$0.06 batch mode)`)}`);
+    } else {
+      console.log(`  Compose:       ${chalk.dim(`$0.00 (agent mode — host LLM does composition)`)}`);
+    }
+    console.log(`  ${chalk.bold("Total:")}         ${chalk.bold(`$${estimate.totalUsd.toFixed(2)}`)}`);
+  }
+
   console.log();
   console.log(chalk.dim("No assets, provider calls, or video files were created."));
+}
+
+/**
+ * Sum a conservative USD estimate for a build run. Returns `null` when
+ * the storyboard isn't readable yet (e.g. fresh `vibe init` run); the
+ * dry-run page just omits the section in that case.
+ */
+function estimateBuildCost(params: BuildDryRunParams): {
+  beats: number;
+  narrationUsd: number;
+  backdropUsd: number;
+  composeUsd: number;
+  totalUsd: number;
+} | null {
+  const storyboardPath = join(params.projectDir, "STORYBOARD.md");
+  if (!existsSync(storyboardPath)) return null;
+  let beats = 0;
+  try {
+    const md = readFileSync(storyboardPath, "utf-8");
+    beats = parseStoryboard(md).beats.length;
+  } catch {
+    return null;
+  }
+  if (beats === 0) return null;
+
+  // Per-beat costs from the same TIER_USD_ESTIMATE we use for the
+  // agent budget. Compose batch mode is cheaper than the tier table
+  // suggests (~$0.058/beat measured) — use the empirical midpoint
+  // rather than the high-tier ceiling.
+  const TTS_PER_BEAT = 0.05;
+  const IMAGE_PER_BEAT = 3;
+  const COMPOSE_PER_BEAT_BATCH = 0.06;
+
+  const narrationUsd = params.skipNarration ? 0 : beats * TTS_PER_BEAT;
+  const backdropUsd = params.skipBackdrop ? 0 : beats * IMAGE_PER_BEAT;
+  const composeUsd = params.mode === "agent" ? 0 : beats * COMPOSE_PER_BEAT_BATCH;
+  return {
+    beats,
+    narrationUsd,
+    backdropUsd,
+    composeUsd,
+    totalUsd: narrationUsd + backdropUsd + composeUsd,
+  };
 }
 
 function printNeedsAuthor(result: SceneBuildResult): void {
