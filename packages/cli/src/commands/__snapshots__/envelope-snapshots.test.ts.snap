@@ -3629,7 +3629,7 @@ exports[`CLI --describe schemas (drift detection) > vibe walkthrough --describe 
         "type": "boolean",
       },
       "topic": {
-        "description": "Walkthrough topic: scene | pipeline. Omit to list all.",
+        "description": "Walkthrough topic: scene | pipeline | architecture. Omit to list all.",
         "type": "string",
       },
     },

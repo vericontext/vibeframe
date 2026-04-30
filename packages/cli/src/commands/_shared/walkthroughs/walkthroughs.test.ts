@@ -12,7 +12,8 @@ describe("walkthroughs", () => {
     it("includes both scene and pipeline", () => {
       expect(WALKTHROUGH_TOPICS).toContain("scene");
       expect(WALKTHROUGH_TOPICS).toContain("pipeline");
-      expect(WALKTHROUGH_TOPICS).toHaveLength(2);
+      expect(WALKTHROUGH_TOPICS).toContain("architecture");
+      expect(WALKTHROUGH_TOPICS).toHaveLength(3);
     });
   });
 
@@ -84,9 +85,9 @@ describe("walkthroughs", () => {
   describe("listWalkthroughs", () => {
     it("returns a catalog with topic + title + summary for each entry", () => {
       const list = listWalkthroughs();
-      expect(list).toHaveLength(2);
+      expect(list).toHaveLength(3);
       for (const entry of list) {
-        expect(entry.topic).toMatch(/^scene$|^pipeline$/);
+        expect(entry.topic).toMatch(/^scene$|^pipeline$|^architecture$/);
         expect(entry.title.length).toBeGreaterThan(5);
         expect(entry.summary.length).toBeGreaterThan(10);
       }

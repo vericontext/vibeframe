@@ -20,7 +20,7 @@
  * add a one-line frontmatter for the slash menu.
  */
 
-export type WalkthroughTopic = "scene" | "pipeline";
+export type WalkthroughTopic = "scene" | "pipeline" | "architecture";
 
 export interface WalkthroughResult {
   topic: WalkthroughTopic;
@@ -275,6 +275,60 @@ The \`compose\` action is the catch-all assembly step (audio mux, video
 overlay, etc.) — useful at the tail of a pipeline.
 `;
 
+const ARCHITECTURE_WALKTHROUGH = `# vibe agent / build / run — when to pick which
+
+The CLI has three orchestrating commands that coordinate other primitives:
+\`vibe agent\`, \`vibe build\`, \`vibe run\`. New users routinely ask which one
+they want for a given task. The full audit lives in
+[\`docs/cli-architecture.md\`](../../../docs/cli-architecture.md); this
+walkthrough is the operator-facing summary.
+
+## TL;DR
+
+| | \`vibe agent\` | \`vibe build\` | \`vibe run\` |
+|---|---|---|---|
+| **Driving input** | natural-language prompt | \`STORYBOARD.md\` | YAML pipeline file |
+| **Interactivity** | REPL or one-shot | one-shot | one-shot |
+| **Reproducibility** | none | high (idempotent) | highest (checkpointed) |
+| **Budget caps** | per-session max-turns | none | \`--budget-usd\`, \`--budget-tokens\`, \`--max-errors\` |
+| **Resume after crash** | no | re-invoke | \`--resume\` |
+| **Best for** | exploration | finished script | repeatable workflows |
+
+## Decision tree
+
+- "I want to play, I'll know it when I see it" → \`vibe agent\`
+- "I have a finished script + visual identity" → \`vibe build\`
+- "I want this to run again next month" → \`vibe run\`
+
+If two seem to fit, pick the rightmost one — more reproducible, less surprise.
+
+## Cost-tier awareness (v0.83+)
+
+Every primitive subcommand carries a cost tier (\`free\` / \`low\` / \`high\` /
+\`very-high\`). \`vibe schema --list\` exposes the tier as JSON, and each
+\`vibe <group> <sub> --help\` page shows it as a colored footer. Use
+\`vibe doctor --test-keys\` before kicking off any high-cost orchestrator —
+a single bad key wastes time and money.
+
+## Cross-command primitives
+
+All three commands ultimately call the same primitives:
+\`generate\` / \`edit\` / \`audio\` / \`inspect\` / \`detect\` / \`remix\`. The
+agent calls them through a tool manifest; \`build\` calls a curated subset
+(TTS + image + compose + render); \`run\` exposes 55+ actions one per primitive.
+
+## Known overlap
+
+- \`vibe build\` is conceptually a 4-step pipeline; \`vibe run\` could express
+  the same flow but build's STORYBOARD.md input + opinionated defaults are
+  the value-add.
+- \`vibe agent\`'s tool registry currently exposes primitives, not
+  orchestrators. Adding \`vibe.build\` / \`vibe.run\` as agent tools is on the
+  table for a future major.
+- \`vibe run --resume\` has no analog in build/agent; build's idempotent
+  re-invoke covers the common case.
+`;
+
 const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary" | "steps" | "relatedCommands">> = {
   scene: {
     title: "Scene authoring with vibe",
@@ -313,15 +367,34 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
       "vibe doctor",
     ],
   },
+  architecture: {
+    title: "vibe agent / build / run — when to pick which",
+    summary: "Compare the three orchestrating commands on the dimensions that actually decide the choice",
+    steps: [
+      "Pick agent for exploration (NL prompt, REPL, no checkpoints).",
+      "Pick build for STORYBOARD.md → MP4 with opinionated defaults.",
+      "Pick run for repeatable, budget-capped, checkpointed YAML pipelines.",
+      "Run `vibe doctor --test-keys` before any high-cost orchestrator to validate keys upfront.",
+      "Use `vibe schema --list` (cost field, v0.84) to plan the budget per step before kicking off `vibe run --budget-usd`.",
+    ],
+    relatedCommands: [
+      "vibe agent",
+      "vibe build",
+      "vibe run",
+      "vibe doctor",
+      "vibe schema --list",
+    ],
+  },
 };
 
 const CONTENT: Record<WalkthroughTopic, string> = {
   scene: SCENE_WALKTHROUGH,
   pipeline: PIPELINE_WALKTHROUGH,
+  architecture: ARCHITECTURE_WALKTHROUGH,
 };
 
 /** All walkthrough topics this CLI knows. */
-export const WALKTHROUGH_TOPICS: readonly WalkthroughTopic[] = ["scene", "pipeline"] as const;
+export const WALKTHROUGH_TOPICS: readonly WalkthroughTopic[] = ["scene", "pipeline", "architecture"] as const;
 
 /** Pure data accessor — no I/O. Throws on unknown topic. */
 export function loadWalkthrough(topic: WalkthroughTopic): WalkthroughResult {
