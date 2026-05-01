@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list --json` and
 `vibe schema <command> --json` directly.
 
-> CLI version: `0.89.0`
+> CLI version: `0.90.0`
 
 ## Mental model
 
@@ -266,6 +266,7 @@ Configure VibeFrame (LLM provider, API keys)
 - `provider` *(string)* — Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)
 - `importEnv` *(boolean)* — Promote API keys from .env / shell env into config.yaml
 - `test` *(boolean)* — After save, live-test each configured key (exits 7 if any FAIL)
+- `scope` *(string)* *(default: `"user"`)* — Where to save: 'user' (~/.vibeframe/config.yaml, shared) or 'project' (./.vibeframe/config.yaml, gitignored, this project only)
 
 #### `vibe walkthrough`
 
