@@ -356,13 +356,16 @@ export async function promptConfirm(
  * Prompt for multi-select (checkbox) from a list.
  *
  * Returns the indexes selected (sorted ascending). ↑↓ navigates, space toggles,
- * enter confirms. In non-TTY environments accepts comma-separated 1-based
- * indices, the literal "all", or empty/"none" for no selection.
+ * enter confirms. `enterSelectsFocusedWhenEmpty` makes Enter on the focused
+ * row behave like a single-choice select when nothing is checked yet.
+ * In non-TTY environments accepts comma-separated 1-based indices, the literal
+ * "all", or empty/"none" for no selection.
  */
 export async function promptMultiSelect(
   _question: string,
   options: string[],
-  defaultSelected: boolean[] = []
+  defaultSelected: boolean[] = [],
+  opts: { enterSelectsFocusedWhenEmpty?: boolean } = {},
 ): Promise<number[]> {
   const input = getTTYInputStream() as ReadStream;
   const selected = options.map((_, i) => Boolean(defaultSelected[i]));
@@ -404,6 +407,9 @@ export async function promptMultiSelect(
 
       const onData = (char: string) => {
         if (char === "\r" || char === "\n") {
+          if (opts.enterSelectsFocusedWhenEmpty && selected.every((v) => !v)) {
+            selected[cursor] = true;
+          }
           finish();
         } else if (char === "\u0003") {
           input.setRawMode(false);

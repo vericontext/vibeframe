@@ -159,12 +159,24 @@ interface AIFeatureKey {
   what: string;
 }
 
+interface AIFeatureProviderChoice {
+  label: string;
+  desc: string;
+  key?: AIFeatureKey;
+  keyless?: boolean;
+  defaultFor?: {
+    kind: "image" | "video";
+    value: string;
+  };
+}
+
 interface AIFeature {
   label: string;
   desc: string;
   defaultProvider: string;
   alsoAvailable: string;
   keys: AIFeatureKey[];
+  providerChoices?: AIFeatureProviderChoice[];
   tryCommand: string;
 }
 
@@ -175,6 +187,26 @@ const AI_FEATURES: AIFeature[] = [
     defaultProvider: "OpenAI gpt-image-2 (Artificial Analysis #1, since v0.56)",
     alsoAvailable: "Gemini Nano Banana, Grok Imagine",
     keys: [{ configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI", url: "https://platform.openai.com/api-keys", what: "gpt-image-2 image generation + editing (also Whisper, Agent)" }],
+    providerChoices: [
+      {
+        label: "OpenAI gpt-image-2",
+        desc: "recommended default, image generation + editing",
+        key: { configKey: "openai", envVar: "OPENAI_API_KEY", name: "OpenAI", url: "https://platform.openai.com/api-keys", what: "gpt-image-2 image generation + editing (also Whisper, Agent)" },
+        defaultFor: { kind: "image", value: "openai" },
+      },
+      {
+        label: "Gemini",
+        desc: "Google image generation + multimodal analysis",
+        key: { configKey: "google", envVar: "GOOGLE_API_KEY", name: "Google", url: "https://aistudio.google.com/apikey", what: "Gemini image generation and multimodal analysis" },
+        defaultFor: { kind: "image", value: "gemini" },
+      },
+      {
+        label: "Grok",
+        desc: "xAI image generation",
+        key: { configKey: "xai", envVar: "XAI_API_KEY", name: "xAI", url: "https://console.x.ai/", what: "Grok image generation and Agent" },
+        defaultFor: { kind: "image", value: "grok" },
+      },
+    ],
     tryCommand: 'vibe generate image "a sunset over mountains" -o test.png',
   },
   {
@@ -183,6 +215,38 @@ const AI_FEATURES: AIFeature[] = [
     defaultProvider: "Seedance 2.0 via fal.ai (Artificial Analysis #2 t2v + i2v, since v0.57)",
     alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
     keys: [{ configKey: "fal", envVar: "FAL_KEY", name: "Seedance 2.0 (via fal.ai)", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" }],
+    providerChoices: [
+      {
+        label: "Seedance 2.0 via fal.ai",
+        desc: "recommended default, text-to-video + image-to-video",
+        key: { configKey: "fal", envVar: "FAL_KEY", name: "Seedance 2.0 (via fal.ai)", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" },
+        defaultFor: { kind: "video", value: "seedance" },
+      },
+      {
+        label: "Grok",
+        desc: "xAI video generation with audio",
+        key: { configKey: "xai", envVar: "XAI_API_KEY", name: "xAI", url: "https://console.x.ai/", what: "Grok video generation and Agent" },
+        defaultFor: { kind: "video", value: "grok" },
+      },
+      {
+        label: "Kling",
+        desc: "Kling v2.5/v3 video generation",
+        key: { configKey: "kling", envVar: "KLING_API_KEY", name: "Kling", url: "https://platform.klingai.com/", what: "Kling video generation" },
+        defaultFor: { kind: "video", value: "kling" },
+      },
+      {
+        label: "Runway",
+        desc: "Runway Gen-4.5 video generation",
+        key: { configKey: "runway", envVar: "RUNWAY_API_SECRET", name: "Runway", url: "https://app.runwayml.com/settings/api-keys", what: "Runway Gen-4.5 video generation" },
+        defaultFor: { kind: "video", value: "runway" },
+      },
+      {
+        label: "Veo",
+        desc: "Google Veo video generation",
+        key: { configKey: "google", envVar: "GOOGLE_API_KEY", name: "Google", url: "https://aistudio.google.com/apikey", what: "Google Veo video generation" },
+        defaultFor: { kind: "video", value: "veo" },
+      },
+    ],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',
   },
   {
@@ -191,6 +255,23 @@ const AI_FEATURES: AIFeature[] = [
     defaultProvider: "ElevenLabs (paid, premium quality) — falls back to local Kokoro when no key (free, since v0.54)",
     alsoAvailable: "Replicate MusicGen (music only)",
     keys: [{ configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech, sound effects, music, voice cloning (skip to use local Kokoro)" }],
+    providerChoices: [
+      {
+        label: "ElevenLabs",
+        desc: "premium TTS, SFX, music, voice clone",
+        key: { configKey: "elevenlabs", envVar: "ELEVENLABS_API_KEY", name: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys", what: "Text-to-speech, sound effects, music, voice cloning" },
+      },
+      {
+        label: "Kokoro local",
+        desc: "free local TTS fallback, no API key",
+        keyless: true,
+      },
+      {
+        label: "Replicate MusicGen",
+        desc: "background music generation",
+        key: { configKey: "replicate", envVar: "REPLICATE_API_TOKEN", name: "Replicate", url: "https://replicate.com/account/api-tokens", what: "MusicGen background music" },
+      },
+    ],
     tryCommand: 'vibe generate speech "Hello world" -o hello.mp3',
   },
   {
@@ -205,6 +286,24 @@ const AI_FEATURES: AIFeature[] = [
     tryCommand: 'vibe edit caption video.mp4 -o captioned.mp4',
   },
 ];
+
+function addUniqueKey(keys: AIFeatureKey[], keyDef: AIFeatureKey): void {
+  if (!keys.some((k) => k.configKey === keyDef.configKey)) {
+    keys.push(keyDef);
+  }
+}
+
+function applyProviderDefault(
+  config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>,
+  choice: AIFeatureProviderChoice,
+): void {
+  if (!choice.defaultFor) return;
+  if (choice.defaultFor.kind === "image") {
+    config.defaults.imageProvider = choice.defaultFor.value as NonNullable<typeof config.defaults.imageProvider>;
+  } else {
+    config.defaults.videoProvider = choice.defaultFor.value as NonNullable<typeof config.defaults.videoProvider>;
+  }
+}
 
 /**
  * Non-interactive setup for CI / devcontainer / scripted bootstrap.
@@ -401,6 +500,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
   console.log(chalk.dim("2. Features"));
   console.log(chalk.bold("Which AI features do you need?"));
   console.log(chalk.dim("  ↑↓ navigate · space to toggle · enter to confirm"));
+  console.log(chalk.dim("  Tip: pressing enter on the highlighted item selects it if nothing is checked yet."));
   console.log();
 
   const featureLabels = AI_FEATURES.map((f) => {
@@ -411,6 +511,8 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
   const picked = await promptMultiSelect(
     chalk.cyan("  Pick (e.g. 1,3 or 'all'): "),
     featureLabels,
+    [],
+    { enterSelectsFocusedWhenEmpty: true },
   );
   const selectedFeatures: AIFeature[] = picked.map((i) => AI_FEATURES[i]);
   console.log();
@@ -423,65 +525,132 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
     return;
   }
 
-  // Collect keys feature-by-feature with context
-  console.log(chalk.dim("3. API keys"));
-  console.log(chalk.bold("API Keys"));
-  console.log(chalk.dim("  Saved locally, never shared. Press Enter to skip."));
+  const plannedKeys = new Map<string, AIFeatureKey[]>();
+
+  console.log(chalk.dim("3. Providers"));
+  console.log(chalk.bold("Choose providers for each selected feature"));
+  console.log(chalk.dim("  Recommended defaults are pre-selected. You can toggle more than one."));
   console.log();
 
-  // Track already-collected keys to avoid asking twice
-  const collectedKeys = new Set<string>();
-
   for (const feature of selectedFeatures) {
-    // Feature header
-    console.log(chalk.bold.cyan(`  ${feature.label}`));
-    console.log(chalk.dim(`  Default: ${feature.defaultProvider}`));
-    if (feature.alsoAvailable) {
-      console.log(chalk.dim(`  Also available: ${feature.alsoAvailable}`));
+    const keysForFeature: AIFeatureKey[] = [];
+
+    if (feature.providerChoices && feature.providerChoices.length > 0) {
+      console.log(chalk.bold.cyan(`  ${feature.label}`));
+      console.log(chalk.dim(`  Default path: ${feature.defaultProvider}`));
+      if (feature.alsoAvailable) {
+        console.log(chalk.dim(`  Alternatives: ${feature.alsoAvailable}`));
+      }
+      console.log();
+
+      const defaultSelected = feature.providerChoices.map((_, i) => i === 0);
+      const providerLabels = feature.providerChoices.map((choice) => {
+        const keyHint = choice.keyless
+          ? chalk.dim("no key")
+          : choice.key
+            ? chalk.dim(choice.key.envVar)
+            : chalk.dim("no key");
+        return `${choice.label} ${chalk.dim(`- ${choice.desc}`)} ${keyHint}`;
+      });
+      const pickedProviders = await promptMultiSelect(
+        chalk.cyan("  Providers (space toggles, enter confirms): "),
+        providerLabels,
+        defaultSelected,
+      );
+
+      const selectedChoices = pickedProviders.map((i) => feature.providerChoices![i]);
+      const defaultChoice = selectedChoices.find((choice) => choice.defaultFor);
+      if (defaultChoice) {
+        applyProviderDefault(config, defaultChoice);
+      }
+
+      for (const choice of selectedChoices) {
+        if (choice.key) addUniqueKey(keysForFeature, choice.key);
+      }
+      if (selectedChoices.some((choice) => choice.keyless)) {
+        console.log(chalk.dim("  No API key needed for selected local provider(s)."));
+      }
+      console.log();
+    } else {
+      for (const keyDef of feature.keys) {
+        addUniqueKey(keysForFeature, keyDef);
+      }
     }
+
+    plannedKeys.set(feature.label, keysForFeature);
+  }
+
+  const needsKeys = [...plannedKeys.values()].some((keys) => keys.length > 0);
+  if (needsKeys) {
+    // Collect keys feature-by-feature with context
+    console.log(chalk.dim("4. API keys"));
+    console.log(chalk.bold("API Keys"));
+    console.log(chalk.dim("  Saved locally, never shared. Press Enter to skip."));
     console.log();
 
-    for (const keyDef of feature.keys) {
-      // Skip if already collected for a previous feature
-      if (collectedKeys.has(keyDef.configKey)) {
-        console.log(`  ${chalk.green("✓")} ${keyDef.name.padEnd(14)} (already set above)`);
+    // Track already-collected keys to avoid asking twice
+    const collectedKeys = new Set<string>();
+
+    for (const feature of selectedFeatures) {
+      const keysForFeature = plannedKeys.get(feature.label) ?? [];
+      if (keysForFeature.length === 0) {
         continue;
       }
 
-      // Check existing config / .env
-      loadEnv();
-      const configValue = config.providers[keyDef.configKey as keyof typeof config.providers];
-      const envValue = process.env[keyDef.envVar];
-
-      if (configValue || envValue) {
-        const value = configValue || envValue!;
-        const source = configValue ? "config" : ".env";
-        console.log(`  ${chalk.green("✓")} ${keyDef.name.padEnd(14)} ${maskApiKey(value)} ${chalk.dim(`(${source})`)}`);
-        collectedKeys.add(keyDef.configKey);
-        continue;
+      // Feature header
+      console.log(chalk.bold.cyan(`  ${feature.label}`));
+      console.log(chalk.dim(`  Default: ${feature.defaultProvider}`));
+      if (feature.alsoAvailable) {
+        console.log(chalk.dim(`  Also available: ${feature.alsoAvailable}`));
       }
+      console.log();
 
-      // Show what this key is for + where to get it
-      console.log(chalk.dim(`  ${keyDef.what}`));
-      console.log(chalk.dim(`  Get key: ${keyDef.url}  [o] open in browser`));
-      const newKey = await promptHidden(
-        chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `),
-        { openHotkeyUrl: keyDef.url },
-      );
-      if (newKey.trim()) {
-        const trimmed = newKey.trim();
-        config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
-        const fmt = validateKeyFormat(keyDef.configKey, trimmed);
-        if (!fmt.ok && fmt.expected) {
-          console.log(`  ${chalk.yellow("⚠")} Saved, but format looks unusual ${chalk.dim(`(expected ${fmt.expected})`)}`);
-        } else {
-          console.log(`  ${chalk.green("✓")} Saved`);
+      for (const keyDef of keysForFeature) {
+        // Skip if already collected for a previous feature
+        if (collectedKeys.has(keyDef.configKey)) {
+          console.log(`  ${chalk.green("✓")} ${keyDef.name.padEnd(14)} (already set above)`);
+          continue;
         }
-        collectedKeys.add(keyDef.configKey);
-      } else {
-        console.log(`  ${chalk.yellow("⚠")} Skipped ${chalk.dim(`(set ${keyDef.envVar} in .env later)`)}`);
+
+        // Check existing config / .env
+        loadEnv();
+        const configValue = config.providers[keyDef.configKey as keyof typeof config.providers];
+        const envValue = process.env[keyDef.envVar];
+
+        if (configValue || envValue) {
+          const value = configValue || envValue!;
+          const source = configValue ? "config" : ".env";
+          console.log(`  ${chalk.green("✓")} ${keyDef.name.padEnd(14)} ${maskApiKey(value)} ${chalk.dim(`(${source})`)}`);
+          collectedKeys.add(keyDef.configKey);
+          continue;
+        }
+
+        // Show what this key is for + where to get it
+        console.log(chalk.dim(`  ${keyDef.what}`));
+        console.log(chalk.dim(`  Get key: ${keyDef.url}  [o] open in browser`));
+        const newKey = await promptHidden(
+          chalk.cyan(`  ${keyDef.name.padEnd(14)} ${chalk.dim(keyDef.envVar)}: `),
+          { openHotkeyUrl: keyDef.url },
+        );
+        if (newKey.trim()) {
+          const trimmed = newKey.trim();
+          config.providers[keyDef.configKey as keyof typeof config.providers] = trimmed;
+          const fmt = validateKeyFormat(keyDef.configKey, trimmed);
+          if (!fmt.ok && fmt.expected) {
+            console.log(`  ${chalk.yellow("⚠")} Saved, but format looks unusual ${chalk.dim(`(expected ${fmt.expected})`)}`);
+          } else {
+            console.log(`  ${chalk.green("✓")} Saved`);
+          }
+          collectedKeys.add(keyDef.configKey);
+        } else {
+          console.log(`  ${chalk.yellow("⚠")} Skipped ${chalk.dim(`(set ${keyDef.envVar} in .env later)`)}`);
+        }
       }
+      console.log();
     }
+  } else {
+    console.log(chalk.dim("4. API keys"));
+    console.log(chalk.dim("  No API keys needed for the selected provider(s)."));
     console.log();
   }
 
