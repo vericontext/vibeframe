@@ -199,7 +199,8 @@ export async function promptHidden(
 export async function promptSelect(
   _question: string,
   options: string[],
-  defaultIndex = 0
+  defaultIndex = 0,
+  opts: { backIndex?: number } = {}
 ): Promise<number> {
   const input = getTTYInputStream() as ReadStream;
 
@@ -243,6 +244,12 @@ export async function promptSelect(
           input.setRawMode(false);
           process.stdout.write("\n");
           process.exit(1);
+        } else if (opts.backIndex !== undefined && (char === "\x1b" || char === "\x1b[D")) {
+          finished = true;
+          input.setRawMode(false);
+          input.removeListener("data", onData);
+          process.stdout.write("\n");
+          resolve(opts.backIndex);
         } else if (char === "\x1b[A" || char === "k") {
           // Up arrow or k
           selected = (selected - 1 + options.length) % options.length;
@@ -398,6 +405,7 @@ export async function promptMultiSelect(
   opts: {
     pickFocusedOnEnter?: boolean;
     preserveDefaultSelectionOnEnter?: boolean;
+    backIndex?: number;
     /** @deprecated Use pickFocusedOnEnter — same flag, broader semantics. */
     enterSelectsFocusedWhenEmpty?: boolean;
   } = {}
@@ -460,6 +468,11 @@ export async function promptMultiSelect(
           input.setRawMode(false);
           process.stdout.write("\n");
           process.exit(1);
+        } else if (opts.backIndex !== undefined && (char === "\x1b" || char === "\x1b[D")) {
+          for (let i = 0; i < selected.length; i++) selected[i] = false;
+          selected[opts.backIndex] = true;
+          finished = true;
+          finish();
         } else if (char === " ") {
           selected[cursor] = !selected[cursor];
           userToggled = true;

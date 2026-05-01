@@ -751,7 +751,11 @@ async function runAIFeaturesSetup(
       )
     );
     console.log(chalk.dim("  Shortcut: enter alone picks only the highlighted feature."));
-    console.log(chalk.dim(`  Select ${chalk.bold("Back")} to return to the setup checkpoint.`));
+    console.log(
+      chalk.dim(
+        `  Select ${chalk.bold("Back")} or press ${chalk.bold("Esc/←")} to return to the setup checkpoint.`
+      )
+    );
     console.log();
 
     const backIndex = AI_FEATURES.length;
@@ -768,7 +772,7 @@ async function runAIFeaturesSetup(
       chalk.cyan("  Pick (e.g. 1,3 or 'all'): "),
       featureLabels,
       [...configuredFeatures, false],
-      { pickFocusedOnEnter: true, preserveDefaultSelectionOnEnter: true }
+      { pickFocusedOnEnter: true, backIndex }
     );
     if (picked.includes(backIndex)) {
       console.log();
@@ -791,7 +795,7 @@ async function runAIFeaturesSetup(
     console.log(chalk.bold("Choose providers for each selected feature"));
     console.log(
       chalk.dim(
-        `  Recommended default is highlighted. Press ${chalk.bold("enter")} to pick the highlighted provider, or ${chalk.bold("space")} to choose multiple.`
+        `  Recommended default is highlighted. Press ${chalk.bold("enter")} to pick the highlighted provider, ${chalk.bold("space")} to choose multiple, or ${chalk.bold("Esc/←")} to go back.`
       )
     );
     console.log();
@@ -827,7 +831,11 @@ async function runAIFeaturesSetup(
           chalk.cyan("  Providers (arrow + enter picks one, space adds more): "),
           [...providerLabels, `Back ${chalk.dim("(choose different features)")}`],
           [...defaultSelected, false],
-          { pickFocusedOnEnter: true, preserveDefaultSelectionOnEnter: true }
+          {
+            pickFocusedOnEnter: true,
+            preserveDefaultSelectionOnEnter: true,
+            backIndex: backProviderIndex,
+          }
         );
         if (pickedProviders.includes(backProviderIndex)) {
           console.log();
