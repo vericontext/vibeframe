@@ -24,6 +24,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { resolveUploadHost } from "../utils/upload-host.js";
 import { downloadVideo } from "./ai-helpers.js";
+import { hasApiKey } from "../utils/api-key.js";
 
 // ============================================================================
 // Video Generation
@@ -84,10 +85,15 @@ export async function executeVideoGenerate(
       runway: "RUNWAY_API_SECRET",
       kling: "KLING_API_KEY",
       veo: "GOOGLE_API_KEY",
-      seedance: "FAL_KEY",
-      fal: "FAL_KEY",
+      seedance: "FAL_API_KEY",
+      fal: "FAL_API_KEY",
     };
-    const key = apiKey || process.env[envKeyMap[provider] || ""];
+    const envKey = envKeyMap[provider] || "";
+    const key =
+      apiKey ||
+      (hasApiKey(envKey)
+        ? process.env[envKey] || (envKey === "FAL_API_KEY" ? process.env.FAL_KEY : undefined)
+        : undefined);
     if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
     let referenceImage: string | undefined;

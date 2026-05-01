@@ -37,7 +37,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
 
   it("getProvidersFor('video') matches VIDEO_PROVIDERS", () => {
     expect(getProvidersFor("video")).toEqual([
-      { name: "seedance", envVar: "FAL_KEY", label: "Seedance 2.0" },
+      { name: "seedance", envVar: "FAL_API_KEY", label: "Seedance 2.0" },
       { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
       { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
       { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
@@ -63,7 +63,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       elevenlabs: "ELEVENLABS_API_KEY",
       runway: "RUNWAY_API_SECRET",
       kling: "KLING_API_KEY",
-      fal: "FAL_KEY",
+      fal: "FAL_API_KEY",
       imgbb: "IMGBB_API_KEY",
       replicate: "REPLICATE_API_TOKEN",
       xai: "XAI_API_KEY",
@@ -108,7 +108,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "generate video -p grok",
         "edit image -p grok",
       ],
-      FAL_KEY: [
+      FAL_API_KEY: [
         "generate video -p seedance (Seedance 2.0 via fal.ai — default since v0.57)",
         "generate video -p seedance --seedance-model fast (lower-latency variant)",
         "generate video -p seedance -i <image> (image-to-video)",
@@ -182,7 +182,8 @@ describe("resolveProvider — config-aware defaults", () => {
     expect(resolveProvider("image")).toEqual({ name: "openai", label: "OpenAI" });
   });
 
-  it("uses Seedance when FAL_KEY is saved in config but not exported", () => {
+  it("uses Seedance when FAL_API_KEY is saved in config but not exported", () => {
+    delete process.env.FAL_API_KEY;
     delete process.env.FAL_KEY;
     delete process.env.XAI_API_KEY;
     delete process.env.GOOGLE_API_KEY;
@@ -201,6 +202,19 @@ describe("resolveProvider — config-aware defaults", () => {
       upload: { provider: "imgbb", ttlSeconds: 3600 },
       repl: { autoSave: true },
     });
+
+    expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });
+  });
+
+  it("accepts legacy FAL_KEY for Seedance provider resolution", () => {
+    delete process.env.FAL_API_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.KLING_API_KEY;
+    delete process.env.RUNWAY_API_SECRET;
+    process.env.FAL_KEY = "legacy-fal-key";
+
+    loadProviderDefaultsFromConfig(null);
 
     expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });
   });

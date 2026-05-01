@@ -51,7 +51,7 @@ For the full copy-paste walkthrough, see [DEMO.md](DEMO.md).
 
 Local/free paths are available for many editing tasks and for Kokoro TTS. AI
 image/video generation requires provider keys such as `OPENAI_API_KEY`,
-`FAL_KEY`, `GOOGLE_API_KEY`, or others listed in [MODELS.md](MODELS.md).
+`FAL_API_KEY`, `GOOGLE_API_KEY`, or others listed in [MODELS.md](MODELS.md).
 
 ## Install
 
@@ -209,7 +209,7 @@ generation, TTS, transcription, and analysis. Common environment variables:
 OPENAI_API_KEY
 ANTHROPIC_API_KEY
 GOOGLE_API_KEY
-FAL_KEY
+FAL_API_KEY
 ELEVENLABS_API_KEY
 RUNWAY_API_SECRET
 KLING_API_KEY

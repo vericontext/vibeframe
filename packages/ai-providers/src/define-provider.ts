@@ -46,6 +46,8 @@ export interface ApiKeyMeta {
   configKey: string;
   /** Environment variable name (e.g. `OPENAI_API_KEY`). */
   envVar: string;
+  /** Legacy or alternative environment variable names accepted for compatibility. */
+  envAliases?: readonly string[];
   /** Display label for setup wizard / doctor output. */
   label: string;
   /** Whether the setup wizard prompts for this key in `--full` mode. */
@@ -174,6 +176,15 @@ export function getProvidersFor(kind: ProviderKind): ProviderCandidate[] {
 export function getProviderEnvVars(): Record<string, string> {
   return Object.fromEntries(
     [...apiKeyRegistry.values()].map((k) => [k.configKey, k.envVar]),
+  );
+}
+
+/** Shape: `{ canonicalEnvVar: [aliasEnvVar, ...] }`. */
+export function getProviderEnvAliases(): Record<string, readonly string[]> {
+  return Object.fromEntries(
+    [...apiKeyRegistry.values()]
+      .filter((k) => k.envAliases && k.envAliases.length > 0)
+      .map((k) => [k.envVar, k.envAliases ?? []]),
   );
 }
 

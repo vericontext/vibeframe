@@ -276,7 +276,7 @@ OPENROUTER_API_KEY=                   # multiplexes any provider above
 
 # ── Media providers ─────────────────────────────────────────────────────
 ELEVENLABS_API_KEY=                   # paid TTS / SFX / music (Kokoro is the free fallback)
-FAL_KEY=                              # Seedance 2.0 — default video provider since v0.57
+FAL_API_KEY=                              # Seedance 2.0 — default video provider since v0.57
 IMGBB_API_KEY=                        # image hosting for Seedance/Kling image-to-video
 RUNWAY_API_SECRET=                    # Runway Gen-4.5 video
 KLING_API_KEY=                        # Kling video

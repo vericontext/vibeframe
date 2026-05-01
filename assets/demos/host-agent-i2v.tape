@@ -7,7 +7,7 @@
 #             `claude` CLI on PATH (recorded with Claude Code)
 # Env:        ANTHROPIC_API_KEY (Claude Code),
 #             OPENAI_API_KEY (gpt-image-2),
-#             FAL_KEY (Seedance 2.0),
+#             FAL_API_KEY (Seedance 2.0),
 #             ELEVENLABS_API_KEY (TTS)
 # Wall-clock: ~6–8 min (Seedance i2v dominates: 60–180s, non-cacheable)
 # Cost:       ~$1–$2 per recording

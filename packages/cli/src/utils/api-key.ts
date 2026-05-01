@@ -3,7 +3,33 @@ import { readFile, writeFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { config } from "dotenv";
 import chalk from "chalk";
-import { getApiKeyFromConfig } from "../config/index.js";
+import { getApiKeyFromConfig, PROVIDER_ENV_ALIASES } from "../config/index.js";
+
+const PROVIDER_KEY_BY_ENV_VAR: Record<string, string> = {
+  ANTHROPIC_API_KEY: "anthropic",
+  OPENAI_API_KEY: "openai",
+  GOOGLE_API_KEY: "google",
+  XAI_API_KEY: "xai",
+  ELEVENLABS_API_KEY: "elevenlabs",
+  FAL_API_KEY: "fal",
+  FAL_KEY: "fal",
+  RUNWAY_API_SECRET: "runway",
+  KLING_API_KEY: "kling",
+  OPENROUTER_API_KEY: "openrouter",
+  IMGBB_API_KEY: "imgbb",
+  REPLICATE_API_TOKEN: "replicate",
+};
+
+export function providerKeyForEnvVar(envVar: string): string | undefined {
+  return PROVIDER_KEY_BY_ENV_VAR[envVar];
+}
+
+function getEnvValue(envVar: string): string | undefined {
+  return (
+    process.env[envVar] ||
+    PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean)
+  );
+}
 
 /**
  * Load environment variables from .env files.
@@ -100,19 +126,7 @@ export async function getApiKey(
 
   // 2. Check ~/.vibeframe/config.yaml
   // Map env var to provider key
-  const providerKeyMap: Record<string, string> = {
-    ANTHROPIC_API_KEY: "anthropic",
-    OPENAI_API_KEY: "openai",
-    GOOGLE_API_KEY: "google",
-    XAI_API_KEY: "xai",
-    ELEVENLABS_API_KEY: "elevenlabs",
-    RUNWAY_API_SECRET: "runway",
-    KLING_API_KEY: "kling",
-    OPENROUTER_API_KEY: "openrouter",
-    IMGBB_API_KEY: "imgbb",
-    REPLICATE_API_TOKEN: "replicate",
-  };
-  const providerKey = providerKeyMap[envVar];
+  const providerKey = providerKeyForEnvVar(envVar);
   if (providerKey) {
     const configKey = await getApiKeyFromConfig(providerKey);
     if (configKey) {
@@ -122,7 +136,7 @@ export async function getApiKey(
 
   // 3. Load .env and check environment
   loadEnv();
-  const envValue = process.env[envVar];
+  const envValue = getEnvValue(envVar);
   if (envValue) {
     return envValue;
   }
@@ -167,6 +181,8 @@ const API_KEY_URLS: Record<string, string> = {
   ANTHROPIC_API_KEY: "https://console.anthropic.com/settings/keys",
   XAI_API_KEY: "https://console.x.ai",
   ELEVENLABS_API_KEY: "https://elevenlabs.io/app/settings/api-keys",
+  FAL_API_KEY: "https://fal.ai/dashboard/keys",
+  FAL_KEY: "https://fal.ai/dashboard/keys",
   RUNWAY_API_SECRET: "https://app.runwayml.com/settings/api-keys",
   KLING_API_KEY: "https://klingai.com/dev",
   REPLICATE_API_TOKEN: "https://replicate.com/account/api-tokens",
@@ -225,7 +241,7 @@ export class ApiKeyError extends Error {
  */
 export function hasApiKey(envVar: string): boolean {
   loadEnv();
-  return !!process.env[envVar];
+  return !!getEnvValue(envVar);
 }
 
 /**

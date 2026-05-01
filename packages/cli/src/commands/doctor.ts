@@ -8,7 +8,7 @@ import { access } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { CONFIG_PATH, getProjectConfigPath, getActiveScope, type Scope } from "../config/index.js";
-import { PROVIDER_ENV_VARS } from "../config/schema.js";
+import { PROVIDER_ENV_ALIASES, PROVIDER_ENV_VARS } from "../config/schema.js";
 import { getCommandKeyMap, getDisplayLabelForApiKey } from "@vibeframe/ai-providers";
 import { commandExists } from "../utils/exec-safe.js";
 import { execSafe } from "../utils/exec-safe.js";
@@ -298,7 +298,10 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   let totalCount = FREE_COMMANDS.length;
 
   for (const [envVar, commands] of Object.entries(COMMAND_KEY_MAP)) {
-    const configured = !!process.env[envVar];
+    const configured = Boolean(
+      process.env[envVar] ||
+        PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean)
+    );
     const providerName =
       Object.entries(PROVIDER_ENV_VARS).find(([, v]) => v === envVar)?.[0] ??
       envVar;
@@ -673,7 +676,9 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
   const { testKey } = await import("../utils/key-live-test.js");
 
   for (const [name, info] of configured) {
-    const value = process.env[info.envVar];
+    const value =
+      process.env[info.envVar] ||
+      PROVIDER_ENV_ALIASES[info.envVar]?.map((alias) => process.env[alias]).find(Boolean);
     if (!value) continue; // shouldn't happen — info.configured already checked
     process.stdout.write(`    ${name.padEnd(12)} `);
     const result = await testKey(name, value);

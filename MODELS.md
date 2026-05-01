@@ -150,9 +150,9 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 | Provider | Model | Duration | Audio | Env Key | CLI Option | Notes |
 |----------|-------|----------|-------|---------|------------|-------|
-| Seedance via fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_KEY` | `-p seedance` | ByteDance Seedance through fal.ai |
-| Seedance via fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_KEY` | `-p seedance --seedance-model fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
-| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Fallback default when `FAL_KEY` is unset. Best lip-sync/native audio. $0.07/s (720p) |
+| Seedance via fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance` | ByteDance Seedance through fal.ai |
+| Seedance via fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance --seedance-model fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
+| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Fallback default when `FAL_API_KEY` is unset. Best lip-sync/native audio. $0.07/s (720p) |
 | Kling | `kling-v2-5-turbo` | 5-10 sec | No | `KLING_API_KEY` | `-p kling` | Fast (~36s generation) |
 | Kling | `kling-v2-6` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v2.6` | High quality |
 | Kling | `kling-v3` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v3` | Higher quality, multi-shot, lip-sync |
@@ -235,7 +235,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe generate speech` | `ELEVENLABS_API_KEY` | ElevenLabs |
 | `vibe generate music` | `ELEVENLABS_API_KEY` | ElevenLabs Music (default) |
 | `vibe generate music -p replicate` | `REPLICATE_API_TOKEN` | Replicate MusicGen |
-| `vibe generate video -p seedance` | `FAL_KEY` | Seedance via fal.ai |
+| `vibe generate video -p seedance` | `FAL_API_KEY` | Seedance via fal.ai |
 | `vibe generate video -p grok` | `XAI_API_KEY` | Grok Imagine |
 | `vibe generate video -p kling` | `KLING_API_KEY` | Kling v2.5-turbo |
 | `vibe generate image -p grok` | `XAI_API_KEY` | Grok Imagine |

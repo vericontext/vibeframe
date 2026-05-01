@@ -35,7 +35,7 @@ For the full demo, these keys should be available:
 
 ```text
 OPENAI_API_KEY    text-to-image
-FAL_KEY           Seedance text/image-to-video through fal.ai
+FAL_API_KEY           Seedance text/image-to-video through fal.ai
 IMGBB_API_KEY     local image upload host for image-to-video
 ```
 
@@ -449,7 +449,7 @@ Required keys:
 
 ```text
 OPENAI_API_KEY
-FAL_KEY
+FAL_API_KEY
 IMGBB_API_KEY
 ```
 

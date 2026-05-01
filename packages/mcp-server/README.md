@@ -235,7 +235,7 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 | `GOOGLE_API_KEY` | Gemini (analyze, review, silence-cut, narrate) |
 | `ELEVENLABS_API_KEY` | TTS, voice-clone, dubbing, SFX |
 | `XAI_API_KEY` | Grok |
-| `FAL_KEY` | Seedance image-to-video |
+| `FAL_API_KEY` | Seedance image-to-video |
 | `RUNWAY_API_SECRET` | Runway video |
 | `KLING_API_KEY` | Kling video |
 | `VIBE_PROJECT_PATH` | Default timeline JSON path for resources |

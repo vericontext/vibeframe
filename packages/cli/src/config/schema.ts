@@ -81,9 +81,10 @@ export const PROVIDER_NAMES: Record<LLMProvider, string> = {
  * `@vibeframe/ai-providers` `defineApiKey` declarations — adding a new
  * apiKey is a single line in `api-keys.ts`.
  */
-import { getProviderEnvVars } from "@vibeframe/ai-providers";
+import { getProviderEnvAliases, getProviderEnvVars } from "@vibeframe/ai-providers";
 
 export const PROVIDER_ENV_VARS: Record<string, string> = getProviderEnvVars();
+export const PROVIDER_ENV_ALIASES: Record<string, readonly string[]> = getProviderEnvAliases();
 
 /** Default configuration */
 export function createDefaultConfig(): VibeConfig {

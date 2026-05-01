@@ -33,7 +33,7 @@ import { loadEnv } from "../utils/api-key.js";
 import { validateKeyFormat } from "../utils/key-format.js";
 import { copyToClipboard } from "../utils/clipboard.js";
 import { detectedAgentHosts, summariseAgentHosts } from "../utils/agent-host-detect.js";
-import { getSetupProviders, getAllApiKeys } from "@vibeframe/ai-providers";
+import { getSetupProviders, getAllApiKeys, type ApiKeyMeta } from "@vibeframe/ai-providers";
 import { listWalkthroughs } from "./_shared/walkthroughs/walkthroughs.js";
 
 const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
@@ -46,6 +46,18 @@ const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
 ];
 
 const VALID_SCOPES: readonly Scope[] = ["user", "project"];
+
+function envValueFor(meta: Pick<ApiKeyMeta, "envVar" | "envAliases">): string | undefined {
+  return (
+    process.env[meta.envVar] ||
+    meta.envAliases?.map((alias: string) => process.env[alias]).find(Boolean)
+  );
+}
+
+function envValueForName(envVar: string): string | undefined {
+  if (envVar === "FAL_API_KEY") return process.env.FAL_API_KEY || process.env.FAL_KEY;
+  return process.env[envVar];
+}
 
 function parseScope(raw: unknown): Scope {
   const v = String(raw ?? "user");
@@ -252,7 +264,7 @@ const AI_FEATURES: AIFeature[] = [
     keys: [
       {
         configKey: "fal",
-        envVar: "FAL_KEY",
+        envVar: "FAL_API_KEY",
         name: "Seedance 2.0 (via fal.ai)",
         url: "https://fal.ai/dashboard/keys",
         what: "ByteDance Seedance 2.0 text-to-video and image-to-video",
@@ -264,7 +276,7 @@ const AI_FEATURES: AIFeature[] = [
         desc: "recommended default, text-to-video + image-to-video",
         key: {
           configKey: "fal",
-          envVar: "FAL_KEY",
+          envVar: "FAL_API_KEY",
           name: "Seedance 2.0 (via fal.ai)",
           url: "https://fal.ai/dashboard/keys",
           what: "ByteDance Seedance 2.0 text-to-video and image-to-video",
@@ -635,7 +647,7 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
   if (opts.importEnv) {
     loadEnv();
     for (const meta of getAllApiKeys()) {
-      const envValue = process.env[meta.envVar];
+      const envValue = envValueFor(meta);
       if (!envValue) continue;
       const existing = config.providers[meta.configKey as keyof typeof config.providers];
       if (existing === envValue) continue;
@@ -797,7 +809,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
       },
       {
         configKey: "fal",
-        envVar: "FAL_KEY",
+        envVar: "FAL_API_KEY",
         name: "fal.ai",
         url: "https://fal.ai/dashboard/keys",
         what: "Seedance 2.0 — video generation, default since v0.57",
@@ -1062,7 +1074,7 @@ async function runAIFeaturesSetup(
           // Check existing config / .env
           loadEnv();
           const configValue = config.providers[keyDef.configKey as keyof typeof config.providers];
-          const envValue = process.env[keyDef.envVar];
+          const envValue = envValueForName(keyDef.envVar);
 
           if (configValue || envValue) {
             const value = configValue || envValue!;
@@ -1122,7 +1134,7 @@ async function collectKeys(
 
   for (const keyDef of keys) {
     const configValue = config.providers[keyDef.configKey as keyof typeof config.providers];
-    const envValue = process.env[keyDef.envVar];
+    const envValue = envValueForName(keyDef.envVar);
 
     if (configValue) {
       console.log(
@@ -1479,7 +1491,7 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     { key: "openai", name: "OpenAI", env: "OPENAI_API_KEY" },
     { key: "google", name: "Google", env: "GOOGLE_API_KEY" },
     { key: "xai", name: "xAI", env: "XAI_API_KEY" },
-    { key: "fal", name: "fal.ai", env: "FAL_KEY" },
+    { key: "fal", name: "fal.ai", env: "FAL_API_KEY" },
     { key: "elevenlabs", name: "ElevenLabs", env: "ELEVENLABS_API_KEY" },
     { key: "runway", name: "Runway", env: "RUNWAY_API_SECRET" },
     { key: "kling", name: "Kling", env: "KLING_API_KEY" },
@@ -1491,14 +1503,14 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
   let unsetCount = 0;
   for (const p of providerKeys) {
     const configValue = config?.providers[p.key as keyof typeof config.providers];
-    const dotenvValue = dotenvKeys[p.env];
+    const dotenvValue = dotenvKeys[p.env] || (p.env === "FAL_API_KEY" ? dotenvKeys.FAL_KEY : undefined);
 
     if (configValue || dotenvValue) {
       // Show effective value (config wins) and all sources
       const sources: string[] = [];
       if (configValue) sources.push("config");
       if (dotenvValue) sources.push(".env");
-      const value = configValue || dotenvValue;
+      const value = configValue || dotenvValue!;
       const status = chalk.green("✓");
       console.log(`  ${status} ${p.name.padEnd(12)} ${maskApiKey(value)} (${sources.join(" + ")})`);
     } else {

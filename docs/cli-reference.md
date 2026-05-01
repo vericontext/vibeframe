@@ -419,7 +419,7 @@ Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)
 
 - `prompt` *(string)* — Text prompt describing the video (interactive if omitted)
 - `provider` *(string)* — Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
-- `apiKey` *(string)* — API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
+- `apiKey` *(string)* — API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `output` *(string)* — Output file path (downloads video)
 - `image` *(string)* — Reference image for image-to-video
 - `duration` *(number)* *(default: `5`)* — Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.

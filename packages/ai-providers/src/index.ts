@@ -22,6 +22,7 @@ export {
   defineProvider,
   getProvidersFor,
   getProviderEnvVars,
+  getProviderEnvAliases,
   getCommandKeyMap,
   getSetupProviders,
   getAllApiKeys,

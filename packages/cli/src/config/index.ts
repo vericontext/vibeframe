@@ -19,7 +19,12 @@ import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { parse, stringify } from "yaml";
-import { type VibeConfig, createDefaultConfig, PROVIDER_ENV_VARS } from "./schema.js";
+import {
+  type VibeConfig,
+  createDefaultConfig,
+  PROVIDER_ENV_ALIASES,
+  PROVIDER_ENV_VARS,
+} from "./schema.js";
 
 export type Scope = "user" | "project";
 
@@ -186,7 +191,7 @@ export async function isConfigured(): Promise<boolean> {
   }
 
   const envVar = PROVIDER_ENV_VARS[providerKey];
-  if (envVar && process.env[envVar]) {
+  if (envVar && getEnvValue(envVar)) {
     return true;
   }
 
@@ -204,8 +209,15 @@ export async function getApiKeyFromConfig(providerKey: string): Promise<string |
   }
 
   const envVar = PROVIDER_ENV_VARS[providerKey];
-  if (envVar) return process.env[envVar];
+  if (envVar) return getEnvValue(envVar);
   return undefined;
+}
+
+function getEnvValue(envVar: string): string | undefined {
+  return (
+    process.env[envVar] ||
+    PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean)
+  );
 }
 
 /**
@@ -227,4 +239,4 @@ export async function updateProviderKey(
 
 // Re-export types
 export type { VibeConfig, LLMProvider } from "./schema.js";
-export { createDefaultConfig, PROVIDER_NAMES, PROVIDER_ENV_VARS } from "./schema.js";
+export { createDefaultConfig, PROVIDER_NAMES, PROVIDER_ENV_ALIASES, PROVIDER_ENV_VARS } from "./schema.js";

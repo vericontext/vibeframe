@@ -2003,7 +2003,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)",
+        "description": "API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)",
         "type": "string",
       },
       "dryRun": {

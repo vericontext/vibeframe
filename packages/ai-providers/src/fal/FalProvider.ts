@@ -105,7 +105,7 @@ export class FalProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: "fal.ai API key not configured. Set FAL_KEY in .env.",
+        error: "fal.ai API key not configured. Set FAL_API_KEY in .env.",
       };
     }
 

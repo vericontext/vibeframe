@@ -41,7 +41,7 @@ then use it as the reference image for image-to-video.
 Requires:
 
 - `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, or another supported image provider key
-- `FAL_KEY` for Seedance via fal.ai
+- `FAL_API_KEY` for Seedance via fal.ai
 - `IMGBB_API_KEY` when the selected video provider needs an HTTPS image URL
 
 ```bash

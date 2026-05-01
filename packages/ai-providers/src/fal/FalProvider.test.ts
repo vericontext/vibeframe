@@ -202,7 +202,7 @@ describe("FalProvider", () => {
       const fresh = new FalProvider();
       const result = await fresh.generateVideo("p", { prompt: "p" });
       expect(result.status).toBe("failed");
-      expect(result.error).toMatch(/FAL_KEY/);
+      expect(result.error).toMatch(/FAL_API_KEY/);
     });
   });
 });

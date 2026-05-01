@@ -8,7 +8,7 @@
 #   - vibe      — `npm install -g @vibeframe/cli@latest`
 #   - claude    — `claude` on PATH for host-agent.tape / host-agent-i2v.tape
 #                 (Anthropic Claude Code drives those recordings)
-#   - ANTHROPIC_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY, FAL_KEY in env
+#   - ANTHROPIC_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY, FAL_API_KEY in env
 #     (compose-scenes-with-skills + gpt-image-2 backdrops + TTS narration
 #     + Seedance 2.0 i2v for the host-agent-i2v primitive chain)
 #

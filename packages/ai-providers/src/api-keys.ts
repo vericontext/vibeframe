@@ -70,7 +70,8 @@ defineApiKey({
 
 defineApiKey({
   configKey: "fal",
-  envVar: "FAL_KEY",
+  envVar: "FAL_API_KEY",
+  envAliases: ["FAL_KEY"],
   label: "fal.ai",
   showInSetup: true,
   setupDescription: "Seedance 2.0 video gen ($$, default since v0.57)",
@@ -89,7 +90,7 @@ defineApiKey({
   label: "xAI",
   showInSetup: true,
   setupDescription: "Grok — video gen with audio ($$), image ($), Agent",
-  envExampleComment: "xAI API Key (Grok video generation — fallback when no FAL_KEY)",
+  envExampleComment: "xAI API Key (Grok video generation — fallback when no FAL_API_KEY)",
   envExampleUrl: "https://console.x.ai/",
   keyFormat: { prefix: /^xai-/, example: "xai-..." },
 });

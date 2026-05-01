@@ -46,7 +46,7 @@ export function registerVideoCommand(parent: Command): void {
     )
     .option(
       "-k, --api-key <key>",
-      "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)"
+      "API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)"
     )
     .option("-o, --output <path>", "Output file path (downloads video)")
     .option("-i, --image <path>", "Reference image for image-to-video")
@@ -86,7 +86,7 @@ export function registerVideoCommand(parent: Command): void {
       "after",
       `
 Examples:
-  $ vibe generate video "dancing cat" -o cat.mp4                      # Seedance when FAL_KEY is set
+  $ vibe generate video "dancing cat" -o cat.mp4                      # Seedance when FAL_API_KEY is set
   $ vibe gen vid "cinematic city timelapse" -o city.mp4 -p seedance   # Seedance via fal.ai
   $ vibe gen vid "city timelapse" -o city.mp4 -p kling                # Kling
   $ vibe gen vid "epic scene" -i frame.png -o out.mp4 -p runway       # Image-to-video
@@ -146,7 +146,7 @@ Examples:
           veo: "GOOGLE_API_KEY",
           kling: "KLING_API_KEY",
           runway: "RUNWAY_API_SECRET",
-          seedance: "FAL_KEY",
+          seedance: "FAL_API_KEY",
         };
         let provider: string;
         if (options.provider) {
@@ -263,7 +263,7 @@ Examples:
           kling: "KLING_API_KEY",
           veo: "GOOGLE_API_KEY",
           grok: "XAI_API_KEY",
-          seedance: "FAL_KEY",
+          seedance: "FAL_API_KEY",
         };
         const providerNameMap: Record<string, string> = {
           runway: "Runway",

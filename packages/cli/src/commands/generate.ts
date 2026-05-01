@@ -75,7 +75,7 @@ export const generateCommand = new Command("generate")
 Examples:
   $ vibe generate image "a sunset over the ocean" -o sunset.png
   $ vibe generate image "logo design" -o logo.png -p openai
-  $ vibe generate video "dancing cat" -o cat.mp4                  # Seedance when FAL_KEY is set
+  $ vibe generate video "dancing cat" -o cat.mp4                  # Seedance when FAL_API_KEY is set
   $ vibe generate video "city timelapse" -o city.mp4 -p seedance  # Seedance via fal.ai
   $ vibe generate video "city timelapse" -o city.mp4 -p kling     # Kling
   $ vibe generate video "epic scene" -i frame.png -o out.mp4 -p runway  # Image-to-video
@@ -86,7 +86,7 @@ Examples:
 API Keys (per provider):
   GOOGLE_API_KEY     Image (default), Veo video
   OPENAI_API_KEY     Image (-p openai)
-  FAL_KEY            Seedance video (-p seedance, default video)
+  FAL_API_KEY        Seedance video (-p seedance, default video)
   XAI_API_KEY        Grok image/video
   KLING_API_KEY      Kling video (-p kling)
   RUNWAY_API_SECRET  Runway video (-p runway)
