@@ -14,13 +14,30 @@
  * five into a single registry; the cross-validation became structural.
  */
 
-import { getProvidersFor, type ProviderCandidate } from "@vibeframe/ai-providers";
+import {
+  getProviderEnvVars,
+  getProvidersFor,
+  type ProviderCandidate,
+} from "@vibeframe/ai-providers";
 import { hasApiKey } from "./api-key.js";
+import type { VibeConfig } from "../config/schema.js";
 
 export type { ProviderCandidate };
 
 /** Cached config defaults (loaded once per process) */
 let configDefaults: Record<string, string> | null = null;
+let configProviderKeys: Set<string> | null = null;
+
+export function loadProviderDefaultsFromConfig(config: VibeConfig | null | undefined): void {
+  configDefaults = {};
+  if (config?.defaults.imageProvider) configDefaults.image = config.defaults.imageProvider;
+  if (config?.defaults.videoProvider) configDefaults.video = config.defaults.videoProvider;
+  configProviderKeys = new Set(
+    Object.entries(config?.providers ?? {})
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key)
+  );
+}
 
 /**
  * Load provider defaults from config (async, cached).
@@ -30,14 +47,26 @@ export async function loadProviderDefaults(): Promise<void> {
   try {
     const { loadConfig } = await import("../config/index.js");
     const config = await loadConfig();
-    if (config?.defaults) {
-      configDefaults = {};
-      if (config.defaults.imageProvider) configDefaults.image = config.defaults.imageProvider;
-      if (config.defaults.videoProvider) configDefaults.video = config.defaults.videoProvider;
-    }
+    loadProviderDefaultsFromConfig(config);
   } catch {
     configDefaults = null;
+    configProviderKeys = null;
   }
+}
+
+function providerKeyForEnvVar(envVar: string): string | null {
+  const envVars = getProviderEnvVars();
+  for (const [providerKey, candidateEnvVar] of Object.entries(envVars)) {
+    if (candidateEnvVar === envVar) return providerKey;
+  }
+  return null;
+}
+
+function hasCandidateKey(candidate: ProviderCandidate): boolean {
+  if (candidate.envVar === null) return true;
+  if (hasApiKey(candidate.envVar)) return true;
+  const providerKey = providerKeyForEnvVar(candidate.envVar);
+  return providerKey ? Boolean(configProviderKeys?.has(providerKey)) : false;
 }
 
 /**
@@ -52,15 +81,15 @@ export function resolveProvider(
 
   // Check config default first
   if (configDefaults?.[category]) {
-    const preferred = candidates.find(c => c.name === configDefaults![category]);
-    if (preferred && (preferred.envVar === null || hasApiKey(preferred.envVar))) {
+    const preferred = candidates.find((c) => c.name === configDefaults![category]);
+    if (preferred && hasCandidateKey(preferred)) {
       return { name: preferred.name, label: preferred.label };
     }
   }
 
   // Fall back to first available
   for (const candidate of candidates) {
-    if (candidate.envVar === null || hasApiKey(candidate.envVar)) {
+    if (hasCandidateKey(candidate)) {
       return { name: candidate.name, label: candidate.label };
     }
   }

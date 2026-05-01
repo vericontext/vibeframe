@@ -82,6 +82,11 @@ function applyDefaults(parsed: VibeConfig): VibeConfig {
     llm: { ...defaults.llm, ...parsed.llm },
     providers: { ...defaults.providers, ...parsed.providers },
     defaults: { ...defaults.defaults, ...parsed.defaults },
+    upload: {
+      ...defaults.upload,
+      ...parsed.upload,
+      s3: { ...defaults.upload.s3, ...parsed.upload?.s3 },
+    },
     repl: { ...defaults.repl, ...parsed.repl },
   };
 }
@@ -124,6 +129,11 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
       llm: { ...user.llm, ...project.llm },
       providers: { ...user.providers, ...project.providers },
       defaults: { ...user.defaults, ...project.defaults },
+      upload: {
+        ...user.upload,
+        ...project.upload,
+        s3: { ...user.upload.s3, ...project.upload.s3 },
+      },
       repl: { ...user.repl, ...project.repl },
     };
   }
@@ -148,7 +158,7 @@ export interface SaveConfigOptions {
 /** Save configuration to the chosen scope. Default scope is "user". */
 export async function saveConfig(
   config: VibeConfig,
-  options: SaveConfigOptions = {},
+  options: SaveConfigOptions = {}
 ): Promise<void> {
   const scope = options.scope ?? "user";
   const dir = getConfigDir(scope, options.cwd);
@@ -205,7 +215,7 @@ export async function getApiKeyFromConfig(providerKey: string): Promise<string |
 export async function updateProviderKey(
   providerKey: string,
   apiKey: string,
-  options: SaveConfigOptions = {},
+  options: SaveConfigOptions = {}
 ): Promise<void> {
   const scope = options.scope ?? (await getActiveScope(options.cwd));
   let config = await loadConfig({ scope, cwd: options.cwd });

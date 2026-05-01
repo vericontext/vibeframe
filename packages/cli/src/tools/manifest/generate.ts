@@ -18,10 +18,7 @@ import {
   executeStoryboard,
   executeBackground,
 } from "../../commands/generate.js";
-import {
-  executeImageGenerate,
-  executeThumbnailBestFrame,
-} from "../../commands/ai-image.js";
+import { executeImageGenerate, executeThumbnailBestFrame } from "../../commands/ai-image.js";
 import {
   executeVideoGenerate,
   executeVideoStatus,
@@ -44,19 +41,31 @@ export const generateMotionTool = defineTool({
     height: z.number().optional().describe("Height in pixels (default: 1080)"),
     fps: z.number().optional().describe("Frames per second (default: 30)"),
     style: z.string().optional().describe("Visual style guidance"),
-    render: z.boolean().optional().describe("Render with Remotion (default: false, returns TSX only)"),
+    render: z
+      .boolean()
+      .optional()
+      .describe("Render with Remotion (default: false, returns TSX only)"),
     video: z.string().optional().describe("Base video path to composite motion graphic onto"),
     image: z.string().optional().describe("Reference image for color/mood analysis"),
-    model: z.enum(["sonnet", "opus", "gemini", "gemini-3.1-pro"]).optional().describe("LLM model for code generation (default: sonnet)"),
+    model: z
+      .enum(["sonnet", "opus", "gemini", "gemini-3.1-pro"])
+      .optional()
+      .describe("LLM model for code generation (default: sonnet)"),
     output: z.string().optional().describe("Output path (TSX if code-only, MP4 if rendered)"),
   }),
   async execute(args) {
     const result = await executeMotion(args);
-    if (!result.success) return { success: false, error: result.error ?? "Motion generation failed" };
+    if (!result.success)
+      return { success: false, error: result.error ?? "Motion generation failed" };
     const out = result.compositedPath ?? result.renderedPath ?? result.codePath;
     return {
       success: true,
-      data: { codePath: result.codePath, renderedPath: result.renderedPath, compositedPath: result.compositedPath, componentName: result.componentName },
+      data: {
+        codePath: result.codePath,
+        renderedPath: result.renderedPath,
+        compositedPath: result.compositedPath,
+        componentName: result.componentName,
+      },
       humanLines: [`✅ Motion generated → ${out}`],
     };
   },
@@ -68,8 +77,7 @@ export const generateSpeechTool = defineTool({
   name: "generate_speech",
   category: "generate",
   cost: "low",
-  description:
-    "Generate speech from text using ElevenLabs TTS. Requires ELEVENLABS_API_KEY.",
+  description: "Generate speech from text using ElevenLabs TTS. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
     text: z.string().describe("Text to convert to speech"),
     output: z.string().optional().describe("Output audio file path (default: output.mp3)"),
@@ -92,8 +100,7 @@ export const generateSoundEffectTool = defineTool({
   name: "generate_sound_effect",
   category: "generate",
   cost: "low",
-  description:
-    "Generate sound effects using ElevenLabs. Requires ELEVENLABS_API_KEY.",
+  description: "Generate sound effects using ElevenLabs. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
     prompt: z.string().describe("Description of the sound effect"),
     output: z.string().optional().describe("Output audio file path (default: sound-effect.mp3)"),
@@ -122,9 +129,18 @@ export const generateMusicTool = defineTool({
   schema: z.object({
     prompt: z.string().describe("Description of the music to generate"),
     output: z.string().optional().describe("Output audio file path (default: music.mp3)"),
-    duration: z.number().optional().describe("Duration in seconds (elevenlabs: 3-600, replicate: 1-30)"),
-    provider: z.enum(["elevenlabs", "replicate"]).optional().describe("Provider (default: elevenlabs)"),
-    instrumental: z.boolean().optional().describe("Force instrumental, no vocals (ElevenLabs only)"),
+    duration: z
+      .number()
+      .optional()
+      .describe("Duration in seconds (elevenlabs: 3-600, replicate: 1-30)"),
+    provider: z
+      .enum(["elevenlabs", "replicate"])
+      .optional()
+      .describe("Provider (default: elevenlabs)"),
+    instrumental: z
+      .boolean()
+      .optional()
+      .describe("Force instrumental, no vocals (ElevenLabs only)"),
   }),
   async execute(args) {
     const result = await executeMusic(args);
@@ -132,7 +148,9 @@ export const generateMusicTool = defineTool({
     return {
       success: true,
       data: { outputPath: result.outputPath, provider: result.provider, duration: result.duration },
-      humanLines: [`✅ Music${result.provider ? ` (${result.provider})` : ""} → ${result.outputPath ?? "(async)"}`],
+      humanLines: [
+        `✅ Music${result.provider ? ` (${result.provider})` : ""} → ${result.outputPath ?? "(async)"}`,
+      ],
     };
   },
 });
@@ -153,7 +171,12 @@ export const generateMusicStatusTool = defineTool({
     if (!result.success) return { success: false, error: result.error ?? "Music status failed" };
     return {
       success: true,
-      data: { taskId: result.taskId, status: result.status, audioUrl: result.audioUrl, error: result.error },
+      data: {
+        taskId: result.taskId,
+        status: result.status,
+        audioUrl: result.audioUrl,
+        error: result.error,
+      },
       humanLines: [`Music task ${result.taskId}: ${result.status}`],
     };
   },
@@ -169,20 +192,34 @@ export const generateImageTool = defineTool({
     "Generate an image using AI. Supports Gemini (free), OpenAI GPT Image, or Grok Imagine. Requires GOOGLE_API_KEY (Gemini), OPENAI_API_KEY (OpenAI), or XAI_API_KEY (Grok).",
   schema: z.object({
     prompt: z.string().describe("Image description prompt"),
-    provider: z.enum(["gemini", "openai", "grok"]).optional().describe("Image provider (default: gemini)"),
+    provider: z
+      .enum(["gemini", "openai", "grok"])
+      .optional()
+      .describe(
+        "Image provider (default: openai when OPENAI_API_KEY is configured, otherwise first configured provider)"
+      ),
     output: z.string().optional().describe("Output file path"),
     size: z.string().optional().describe("Image size for OpenAI (1024x1024, 1536x1024, 1024x1536)"),
-    ratio: z.string().optional().describe("Aspect ratio for Gemini (1:1, 16:9, 9:16, 4:3, 3:4, etc.)"),
+    ratio: z
+      .string()
+      .optional()
+      .describe("Aspect ratio for Gemini (1:1, 16:9, 9:16, 4:3, 3:4, etc.)"),
     quality: z.string().optional().describe("Quality for OpenAI: standard, hd"),
     count: z.number().optional().describe("Number of images (default: 1)"),
     model: z.string().optional().describe("Gemini model: flash, 3.1-flash, latest, pro"),
   }),
   async execute(args) {
     const result = await executeImageGenerate(args);
-    if (!result.success) return { success: false, error: result.error ?? "Image generation failed" };
+    if (!result.success)
+      return { success: false, error: result.error ?? "Image generation failed" };
     return {
       success: true,
-      data: { outputPath: result.outputPath, provider: result.provider, model: result.model, imageCount: result.images?.length },
+      data: {
+        outputPath: result.outputPath,
+        provider: result.provider,
+        model: result.model,
+        imageCount: result.images?.length,
+      },
       humanLines: [`✅ Image (${result.provider}) → ${result.outputPath}`],
     };
   },
@@ -199,7 +236,10 @@ export const generateStoryboardTool = defineTool({
   schema: z.object({
     content: z.string().describe("Text content to analyze (script, article, etc.)"),
     duration: z.number().optional().describe("Target total duration in seconds"),
-    creativity: z.enum(["low", "high"]).optional().describe("Creativity level (default: low — consistent; high — varied)"),
+    creativity: z
+      .enum(["low", "high"])
+      .optional()
+      .describe("Creativity level (default: low — consistent; high — varied)"),
     output: z.string().optional().describe("Output JSON file path"),
   }),
   async execute(args) {
@@ -208,7 +248,9 @@ export const generateStoryboardTool = defineTool({
     return {
       success: true,
       data: { segmentCount: result.segmentCount, outputPath: result.outputPath },
-      humanLines: [`✅ Storyboard: ${result.segmentCount} segments${result.outputPath ? ` → ${result.outputPath}` : ""}`],
+      humanLines: [
+        `✅ Storyboard: ${result.segmentCount} segments${result.outputPath ? ` → ${result.outputPath}` : ""}`,
+      ],
     };
   },
 });
@@ -224,14 +266,21 @@ export const generateBackgroundTool = defineTool({
   schema: z.object({
     description: z.string().describe("Background description / image prompt."),
     aspect: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Aspect ratio. Default '16:9'."),
-    output: z.string().optional().describe("Output PNG path. Relative paths resolve against the surface's cwd."),
+    output: z
+      .string()
+      .optional()
+      .describe("Output PNG path. Relative paths resolve against the surface's cwd."),
   }),
   async execute(args) {
     const result = await executeBackground(args);
     if (!result.success) return { success: false, error: result.error ?? "Background failed" };
     return {
       success: true,
-      data: { imageUrl: result.imageUrl, outputPath: result.outputPath, revisedPrompt: result.revisedPrompt },
+      data: {
+        imageUrl: result.imageUrl,
+        outputPath: result.outputPath,
+        revisedPrompt: result.revisedPrompt,
+      },
       humanLines: [`✅ Background → ${result.outputPath ?? result.imageUrl}`],
     };
   },
@@ -272,7 +321,10 @@ export const generateVideoTool = defineTool({
     "Generate video using AI. Supports Grok (default, free with audio), Kling, Runway, and Veo. Requires provider-specific API key.",
   schema: z.object({
     prompt: z.string().describe("Text prompt describing the video"),
-    provider: z.enum(["grok", "kling", "runway", "veo"]).optional().describe("Video provider (default: kling)"),
+    provider: z
+      .enum(["grok", "kling", "runway", "veo"])
+      .optional()
+      .describe("Video provider (default: kling)"),
     image: z.string().optional().describe("Reference image path for image-to-video"),
     duration: z.number().optional().describe("Duration in seconds (default: 5)"),
     ratio: z.string().optional().describe("Aspect ratio: 16:9, 9:16, 1:1 (default: 16:9)"),
@@ -297,7 +349,9 @@ export const generateVideoTool = defineTool({
         outputPath: result.outputPath,
         provider: result.provider,
       },
-      humanLines: [`✅ Video (${result.provider}, ${result.status})${result.outputPath ? ` → ${result.outputPath}` : ""}`],
+      humanLines: [
+        `✅ Video (${result.provider}, ${result.status})${result.outputPath ? ` → ${result.outputPath}` : ""}`,
+      ],
     };
   },
 });
@@ -312,7 +366,10 @@ export const generateVideoStatusTool = defineTool({
   schema: z.object({
     taskId: z.string().describe("Task ID from video generation"),
     provider: z.enum(["runway", "kling"]).optional().describe("Provider (default: runway)"),
-    taskType: z.enum(["text2video", "image2video"]).optional().describe("Kling task type (default: text2video)"),
+    taskType: z
+      .enum(["text2video", "image2video"])
+      .optional()
+      .describe("Kling task type (default: text2video)"),
     wait: z.boolean().optional().describe("Wait for completion"),
     output: z.string().optional().describe("Download video when complete"),
   }),
@@ -321,8 +378,16 @@ export const generateVideoStatusTool = defineTool({
     if (!result.success) return { success: false, error: result.error ?? "Status check failed" };
     return {
       success: true,
-      data: { taskId: result.taskId, status: result.status, progress: result.progress, videoUrl: result.videoUrl, outputPath: result.outputPath },
-      humanLines: [`Task ${result.taskId}: ${result.status}${result.progress !== undefined ? ` (${result.progress}%)` : ""}`],
+      data: {
+        taskId: result.taskId,
+        status: result.status,
+        progress: result.progress,
+        videoUrl: result.videoUrl,
+        outputPath: result.outputPath,
+      },
+      humanLines: [
+        `Task ${result.taskId}: ${result.status}${result.progress !== undefined ? ` (${result.progress}%)` : ""}`,
+      ],
     };
   },
 });
@@ -371,8 +436,16 @@ export const generateVideoExtendTool = defineTool({
     if (!result.success) return { success: false, error: result.error ?? "Extend failed" };
     return {
       success: true,
-      data: { taskId: result.taskId, status: result.status, videoUrl: result.videoUrl, duration: result.duration, outputPath: result.outputPath },
-      humanLines: [`✅ Video extended (${result.status})${result.outputPath ? ` → ${result.outputPath}` : ""}`],
+      data: {
+        taskId: result.taskId,
+        status: result.status,
+        videoUrl: result.videoUrl,
+        duration: result.duration,
+        outputPath: result.outputPath,
+      },
+      humanLines: [
+        `✅ Video extended (${result.status})${result.outputPath ? ` → ${result.outputPath}` : ""}`,
+      ],
     };
   },
 });

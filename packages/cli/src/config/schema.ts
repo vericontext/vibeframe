@@ -44,6 +44,19 @@ export interface VibeConfig {
     voice?: string;
   };
 
+  /** Temporary upload host for providers that require HTTPS image URLs */
+  upload: {
+    provider: "imgbb" | "s3";
+    ttlSeconds: number;
+    s3?: {
+      bucket?: string;
+      region?: string;
+      prefix?: string;
+      endpoint?: string;
+      publicBaseUrl?: string;
+    };
+  };
+
   /** REPL settings */
   repl: {
     /** Auto-save project after each command */
@@ -83,6 +96,13 @@ export function createDefaultConfig(): VibeConfig {
     defaults: {
       aspectRatio: "16:9",
       exportQuality: "standard",
+    },
+    upload: {
+      provider: "imgbb",
+      ttlSeconds: 3600,
+      s3: {
+        prefix: "vibeframe/tmp",
+      },
     },
     repl: {
       autoSave: true,

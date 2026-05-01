@@ -25,6 +25,23 @@ const HEADER = `# VibeEdit Environment Variables
 # Copy this file to .env and fill in your API keys
 `;
 
+// Hand-curated footer for runtime-only env vars that aren't `defineApiKey`
+// declarations — currently the pluggable upload host (imgbb default, S3
+// optional) used for image-to-video reference URLs.
+const FOOTER = `
+# Optional private upload host for image-to-video
+# Default is ImgBB. Use S3 when you want temporary URLs from your own bucket.
+# VIBE_UPLOAD_PROVIDER=imgbb
+# VIBE_UPLOAD_PROVIDER=s3
+# VIBE_UPLOAD_TTL_SECONDS=3600
+# VIBE_UPLOAD_S3_BUCKET=
+# VIBE_UPLOAD_S3_PREFIX=vibeframe/tmp
+# AWS_REGION=us-east-1
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_SESSION_TOKEN=
+`;
+
 function render(): string {
   const blocks = getAllApiKeys().map((k) => {
     const lines = ["", `# ${k.envExampleComment}`];
@@ -37,7 +54,7 @@ function render(): string {
     lines.push(`${k.envVar}=`);
     return lines.join("\n");
   });
-  return HEADER + blocks.join("\n") + "\n";
+  return HEADER + blocks.join("\n") + "\n" + FOOTER;
 }
 
 const args = process.argv.slice(2);

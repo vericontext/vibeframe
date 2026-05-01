@@ -135,7 +135,9 @@ export async function getApiKey(
   // 5. Prompt for API key
   console.log();
   console.log(chalk.yellow(`${providerName} API key not found.`));
-  console.log(chalk.dim(`Set ${envVar} in .env (current directory), run 'vibe setup', or enter below.`));
+  console.log(
+    chalk.dim(`Set ${envVar} in .env (current directory), run 'vibe setup', or enter below.`)
+  );
   console.log();
 
   const apiKey = await prompt(chalk.cyan(`Enter ${providerName} API key: `), true);
@@ -168,6 +170,7 @@ const API_KEY_URLS: Record<string, string> = {
   RUNWAY_API_SECRET: "https://app.runwayml.com/settings/api-keys",
   KLING_API_KEY: "https://klingai.com/dev",
   REPLICATE_API_TOKEN: "https://replicate.com/account/api-tokens",
+  IMGBB_API_KEY: "https://api.imgbb.com/",
 };
 
 export class ApiKeyError extends Error {

@@ -11,13 +11,20 @@
  * change, not just a refactor.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   getProvidersFor,
   getProviderEnvVars,
   getCommandKeyMap,
   getSetupProviders,
 } from "@vibeframe/ai-providers";
+import { loadProviderDefaultsFromConfig, resolveProvider } from "./provider-resolver.js";
+
+const originalEnv = { ...process.env };
+
+afterEach(() => {
+  process.env = { ...originalEnv };
+});
 
 describe("provider registry — derived shapes match v0.67 hardcoded arrays", () => {
   it("getProvidersFor('image') matches IMAGE_PROVIDERS", () => {
@@ -117,9 +124,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       KLING_API_KEY: ["generate video -p kling"],
       RUNWAY_API_SECRET: ["generate video -p runway"],
       REPLICATE_API_TOKEN: ["generate music -p replicate"],
-      IMGBB_API_KEY: [
-        "generate video -p kling/seedance (image-to-video upload host)",
-      ],
+      IMGBB_API_KEY: ["generate video -p kling/seedance (image-to-video upload host)"],
     };
 
     for (const [envVar, expected] of Object.entries(original)) {
@@ -147,11 +152,56 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "elevenlabs",
         "runway",
         "kling",
+        "imgbb",
         "openrouter",
         "replicate",
-      ]),
+      ])
     );
-    // imgbb is intentionally not in setup wizard (showInSetup: false).
-    expect(keys).not.toContain("imgbb");
+  });
+});
+
+describe("resolveProvider — config-aware defaults", () => {
+  it("uses image defaults and API keys saved by vibe setup", () => {
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.XAI_API_KEY;
+
+    loadProviderDefaultsFromConfig({
+      version: "1.0.0",
+      llm: { provider: "claude" },
+      providers: { openai: "sk-proj-config-openai" },
+      defaults: {
+        aspectRatio: "16:9",
+        exportQuality: "standard",
+        imageProvider: "openai",
+      },
+      upload: { provider: "imgbb", ttlSeconds: 3600 },
+      repl: { autoSave: true },
+    });
+
+    expect(resolveProvider("image")).toEqual({ name: "openai", label: "OpenAI" });
+  });
+
+  it("uses Seedance when FAL_KEY is saved in config but not exported", () => {
+    delete process.env.FAL_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.KLING_API_KEY;
+    delete process.env.RUNWAY_API_SECRET;
+
+    loadProviderDefaultsFromConfig({
+      version: "1.0.0",
+      llm: { provider: "claude" },
+      providers: { fal: "fal-id:fal-secret" },
+      defaults: {
+        aspectRatio: "16:9",
+        exportQuality: "standard",
+        videoProvider: "seedance",
+      },
+      upload: { provider: "imgbb", ttlSeconds: 3600 },
+      repl: { autoSave: true },
+    });
+
+    expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });
   });
 });

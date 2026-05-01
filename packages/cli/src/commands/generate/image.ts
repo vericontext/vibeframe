@@ -11,23 +11,12 @@ import { fileURLToPath } from "node:url";
 import { writeFile, mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  GeminiProvider,
-  GrokProvider,
-  getProvidersFor,
-} from "@vibeframe/ai-providers";
+import { GeminiProvider, GrokProvider, getProvidersFor } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
-import {
-  isJsonMode,
-  outputSuccess,
-  log,
-  exitWithError,
-  apiError,
-  usageError,
-} from "../output.js";
+import { isJsonMode, outputSuccess, log, exitWithError, apiError, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
-import { resolveProvider } from "../../utils/provider-resolver.js";
+import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeOpenAIImageGenerate } from "../_shared/openai-image.js";
 
 export function registerImageCommand(parent: Command): void {
@@ -36,25 +25,38 @@ export function registerImageCommand(parent: Command): void {
     .alias("img")
     .description("Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)")
     .argument("[prompt]", "Image description prompt (interactive if omitted)")
-    .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway")
+    .option(
+      "-p, --provider <provider>",
+      "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway"
+    )
     .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)")
     .option("-o, --output <path>", "Output file path (downloads image)")
     .option("--size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
-    .option("-r, --ratio <ratio>", "Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)", "1:1")
+    .option(
+      "-r, --ratio <ratio>",
+      "Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)",
+      "1:1"
+    )
     // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`,
     // which previously ate the value silently and dropped the prompt positional.
     .option("--quality <quality>", "Quality: standard, hd (openai only)", "standard")
     .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
     .option("--count <n>", "Number of images to generate", "1")
-    .option("-m, --model <model>", "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)")
+    .option(
+      "-m, --model <model>",
+      "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)"
+    )
     .option("--dry-run", "Preview parameters without executing")
-    .addHelpText("after", `
+    .addHelpText(
+      "after",
+      `
 Examples:
   $ vibe generate image "a sunset over the ocean" -o sunset.png
   $ vibe gen img "logo design" -o logo.png -p openai
   $ vibe gen img "landscape photo" -o wide.png -r 16:9
   $ vibe gen img "portrait" -o portrait.png -p gemini -m pro
-  $ vibe gen img "product shot" --dry-run --json`)
+  $ vibe gen img "product shot" --dry-run --json`
+    )
     .action(async (prompt: string | undefined, options) => {
       const startedAt = Date.now();
       try {
@@ -67,10 +69,7 @@ Examples:
             }
           } else {
             exitWithError(
-              usageError(
-                "Prompt argument is required.",
-                "Usage: vibe generate image <prompt>",
-              ),
+              usageError("Prompt argument is required.", "Usage: vibe generate image <prompt>")
             );
           }
         }
@@ -78,16 +77,19 @@ Examples:
         if (options.output) {
           validateOutputPath(options.output);
         }
+        await loadProviderDefaults();
 
         // Validate count up-front so dry-run rejects nonsense values
         // before they're echoed as a "plan" the user might copy and run.
         if (options.count !== undefined) {
           const n = parseInt(options.count, 10);
           if (!Number.isFinite(n) || n < 1 || n > 10) {
-            exitWithError(usageError(
-              `Invalid --count: ${options.count}`,
-              "Must be an integer between 1 and 10.",
-            ));
+            exitWithError(
+              usageError(
+                `Invalid --count: ${options.count}`,
+                "Must be an integer between 1 and 10."
+              )
+            );
           }
         }
 
@@ -106,7 +108,7 @@ Examples:
         const providerEnvMap: Record<string, string> = Object.fromEntries(
           imageRegistry
             .filter((p): p is typeof p & { envVar: string } => p.envVar !== null)
-            .map((p) => [p.name, p.envVar]),
+            .map((p) => [p.name, p.envVar])
         );
         const envKeyMap: Record<string, string> = {
           ...providerEnvMap,
@@ -125,16 +127,12 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-                `Available providers: ${imageRegistry.map((p) => p.name).join(", ")}, runway`,
-              ),
+                `Available providers: ${imageRegistry.map((p) => p.name).join(", ")}, runway`
+              )
             );
           }
           // Explicit choice's key missing → fall back via resolver
-          if (
-            providerEnvMap[provider] &&
-            !hasApiKey(providerEnvMap[provider]) &&
-            !options.apiKey
-          ) {
+          if (providerEnvMap[provider] && !hasApiKey(providerEnvMap[provider]) && !options.apiKey) {
             const resolved = resolveProvider("image");
             if (resolved) {
               log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
@@ -176,11 +174,9 @@ Examples:
         const spinner = ora(`Generating image with ${providerName}...`).start();
 
         if (provider === "openai") {
-          const { result, modelLabel } = await executeOpenAIImageGenerate(
-            prompt,
-            options,
-            { apiKey },
-          );
+          const { result, modelLabel } = await executeOpenAIImageGenerate(prompt, options, {
+            apiKey,
+          });
 
           if (!result.success || !result.images) {
             spinner.fail(result.error || "Image generation failed");
@@ -188,13 +184,11 @@ Examples:
           }
 
           spinner.succeed(
-            chalk.green(`Generated ${result.images.length} image(s) with OpenAI ${modelLabel}`),
+            chalk.green(`Generated ${result.images.length} image(s) with OpenAI ${modelLabel}`)
           );
 
           if (isJsonMode()) {
-            const outputPath = options.output
-              ? resolve(process.cwd(), options.output)
-              : undefined;
+            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
             if (outputPath && result.images.length > 0) {
               const img = result.images[0];
               let buffer: Buffer;
@@ -262,7 +256,7 @@ Examples:
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`),
+                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
               );
             }
           }
@@ -272,20 +266,32 @@ Examples:
           if (options.model && !validGeminiModels.includes(options.model)) {
             console.warn(
               chalk.yellow(
-                `Unknown model "${options.model}", using flash. Valid: ${validGeminiModels.join(", ")}`,
-              ),
+                `Unknown model "${options.model}", using flash. Valid: ${validGeminiModels.join(", ")}`
+              )
             );
             options.model = "flash";
           }
 
           // Validate aspect ratio
           const validRatios = [
-            "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5",
-            "5:4", "8:1", "9:16", "16:9", "21:9",
+            "1:1",
+            "1:4",
+            "1:8",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:1",
+            "4:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "9:16",
+            "16:9",
+            "21:9",
           ];
           if (options.ratio && !validRatios.includes(options.ratio)) {
             exitWithError(
-              usageError(`Invalid ratio "${options.ratio}". Valid: ${validRatios.join(", ")}`),
+              usageError(`Invalid ratio "${options.ratio}". Valid: ${validRatios.join(", ")}`)
             );
           }
 
@@ -303,8 +309,20 @@ Examples:
           let result = await gemini.generateImage(prompt, {
             model: options.model,
             aspectRatio: options.ratio as
-              | "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1"
-              | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9",
+              | "1:1"
+              | "1:4"
+              | "1:8"
+              | "2:3"
+              | "3:2"
+              | "3:4"
+              | "4:1"
+              | "4:3"
+              | "4:5"
+              | "5:4"
+              | "8:1"
+              | "9:16"
+              | "16:9"
+              | "21:9",
           });
 
           // Auto-fallback: if latest/3.1-flash fails, retry with flash
@@ -315,8 +333,20 @@ Examples:
             result = await gemini.generateImage(prompt, {
               model: "flash",
               aspectRatio: options.ratio as
-                | "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1"
-                | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9",
+                | "1:1"
+                | "1:4"
+                | "1:8"
+                | "2:3"
+                | "3:2"
+                | "3:4"
+                | "4:1"
+                | "4:3"
+                | "4:5"
+                | "5:4"
+                | "8:1"
+                | "9:16"
+                | "16:9"
+                | "21:9",
             });
             usedLabel = "Nano Banana (fallback)";
           }
@@ -327,13 +357,11 @@ Examples:
           }
 
           spinner.succeed(
-            chalk.green(`Generated ${result.images.length} image(s) with Gemini (${usedLabel})`),
+            chalk.green(`Generated ${result.images.length} image(s) with Gemini (${usedLabel})`)
           );
 
           if (isJsonMode()) {
-            const outputPath = options.output
-              ? resolve(process.cwd(), options.output)
-              : undefined;
+            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
             if (outputPath && result.images.length > 0) {
               const img = result.images[0];
               const buffer = Buffer.from(img.base64, "base64");
@@ -343,7 +371,9 @@ Examples:
             outputSuccess({
               command: "generate image",
               startedAt,
-              warnings: usedLabel.includes("fallback") ? [`Model "${options.model}" failed; fell back to flash`] : [],
+              warnings: usedLabel.includes("fallback")
+                ? [`Model "${options.model}" failed; fell back to flash`]
+                : [],
               data: {
                 provider: "gemini",
                 model: usedLabel,
@@ -379,7 +409,7 @@ Examples:
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`),
+                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
               );
             }
           } else {
@@ -391,14 +421,26 @@ Examples:
 
           // Validate aspect ratio for Grok
           const validGrokRatios = [
-            "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2",
-            "19.5:9", "9:19.5", "20:9", "9:20", "auto",
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "2:1",
+            "1:2",
+            "19.5:9",
+            "9:19.5",
+            "20:9",
+            "9:20",
+            "auto",
           ];
           if (options.ratio && !validGrokRatios.includes(options.ratio)) {
             console.warn(
               chalk.yellow(
-                `Unknown ratio "${options.ratio}" for Grok, using 1:1. Valid: ${validGrokRatios.join(", ")}`,
-              ),
+                `Unknown ratio "${options.ratio}" for Grok, using 1:1. Valid: ${validGrokRatios.join(", ")}`
+              )
             );
             options.ratio = "1:1";
           }
@@ -413,14 +455,10 @@ Examples:
             exitWithError(apiError(result.error || "Image generation failed", true));
           }
 
-          spinner.succeed(
-            chalk.green(`Generated ${result.images.length} image(s) with xAI Grok`),
-          );
+          spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with xAI Grok`));
 
           if (isJsonMode()) {
-            const outputPath = options.output
-              ? resolve(process.cwd(), options.output)
-              : undefined;
+            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
             if (outputPath && result.images.length > 0) {
               const img = result.images[0];
               let buffer: Buffer;
@@ -482,7 +520,7 @@ Examples:
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`),
+                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
               );
             }
           }
@@ -492,7 +530,7 @@ Examples:
           const __dirname = dirname(__filename);
           const scriptPath = resolve(
             __dirname,
-            "../../../../.claude/skills/runway-video/scripts/image.py",
+            "../../../../.claude/skills/runway-video/scripts/image.py"
           );
 
           if (!options.output) {

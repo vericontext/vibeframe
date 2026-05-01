@@ -27,8 +27,7 @@ defineApiKey({
   envVar: "OPENAI_API_KEY",
   label: "OpenAI",
   showInSetup: true,
-  setupDescription:
-    "gpt-image-2 image gen ($, default since v0.56), Whisper transcribe, Agent",
+  setupDescription: "gpt-image-2 image gen ($, default since v0.56), Whisper transcribe, Agent",
   envExampleComment:
     "OpenAI API Key (Whisper transcription, gpt-image-2 — default text-to-image since v0.56)",
   envExampleUrl: "https://platform.openai.com/api-keys",
@@ -40,10 +39,8 @@ defineApiKey({
   envVar: "GOOGLE_API_KEY",
   label: "Google",
   showInSetup: true,
-  setupDescription:
-    "Gemini — image gen (free tier), video analysis ($), Veo ($$)",
-  envExampleComment:
-    "Google API Key (Gemini auto-edit suggestions, image gen, Veo video)",
+  setupDescription: "Gemini — image gen (free tier), video analysis ($), Veo ($$)",
+  envExampleComment: "Google API Key (Gemini auto-edit suggestions, image gen, Veo video)",
   envExampleUrl: "https://aistudio.google.com/apikey",
   keyFormat: { prefix: /^AIza/, example: "AIza..." },
 });
@@ -53,8 +50,7 @@ defineApiKey({
   envVar: "ANTHROPIC_API_KEY",
   label: "Anthropic",
   showInSetup: true,
-  setupDescription:
-    "Claude — storyboard, color grade, reframe, Agent ($)",
+  setupDescription: "Claude — storyboard, color grade, reframe, Agent ($)",
   envExampleComment: "Anthropic API Key (Claude motion graphics & storyboarding)",
   envExampleUrl: "https://console.anthropic.com/",
   keyFormat: { prefix: /^sk-ant-/, example: "sk-ant-..." },
@@ -65,8 +61,7 @@ defineApiKey({
   envVar: "ELEVENLABS_API_KEY",
   label: "ElevenLabs",
   showInSetup: true,
-  setupDescription:
-    "TTS ($), SFX, music, voice clone, dubbing — skip to use local Kokoro",
+  setupDescription: "TTS ($), SFX, music, voice clone, dubbing — skip to use local Kokoro",
   envExampleComment:
     "ElevenLabs API Key (text-to-speech — Kokoro local fallback runs when this is unset, since v0.54)",
   envExampleUrl: "https://elevenlabs.io/api",
@@ -93,10 +88,8 @@ defineApiKey({
   envVar: "XAI_API_KEY",
   label: "xAI",
   showInSetup: true,
-  setupDescription:
-    "Grok — video gen with audio ($$), image ($), Agent",
-  envExampleComment:
-    "xAI API Key (Grok video generation — fallback when no FAL_KEY)",
+  setupDescription: "Grok — video gen with audio ($$), image ($), Agent",
+  envExampleComment: "xAI API Key (Grok video generation — fallback when no FAL_KEY)",
   envExampleUrl: "https://console.x.ai/",
   keyFormat: { prefix: /^xai-/, example: "xai-..." },
 });
@@ -117,8 +110,7 @@ defineApiKey({
   envVar: "KLING_API_KEY",
   label: "Kling",
   showInSetup: true,
-  setupDescription:
-    "v2.5/v3 video — std ($$) and pro ($$$) modes",
+  setupDescription: "v2.5/v3 video — std ($$) and pro ($$$) modes",
   envExampleComment: "Kling API Key (Kling video generation)",
   envExampleUrl: "https://platform.klingai.com/",
   envExampleExtraLines: ["Format: ACCESS_KEY:SECRET_KEY"],
@@ -131,8 +123,7 @@ defineApiKey({
   label: "Replicate",
   showInSetup: true,
   setupDescription: "MusicGen background music ($, max 30s)",
-  envExampleComment:
-    "Replicate API Token (music generation, video upscale, audio restoration)",
+  envExampleComment: "Replicate API Token (music generation, video upscale, audio restoration)",
   envExampleUrl: "https://replicate.com/account/api-tokens",
   keyFormat: { prefix: /^r8_/, example: "r8_..." },
 });
@@ -142,10 +133,8 @@ defineApiKey({
   envVar: "OPENROUTER_API_KEY",
   label: "OpenRouter",
   showInSetup: true,
-  setupDescription:
-    "300+ models via one key — Agent only (pay per model)",
-  envExampleComment:
-    "OpenRouter API Key (300+ AI models via unified API, used by `vibe agent`)",
+  setupDescription: "300+ models via one key — Agent only (pay per model)",
+  envExampleComment: "OpenRouter API Key (300+ AI models via unified API, used by `vibe agent`)",
   envExampleUrl: "https://openrouter.ai/keys",
   keyFormat: { prefix: /^sk-or-/, example: "sk-or-..." },
 });
@@ -154,7 +143,8 @@ defineApiKey({
   configKey: "imgbb",
   envVar: "IMGBB_API_KEY",
   label: "ImgBB",
-  showInSetup: false, // not prompted in setup wizard — internal upload host
+  showInSetup: true,
+  setupDescription: "image hosting for Seedance/Kling image-to-video uploads",
   envExampleComment:
     "ImgBB API Key (image hosting — used by Kling and Seedance for image-to-video uploads)",
   envExampleUrl: "https://api.imgbb.com/",
@@ -164,9 +154,7 @@ defineApiKey({
   keyFormat: { prefix: /^[a-f0-9]{32}$/, example: "32-char hex" },
   // ImgBB has no provider class (envvar-only); doctor still shows what it
   // unlocks at the apiKey level.
-  commandsUnlocked: [
-    "generate video -p kling/seedance (image-to-video upload host)",
-  ],
+  commandsUnlocked: ["generate video -p kling/seedance (image-to-video upload host)"],
 });
 
 // ─── Virtual providers (no directory under src/) ───────────────────────────

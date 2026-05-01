@@ -15,8 +15,14 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { FalProvider, GeminiProvider, GrokProvider, KlingProvider, RunwayProvider } from "@vibeframe/ai-providers";
-import { uploadToImgbb } from "./ai-script-pipeline.js";
+import {
+  FalProvider,
+  GeminiProvider,
+  GrokProvider,
+  KlingProvider,
+  RunwayProvider,
+} from "@vibeframe/ai-providers";
+import { resolveUploadHost } from "../utils/upload-host.js";
 import { downloadVideo } from "./ai-helpers.js";
 
 // ============================================================================
@@ -52,7 +58,9 @@ export interface VideoGenerateResult {
   error?: string;
 }
 
-export async function executeVideoGenerate(options: VideoGenerateOptions): Promise<VideoGenerateResult> {
+export async function executeVideoGenerate(
+  options: VideoGenerateOptions
+): Promise<VideoGenerateResult> {
   const {
     prompt,
     provider = "kling",
@@ -83,12 +91,22 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
     let referenceImage: string | undefined;
+    let referenceImageBuffer: Buffer | undefined;
+    let referenceImageMimeType: string | undefined;
     if (image) {
       const imagePath = resolve(process.cwd(), image);
       const imageBuffer = await readFile(imagePath);
       const ext = image.toLowerCase().split(".").pop();
-      const mimeTypes: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+      const mimeTypes: Record<string, string> = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+      };
       const mimeType = mimeTypes[ext || "png"] || "image/png";
+      referenceImageBuffer = imageBuffer;
+      referenceImageMimeType = mimeType;
       referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
     }
 
@@ -98,12 +116,12 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
 
       let falImage = referenceImage;
       if (falImage && falImage.startsWith("data:")) {
-        const imgbbKey = process.env.IMGBB_API_KEY;
-        if (!imgbbKey) return { success: false, error: "IMGBB_API_KEY required for Seedance image-to-video" };
-        const base64Data = falImage.split(",")[1];
-        const uploadResult = await uploadToImgbb(Buffer.from(base64Data, "base64"), imgbbKey);
-        if (!uploadResult.success || !uploadResult.url) return { success: false, error: `ImgBB upload failed: ${uploadResult.error}` };
-        falImage = uploadResult.url;
+        const uploadHost = await resolveUploadHost();
+        const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
+          filename: image,
+          mimeType: referenceImageMimeType,
+        });
+        falImage = upload.url;
       }
 
       const model =
@@ -119,7 +137,8 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         model,
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Seedance generation failed" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Seedance generation failed" };
 
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
@@ -128,23 +147,34 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: result.videoUrl, outputPath, provider: "seedance" };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: result.videoUrl,
+        outputPath,
+        provider: "seedance",
+      };
     } else if (provider === "runway") {
       const runway = new RunwayProvider();
       await runway.initialize({ apiKey: key });
 
       const result = await runway.generateVideo(prompt, {
-        prompt, referenceImage,
+        prompt,
+        referenceImage,
         duration: duration as 5 | 10,
         aspectRatio: ratio as "16:9" | "9:16",
         seed,
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Runway generation failed" };
-      if (!wait) return { success: true, taskId: result.id, status: "processing", provider: "runway" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Runway generation failed" };
+      if (!wait)
+        return { success: true, taskId: result.id, status: "processing", provider: "runway" };
 
       const finalResult = await runway.waitForCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Runway generation failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Runway generation failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -153,7 +183,15 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath, provider: "runway" };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        duration: finalResult.duration,
+        outputPath,
+        provider: "runway",
+      };
     } else if (provider === "kling") {
       const kling = new KlingProvider();
       await kling.initialize({ apiKey: key });
@@ -161,28 +199,32 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
 
       let klingImage = referenceImage;
       if (klingImage && klingImage.startsWith("data:")) {
-        const imgbbKey = process.env.IMGBB_API_KEY;
-        if (!imgbbKey) return { success: false, error: "IMGBB_API_KEY required for Kling image-to-video" };
-        const base64Data = klingImage.split(",")[1];
-        const uploadResult = await uploadToImgbb(Buffer.from(base64Data, "base64"), imgbbKey);
-        if (!uploadResult.success || !uploadResult.url) return { success: false, error: `ImgBB upload failed: ${uploadResult.error}` };
-        klingImage = uploadResult.url;
+        const uploadHost = await resolveUploadHost();
+        const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
+          filename: image,
+          mimeType: referenceImageMimeType,
+        });
+        klingImage = upload.url;
       }
 
       const result = await kling.generateVideo(prompt, {
-        prompt, referenceImage: klingImage,
+        prompt,
+        referenceImage: klingImage,
         duration: duration as 5 | 10,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
         negativePrompt: negative,
         mode: mode as "std" | "pro",
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Kling generation failed" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Kling generation failed" };
       const taskType = referenceImage ? "image2video" : "text2video";
-      if (!wait) return { success: true, taskId: result.id, status: "processing", provider: "kling" };
+      if (!wait)
+        return { success: true, taskId: result.id, status: "processing", provider: "kling" };
 
       const finalResult = await kling.waitForCompletion(result.id, taskType, () => {}, 600000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Kling generation failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Kling generation failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -191,29 +233,47 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath, provider: "kling" };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        duration: finalResult.duration,
+        outputPath,
+        provider: "kling",
+      };
     } else if (provider === "veo") {
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: key });
 
-      const veoModelMap: Record<string, string> = { "3.0": "veo-3.0-generate-preview", "3.1": "veo-3.1-generate-preview", "3.1-fast": "veo-3.1-fast-generate-preview" };
+      const veoModelMap: Record<string, string> = {
+        "3.0": "veo-3.0-generate-preview",
+        "3.1": "veo-3.1-generate-preview",
+        "3.1-fast": "veo-3.1-fast-generate-preview",
+      };
       const model = veoModelMap[veoModel] || "veo-3.1-fast-generate-preview";
       const veoDuration = duration <= 6 ? 6 : 8;
 
       const result = await gemini.generateVideo(prompt, {
-        prompt, referenceImage,
+        prompt,
+        referenceImage,
         duration: veoDuration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        model: model as "veo-3.0-generate-preview" | "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview",
+        model: model as
+          | "veo-3.0-generate-preview"
+          | "veo-3.1-generate-preview"
+          | "veo-3.1-fast-generate-preview",
         negativePrompt: negative,
         resolution: resolution as "720p" | "1080p" | "4k" | undefined,
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Veo generation failed" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Veo generation failed" };
       if (!wait) return { success: true, taskId: result.id, status: "processing", provider: "veo" };
 
       const finalResult = await gemini.waitForVideoCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Veo generation failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Veo generation failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -222,22 +282,33 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, outputPath, provider: "veo" };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        outputPath,
+        provider: "veo",
+      };
     } else if (provider === "grok") {
       const grok = new GrokProvider();
       await grok.initialize({ apiKey: key });
 
       const result = await grok.generateVideo(prompt, {
-        prompt, referenceImage,
+        prompt,
+        referenceImage,
         duration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Grok generation failed" };
-      if (!wait) return { success: true, taskId: result.id, status: "processing", provider: "grok" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Grok generation failed" };
+      if (!wait)
+        return { success: true, taskId: result.id, status: "processing", provider: "grok" };
 
       const finalResult = await grok.waitForCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Grok generation failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Grok generation failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -246,12 +317,23 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath, provider: "grok" };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        duration: finalResult.duration,
+        outputPath,
+        provider: "grok",
+      };
     }
 
     return { success: false, error: `Unsupported provider: ${provider}` };
   } catch (error) {
-    return { success: false, error: `Video generation failed: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Video generation failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 
@@ -280,10 +362,20 @@ export interface VideoStatusResult {
 }
 
 export async function executeVideoStatus(options: VideoStatusOptions): Promise<VideoStatusResult> {
-  const { taskId, provider = "runway", taskType = "text2video", wait = false, output, apiKey } = options;
+  const {
+    taskId,
+    provider = "runway",
+    taskType = "text2video",
+    wait = false,
+    output,
+    apiKey,
+  } = options;
 
   try {
-    const envKeyMap: Record<string, string> = { runway: "RUNWAY_API_SECRET", kling: "KLING_API_KEY" };
+    const envKeyMap: Record<string, string> = {
+      runway: "RUNWAY_API_SECRET",
+      kling: "KLING_API_KEY",
+    };
     const key = apiKey || process.env[envKeyMap[provider] || ""];
     if (!key) return { success: false, error: `${envKeyMap[provider]} required` };
 
@@ -293,7 +385,12 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
 
       let result = await runway.getGenerationStatus(taskId);
 
-      if (wait && result.status !== "completed" && result.status !== "failed" && result.status !== "cancelled") {
+      if (
+        wait &&
+        result.status !== "completed" &&
+        result.status !== "failed" &&
+        result.status !== "cancelled"
+      ) {
         result = await runway.waitForCompletion(taskId, () => {});
       }
 
@@ -304,14 +401,26 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId, status: result.status, progress: result.progress, videoUrl: result.videoUrl, outputPath };
+      return {
+        success: true,
+        taskId,
+        status: result.status,
+        progress: result.progress,
+        videoUrl: result.videoUrl,
+        outputPath,
+      };
     } else if (provider === "kling") {
       const kling = new KlingProvider();
       await kling.initialize({ apiKey: key });
 
       let result = await kling.getGenerationStatus(taskId, taskType);
 
-      if (wait && result.status !== "completed" && result.status !== "failed" && result.status !== "cancelled") {
+      if (
+        wait &&
+        result.status !== "completed" &&
+        result.status !== "failed" &&
+        result.status !== "cancelled"
+      ) {
         result = await kling.waitForCompletion(taskId, taskType, () => {});
       }
 
@@ -322,12 +431,22 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId, status: result.status, videoUrl: result.videoUrl, duration: result.duration, outputPath };
+      return {
+        success: true,
+        taskId,
+        status: result.status,
+        videoUrl: result.videoUrl,
+        duration: result.duration,
+        outputPath,
+      };
     }
 
     return { success: false, error: `Unsupported provider: ${provider}` };
   } catch (error) {
-    return { success: false, error: `Status check failed: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Status check failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 
@@ -358,7 +477,10 @@ export async function executeVideoCancel(options: VideoCancelOptions): Promise<V
     const success = await runway.cancelGeneration(taskId);
     return { success };
   } catch (error) {
-    return { success: false, error: `Cancel failed: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Cancel failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 
@@ -389,7 +511,17 @@ export interface VideoExtendResult {
 }
 
 export async function executeVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
-  const { videoId, provider = "kling", prompt, duration = 5, negative, veoModel = "3.1", output, wait = true, apiKey } = options;
+  const {
+    videoId,
+    provider = "kling",
+    prompt,
+    duration = 5,
+    negative,
+    veoModel = "3.1",
+    output,
+    wait = true,
+    apiKey,
+  } = options;
 
   try {
     if (provider === "kling") {
@@ -406,11 +538,13 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
         duration: String(duration) as "5" | "10",
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Kling extension failed" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Kling extension failed" };
       if (!wait) return { success: true, taskId: result.id, status: "processing" };
 
       const finalResult = await kling.waitForExtendCompletion(result.id, () => {}, 600000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Kling extension failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Kling extension failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -419,7 +553,14 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, duration: finalResult.duration, outputPath };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        duration: finalResult.duration,
+        outputPath,
+      };
     } else if (provider === "veo") {
       const key = apiKey || process.env.GOOGLE_API_KEY;
       if (!key) return { success: false, error: "GOOGLE_API_KEY required" };
@@ -427,19 +568,28 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: key });
 
-      const veoModelMap: Record<string, string> = { "3.0": "veo-3.0-generate-preview", "3.1": "veo-3.1-generate-preview", "3.1-fast": "veo-3.1-fast-generate-preview" };
+      const veoModelMap: Record<string, string> = {
+        "3.0": "veo-3.0-generate-preview",
+        "3.1": "veo-3.1-generate-preview",
+        "3.1-fast": "veo-3.1-fast-generate-preview",
+      };
       const model = veoModelMap[veoModel] || "veo-3.1-generate-preview";
 
       const result = await gemini.extendVideo(videoId, prompt, {
         duration: duration as 4 | 6 | 8,
-        model: model as "veo-3.0-generate-preview" | "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview",
+        model: model as
+          | "veo-3.0-generate-preview"
+          | "veo-3.1-generate-preview"
+          | "veo-3.1-fast-generate-preview",
       });
 
-      if (result.status === "failed") return { success: false, error: result.error || "Veo extension failed" };
+      if (result.status === "failed")
+        return { success: false, error: result.error || "Veo extension failed" };
       if (!wait) return { success: true, taskId: result.id, status: "processing" };
 
       const finalResult = await gemini.waitForVideoCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed") return { success: false, error: finalResult.error || "Veo extension failed" };
+      if (finalResult.status !== "completed")
+        return { success: false, error: finalResult.error || "Veo extension failed" };
 
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
@@ -448,11 +598,20 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
         await writeFile(outputPath, buffer);
       }
 
-      return { success: true, taskId: result.id, status: "completed", videoUrl: finalResult.videoUrl, outputPath };
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: finalResult.videoUrl,
+        outputPath,
+      };
     }
 
     return { success: false, error: `Unsupported provider: ${provider}` };
   } catch (error) {
-    return { success: false, error: `Video extension failed: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Video extension failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }

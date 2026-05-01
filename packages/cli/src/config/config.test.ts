@@ -21,7 +21,8 @@ vi.mock("node:os", async () => {
 });
 
 // Import after mock
-const { loadConfig, saveConfig, isConfigured, CONFIG_DIR, CONFIG_PATH } = await import("./index.js");
+const { loadConfig, saveConfig, isConfigured, CONFIG_DIR, CONFIG_PATH } =
+  await import("./index.js");
 
 describe("Config Schema", () => {
   describe("createDefaultConfig", () => {
@@ -33,6 +34,8 @@ describe("Config Schema", () => {
       expect(config.providers).toEqual({});
       expect(config.defaults.aspectRatio).toBe("16:9");
       expect(config.defaults.exportQuality).toBe("standard");
+      expect(config.upload.provider).toBe("imgbb");
+      expect(config.upload.ttlSeconds).toBe(3600);
       expect(config.repl.autoSave).toBe(true);
     });
   });
@@ -92,6 +95,7 @@ describe("Config Loader", () => {
         llm: { provider: "openai" },
         providers: { openai: "test-key" },
         defaults: { aspectRatio: "9:16", exportQuality: "high" },
+        upload: { provider: "imgbb", ttlSeconds: 3600 },
         repl: { autoSave: false },
       };
 

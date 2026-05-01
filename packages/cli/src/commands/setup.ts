@@ -21,6 +21,7 @@ import {
 } from "../config/index.js";
 import { exitWithError, generalError } from "./output.js";
 import {
+  prompt,
   promptHidden,
   promptSelect,
   promptConfirm,
@@ -167,6 +168,7 @@ interface AIFeatureProviderChoice {
   label: string;
   desc: string;
   key?: AIFeatureKey;
+  extraKeys?: AIFeatureKey[];
   keyless?: boolean;
   defaultFor?: {
     kind: "image" | "video";
@@ -179,6 +181,7 @@ interface AIFeature {
   desc: string;
   defaultProvider: string;
   alsoAvailable: string;
+  keyHint?: string;
   keys: AIFeatureKey[];
   providerChoices?: AIFeatureProviderChoice[];
   tryCommand: string;
@@ -190,6 +193,7 @@ const AI_FEATURES: AIFeature[] = [
     desc: "generate + edit",
     defaultProvider: "OpenAI gpt-image-2 (Artificial Analysis #1, since v0.56)",
     alsoAvailable: "Gemini Nano Banana, Grok Imagine",
+    keyHint: "1 key",
     keys: [
       {
         configKey: "openai",
@@ -244,6 +248,7 @@ const AI_FEATURES: AIFeature[] = [
     desc: "generate + extend",
     defaultProvider: "Seedance 2.0 via fal.ai (Artificial Analysis #2 t2v + i2v, since v0.57)",
     alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
+    keyHint: "1-2 keys",
     keys: [
       {
         configKey: "fal",
@@ -264,6 +269,15 @@ const AI_FEATURES: AIFeature[] = [
           url: "https://fal.ai/dashboard/keys",
           what: "ByteDance Seedance 2.0 text-to-video and image-to-video",
         },
+        extraKeys: [
+          {
+            configKey: "imgbb",
+            envVar: "IMGBB_API_KEY",
+            name: "ImgBB",
+            url: "https://api.imgbb.com/",
+            what: "Image hosting for Seedance image-to-video uploads",
+          },
+        ],
         defaultFor: { kind: "video", value: "seedance" },
       },
       {
@@ -288,6 +302,15 @@ const AI_FEATURES: AIFeature[] = [
           url: "https://platform.klingai.com/",
           what: "Kling video generation",
         },
+        extraKeys: [
+          {
+            configKey: "imgbb",
+            envVar: "IMGBB_API_KEY",
+            name: "ImgBB",
+            url: "https://api.imgbb.com/",
+            what: "Image hosting for Kling image-to-video uploads",
+          },
+        ],
         defaultFor: { kind: "video", value: "kling" },
       },
       {
@@ -323,6 +346,7 @@ const AI_FEATURES: AIFeature[] = [
     defaultProvider:
       "ElevenLabs (paid, premium quality) — falls back to local Kokoro when no key (free, since v0.54)",
     alsoAvailable: "Replicate MusicGen (music only)",
+    keyHint: "0-1 key",
     keys: [
       {
         configKey: "elevenlabs",
@@ -368,6 +392,7 @@ const AI_FEATURES: AIFeature[] = [
     desc: "captions, grade, reframe, motion graphics",
     defaultProvider: "Whisper (transcription) + Claude (reasoning)",
     alsoAvailable: "",
+    keyHint: "2 keys",
     keys: [
       {
         configKey: "openai",
@@ -414,8 +439,11 @@ function isProviderChoiceConfigured(
   config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>,
   choice: AIFeatureProviderChoice
 ): boolean {
-  if (choice.key) {
-    const value = config.providers[choice.key.configKey as keyof typeof config.providers];
+  const keys = [choice.key, ...getChoiceExtraKeys(config, choice)].filter(
+    (keyDef): keyDef is AIFeatureKey => Boolean(keyDef)
+  );
+  for (const keyDef of keys) {
+    const value = config.providers[keyDef.configKey as keyof typeof config.providers];
     if (value) return true;
   }
   if (choice.defaultFor?.kind === "image") {
@@ -425,6 +453,121 @@ function isProviderChoiceConfigured(
     return config.defaults.videoProvider === choice.defaultFor.value;
   }
   return false;
+}
+
+function getConfiguredUploadProvider(
+  config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>
+): "imgbb" | "s3" {
+  return process.env.VIBE_UPLOAD_PROVIDER?.toLowerCase() === "s3" || config.upload.provider === "s3"
+    ? "s3"
+    : "imgbb";
+}
+
+function hasVideoFeature(features: AIFeature[]): boolean {
+  return features.some((feature) => feature.label === "Videos");
+}
+
+async function promptOptionalValue(
+  label: string,
+  currentValue: string | undefined
+): Promise<string | undefined> {
+  const suffix = currentValue ? chalk.dim(` [${currentValue}]`) : "";
+  const value = await prompt(chalk.cyan(`  ${label}${suffix}: `));
+  const trimmed = value.trim();
+  return trimmed || currentValue;
+}
+
+async function configureUploadHost(
+  config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>
+): Promise<"continue" | "back"> {
+  console.log(chalk.dim("2b. Upload host"));
+  console.log(chalk.bold("Where should image-to-video upload reference images?"));
+  console.log(
+    chalk.dim(
+      "  Seedance and Kling need a temporary HTTPS image URL when you start from a local image."
+    )
+  );
+  console.log();
+
+  const currentProvider = getConfiguredUploadProvider(config);
+  const selected = await promptSelect(
+    chalk.cyan("  Upload host [1-3]: "),
+    [
+      `ImgBB ${chalk.dim("- easiest setup, third-party image hosting (default)")}`,
+      `S3 ${chalk.dim("- your own bucket, better control/privacy")}`,
+      `Back ${chalk.dim("(choose different features)")}`,
+    ],
+    currentProvider === "s3" ? 1 : 0,
+    { backIndex: 2 }
+  );
+  console.log();
+
+  if (selected === 2) {
+    return "back";
+  }
+
+  if (selected === 0) {
+    config.upload.provider = "imgbb";
+    process.env.VIBE_UPLOAD_PROVIDER = "imgbb";
+    console.log(chalk.dim("  ImgBB selected. Seedance/Kling setup will ask for IMGBB_API_KEY."));
+    console.log();
+    return "continue";
+  }
+
+  config.upload.provider = "s3";
+  process.env.VIBE_UPLOAD_PROVIDER = "s3";
+  config.upload.s3 = config.upload.s3 ?? {};
+  const envBucket = process.env.VIBE_UPLOAD_S3_BUCKET;
+  const envRegion = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION;
+  const envPrefix = process.env.VIBE_UPLOAD_S3_PREFIX;
+  const envTtl = process.env.VIBE_UPLOAD_TTL_SECONDS;
+
+  console.log(chalk.dim("  S3 selected. AWS credentials stay in your shell/.env/AWS profile."));
+  console.log(chalk.dim("  Required at runtime: AWS credentials, region, and bucket."));
+  console.log();
+
+  const bucket = await promptOptionalValue("S3 bucket", envBucket ?? config.upload.s3.bucket);
+  const region = await promptOptionalValue("AWS region", envRegion ?? config.upload.s3.region);
+  const prefix = await promptOptionalValue(
+    "S3 prefix",
+    envPrefix ?? config.upload.s3.prefix ?? "vibeframe/tmp"
+  );
+  const ttlValue = await promptOptionalValue(
+    "Upload URL TTL seconds",
+    envTtl ?? String(config.upload.ttlSeconds ?? 3600)
+  );
+
+  if (bucket) config.upload.s3.bucket = bucket;
+  if (region) config.upload.s3.region = region;
+  if (prefix) config.upload.s3.prefix = prefix;
+  const ttlSeconds = ttlValue ? Number.parseInt(ttlValue, 10) : NaN;
+  if (Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+    config.upload.ttlSeconds = ttlSeconds;
+  }
+
+  if (!config.upload.s3.bucket || !config.upload.s3.region) {
+    console.log(
+      chalk.yellow(
+        "  ⚠ S3 selected, but bucket/region is incomplete. Set VIBE_UPLOAD_S3_BUCKET and AWS_REGION before image-to-video."
+      )
+    );
+  } else {
+    console.log(
+      `  ${chalk.green("✓")} S3 upload host configured ${chalk.dim(`(${config.upload.s3.bucket}/${config.upload.s3.prefix ?? "vibeframe/tmp"})`)}`
+    );
+  }
+  console.log();
+  return "continue";
+}
+
+function getChoiceExtraKeys(
+  config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>,
+  choice: AIFeatureProviderChoice
+): AIFeatureKey[] {
+  if (config.upload.provider === "s3") {
+    return [];
+  }
+  return choice.extraKeys ?? [];
 }
 
 function isFeatureConfigured(
@@ -570,6 +713,7 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
  */
 async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise<void> {
   console.log();
+  loadEnv();
   const cfgPath = getConfigPath(scope).replace(homedir(), "~");
   const scopeNote =
     scope === "project"
@@ -761,8 +905,7 @@ async function runAIFeaturesSetup(
     const backIndex = AI_FEATURES.length;
     const featureLabels = [
       ...AI_FEATURES.map((f) => {
-        const keyCount = f.keys.length;
-        const tag = chalk.dim(`${keyCount} key${keyCount > 1 ? "s" : ""}`);
+        const tag = chalk.dim(f.keyHint ?? `${f.keys.length} key${f.keys.length > 1 ? "s" : ""}`);
         return `${f.label} ${chalk.dim(`(${f.desc})`)} ${tag}`;
       }),
       `Back ${chalk.dim("(return to setup checkpoint)")}`,
@@ -787,6 +930,14 @@ async function runAIFeaturesSetup(
       console.log(chalk.dim("  No features selected. You can re-run setup anytime."));
       console.log();
       return { tryCommand: "vibe --help", selectedFeatures: [] };
+    }
+
+    if (hasVideoFeature(selectedFeatures)) {
+      const uploadResult = await configureUploadHost(config);
+      if (uploadResult === "back") {
+        console.log();
+        continue featureSelection;
+      }
     }
 
     const plannedKeys = new Map<string, AIFeatureKey[]>();
@@ -818,7 +969,14 @@ async function runAIFeaturesSetup(
           const keyHint = choice.keyless
             ? chalk.dim("no key")
             : choice.key
-              ? chalk.dim(choice.key.envVar)
+              ? chalk.dim(
+                  [
+                    choice.key.envVar,
+                    ...getChoiceExtraKeys(config, choice).map((keyDef) => keyDef.envVar),
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")
+                )
               : chalk.dim("no key");
           const defaultHint =
             choice === feature.providerChoices?.[0] ? chalk.dim("recommended default") : "";
@@ -852,6 +1010,9 @@ async function runAIFeaturesSetup(
 
         for (const choice of selectedChoices) {
           if (choice.key) addUniqueKey(keysForFeature, choice.key);
+          for (const keyDef of getChoiceExtraKeys(config, choice)) {
+            addUniqueKey(keysForFeature, keyDef);
+          }
         }
         if (selectedChoices.some((choice) => choice.keyless)) {
           console.log(chalk.dim("  No API key needed for selected local provider(s)."));

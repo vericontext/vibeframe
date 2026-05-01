@@ -254,9 +254,10 @@ export interface EnvExampleOptions {
  * of the free path.
  */
 export function renderEnvExample(opts: EnvExampleOptions = {}): string {
-  const fallback = opts.withLocalFallbackHeader === false
-    ? ""
-    : `# ── Local fallbacks (no key needed) ─────────────────────────────────────
+  const fallback =
+    opts.withLocalFallbackHeader === false
+      ? ""
+      : `# ── Local fallbacks (no key needed) ─────────────────────────────────────
 # Kokoro TTS (local, ~330MB on first call)  →  works without ELEVENLABS_API_KEY
 # FFmpeg silence-cut / fade / noise-reduce  →  works with no AI keys at all
 # Run \`vibe doctor\` to see what's currently detected.
@@ -276,10 +277,21 @@ OPENROUTER_API_KEY=                   # multiplexes any provider above
 # ── Media providers ─────────────────────────────────────────────────────
 ELEVENLABS_API_KEY=                   # paid TTS / SFX / music (Kokoro is the free fallback)
 FAL_KEY=                              # Seedance 2.0 — default video provider since v0.57
+IMGBB_API_KEY=                        # image hosting for Seedance/Kling image-to-video
 RUNWAY_API_SECRET=                    # Runway Gen-4.5 video
 KLING_API_KEY=                        # Kling video
 REPLICATE_API_TOKEN=                  # MusicGen, real-esrgan, etc.
-IMGBB_API_KEY=                        # public image hosting (rare — some Replicate flows need it)
+
+# ── Optional private upload host for image-to-video ──────────────────────
+# Default is ImgBB. Set these only if you want temporary URLs from your own S3 bucket.
+# VIBE_UPLOAD_PROVIDER=s3             # imgbb | s3
+# VIBE_UPLOAD_TTL_SECONDS=3600
+# VIBE_UPLOAD_S3_BUCKET=
+# VIBE_UPLOAD_S3_PREFIX=vibeframe/tmp
+# AWS_REGION=
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_SESSION_TOKEN=
 `;
 }
 

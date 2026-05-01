@@ -20,7 +20,6 @@ import {
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
 import {
   isJsonMode,
   outputSuccess,
@@ -31,8 +30,8 @@ import {
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
-import { resolveProvider } from "../../utils/provider-resolver.js";
-import { uploadToImgbb } from "../ai-script-pipeline.js";
+import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
+import { resolveUploadHost } from "../../utils/upload-host.js";
 import { downloadVideo } from "../ai-helpers.js";
 
 export function registerVideoCommand(parent: Command): void {
@@ -41,36 +40,59 @@ export function registerVideoCommand(parent: Command): void {
     .alias("vid")
     .description("Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)")
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
-    .option("-p, --provider <provider>", "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.")
-    .option("-k, --api-key <key>", "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
+    .option(
+      "-p, --provider <provider>",
+      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
+    )
+    .option(
+      "-k, --api-key <key>",
+      "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)"
+    )
     .option("-o, --output <path>", "Output file path (downloads video)")
     .option("-i, --image <path>", "Reference image for image-to-video")
     .option(
       "-d, --duration <sec>",
       "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
-      "5",
+      "5"
     )
-    .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)")
+    .option(
+      "-r, --ratio <ratio>",
+      "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)"
+    )
     .option("--seed <number>", "Random seed for reproducibility (Runway only)")
     .option("--mode <mode>", "Generation mode: std or pro (Kling only)", "std")
-    .option("--seedance-model <model>", "Seedance variant: quality or fast (fal.ai only)", "quality")
+    .option(
+      "--seedance-model <model>",
+      "Seedance variant: quality or fast (fal.ai only)",
+      "quality"
+    )
     .option("--negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
     .option("--resolution <res>", "Video resolution: 720p, 1080p, 4k (Veo only)")
     .option("--last-frame <path>", "Last frame image for frame interpolation (Veo only)")
-    .option("--ref-images <paths...>", "Reference images for character consistency (Veo 3.1 only, max 3)")
+    .option(
+      "--ref-images <paths...>",
+      "Reference images for character consistency (Veo 3.1 only, max 3)"
+    )
     .option("--person <mode>", "Person generation: allow_all, allow_adult (Veo only)")
     .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
-    .option("--runway-model <model>", "Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)", "gen4.5")
+    .option(
+      "--runway-model <model>",
+      "Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)",
+      "gen4.5"
+    )
     .option("--no-wait", "Start generation and return task ID without waiting")
     .option("--dry-run", "Preview parameters without executing")
-    .addHelpText("after", `
+    .addHelpText(
+      "after",
+      `
 Examples:
   $ vibe generate video "dancing cat" -o cat.mp4                      # Seedance when FAL_KEY is set
   $ vibe gen vid "cinematic city timelapse" -o city.mp4 -p seedance   # Seedance via fal.ai
   $ vibe gen vid "city timelapse" -o city.mp4 -p kling                # Kling
   $ vibe gen vid "epic scene" -i frame.png -o out.mp4 -p runway       # Image-to-video
   $ vibe gen vid "ocean waves" -o waves.mp4 -p veo --resolution 1080p # Veo
-  $ vibe gen vid "sunset" -o sun.mp4 -d 10 --dry-run --json`)
+  $ vibe gen vid "sunset" -o sun.mp4 -d 10 --dry-run --json`
+    )
     .action(async (prompt: string | undefined, options) => {
       const startedAt = Date.now();
       try {
@@ -83,10 +105,7 @@ Examples:
             }
           } else {
             exitWithError(
-              usageError(
-                "Prompt argument is required.",
-                "Usage: vibe generate video <prompt>",
-              ),
+              usageError("Prompt argument is required.", "Usage: vibe generate video <prompt>")
             );
           }
         }
@@ -94,6 +113,7 @@ Examples:
         if (options.output) {
           validateOutputPath(options.output);
         }
+        await loadProviderDefaults();
 
         // Validate duration up-front so dry-run doesn't echo invalid params.
         // Without this, `vibe generate video "..." --duration -1 --dry-run`
@@ -102,10 +122,12 @@ Examples:
         if (options.duration !== undefined) {
           const d = parseFloat(options.duration);
           if (!Number.isFinite(d) || d <= 0 || d > 60) {
-            exitWithError(usageError(
-              `Invalid --duration: ${options.duration}`,
-              "Must be a positive number ≤ 60 seconds.",
-            ));
+            exitWithError(
+              usageError(
+                `Invalid --duration: ${options.duration}`,
+                "Must be a positive number ≤ 60 seconds."
+              )
+            );
           }
         }
 
@@ -133,8 +155,8 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-              "Available providers: seedance, grok, kling, runway, veo. `fal` is a deprecated alias for seedance.",
-              ),
+                "Available providers: seedance, grok, kling, runway, veo. `fal` is a deprecated alias for seedance."
+              )
             );
           }
           // Soft-deprecation: `-p fal` was the v0.x id; canonical is now
@@ -144,16 +166,12 @@ Examples:
           if (provider === "fal") {
             process.stderr.write(
               chalk.yellow(
-                "Note: `-p fal` is a deprecated alias for `-p seedance` and will be removed in 1.0.\n",
-              ),
+                "Note: `-p fal` is a deprecated alias for `-p seedance` and will be removed in 1.0.\n"
+              )
             );
             provider = "seedance";
           }
-          if (
-            videoEnvMap[provider] &&
-            !hasApiKey(videoEnvMap[provider]) &&
-            !options.apiKey
-          ) {
+          if (videoEnvMap[provider] && !hasApiKey(videoEnvMap[provider]) && !options.apiKey) {
             const resolved = resolveProvider("video");
             if (resolved) {
               log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
@@ -167,6 +185,8 @@ Examples:
 
         // Read image early so we can auto-detect aspect ratio before dry-run
         let referenceImage: string | undefined;
+        let referenceImageBuffer: Buffer | undefined;
+        let referenceImageMimeType: string | undefined;
         let isImageToVideo = false;
         if (options.image) {
           const imagePath = resolve(process.cwd(), options.image);
@@ -180,6 +200,8 @@ Examples:
             webp: "image/webp",
           };
           const mimeType = mimeTypes[ext || "png"] || "image/png";
+          referenceImageBuffer = imageBuffer;
+          referenceImageMimeType = mimeType;
           referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
           isImageToVideo = true;
 
@@ -196,7 +218,7 @@ Examples:
                 options.ratio = "1:1";
               }
               log(
-                `Auto-detected aspect ratio: ${options.ratio} (${dimensions.width}x${dimensions.height})`,
+                `Auto-detected aspect ratio: ${options.ratio} (${dimensions.width}x${dimensions.height})`
               );
             }
           }
@@ -259,8 +281,8 @@ Examples:
         if (provider === "runway" && !options.image && runwayModel !== "gen4.5") {
           exitWithError(
             usageError(
-              `Runway ${runwayModel} requires an input image. Use -i <image> or use gen4.5 for text-to-video.`,
-            ),
+              `Runway ${runwayModel} requires an input image. Use -i <image> or use gen4.5 for text-to-video.`
+            )
           );
         }
 
@@ -313,7 +335,7 @@ Examples:
                 spinner.text = `Generating video... ${status.progress}%`;
               }
             },
-            300000,
+            300000
           );
         } else if (provider === "kling") {
           const kling = new KlingProvider();
@@ -324,23 +346,27 @@ Examples:
             exitWithError(authError("KLING_API_KEY", "Kling"));
           }
 
-          // Kling v2.x requires image URL, not base64 — auto-upload to ImgBB
+          // Kling v2.x requires image URL, not base64 — auto-upload through
+          // the configured temporary upload host (ImgBB by default, S3 when
+          // VIBE_UPLOAD_PROVIDER=s3).
           let klingImage = referenceImage;
           if (klingImage && klingImage.startsWith("data:")) {
-            spinner.text = "Uploading image to ImgBB for Kling...";
-            const imgbbKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
-            if (!imgbbKey) {
-              spinner.fail("ImgBB API key required");
-              exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+            try {
+              const uploadHost = await resolveUploadHost();
+              spinner.text = `Uploading image via ${uploadHost.provider} for Kling...`;
+              const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
+                filename: options.image,
+                mimeType: referenceImageMimeType,
+              });
+              klingImage = upload.url;
+            } catch (err) {
+              spinner.fail("Image upload failed");
+              const message = err instanceof Error ? err.message : String(err);
+              if (message.includes("IMGBB_API_KEY")) {
+                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+              }
+              exitWithError(apiError(message, true));
             }
-            const base64Data = klingImage.split(",")[1];
-            const imageBuffer = Buffer.from(base64Data, "base64");
-            const uploadResult = await uploadToImgbb(imageBuffer, imgbbKey);
-            if (!uploadResult.success || !uploadResult.url) {
-              spinner.fail("ImgBB upload failed");
-              exitWithError(apiError(`ImgBB upload failed: ${uploadResult.error}`, true));
-            }
-            klingImage = uploadResult.url;
             spinner.text = "Starting video generation...";
           }
 
@@ -371,8 +397,8 @@ Examples:
             console.log(chalk.dim("Check status with:"));
             console.log(
               chalk.dim(
-                `  vibe generate video-status ${result.id} -p kling${isImageToVideo ? " --type image2video" : ""}`,
-              ),
+                `  vibe generate video-status ${result.id} -p kling${isImageToVideo ? " --type image2video" : ""}`
+              )
             );
             console.log();
             return;
@@ -387,7 +413,7 @@ Examples:
             (status) => {
               spinner.text = `Generating video... ${status.status}`;
             },
-            600000,
+            600000
           );
         } else if (provider === "veo") {
           const gemini = new GeminiProvider();
@@ -399,8 +425,7 @@ Examples:
             "3.1": "veo-3.1-generate-preview",
             "3.1-fast": "veo-3.1-fast-generate-preview",
           };
-          const veoModel =
-            veoModelMap[options.veoModel] || "veo-3.1-fast-generate-preview";
+          const veoModel = veoModelMap[options.veoModel] || "veo-3.1-fast-generate-preview";
 
           const veoDuration = parseInt(options.duration) <= 6 ? 6 : 8;
 
@@ -470,7 +495,7 @@ Examples:
             (status) => {
               spinner.text = `Generating video... ${status.status}`;
             },
-            300000,
+            300000
           );
         } else if (provider === "grok") {
           const grok = new GrokProvider();
@@ -509,7 +534,7 @@ Examples:
             (status) => {
               spinner.text = `Generating video... ${status.status}`;
             },
-            300000,
+            300000
           );
         } else if (provider === "seedance") {
           // fal.ai → ByteDance Seedance 2.0 (Artificial Analysis #2 on
@@ -520,24 +545,25 @@ Examples:
           await fal.initialize({ apiKey });
 
           // Seedance 2.0 image-to-video needs an HTTPS URL. base64 / data
-          // URIs aren't accepted, so reuse the same ImgBB upload trick
-          // Kling uses when an image was passed via `-i`.
+          // URIs aren't accepted, so use the configured temporary upload host.
           let falImage = referenceImage;
           if (falImage && falImage.startsWith("data:")) {
-            spinner.text = "Uploading image to ImgBB for Seedance...";
-            const imgbbKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
-            if (!imgbbKey) {
-              spinner.fail("ImgBB API key required for Seedance image-to-video");
-              exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+            try {
+              const uploadHost = await resolveUploadHost();
+              spinner.text = `Uploading image via ${uploadHost.provider} for Seedance...`;
+              const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
+                filename: options.image,
+                mimeType: referenceImageMimeType,
+              });
+              falImage = upload.url;
+            } catch (err) {
+              spinner.fail("Image upload failed");
+              const message = err instanceof Error ? err.message : String(err);
+              if (message.includes("IMGBB_API_KEY")) {
+                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+              }
+              exitWithError(apiError(message, true));
             }
-            const base64Data = falImage.split(",")[1];
-            const imageBuffer = Buffer.from(base64Data, "base64");
-            const uploadResult = await uploadToImgbb(imageBuffer, imgbbKey);
-            if (!uploadResult.success || !uploadResult.url) {
-              spinner.fail("ImgBB upload failed");
-              exitWithError(apiError(`ImgBB upload failed: ${uploadResult.error}`, true));
-            }
-            falImage = uploadResult.url;
           }
 
           spinner.text = "Generating video with fal.ai Seedance 2.0 (this may take 1-3 minutes)...";
@@ -603,9 +629,7 @@ Examples:
             downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
           } catch (err) {
             downloadSpinner.fail(
-              chalk.red(
-                `Failed to download video: ${err instanceof Error ? err.message : err}`,
-              ),
+              chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
             );
           }
         }
