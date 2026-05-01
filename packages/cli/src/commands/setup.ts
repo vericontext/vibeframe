@@ -450,11 +450,8 @@ function isProviderChoiceConfigured(
   config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>,
   choice: AIFeatureProviderChoice
 ): boolean {
-  const keys = [choice.key, ...getChoiceExtraKeys(config, choice)].filter(
-    (keyDef): keyDef is AIFeatureKey => Boolean(keyDef)
-  );
-  for (const keyDef of keys) {
-    const value = config.providers[keyDef.configKey as keyof typeof config.providers];
+  if (choice.key) {
+    const value = config.providers[choice.key.configKey as keyof typeof config.providers];
     if (value) return true;
   }
   if (choice.defaultFor?.kind === "image") {
