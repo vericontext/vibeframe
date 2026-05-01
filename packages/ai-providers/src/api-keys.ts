@@ -71,7 +71,6 @@ defineApiKey({
 defineApiKey({
   configKey: "fal",
   envVar: "FAL_API_KEY",
-  envAliases: ["FAL_KEY"],
   label: "fal.ai",
   showInSetup: true,
   setupDescription: "Seedance 2.0 video gen ($$, default since v0.57)",

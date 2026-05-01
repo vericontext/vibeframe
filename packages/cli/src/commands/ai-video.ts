@@ -89,11 +89,7 @@ export async function executeVideoGenerate(
       fal: "FAL_API_KEY",
     };
     const envKey = envKeyMap[provider] || "";
-    const key =
-      apiKey ||
-      (hasApiKey(envKey)
-        ? process.env[envKey] || (envKey === "FAL_API_KEY" ? process.env.FAL_KEY : undefined)
-        : undefined);
+    const key = apiKey || (hasApiKey(envKey) ? process.env[envKey] : undefined);
     if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
     let referenceImage: string | undefined;

@@ -55,7 +55,6 @@ function envValueFor(meta: Pick<ApiKeyMeta, "envVar" | "envAliases">): string | 
 }
 
 function envValueForName(envVar: string): string | undefined {
-  if (envVar === "FAL_API_KEY") return process.env.FAL_API_KEY || process.env.FAL_KEY;
   return process.env[envVar];
 }
 
@@ -1503,7 +1502,7 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
   let unsetCount = 0;
   for (const p of providerKeys) {
     const configValue = config?.providers[p.key as keyof typeof config.providers];
-    const dotenvValue = dotenvKeys[p.env] || (p.env === "FAL_API_KEY" ? dotenvKeys.FAL_KEY : undefined);
+    const dotenvValue = dotenvKeys[p.env];
 
     if (configValue || dotenvValue) {
       // Show effective value (config wins) and all sources

@@ -22,14 +22,6 @@ describe("api-key utilities", () => {
   describe("getApiKey", () => {
     it("maps Seedance fal.ai env var to the stored config provider key", () => {
       expect(providerKeyForEnvVar("FAL_API_KEY")).toBe("fal");
-      expect(providerKeyForEnvVar("FAL_KEY")).toBe("fal");
-    });
-
-    it("accepts legacy FAL_KEY when canonical FAL_API_KEY is requested", async () => {
-      delete process.env.FAL_API_KEY;
-      process.env.FAL_KEY = "legacy-fal-key";
-      const result = await getApiKey("FAL_API_KEY", "Seedance");
-      expect(result).toBe("legacy-fal-key");
     });
 
     it("returns option value if provided", async () => {
@@ -61,12 +53,6 @@ describe("api-key utilities", () => {
     it("returns true when env var is set", () => {
       process.env.TEST_PROBE_KEY = "actual-secret";
       expect(hasApiKey("TEST_PROBE_KEY")).toBe(true);
-    });
-
-    it("returns true for legacy fal env alias", () => {
-      delete process.env.FAL_API_KEY;
-      process.env.FAL_KEY = "legacy-fal-key";
-      expect(hasApiKey("FAL_API_KEY")).toBe(true);
     });
 
     it("returns false when env var is unset", () => {

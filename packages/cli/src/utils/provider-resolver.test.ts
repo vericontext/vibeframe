@@ -184,7 +184,6 @@ describe("resolveProvider — config-aware defaults", () => {
 
   it("uses Seedance when FAL_API_KEY is saved in config but not exported", () => {
     delete process.env.FAL_API_KEY;
-    delete process.env.FAL_KEY;
     delete process.env.XAI_API_KEY;
     delete process.env.GOOGLE_API_KEY;
     delete process.env.KLING_API_KEY;
@@ -202,19 +201,6 @@ describe("resolveProvider — config-aware defaults", () => {
       upload: { provider: "imgbb", ttlSeconds: 3600 },
       repl: { autoSave: true },
     });
-
-    expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });
-  });
-
-  it("accepts legacy FAL_KEY for Seedance provider resolution", () => {
-    delete process.env.FAL_API_KEY;
-    delete process.env.XAI_API_KEY;
-    delete process.env.GOOGLE_API_KEY;
-    delete process.env.KLING_API_KEY;
-    delete process.env.RUNWAY_API_SECRET;
-    process.env.FAL_KEY = "legacy-fal-key";
-
-    loadProviderDefaultsFromConfig(null);
 
     expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });
   });
