@@ -3779,7 +3779,7 @@ exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1
       "duration": "5",
       "mode": "std",
       "prompt": "test",
-      "provider": "seedance",
+      "provider": "grok",
       "ratio": "16:9",
       "seedanceModel": "quality",
       "veoModel": "3.1-fast",

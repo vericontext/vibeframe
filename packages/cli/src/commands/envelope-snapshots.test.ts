@@ -43,10 +43,20 @@ interface SchemaListEntry {
   description: string;
 }
 
+// Hermetic env: snapshot tests must not depend on dev-only API keys leaking
+// in via the monorepo .env (which the CLI's loadEnv() walks up to find).
+// 1. Pass only PATH so `node` resolves; fake HOME so user config isn't read.
+// 2. Run from a temp cwd outside the monorepo so loadEnv() can't find a
+//    pnpm-workspace.yaml ancestor → no .env auto-load → keys are truly absent.
+const HERMETIC_ENV = { PATH: process.env.PATH ?? "", HOME: "/tmp/vibeframe-test-home" };
+const HERMETIC_CWD = "/tmp";
+
 function runCli(args: string): string {
   return execSync(`${CLI} ${args}`, {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "ignore"], // suppress stderr noise (spinners, warnings)
+    env: HERMETIC_ENV,
+    cwd: HERMETIC_CWD,
   });
 }
 
