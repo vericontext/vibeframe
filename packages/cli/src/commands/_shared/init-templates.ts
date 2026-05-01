@@ -61,10 +61,21 @@ vibe walkthrough scene         # step-by-step authoring guide (scene)
 vibe walkthrough pipeline      # step-by-step authoring guide (pipeline)
 \`\`\`
 
-## Two flows — pick by intent
+## Route by the user's actual request
 
-VibeFrame splits cleanly into two flows. Routing the user's request
-correctly is the most important judgement call you'll make.
+Routing the user's request correctly is the most important judgement call
+you'll make. Do not force everything into a scene project.
+
+**ASSET — create one generated asset.**
+If the user asks for a single image, single video clip, sound effect, music
+bed, or narration file, use \`vibe generate ...\` directly. Do **not** edit
+\`DESIGN.md\`, \`STORYBOARD.md\`, or run \`vibe scene ...\` unless the user
+explicitly asks to build a storyboard/scene/composed video.
+
+Examples:
+- "make this image" → \`vibe generate image "..." -o assets/name.png\`
+- "use this image to make a video" → \`vibe generate video "..." -i image.png -o renders/name.mp4\`
+- "please add visuals using OpenAI image gen" → \`vibe generate image "..." -p openai ...\`
 
 **BUILD — create new video from text intent.**
 Use \`vibe build\` with a STORYBOARD.md + DESIGN.md. The
@@ -76,9 +87,9 @@ bundle, then renders to MP4. Idempotent re-runs reuse cached assets.
 Use \`vibe remix\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
 batch-oriented operations on a file the user already has on disk.
 
-Decision rule: if the user is starting from intent (a script, a brand,
-an idea), it's BUILD. If the user is starting from a media file, it's
-REMIX.
+Decision rule: if the user asks for one asset, it's ASSET. If the user asks
+for a multi-scene/storyboard/composed video, it's BUILD. If the user is
+starting from a media file and wants it transformed, it's REMIX.
 
 ## Common workflows
 
@@ -204,6 +215,13 @@ overview content moved into AGENTS.md above):
 
 - \`/vibe-pipeline\` — YAML pipeline authoring helper (Video as Code)
 - \`/vibe-scene\` — per-scene HTML authoring + \`vibe build\`
+
+Claude-specific routing note: follow the ASSET / BUILD / REMIX decision
+rules in \`AGENTS.md\`. In particular, a request for one generated image or
+one generated video clip is an ASSET request: use \`vibe generate image\` or
+\`vibe generate video\` directly. Do not invoke \`/vibe-scene\`, edit
+\`DESIGN.md\`, or edit \`STORYBOARD.md\` unless the user explicitly asks for a
+scene, storyboard, or composed video.
 
 To install / update them later:
 

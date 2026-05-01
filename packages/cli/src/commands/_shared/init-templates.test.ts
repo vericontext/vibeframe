@@ -26,9 +26,12 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("--stdin");
   });
 
-  it("v0.74: declares the BUILD vs REMIX split so agents route correctly", () => {
+  it("declares ASSET, BUILD, and REMIX routing so agents route correctly", () => {
+    expect(AGENTS_MD).toContain("ASSET");
     expect(AGENTS_MD).toContain("BUILD");
     expect(AGENTS_MD).toContain("REMIX");
+    expect(AGENTS_MD).toContain('vibe generate image "..."');
+    expect(AGENTS_MD).toContain("Do **not** edit");
     // BUILD path canonical command
     expect(AGENTS_MD).toContain("vibe build");
     // REMIX path canonical commands (renamed from `pipeline` in v0.74)
@@ -46,6 +49,8 @@ describe("CLAUDE_MD template", () => {
   it("documents the two consolidated VibeFrame slash commands (v0.62 trim from 4 → 2)", () => {
     expect(CLAUDE_MD).toContain("/vibe-pipeline");
     expect(CLAUDE_MD).toContain("/vibe-scene");
+    expect(CLAUDE_MD).toContain("ASSET / BUILD / REMIX");
+    expect(CLAUDE_MD).toContain("Do not invoke `/vibe-scene`");
     // v0.62 explicitly removed these — overview lives in AGENTS.md, walkthrough merged into vibe-scene.
     expect(CLAUDE_MD).not.toContain("/vibeframe ");
     expect(CLAUDE_MD).not.toContain("/vibe-script-to-video");
