@@ -4,8 +4,7 @@ import { readFileSync, existsSync, mkdtempSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
 
-const TSX = resolve(__dirname, "../../../../node_modules/.bin/tsx");
-const CLI = `${TSX} ${resolve(__dirname, "../index.ts")}`;
+const CLI = `node ${resolve(__dirname, "../../dist/index.js")}`;
 
 describe("project commands", () => {
   let tempDir: string;

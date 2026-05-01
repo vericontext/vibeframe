@@ -164,6 +164,7 @@
     "start": "tsx src/index.ts",
     "lint": "eslint --ext .ts,.tsx src/",
     "test": "vitest",
+    "pretest": "node build.js",
     "prepublishOnly": "node build.js"
   },
   "dependencies": {
