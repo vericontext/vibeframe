@@ -216,10 +216,14 @@ export function buildDesignMd(opts: {
 
   return `# ${name} — Design
 
-> **Hard-gate.** This file defines the visual identity of every scene.
-> Author it before generating any HTML, backdrop image, or motion.
-> The Hyperframes \`hyperframes\` skill enforces this: scenes that
-> contradict DESIGN.md are rejected.
+> **Hard-gate (BUILD flow only).** This file is the visual contract for
+> the scene-project flow (\`vibe build\`, \`vibe scene ...\`, composition
+> HTML, backdrop image-gen). Author it before authoring scene HTML; the
+> Hyperframes \`hyperframes\` skill enforces it at composition time.
+>
+> **Single-asset requests (\`vibe generate image|video|speech|...\`) do
+> NOT consult this file.** Run the generate command directly with the
+> user's prompt. See AGENTS.md → "Route by the user's actual request".
 
 ${intro}
 
@@ -316,12 +320,35 @@ This project is **bilingual**: it works with both VibeFrame (\`vibe\`) and
 HeyGen Hyperframes (\`hyperframes\`). You can run either CLI inside this
 directory.
 
-## Visual identity hard-gate
+## Route the request first
 
-**Author \`DESIGN.md\` before any scene HTML.** It defines palette,
-typography, motion, and transition rules. Both the agent-driven path and
-the fallback emit reference it; scenes that contradict DESIGN.md are
-rejected by the Hyperframes \`hyperframes\` skill.
+Before opening DESIGN.md, loading the hyperframes skill, or planning
+scenes, decide which flow the user actually wants:
+
+- **ASSET (default for ambiguous prompts).** Single image, single video
+  clip, single TTS line. Even a verb-less paste of a visual brief lands
+  here. Just run \`vibe generate image|video|speech "<paste>" -o assets/<name>\`.
+  Skip DESIGN.md, skip the hyperframes skill.
+- **BUILD.** Multi-scene / storyboard / composed video. Triggered when
+  the user explicitly asks for "a video built from scenes", "a
+  storyboard", "a multi-scene composition", or names \`vibe build\` /
+  \`vibe scene ...\`. Only here does the hard-gate below apply.
+- **REMIX.** Transform a media file already on disk: \`vibe remix\`,
+  \`vibe edit\`, \`vibe audio\`.
+
+If you can't tell, ask: *"single asset or multi-scene project?"* before
+authoring DESIGN.md or invoking a skill.
+
+## Visual identity hard-gate (BUILD flow only)
+
+**Within the BUILD flow,** author \`DESIGN.md\` before any scene HTML.
+It defines palette, typography, motion, and transition rules. Both the
+agent-driven path and the fallback emit reference it; scenes that
+contradict DESIGN.md are rejected by the Hyperframes \`hyperframes\`
+skill.
+
+Single-asset requests (\`vibe generate image|video|speech|...\`) do NOT
+consult this file — run the generate command directly.
 
 Browse named styles: \`vibe scene list-styles\`. Re-seed from one with
 \`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).

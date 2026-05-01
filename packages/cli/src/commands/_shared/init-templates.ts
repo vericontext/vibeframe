@@ -66,16 +66,24 @@ vibe walkthrough pipeline      # step-by-step authoring guide (pipeline)
 Routing the user's request correctly is the most important judgement call
 you'll make. Do not force everything into a scene project.
 
-**ASSET — create one generated asset.**
+**ASSET — default for any single-asset request OR ambiguous prompt.**
 If the user asks for a single image, single video clip, sound effect, music
-bed, or narration file, use \`vibe generate ...\` directly. Do **not** edit
-\`DESIGN.md\`, \`STORYBOARD.md\`, or run \`vibe scene ...\` unless the user
-explicitly asks to build a storyboard/scene/composed video.
+bed, or narration file — **OR pastes a visual/audio brief without explicit
+storyboard / scene / multi-scene language** — treat it as ASSET. Use
+\`vibe generate ...\` directly. Do **not** edit \`DESIGN.md\`,
+\`STORYBOARD.md\`, run \`vibe scene ...\`, or auto-load the hyperframes
+skill until BUILD intent is explicit. The visual-identity hard-gate
+applies to BUILD only.
 
 Examples:
 - "make this image" → \`vibe generate image "..." -o assets/name.png\`
 - "use this image to make a video" → \`vibe generate video "..." -i image.png -o renders/name.mp4\`
 - "please add visuals using OpenAI image gen" → \`vibe generate image "..." -p openai ...\`
+- *(verb-less paste)* "aerial view of a misty mountain peak at sunrise..." → \`vibe generate image "<paste>" -o assets/mountain-peak.png\`. **Don't** read it as a brief for DESIGN.md.
+
+If genuinely uncertain, ask one short question: *"single asset or
+multi-scene project?"* before authoring DESIGN.md or loading the
+hyperframes skill.
 
 **BUILD — create new video from text intent.**
 Use \`vibe build\` with a STORYBOARD.md + DESIGN.md. The

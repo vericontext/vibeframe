@@ -145,7 +145,7 @@ describe("buildDesignMd", () => {
   it("emits placeholder sections when no style is provided", () => {
     const md = buildDesignMd({ name: "my-promo" });
     expect(md).toContain("# my-promo — Design");
-    expect(md).toContain("Hard-gate.");
+    expect(md).toContain("Hard-gate (BUILD flow only).");
     // Section headings are stable.
     expect(md).toContain("## Style");
     expect(md).toContain("## Palette");
