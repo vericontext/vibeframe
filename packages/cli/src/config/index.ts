@@ -8,7 +8,8 @@
  * Precedence at runtime: process.env > project > user.
  *
  * Default `loadConfig()` behavior is "auto" — if a project config exists in
- * the current working directory, it is used and the user config is ignored.
+ * the current working directory or one of its parents, it is used and the user
+ * config is ignored.
  * Pass `{scope:"user"}` or `{scope:"project"}` to force one side.
  *
  * Pass `{merge:true}` to overlay project on user (project wins). Used by
@@ -70,13 +71,24 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+async function findProjectConfigPath(cwd: string = process.cwd()): Promise<string | null> {
+  let dir = resolve(cwd);
+  for (;;) {
+    const candidate = getProjectConfigPath(dir);
+    if (await fileExists(candidate)) return candidate;
+    const parent = resolve(dir, "..");
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 /**
  * The scope that `loadConfig()` will read from when called without an
- * explicit scope. Returns `"project"` if a project config exists at cwd,
- * else `"user"` (regardless of whether the user file exists).
+ * explicit scope. Returns `"project"` if a project config exists at cwd or an
+ * ancestor directory, else `"user"` (regardless of whether the user file exists).
  */
 export async function getActiveScope(cwd?: string): Promise<Scope> {
-  return (await fileExists(getProjectConfigPath(cwd))) ? "project" : "user";
+  return (await findProjectConfigPath(cwd)) ? "project" : "user";
 }
 
 function applyDefaults(parsed: VibeConfig): VibeConfig {
@@ -124,7 +136,8 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
 
   if (merge) {
     const user = await readConfigFile(USER_CONFIG_PATH);
-    const project = await readConfigFile(getProjectConfigPath(cwd));
+    const projectPath = await findProjectConfigPath(cwd);
+    const project = projectPath ? await readConfigFile(projectPath) : null;
     if (!user && !project) return null;
     if (!user) return project;
     if (!project) return user;
@@ -147,8 +160,10 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
     return readConfigFile(getConfigPath(scope, cwd));
   }
 
-  // Auto: project takes priority — using project means "user-scope is ignored".
-  const project = await readConfigFile(getProjectConfigPath(cwd));
+  // Auto: nearest project config takes priority — using project means
+  // "user-scope is ignored".
+  const projectPath = await findProjectConfigPath(cwd);
+  const project = projectPath ? await readConfigFile(projectPath) : null;
   if (project) return project;
   return readConfigFile(USER_CONFIG_PATH);
 }

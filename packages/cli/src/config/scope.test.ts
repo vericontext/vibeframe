@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { stringify } from "yaml";
@@ -58,6 +58,11 @@ describe("Config scope", () => {
       await writeProjectConfig({ llm: { provider: "openai" } });
       expect(await getActiveScope(PROJECT_CWD)).toBe("project");
     });
+
+    it("returns 'project' when a project config exists in an ancestor", async () => {
+      await writeProjectConfig({ llm: { provider: "openai" } });
+      expect(await getActiveScope(join(PROJECT_CWD, "nested", "scene"))).toBe("project");
+    });
   });
 
   describe("loadConfig (auto)", () => {
@@ -87,6 +92,17 @@ describe("Config scope", () => {
       // user's anthropic key must NOT leak through in auto mode
       expect(cfg?.providers.anthropic).toBeUndefined();
       expect(cfg?.providers.openai).toBe("project-key");
+    });
+
+    it("finds project config from nested working directories", async () => {
+      await writeProjectConfig({
+        llm: { provider: "openai" },
+        providers: { openai: "project-openai" },
+      });
+
+      const cfg = await loadConfig({ cwd: join(PROJECT_CWD, "nested", "scene") });
+      expect(cfg?.llm.provider).toBe("openai");
+      expect(cfg?.providers.openai).toBe("project-openai");
     });
   });
 
@@ -125,6 +141,19 @@ describe("Config scope", () => {
       // (createDefaultConfig sets claude — both files end up with provider:claude
       // after applyDefaults; this test asserts merge semantics, not defaults).
       expect(cfg?.llm.provider).toBe("claude");
+    });
+
+    it("overlays ancestor project config on user", async () => {
+      await writeUserConfig({
+        providers: { anthropic: "user-anthropic", openai: "user-openai" },
+      });
+      await writeProjectConfig({
+        providers: { openai: "project-openai" },
+      });
+
+      const cfg = await loadConfig({ merge: true, cwd: join(PROJECT_CWD, "nested") });
+      expect(cfg?.providers.anthropic).toBe("user-anthropic");
+      expect(cfg?.providers.openai).toBe("project-openai");
     });
 
     it("returns null when neither config exists", async () => {
