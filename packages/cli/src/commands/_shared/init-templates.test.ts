@@ -31,6 +31,8 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("BUILD");
     expect(AGENTS_MD).toContain("REMIX");
     expect(AGENTS_MD).toContain('vibe generate image "..."');
+    expect(AGENTS_MD).toContain("vibe generate motion");
+    expect(AGENTS_MD).toContain("vibe edit text-overlay");
     expect(AGENTS_MD).toContain("Do **not** edit");
     // BUILD path canonical command
     expect(AGENTS_MD).toContain("vibe build");
@@ -50,6 +52,7 @@ describe("CLAUDE_MD template", () => {
     expect(CLAUDE_MD).toContain("/vibe-pipeline");
     expect(CLAUDE_MD).toContain("/vibe-scene");
     expect(CLAUDE_MD).toContain("ASSET / BUILD / REMIX");
+    expect(CLAUDE_MD).toContain("vibe generate motion --video");
     expect(CLAUDE_MD).toContain("Do not invoke `/vibe-scene`");
     // v0.62 explicitly removed these — overview lives in AGENTS.md, walkthrough merged into vibe-scene.
     expect(CLAUDE_MD).not.toContain("/vibeframe ");

@@ -78,6 +78,7 @@ applies to BUILD only.
 Examples:
 - "make this image" → \`vibe generate image "..." -o assets/name.png\`
 - "use this image to make a video" → \`vibe generate video "..." -i image.png -o renders/name.mp4\`
+- "add a lower-third/title/animated overlay/grain/vignette to this clip" → prefer \`vibe generate motion "..." --video clip.mp4 --render -o out.mp4\` when the request asks for designed or animated motion graphics.
 - "please add visuals using OpenAI image gen" → \`vibe generate image "..." -p openai ...\`
 - *(verb-less paste)* "aerial view of a misty mountain peak at sunrise..." → \`vibe generate image "<paste>" -o assets/mountain-peak.png\`. **Don't** read it as a brief for DESIGN.md.
 
@@ -94,6 +95,10 @@ bundle, then renders to MP4. Idempotent re-runs reuse cached assets.
 **REMIX — transform existing video / audio.**
 Use \`vibe remix\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
 batch-oriented operations on a file the user already has on disk.
+\`vibe edit text-overlay\` is the free deterministic path for simple static
+text burn-in. If the user asks for motion design, animated lower-thirds,
+designed titles, grain/vignette as part of a graphic treatment, or says
+"motion graphics", use \`vibe generate motion --video ... --render\` instead.
 
 Decision rule: if the user asks for one asset, it's ASSET. If the user asks
 for a multi-scene/storyboard/composed video, it's BUILD. If the user is
@@ -119,6 +124,7 @@ starting from a media file and wants it transformed, it's REMIX.
 | Extract highlights from a long video | \`vibe remix highlights file.mp4 -d 60\` |
 | Long video → vertical shorts | \`vibe remix auto-shorts file.mp4 -n 3 --add-captions\` |
 | Add animated word-by-word captions | \`vibe remix animated-caption file.mp4 -s karaoke-sweep\` |
+| Add designed motion graphics overlay | \`vibe generate motion "lower-third..." --video file.mp4 --render -o out.mp4\` |
 | Remove silence | \`vibe edit silence-cut in.mp4 -o out.mp4\` |
 | Add static captions | \`vibe edit caption in.mp4 -o out.mp4\` |
 | Translate audio (transcribe → TTS) | \`vibe audio dub file.mp4 -t ko\` |
@@ -227,7 +233,10 @@ overview content moved into AGENTS.md above):
 Claude-specific routing note: follow the ASSET / BUILD / REMIX decision
 rules in \`AGENTS.md\`. In particular, a request for one generated image or
 one generated video clip is an ASSET request: use \`vibe generate image\` or
-\`vibe generate video\` directly. Do not invoke \`/vibe-scene\`, edit
+\`vibe generate video\` directly. A request for designed/animated overlays
+on an existing clip is usually \`vibe generate motion --video ... --render\`,
+not \`vibe edit text-overlay\`, unless the user explicitly asks for a simple
+static text burn-in. Do not invoke \`/vibe-scene\`, edit
 \`DESIGN.md\`, or edit \`STORYBOARD.md\` unless the user explicitly asks for a
 scene, storyboard, or composed video.
 
