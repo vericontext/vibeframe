@@ -215,13 +215,17 @@ export interface SetupProviderEntry {
 /**
  * Setup wizard rows — only apiKeys with `showInSetup: true`. Order follows
  * `defineApiKey` call order.
+ *
+ * `name` is composed via `getDisplayLabelForApiKey` so gateways (fal.ai →
+ * Seedance) are disambiguated from direct providers without each call site
+ * re-implementing the join.
  */
 export function getSetupProviders(): SetupProviderEntry[] {
   return [...apiKeyRegistry.values()]
     .filter((k) => k.showInSetup)
     .map((k) => ({
       key: k.configKey,
-      name: k.label,
+      name: getDisplayLabelForApiKey(k.configKey),
       env: k.envVar,
       desc: k.setupDescription ?? "",
       url: k.envExampleUrl,
@@ -242,6 +246,34 @@ export function getKeyFormat(
   configKey: string,
 ): ApiKeyMeta["keyFormat"] | undefined {
   return apiKeyRegistry.get(configKey)?.keyFormat;
+}
+
+/**
+ * Render a human-readable label for an apiKey that surfaces the model/gateway
+ * relationship when one exists. Used by `vibe setup` and `vibe doctor` to
+ * disambiguate gateways (fal.ai → Seedance) from direct providers (Runway).
+ *
+ *   apiKey "fal" + provider {displayName: "Seedance 2.0", gateway: "fal.ai"}
+ *     → "Seedance 2.0 (via fal.ai)"
+ *   apiKey "runway" + provider {label: "Runway"} (no displayName/gateway)
+ *     → "Runway"
+ *
+ * If multiple providers share the apiKey, picks the first one whose
+ * `displayName` + `gateway` are both set; otherwise falls back to the apiKey's
+ * own `label`.
+ */
+export function getDisplayLabelForApiKey(configKey: string): string {
+  const apiKey = apiKeyRegistry.get(configKey);
+  if (!apiKey) return configKey;
+
+  const provider = [...providerRegistry.values()].find(
+    (p) => p.apiKey === configKey && p.displayName && p.gateway,
+  );
+
+  if (provider?.displayName && provider.gateway) {
+    return `${provider.displayName} (via ${provider.gateway})`;
+  }
+  return apiKey.label;
 }
 
 /** All registered providers in declaration order. Mostly diagnostic / testing. */

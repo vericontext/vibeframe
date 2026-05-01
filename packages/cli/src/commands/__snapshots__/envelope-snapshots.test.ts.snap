@@ -2012,7 +2012,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "duration": {
         "default": 5,
-        "description": "Duration in seconds. Seedance accepts 4-15 (\`fal\` alias supported); Kling accepts 5 or 10; Veo maps to 6 or 8.",
+        "description": "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
         "type": "number",
       },
       "image": {
@@ -2049,7 +2049,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "provider": {
-        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. \`fal\` is a backwards-compatible alias for seedance.",
+        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
         "type": "string",
       },
       "ratio": {

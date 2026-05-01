@@ -34,7 +34,7 @@ describe("FalProvider", () => {
 
   describe("initialization", () => {
     it("declares text-to-video and image-to-video capabilities", () => {
-      expect(provider.id).toBe("fal");
+      expect(provider.id).toBe("seedance");
       expect(provider.capabilities).toContain("text-to-video");
       expect(provider.capabilities).toContain("image-to-video");
     });

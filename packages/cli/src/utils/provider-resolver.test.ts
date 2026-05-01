@@ -30,7 +30,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
 
   it("getProvidersFor('video') matches VIDEO_PROVIDERS", () => {
     expect(getProvidersFor("video")).toEqual([
-      { name: "fal", envVar: "FAL_KEY", label: "fal.ai (Seedance 2.0)" },
+      { name: "seedance", envVar: "FAL_KEY", label: "Seedance 2.0" },
       { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
       { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
       { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },

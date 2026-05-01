@@ -3,11 +3,13 @@ export * from "./FalProvider.js";
 import { defineProvider } from "../define-provider.js";
 
 defineProvider({
-  id: "fal",
-  label: "fal.ai (Seedance 2.0)",
+  id: "seedance",
+  label: "Seedance 2.0",
   displayName: "Seedance 2.0",
   gateway: "fal.ai",
-  aliases: ["seedance"],
+  // `fal` is a deprecated v0.x alias kept so existing scripts keep working.
+  // Will be removed at the 1.0 cut (see docs/1.0-readiness.md).
+  aliases: ["fal"],
   models: ["seedance-2.0", "seedance-2.0-fast"],
   capabilities: ["text-to-video", "image-to-video", "native-audio"],
   apiKey: "fal",

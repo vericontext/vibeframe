@@ -41,13 +41,13 @@ export function registerVideoCommand(parent: Command): void {
     .alias("vid")
     .description("Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)")
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
-    .option("-p, --provider <provider>", "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a backwards-compatible alias for seedance.")
+    .option("-p, --provider <provider>", "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.")
     .option("-k, --api-key <key>", "API key (or set FAL_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)")
     .option("-o, --output <path>", "Output file path (downloads video)")
     .option("-i, --image <path>", "Reference image for image-to-video")
     .option(
       "-d, --duration <sec>",
-      "Duration in seconds. Seedance accepts 4-15 (`fal` alias supported); Kling accepts 5 or 10; Veo maps to 6 or 8.",
+      "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
       "5",
     )
     .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)")
@@ -114,6 +114,10 @@ Examples:
         //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > veo > kling > runway)
         //  - if no keys at all → keep grok as last-resort default so the
         //    later requireApiKey() prints a friendly Grok-specific message
+        // `fal` is intentionally still in validProviders so users hitting it
+        // get the deprecation warning (below) instead of "Invalid provider".
+        // It is NOT in videoEnvMap because the warning translates to seedance
+        // before any map lookup runs.
         const validProviders = ["runway", "kling", "veo", "grok", "seedance", "fal"];
         const videoEnvMap: Record<string, string> = {
           grok: "XAI_API_KEY",
@@ -121,7 +125,6 @@ Examples:
           kling: "KLING_API_KEY",
           runway: "RUNWAY_API_SECRET",
           seedance: "FAL_KEY",
-          fal: "FAL_KEY",
         };
         let provider: string;
         if (options.provider) {
@@ -130,9 +133,21 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-              "Available providers: seedance, grok, kling, runway, veo. `fal` is a backwards-compatible alias for seedance.",
+              "Available providers: seedance, grok, kling, runway, veo. `fal` is a deprecated alias for seedance.",
               ),
             );
+          }
+          // Soft-deprecation: `-p fal` was the v0.x id; canonical is now
+          // `seedance`. Warn once on stderr (not log/spinner — those go to
+          // stdout in JSON mode), translate to canonical, then continue.
+          // Removal at 1.0 per docs/1.0-readiness.md.
+          if (provider === "fal") {
+            process.stderr.write(
+              chalk.yellow(
+                "Note: `-p fal` is a deprecated alias for `-p seedance` and will be removed in 1.0.\n",
+              ),
+            );
+            provider = "seedance";
           }
           if (
             videoEnvMap[provider] &&
@@ -206,7 +221,7 @@ Examples:
             data: {
               params: {
                 prompt,
-                provider: provider === "fal" ? "seedance" : provider,
+                provider,
                 duration: options.duration,
                 ratio: options.ratio,
                 image: options.image,
@@ -227,7 +242,6 @@ Examples:
           veo: "GOOGLE_API_KEY",
           grok: "XAI_API_KEY",
           seedance: "FAL_KEY",
-          fal: "FAL_KEY",
         };
         const providerNameMap: Record<string, string> = {
           runway: "Runway",
@@ -235,7 +249,6 @@ Examples:
           veo: "Veo",
           grok: "Grok",
           seedance: "Seedance 2.0 via fal.ai",
-          fal: "Seedance 2.0 via fal.ai",
         };
         const envKey = envKeyMap[provider];
         const providerName = providerNameMap[provider];
@@ -498,7 +511,7 @@ Examples:
             },
             300000,
           );
-        } else if (provider === "fal" || provider === "seedance") {
+        } else if (provider === "seedance") {
           // fal.ai → ByteDance Seedance 2.0 (Artificial Analysis #2 on
           // both video leaderboards). The fal client's `subscribe` blocks
           // until the queue produces a final URL, so we don't need a

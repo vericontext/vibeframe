@@ -182,7 +182,7 @@ const AI_FEATURES: AIFeature[] = [
     desc: "generate + extend",
     defaultProvider: "Seedance 2.0 via fal.ai (Artificial Analysis #2 t2v + i2v, since v0.57)",
     alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
-    keys: [{ configKey: "fal", envVar: "FAL_KEY", name: "fal.ai", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" }],
+    keys: [{ configKey: "fal", envVar: "FAL_KEY", name: "Seedance 2.0 (via fal.ai)", url: "https://fal.ai/dashboard/keys", what: "ByteDance Seedance 2.0 text-to-video and image-to-video" }],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',
   },
   {

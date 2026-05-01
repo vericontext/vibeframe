@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { CONFIG_PATH, getProjectConfigPath, getActiveScope, type Scope } from "../config/index.js";
 import { PROVIDER_ENV_VARS } from "../config/schema.js";
-import { getCommandKeyMap } from "@vibeframe/ai-providers";
+import { getCommandKeyMap, getDisplayLabelForApiKey } from "@vibeframe/ai-providers";
 import { commandExists } from "../utils/exec-safe.js";
 import { execSafe } from "../utils/exec-safe.js";
 import { loadEnv } from "../utils/api-key.js";
@@ -516,11 +516,20 @@ function printReport(
   const configured: string[] = [];
   const missing: string[] = [];
 
+  // Friendly label disambiguates gateways (Seedance 2.0 via fal.ai) from
+  // direct providers — derived from the `displayName`+`gateway` pair when
+  // present, else the apiKey's own label.
+  const labelFor = (configKey: string, fallbackEnv: string): string => {
+    const label = getDisplayLabelForApiKey(configKey);
+    return label === configKey ? fallbackEnv : label;
+  };
+
   for (const [name, info] of Object.entries(results.providers)) {
     if (info.configured) {
       configured.push(name);
+      const label = labelFor(name, info.envVar);
       console.log(
-        `    ${chalk.green("OK")}  ${info.envVar.padEnd(24)} ${chalk.dim(info.commands.join(", "))}`
+        `    ${chalk.green("OK")}  ${label.padEnd(28)} ${chalk.dim(info.envVar.padEnd(20))} ${chalk.dim(info.commands.join(", "))}`
       );
     } else {
       missing.push(name);
@@ -531,8 +540,9 @@ function printReport(
     if (verbose) {
       for (const name of missing) {
         const info = results.providers[name];
+        const label = labelFor(name, info.envVar);
         console.log(
-          `    ${chalk.red("--")}  ${info.envVar.padEnd(24)} ${chalk.dim(info.commands.join(", "))}`
+          `    ${chalk.red("--")}  ${label.padEnd(28)} ${chalk.dim(info.envVar.padEnd(20))} ${chalk.dim(info.commands.join(", "))}`
         );
       }
     } else {

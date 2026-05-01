@@ -67,7 +67,7 @@ interface SeedanceOutput {
  * model compose the soundtrack.
  */
 export class FalProvider implements AIProvider {
-  id = "fal";
+  id = "seedance";
   name = "fal.ai (Seedance 2.0)";
   description = "fal.ai hosting ByteDance Seedance 2.0 — Artificial Analysis #2 on both text-to-video and image-to-video leaderboards";
   capabilities: AICapability[] = ["text-to-video", "image-to-video"];

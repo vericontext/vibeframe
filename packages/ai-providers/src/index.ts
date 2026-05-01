@@ -27,6 +27,7 @@ export {
   getAllApiKeys,
   getAllProviders,
   getKeyFormat,
+  getDisplayLabelForApiKey,
   type ApiKeyMeta,
   type ProviderMeta,
   type ProviderKind,

@@ -103,8 +103,8 @@ Notes:
 - `-p seedance` means ByteDance Seedance 2.0 through fal.ai.
 - `-d 5` is used to keep demo cost and queue time low.
 - Seedance supports longer clips too, for example `-d 10` or `-d 15`.
-- `-p fal` still works as a backward-compatible alias, but demos should use
-  `-p seedance`.
+- `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed
+  at the 1.0 cut. New scripts should use `-p seedance`.
 
 ### 1.3 Image to Video
 
