@@ -1,6 +1,18 @@
 /**
- * Configuration loader/saver for VibeFrame CLI
- * Config stored at ~/.vibeframe/config.yaml
+ * Configuration loader/saver for VibeFrame CLI.
+ *
+ * Two scopes:
+ *   - user    ~/.vibeframe/config.yaml         (shared across projects)
+ *   - project <cwd>/.vibeframe/config.yaml     (gitignored, per-project)
+ *
+ * Precedence at runtime: process.env > project > user.
+ *
+ * Default `loadConfig()` behavior is "auto" — if a project config exists in
+ * the current working directory, it is used and the user config is ignored.
+ * Pass `{scope:"user"}` or `{scope:"project"}` to force one side.
+ *
+ * Pass `{merge:true}` to overlay project on user (project wins). Used by
+ * doctor to render "where did this key come from" diagnostics.
  */
 
 import { resolve } from "node:path";
@@ -9,65 +21,156 @@ import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { parse, stringify } from "yaml";
 import { type VibeConfig, createDefaultConfig, PROVIDER_ENV_VARS } from "./schema.js";
 
-/** Config directory path */
-export const CONFIG_DIR = resolve(homedir(), ".vibeframe");
+export type Scope = "user" | "project";
 
-/** Config file path */
-export const CONFIG_PATH = resolve(CONFIG_DIR, "config.yaml");
+/** User-scope config directory (~/.vibeframe). */
+export const USER_CONFIG_DIR = resolve(homedir(), ".vibeframe");
+
+/** User-scope config file (~/.vibeframe/config.yaml). */
+export const USER_CONFIG_PATH = resolve(USER_CONFIG_DIR, "config.yaml");
 
 /**
- * Load configuration from ~/.vibeframe/config.yaml
- * Returns null if config doesn't exist
+ * Back-compat aliases. New code should use `USER_CONFIG_PATH` /
+ * `USER_CONFIG_DIR` or `getConfigPath(scope)` to be scope-explicit.
  */
-export async function loadConfig(): Promise<VibeConfig | null> {
-  try {
-    await access(CONFIG_PATH);
-    const content = await readFile(CONFIG_PATH, "utf-8");
-    const config = parse(content) as VibeConfig;
+export const CONFIG_DIR = USER_CONFIG_DIR;
+export const CONFIG_PATH = USER_CONFIG_PATH;
 
-    // Merge with defaults to ensure all fields exist
-    const defaults = createDefaultConfig();
-    return {
-      ...defaults,
-      ...config,
-      llm: { ...defaults.llm, ...config.llm },
-      providers: { ...defaults.providers, ...config.providers },
-      defaults: { ...defaults.defaults, ...config.defaults },
-      repl: { ...defaults.repl, ...config.repl },
-    };
+/** Project-scope config directory (`<cwd>/.vibeframe`). */
+export function getProjectConfigDir(cwd: string = process.cwd()): string {
+  return resolve(cwd, ".vibeframe");
+}
+
+/** Project-scope config file (`<cwd>/.vibeframe/config.yaml`). */
+export function getProjectConfigPath(cwd: string = process.cwd()): string {
+  return resolve(getProjectConfigDir(cwd), "config.yaml");
+}
+
+/** Resolve config file path for a given scope. */
+export function getConfigPath(scope: Scope, cwd?: string): string {
+  return scope === "project" ? getProjectConfigPath(cwd) : USER_CONFIG_PATH;
+}
+
+/** Resolve config directory for a given scope. */
+export function getConfigDir(scope: Scope, cwd?: string): string {
+  return scope === "project" ? getProjectConfigDir(cwd) : USER_CONFIG_DIR;
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The scope that `loadConfig()` will read from when called without an
+ * explicit scope. Returns `"project"` if a project config exists at cwd,
+ * else `"user"` (regardless of whether the user file exists).
+ */
+export async function getActiveScope(cwd?: string): Promise<Scope> {
+  return (await fileExists(getProjectConfigPath(cwd))) ? "project" : "user";
+}
+
+function applyDefaults(parsed: VibeConfig): VibeConfig {
+  const defaults = createDefaultConfig();
+  return {
+    ...defaults,
+    ...parsed,
+    llm: { ...defaults.llm, ...parsed.llm },
+    providers: { ...defaults.providers, ...parsed.providers },
+    defaults: { ...defaults.defaults, ...parsed.defaults },
+    repl: { ...defaults.repl, ...parsed.repl },
+  };
+}
+
+async function readConfigFile(path: string): Promise<VibeConfig | null> {
+  if (!(await fileExists(path))) return null;
+  try {
+    const content = await readFile(path, "utf-8");
+    const parsed = parse(content) as VibeConfig;
+    return applyDefaults(parsed);
   } catch {
     return null;
   }
 }
 
-/**
- * Save configuration to ~/.vibeframe/config.yaml
- */
-export async function saveConfig(config: VibeConfig): Promise<void> {
-  // Ensure config directory exists
-  await mkdir(CONFIG_DIR, { recursive: true });
-
-  // Write config as YAML
-  const content = stringify(config, {
-    indent: 2,
-    lineWidth: 0, // Don't wrap lines
-  });
-
-  await writeFile(CONFIG_PATH, content, "utf-8");
+export interface LoadConfigOptions {
+  /** Force a specific scope. Default: auto (project if exists, else user). */
+  scope?: Scope;
+  /** Working directory for resolving the project scope. Default: process.cwd(). */
+  cwd?: string;
+  /** Overlay project on user (project wins). Useful for doctor diagnostics. */
+  merge?: boolean;
 }
 
 /**
- * Check if configuration exists and has required API key
+ * Load configuration. Returns null if no config exists at the resolved scope.
+ */
+export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeConfig | null> {
+  const { scope, cwd, merge } = options;
+
+  if (merge) {
+    const user = await readConfigFile(USER_CONFIG_PATH);
+    const project = await readConfigFile(getProjectConfigPath(cwd));
+    if (!user && !project) return null;
+    if (!user) return project;
+    if (!project) return user;
+    return {
+      ...user,
+      ...project,
+      llm: { ...user.llm, ...project.llm },
+      providers: { ...user.providers, ...project.providers },
+      defaults: { ...user.defaults, ...project.defaults },
+      repl: { ...user.repl, ...project.repl },
+    };
+  }
+
+  if (scope) {
+    return readConfigFile(getConfigPath(scope, cwd));
+  }
+
+  // Auto: project takes priority — using project means "user-scope is ignored".
+  const project = await readConfigFile(getProjectConfigPath(cwd));
+  if (project) return project;
+  return readConfigFile(USER_CONFIG_PATH);
+}
+
+export interface SaveConfigOptions {
+  /** Target scope. Default: "user" (back-compat with prior behavior). */
+  scope?: Scope;
+  /** Working directory for resolving the project scope. Default: process.cwd(). */
+  cwd?: string;
+}
+
+/** Save configuration to the chosen scope. Default scope is "user". */
+export async function saveConfig(
+  config: VibeConfig,
+  options: SaveConfigOptions = {},
+): Promise<void> {
+  const scope = options.scope ?? "user";
+  const dir = getConfigDir(scope, options.cwd);
+  const path = getConfigPath(scope, options.cwd);
+
+  await mkdir(dir, { recursive: true });
+  const content = stringify(config, { indent: 2, lineWidth: 0 });
+  await writeFile(path, content, "utf-8");
+}
+
+/**
+ * Check if any configuration is present and the primary LLM provider has a
+ * key (in the active scope or the environment).
  */
 export async function isConfigured(): Promise<boolean> {
   const config = await loadConfig();
   if (!config) return false;
 
-  // Check if primary LLM provider has API key
   const provider = config.llm.provider;
-  const providerKey = provider === "gemini" ? "google" : provider === "claude" ? "anthropic" : provider;
+  const providerKey =
+    provider === "gemini" ? "google" : provider === "claude" ? "anthropic" : provider;
 
-  // Check config first, then environment
   if (config.providers[providerKey as keyof typeof config.providers]) {
     return true;
   }
@@ -81,43 +184,35 @@ export async function isConfigured(): Promise<boolean> {
 }
 
 /**
- * Get API key from config, then environment
- * @param providerKey Provider key (e.g., "anthropic", "openai")
- * @returns API key or undefined
+ * Get an API key. Auto-detects scope (project > user) and falls through to
+ * the provider's environment variable if neither config has it.
  */
-export async function getApiKeyFromConfig(
-  providerKey: string
-): Promise<string | undefined> {
+export async function getApiKeyFromConfig(providerKey: string): Promise<string | undefined> {
   const config = await loadConfig();
-
-  // Check config first
   if (config?.providers[providerKey as keyof typeof config.providers]) {
     return config.providers[providerKey as keyof typeof config.providers];
   }
 
-  // Fall back to environment variable
   const envVar = PROVIDER_ENV_VARS[providerKey];
-  if (envVar) {
-    return process.env[envVar];
-  }
-
+  if (envVar) return process.env[envVar];
   return undefined;
 }
 
 /**
- * Update a specific provider API key in config
+ * Update a provider key in the active scope (project if present, else user).
+ * Pass `{scope}` to force a specific destination.
  */
 export async function updateProviderKey(
   providerKey: string,
-  apiKey: string
+  apiKey: string,
+  options: SaveConfigOptions = {},
 ): Promise<void> {
-  let config = await loadConfig();
-  if (!config) {
-    config = createDefaultConfig();
-  }
+  const scope = options.scope ?? (await getActiveScope(options.cwd));
+  let config = await loadConfig({ scope, cwd: options.cwd });
+  if (!config) config = createDefaultConfig();
 
   config.providers[providerKey as keyof typeof config.providers] = apiKey;
-  await saveConfig(config);
+  await saveConfig(config, { scope, cwd: options.cwd });
 }
 
 // Re-export types

@@ -11,8 +11,11 @@ import {
   loadConfig,
   saveConfig,
   createDefaultConfig,
-  CONFIG_PATH,
+  USER_CONFIG_PATH,
+  getConfigPath,
+  getActiveScope,
   type LLMProvider,
+  type Scope,
   PROVIDER_NAMES,
 } from "../config/index.js";
 import { exitWithError, generalError } from "./output.js";
@@ -43,6 +46,19 @@ const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
   "openrouter",
 ];
 
+const VALID_SCOPES: readonly Scope[] = ["user", "project"];
+
+function parseScope(raw: unknown): Scope {
+  const v = String(raw ?? "user");
+  if (!VALID_SCOPES.includes(v as Scope)) {
+    exitWithError(generalError(
+      `Invalid --scope: ${v}`,
+      `Must be one of: ${VALID_SCOPES.join(", ")}`,
+    ));
+  }
+  return v as Scope;
+}
+
 export const setupCommand = new Command("setup")
   .description("Configure VibeFrame (LLM provider, API keys)")
   .option("--reset", "Reset configuration to defaults")
@@ -54,6 +70,11 @@ export const setupCommand = new Command("setup")
   .option("--provider <id>", "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)")
   .option("--import-env", "Promote API keys from .env / shell env into config.yaml")
   .option("--test", "After save, live-test each configured key (exits 7 if any FAIL)")
+  .option(
+    "--scope <scope>",
+    "Where to save: 'user' (~/.vibeframe/config.yaml, shared) or 'project' (./.vibeframe/config.yaml, gitignored, this project only)",
+    "user",
+  )
   .addHelpText(
     "after",
     `
@@ -61,6 +82,12 @@ Non-interactive examples (no TTY required):
   vibe setup --yes --provider claude --import-env         Bootstrap CI / devcontainer
   vibe setup --yes --import-env --test                    Persist .env keys + verify each one
   vibe setup --yes --provider openai                      Just switch the agent provider
+  vibe setup --scope project --yes --import-env           Project-only setup (./.vibeframe/config.yaml)
+
+Scopes:
+  user    (default) ~/.vibeframe/config.yaml — shared across every project
+  project ./.vibeframe/config.yaml — gitignored, isolates keys/defaults to this directory
+          When a project config exists at the cwd, it is used and the user file is ignored.
 
 Exit codes (non-interactive):
   0  success                7  --test verification failed (one or more keys returned non-2xx)
@@ -78,11 +105,13 @@ Exit codes (non-interactive):
       return;
     }
 
+    const scope = parseScope(options.scope);
+
     if (options.reset) {
       const config = createDefaultConfig();
-      await saveConfig(config);
+      await saveConfig(config, { scope });
       console.log(chalk.green("✓ Configuration reset to defaults"));
-      console.log(chalk.dim(`  Saved to: ${CONFIG_PATH}`));
+      console.log(chalk.dim(`  Saved to: ${getConfigPath(scope)}`));
       return;
     }
 
@@ -95,6 +124,7 @@ Exit codes (non-interactive):
         provider: options.provider,
         importEnv: Boolean(options.importEnv),
         test: Boolean(options.test),
+        scope,
       });
       return;
     }
@@ -108,7 +138,7 @@ Exit codes (non-interactive):
     }
 
     try {
-      await runSetupWizard(options.full);
+      await runSetupWizard(options.full, scope);
       closeTTYStream();
       // Explicitly exit to ensure clean termination when run from install script
       // The TTY stream can keep the event loop alive otherwise
@@ -187,10 +217,12 @@ interface NonInteractiveOptions {
   provider?: string;
   importEnv?: boolean;
   test?: boolean;
+  scope?: Scope;
 }
 
 async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void> {
-  let config = await loadConfig();
+  const scope: Scope = opts.scope ?? "user";
+  let config = await loadConfig({ scope });
   if (!config) {
     config = createDefaultConfig();
   }
@@ -231,11 +263,11 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
     }
   }
 
-  await saveConfig(config);
+  await saveConfig(config, { scope });
 
   // Output: one structured line per change, plus warnings on stderr.
-  console.log(chalk.green("✓ Setup complete (non-interactive)"));
-  console.log(chalk.dim(`  Config: ${CONFIG_PATH}`));
+  console.log(chalk.green(`✓ Setup complete (non-interactive, ${scope} scope)`));
+  console.log(chalk.dim(`  Config: ${getConfigPath(scope)}`));
   if (changes.length > 0) {
     for (const c of changes) {
       console.log(chalk.dim(`  ${c}`));
@@ -287,9 +319,13 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
 /**
  * Run the interactive setup wizard
  */
-async function runSetupWizard(fullSetup = false): Promise<void> {
+async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise<void> {
   console.log();
-  console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.dim(" — user scope"));
+  const scopeLabel =
+    scope === "project"
+      ? chalk.dim(` — project scope (${getConfigPath("project")})`)
+      : chalk.dim(" — user scope");
+  console.log(chalk.bold.magenta("VibeFrame Setup") + scopeLabel);
   console.log(chalk.dim("─".repeat(40)));
   console.log();
 
@@ -300,14 +336,14 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   console.log();
 
   // Load existing config or create default
-  let config = await loadConfig();
+  let config = await loadConfig({ scope });
   if (!config) {
     config = createDefaultConfig();
   }
 
   // If --full, run the custom provider-by-provider flow
   if (fullSetup) {
-    await runCustomSetup(config);
+    await runCustomSetup(config, scope);
     return;
   }
 
@@ -328,14 +364,14 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
   // ── Edit videos (FREE) ─────────────────────────────────────────────
   if (topIndex === 0) {
-    await saveConfig(config);
-    await showComplete(config, 'vibe edit silence-cut video.mp4 -o clean.mp4');
+    await saveConfig(config, { scope });
+    await showComplete(config, 'vibe edit silence-cut video.mp4 -o clean.mp4', [], scope);
     return;
   }
 
   // ── Custom setup ───────────────────────────────────────────────────
   if (topIndex === 3) {
-    await runCustomSetup(config);
+    await runCustomSetup(config, scope);
     return;
   }
 
@@ -356,8 +392,8 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
 
     await collectKeys(config, pipelineKeys);
 
-    await saveConfig(config);
-    await showComplete(config, 'vibe build my-story/   # see CONTRIBUTING.md for STORYBOARD.md format');
+    await saveConfig(config, { scope });
+    await showComplete(config, 'vibe build my-story/   # see CONTRIBUTING.md for STORYBOARD.md format', [], scope);
     return;
   }
 
@@ -382,8 +418,8 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
   if (selectedFeatures.length === 0) {
     console.log(chalk.dim("  No features selected. You can re-run setup anytime."));
     console.log();
-    await saveConfig(config);
-    await showComplete(config, 'vibe --help', []);
+    await saveConfig(config, { scope });
+    await showComplete(config, 'vibe --help', [], scope);
     return;
   }
 
@@ -449,8 +485,8 @@ async function runSetupWizard(fullSetup = false): Promise<void> {
     console.log();
   }
 
-  await saveConfig(config);
-  await showComplete(config, selectedFeatures[0].tryCommand, selectedFeatures);
+  await saveConfig(config, { scope });
+  await showComplete(config, selectedFeatures[0].tryCommand, selectedFeatures, scope);
 }
 
 /**
@@ -500,7 +536,10 @@ async function collectKeys(
 /**
  * Custom setup — provider-by-provider (old --full flow)
  */
-async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & object): Promise<void> {
+async function runCustomSetup(
+  config: Awaited<ReturnType<typeof loadConfig>> & object,
+  scope: Scope = "user",
+): Promise<void> {
   // LLM Provider selection (for Agent mode only)
   console.log(chalk.bold("1. Agent LLM Provider") + chalk.dim(" (for vibe agent)"));
   console.log(chalk.dim("   Only needed if you use the interactive Agent mode."));
@@ -583,8 +622,8 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
   console.log();
 
   // Save
-  await saveConfig(config);
-  await showComplete(config, "vibe doctor");
+  await saveConfig(config, { scope });
+  await showComplete(config, "vibe doctor", [], scope);
 }
 
 /**
@@ -593,12 +632,14 @@ async function runCustomSetup(config: Awaited<ReturnType<typeof loadConfig>> & o
 async function showComplete(
   config: NonNullable<Awaited<ReturnType<typeof loadConfig>>>,
   defaultTryCommand: string,
-  features: AIFeature[] = []
+  features: AIFeature[] = [],
+  scope: Scope = "user",
 ): Promise<void> {
   console.log(chalk.dim("─".repeat(40)));
   console.log(chalk.green.bold("✓ Setup complete!"));
   console.log();
-  console.log(chalk.dim(`  Config: ${CONFIG_PATH}`));
+  const scopeNote = scope === "project" ? chalk.dim(" (project scope)") : chalk.dim(" (user scope)");
+  console.log(chalk.dim(`  Config: ${getConfigPath(scope)}${scopeNote}`));
   console.log();
 
   // The first try-this command is what most users will run next; copy it
@@ -730,16 +771,27 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     // no .env in CWD
   }
 
+  const activeScope = await getActiveScope();
+  const userPath = USER_CONFIG_PATH;
+  const projectPath = getConfigPath("project");
+  const userExists = (await loadConfig({ scope: "user" })) !== null;
+  const projectExists = (await loadConfig({ scope: "project" })) !== null;
+
   console.log();
   console.log(chalk.bold.magenta("VibeFrame Configuration"));
   console.log(chalk.dim("─".repeat(40)));
   console.log();
-  console.log(chalk.dim(`Config file: ${CONFIG_PATH}`));
+  const userMark = activeScope === "user" && userExists ? chalk.cyan("← active") : userExists ? chalk.dim("(present)") : chalk.dim("(missing)");
+  const projectMark = activeScope === "project" ? chalk.cyan("← active") : projectExists ? chalk.dim("(present)") : chalk.dim("(missing)");
+  console.log(chalk.dim(`Scopes:`));
+  console.log(chalk.dim(`  user     ${userPath} ${userMark}`));
+  console.log(chalk.dim(`  project  ${projectPath} ${projectMark}`));
   if (hasCwdEnv) {
-    console.log(chalk.dim(`Project .env: ${cwdEnvPath}`));
+    console.log(chalk.dim(`  .env     ${cwdEnvPath} ${chalk.dim("(env vars override config)")}`));
   }
   console.log();
 
+  // Show whichever scope is active (auto-detect: project if exists, else user).
   const config = await loadConfig();
 
   // Parse .env file directly to know which keys are in it
@@ -820,9 +872,9 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
 
     console.log(chalk.bold("Resolution order:"));
     console.log(chalk.dim("  1. --api-key CLI option"));
-    console.log(chalk.dim(`  2. ${CONFIG_PATH}`));
-    console.log(chalk.dim("  3. .env in current directory"));
-    console.log(chalk.dim("  4. Shell environment variables"));
+    console.log(chalk.dim(`  2. Active config scope: ${activeScope === "project" ? projectPath : userPath}`));
+    console.log(chalk.dim(`     (project takes priority when present at cwd; user is ignored in that case)`));
+    console.log(chalk.dim("  3. .env / shell environment variables (process.env)"));
     console.log();
   }
 }

@@ -24,7 +24,12 @@ Run these first:
 pnpm vibe --help
 pnpm vibe setup --show
 pnpm vibe doctor
+pnpm vibe doctor --test-keys   # optional: live-validate stored keys
 ```
+
+Every command help screen and `vibe schema --list` show a colored cost
+badge — `[FREE]`, `[LOW]`, `[HIGH]`, `[VERY-HIGH]` — so you can plan
+spend before running anything paid.
 
 For the full demo, these keys should be available:
 
@@ -43,6 +48,7 @@ Useful guide command:
 pnpm vibe walkthrough
 pnpm vibe walkthrough scene
 pnpm vibe walkthrough pipeline
+pnpm vibe walkthrough architecture
 ```
 
 `walkthrough` explains the workflow. It does not create files.
@@ -501,6 +507,12 @@ pnpm -F @vibeframe/cli test -- \
 | Run a YAML workflow | `pnpm vibe run workflow.yaml` |
 | Learn the scene workflow | `pnpm vibe walkthrough scene` |
 | Learn the YAML workflow | `pnpm vibe walkthrough pipeline` |
+| Compare agent / build / run | `pnpm vibe walkthrough architecture` |
+| List free-tier commands only | `pnpm vibe schema --list --filter free` |
+| Drive an agent with a USD ceiling | `pnpm vibe agent --budget-usd 5` |
+| Non-interactive first-run setup | `pnpm vibe setup --yes --provider openai` |
+| Project-only setup (no global writes) | `pnpm vibe setup --scope project --yes --import-env` |
+| Install shell completion (zsh) | `pnpm vibe completion zsh > ~/.zfunc/_vibe` |
 
 Advanced namespace:
 

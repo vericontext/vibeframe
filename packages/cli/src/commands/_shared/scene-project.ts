@@ -398,9 +398,8 @@ vibe scene lint --json    # structured output for agent loops
 
 /** Minimal .gitignore for a scene project. */
 export function buildSceneGitignore(): string {
-  return `# VibeFrame caches
-.vibeframe/cache/
-.vibeframe/checkpoints/
+  return `# VibeFrame — caches, checkpoints, and project-scope config.yaml (may contain API keys)
+.vibeframe/
 
 # Render outputs
 renders/*.mp4

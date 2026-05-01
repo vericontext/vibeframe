@@ -189,9 +189,9 @@ describe("buildDesignMd", () => {
 });
 
 describe("buildSceneGitignore", () => {
-  it("excludes caches and rendered outputs", () => {
+  it("excludes the .vibeframe/ tree (caches, checkpoints, project-scope config) and rendered outputs", () => {
     const out = buildSceneGitignore();
-    expect(out).toContain(".vibeframe/cache/");
+    expect(out).toContain(".vibeframe/");
     expect(out).toContain("renders/*.mp4");
   });
 });

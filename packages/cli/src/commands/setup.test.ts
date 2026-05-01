@@ -107,7 +107,7 @@ describe("validateKeyFormat", () => {
 describe("vibe setup --yes (non-interactive)", () => {
   it("creates a config file with defaults when no other flags are given", () => {
     const { stdout, configPath } = runSetup(["--yes"]);
-    expect(stdout).toContain("Setup complete (non-interactive)");
+    expect(stdout).toContain("Setup complete (non-interactive, user scope)");
     expect(stdout).toContain("No changes (config already up to date)");
     expect(existsSync(configPath)).toBe(true);
     const cfg = parseYaml(readFileSync(configPath, "utf-8"));
@@ -193,5 +193,65 @@ describe("vibe setup --yes (non-interactive)", () => {
     runSetup(["--yes", "--import-env"], { ANTHROPIC_API_KEY: "sk-ant-test" });
     const { stdout } = runSetup(["--yes", "--import-env"], { ANTHROPIC_API_KEY: "sk-ant-test" });
     expect(stdout).toContain("No changes");
+  });
+});
+
+describe("vibe setup --scope project", () => {
+  it("writes to ./.vibeframe/config.yaml, not ~/.vibeframe/config.yaml", () => {
+    const { stdout } = runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
+    expect(stdout).toContain("project scope");
+
+    const projectConfigPath = join(projectDir, ".vibeframe", "config.yaml");
+    const userConfigPath = join(fakeHome, ".vibeframe", "config.yaml");
+
+    expect(existsSync(projectConfigPath)).toBe(true);
+    expect(existsSync(userConfigPath)).toBe(false);
+
+    const cfg = parseYaml(readFileSync(projectConfigPath, "utf-8"));
+    expect(cfg.llm.provider).toBe("openai");
+  });
+
+  it("project-scope --import-env reads .env from cwd", () => {
+    writeFileSync(
+      join(projectDir, ".env"),
+      "ANTHROPIC_API_KEY=sk-ant-project\n",
+    );
+    runSetup(["--yes", "--scope", "project", "--import-env"]);
+
+    const projectConfigPath = join(projectDir, ".vibeframe", "config.yaml");
+    const cfg = parseYaml(readFileSync(projectConfigPath, "utf-8"));
+    expect(cfg.providers.anthropic).toBe("sk-ant-project");
+  });
+
+  it("rejects an invalid --scope value", () => {
+    let threw = false;
+    try {
+      execFileSync(
+        process.execPath,
+        [CLI, "setup", "--yes", "--scope", "global"],
+        {
+          cwd: projectDir,
+          env: { ...process.env, HOME: fakeHome, NO_COLOR: "1" },
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+    } catch (err) {
+      threw = true;
+      const msg = (err as { stderr?: string; stdout?: string }).stderr ?? (err as { stdout?: string }).stdout ?? "";
+      expect(msg).toMatch(/Invalid --scope/);
+    }
+    expect(threw).toBe(true);
+  });
+
+  it("user scope is unaffected when project scope writes", () => {
+    runSetup(["--yes", "--provider", "claude"]);
+    runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
+
+    const userCfg = parseYaml(readFileSync(join(fakeHome, ".vibeframe", "config.yaml"), "utf-8"));
+    const projCfg = parseYaml(readFileSync(join(projectDir, ".vibeframe", "config.yaml"), "utf-8"));
+
+    expect(userCfg.llm.provider).toBe("claude");
+    expect(projCfg.llm.provider).toBe("openai");
   });
 });

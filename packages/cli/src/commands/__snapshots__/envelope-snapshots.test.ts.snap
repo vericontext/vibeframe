@@ -3169,6 +3169,11 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
         "description": "Reset configuration to defaults",
         "type": "boolean",
       },
+      "scope": {
+        "default": "user",
+        "description": "Where to save: 'user' (~/.vibeframe/config.yaml, shared) or 'project' (./.vibeframe/config.yaml, gitignored, this project only)",
+        "type": "string",
+      },
       "show": {
         "description": "Show current configuration (for debugging)",
         "type": "boolean",

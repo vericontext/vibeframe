@@ -86,6 +86,20 @@ describe("vibe doctor — scope diagnostics", () => {
     const { json } = runDoctor();
     expect(json.data.scope.agentHosts.detected).toContain("Claude Code");
   });
+
+  it("activeScope is 'user' by default and 'project' when ./.vibeframe/config.yaml exists", () => {
+    let { json } = runDoctor();
+    expect(json.data.scope.activeScope).toBe("user");
+    expect(json.data.scope.project.configFileExists).toBe(false);
+    expect(json.data.scope.project.configPath).toContain(".vibeframe");
+
+    mkdirSync(join(projectDir, ".vibeframe"));
+    writeFileSync(join(projectDir, ".vibeframe", "config.yaml"), "providers: {}\n");
+
+    ({ json } = runDoctor());
+    expect(json.data.scope.activeScope).toBe("project");
+    expect(json.data.scope.project.configFileExists).toBe(true);
+  });
 });
 
 describe("vibe doctor — Plan H scene composer readiness", () => {

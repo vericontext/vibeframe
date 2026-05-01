@@ -7,7 +7,7 @@ import chalk from "chalk";
 import { access } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { CONFIG_PATH } from "../config/index.js";
+import { CONFIG_PATH, getProjectConfigPath, getActiveScope, type Scope } from "../config/index.js";
 import { PROVIDER_ENV_VARS } from "../config/schema.js";
 import { getCommandKeyMap } from "@vibeframe/ai-providers";
 import { commandExists } from "../utils/exec-safe.js";
@@ -155,8 +155,14 @@ interface DiagnosticResults {
    * bottom of the report uses these flags directly.
    */
   scope: {
+    /**
+     * Which scope `loadConfig()` is reading from right now: project
+     * if `<cwd>/.vibeframe/config.yaml` exists, else user. Drives the
+     * "← active" marker in the render output.
+     */
+    activeScope: Scope;
     user: {
-      /** `~/.vibeframe/config.json` exists — `vibe setup` has been run. */
+      /** `~/.vibeframe/config.yaml` exists — `vibe setup` has been run. */
       configured: boolean;
       configPath: string;
     };
@@ -167,6 +173,10 @@ interface DiagnosticResults {
       initialized: boolean;
       /** Per-file existence — each entry is informational for the report. */
       files: { path: string; exists: boolean }[];
+      /** `<cwd>/.vibeframe/config.yaml` path (whether or not it exists). */
+      configPath: string;
+      /** `<cwd>/.vibeframe/config.yaml` exists — `vibe setup --scope project` has run here. */
+      configFileExists: boolean;
     };
     agentHosts: {
       detected: string[];
@@ -307,6 +317,11 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   }));
   const projectInitialized = projectFiles.some((f) => f.exists);
 
+  // v0.90: project-scope config.yaml diagnostics ────────────────────────
+  const projectConfigPath = getProjectConfigPath(cwd);
+  const projectConfigExists = existsSync(projectConfigPath);
+  const activeScope = await getActiveScope(cwd);
+
   const hosts = detectAgentHosts();
   const detectedNames = hosts.filter((h) => h.detected).map((h) => h.label);
 
@@ -333,8 +348,15 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
       ...(Object.keys(optionalTools).length > 0 ? { optionalTools } : {}),
     },
     scope: {
+      activeScope,
       user: { configured: configExists, configPath: CONFIG_PATH },
-      project: { cwd, initialized: projectInitialized, files: projectFiles },
+      project: {
+        cwd,
+        initialized: projectInitialized,
+        files: projectFiles,
+        configPath: projectConfigPath,
+        configFileExists: projectConfigExists,
+      },
       agentHosts: { detected: detectedNames, summary: summariseAgentHosts(hosts) },
       sceneComposer: {
         recommendedMode,
@@ -422,19 +444,35 @@ function printReport(
   console.log();
   console.log(chalk.bold("  Scope"));
 
-  // User scope — vibe setup status
+  // Config scope — which config.yaml is being read
+  const userActive = results.scope.activeScope === "user" && results.scope.user.configured;
+  const projectActive = results.scope.activeScope === "project";
+  const activeMark = chalk.cyan(" ← active");
+
   if (results.scope.user.configured) {
-    console.log(`    User       ${chalk.green("OK")}       ${chalk.dim(results.scope.user.configPath)}`);
+    console.log(
+      `    Cfg(user)  ${chalk.green("OK")}       ${chalk.dim(results.scope.user.configPath)}${userActive ? activeMark : ""}`,
+    );
   } else {
-    console.log(`    User       ${chalk.yellow("NOT SET")}  ${chalk.dim("Run: vibe setup")}`);
+    console.log(`    Cfg(user)  ${chalk.yellow("NOT SET")}  ${chalk.dim("Run: vibe setup")}`);
   }
 
-  // Project scope — vibe init status
+  if (results.scope.project.configFileExists) {
+    console.log(
+      `    Cfg(proj)  ${chalk.green("OK")}       ${chalk.dim(results.scope.project.configPath)}${projectActive ? activeMark : ""}`,
+    );
+  } else {
+    console.log(
+      `    Cfg(proj)  ${chalk.dim("none")}     ${chalk.dim(`Run: vibe setup --scope project  (cwd: ${results.scope.project.cwd})`)}`,
+    );
+  }
+
+  // Project init — vibe init scaffolding (AGENTS.md / CLAUDE.md / vibe.project.yaml)
   if (results.scope.project.initialized) {
     const present = results.scope.project.files.filter((f) => f.exists).map((f) => f.path);
-    console.log(`    Project    ${chalk.green("OK")}       ${chalk.dim(present.join(", "))}`);
+    console.log(`    Init       ${chalk.green("OK")}       ${chalk.dim(present.join(", "))}`);
   } else {
-    console.log(`    Project    ${chalk.yellow("NOT INIT")} ${chalk.dim(`Run: vibe init  (cwd: ${results.scope.project.cwd})`)}`);
+    console.log(`    Init       ${chalk.yellow("NOT INIT")} ${chalk.dim(`Run: vibe init  (cwd: ${results.scope.project.cwd})`)}`);
   }
 
   // Agent hosts — informational
@@ -643,14 +681,17 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
 
 /**
  * Pick the single most-helpful next-step suggestion for the user. Order:
- *  1. user scope unset → run setup
+ *  1. no config in either scope → run setup
  *  2. project scope uninitialized → run init
  *  3. some providers missing → setup again to add more keys
  *  4. everything ok → no hint
  */
 function pickNextStep(results: DiagnosticResults, hasMissingProviders: boolean): string | null {
-  if (!results.scope.user.configured) {
-    return "Next: run 'vibe setup' to configure your user scope (API keys + LLM provider).";
+  // Either scope satisfies "configured" — project-only users shouldn't be
+  // nagged to run user-scope setup.
+  const anyConfigured = results.scope.user.configured || results.scope.project.configFileExists;
+  if (!anyConfigured) {
+    return "Next: run 'vibe setup' (or 'vibe setup --scope project' to keep config inside the project) to configure API keys + LLM provider.";
   }
   if (!results.scope.project.initialized) {
     return "Next: run 'vibe init' in your project directory to scaffold AGENTS.md / CLAUDE.md / .env.example.";
