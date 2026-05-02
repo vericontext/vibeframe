@@ -6,6 +6,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.96.4). Required when dispatched."
+        type: string
+        default: ""
       dry-run:
         description: "Dry-run only (skip actual publish)"
         type: boolean
@@ -21,7 +25,31 @@ jobs:
       id-token: write
 
     steps:
+      # Resolve the release tag from either the push event ref or the
+      # workflow_dispatch input. auto-tag.yml dispatches this workflow
+      # via the gh CLI because GHA's anti-recursion rule blocks
+      # `push: tags` triggers from GITHUB_TOKEN-pushed tags. We accept
+      # the tag explicitly via input so the GitHub Release step can
+      # tag-name correctly even when github.ref is `refs/heads/main`.
+      - name: Resolve release tag
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ -n "$INPUT_TAG" ]]; then
+            TAG="$INPUT_TAG"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            echo "No tag provided and not a tag-push event" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $TAG"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -79,10 +107,12 @@ jobs:
       # CHANGELOG.md section for that version as the body. Skipped on
       # workflow_dispatch dry-runs so manual test runs don't spam Releases.
       - name: Extract release notes from CHANGELOG
-        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !inputs.dry-run }}
         id: notes
+        env:
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${RELEASE_TAG#v}"
           # Extract the section between `## [VERSION]` and the next `## [`
           # heading. Use index() for a literal substring match — `~` would
           # treat `[` / `]` as a character class and match unrelated lines.
@@ -96,11 +126,11 @@ jobs:
           cat /tmp/release-notes.md
 
       - name: Create GitHub Release
-        if: ${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !inputs.dry-run }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: ${{ steps.resolve.outputs.tag }}
           body_path: /tmp/release-notes.md
           draft: false
           prerelease: false

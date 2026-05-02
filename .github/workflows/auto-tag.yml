@@ -59,6 +59,11 @@ jobs:
 
       - name: Dispatch publish.yml
         if: steps.check.outputs.skip == 'false'
+        # Pass the tag as a workflow input rather than `--ref`. Workflow
+        # dispatches land as `refs/heads/main` in github.ref, which made
+        # publish.yml's tag-based GitHub Release step skip. The input
+        # path makes the tag explicit.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run publish.yml --ref "${{ steps.check.outputs.tag }}"
+          RELEASE_TAG: ${{ steps.check.outputs.tag }}
+        run: gh workflow run publish.yml --ref main --field tag="$RELEASE_TAG"
