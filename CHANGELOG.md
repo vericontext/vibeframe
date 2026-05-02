@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.98.0] - 2026-05-02
+
+### Added
+
+- `vibe inspect project` reports missing storyboard/design/asset/composition state and structural risks before a paid build *(cli)*
+- `vibe inspect render --cheap` runs local-only render checks (black frames, duration drift, missing audio, broken paths) *(cli)*
+- `vibe inspect render --ai` invokes LLM critique of the rendered output *(cli)*
+- `vibe scene repair` applies deterministic mechanical fixes — root timeline wiring, duration sync, missing markers, malformed HTML shells *(cli)*
+- `_shared/review-report` defines a stable JSON contract for `review-report.json` so host agents can drive repair loops *(cli)*
+
+### Changed
+
+- `vibe context` output now includes the inspect/repair loop in the preferred-flow listing
+- mcp-server now surfaces 79 tools (added `inspect_project`, `inspect_render`, `scene_repair`)
+- apps/web layout `MCP_TOOLS` fallback updated to 79
+
+### Internal
+
+- `.gitignore` now excludes `build-report.json` / `review-report.json` so per-project artifacts can't be committed by accident
+
 ## [0.97.1] - 2026-05-02
 
 ### Fixed
