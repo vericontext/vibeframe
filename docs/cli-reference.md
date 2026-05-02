@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.101.0`
+> CLI version: `0.102.0`
 
 ## Mental model
 
@@ -100,15 +100,17 @@ surface, and inspect `replacement` on legacy commands before using them.
 
 ## Cost tiers
 
-Generated from the live `cost` field in `vibe schema --list`.
+Generated from the live `cost` field in `vibe schema --list`. Examples
+prefer public and agent-facing commands; legacy/internal commands remain
+listed in their command sections for compatibility.
 
-| Tier           | Count | Examples                                                                                                                                                                                     | Per-call cost                                                                                     |
-| -------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    46 | `generate.music-status` · `generate.thumbnail` · `generate.video-status` · `generate.video-cancel` · `edit.noise-reduce` · `edit.fade` · `edit.text-overlay` · `edit.interpolate` · +38 more | FFmpeg only, no API call                                                                          |
-| **Low**        |    22 | `generate.speech` · `generate.narration` · `generate.sound-effect` · `generate.music` · `edit.silence-cut` · `edit.caption` · `edit.translate-srt` · `edit.jump-cut` · +14 more              | $0.01–$0.10 per call                                                                              |
-| **High**       |    10 | `generate.image` · `generate.storyboard` · `generate.motion` · `generate.background` · `edit.reframe` · `edit.image` · `edit.upscale` · `audio.dub` · +2 more                                | $1–$5 per call                                                                                    |
-| **Very High**  |     4 | `generate.video` · `generate.video-extend` · `edit.fill-gaps` · `remix.regenerate-scene`                                                                                                     | $5–$50+ per call                                                                                  |
-| **Not tagged** |    12 | `setup` · `init` · `plan` · `build` · `render` · `doctor` · `demo` · `run` · +4 more                                                                                                         | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
+| Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
+| -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Free**       |    46 | `audio.duck` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · `scene.list-styles` · +38 more        | FFmpeg only, no API call                                                                          |
+| **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
+| **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
+| **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
+| **Not tagged** |    12 | `build` · `doctor` · `guide` · `init` · `plan` · `render` · `setup` · `context` · +4 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first — the response
 > includes a `costUsd` estimate when the command supports dry-run.
@@ -468,7 +470,7 @@ Cost tier: `high`
 
 #### `vibe generate motion`
 
-Generate motion graphics using Claude + Remotion (render & composite)
+Advanced: generate standalone motion graphics using Claude + Remotion
 
 Product surface: `advanced`
 Replacement: `vibe edit motion-overlay or vibe build --stage compose`
@@ -1131,7 +1133,7 @@ Cost tier: `low`
 
 #### `vibe audio clone-voice`
 
-Clone a voice from audio samples using ElevenLabs
+Clone a voice from audio samples using ElevenLabs (requires explicit consent)
 
 Product surface: `advanced`
 Note: Requires explicit user consent for voice cloning.
@@ -1423,7 +1425,7 @@ Cost tier: `free`
 
 **Parameters:**
 
-- `root` _(string)_ — Root composition file relative to --project
+- `root` _(string)_ — Project directory, or root composition file relative to --project
 - `project` _(string)_ _(default: `"."`)_ — Project directory
 - `dryRun` _(boolean)_ — Preview repairs without writing files
 
