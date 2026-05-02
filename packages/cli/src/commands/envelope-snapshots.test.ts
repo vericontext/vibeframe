@@ -128,6 +128,10 @@ describe("envelope shape (--dry-run --json)", () => {
       name: "generate background (low cost)",
       cmd: 'generate background "sunset over ocean" --dry-run --json',
     },
+    {
+      name: "inspect render AI (low cost, dry-run)",
+      cmd: "inspect render /tmp/nonexistent-project --ai --dry-run --json",
+    },
   ];
 
   for (const c of cases) {

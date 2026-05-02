@@ -55,8 +55,8 @@ Generated from the live `cost` field in `vibe schema --list`.
 
 | Tier           | Count | Examples                                                                                                                                                                                     | Per-call cost                                                                                     |
 | -------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    40 | `generate.music-status` · `generate.thumbnail` · `generate.video-status` · `generate.video-cancel` · `edit.noise-reduce` · `edit.fade` · `edit.text-overlay` · `edit.interpolate` · +32 more | FFmpeg only, no API call                                                                          |
-| **Low**        |    20 | `generate.speech` · `generate.narration` · `generate.sound-effect` · `generate.music` · `edit.silence-cut` · `edit.caption` · `edit.translate-srt` · `edit.jump-cut` · +12 more              | $0.01–$0.10 per call                                                                              |
+| **Free**       |    39 | `generate.music-status` · `generate.thumbnail` · `generate.video-status` · `generate.video-cancel` · `edit.noise-reduce` · `edit.fade` · `edit.text-overlay` · `edit.interpolate` · +31 more | FFmpeg only, no API call                                                                          |
+| **Low**        |    21 | `generate.speech` · `generate.narration` · `generate.sound-effect` · `generate.music` · `edit.silence-cut` · `edit.caption` · `edit.translate-srt` · `edit.jump-cut` · +13 more              | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `generate.image` · `generate.storyboard` · `generate.motion` · `generate.background` · `edit.reframe` · `edit.image` · `edit.upscale` · `audio.dub` · +2 more                                | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `generate.video-extend` · `edit.fill-gaps` · `remix.regenerate-scene`                                                                                                     | $5–$50+ per call                                                                                  |
 | **Not tagged** |    18 | `setup` · `init` · `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `storyboard.revise` · `storyboard.validate` · +10 more                                      | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
@@ -856,17 +856,20 @@ Cost tier: `free`
 
 #### `vibe inspect render`
 
-Inspect a rendered project video with local cheap checks
+Inspect a rendered project video with local checks and optional Gemini review
 
-Cost tier: `free`
+Cost tier: `low`
 
 **Parameters:**
 
 - `project-dir` _(string)_ — VibeFrame project directory
 - `cheap` _(boolean)_ — Run local checks only (default; no AI/API calls)
+- `ai` _(boolean)_ — Also run Gemini video review and merge findings into review-report.json
+- `model` _(string)_ _(default: `"flash"`)_ — Gemini model for --ai: flash (default), flash-2.5, pro
 - `video` _(string)_ — Rendered video path. Defaults to build-report outputPath or latest renders/\* video.
 - `output` _(string)_ — Write review report to this path (default: <project>/review-report.json)
 - `noReport` _(boolean)_ — Do not write review-report.json
+- `dryRun` _(boolean)_ — Preview parameters without probing video or calling Gemini
 
 #### `vibe inspect review`
 

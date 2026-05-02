@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
+import { executeReview, type ReviewResult } from "../ai-review.js";
+import type { VideoReviewFeedback } from "../ai-edit.js";
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
 import { readProjectConfig } from "./project-config.js";
 import {
@@ -11,6 +13,7 @@ import {
   uniqueRetryWith,
   writeReviewReport,
   type ReviewIssue,
+  type ReviewSeverity,
   type ReviewStatus,
 } from "./review-report.js";
 
@@ -20,11 +23,46 @@ export interface TimeRange {
   duration: number;
 }
 
+export type RenderInspectModel = "flash" | "flash-2.5" | "pro";
+
 export interface RenderInspectOptions {
   projectDir: string;
   videoPath?: string;
   outputPath?: string;
   writeReport?: boolean;
+  ai?: boolean;
+  model?: RenderInspectModel;
+}
+
+export interface RenderInspectDryRunResult {
+  schemaVersion: "1";
+  kind: "render";
+  project: string;
+  videoPath: string | null;
+  reportPath?: string;
+  params: {
+    projectDir: string;
+    videoPath?: string;
+    outputPath?: string;
+    writeReport: boolean;
+    cheap: true;
+    ai: boolean;
+    model: RenderInspectModel;
+  };
+  checks: {
+    renderFound: boolean;
+    storyboardPath: string | null;
+  };
+}
+
+export interface RenderAiCheck {
+  enabled: true;
+  model: RenderInspectModel;
+  success: boolean;
+  overallScore?: number;
+  categories?: VideoReviewFeedback["categories"];
+  recommendations?: string[];
+  error?: string;
 }
 
 export interface RenderInspectResult {
@@ -47,6 +85,7 @@ export interface RenderInspectResult {
     hasAudio?: boolean;
     blackFrames: TimeRange[];
     silences: TimeRange[];
+    ai?: RenderAiCheck;
   };
   retryWith: string[];
   reportPath?: string;
@@ -67,6 +106,14 @@ interface FfprobeInfo {
 }
 
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
+const DEFAULT_AI_MODEL: RenderInspectModel = "flash";
+const AI_CATEGORY_LABELS = {
+  pacing: "Pacing",
+  color: "Color",
+  textReadability: "Text readability",
+  audioVisualSync: "Audio-visual sync",
+  composition: "Composition",
+} as const;
 
 export function parseBlackdetectOutput(output: string): TimeRange[] {
   const ranges: TimeRange[] = [];
@@ -104,16 +151,92 @@ export function parseSilencedetectOutput(output: string): TimeRange[] {
   return ranges;
 }
 
+export async function previewInspectRender(opts: RenderInspectOptions): Promise<RenderInspectDryRunResult> {
+  const projectDir = resolve(opts.projectDir);
+  const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath);
+  const writeReport = opts.writeReport !== false;
+  const reportPath = writeReport
+    ? opts.outputPath
+      ? resolve(process.cwd(), opts.outputPath)
+      : defaultReviewReportPath(projectDir)
+    : undefined;
+  const storyboardPath = resolveStoryboardPath(projectDir);
+  return {
+    schemaVersion: "1",
+    kind: "render",
+    project: projectDir,
+    videoPath,
+    reportPath,
+    params: {
+      projectDir,
+      videoPath: opts.videoPath,
+      outputPath: opts.outputPath,
+      writeReport,
+      cheap: true,
+      ai: opts.ai === true,
+      model: opts.model ?? DEFAULT_AI_MODEL,
+    },
+    checks: {
+      renderFound: videoPath !== null,
+      storyboardPath,
+    },
+  };
+}
+
+export function aiReviewSeverity(score: number): ReviewSeverity {
+  if (score <= 4) return "error";
+  if (score <= 6) return "warning";
+  return "info";
+}
+
+export function mapAiReviewFeedbackToIssues(
+  feedback: VideoReviewFeedback,
+  videoPath?: string,
+): ReviewIssue[] {
+  const issues: ReviewIssue[] = [];
+  for (const [key, label] of Object.entries(AI_CATEGORY_LABELS) as Array<[keyof typeof AI_CATEGORY_LABELS, string]>) {
+    const category = feedback.categories[key];
+    if (!category || category.issues.length === 0) continue;
+    for (const issue of category.issues) {
+      issues.push({
+        severity: aiReviewSeverity(category.score),
+        code: `AI_REVIEW_${toSnakeCase(String(key))}`,
+        message: `${label}: ${issue}`,
+        file: videoPath ? displayPath(videoPath) : undefined,
+        suggestedFix: category.fixable
+          ? "Adjust the relevant storyboard or scene composition, then rerender."
+          : "Review this finding manually before rerendering.",
+      });
+    }
+  }
+  return issues;
+}
+
+export function scoreRenderReview(issues: ReviewIssue[], aiOverallScore?: number): number {
+  const localScore = scoreIssues(issues);
+  if (aiOverallScore === undefined) return localScore;
+  const aiScore = Math.max(0, Math.min(100, Math.round(aiOverallScore * 10)));
+  return Math.round((localScore + aiScore) / 2);
+}
+
 export async function inspectRender(opts: RenderInspectOptions): Promise<RenderInspectResult> {
   const projectDir = resolve(opts.projectDir);
   const issues: ReviewIssue[] = [];
   const retryWith: string[] = [];
+  const model = opts.model ?? DEFAULT_AI_MODEL;
   const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath);
   const checks: RenderInspectResult["checks"] = {
     renderFound: videoPath !== null,
     blackFrames: [],
     silences: [],
   };
+  if (opts.ai) {
+    checks.ai = {
+      enabled: true,
+      model,
+      success: false,
+    };
+  }
 
   if (!videoPath) {
     issues.push({
@@ -123,13 +246,16 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       suggestedFix: "Run `vibe build --stage render --json` or `vibe render --json`.",
     });
     retryWith.push(`vibe build ${projectDir} --stage render --json`, `vibe render ${projectDir} --json`);
+    if (checks.ai) {
+      checks.ai.error = "Skipped AI review because no rendered video was found.";
+    }
     return maybeWriteRenderReport(projectDir, opts, {
       schemaVersion: "1",
       kind: "render",
       project: projectDir,
       videoPath: null,
       status: "fail",
-      score: scoreIssues(issues),
+      score: scoreRenderReview(issues),
       issues,
       checks,
       retryWith: uniqueRetryWith(retryWith),
@@ -277,6 +403,41 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     });
   }
 
+  let aiOverallScore: number | undefined;
+  if (opts.ai && checks.ai) {
+    if (fileStat.size === 0) {
+      checks.ai.error = "Skipped AI review because the rendered video file is empty.";
+    } else {
+      const aiResult = await runAiRenderReview(projectDir, videoPath, model);
+      if (aiResult.success && aiResult.feedback) {
+        checks.ai.success = true;
+        checks.ai.overallScore = aiResult.feedback.overallScore;
+        checks.ai.categories = aiResult.feedback.categories;
+        checks.ai.recommendations = aiResult.feedback.recommendations;
+        aiOverallScore = aiResult.feedback.overallScore;
+        const aiIssues = mapAiReviewFeedbackToIssues(aiResult.feedback, videoPath);
+        issues.push(...aiIssues);
+        if (aiIssues.length > 0) {
+          retryWith.push(
+            'codex "fix issues from review-report.json"',
+            `vibe render ${projectDir} --json`,
+            `vibe inspect render ${projectDir} --ai --json`,
+          );
+        }
+      } else {
+        const message = aiResult.error ?? "Gemini video review failed";
+        checks.ai.error = message;
+        issues.push({
+          severity: "error",
+          code: "AI_REVIEW_FAILED",
+          message: `AI render review failed: ${message}`,
+          file: displayPath(videoPath),
+          suggestedFix: "Set GOOGLE_API_KEY or retry the AI review later.",
+        });
+      }
+    }
+  }
+
   const status = statusFromIssues(issues);
   const result: RenderInspectResult = {
     schemaVersion: "1",
@@ -284,7 +445,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     project: projectDir,
     videoPath,
     status,
-    score: scoreIssues(issues),
+    score: scoreRenderReview(issues, aiOverallScore),
     issues,
     checks,
     retryWith: uniqueRetryWith(retryWith),
@@ -308,7 +469,7 @@ async function maybeWriteRenderReport(
   }
 }
 
-async function resolveRenderVideoPath(projectDir: string, explicit?: string): Promise<string | null> {
+export async function resolveRenderVideoPath(projectDir: string, explicit?: string): Promise<string | null> {
   if (explicit) {
     const candidate = resolve(process.cwd(), explicit);
     return existsSync(candidate) ? candidate : null;
@@ -341,6 +502,25 @@ async function resolveRenderVideoPath(projectDir: string, explicit?: string): Pr
   }
   candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
   return candidates[0]?.path ?? null;
+}
+
+async function runAiRenderReview(
+  projectDir: string,
+  videoPath: string,
+  model: RenderInspectModel,
+): Promise<ReviewResult> {
+  return executeReview({
+    videoPath,
+    storyboardPath: resolveStoryboardPath(projectDir) ?? undefined,
+    autoApply: false,
+    verify: false,
+    model,
+  });
+}
+
+function resolveStoryboardPath(projectDir: string): string | null {
+  const storyboardPath = join(projectDir, "STORYBOARD.md");
+  return existsSync(storyboardPath) ? storyboardPath : null;
 }
 
 async function expectedDurationFromBuildReport(projectDir: string): Promise<number | undefined> {
@@ -410,3 +590,6 @@ function displayPath(path: string): string {
   return relative(process.cwd(), path) || basename(path);
 }
 
+function toSnakeCase(value: string): string {
+  return value.replace(/[A-Z]/g, (match) => `_${match}`).toUpperCase();
+}

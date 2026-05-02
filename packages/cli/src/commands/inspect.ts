@@ -8,7 +8,7 @@
  *
  * Commands:
  *   inspect project - Local project completeness and composition checks
- *   inspect render  - Local rendered video checks
+ *   inspect render  - Local rendered video checks plus optional Gemini review
  *   inspect media   - Unified analysis for images, videos, and YouTube URLs (Gemini)
  *   inspect video   - Analyze video files or YouTube URLs with Gemini
  *   inspect review  - AI video quality review and auto-fix (Gemini)
@@ -28,13 +28,19 @@ import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze, executeGeminiVideo } from "./ai-analyze.js";
 import { registerReviewCommand } from "./ai-review.js";
-import { isJsonMode, outputSuccess, exitWithError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError, generalError, usageError } from "./output.js";
 import { sanitizeLLMResponse } from "./sanitize.js";
 import { rejectControlChars } from "./validate.js";
 import { applyTier } from "./_shared/cost-tier.js";
 import { inspectProject } from "./_shared/scene-inspect.js";
-import { inspectRender } from "./_shared/render-inspect.js";
+import {
+  inspectRender,
+  previewInspectRender,
+  type RenderInspectModel,
+} from "./_shared/render-inspect.js";
 import type { ReviewIssue, ReviewStatus } from "./_shared/review-report.js";
+
+const VALID_RENDER_AI_MODELS: RenderInspectModel[] = ["flash", "flash-2.5", "pro"];
 
 export const inspectCommand = new Command("inspect")
   .description("Inspect media using AI (images, videos, YouTube URLs)")
@@ -44,6 +50,7 @@ export const inspectCommand = new Command("inspect")
 Examples:
   $ vibe inspect project my-video --json
   $ vibe inspect render my-video --cheap --json
+  $ vibe inspect render my-video --ai --json
   $ vibe inspect media image.png "Describe this image"
   $ vibe inspect media video.mp4 "Summarize this video"
   $ vibe inspect media "https://youtube.com/watch?v=..." "Key takeaways"
@@ -97,20 +104,46 @@ applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "free");
 
 inspectCommand
   .command("render")
-  .description("Inspect a rendered project video with local cheap checks")
+  .description("Inspect a rendered project video with local checks and optional Gemini review")
   .argument("[project-dir]", "VibeFrame project directory", ".")
   .option("--cheap", "Run local checks only (default; no AI/API calls)")
+  .option("--ai", "Also run Gemini video review and merge findings into review-report.json")
+  .option("-m, --model <model>", "Gemini model for --ai: flash (default), flash-2.5, pro", "flash")
   .option("--video <path>", "Rendered video path. Defaults to build-report outputPath or latest renders/* video.")
   .option("-o, --output <path>", "Write review report to this path (default: <project>/review-report.json)")
   .option("--no-report", "Do not write review-report.json")
+  .option("--dry-run", "Preview parameters without probing video or calling Gemini")
   .action(async (projectDirArg: string, options) => {
     const startedAt = Date.now();
     try {
+      const model = parseRenderAiModel(options.model);
+      const projectDir = resolve(projectDirArg);
+      if (options.dryRun) {
+        const result = await previewInspectRender({
+          projectDir,
+          videoPath: options.video,
+          outputPath: options.output,
+          writeReport: options.report !== false,
+          ai: options.ai === true,
+          model,
+        });
+        outputSuccess({
+          command: "inspect render",
+          startedAt,
+          dryRun: true,
+          costUsd: options.ai ? 0.1 : 0,
+          data: { ...result },
+        });
+        return;
+      }
+
       const result = await inspectRender({
-        projectDir: resolve(projectDirArg),
+        projectDir,
         videoPath: options.video,
         outputPath: options.output,
         writeReport: options.report !== false,
+        ai: options.ai === true,
+        model,
       });
       if (isJsonMode()) {
         outputSuccess({
@@ -128,7 +161,7 @@ inspectCommand
       exitWithError(generalError(`Render inspection failed: ${error instanceof Error ? error.message : String(error)}`));
     }
   });
-applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "free");
+applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");
 
 // ── analyze media ──────────────────────────────────────────────────────
 
@@ -259,6 +292,13 @@ function printInspectSummary(
     console.log(`  ${tag} ${chalk.dim(`[${issue.code}]`)}${loc} ${issue.message}`);
     if (issue.suggestedFix) console.log(`       ${chalk.dim(issue.suggestedFix)}`);
   }
+}
+
+function parseRenderAiModel(value: string): RenderInspectModel {
+  if (VALID_RENDER_AI_MODELS.includes(value as RenderInspectModel)) {
+    return value as RenderInspectModel;
+  }
+  exitWithError(usageError(`Invalid --model: ${value}`, `Must be one of: ${VALID_RENDER_AI_MODELS.join(", ")}`));
 }
 
 // ── analyze video ──────────────────────────────────────────────────────

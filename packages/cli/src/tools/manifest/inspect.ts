@@ -16,7 +16,7 @@ import {
 import { executeReview } from "../../commands/ai-review.js";
 import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { inspectProject } from "../../commands/_shared/scene-inspect.js";
-import { inspectRender } from "../../commands/_shared/render-inspect.js";
+import { inspectRender, previewInspectRender } from "../../commands/_shared/render-inspect.js";
 
 // ── inspect_project ────────────────────────────────────────────────────────
 
@@ -55,22 +55,45 @@ export const inspectProjectTool = defineTool({
 export const inspectRenderTool = defineTool({
   name: "inspect_render",
   category: "analyze",
-  cost: "free",
+  cost: "low",
   description:
-    "Cheap local render inspection: finds the rendered video, probes duration/dimensions/audio, scans black frames and long silence, and writes review-report.json by default.",
+    "Render inspection: runs cheap local video checks by default, optionally adds Gemini AI review with ai: true, and writes review-report.json by default.",
   schema: z.object({
     projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
     videoPath: z.string().optional().describe("Rendered video path. Defaults to build-report outputPath or latest renders/* video."),
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
     report: z.boolean().optional().describe("Write review-report.json. Default true."),
+    ai: z.boolean().optional().describe("Also run Gemini video review and merge findings into review-report.json. Default false."),
+    model: z.enum(["flash", "flash-2.5", "pro"]).optional().describe("Gemini model variant for ai review. Default flash."),
+    dryRun: z.boolean().optional().describe("Preview resolved inputs without probing video or calling Gemini."),
   }),
   async execute(args, ctx) {
     const projectDir = args.projectDir ? resolve(ctx.workingDirectory, args.projectDir) : ctx.workingDirectory;
+    if (args.dryRun) {
+      const result = await previewInspectRender({
+        projectDir,
+        videoPath: args.videoPath ? resolve(ctx.workingDirectory, args.videoPath) : undefined,
+        outputPath: args.outputPath ? resolve(ctx.workingDirectory, args.outputPath) : undefined,
+        writeReport: args.report !== false,
+        ai: args.ai === true,
+        model: args.model,
+      });
+      return {
+        success: true,
+        data: result as unknown as Record<string, unknown>,
+        humanLines: [
+          `Render inspection dry-run — ${result.videoPath ? "render found" : "render missing"}`,
+          ...(result.reportPath ? [`report: ${result.reportPath}`] : []),
+        ],
+      };
+    }
     const result = await inspectRender({
       projectDir,
       videoPath: args.videoPath ? resolve(ctx.workingDirectory, args.videoPath) : undefined,
       outputPath: args.outputPath ? resolve(ctx.workingDirectory, args.outputPath) : undefined,
       writeReport: args.report !== false,
+      ai: args.ai === true,
+      model: args.model,
     });
     return {
       success: result.status !== "fail",

@@ -132,7 +132,7 @@ legacy vibe.project.yaml → configured/env default → VibeFrame default
 |-------|----------|
 | `generate` | Always `--dry-run` first. Costs money. `-p` selects provider; default routes via key availability. |
 | `edit` | FFmpeg-only leaves (silence-cut, fade, noise-reduce, text-overlay, interpolate) are free. caption/grade/reframe/image need API keys. |
-| `inspect` | `inspect project` and `inspect render --cheap` are free/local. Gemini media/review calls are low cost. |
+| `inspect` | `inspect project` and `inspect render --cheap` are local. Use `inspect render --ai` for final Gemini critique; Gemini media/review calls are low cost. |
 | `audio` | `transcribe` low cost (Whisper). `dub` is full pipeline (medium-high). `duck` is free. |
 | `remix` | **Confirm with user.** Multi-step, high cost ($5–50+). Always `--dry-run`. |
 | `detect` | Free, FFmpeg only. No keys. |
@@ -163,6 +163,7 @@ vibe build my-video --max-cost 5 --json
 vibe inspect project my-video --json
 vibe render my-video -o renders/final.mp4 --json
 vibe inspect render my-video --cheap --json
+vibe inspect render my-video --ai --json
 vibe scene repair --project my-video --json
 ```
 

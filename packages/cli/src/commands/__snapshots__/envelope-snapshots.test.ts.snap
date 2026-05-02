@@ -2572,14 +2572,27 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect project --descr
 
 exports[`CLI --describe schemas (drift detection) > vibe inspect render --describe 1`] = `
 {
-  "cost": "free",
-  "description": "Inspect a rendered project video with local cheap checks",
+  "cost": "low",
+  "description": "Inspect a rendered project video with local checks and optional Gemini review",
   "name": "inspect.render",
   "parameters": {
     "properties": {
+      "ai": {
+        "description": "Also run Gemini video review and merge findings into review-report.json",
+        "type": "boolean",
+      },
       "cheap": {
         "description": "Run local checks only (default; no AI/API calls)",
         "type": "boolean",
+      },
+      "dryRun": {
+        "description": "Preview parameters without probing video or calling Gemini",
+        "type": "boolean",
+      },
+      "model": {
+        "default": "flash",
+        "description": "Gemini model for --ai: flash (default), flash-2.5, pro",
+        "type": "string",
       },
       "noReport": {
         "description": "Do not write review-report.json",
@@ -4230,6 +4243,34 @@ exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1
       "seedanceModel": "quality",
       "veoModel": "3.1-fast",
     },
+  },
+  "dryRun": true,
+  "elapsedMs": "<elapsedMs>",
+  "warnings": [],
+}
+`;
+
+exports[`envelope shape (--dry-run --json) > inspect render AI (low cost, dry-run) 1`] = `
+{
+  "command": "inspect render",
+  "costUsd": 0.1,
+  "data": {
+    "checks": {
+      "renderFound": false,
+      "storyboardPath": null,
+    },
+    "kind": "render",
+    "params": {
+      "ai": true,
+      "cheap": true,
+      "model": "flash",
+      "projectDir": "/tmp/nonexistent-project",
+      "writeReport": true,
+    },
+    "project": "/tmp/nonexistent-project",
+    "reportPath": "/tmp/nonexistent-project/review-report.json",
+    "schemaVersion": "1",
+    "videoPath": null,
   },
   "dryRun": true,
   "elapsedMs": "<elapsedMs>",
