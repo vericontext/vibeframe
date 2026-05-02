@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.96.1] - 2026-05-02
+
+### Changed
+
+- composer and AI-provider key resolution now reads from config first, env as fallback *(cli)*
+- tighten scene composition rules for backdrop file paths and narration audio wiring *(cli)*
+- agent `--budget-usd` parsing cleanup *(cli)*
+
+### Documentation
+
+- prune archived docs (`CLI_UX_AUDIT`, `cli-architecture`/`mental-model`/`redesign`, `design/`, `plans/`, `v059-impl-plan`)
+- replace legacy demo tapes with Claude Code workflow demos (quickstart, dogfood)
+- refresh `.claude` agent infra and `.github` templates/workflows
+
+### Removed
+
+- v059-preflight test fixtures and `tests/comparison/render-bench.sh`
+
 ## [0.96.0] - 2026-05-02
 
 ### Added
