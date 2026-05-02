@@ -7,6 +7,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Cancel in-flight runs for the same ref when a newer commit lands.
+# Saves CI minutes on rapid push sessions. Intentionally NOT applied
+# to publish.yml — never cancel an in-progress npm publish.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -41,9 +48,6 @@ jobs:
         env:
           CI: true
 
-      - name: Lint
-        run: pnpm lint
-
   quality:
     runs-on: ubuntu-latest
 
@@ -69,6 +73,11 @@ jobs:
 
       - name: Type check
         run: pnpm typecheck
+
+      # Lint is platform-independent; running it across the Node matrix
+      # was 3x duplicated work without value. Single run here.
+      - name: Lint
+        run: pnpm lint
 
       - name: CLI reference is generated
         run: pnpm gen:reference:check
