@@ -10,7 +10,9 @@ async function makeBrokenProject(): Promise<{ dir: string; badPath: string }> {
   const dir = await mkdtemp(join(tmpdir(), "vibe-scene-repair-"));
   await scaffoldSceneProject({ dir, name: "repair", aspect: "16:9", duration: 6 });
   const badPath = resolve(dir, "compositions/scene-bad.html");
-  await writeFile(badPath, `<template id="bad-template">
+  await writeFile(
+    badPath,
+    `<template id="bad-template">
   <div data-composition-id="bad" data-start="0" data-duration="3" data-width="1920" data-height="1080">
     <div data-start="0" data-duration="2" data-track-index="1">no class</div>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
@@ -20,7 +22,9 @@ async function makeBrokenProject(): Promise<{ dir: string; badPath: string }> {
       window.__timelines["bad"] = tl;
     </script>
   </div>
-</template>`, "utf-8");
+</template>`,
+    "utf-8"
+  );
   return { dir, badPath };
 }
 
@@ -44,7 +48,22 @@ describe("executeSceneRepair", () => {
 
     expect(result.fixed.some((item) => item.file.endsWith("scene-bad.html"))).toBe(true);
     expect(after).toContain('<div class="clip" data-start="0" data-duration="2"');
-    expect(result.remainingIssues.some((issue) => issue.code === "SCENE_LINT_timed_element_missing_clip_class")).toBe(false);
+    expect(
+      result.remainingIssues.some(
+        (issue) => issue.code === "SCENE_LINT_timed_element_missing_clip_class"
+      )
+    ).toBe(false);
+  });
+
+  it("can repair only sub-compositions when root lint is intentionally deferred", async () => {
+    const { dir, badPath } = await makeBrokenProject();
+    await writeFile(resolve(dir, "index.html"), "<!doctype html><body></body>", "utf-8");
+
+    const result = await executeSceneRepair({ projectDir: dir, includeRoot: false });
+    const after = await readFile(badPath, "utf-8");
+
+    expect(result.fixed.some((item) => item.file.endsWith("scene-bad.html"))).toBe(true);
+    expect(after).toContain('<div class="clip" data-start="0" data-duration="2"');
+    expect(result.files.some((file) => file.file === "index.html")).toBe(false);
   });
 });
-

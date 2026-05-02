@@ -2,7 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { resolve } from "node:path";
 
-import { createBuildPlan, type BuildStage } from "./_shared/build-plan.js";
+import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
 import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
 const VALID_STAGES: BuildStage[] = ["assets", "compose", "sync", "render", "all"];
@@ -43,10 +43,32 @@ export const planCommand = new Command("plan")
       force: options.force,
     });
 
+    if (!plan.validation.ok) {
+      const data = validationFailureData(plan);
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "plan",
+          startedAt,
+          data,
+          warnings: plan.warnings,
+        });
+        process.exitCode = 1;
+        return;
+      }
+      printPlan(projectDirArg, stage, plan);
+      process.exitCode = 1;
+      return;
+    }
+
     if (maxCost !== undefined && plan.estimatedCostUsd > maxCost) {
+      const warning = `Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCost.toFixed(2)}.`;
       const data = {
         ...plan,
         costCapUsd: maxCost,
+        code: "COST_CAP_EXCEEDED",
+        message: warning,
+        suggestion: "Raise --max-cost or reduce the stage/provider scope.",
+        recoverable: true,
         retryWith: [
           ...plan.retryWith,
           `vibe plan ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
@@ -58,7 +80,7 @@ export const planCommand = new Command("plan")
           command: "plan",
           startedAt,
           data,
-          warnings: [`Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCost.toFixed(2)}.`],
+          warnings: [warning],
         });
         process.exitCode = 1;
         return;
@@ -80,25 +102,47 @@ export const planCommand = new Command("plan")
       return;
     }
 
-    console.log();
-    console.log(chalk.bold.cyan("VibeFrame Plan"));
-    console.log(chalk.dim("-".repeat(60)));
-    console.log(`  Project:       ${projectDirArg}`);
-    console.log(`  Stage:         ${stage}`);
-    console.log(`  Mode:          ${plan.mode}`);
-    console.log(`  Beats:         ${plan.beats.length}${plan.beat ? ` (${plan.beat})` : ""}`);
-    console.log(`  Missing:       ${plan.missing.length > 0 ? plan.missing.join(", ") : "none"}`);
-    console.log(`  Providers:     ${plan.providers.length > 0 ? plan.providers.join(", ") : "none"}`);
-    console.log(`  Est. cost:     $${plan.estimatedCostUsd.toFixed(2)}`);
-    if (plan.warnings.length > 0) {
-      console.log();
-      for (const warning of plan.warnings) console.log(chalk.yellow(`  Warning: ${warning}`));
-    }
-    if (plan.validation.issues.length > 0) {
-      console.log();
-      for (const issue of plan.validation.issues) {
-        const color = issue.severity === "error" ? chalk.red : chalk.yellow;
-        console.log(color(`  [${issue.code}] ${issue.message}`));
-      }
-    }
+    printPlan(projectDirArg, stage, plan);
   });
+
+function validationFailureData(plan: BuildPlanResult): Record<string, unknown> {
+  return {
+    ...plan,
+    code: "STORYBOARD_VALIDATION_FAILED",
+    message: `${plan.summary.validationErrors} storyboard validation error(s).`,
+    suggestion: "Run storyboard validate, then fix STORYBOARD.md or use storyboard revise --dry-run.",
+    recoverable: true,
+    retryWith: plan.retryWith,
+  };
+}
+
+function printPlan(projectDirArg: string, stage: BuildStage, plan: BuildPlanResult): void {
+  console.log();
+  console.log(chalk.bold.cyan("VibeFrame Plan"));
+  console.log(chalk.dim("-".repeat(60)));
+  console.log(`  Project:       ${projectDirArg}`);
+  console.log(`  Stage:         ${stage}`);
+  console.log(`  Status:        ${plan.status === "invalid" ? chalk.red(plan.status) : chalk.green(plan.status)}`);
+  console.log(`  Mode:          ${plan.mode}`);
+  console.log(`  Beats:         ${plan.beats.length}${plan.beat ? ` (${plan.beat})` : ""}`);
+  console.log(`  Missing:       ${plan.missing.length > 0 ? plan.missing.join(", ") : "none"}`);
+  console.log(`  Providers:     ${plan.providers.length > 0 ? plan.providers.join(", ") : "none"}`);
+  console.log(`  Est. cost:     $${plan.estimatedCostUsd.toFixed(2)}`);
+  if (plan.warnings.length > 0) {
+    console.log();
+    for (const warning of plan.warnings) console.log(chalk.yellow(`  Warning: ${warning}`));
+  }
+  if (plan.validation.issues.length > 0) {
+    console.log();
+    for (const issue of plan.validation.issues) {
+      const color = issue.severity === "error" ? chalk.red : chalk.yellow;
+      console.log(color(`  [${issue.code}] ${issue.message}`));
+    }
+  }
+  if (plan.nextCommands.length > 0) {
+    console.log();
+    console.log(chalk.bold.cyan("Next"));
+    console.log(chalk.dim("-".repeat(60)));
+    for (const command of plan.nextCommands) console.log(`  ${command}`);
+  }
+}

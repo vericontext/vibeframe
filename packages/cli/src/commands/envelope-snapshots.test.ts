@@ -41,6 +41,8 @@ const CLI = `node ${resolve(here, "../../dist/index.js")}`;
 interface SchemaListEntry {
   path: string;
   description: string;
+  surface: string;
+  replacement?: string;
 }
 
 // Hermetic env: snapshot tests must not depend on dev-only API keys leaking
@@ -64,6 +66,27 @@ function getLeafCommands(): SchemaListEntry[] {
   const out = runCli("schema --list");
   return JSON.parse(out) as SchemaListEntry[];
 }
+
+describe("schema product surface taxonomy", () => {
+  it("adds surface metadata to every listed command", () => {
+    const leaves = getLeafCommands();
+    expect(leaves.length).toBeGreaterThan(0);
+    expect(leaves.every((leaf) => typeof leaf.surface === "string")).toBe(true);
+    expect(leaves.find((leaf) => leaf.path === "generate.speech")).toMatchObject({
+      surface: "legacy",
+      replacement: "vibe generate narration",
+    });
+  });
+
+  it("filters schema --list by product surface", () => {
+    const out = runCli("schema --list --surface public");
+    const leaves = JSON.parse(out) as SchemaListEntry[];
+    expect(leaves.length).toBeGreaterThan(0);
+    expect(leaves.every((leaf) => leaf.surface === "public")).toBe(true);
+    expect(leaves.map((leaf) => leaf.path)).toContain("build");
+    expect(leaves.map((leaf) => leaf.path)).not.toContain("generate.speech");
+  });
+});
 
 /** Replace varying fields so snapshots are deterministic. */
 function normalizeEnvelope(json: Record<string, unknown>): Record<string, unknown> {

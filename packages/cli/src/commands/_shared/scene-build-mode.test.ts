@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { executeSceneBuild, resolveSceneBuildMode } from "./scene-build.js";
+import { buildEmptyRootHtml } from "./scene-project.js";
 
 vi.mock("./tts-resolve.js", () => ({
   resolveTtsProvider: vi.fn(),
@@ -74,12 +75,26 @@ End frame.
 let projectDir: string;
 const originalBuildMode = process.env.VIBE_BUILD_MODE;
 
+function validCompositionHtml(id: string, duration: number): string {
+  return `<template id="scene-${id}-template">
+  <div data-composition-id="scene-${id}" data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
+    <div class="clip" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["scene-${id}"] = tl;
+    </script>
+  </div>
+</template>`;
+}
+
 beforeEach(() => {
   projectDir = mkdtempSync(join(tmpdir(), "scene-build-mode-test-"));
   mkdirSync(join(projectDir, "compositions"), { recursive: true });
   writeFileSync(join(projectDir, "STORYBOARD.md"), STORYBOARD);
   writeFileSync(join(projectDir, "DESIGN.md"), "# Design\n");
-  writeFileSync(join(projectDir, "index.html"), "<!doctype html><body></body>");
+  writeFileSync(join(projectDir, "index.html"), buildEmptyRootHtml({ aspect: "16:9", duration: 6 }));
 
   vi.mocked(resolveTtsProvider).mockResolvedValue({
     provider: "kokoro",
@@ -177,8 +192,8 @@ describe("executeSceneBuild — agent mode dispatch", () => {
   });
 
   it("proceeds to render when all compositions/scene-*.html already exist", async () => {
-    writeFileSync(join(projectDir, "compositions/scene-hook.html"), "<template/>", "utf-8");
-    writeFileSync(join(projectDir, "compositions/scene-outro.html"), "<template/>", "utf-8");
+    writeFileSync(join(projectDir, "compositions/scene-hook.html"), validCompositionHtml("hook", 3), "utf-8");
+    writeFileSync(join(projectDir, "compositions/scene-outro.html"), validCompositionHtml("outro", 3), "utf-8");
 
     const r = await executeSceneBuild({ projectDir, mode: "agent" });
     expect(r.success).toBe(true);

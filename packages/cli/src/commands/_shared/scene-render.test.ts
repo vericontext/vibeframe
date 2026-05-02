@@ -7,6 +7,7 @@ import {
   buildRenderConfig,
   defaultOutputPath,
   executeSceneRender,
+  prepareBeatRenderRoot,
   qualityToCrf,
 } from "./scene-render.js";
 import { scaffoldSceneProject } from "./scene-project.js";
@@ -15,6 +16,19 @@ import { preflightChrome } from "../../pipeline/renderers/chrome.js";
 
 async function makeTmp(label = "vibe-scene-render-"): Promise<string> {
   return mkdtemp(join(tmpdir(), label));
+}
+
+function validCompositionHtml(id: string, duration: number): string {
+  return `<template id="scene-${id}-template">
+  <div data-composition-id="scene-${id}" data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
+    <div class="clip" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-${id}"] = gsap.timeline({ paused: true });
+    </script>
+  </div>
+</template>`;
 }
 
 // ── qualityToCrf ────────────────────────────────────────────────────────────
@@ -90,6 +104,87 @@ describe("defaultOutputPath", () => {
       now: new Date("2026-04-25T00:00:00Z"),
     });
     expect(out.endsWith(".mp4")).toBe(true);
+  });
+
+  it("includes the beat id in default output paths for beat renders", () => {
+    const out = defaultOutputPath({
+      projectDir: "/tmp/proj",
+      projectName: "promo",
+      format: "mp4",
+      beatId: "hook",
+      now: new Date("2026-04-25T12:34:56Z"),
+    });
+    expect(out).toBe("/tmp/proj/renders/promo-hook-2026-04-25-12-34-56.mp4");
+  });
+});
+
+// ── prepareBeatRenderRoot ──────────────────────────────────────────────────
+
+describe("prepareBeatRenderRoot", () => {
+  it("writes a temporary single-beat root without modifying index.html", async () => {
+    const dir = await makeTmp();
+    await scaffoldSceneProject({ dir, name: "fixture", aspect: "16:9", duration: 8 });
+    const originalRoot = await readFile(resolve(dir, "index.html"), "utf-8");
+    await writeFile(resolve(dir, "compositions", "scene-hook.html"), validCompositionHtml("hook", 3), "utf-8");
+    await writeFile(resolve(dir, "assets", "narration-hook.wav"), Buffer.from([1]));
+    await writeFile(
+      resolve(dir, "build-report.json"),
+      JSON.stringify({
+        schemaVersion: "1",
+        kind: "build",
+        beats: [
+          {
+            id: "hook",
+            compositionPath: "compositions/scene-hook.html",
+            sceneDurationSec: 3,
+            narration: {
+              path: "assets/narration-hook.wav",
+              status: "generated",
+              sceneDurationSec: 3,
+            },
+          },
+        ],
+      }),
+      "utf-8"
+    );
+
+    const result = await prepareBeatRenderRoot({ projectDir: dir, beatId: "hook", aspect: "16:9" });
+
+    expect(result.success).toBe(true);
+    expect(result.root).toBe(".vibeframe/tmp/render-beat-hook.html");
+    const tempRoot = await readFile(resolve(dir, result.root), "utf-8");
+    expect(tempRoot).toContain('data-composition-src="compositions/scene-hook.html"');
+    expect(tempRoot).toContain('src="assets/narration-hook.wav"');
+    expect(tempRoot).toContain('data-duration="3"');
+    expect(await readFile(resolve(dir, "index.html"), "utf-8")).toBe(originalRoot);
+  });
+
+  it("fails with BEAT_RENDER_NOT_READY when a selected beat asset is missing", async () => {
+    const dir = await makeTmp();
+    await scaffoldSceneProject({ dir, name: "fixture", aspect: "16:9", duration: 3 });
+    await writeFile(resolve(dir, "compositions", "scene-hook.html"), validCompositionHtml("hook", 3), "utf-8");
+    await writeFile(
+      resolve(dir, "build-report.json"),
+      JSON.stringify({
+        schemaVersion: "1",
+        kind: "build",
+        beats: [
+          {
+            id: "hook",
+            compositionPath: "compositions/scene-hook.html",
+            narrationPath: "assets/narration-hook.wav",
+            narrationStatus: "generated",
+          },
+        ],
+      }),
+      "utf-8"
+    );
+
+    const result = await prepareBeatRenderRoot({ projectDir: dir, beatId: "hook", aspect: "16:9" });
+
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("BEAT_RENDER_NOT_READY");
+    expect(result.retryWith).toContain(`vibe build ${dir} --beat hook --stage assets --json`);
   });
 });
 

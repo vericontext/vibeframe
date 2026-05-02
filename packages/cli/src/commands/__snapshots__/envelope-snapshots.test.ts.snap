@@ -4,6 +4,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
 {
   "description": "Optional built-in natural-language agent (fallback when no external coding agent is driving vibe)",
   "name": "agent",
+  "note": "Optional fallback REPL; external coding agents are the primary workflow.",
   "parameters": {
     "properties": {
       "budgetUsd": {
@@ -55,6 +56,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
     },
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -63,6 +65,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio clone-voice --des
   "cost": "low",
   "description": "Clone a voice from audio samples using ElevenLabs",
   "name": "audio.clone-voice",
+  "note": "Requires explicit user consent for voice cloning.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -103,6 +106,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio clone-voice --des
     },
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -147,6 +151,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio dub --describe 1`
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -199,6 +204,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio duck --describe 1
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -232,6 +238,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio isolate --describ
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -240,6 +247,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio list-voices --des
   "cost": "low",
   "description": "List available ElevenLabs voices",
   "name": "audio.list-voices",
+  "note": "Provider discovery helper.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -249,6 +257,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio list-voices --des
     },
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -290,6 +299,7 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -298,6 +308,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch apply-effect --de
   "cost": "free",
   "description": "Apply an effect to multiple clips",
   "name": "batch.apply-effect",
+  "note": "Power tool for bulk timeline/media operations.",
   "parameters": {
     "properties": {
       "all": {
@@ -346,6 +357,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch apply-effect --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -354,6 +366,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch concat --describe
   "cost": "free",
   "description": "Concatenate multiple sources into sequential clips",
   "name": "batch.concat",
+  "note": "Power tool for bulk timeline/media operations.",
   "parameters": {
     "properties": {
       "all": {
@@ -396,6 +409,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch concat --describe
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -404,6 +418,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch import --describe
   "cost": "free",
   "description": "Import multiple media files from a directory",
   "name": "batch.import",
+  "note": "Power tool for bulk timeline/media operations.",
   "parameters": {
     "properties": {
       "directory": {
@@ -439,6 +454,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch import --describe
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -447,6 +463,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch info --describe 1
   "cost": "free",
   "description": "Show batch processing statistics",
   "name": "batch.info",
+  "note": "Power tool for bulk timeline/media operations.",
   "parameters": {
     "properties": {
       "project": {
@@ -459,6 +476,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch info --describe 1
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -467,6 +485,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch remove-clips --de
   "cost": "free",
   "description": "Remove multiple clips from the timeline",
   "name": "batch.remove-clips",
+  "note": "Power tool for bulk timeline/media operations.",
   "parameters": {
     "properties": {
       "all": {
@@ -499,6 +518,7 @@ exports[`CLI --describe schemas (drift detection) > vibe batch remove-clips --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -506,6 +526,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
 {
   "description": "Build a VibeFrame video project from STORYBOARD.md",
   "name": "build",
+  "note": "Primary storyboard-to-video build engine.",
   "parameters": {
     "properties": {
       "beat": {
@@ -547,6 +568,10 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "Build mode: agent|batch|auto",
         "type": "string",
       },
+      "musicProvider": {
+        "description": "Music provider: elevenlabs|replicate",
+        "type": "string",
+      },
       "project-dir": {
         "description": "Video project directory",
         "type": "string",
@@ -560,12 +585,20 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "Don't dispatch image-gen even when beats declare backdrop cues",
         "type": "boolean",
       },
+      "skipMusic": {
+        "description": "Don't dispatch music generation even when beats declare music cues",
+        "type": "boolean",
+      },
       "skipNarration": {
         "description": "Don't dispatch TTS even when beats declare narration cues",
         "type": "boolean",
       },
       "skipRender": {
         "description": "Compose only — don't render to MP4",
+        "type": "boolean",
+      },
+      "skipVideo": {
+        "description": "Don't dispatch video generation even when beats declare video cues",
         "type": "boolean",
       },
       "stage": {
@@ -577,6 +610,10 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "TTS provider: auto|elevenlabs|kokoro",
         "type": "string",
       },
+      "videoProvider": {
+        "description": "Video provider: seedance|grok|kling|runway|veo",
+        "type": "string",
+      },
       "voice": {
         "description": "Voice id",
         "type": "string",
@@ -584,6 +621,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -591,6 +629,7 @@ exports[`CLI --describe schemas (drift detection) > vibe completion --describe 1
 {
   "description": "Print a shell completion script for \`vibe\`",
   "name": "completion",
+  "note": "Shell ergonomics helper.",
   "parameters": {
     "properties": {
       "shell": {
@@ -603,6 +642,7 @@ exports[`CLI --describe schemas (drift detection) > vibe completion --describe 1
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -610,6 +650,7 @@ exports[`CLI --describe schemas (drift detection) > vibe context --describe 1`] 
 {
   "description": "Print CLI context/guidelines for AI agent integration",
   "name": "context",
+  "note": "Host-agent integration contract.",
   "parameters": {
     "properties": {
       "format": {
@@ -620,6 +661,7 @@ exports[`CLI --describe schemas (drift detection) > vibe context --describe 1`] 
     },
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
@@ -627,6 +669,7 @@ exports[`CLI --describe schemas (drift detection) > vibe demo --describe 1`] = `
 {
   "description": "Run sample edits on a test video (no API keys needed)",
   "name": "demo",
+  "note": "Smoke-test/demo helper, not a core workflow.",
   "parameters": {
     "properties": {
       "json": {
@@ -640,6 +683,7 @@ exports[`CLI --describe schemas (drift detection) > vibe demo --describe 1`] = `
     },
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -668,6 +712,7 @@ exports[`CLI --describe schemas (drift detection) > vibe detect beats --describe
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -705,6 +750,7 @@ exports[`CLI --describe schemas (drift detection) > vibe detect scenes --describ
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -743,6 +789,7 @@ exports[`CLI --describe schemas (drift detection) > vibe detect silence --descri
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -750,6 +797,7 @@ exports[`CLI --describe schemas (drift detection) > vibe doctor --describe 1`] =
 {
   "description": "Check system health and available commands",
   "name": "doctor",
+  "note": "System and provider health check.",
   "parameters": {
     "properties": {
       "json": {
@@ -767,6 +815,7 @@ exports[`CLI --describe schemas (drift detection) > vibe doctor --describe 1`] =
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -833,6 +882,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit caption --describe
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -879,6 +929,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit fade --describe 1`
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -935,6 +986,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit fill-gaps --descri
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -979,6 +1031,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit grade --describe 1
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1038,6 +1091,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit image --describe 1
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1085,6 +1139,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit interpolate --desc
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1134,6 +1189,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit jump-cut --describ
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1228,6 +1284,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit motion-overlay --d
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1270,6 +1327,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit noise-reduce --des
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1331,6 +1389,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit reframe --describe
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1394,6 +1453,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit silence-cut --desc
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1454,6 +1514,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit speed-ramp --descr
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1520,6 +1581,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit text-overlay --des
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1569,6 +1631,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit translate-srt --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -1623,6 +1686,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit upscale --describe
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1631,6 +1695,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate background --d
   "cost": "high",
   "description": "Generate video background using DALL-E",
   "name": "generate.background",
+  "note": "Backdrops are generated through image generation or the project build.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -1665,6 +1730,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate background --d
     ],
     "type": "object",
   },
+  "replacement": "vibe generate image or vibe build --stage assets",
+  "surface": "legacy",
 }
 `;
 
@@ -1741,6 +1808,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1749,6 +1817,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate motion --descr
   "cost": "high",
   "description": "Generate motion graphics using Claude + Remotion (render & composite)",
   "name": "generate.motion",
+  "note": "Standalone motion generation is a power primitive.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -1834,6 +1903,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate motion --descr
     ],
     "type": "object",
   },
+  "replacement": "vibe edit motion-overlay or vibe build --stage compose",
+  "surface": "advanced",
 }
 `;
 
@@ -1904,6 +1975,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -1912,6 +1984,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music-status -
   "cost": "free",
   "description": "Check music generation status",
   "name": "generate.music-status",
+  "note": "Provider-task polling primitive retained for compatibility.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -1928,6 +2001,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music-status -
     ],
     "type": "object",
   },
+  "replacement": "vibe status job <job-id> --json",
+  "surface": "legacy",
 }
 `;
 
@@ -1936,6 +2011,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate narration --de
   "cost": "low",
   "description": "Generate narration from text (product-facing TTS)",
   "name": "generate.narration",
+  "note": "Product-facing TTS command.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -1963,6 +2039,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate narration --de
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2004,6 +2081,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate sound-effect -
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2012,6 +2090,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate speech --descr
   "cost": "low",
   "description": "Generate speech from text using ElevenLabs",
   "name": "generate.speech",
+  "note": "Compatibility alias for product-facing narration generation.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2047,6 +2126,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate speech --descr
     },
     "type": "object",
   },
+  "replacement": "vibe generate narration",
+  "surface": "legacy",
 }
 `;
 
@@ -2055,6 +2136,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate storyboard --d
   "cost": "high",
   "description": "Generate video storyboard from content using Claude",
   "name": "generate.storyboard",
+  "note": "Project-ready storyboard drafting belongs in init/revise.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2092,6 +2174,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate storyboard --d
     ],
     "type": "object",
   },
+  "replacement": "vibe init --from <brief> or vibe storyboard revise",
+  "surface": "legacy",
 }
 `;
 
@@ -2145,6 +2229,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2249,6 +2334,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2257,6 +2343,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-cancel -
   "cost": "free",
   "description": "Cancel video generation (Grok or Runway)",
   "name": "generate.video-cancel",
+  "note": "Provider lifecycle control.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2282,6 +2369,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-cancel -
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -2290,6 +2378,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
   "cost": "very-high",
   "description": "Extend video duration (Kling by video ID, Veo by operation name)",
   "name": "generate.video-extend",
+  "note": "Provider lifecycle control.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2345,6 +2434,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -2353,6 +2443,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-status -
   "cost": "free",
   "description": "Check video generation status (Grok, Runway, or Kling)",
   "name": "generate.video-status",
+  "note": "Provider-task polling primitive retained for compatibility.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2392,6 +2483,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-status -
     ],
     "type": "object",
   },
+  "replacement": "vibe status job <job-id> --json",
+  "surface": "legacy",
 }
 `;
 
@@ -2399,6 +2492,7 @@ exports[`CLI --describe schemas (drift detection) > vibe guide --describe 1`] = 
 {
   "description": "Step-by-step guide for a vibe workflow (universal /vibe-* slash-command equivalent)",
   "name": "guide",
+  "note": "Workflow chooser and first-run guidance.",
   "parameters": {
     "properties": {
       "list": {
@@ -2412,6 +2506,7 @@ exports[`CLI --describe schemas (drift detection) > vibe guide --describe 1`] = 
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2419,6 +2514,7 @@ exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
 {
   "description": "Scaffold a VibeFrame project (video scene project or project-scope agent files)",
   "name": "init",
+  "note": "Storyboard-to-video cold-start entrypoint.",
   "parameters": {
     "properties": {
       "agent": {
@@ -2480,6 +2576,7 @@ exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2542,6 +2639,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect media --describ
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2552,6 +2650,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect project --descr
   "name": "inspect.project",
   "parameters": {
     "properties": {
+      "beat": {
+        "description": "Inspect only one storyboard beat where beat-scoped checks apply",
+        "type": "string",
+      },
       "noReport": {
         "description": "Do not write review-report.json",
         "type": "boolean",
@@ -2567,6 +2669,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect project --descr
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2580,6 +2683,10 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect render --descri
       "ai": {
         "description": "Also run Gemini video review and merge findings into review-report.json",
         "type": "boolean",
+      },
+      "beat": {
+        "description": "Inspect a render for one storyboard beat",
+        "type": "string",
       },
       "cheap": {
         "description": "Run local checks only (default; no AI/API calls)",
@@ -2613,6 +2720,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect render --descri
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2621,6 +2729,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect review --descri
   "cost": "low",
   "description": "Review video quality using Gemini AI and optionally auto-fix issues",
   "name": "inspect.review",
+  "note": "Project render review now lives under inspect render.",
   "parameters": {
     "properties": {
       "autoApply": {
@@ -2658,6 +2767,8 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect review --descri
     ],
     "type": "object",
   },
+  "replacement": "vibe inspect render --ai",
+  "surface": "legacy",
 }
 `;
 
@@ -2666,6 +2777,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --descr
   "cost": "low",
   "description": "Get AI edit suggestions using Gemini",
   "name": "inspect.suggest",
+  "note": "Suggestion primitive; reports should drive host-agent edits.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2695,6 +2807,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --descr
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -2703,6 +2816,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect video --describ
   "cost": "low",
   "description": "Analyze video using Gemini (summarize, Q&A, extract info)",
   "name": "inspect.video",
+  "note": "Compatibility alias for media understanding.",
   "parameters": {
     "properties": {
       "apiKey": {
@@ -2757,6 +2871,8 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect video --describ
     ],
     "type": "object",
   },
+  "replacement": "vibe inspect media",
+  "surface": "legacy",
 }
 `;
 
@@ -2765,6 +2881,7 @@ exports[`CLI --describe schemas (drift detection) > vibe media duration --descri
   "cost": "free",
   "description": "Get media duration in seconds (for scripting)",
   "name": "media.duration",
+  "note": "Script utility for media metadata.",
   "parameters": {
     "properties": {
       "file": {
@@ -2777,6 +2894,7 @@ exports[`CLI --describe schemas (drift detection) > vibe media duration --descri
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -2785,6 +2903,7 @@ exports[`CLI --describe schemas (drift detection) > vibe media info --describe 1
   "cost": "free",
   "description": "Get media file information",
   "name": "media.info",
+  "note": "Script utility for media metadata.",
   "parameters": {
     "properties": {
       "file": {
@@ -2797,6 +2916,7 @@ exports[`CLI --describe schemas (drift detection) > vibe media info --describe 1
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -2804,6 +2924,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
 {
   "description": "Read STORYBOARD.md and show build plan, costs, missing cues, and provider needs",
   "name": "plan",
+  "note": "Storyboard-to-video planning contract.",
   "parameters": {
     "properties": {
       "beat": {
@@ -2843,6 +2964,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2911,6 +3033,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption 
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -2992,6 +3115,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix auto-shorts --des
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3055,6 +3179,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix highlights --desc
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3063,6 +3188,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix regenerate-scene 
   "cost": "very-high",
   "description": "Regenerate a specific scene in a script-to-video output directory",
   "name": "remix.regenerate-scene",
+  "note": "Scene regeneration belongs in the project build flow.",
   "parameters": {
     "properties": {
       "aspectRatio": {
@@ -3123,6 +3249,8 @@ exports[`CLI --describe schemas (drift detection) > vibe remix regenerate-scene 
     ],
     "type": "object",
   },
+  "replacement": "vibe build <project> --beat <id> --force --json",
+  "surface": "legacy",
 }
 `;
 
@@ -3130,8 +3258,13 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
 {
   "description": "Render a VibeFrame video project to MP4/WebM/MOV",
   "name": "render",
+  "note": "Project render entrypoint.",
   "parameters": {
     "properties": {
+      "beat": {
+        "description": "Render only one storyboard beat using a temporary root",
+        "type": "string",
+      },
       "dryRun": {
         "description": "Preview parameters without rendering",
         "type": "boolean",
@@ -3172,6 +3305,7 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3179,6 +3313,7 @@ exports[`CLI --describe schemas (drift detection) > vibe run --describe 1`] = `
 {
   "description": "Execute a YAML video pipeline (Video as Code)",
   "name": "run",
+  "note": "Automation surface for YAML pipelines.",
   "parameters": {
     "properties": {
       "budgetTokens": {
@@ -3227,6 +3362,7 @@ exports[`CLI --describe schemas (drift detection) > vibe run --describe 1`] = `
     ],
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
@@ -3340,6 +3476,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3348,6 +3485,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
   "cost": "free",
   "description": "Emit the per-beat compose plan for the host agent to author HTML itself (Phase H2 — no LLM call)",
   "name": "scene.compose-prompts",
+  "note": "Agent-mode build primitive; prefer vibe build --mode agent.",
   "parameters": {
     "properties": {
       "beat": {
@@ -3361,6 +3499,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
     },
     "type": "object",
   },
+  "surface": "internal",
 }
 `;
 
@@ -3369,6 +3508,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --d
   "cost": "free",
   "description": "Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)",
   "name": "scene.install-skill",
+  "note": "Build/init installs the host-agent composition skill when needed.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -3391,6 +3531,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --d
     },
     "type": "object",
   },
+  "surface": "internal",
 }
 `;
 
@@ -3417,6 +3558,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene lint --describe 1
     },
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
@@ -3434,6 +3576,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene list-styles --des
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3460,6 +3603,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene repair --describe
     },
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
@@ -3467,6 +3611,7 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
 {
   "description": "Configure VibeFrame (LLM provider, API keys)",
   "name": "setup",
+  "note": "Initial configuration helper.",
   "parameters": {
     "properties": {
       "claudeCode": {
@@ -3513,6 +3658,7 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3549,6 +3695,7 @@ exports[`CLI --describe schemas (drift detection) > vibe status job --describe 1
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3570,11 +3717,13 @@ exports[`CLI --describe schemas (drift detection) > vibe status project --descri
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard get --describe 1`] = `
 {
+  "cost": "free",
   "description": "Print one beat as structured JSON",
   "name": "storyboard.get",
   "parameters": {
@@ -3594,11 +3743,13 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard get --descri
     ],
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard list --describe 1`] = `
 {
+  "cost": "free",
   "description": "List beats, ids, cues, and durations from STORYBOARD.md",
   "name": "storyboard.list",
   "parameters": {
@@ -3610,11 +3761,13 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard list --descr
     },
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard move --describe 1`] = `
 {
+  "cost": "free",
   "description": "Reorder beats safely",
   "name": "storyboard.move",
   "parameters": {
@@ -3638,15 +3791,21 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard move --descr
     ],
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard revise --describe 1`] = `
 {
+  "cost": "low",
   "description": "Revise STORYBOARD.md from a request or source file",
   "name": "storyboard.revise",
   "parameters": {
     "properties": {
+      "composer": {
+        "description": "Revision LLM provider: claude|openai|gemini",
+        "type": "string",
+      },
       "dryRun": {
         "description": "Preview the revised storyboard without writing",
         "type": "boolean",
@@ -3669,11 +3828,13 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard revise --des
     ],
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard set --describe 1`] = `
 {
+  "cost": "free",
   "description": "Update one cue in one beat without raw Markdown editing",
   "name": "storyboard.set",
   "parameters": {
@@ -3713,11 +3874,13 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard set --descri
     ],
     "type": "object",
   },
+  "surface": "agent",
 }
 `;
 
 exports[`CLI --describe schemas (drift detection) > vibe storyboard validate --describe 1`] = `
 {
+  "cost": "free",
   "description": "Validate cue blocks and beat ids",
   "name": "storyboard.validate",
   "parameters": {
@@ -3729,6 +3892,7 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard validate --d
     },
     "type": "object",
   },
+  "surface": "public",
 }
 `;
 
@@ -3737,6 +3901,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-clip --des
   "cost": "free",
   "description": "Add a clip to the timeline",
   "name": "timeline.add-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -3776,6 +3941,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-clip --des
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3784,6 +3950,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --d
   "cost": "free",
   "description": "Add an effect to a clip",
   "name": "timeline.add-effect",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -3824,6 +3991,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-effect --d
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3832,6 +4000,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --d
   "cost": "free",
   "description": "Add a media source to the timeline",
   "name": "timeline.add-source",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -3871,6 +4040,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-source --d
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3879,6 +4049,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --de
   "cost": "free",
   "description": "Add a new track",
   "name": "timeline.add-track",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -3904,6 +4075,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline add-track --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3912,6 +4084,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline create --descr
   "cost": "free",
   "description": "Create a low-level timeline JSON file",
   "name": "timeline.create",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -3948,6 +4121,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline create --descr
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3956,6 +4130,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline delete-clip --
   "cost": "free",
   "description": "Delete a clip from the timeline",
   "name": "timeline.delete-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -3977,6 +4152,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline delete-clip --
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -3985,6 +4161,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip
   "cost": "free",
   "description": "Duplicate a clip",
   "name": "timeline.duplicate-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -4010,6 +4187,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline duplicate-clip
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4018,6 +4196,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline info --describ
   "cost": "free",
   "description": "Show timeline information",
   "name": "timeline.info",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "file": {
@@ -4030,6 +4209,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline info --describ
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4038,6 +4218,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline list --describ
   "cost": "free",
   "description": "List timeline contents",
   "name": "timeline.list",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clips": {
@@ -4062,6 +4243,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline list --describ
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4070,6 +4252,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --de
   "cost": "free",
   "description": "Move a clip to a new position",
   "name": "timeline.move-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -4099,6 +4282,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline move-clip --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4107,6 +4291,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline set --describe
   "cost": "free",
   "description": "Update timeline settings",
   "name": "timeline.set",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "dryRun": {
@@ -4141,6 +4326,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline set --describe
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4149,6 +4335,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline split-clip --d
   "cost": "free",
   "description": "Split a clip at a specific time",
   "name": "timeline.split-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -4175,6 +4362,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline split-clip --d
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 
@@ -4183,6 +4371,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline trim-clip --de
   "cost": "free",
   "description": "Trim a clip",
   "name": "timeline.trim-clip",
+  "note": "Power tool for low-level timeline JSON edits.",
   "parameters": {
     "properties": {
       "clip-id": {
@@ -4212,6 +4401,7 @@ exports[`CLI --describe schemas (drift detection) > vibe timeline trim-clip --de
     ],
     "type": "object",
   },
+  "surface": "advanced",
 }
 `;
 

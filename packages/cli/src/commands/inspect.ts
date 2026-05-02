@@ -72,6 +72,7 @@ inspectCommand
   .command("project")
   .description("Inspect project completeness, storyboard validity, scene lint, and asset references")
   .argument("[project-dir]", "VibeFrame project directory", ".")
+  .option("--beat <id>", "Inspect only one storyboard beat where beat-scoped checks apply")
   .option("-o, --output <path>", "Write review report to this path (default: <project>/review-report.json)")
   .option("--no-report", "Do not write review-report.json")
   .action(async (projectDirArg: string, options) => {
@@ -79,6 +80,7 @@ inspectCommand
     try {
       const result = await inspectProject({
         projectDir: resolve(projectDirArg),
+        beatId: options.beat,
         outputPath: options.output,
         writeReport: options.report !== false,
       });
@@ -109,6 +111,7 @@ inspectCommand
   .option("--cheap", "Run local checks only (default; no AI/API calls)")
   .option("--ai", "Also run Gemini video review and merge findings into review-report.json")
   .option("-m, --model <model>", "Gemini model for --ai: flash (default), flash-2.5, pro", "flash")
+  .option("--beat <id>", "Inspect a render for one storyboard beat")
   .option("--video <path>", "Rendered video path. Defaults to build-report outputPath or latest renders/* video.")
   .option("-o, --output <path>", "Write review report to this path (default: <project>/review-report.json)")
   .option("--no-report", "Do not write review-report.json")
@@ -121,6 +124,7 @@ inspectCommand
       if (options.dryRun) {
         const result = await previewInspectRender({
           projectDir,
+          beatId: options.beat,
           videoPath: options.video,
           outputPath: options.output,
           writeReport: options.report !== false,
@@ -139,6 +143,7 @@ inspectCommand
 
       const result = await inspectRender({
         projectDir,
+        beatId: options.beat,
         videoPath: options.video,
         outputPath: options.output,
         writeReport: options.report !== false,

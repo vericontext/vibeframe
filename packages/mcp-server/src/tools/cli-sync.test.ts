@@ -62,7 +62,7 @@ const CLI_TREE: Record<string, string[]> = {
   // manifest tool (`guide`) handles them all by routing on `topic`.
   guide: ["motion", "scene", "pipeline", "architecture"],
   // v0.97: storyboard mutation API for the intent layer.
-  // `revise` is CLI-only (LLM-driven; host agents handle it directly).
+  // v0.100: `revise` is also exposed as an MCP tool (LLM-driven).
   storyboard: ["list", "get", "set", "move", "validate", "revise"],
   status: ["job", "project"],
 };
@@ -166,13 +166,13 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "guide scene":    "guide",
   "guide pipeline": "guide",
   "guide architecture": "guide",
-  // storyboard (v0.97 — `revise` is host-agent-driven, no manifest entry)
+  // storyboard (v0.100 — `revise` now has a manifest entry)
   "storyboard list":     "storyboard_list",
   "storyboard get":      "storyboard_get",
   "storyboard set":      "storyboard_set",
   "storyboard move":     "storyboard_move",
   "storyboard validate": "storyboard_validate",
-  "storyboard revise":   null,
+  "storyboard revise":   "storyboard_revise",
   // status
   "status job":     "status_job",
   "status project": "status_project",

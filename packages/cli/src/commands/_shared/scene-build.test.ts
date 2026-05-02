@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { executeSceneBuild } from "./scene-build.js";
+import { buildEmptyRootHtml } from "./scene-project.js";
 
 // ── Module mocks (must be hoisted before the imported module loads) ─────
 
@@ -38,10 +39,20 @@ vi.mock("./scene-render.js", () => ({
   executeSceneRender: vi.fn(),
 }));
 
+vi.mock("../ai-video.js", () => ({
+  executeVideoGenerate: vi.fn(),
+}));
+
+vi.mock("../generate/music.js", () => ({
+  executeMusic: vi.fn(),
+}));
+
 import { resolveTtsProvider } from "./tts-resolve.js";
 import { OpenAIImageProvider } from "@vibeframe/ai-providers";
 import { executeComposeScenesWithSkills } from "./compose-scenes-skills.js";
 import { executeSceneRender } from "./scene-render.js";
+import { executeVideoGenerate } from "../ai-video.js";
+import { executeMusic } from "../generate/music.js";
 
 const STORYBOARD_WITH_CUES = `---
 project: scene-build-test
@@ -81,7 +92,10 @@ beforeEach(() => {
   mkdirSync(join(projectDir, "compositions"), { recursive: true });
   writeFileSync(join(projectDir, "STORYBOARD.md"), STORYBOARD_WITH_CUES);
   writeFileSync(join(projectDir, "DESIGN.md"), "# Design\n");
-  writeFileSync(join(projectDir, "index.html"), "<!doctype html><body></body>");
+  writeFileSync(
+    join(projectDir, "index.html"),
+    buildEmptyRootHtml({ aspect: "16:9", duration: 6 })
+  );
 
   vi.mocked(resolveTtsProvider).mockResolvedValue({
     provider: "kokoro",
@@ -92,18 +106,40 @@ beforeEach(() => {
     }),
   });
 
-  vi.mocked(OpenAIImageProvider).mockImplementation(() => ({
-    initialize: vi.fn().mockResolvedValue(undefined),
-    generateImage: vi.fn().mockResolvedValue({
-      success: true,
-      images: [{ base64: Buffer.from([5, 6, 7, 8]).toString("base64") }],
-    }),
-  } as unknown as InstanceType<typeof OpenAIImageProvider>));
+  vi.mocked(OpenAIImageProvider).mockImplementation(
+    () =>
+      ({
+        initialize: vi.fn().mockResolvedValue(undefined),
+        generateImage: vi.fn().mockResolvedValue({
+          success: true,
+          images: [{ base64: Buffer.from([5, 6, 7, 8]).toString("base64") }],
+        }),
+      }) as unknown as InstanceType<typeof OpenAIImageProvider>
+  );
 
-  vi.mocked(executeComposeScenesWithSkills).mockResolvedValue({
-    success: true,
-    outputPath: projectDir,
-    data: { beats: 2, written: [], totalCostUsd: 0.05, totalTokensIn: 0, totalTokensOut: 0, cacheHits: 0 },
+  vi.mocked(executeComposeScenesWithSkills).mockImplementation(async () => {
+    writeFileSync(
+      join(projectDir, "compositions", "scene-hook.html"),
+      validCompositionHtml("hook", 3),
+      "utf-8"
+    );
+    writeFileSync(
+      join(projectDir, "compositions", "scene-close.html"),
+      validCompositionHtml("close", 3),
+      "utf-8"
+    );
+    return {
+      success: true,
+      outputPath: projectDir,
+      data: {
+        beats: 2,
+        written: [],
+        totalCostUsd: 0.05,
+        totalTokensIn: 0,
+        totalTokensOut: 0,
+        cacheHits: 0,
+      },
+    };
   });
 
   vi.mocked(executeSceneRender).mockResolvedValue({
@@ -120,6 +156,32 @@ beforeEach(() => {
   // covered by `scene-build-mode.test.ts`.
   process.env.VIBE_BUILD_MODE = "batch";
 });
+
+function validCompositionHtml(id: string, duration: number): string {
+  return `<template id="scene-${id}-template">
+  <div data-composition-id="scene-${id}" data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
+    <div class="clip" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["scene-${id}"] = tl;
+    </script>
+  </div>
+</template>`;
+}
+
+function repairableCompositionHtml(id: string, duration: number): string {
+  return validCompositionHtml(id, duration).replace('class="clip" ', "");
+}
+
+function nonRepairableCompositionHtml(id: string, duration: number): string {
+  return `<template id="scene-${id}-template">
+  <div data-composition-id="scene-${id}" data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
+    <div class="clip" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
+  </div>
+</template>`;
+}
 
 afterEach(() => {
   rmSync(projectDir, { recursive: true, force: true });
@@ -150,6 +212,25 @@ describe("executeSceneBuild", () => {
     const rootHtml = readFileSync(join(projectDir, "index.html"), "utf-8");
     expect(rootHtml).toContain('id="narration-hook"');
     expect(rootHtml).toContain('data-duration="3"');
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.beats[0].narration).toMatchObject({
+      text: "Type a YAML.",
+      voice: "af_heart",
+      provider: "kokoro",
+      path: "assets/narration-hook.wav",
+      status: "generated",
+      sceneDurationSec: 3,
+    });
+    expect(report.beats[0].narration.cachePath).toContain(
+      ".vibeframe/cache/assets/narration-"
+    );
+    expect(report.beats[0].backdrop).toMatchObject({
+      prompt: "Abstract dark tech background",
+      provider: "openai",
+      path: "assets/backdrop-hook.png",
+      status: "generated",
+    });
   });
 
   it("loads OPENAI_API_KEY from the current project's .env for backdrop dispatch", async () => {
@@ -207,6 +288,69 @@ describe("executeSceneBuild", () => {
     expect(executeSceneRender).not.toHaveBeenCalled();
   });
 
+  it("repairs mechanical composition issues before rendering", async () => {
+    process.env.VIBE_BUILD_MODE = "agent";
+    writeFileSync(
+      join(projectDir, "compositions", "scene-hook.html"),
+      repairableCompositionHtml("hook", 3),
+      "utf-8"
+    );
+    writeFileSync(
+      join(projectDir, "compositions", "scene-close.html"),
+      validCompositionHtml("close", 3),
+      "utf-8"
+    );
+
+    const r = await executeSceneBuild({ projectDir, mode: "agent" });
+
+    expect(r.success).toBe(true);
+    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
+    expect(executeSceneRender).toHaveBeenCalledOnce();
+    expect(r.sceneRepair?.ran).toBe(true);
+    expect(r.sceneRepair?.fixed.some((item) => item.file.endsWith("scene-hook.html"))).toBe(true);
+
+    const repaired = readFileSync(join(projectDir, "compositions", "scene-hook.html"), "utf-8");
+    expect(repaired).toContain('<div class="clip" data-start="0" data-duration="3"');
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.sceneRepair.ran).toBe(true);
+    expect(
+      report.sceneRepair.fixed.some((item: { file: string }) =>
+        item.file.endsWith("scene-hook.html")
+      )
+    ).toBe(true);
+  });
+
+  it("fails before render when scene repair leaves non-fixable lint errors", async () => {
+    process.env.VIBE_BUILD_MODE = "agent";
+    writeFileSync(
+      join(projectDir, "compositions", "scene-hook.html"),
+      nonRepairableCompositionHtml("hook", 3),
+      "utf-8"
+    );
+    writeFileSync(
+      join(projectDir, "compositions", "scene-close.html"),
+      validCompositionHtml("close", 3),
+      "utf-8"
+    );
+
+    const r = await executeSceneBuild({ projectDir, mode: "agent" });
+
+    expect(r.success).toBe(false);
+    expect(r.code).toBe("SCENE_REPAIR_FAILED");
+    expect(r.sceneRepair?.status).toBe("fail");
+    expect(r.sceneRepair?.retryWith).toContain(`vibe scene repair --project ${projectDir} --json`);
+    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
+    expect(executeSceneRender).not.toHaveBeenCalled();
+  });
+
+  it("does not run scene repair for assets-only builds", async () => {
+    const r = await executeSceneBuild({ projectDir, stage: "assets" });
+    expect(r.success).toBe(true);
+    expect(r.phase).toBe("assets-only");
+    expect(r.sceneRepair?.ran).toBe(false);
+  });
+
   it("frontmatter providers.tts is used as the default when no CLI flag", async () => {
     await executeSceneBuild({ projectDir });
     expect(resolveTtsProvider).toHaveBeenCalledWith("kokoro");
@@ -221,14 +365,57 @@ describe("executeSceneBuild", () => {
     rmSync(join(projectDir, "STORYBOARD.md"));
     const r = await executeSceneBuild({ projectDir });
     expect(r.success).toBe(false);
-    expect(r.error).toContain("STORYBOARD.md not found");
+    expect(r.code).toBe("STORYBOARD_VALIDATION_FAILED");
+    expect(r.validation?.issues).toEqual([
+      expect.objectContaining({ code: "STORYBOARD_NOT_FOUND" }),
+    ]);
   });
 
   it("returns structured failure when storyboard has no beats", async () => {
     writeFileSync(join(projectDir, "STORYBOARD.md"), "# Empty\n");
     const r = await executeSceneBuild({ projectDir });
     expect(r.success).toBe(false);
-    expect(r.error).toContain("no `## Beat …` headings");
+    expect(r.code).toBe("STORYBOARD_VALIDATION_FAILED");
+    expect(r.validation?.issues).toEqual([expect.objectContaining({ code: "NO_BEATS" })]);
+  });
+
+  it("fails validation before provider dispatch", async () => {
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      `# Invalid cues
+
+## Beat hook — Hook
+
+\`\`\`yaml
+duration: -3
+narration: "This should not dispatch."
+backdrop: "This should not dispatch."
+\`\`\`
+`
+    );
+
+    const r = await executeSceneBuild({ projectDir, maxCostUsd: 0 });
+
+    expect(r.success).toBe(false);
+    expect(r.phase).toBe("failed");
+    expect(r.code).toBe("STORYBOARD_VALIDATION_FAILED");
+    expect(r.validation?.ok).toBe(false);
+    expect(r.validation?.issues).toEqual([
+      expect.objectContaining({ code: "INVALID_DURATION", beatId: "hook" }),
+    ]);
+    expect(r.retryWith).toEqual([
+      `vibe storyboard validate ${projectDir} --json`,
+      `vibe storyboard revise ${projectDir} --from "<request>" --dry-run --json`,
+    ]);
+    expect(resolveTtsProvider).not.toHaveBeenCalled();
+    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
+    expect(executeSceneRender).not.toHaveBeenCalled();
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.code).toBe("STORYBOARD_VALIDATION_FAILED");
+    expect(report.validation.ok).toBe(false);
+    expect(report.retryWith).toEqual(r.retryWith);
   });
 
   it("compose failure surfaces with beat outcomes preserved", async () => {
@@ -254,7 +441,66 @@ describe("executeSceneBuild", () => {
 
     expect(ttsCall).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ voice: "af_heart" }),
+      expect.objectContaining({ voice: "af_heart" })
     );
+  });
+
+  it("pauses build with job records when video and music cues start async work", async () => {
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      `# Async assets
+
+## Beat hook — Hook
+
+\`\`\`yaml
+duration: 4
+video: "Slow camera push across the product."
+music: "Minimal confident pulse."
+\`\`\`
+`
+    );
+    vi.mocked(executeVideoGenerate).mockResolvedValueOnce({
+      success: true,
+      taskId: "video_task_1",
+      status: "processing",
+      provider: "runway",
+    });
+    vi.mocked(executeMusic).mockResolvedValueOnce({
+      success: true,
+      taskId: "music_task_1",
+      status: "processing",
+      provider: "replicate",
+      duration: 4,
+    });
+
+    const r = await executeSceneBuild({
+      projectDir,
+      videoProvider: "runway",
+      musicProvider: "replicate",
+    });
+
+    expect(r.success).toBe(true);
+    expect(r.phase).toBe("pending-jobs");
+    expect(r.jobs).toHaveLength(2);
+    expect(r.beats[0].videoStatus).toBe("pending");
+    expect(r.beats[0].musicStatus).toBe("pending");
+    expect(r.beats[0].videoJobId).toBeDefined();
+    expect(r.beats[0].musicJobId).toBeDefined();
+    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
+    expect(executeSceneRender).not.toHaveBeenCalled();
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.kind).toBe("build");
+    expect(report.phase).toBe("pending-jobs");
+    expect(report.status).toBe("running");
+    expect(report.currentStage).toBe("assets");
+    expect(report.beatSummary).toMatchObject({
+      total: 1,
+      assetsReady: 0,
+      compositionsReady: 0,
+      needsAuthor: ["hook"],
+    });
+    expect(report.jobs).toHaveLength(2);
+    expect(report.retryWith).toContain(`vibe status project ${projectDir} --refresh --json`);
   });
 });

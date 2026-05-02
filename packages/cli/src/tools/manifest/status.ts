@@ -10,9 +10,9 @@ import { defineTool, type AnyTool } from "../define-tool.js";
 import {
   findProjectRoot,
   inspectProjectStatus,
+  makeJobStatusResult,
   readJobRecord,
   refreshJobRecord,
-  retryWithForJob,
 } from "../../commands/_shared/status-jobs.js";
 
 export const statusJobTool = defineTool({
@@ -33,14 +33,11 @@ export const statusJobTool = defineTool({
     const record = await readJobRecord(args.jobId, projectDir);
     if (!record) return { success: false, error: `Job not found: ${args.jobId}` };
     const result = args.refresh === false
-      ? {
-          schemaVersion: "1" as const,
-          job: record,
+      ? makeJobStatusResult(record, {
           refreshed: false,
           live: { supported: false },
-          warnings: [] as string[],
-          retryWith: retryWithForJob(record),
-        }
+          warnings: [],
+        })
       : await refreshJobRecord(record, {
           wait: args.wait,
           output: args.output ? resolve(ctx.workingDirectory, args.output) : undefined,
@@ -74,7 +71,7 @@ export const statusProjectTool = defineTool({
       success: true,
       data: result as unknown as Record<string, unknown>,
       humanLines: [
-        `Project status: ${result.jobs.active} active job(s), ${result.jobs.failed} failed job(s)`,
+        `Project status: ${result.status} (${result.currentStage}), ${result.jobs.active} active job(s), ${result.jobs.failed} failed job(s)`,
         ...(result.build ? [`build: ${result.build.phase ?? "unknown"}`] : []),
         ...(result.review ? [`review: ${result.review.status ?? "unknown"} score ${result.review.score ?? "-"}`] : []),
       ],

@@ -11,6 +11,7 @@ import {
   setStoryboardCue,
   validateStoryboardMarkdown,
 } from "../../commands/_shared/storyboard-edit.js";
+import { executeStoryboardRevision } from "../../commands/_shared/storyboard-revise.js";
 import { createBuildPlan } from "../../commands/_shared/build-plan.js";
 
 const projectDirSchema = z.object({
@@ -144,6 +145,41 @@ export const storyboardMoveTool = defineTool({
   },
 });
 
+export const storyboardReviseTool = defineTool({
+  name: "storyboard_revise",
+  category: "storyboard",
+  cost: "low",
+  description:
+    "Revise an existing STORYBOARD.md from a natural-language request. Reads project context, validates the revised storyboard, and writes unless dryRun is true.",
+  schema: z.object({
+    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    request: z.string().describe("Revision request, e.g. 'make the hook punchier and shorten to 30 seconds'."),
+    durationSec: z.number().optional().describe("Target total duration in seconds."),
+    composer: z.enum(["claude", "openai", "gemini"]).optional().describe("Revision LLM provider. Defaults to project config or available API keys."),
+    dryRun: z.boolean().optional().describe("Preview the revised storyboard without writing."),
+  }),
+  async execute(args, ctx) {
+    const projectDir = args.projectDir ? resolve(ctx.workingDirectory, args.projectDir) : ctx.workingDirectory;
+    const result = await executeStoryboardRevision({
+      projectDir,
+      request: args.request,
+      durationSec: args.durationSec,
+      composer: args.composer,
+      dryRun: args.dryRun ?? false,
+    });
+    return {
+      success: result.success,
+      data: result as unknown as Record<string, unknown>,
+      humanLines: [
+        result.success
+          ? `Storyboard revised: ${result.summary || result.changedBeats.join(", ") || "ok"}`
+          : `Storyboard revision failed: ${result.message ?? result.code ?? "unknown error"}`,
+      ],
+      error: result.success ? undefined : result.message ?? result.code,
+    };
+  },
+});
+
 export const planTool = defineTool({
   name: "plan",
   category: "storyboard",
@@ -168,7 +204,7 @@ export const planTool = defineTool({
     return {
       success: plan.validation.ok,
       data: plan as unknown as Record<string, unknown>,
-      humanLines: [`Plan: ${plan.beats.length} beat(s), missing=${plan.missing.join(", ") || "none"}, est=$${plan.estimatedCostUsd.toFixed(2)}`],
+      humanLines: [`Plan ${plan.status}: ${plan.beats.length} beat(s), missing=${plan.missing.join(", ") || "none"}, est=$${plan.estimatedCostUsd.toFixed(2)}`],
       error: plan.validation.ok ? undefined : "Storyboard validation failed",
     };
   },
@@ -180,5 +216,6 @@ export const storyboardTools: readonly AnyTool[] = [
   storyboardGetTool as unknown as AnyTool,
   storyboardSetTool as unknown as AnyTool,
   storyboardMoveTool as unknown as AnyTool,
+  storyboardReviseTool as unknown as AnyTool,
   planTool as unknown as AnyTool,
 ];

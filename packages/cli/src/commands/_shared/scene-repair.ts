@@ -1,10 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
-import {
-  runHyperframeLint,
-  type PreparedHyperframeLintInput,
-} from "@hyperframes/producer";
+import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframes/producer";
 
 import {
   applyMechanicalFixes,
@@ -26,6 +23,7 @@ export interface SceneRepairOptions {
   projectDir: string;
   rootRel?: string;
   dryRun?: boolean;
+  includeRoot?: boolean;
 }
 
 export interface SceneRepairResult {
@@ -47,7 +45,7 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
   const dryRun = opts.dryRun ?? false;
   const { root, subs } = await discoverSceneFiles({ projectDir, rootRel: opts.rootRel });
   const targets: Array<{ abs: string; isSub: boolean }> = [];
-  if (root) targets.push({ abs: root, isSub: false });
+  if ((opts.includeRoot ?? true) && root) targets.push({ abs: root, isSub: false });
   for (const sub of subs) targets.push({ abs: sub, isSub: true });
 
   const fixed: FileFixResult[] = [];
@@ -67,7 +65,11 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
         await writeFile(target.abs, nextHtml, "utf-8");
         fixed.push(item);
       }
-      files.push({ file: rel, isSubComposition: target.isSub, findings: lintHtml(nextHtml, rel, target.isSub) });
+      files.push({
+        file: rel,
+        isSubComposition: target.isSub,
+        findings: lintHtml(nextHtml, rel, target.isSub),
+      });
     } else {
       files.push({ file: rel, isSubComposition: target.isSub, findings });
     }
@@ -75,9 +77,13 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
 
   const remainingIssues = lintFilesToIssues(files);
   const status = statusFromIssues(remainingIssues);
-  const retryWith = status === "fail"
-    ? [`vibe scene lint --project ${projectDir} --json`, "Edit remaining scene HTML findings with the host agent."]
-    : [];
+  const retryWith =
+    status === "fail"
+      ? [
+          `vibe scene lint --project ${projectDir} --json`,
+          "Edit remaining scene HTML findings with the host agent.",
+        ]
+      : [];
 
   return {
     schemaVersion: "1",
@@ -119,4 +125,3 @@ function lintFilesToIssues(files: FileLintResult[]): ReviewIssue[] {
   }
   return issues;
 }
-

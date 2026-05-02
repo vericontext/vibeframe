@@ -16,8 +16,8 @@ describe("@vibeframe/mcp-server", () => {
       expect(tools.length).toBeGreaterThan(0);
     });
 
-    it("should have 81 tools total", () => {
-      expect(tools.length).toBe(81);
+    it("should have 82 tools total", () => {
+      expect(tools.length).toBe(82);
     });
 
     it("should have correct tool structure", () => {

@@ -1,13 +1,30 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 
 import { executeVideoStatus } from "../ai-video.js";
 import { executeMusicStatus } from "../generate/music-status.js";
+import { parseStoryboard } from "./storyboard-parse.js";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "unknown";
 export type JobType = "generate-video" | "generate-music";
+export type ProjectWorkflowStatus =
+  | "empty"
+  | "ready"
+  | "running"
+  | "needs-author"
+  | "failed"
+  | "done"
+  | "warn";
+export type ProjectCurrentStage =
+  | "init"
+  | "assets"
+  | "compose"
+  | "sync"
+  | "render"
+  | "review"
+  | "done";
 
 export interface JobRecord {
   schemaVersion: "1";
@@ -25,7 +42,9 @@ export interface JobRecord {
   providerTaskType?: "text2video" | "image2video";
   progress?: number;
   resultUrl?: string;
+  beatId?: string;
   outputPath?: string;
+  cachePath?: string;
   error?: string;
   promptPreview?: string;
   retryWith: string[];
@@ -45,7 +64,9 @@ export interface CreateJobRecordOptions {
   prompt?: string;
   progress?: number;
   resultUrl?: string;
+  beatId?: string;
   outputPath?: string;
+  cachePath?: string;
   error?: string;
 }
 
@@ -58,6 +79,17 @@ export interface RefreshJobOptions {
 
 export interface JobStatusResult {
   schemaVersion: "1";
+  kind: "job";
+  id: string;
+  jobType: JobType;
+  status: JobStatus;
+  provider: string;
+  providerTaskId: string;
+  providerTaskType?: "text2video" | "image2video";
+  createdAt: string;
+  updatedAt: string;
+  progress?: JobProgress;
+  result: JobResult | null;
   job: JobRecord;
   refreshed: boolean;
   live: {
@@ -70,7 +102,11 @@ export interface JobStatusResult {
 
 export interface ProjectStatusResult {
   schemaVersion: "1";
+  kind: "project";
   project: string;
+  status: ProjectWorkflowStatus;
+  currentStage: ProjectCurrentStage;
+  beats: ProjectBeatReadiness;
   build: BuildSummary | null;
   review: ReviewSummary | null;
   jobs: {
@@ -88,12 +124,19 @@ export interface ProjectStatusResult {
 
 export interface BuildSummary {
   reportPath: string;
+  kind?: string;
   success?: boolean;
   phase?: string;
+  status?: string;
+  currentStage?: string;
   selectedStage?: string;
   outputPath?: string;
+  estimatedCostUsd?: number;
+  costUsd?: number;
+  beats?: ProjectBeatReadiness;
   updatedAt?: string;
   warnings: unknown[];
+  retryWith: string[];
 }
 
 export interface ReviewSummary {
@@ -102,7 +145,10 @@ export interface ReviewSummary {
   status?: string;
   score?: number;
   issueCount: number;
+  errorCount: number;
+  warningCount: number;
   updatedAt?: string;
+  retryWith: string[];
 }
 
 export interface JobSummary {
@@ -114,11 +160,32 @@ export interface JobSummary {
   providerTaskType?: string;
   progress?: number;
   resultUrl?: string;
+  beatId?: string;
   outputPath?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
   retryWith: string[];
+}
+
+export interface JobProgress {
+  percent?: number;
+  phase: string;
+  providerStatus?: string;
+}
+
+export interface JobResult {
+  url?: string;
+  outputPath?: string;
+  cachePath?: string;
+  error?: string;
+}
+
+export interface ProjectBeatReadiness {
+  total: number;
+  assetsReady: number;
+  compositionsReady: number;
+  needsAuthor: string[];
 }
 
 export function findProjectRoot(start = process.cwd()): string {
@@ -149,13 +216,21 @@ export function normalizeJobStatus(status: unknown): JobStatus {
   if (value === "failed" || value === "error") return "failed";
   if (value === "cancelled" || value === "canceled") return "cancelled";
   if (value === "queued" || value === "pending") return "queued";
-  if (value === "running" || value === "processing" || value === "in_progress" || value === "started") return "running";
+  if (
+    value === "running" ||
+    value === "processing" ||
+    value === "in_progress" ||
+    value === "started"
+  )
+    return "running";
   return "unknown";
 }
 
 export function createJobRecord(opts: CreateJobRecordOptions): JobRecord {
   const now = opts.now ?? new Date();
-  const projectDir = resolve(opts.projectDir ?? findProjectRoot(opts.workingDirectory ?? process.cwd()));
+  const projectDir = resolve(
+    opts.projectDir ?? findProjectRoot(opts.workingDirectory ?? process.cwd())
+  );
   const workingDirectory = resolve(opts.workingDirectory ?? process.cwd());
   const id = opts.id ?? makeJobId(opts.providerTaskId, now);
   const base: JobRecord = {
@@ -173,7 +248,9 @@ export function createJobRecord(opts: CreateJobRecordOptions): JobRecord {
     providerTaskType: opts.providerTaskType,
     progress: opts.progress,
     resultUrl: opts.resultUrl,
+    beatId: opts.beatId,
     outputPath: opts.outputPath,
+    cachePath: opts.cachePath,
     error: opts.error,
     promptPreview: previewPrompt(opts.prompt),
     retryWith: [],
@@ -191,7 +268,11 @@ export async function createAndWriteJobRecord(opts: CreateJobRecordOptions): Pro
 export async function writeJobRecord(record: JobRecord): Promise<void> {
   const dir = jobsDir(record.projectDir);
   await mkdir(dir, { recursive: true });
-  await writeFile(jobRecordPath(record.id, record.projectDir), JSON.stringify(stripUndefined(record), null, 2) + "\n", "utf-8");
+  await writeFile(
+    jobRecordPath(record.id, record.projectDir),
+    JSON.stringify(stripUndefined(record), null, 2) + "\n",
+    "utf-8"
+  );
 }
 
 export async function readJobRecord(jobId: string, projectDir?: string): Promise<JobRecord | null> {
@@ -219,25 +300,28 @@ export async function listJobRecords(projectDir: string): Promise<JobRecord[]> {
   return records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function refreshJobRecord(record: JobRecord, opts: RefreshJobOptions = {}): Promise<JobStatusResult> {
+export async function refreshJobRecord(
+  record: JobRecord,
+  opts: RefreshJobOptions = {}
+): Promise<JobStatusResult> {
   const warnings: string[] = [];
   const live = liveSupport(record);
   if (!live.supported) {
-    warnings.push(`Live status is not supported for ${record.provider} ${record.jobType} jobs yet.`);
-    return {
-      schemaVersion: "1",
-      job: record,
+    warnings.push(
+      `Live status is not supported for ${record.provider} ${record.jobType} jobs yet.`
+    );
+    return makeJobStatusResult(record, {
       refreshed: false,
       live,
       warnings,
-      retryWith: retryWithForJob(record),
-    };
+    });
   }
 
   let updated = record;
   try {
     if (record.jobType === "generate-video") {
-      const output = opts.output ? resolve(opts.workingDirectory ?? process.cwd(), opts.output) : undefined;
+      const output = resolveRefreshOutput(record, opts);
+      if (output) await mkdir(dirname(output), { recursive: true });
       const result = await executeVideoStatus({
         taskId: record.providerTaskId,
         provider: record.provider as "runway" | "kling",
@@ -253,12 +337,14 @@ export async function refreshJobRecord(record: JobRecord, opts: RefreshJobOption
         outputPath: result.outputPath,
         error: result.error,
       });
+      await maybeCacheOutput(updated);
     } else if (record.jobType === "generate-music") {
       const result = await refreshMusicStatus(record.providerTaskId, opts.wait);
       if (!result.success) throw new Error(result.error ?? "Music status check failed");
       let outputPath: string | undefined;
-      if (opts.output && result.audioUrl) {
-        outputPath = await downloadUrl(result.audioUrl, resolve(opts.workingDirectory ?? process.cwd(), opts.output));
+      const output = resolveRefreshOutput(record, opts);
+      if (output && result.audioUrl) {
+        outputPath = await downloadUrl(result.audioUrl, output);
       }
       updated = updateRecordFromProvider(record, {
         status: result.status,
@@ -266,31 +352,29 @@ export async function refreshJobRecord(record: JobRecord, opts: RefreshJobOption
         outputPath,
         error: result.error,
       });
+      await maybeCacheOutput(updated);
     }
     if (opts.write !== false) await writeJobRecord(updated);
-    return {
-      schemaVersion: "1",
-      job: updated,
+    return makeJobStatusResult(updated, {
       refreshed: true,
       live,
       warnings,
-      retryWith: retryWithForJob(updated),
-    };
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     warnings.push(message);
-    return {
-      schemaVersion: "1",
-      job: record,
+    return makeJobStatusResult(record, {
       refreshed: false,
       live: { ...live, error: message },
       warnings,
-      retryWith: retryWithForJob(record),
-    };
+    });
   }
 }
 
-export async function inspectProjectStatus(projectDirArg: string, opts: { refresh?: boolean } = {}): Promise<ProjectStatusResult> {
+export async function inspectProjectStatus(
+  projectDirArg: string,
+  opts: { refresh?: boolean } = {}
+): Promise<ProjectStatusResult> {
   const project = resolve(projectDirArg);
   const warnings: string[] = [];
   let records = await listJobRecords(project);
@@ -308,17 +392,34 @@ export async function inspectProjectStatus(projectDirArg: string, opts: { refres
     records = refreshed.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
+  const build = await readBuildSummary(project);
+  const review = await readReviewSummary(project);
+  const beats = await readProjectBeatReadiness(project, build, records);
+  const jobs = summarizeJobs(records);
+  const workflow = deriveProjectWorkflow({ project, build, review, beats, jobs });
   const retryWith = [
     `vibe status project ${project} --json`,
-    ...records.filter((record) => isActiveStatus(record.status)).map((record) => `vibe status job ${record.id} --project ${project} --json`),
+    ...records
+      .filter((record) => isActiveStatus(record.status))
+      .map((record) => `vibe status job ${record.id} --project ${project} --json`),
+    ...(records.some((record) => isActiveStatus(record.status))
+      ? [`vibe status project ${project} --refresh --json`]
+      : []),
+    ...(build?.retryWith ?? []),
+    ...(review?.retryWith ?? []),
+    ...workflow.retryWith,
   ];
 
   return {
     schemaVersion: "1",
+    kind: "project",
     project,
-    build: await readBuildSummary(project),
-    review: await readReviewSummary(project),
-    jobs: summarizeJobs(records),
+    status: workflow.status,
+    currentStage: workflow.currentStage,
+    beats,
+    build,
+    review,
+    jobs,
     warnings,
     retryWith: unique(retryWith),
   };
@@ -334,6 +435,7 @@ export function summarizeJob(record: JobRecord): JobSummary {
     providerTaskType: record.providerTaskType,
     progress: record.progress,
     resultUrl: record.resultUrl,
+    beatId: record.beatId,
     outputPath: record.outputPath,
     error: record.error,
     createdAt: record.createdAt,
@@ -347,6 +449,77 @@ export function retryWithForJob(record: JobRecord): string[] {
     `vibe status job ${record.id} --project ${record.projectDir} --json`,
     providerStatusCommand(record),
   ]);
+}
+
+export function makeJobStatusResult(
+  record: JobRecord,
+  opts: {
+    refreshed: boolean;
+    live: { supported: boolean; error?: string };
+    warnings?: string[];
+  }
+): JobStatusResult {
+  return stripUndefined({
+    schemaVersion: "1" as const,
+    kind: "job" as const,
+    id: record.id,
+    jobType: record.jobType,
+    status: record.status,
+    provider: record.provider,
+    providerTaskId: record.providerTaskId,
+    providerTaskType: record.providerTaskType,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    progress: jobProgress(record),
+    result: jobResult(record),
+    job: record,
+    refreshed: opts.refreshed,
+    live: opts.live,
+    warnings: opts.warnings ?? [],
+    retryWith: retryWithForJob(record),
+  });
+}
+
+function jobProgress(record: JobRecord): JobProgress | undefined {
+  if (
+    record.status === "completed" ||
+    record.status === "failed" ||
+    record.status === "cancelled"
+  ) {
+    if (record.progress === undefined && !record.providerStatus) return undefined;
+  }
+  return stripUndefined({
+    percent: record.progress,
+    phase: record.providerStatus ?? statusPhase(record.status),
+    providerStatus: record.providerStatus,
+  });
+}
+
+function jobResult(record: JobRecord): JobResult | null {
+  if (!record.resultUrl && !record.outputPath && !record.cachePath && !record.error) return null;
+  return stripUndefined({
+    url: record.resultUrl,
+    outputPath: record.outputPath,
+    cachePath: record.cachePath,
+    error: record.error,
+  });
+}
+
+function statusPhase(status: JobStatus): string {
+  switch (status) {
+    case "queued":
+      return "queued";
+    case "running":
+      return "provider-processing";
+    case "completed":
+      return "complete";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+    case "unknown":
+      return "unknown";
+  }
 }
 
 function makeJobId(providerTaskId: string, now: Date): string {
@@ -371,7 +544,11 @@ function jobRecordPath(jobId: string, projectDir: string): string {
 
 function parseJobRecord(raw: string): JobRecord | null {
   const parsed = JSON.parse(raw) as Partial<JobRecord>;
-  if (parsed.schemaVersion !== "1" || typeof parsed.id !== "string" || typeof parsed.providerTaskId !== "string") {
+  if (
+    parsed.schemaVersion !== "1" ||
+    typeof parsed.id !== "string" ||
+    typeof parsed.providerTaskId !== "string"
+  ) {
     return null;
   }
   return {
@@ -381,13 +558,16 @@ function parseJobRecord(raw: string): JobRecord | null {
   } as JobRecord;
 }
 
-function updateRecordFromProvider(record: JobRecord, result: {
-  status?: string;
-  progress?: number;
-  resultUrl?: string;
-  outputPath?: string;
-  error?: string;
-}): JobRecord {
+function updateRecordFromProvider(
+  record: JobRecord,
+  result: {
+    status?: string;
+    progress?: number;
+    resultUrl?: string;
+    outputPath?: string;
+    error?: string;
+  }
+): JobRecord {
   const next: JobRecord = {
     ...record,
     status: normalizeJobStatus(result.status ?? record.status),
@@ -402,8 +582,16 @@ function updateRecordFromProvider(record: JobRecord, result: {
   return stripUndefined(next);
 }
 
+function resolveRefreshOutput(record: JobRecord, opts: RefreshJobOptions): string | undefined {
+  if (opts.output) return resolve(opts.workingDirectory ?? process.cwd(), opts.output);
+  return record.outputPath ? resolve(record.outputPath) : undefined;
+}
+
 function liveSupport(record: JobRecord): { supported: boolean; error?: string } {
-  if (record.jobType === "generate-video" && (record.provider === "runway" || record.provider === "kling")) {
+  if (
+    record.jobType === "generate-video" &&
+    (record.provider === "runway" || record.provider === "kling")
+  ) {
     return { supported: true };
   }
   if (record.jobType === "generate-music" && record.provider === "replicate") {
@@ -412,7 +600,10 @@ function liveSupport(record: JobRecord): { supported: boolean; error?: string } 
   return { supported: false };
 }
 
-async function refreshMusicStatus(taskId: string, wait?: boolean): Promise<{
+async function refreshMusicStatus(
+  taskId: string,
+  wait?: boolean
+): Promise<{
   success: boolean;
   status?: string;
   audioUrl?: string;
@@ -431,8 +622,19 @@ async function downloadUrl(url: string, outputPath: string): Promise<string> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
+  await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, buffer);
   return outputPath;
+}
+
+async function maybeCacheOutput(record: JobRecord): Promise<void> {
+  if (record.status !== "completed" || !record.outputPath || !record.cachePath) return;
+  try {
+    await mkdir(dirname(record.cachePath), { recursive: true });
+    await copyFile(record.outputPath, record.cachePath);
+  } catch {
+    // Cache writes should not hide provider status refresh success.
+  }
 }
 
 async function readBuildSummary(projectDir: string): Promise<BuildSummary | null> {
@@ -440,14 +642,25 @@ async function readBuildSummary(projectDir: string): Promise<BuildSummary | null
   const report = await readJson(reportPath);
   if (!report) return null;
   const info = await statOrNull(reportPath);
+  const beatSummary = projectBeatReadinessFromUnknown(report.beatSummary);
   return stripUndefined({
     reportPath,
+    kind: typeof report.kind === "string" ? report.kind : undefined,
     success: typeof report.success === "boolean" ? report.success : undefined,
     phase: typeof report.phase === "string" ? report.phase : undefined,
+    status: typeof report.status === "string" ? report.status : undefined,
+    currentStage: typeof report.currentStage === "string" ? report.currentStage : undefined,
     selectedStage: typeof report.selectedStage === "string" ? report.selectedStage : undefined,
     outputPath: typeof report.outputPath === "string" ? report.outputPath : undefined,
+    estimatedCostUsd:
+      typeof report.estimatedCostUsd === "number" ? report.estimatedCostUsd : undefined,
+    costUsd: typeof report.costUsd === "number" ? report.costUsd : undefined,
+    beats: beatSummary ?? beatReadinessFromBuildBeats(projectDir, report.beats),
     updatedAt: info?.mtime.toISOString(),
     warnings: Array.isArray(report.warnings) ? report.warnings : [],
+    retryWith: Array.isArray(report.retryWith)
+      ? report.retryWith.filter((item): item is string => typeof item === "string")
+      : [],
   });
 }
 
@@ -456,13 +669,17 @@ async function readReviewSummary(projectDir: string): Promise<ReviewSummary | nu
   const report = await readJson(reportPath);
   if (!report) return null;
   const info = await statOrNull(reportPath);
+  const issues = Array.isArray(report.issues) ? report.issues : [];
   return stripUndefined({
     reportPath,
     kind: typeof report.kind === "string" ? report.kind : undefined,
     status: typeof report.status === "string" ? report.status : undefined,
     score: typeof report.score === "number" ? report.score : undefined,
-    issueCount: Array.isArray(report.issues) ? report.issues.length : 0,
+    issueCount: issues.length,
+    errorCount: issues.filter((issue) => issueSeverity(issue) === "error").length,
+    warningCount: issues.filter((issue) => issueSeverity(issue) === "warning").length,
     updatedAt: info?.mtime.toISOString(),
+    retryWith: stringArray(report.retryWith),
   });
 }
 
@@ -478,13 +695,292 @@ function summarizeJobs(records: JobRecord[]): ProjectStatusResult["jobs"] {
   };
 }
 
+async function readProjectBeatReadiness(
+  projectDir: string,
+  build: BuildSummary | null,
+  records: JobRecord[]
+): Promise<ProjectBeatReadiness> {
+  if (build) {
+    const report = await readJson(build.reportPath);
+    const fromBeats = beatReadinessFromBuildBeats(projectDir, report?.beats, records, report?.jobs);
+    if (fromBeats) return fromBeats;
+    if (build.beats) return augmentBeatReadinessFromJobs(build.beats, records, report?.jobs);
+  }
+
+  const storyboardPath = join(projectDir, "STORYBOARD.md");
+  if (!existsSync(storyboardPath)) {
+    return { total: 0, assetsReady: 0, compositionsReady: 0, needsAuthor: [] };
+  }
+
+  try {
+    const parsed = parseStoryboard(await readFile(storyboardPath, "utf-8"));
+    const needsAuthor: string[] = [];
+    let compositionsReady = 0;
+    for (const beat of parsed.beats) {
+      if (existsSync(join(projectDir, "compositions", `scene-${beat.id}.html`))) {
+        compositionsReady += 1;
+      } else {
+        needsAuthor.push(beat.id);
+      }
+    }
+    return {
+      total: parsed.beats.length,
+      assetsReady: 0,
+      compositionsReady,
+      needsAuthor,
+    };
+  } catch {
+    return { total: 0, assetsReady: 0, compositionsReady: 0, needsAuthor: [] };
+  }
+}
+
+function deriveProjectWorkflow(opts: {
+  project: string;
+  build: BuildSummary | null;
+  review: ReviewSummary | null;
+  beats: ProjectBeatReadiness;
+  jobs: ProjectStatusResult["jobs"];
+}): { status: ProjectWorkflowStatus; currentStage: ProjectCurrentStage; retryWith: string[] } {
+  const retryWith: string[] = [];
+  const hasStoryboard = existsSync(join(opts.project, "STORYBOARD.md"));
+
+  if (!hasStoryboard && !opts.build) {
+    retryWith.push(`vibe init ${opts.project} --from "<brief>" --json`);
+    return { status: "empty", currentStage: "init", retryWith };
+  }
+
+  if (
+    opts.jobs.failed > 0 ||
+    opts.build?.success === false ||
+    opts.build?.phase === "failed" ||
+    opts.build?.status === "failed"
+  ) {
+    retryWith.push(`vibe build ${opts.project} --stage assets --force --json`);
+    return {
+      status: "failed",
+      currentStage: currentStageFromBuild(opts.build) ?? (opts.jobs.failed > 0 ? "assets" : "init"),
+      retryWith,
+    };
+  }
+
+  if (opts.jobs.active > 0) {
+    retryWith.push(`vibe status project ${opts.project} --refresh --json`);
+    return { status: "running", currentStage: "assets", retryWith };
+  }
+
+  if (opts.build?.phase === "pending-jobs" || opts.build?.status === "running") {
+    if (opts.beats.total > 0 && opts.beats.assetsReady >= opts.beats.total) {
+      retryWith.push(`vibe build ${opts.project} --stage compose --json`);
+      return { status: "ready", currentStage: "compose", retryWith };
+    }
+    retryWith.push(`vibe status project ${opts.project} --refresh --json`);
+    return { status: "running", currentStage: "assets", retryWith };
+  }
+
+  if (opts.build?.phase === "needs-author" || opts.build?.status === "needs-author") {
+    retryWith.push(`vibe build ${opts.project} --stage compose --json`);
+    return { status: "needs-author", currentStage: "compose", retryWith };
+  }
+
+  if (opts.review?.status === "fail") {
+    retryWith.push(
+      ...(opts.review.retryWith.length > 0
+        ? opts.review.retryWith
+        : [`vibe inspect render ${opts.project} --json`])
+    );
+    return { status: "failed", currentStage: "review", retryWith };
+  }
+
+  if (opts.review?.status === "warn") {
+    retryWith.push(
+      ...(opts.review.retryWith.length > 0
+        ? opts.review.retryWith
+        : [`vibe inspect render ${opts.project} --json`])
+    );
+    return { status: "warn", currentStage: "review", retryWith };
+  }
+
+  if (opts.build?.phase === "done" || opts.build?.status === "done") {
+    return { status: "done", currentStage: "done", retryWith };
+  }
+
+  if (opts.build && opts.beats.total > 0 && opts.beats.compositionsReady < opts.beats.total) {
+    retryWith.push(`vibe build ${opts.project} --stage compose --json`);
+    return { status: "needs-author", currentStage: "compose", retryWith };
+  }
+
+  if (!opts.build) {
+    retryWith.push(`vibe plan ${opts.project} --json`, `vibe build ${opts.project} --json`);
+    return { status: "ready", currentStage: "assets", retryWith };
+  }
+
+  const currentStage =
+    currentStageFromBuild(opts.build) ?? nextStageAfterBuildPhase(opts.build.phase);
+  retryWith.push(
+    `vibe build ${opts.project} --stage ${currentStage === "done" ? "render" : currentStage} --json`
+  );
+  return { status: "ready", currentStage, retryWith };
+}
+
+function currentStageFromBuild(build: BuildSummary | null): ProjectCurrentStage | null {
+  const stage = build?.currentStage;
+  if (
+    stage === "assets" ||
+    stage === "compose" ||
+    stage === "sync" ||
+    stage === "render" ||
+    stage === "done"
+  ) {
+    return stage;
+  }
+  return null;
+}
+
+function nextStageAfterBuildPhase(phase: string | undefined): ProjectCurrentStage {
+  if (phase === "assets-only") return "compose";
+  if (phase === "compose-only") return "sync";
+  if (phase === "sync-only") return "render";
+  if (phase === "render-only" || phase === "done") return "done";
+  if (phase === "needs-author") return "compose";
+  return "assets";
+}
+
+function projectBeatReadinessFromUnknown(value: unknown): ProjectBeatReadiness | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const total = numberOrNull(record.total);
+  const assetsReady = numberOrNull(record.assetsReady);
+  const compositionsReady = numberOrNull(record.compositionsReady);
+  const needsAuthor = Array.isArray(record.needsAuthor)
+    ? record.needsAuthor.filter((item): item is string => typeof item === "string")
+    : null;
+  if (total === null || assetsReady === null || compositionsReady === null || needsAuthor === null)
+    return null;
+  return { total, assetsReady, compositionsReady, needsAuthor };
+}
+
+function beatReadinessFromBuildBeats(
+  projectDir: string,
+  beats: unknown,
+  records: JobRecord[] = [],
+  reportJobs: unknown = []
+): ProjectBeatReadiness | undefined {
+  if (!Array.isArray(beats)) return undefined;
+  let assetsReady = 0;
+  let compositionsReady = 0;
+  const needsAuthor: string[] = [];
+
+  for (const beat of beats) {
+    if (!beat || typeof beat !== "object") continue;
+    const record = beat as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : undefined;
+    if (buildBeatAssetsReady(record) || (id ? buildBeatJobsReady(id, records, reportJobs) : false))
+      assetsReady += 1;
+    const compositionPath =
+      typeof record.compositionPath === "string"
+        ? record.compositionPath
+        : id
+          ? `compositions/scene-${id}.html`
+          : undefined;
+    if (compositionPath && existsSync(resolve(projectDir, compositionPath))) {
+      compositionsReady += 1;
+    } else if (id) {
+      needsAuthor.push(id);
+    }
+  }
+
+  return {
+    total: beats.length,
+    assetsReady,
+    compositionsReady,
+    needsAuthor,
+  };
+}
+
+function augmentBeatReadinessFromJobs(
+  readiness: ProjectBeatReadiness,
+  records: JobRecord[],
+  reportJobs: unknown
+): ProjectBeatReadiness {
+  const readyJobBeats = new Set(
+    records
+      .filter(
+        (record) =>
+          record.beatId &&
+          jobHasResult(record) &&
+          buildBeatJobsReady(record.beatId, records, reportJobs)
+      )
+      .map((record) => record.beatId as string)
+  );
+  if (readyJobBeats.size === 0) return readiness;
+  return {
+    ...readiness,
+    assetsReady: Math.min(readiness.total, Math.max(readiness.assetsReady, readyJobBeats.size)),
+  };
+}
+
+function buildBeatJobsReady(beatId: string, records: JobRecord[], reportJobs: unknown): boolean {
+  const reported = Array.isArray(reportJobs)
+    ? reportJobs.filter(
+        (job): job is Record<string, unknown> =>
+          !!job && typeof job === "object" && (job as Record<string, unknown>).beatId === beatId
+      )
+    : [];
+  const relevant =
+    reported.length > 0
+      ? reported
+          .map((job) => {
+            const id = typeof job.id === "string" ? job.id : undefined;
+            return records.find((record) => record.id === id) ?? null;
+          })
+          .filter((record): record is JobRecord => record !== null)
+      : records.filter((record) => record.beatId === beatId);
+  return (
+    relevant.length > 0 &&
+    relevant.every((record) => record.status === "completed" && jobHasResult(record))
+  );
+}
+
+function jobHasResult(record: JobRecord): boolean {
+  return (
+    typeof record.outputPath === "string" ||
+    typeof record.resultUrl === "string" ||
+    typeof record.cachePath === "string"
+  );
+}
+
+function buildBeatAssetsReady(beat: Record<string, unknown>): boolean {
+  return ["narrationStatus", "backdropStatus", "videoStatus", "musicStatus"]
+    .map((key) => (typeof beat[key] === "string" ? beat[key] : undefined))
+    .every((status) => status !== "pending" && status !== "failed");
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function issueSeverity(issue: unknown): string | undefined {
+  if (!issue || typeof issue !== "object") return undefined;
+  const severity = (issue as Record<string, unknown>).severity;
+  return typeof severity === "string" ? severity : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+}
+
 function isActiveStatus(status: JobStatus): boolean {
   return status === "queued" || status === "running";
 }
 
 function providerStatusCommand(record: JobRecord): string | undefined {
   if (record.jobType === "generate-video") {
-    const type = record.provider === "kling" && record.providerTaskType ? ` --type ${record.providerTaskType}` : "";
+    const type =
+      record.provider === "kling" && record.providerTaskType
+        ? ` --type ${record.providerTaskType}`
+        : "";
     return `vibe generate video-status ${record.providerTaskId} -p ${record.provider}${type} --json`;
   }
   if (record.jobType === "generate-music" && record.provider === "replicate") {
@@ -521,7 +1017,9 @@ function stripUndefined<T extends object>(value: T): T {
 }
 
 function unique(items: Array<string | undefined>): string[] {
-  return [...new Set(items.filter((item): item is string => typeof item === "string" && item.length > 0))];
+  return [
+    ...new Set(items.filter((item): item is string => typeof item === "string" && item.length > 0)),
+  ];
 }
 
 function sleep(ms: number): Promise<void> {

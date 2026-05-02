@@ -11,88 +11,135 @@
 import { Command } from "commander";
 import { exitWithError, generalError, usageError } from "./output.js";
 import { getCostTier } from "./_shared/cost-tier.js";
+import {
+  PRODUCT_SURFACES,
+  isProductSurface,
+  productSurfaceForCommandPath,
+  type ProductSurface,
+} from "./_shared/product-surface.js";
 
 export const schemaCommand = new Command("schema")
   .description("Show JSON schema for a CLI command")
   .argument("[command]", "Command path (e.g., generate.image, edit.silence-cut)")
   .option("--list", "List all available command paths")
-  .option("--filter <tier>", "With --list, only show commands at the given cost tier (free | low | high | very-high)")
-  .action((commandPath: string | undefined, options: { list?: boolean; filter?: string }) => {
-    const program = schemaCommand.parent;
-    if (!program) {
-      exitWithError(generalError("Schema command must be registered on a program"));
-    }
-
-    if (options.list || !commandPath) {
-      const validTiers = new Set(["free", "low", "high", "very-high"]);
-      if (options.filter && !validTiers.has(options.filter)) {
-        exitWithError(usageError(
-          `Invalid --filter: ${options.filter}`,
-          `Must be one of: free, low, high, very-high (matches the cost field on each subcommand).`,
-        ));
+  .option(
+    "--filter <tier>",
+    "With --list, only show commands at the given cost tier (free | low | high | very-high)"
+  )
+  .option(
+    "--surface <surface>",
+    `With --list, only show commands at the given product surface (${PRODUCT_SURFACES.join(" | ")})`
+  )
+  .action(
+    (
+      commandPath: string | undefined,
+      options: { list?: boolean; filter?: string; surface?: string }
+    ) => {
+      const program = schemaCommand.parent;
+      if (!program) {
+        exitWithError(generalError("Schema command must be registered on a program"));
       }
-      listCommands(program, options.filter);
-      return;
-    }
 
-    const parts = commandPath.split(".");
+      if (options.list || !commandPath) {
+        const validTiers = new Set(["free", "low", "high", "very-high"]);
+        if (options.filter && !validTiers.has(options.filter)) {
+          exitWithError(
+            usageError(
+              `Invalid --filter: ${options.filter}`,
+              `Must be one of: free, low, high, very-high (matches the cost field on each subcommand).`
+            )
+          );
+        }
+        if (options.surface && !isProductSurface(options.surface)) {
+          exitWithError(
+            usageError(
+              `Invalid --surface: ${options.surface}`,
+              `Must be one of: ${PRODUCT_SURFACES.join(", ")} (matches the surface field on each command).`
+            )
+          );
+        }
+        listCommands(program, {
+          cost: options.filter,
+          surface: options.surface as ProductSurface | undefined,
+        });
+        return;
+      }
 
-    if (parts.length === 1) {
-      // Single command (e.g., "export", "setup", "doctor")
-      const cmd = program.commands.find(
-        (c: Command) => c.name() === parts[0]
+      const parts = commandPath.split(".");
+
+      if (parts.length === 1) {
+        // Single command (e.g., "export", "setup", "doctor")
+        const cmd = program.commands.find((c: Command) => c.name() === parts[0]);
+        if (!cmd) {
+          exitWithError(
+            usageError(
+              `Unknown command: ${parts[0]}`,
+              `Run 'vibe schema --list' to see all available commands.`
+            )
+          );
+        }
+        const schema = buildSchema(cmd as Command, parts[0], parts[0]);
+        console.log(JSON.stringify(schema, null, 2));
+        return;
+      }
+
+      if (parts.length !== 2) {
+        exitWithError(
+          usageError(
+            `Invalid command path: ${commandPath}. Use format: group.action (e.g., generate.image)`,
+            `Run 'vibe schema --list' to see all available commands.`
+          )
+        );
+      }
+
+      const [groupName, actionName] = parts;
+
+      const groupCmd = program.commands.find((c: Command) => c.name() === groupName);
+      if (!groupCmd) {
+        const availableGroups = program.commands
+          .filter((c: Command) => (c as Command).commands.length > 0)
+          .map((c: Command) => c.name())
+          .join(", ");
+        exitWithError(
+          usageError(`Unknown group: ${groupName}`, `Available groups: ${availableGroups}`)
+        );
+      }
+
+      const actionCmd = (groupCmd as Command).commands.find(
+        (c: Command) => c.name() === actionName
       );
-      if (!cmd) {
-        exitWithError(usageError(`Unknown command: ${parts[0]}`, `Run 'vibe schema --list' to see all available commands.`));
+      if (!actionCmd) {
+        const availableActions = (groupCmd as Command).commands
+          .map((c: Command) => c.name())
+          .join(", ");
+        exitWithError(
+          usageError(
+            `Unknown action: ${actionName} in group ${groupName}`,
+            `Available actions: ${availableActions}`
+          )
+        );
       }
-      const schema = buildSchema(cmd as Command, parts[0]);
+
+      const toolName = `${groupName}_${actionName.replace(/-/g, "_")}`;
+      const schema = buildSchema(actionCmd as Command, toolName, `${groupName}.${actionName}`);
       console.log(JSON.stringify(schema, null, 2));
-      return;
     }
-
-    if (parts.length !== 2) {
-      exitWithError(usageError(
-        `Invalid command path: ${commandPath}. Use format: group.action (e.g., generate.image)`,
-        `Run 'vibe schema --list' to see all available commands.`
-      ));
-    }
-
-    const [groupName, actionName] = parts;
-
-    const groupCmd = program.commands.find(
-      (c: Command) => c.name() === groupName
-    );
-    if (!groupCmd) {
-      const availableGroups = program.commands
-        .filter((c: Command) => (c as Command).commands.length > 0)
-        .map((c: Command) => c.name())
-        .join(", ");
-      exitWithError(usageError(`Unknown group: ${groupName}`, `Available groups: ${availableGroups}`));
-    }
-
-    const actionCmd = (groupCmd as Command).commands.find(
-      (c: Command) => c.name() === actionName
-    );
-    if (!actionCmd) {
-      const availableActions = (groupCmd as Command).commands
-        .map((c: Command) => c.name())
-        .join(", ");
-      exitWithError(usageError(`Unknown action: ${actionName} in group ${groupName}`, `Available actions: ${availableActions}`));
-    }
-
-    const toolName = `${groupName}_${actionName.replace(/-/g, "_")}`;
-    const schema = buildSchema(actionCmd as Command, toolName);
-    console.log(JSON.stringify(schema, null, 2));
-  });
+  );
 
 interface CommandListEntry {
   path: string;
   description: string;
+  surface: ProductSurface;
+  replacement?: string;
+  note?: string;
   /** Cost tier — present when the command opted in via `applyTier()`. */
   cost?: string;
 }
 
-function listCommands(program: Command, filter?: string): void {
+function listCommands(
+  program: Command,
+  filter?: { cost?: string; surface?: ProductSurface }
+): void {
   const commands: CommandListEntry[] = [];
   const skipTopLevel = new Set(["help", "schema"]);
 
@@ -109,8 +156,17 @@ function listCommands(program: Command, filter?: string): void {
       // `--filter` excludes anything that doesn't match. Untiered
       // commands (setup/doctor/init) drop out of *all* filtered
       // results — they never had a `cost` claim to filter on.
-      if (filter && cost !== filter) continue;
-      commands.push({ path: name, description: desc, ...(cost ? { cost } : {}) });
+      const surface = productSurfaceForCommandPath(name);
+      if (filter?.cost && cost !== filter.cost) continue;
+      if (filter?.surface && surface.surface !== filter.surface) continue;
+      commands.push({
+        path: name,
+        description: desc,
+        surface: surface.surface,
+        ...(surface.replacement ? { replacement: surface.replacement } : {}),
+        ...(surface.note ? { note: surface.note } : {}),
+        ...(cost ? { cost } : {}),
+      });
       continue;
     }
 
@@ -118,10 +174,16 @@ function listCommands(program: Command, filter?: string): void {
       const desc = (sub as Command).description() || "";
       if (desc.toLowerCase().includes("deprecated")) continue;
       const cost = getCostTier(sub as Command);
-      if (filter && cost !== filter) continue;
+      const path = `${name}.${(sub as Command).name()}`;
+      const surface = productSurfaceForCommandPath(path);
+      if (filter?.cost && cost !== filter.cost) continue;
+      if (filter?.surface && surface.surface !== filter.surface) continue;
       commands.push({
-        path: `${name}.${(sub as Command).name()}`,
+        path,
         description: desc,
+        surface: surface.surface,
+        ...(surface.replacement ? { replacement: surface.replacement } : {}),
+        ...(surface.note ? { note: surface.note } : {}),
         ...(cost ? { cost } : {}),
       });
     }
@@ -148,9 +210,7 @@ function extractEnumFromDescription(description: string): string[] | undefined {
   };
 
   // Pattern 1: "Provider: gemini, openai, grok"
-  const providerMatch = cleaned.match(
-    /(?:Provider|Providers?):\s*([a-z0-9,\s-]+?)$/i
-  );
+  const providerMatch = cleaned.match(/(?:Provider|Providers?):\s*([a-z0-9,\s-]+?)$/i);
   if (providerMatch) {
     const values = finalize(providerMatch[1].split(","));
     if (values) return values;
@@ -159,9 +219,7 @@ function extractEnumFromDescription(description: string): string[] | undefined {
   // Pattern 2: "<Multi-word label>: val1, val2, val3"
   // (extends the original "Style: vivid, natural" to allow 1-3-word labels
   //  and ratio-shaped values like "16:9")
-  const labeledMatch = cleaned.match(
-    /^([A-Z][a-z]+(?:\s+[a-z]+){0,2}):\s*([a-z0-9:,\s/-]+?)$/
-  );
+  const labeledMatch = cleaned.match(/^([A-Z][a-z]+(?:\s+[a-z]+){0,2}):\s*([a-z0-9:,\s/-]+?)$/);
   if (labeledMatch) {
     return finalize(labeledMatch[2].split(","));
   }
@@ -182,19 +240,14 @@ function extractEnumFromDescription(description: string): string[] | undefined {
     // Strip "or " from oxford-comma list ("a, b, or c" → "a, b, c")
     const values = rawValues.map((v) => v.replace(/^or\s+/i, "").trim());
     // Each value must look like an enum candidate: short, no spaces (or ratio-shaped)
-    const looksLikeEnum = values.every((v) =>
-      /^[a-z0-9][a-z0-9:/_-]*$/i.test(v) && v.length <= 24
-    );
+    const looksLikeEnum = values.every((v) => /^[a-z0-9][a-z0-9:/_-]*$/i.test(v) && v.length <= 24);
     if (looksLikeEnum && values.length >= 2 && values.length <= 12) return values;
   }
 
   return undefined;
 }
 
-function inferType(
-  opt: { flags: string; defaultValue?: unknown },
-  name: string
-): string {
+function inferType(opt: { flags: string; defaultValue?: unknown }, name: string): string {
   // Check flags for numeric hints
   const numericFlags = [
     "<number>",
@@ -250,7 +303,8 @@ function inferType(
 
 export function buildSchema(
   cmd: Command,
-  toolName: string
+  toolName: string,
+  commandPath = toolName.replace(/_/g, ".")
 ): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
@@ -276,9 +330,7 @@ export function buildSchema(
 
   // Extract options
   for (const opt of cmd.options) {
-    const name = camelCase(
-      opt.long?.replace(/^--/, "") || opt.short?.replace(/^-/, "") || ""
-    );
+    const name = camelCase(opt.long?.replace(/^--/, "") || opt.short?.replace(/^-/, "") || "");
     if (!name || name === "help") continue;
 
     const prop: Record<string, unknown> = {
@@ -286,10 +338,7 @@ export function buildSchema(
     };
 
     // Infer type
-    prop.type = inferType(
-      { flags: opt.flags, defaultValue: opt.defaultValue },
-      name
-    );
+    prop.type = inferType({ flags: opt.flags, defaultValue: opt.defaultValue }, name);
 
     // Extract enum values from description
     if (opt.description) {
@@ -315,10 +364,14 @@ export function buildSchema(
   // Cost tier is only stamped on subcommands that opt in via applyTier;
   // utility commands (setup/doctor/init/...) intentionally omit it.
   const cost = getCostTier(cmd);
+  const surface = productSurfaceForCommandPath(commandPath);
 
   return {
     name: toolName,
     description: cmd.description(),
+    surface: surface.surface,
+    ...(surface.replacement ? { replacement: surface.replacement } : {}),
+    ...(surface.note ? { note: surface.note } : {}),
     ...(cost ? { cost } : {}),
     parameters: {
       type: "object",

@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(97);
+      expect(tools.length).toBe(98);
     });
 
     it("should register all project tools (5)", () => {
@@ -221,11 +221,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     });
 
     it("should register all batch tools (3)", () => {
-      const batchTools = [
-        "batch_import",
-        "batch_concat",
-        "batch_apply_effect",
-      ];
+      const batchTools = ["batch_import", "batch_concat", "batch_apply_effect"];
       for (const name of batchTools) {
         expect(registry.get(name)).toBeDefined();
       }
@@ -280,10 +276,24 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       for (const tool of tools) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
+        expect(tool.surface).toMatch(/^(public|agent|advanced|legacy|internal)$/);
         expect(tool.parameters).toBeDefined();
         expect(tool.parameters.type).toBe("object");
         expect(tool.parameters.properties).toBeDefined();
       }
+    });
+
+    it("preserves product-surface replacement metadata from the manifest", () => {
+      expect(registry.get("generate_speech")).toMatchObject({
+        surface: "legacy",
+        replacement: "vibe generate narration",
+      });
+      expect(registry.get("scene_compose_prompts")).toMatchObject({
+        surface: "internal",
+      });
+      expect(registry.get("build")).toMatchObject({
+        surface: "public",
+      });
     });
 
     it("all tools should have required parameters listed", () => {
@@ -300,9 +310,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("all parameter properties should have type and description", () => {
       const tools = registry.getAll();
       for (const tool of tools) {
-        for (const paramDef of Object.values(
-          tool.parameters.properties
-        )) {
+        for (const paramDef of Object.values(tool.parameters.properties)) {
           const param = paramDef as { type?: string; description?: string };
           expect(param.type).toBeTruthy();
           expect(param.description).toBeTruthy();
@@ -546,15 +554,11 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const allTools = registry.getAll();
 
       const projectTools = allTools.filter((t) => t.name.startsWith("project_"));
-      const timelineTools = allTools.filter((t) =>
-        t.name.startsWith("timeline_")
-      );
+      const timelineTools = allTools.filter((t) => t.name.startsWith("timeline_"));
       const fsTools = allTools.filter((t) => t.name.startsWith("fs_"));
       const mediaTools = allTools.filter(
         (t) =>
-          t.name.startsWith("media_") ||
-          t.name.startsWith("detect_") ||
-          t.name.startsWith("audio_")
+          t.name.startsWith("media_") || t.name.startsWith("detect_") || t.name.startsWith("audio_")
       );
       const generateTools = allTools.filter((t) => t.name.startsWith("generate_"));
       const editTools = allTools.filter((t) => t.name.startsWith("edit_"));
@@ -569,49 +573,50 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const sceneTools = allTools.filter((t) => t.name.startsWith("scene_"));
       const storyboardTools = allTools.filter((t) => t.name.startsWith("storyboard_"));
       const projectFlowTools = allTools.filter((t) =>
-        ["init", "plan", "build", "render"].includes(t.name),
+        ["init", "plan", "build", "render"].includes(t.name)
       );
       const guideTools = allTools.filter((t) => t.name === "guide");
       const runTools = allTools.filter((t) => t.name === "run");
       const statusTools = allTools.filter((t) => t.name.startsWith("status_"));
 
       expect(projectTools.length).toBe(5);
-      expect(timelineTools.length).toBe(13);  // Includes canonical timeline_create/info
+      expect(timelineTools.length).toBe(13); // Includes canonical timeline_create/info
       expect(fsTools.length).toBe(4);
-      expect(mediaTools.length).toBe(12);  // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
-      expect(generateTools.length).toBe(14);  // +background, video_status/cancel/extend, music_status, narration
-      expect(editTools.length).toBe(16);  // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption, edit_fill_gaps, edit_motion_overlay
-      expect(inspectTools.length).toBe(6);  // +project, render local review-loop tools
-      expect(remixTools.length).toBe(3);    // v0.75: highlights, auto_shorts, regenerate_scene (was pipeline_*)
-      expect(runTools.length).toBe(0);      // v0.75: bare `run` is MCP-only (`surfaces: ["mcp"]`); not registered into the agent surface
+      expect(mediaTools.length).toBe(12); // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
+      expect(generateTools.length).toBe(14); // +background, video_status/cancel/extend, music_status, narration
+      expect(editTools.length).toBe(16); // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption, edit_fill_gaps, edit_motion_overlay
+      expect(inspectTools.length).toBe(6); // +project, render local review-loop tools
+      expect(remixTools.length).toBe(3); // v0.75: highlights, auto_shorts, regenerate_scene (was pipeline_*)
+      expect(runTools.length).toBe(0); // v0.75: bare `run` is MCP-only (`surfaces: ["mcp"]`); not registered into the agent surface
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
-      expect(sceneTools.length).toBe(6);    // +repair deterministic scene repair
-      expect(storyboardTools.length).toBe(5); // TO-BE: list/validate/get/set/move
-      expect(projectFlowTools.length).toBe(4);  // v0.75+: init/plan/build/render top-level
-      expect(guideTools.length).toBe(1);  // v0.91: universal guide equivalent
-      expect(statusTools.length).toBe(2);  // TO-BE: job/project async status
+      expect(sceneTools.length).toBe(6); // +repair deterministic scene repair
+      expect(storyboardTools.length).toBe(6); // TO-BE: list/validate/get/set/move/revise
+      expect(projectFlowTools.length).toBe(4); // v0.75+: init/plan/build/render top-level
+      expect(guideTools.length).toBe(1); // v0.91: universal guide equivalent
+      expect(statusTools.length).toBe(2); // TO-BE: job/project async status
 
-      // 5+13+4+12+14+16+6+3+0+3+3+6+5+4+1+2 = 97.
+      // 5+13+4+12+14+16+6+3+0+3+3+6+6+4+1+2 = 98.
       // timeline_create/info are canonical; project_create/info remain
       // compatibility aliases until v1.0.
-      const totalTools = projectTools.length +
-          timelineTools.length +
-          fsTools.length +
-          mediaTools.length +
-          generateTools.length +
-          editTools.length +
-          inspectTools.length +
-          remixTools.length +
-          runTools.length +
-          exportTools.length +
-          batchTools.length +
-          sceneTools.length +
-          storyboardTools.length +
-          projectFlowTools.length +
-          guideTools.length +
-          statusTools.length;
-      expect(totalTools).toBe(97);
+      const totalTools =
+        projectTools.length +
+        timelineTools.length +
+        fsTools.length +
+        mediaTools.length +
+        generateTools.length +
+        editTools.length +
+        inspectTools.length +
+        remixTools.length +
+        runTools.length +
+        exportTools.length +
+        batchTools.length +
+        sceneTools.length +
+        storyboardTools.length +
+        projectFlowTools.length +
+        guideTools.length +
+        statusTools.length;
+      expect(totalTools).toBe(98);
     });
   });
 });
@@ -654,8 +659,8 @@ describe("Tool Name Consistency", () => {
       "audio_",
       "generate_",
       "edit_",
-      "inspect_",  // v0.75: was analyze_
-      "remix_",    // v0.75: was pipeline_
+      "inspect_", // v0.75: was analyze_
+      "remix_", // v0.75: was pipeline_
       "export_",
       "batch_",
       "scene_",
@@ -665,20 +670,21 @@ describe("Tool Name Consistency", () => {
     // Top-level utility tools that don't fit a category prefix. Keep this
     // list small — every entry is a deliberate naming exception.
     const exactMatches = new Set([
-      "guide",       // v0.91: universal guide equivalent (one tool, multi-topic)
-      "init",        // v0.75: top-level project-flow tool (was scene_init)
-      "plan",        // TO-BE: top-level project planning tool
-      "build",       // v0.75: top-level project-flow tool (was scene_build)
-      "render",      // v0.75: top-level project-flow tool (was scene_render)
-      "run",         // v0.75: top-level YAML pipeline runner (was pipeline_run)
+      "guide", // v0.91: universal guide equivalent (one tool, multi-topic)
+      "init", // v0.75: top-level project-flow tool (was scene_init)
+      "plan", // TO-BE: top-level project planning tool
+      "build", // v0.75: top-level project-flow tool (was scene_build)
+      "render", // v0.75: top-level project-flow tool (was scene_render)
+      "run", // v0.75: top-level YAML pipeline runner (was pipeline_run)
     ]);
 
     for (const tool of tools) {
-      const hasValidPrefix = validPrefixes.some((prefix) =>
-        tool.name.startsWith(prefix)
-      );
+      const hasValidPrefix = validPrefixes.some((prefix) => tool.name.startsWith(prefix));
       const isExactMatch = exactMatches.has(tool.name);
-      expect(hasValidPrefix || isExactMatch, `tool "${tool.name}" doesn't follow naming convention`).toBe(true);
+      expect(
+        hasValidPrefix || isExactMatch,
+        `tool "${tool.name}" doesn't follow naming convention`
+      ).toBe(true);
     }
   });
 
@@ -718,9 +724,16 @@ describe("Manifest is SSOT for Agent surface", () => {
         continue;
       }
       if (registered.description !== entry.description) {
-        drift.push({ name: entry.name, manifest: entry.description, registry: registered.description });
+        drift.push({
+          name: entry.name,
+          manifest: entry.description,
+          registry: registered.description,
+        });
       }
     }
-    expect(drift, `Agent registry diverges from manifest for: ${drift.map((d) => d.name).join(", ")}`).toEqual([]);
+    expect(
+      drift,
+      `Agent registry diverges from manifest for: ${drift.map((d) => d.name).join(", ")}`
+    ).toEqual([]);
   });
 });

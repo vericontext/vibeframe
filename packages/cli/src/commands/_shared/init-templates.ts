@@ -55,6 +55,7 @@ Don't memorise the command surface — read it from the CLI:
 \`\`\`bash
 vibe --help                    # command groups overview
 vibe schema --list             # full machine-readable catalog (80+)
+vibe schema --list --surface public  # small first-run/product command surface
 vibe schema generate.video     # JSON Schema for any single command
 vibe doctor                    # available providers + system health
 vibe guide motion              # choose text-overlay vs motion-overlay vs generate motion
@@ -116,7 +117,7 @@ starting from a media file and wants it transformed, it's REMIX.
 | Lint scene HTML | \`vibe scene lint --json\` |
 | Generate a single image | \`vibe generate image "prompt" -o img.png --quality hd\` |
 | Generate a single video | \`vibe generate video "prompt" -i image.png -o clip.mp4\` |
-| Generate narration | \`vibe generate speech "text" -o voice.mp3\` |
+| Generate narration | \`vibe generate narration "text" -o voice.mp3\` |
 
 ### REMIX (transform existing media)
 

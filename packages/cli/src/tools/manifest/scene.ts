@@ -6,19 +6,10 @@
 import { z } from "zod";
 import { resolve, relative } from "node:path";
 import { defineTool, type AnyTool } from "../define-tool.js";
-import {
-  listVisualStyles,
-  getVisualStyle,
-} from "../../commands/_shared/visual-styles.js";
-import {
-  scaffoldSceneProject,
-  type SceneAspect,
-} from "../../commands/_shared/scene-project.js";
+import { listVisualStyles, getVisualStyle } from "../../commands/_shared/visual-styles.js";
+import { scaffoldSceneProject, type SceneAspect } from "../../commands/_shared/scene-project.js";
 import { executeSceneAdd } from "../../commands/scene.js";
-import {
-  runProjectLint,
-  type ProjectLintResult,
-} from "../../commands/_shared/scene-lint.js";
+import { runProjectLint, type ProjectLintResult } from "../../commands/_shared/scene-lint.js";
 import {
   executeSceneRender,
   type RenderFps,
@@ -48,9 +39,7 @@ const sceneStylesSchema = z.object({
   name: z
     .string()
     .optional()
-    .describe(
-      "Style name or slug (e.g. 'Swiss Pulse', 'swiss-pulse'). Omit to list all 8.",
-    ),
+    .describe("Style name or slug (e.g. 'Swiss Pulse', 'swiss-pulse'). Omit to list all 8."),
 });
 
 export const sceneStylesTool = defineTool({
@@ -103,9 +92,7 @@ export const sceneStylesTool = defineTool({
       },
       humanLines: [
         `📚 ${styles.length} vendored visual identities:`,
-        ...styles.map(
-          (s) => `   • ${s.name} (${s.slug}) — ${s.mood}; best for ${s.bestFor}`,
-        ),
+        ...styles.map((s) => `   • ${s.name} (${s.slug}) — ${s.mood}; best for ${s.bestFor}`),
         ``,
         `Run scene_list_styles { name: "<slug>" } to fetch the full DESIGN.md hard-gate body for one style.`,
       ],
@@ -121,7 +108,10 @@ const sceneInitSchema = z.object({
   dir: z.string().describe("Project directory (created if missing)."),
   name: z.string().optional().describe("Project name. Defaults to the directory basename."),
   aspect: z.enum(["16:9", "9:16", "1:1", "4:5"]).optional().describe("Aspect ratio. Default 16:9."),
-  duration: z.number().optional().describe("Default root composition duration in seconds. Default 10."),
+  duration: z
+    .number()
+    .optional()
+    .describe("Default root composition duration in seconds. Default 10."),
 });
 
 export const sceneInitTool = defineTool({
@@ -163,16 +153,44 @@ export const sceneInitTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneAddSchema = z.object({
-  name: z.string().describe("Scene name. Slugified into the composition id (e.g. 'My Intro' → 'my-intro')."),
-  preset: z.enum(SCENE_PRESETS).optional().describe("Style preset for the scene HTML. Default 'simple'."),
-  narration: z.string().optional().describe("Narration text. If the value is a path to an existing .txt/.md file, its contents are used. Drives TTS + scene duration."),
-  duration: z.number().optional().describe("Explicit scene duration in seconds. Overrides narration audio duration."),
-  visuals: z.string().optional().describe("Image prompt — generates assets/scene-<id>.png via the configured image provider."),
-  headline: z.string().optional().describe("Visible headline text. Defaults to the humanised scene name."),
-  kicker: z.string().optional().describe("Small label above the headline (used by 'explainer' and 'product-shot' presets)."),
+  name: z
+    .string()
+    .describe("Scene name. Slugified into the composition id (e.g. 'My Intro' → 'my-intro')."),
+  preset: z
+    .enum(SCENE_PRESETS)
+    .optional()
+    .describe("Style preset for the scene HTML. Default 'simple'."),
+  narration: z
+    .string()
+    .optional()
+    .describe(
+      "Narration text. If the value is a path to an existing .txt/.md file, its contents are used. Drives TTS + scene duration."
+    ),
+  duration: z
+    .number()
+    .optional()
+    .describe("Explicit scene duration in seconds. Overrides narration audio duration."),
+  visuals: z
+    .string()
+    .optional()
+    .describe("Image prompt — generates assets/scene-<id>.png via the configured image provider."),
+  headline: z
+    .string()
+    .optional()
+    .describe("Visible headline text. Defaults to the humanised scene name."),
+  kicker: z
+    .string()
+    .optional()
+    .describe("Small label above the headline (used by 'explainer' and 'product-shot' presets)."),
   projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
-  insertInto: z.string().optional().describe("Root composition file (relative to projectDir). Default 'index.html'."),
-  imageProvider: z.enum(["gemini", "openai"]).optional().describe("Image provider for visuals. Default 'gemini'."),
+  insertInto: z
+    .string()
+    .optional()
+    .describe("Root composition file (relative to projectDir). Default 'index.html'."),
+  imageProvider: z
+    .enum(["gemini", "openai"])
+    .optional()
+    .describe("Image provider for visuals. Default 'gemini'."),
   voice: z.string().optional().describe("ElevenLabs voice id or name."),
   skipAudio: z.boolean().optional().describe("Skip TTS even if narration is provided."),
   skipImage: z.boolean().optional().describe("Skip image generation even if visuals is provided."),
@@ -241,8 +259,14 @@ export const sceneAddTool = defineTool({
 
 const sceneLintSchema = z.object({
   projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
-  root: z.string().optional().describe("Root composition file relative to projectDir. Default 'index.html'."),
-  fix: z.boolean().optional().describe("Apply mechanical auto-fixes (currently: missing class=\"clip\")."),
+  root: z
+    .string()
+    .optional()
+    .describe("Root composition file relative to projectDir. Default 'index.html'."),
+  fix: z
+    .boolean()
+    .optional()
+    .describe('Apply mechanical auto-fixes (currently: missing class="clip").'),
 });
 
 function summariseLint(result: ProjectLintResult): Record<string, unknown> {
@@ -309,7 +333,10 @@ export const sceneLintTool = defineTool({
 
 const sceneRepairSchema = z.object({
   projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
-  root: z.string().optional().describe("Root composition file relative to projectDir. Default 'index.html'."),
+  root: z
+    .string()
+    .optional()
+    .describe("Root composition file relative to projectDir. Default 'index.html'."),
   dryRun: z.boolean().optional().describe("Preview deterministic repairs without writing files."),
 });
 
@@ -332,7 +359,10 @@ export const sceneRepairTool = defineTool({
     return {
       success: result.status !== "fail",
       data: result as unknown as Record<string, unknown>,
-      error: result.status === "fail" ? `${result.remainingIssues.filter((issue) => issue.severity === "error").length} remaining scene repair error(s)` : undefined,
+      error:
+        result.status === "fail"
+          ? `${result.remainingIssues.filter((issue) => issue.severity === "error").length} remaining scene repair error(s)`
+          : undefined,
       humanLines: [
         `${result.status === "pass" ? "✅" : result.status === "warn" ? "⚠️" : "❌"} Scene repair ${result.status}`,
         `fixed: ${result.fixed.length}; wouldFix: ${result.wouldFix.length}; remaining: ${result.remainingIssues.length}`,
@@ -347,10 +377,20 @@ export const sceneRepairTool = defineTool({
 
 const sceneRenderSchema = z.object({
   projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
-  root: z.string().optional().describe("Root composition file relative to projectDir. Default 'index.html'."),
-  output: z.string().optional().describe("Output file path (relative paths resolve against projectDir)."),
+  root: z
+    .string()
+    .optional()
+    .describe("Root composition file relative to projectDir. Default 'index.html'."),
+  beat: z.string().optional().describe("Render only one storyboard beat using a temporary root."),
+  output: z
+    .string()
+    .optional()
+    .describe("Output file path (relative paths resolve against projectDir)."),
   fps: z.number().optional().describe("Frames per second. Must be 24, 30, or 60. Default 30."),
-  quality: z.enum(["draft", "standard", "high"]).optional().describe("Quality preset. Default 'standard'."),
+  quality: z
+    .enum(["draft", "standard", "high"])
+    .optional()
+    .describe("Quality preset. Default 'standard'."),
   format: z.enum(["mp4", "webm", "mov"]).optional().describe("Container format. Default 'mp4'."),
   workers: z.number().optional().describe("Capture worker count (1-16). Default 1."),
 });
@@ -369,6 +409,7 @@ export const sceneRenderTool = defineTool({
     const result = await executeSceneRender({
       projectDir,
       root: args.root,
+      beatId: args.beat,
       output: args.output,
       fps: args.fps as RenderFps | undefined,
       quality: args.quality as RenderQuality | undefined,
@@ -382,6 +423,9 @@ export const sceneRenderTool = defineTool({
       success: true,
       data: {
         outputPath: result.outputPath,
+        beat: result.beat,
+        root: result.root,
+        reportPath: result.reportPath,
         durationMs: result.durationMs,
         framesRendered: result.framesRendered,
         totalFrames: result.totalFrames,
@@ -391,7 +435,7 @@ export const sceneRenderTool = defineTool({
       },
       humanLines: [
         `✅ Render complete: ${result.outputPath}`,
-        `   duration: ${(((result.durationMs ?? 0) / 1000)).toFixed(1)}s`,
+        `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
         `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
         `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
       ],
@@ -404,21 +448,84 @@ export const sceneRenderTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneBuildSchema = z.object({
-  projectDir: z.string().optional().describe("Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd."),
-  stage: z.enum(["assets", "compose", "sync", "render", "all"]).optional().describe("Build stage to run. Default all."),
+  projectDir: z
+    .string()
+    .optional()
+    .describe(
+      "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd."
+    ),
+  stage: z
+    .enum(["assets", "compose", "sync", "render", "all"])
+    .optional()
+    .describe("Build stage to run. Default all."),
   beat: z.string().optional().describe("Restrict asset/compose work to one beat id."),
-  mode: z.enum(["agent", "batch", "auto"]).optional().describe("Build mode dispatch [Plan H — Phase 3]. 'agent' = the calling host agent authors per-beat HTML itself (no internal LLM call); on missing compositions/scene-*.html files, returns a needs-author plan with prompts for the agent to consume. 'batch' = current internal-LLM compose path (Claude/OpenAI/Gemini). 'auto' (default) = agent if any agent host is detected, else batch. Override via VIBE_BUILD_MODE env var."),
-  effort: z.enum(["low", "medium", "high"]).optional().describe("Compose effort tier (batch mode only) passed to compose-scenes-with-skills. Default 'medium'."),
-  composer: z.enum(["claude", "openai", "gemini"]).optional().describe("LLM provider that composes the per-beat scene HTML in batch mode. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest. Ignored in agent mode."),
-  skipNarration: z.boolean().optional().describe("Skip TTS for every beat (use existing audio assets if present)."),
-  skipBackdrop: z.boolean().optional().describe("Skip image generation for every beat (use existing PNG assets if present)."),
-  skipRender: z.boolean().optional().describe("Stop after compose — produces compositions/*.html but no final MP4."),
-  ttsProvider: z.enum(["auto", "elevenlabs", "kokoro"]).optional().describe("TTS provider override. Default 'auto'."),
+  mode: z
+    .enum(["agent", "batch", "auto"])
+    .optional()
+    .describe(
+      "Build mode dispatch [Plan H — Phase 3]. 'agent' = the calling host agent authors per-beat HTML itself (no internal LLM call); on missing compositions/scene-*.html files, returns a needs-author plan with prompts for the agent to consume. 'batch' = current internal-LLM compose path (Claude/OpenAI/Gemini). 'auto' (default) = agent if any agent host is detected, else batch. Override via VIBE_BUILD_MODE env var."
+    ),
+  effort: z
+    .enum(["low", "medium", "high"])
+    .optional()
+    .describe(
+      "Compose effort tier (batch mode only) passed to compose-scenes-with-skills. Default 'medium'."
+    ),
+  composer: z
+    .enum(["claude", "openai", "gemini"])
+    .optional()
+    .describe(
+      "LLM provider that composes the per-beat scene HTML in batch mode. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest. Ignored in agent mode."
+    ),
+  skipNarration: z
+    .boolean()
+    .optional()
+    .describe("Skip TTS for every beat (use existing audio assets if present)."),
+  skipBackdrop: z
+    .boolean()
+    .optional()
+    .describe("Skip image generation for every beat (use existing PNG assets if present)."),
+  skipVideo: z
+    .boolean()
+    .optional()
+    .describe("Skip video generation for every beat (use existing MP4 assets if present)."),
+  skipMusic: z
+    .boolean()
+    .optional()
+    .describe("Skip music generation for every beat (use existing audio assets if present)."),
+  skipRender: z
+    .boolean()
+    .optional()
+    .describe("Stop after compose — produces compositions/*.html but no final MP4."),
+  ttsProvider: z
+    .enum(["auto", "elevenlabs", "kokoro"])
+    .optional()
+    .describe("TTS provider override. Default 'auto'."),
   voice: z.string().optional().describe("TTS voice id (provider-specific)."),
-  imageProvider: z.enum(["openai"]).optional().describe("Image provider for backdrops. Default 'openai' (gpt-image-2)."),
-  imageQuality: z.enum(["standard", "hd"]).optional().describe("OpenAI image quality. Default 'standard'."),
-  imageSize: z.enum(["1024x1024", "1536x1024", "1024x1536"]).optional().describe("OpenAI image size. Default '1536x1024' (cinematic 16:9-ish)."),
-  maxCostUsd: z.number().optional().describe("Fail before provider spend when estimated cost exceeds this USD cap."),
+  imageProvider: z
+    .enum(["openai"])
+    .optional()
+    .describe("Image provider for backdrops. Default 'openai' (gpt-image-2)."),
+  videoProvider: z
+    .enum(["seedance", "grok", "kling", "runway", "veo"])
+    .optional()
+    .describe("Video provider for per-beat video cues. Default seedance."),
+  musicProvider: z
+    .enum(["elevenlabs", "replicate"])
+    .optional()
+    .describe("Music provider for per-beat music cues. Default elevenlabs."),
+  imageQuality: z
+    .enum(["standard", "hd"])
+    .optional()
+    .describe("OpenAI image quality. Default 'standard'."),
+  imageSize: z
+    .enum(["1024x1024", "1536x1024", "1024x1536"])
+    .optional()
+    .describe("OpenAI image size. Default '1536x1024' (cinematic 16:9-ish)."),
+  maxCostUsd: z
+    .number()
+    .optional()
+    .describe("Fail before provider spend when estimated cost exceeds this USD cap."),
   force: z.boolean().optional().describe("Re-dispatch primitives even when cached assets exist."),
 });
 
@@ -442,17 +549,31 @@ export const sceneBuildTool = defineTool({
       composer: args.composer,
       skipNarration: args.skipNarration,
       skipBackdrop: args.skipBackdrop,
+      skipVideo: args.skipVideo,
+      skipMusic: args.skipMusic,
       skipRender: args.skipRender,
       ttsProvider: args.ttsProvider,
       voice: args.voice,
       imageProvider: args.imageProvider,
+      videoProvider: args.videoProvider,
+      musicProvider: args.musicProvider,
       imageQuality: args.imageQuality,
       imageSize: args.imageSize,
       maxCostUsd: args.maxCostUsd,
       force: args.force,
     });
     if (!result.success) {
-      return { success: false, error: result.error ?? "build failed" };
+      return {
+        success: false,
+        data: result as unknown as Record<string, unknown>,
+        error: result.error ?? "build failed",
+        humanLines: [
+          result.code
+            ? `${result.code}: ${result.error ?? "build failed"}`
+            : (result.error ?? "build failed"),
+          ...(result.retryWith?.length ? [`Retry: ${result.retryWith.join(" | ")}`] : []),
+        ],
+      };
     }
     return {
       success: true,
@@ -465,6 +586,8 @@ export const sceneBuildTool = defineTool({
         estimatedCostUsd: result.estimatedCostUsd,
         costUsd: result.costUsd,
         stageReports: result.stageReports,
+        sceneRepair: result.sceneRepair,
+        jobs: result.jobs,
         beats: result.beats.map((b) => ({
           beatId: b.beatId,
           narrationStatus: b.narrationStatus,
@@ -473,6 +596,14 @@ export const sceneBuildTool = defineTool({
           backdropStatus: b.backdropStatus,
           backdropPath: b.backdropPath,
           backdropError: b.backdropError,
+          videoStatus: b.videoStatus,
+          videoPath: b.videoPath,
+          videoJobId: b.videoJobId,
+          videoError: b.videoError,
+          musicStatus: b.musicStatus,
+          musicPath: b.musicPath,
+          musicJobId: b.musicJobId,
+          musicError: b.musicError,
         })),
         composePrompts: result.composePrompts,
         totalLatencyMs: result.totalLatencyMs,
@@ -480,12 +611,14 @@ export const sceneBuildTool = defineTool({
       humanLines: [
         result.phase === "needs-author"
           ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan.`
-          : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
+          : result.phase === "pending-jobs"
+            ? `Build paused for ${result.jobs?.length ?? 0} async job(s). Poll with status_project/status_job, then rerun build.`
+            : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
         `   beats: ${result.beats.length}`,
         `   wall-clock: ${(result.totalLatencyMs / 1000).toFixed(1)}s`,
         ...result.beats.map(
           (b) =>
-            `   [${b.beatId}] narration=${b.narrationStatus} backdrop=${b.backdropStatus}`,
+            `   [${b.beatId}] narration=${b.narrationStatus} backdrop=${b.backdropStatus} video=${b.videoStatus} music=${b.musicStatus}`
         ),
       ],
     };
@@ -497,10 +630,27 @@ export const sceneBuildTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneInstallSkillSchema = z.object({
-  projectDir: z.string().describe("Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit and prevent accidental installs in unintended cwd."),
-  host: z.enum(["claude-code", "cursor", "auto", "all"]).optional().describe("Host layout target. 'auto' (default) detects installed agent hosts; 'all' writes every layout; 'claude-code' / 'cursor' force a single host. Codex / Aider read the universal SKILL.md via AGENTS.md so don't need a host-specific layout."),
-  force: z.boolean().optional().describe("Overwrite existing skill files. Default: skip-on-exist (preserves user customisations)."),
-  dryRun: z.boolean().optional().describe("Report which files would be written without writing them."),
+  projectDir: z
+    .string()
+    .describe(
+      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit and prevent accidental installs in unintended cwd."
+    ),
+  host: z
+    .enum(["claude-code", "cursor", "auto", "all"])
+    .optional()
+    .describe(
+      "Host layout target. 'auto' (default) detects installed agent hosts; 'all' writes every layout; 'claude-code' / 'cursor' force a single host. Codex / Aider read the universal SKILL.md via AGENTS.md so don't need a host-specific layout."
+    ),
+  force: z
+    .boolean()
+    .optional()
+    .describe(
+      "Overwrite existing skill files. Default: skip-on-exist (preserves user customisations)."
+    ),
+  dryRun: z
+    .boolean()
+    .optional()
+    .describe("Report which files would be written without writing them."),
 });
 
 export const sceneInstallSkillTool = defineTool({
@@ -551,8 +701,17 @@ export const sceneInstallSkillTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneComposePromptsSchema = z.object({
-  projectDir: z.string().describe("Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit."),
-  beat: z.string().optional().describe("Restrict the plan to a single beat by id (e.g. 'hook', '1'). Omit to emit every beat in the storyboard."),
+  projectDir: z
+    .string()
+    .describe(
+      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit."
+    ),
+  beat: z
+    .string()
+    .optional()
+    .describe(
+      "Restrict the plan to a single beat by id (e.g. 'hook', '1'). Omit to emit every beat in the storyboard."
+    ),
 });
 
 export const sceneComposePromptsTool = defineTool({

@@ -27,6 +27,7 @@ export type RenderInspectModel = "flash" | "flash-2.5" | "pro";
 
 export interface RenderInspectOptions {
   projectDir: string;
+  beatId?: string;
   videoPath?: string;
   outputPath?: string;
   writeReport?: boolean;
@@ -38,10 +39,12 @@ export interface RenderInspectDryRunResult {
   schemaVersion: "1";
   kind: "render";
   project: string;
+  beat?: string;
   videoPath: string | null;
   reportPath?: string;
   params: {
     projectDir: string;
+    beatId?: string;
     videoPath?: string;
     outputPath?: string;
     writeReport: boolean;
@@ -69,6 +72,7 @@ export interface RenderInspectResult {
   schemaVersion: "1";
   kind: "render";
   project: string;
+  beat?: string;
   videoPath: string | null;
   status: ReviewStatus;
   score: number;
@@ -153,7 +157,7 @@ export function parseSilencedetectOutput(output: string): TimeRange[] {
 
 export async function previewInspectRender(opts: RenderInspectOptions): Promise<RenderInspectDryRunResult> {
   const projectDir = resolve(opts.projectDir);
-  const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath);
+  const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath, opts.beatId);
   const writeReport = opts.writeReport !== false;
   const reportPath = writeReport
     ? opts.outputPath
@@ -165,10 +169,12 @@ export async function previewInspectRender(opts: RenderInspectOptions): Promise<
     schemaVersion: "1",
     kind: "render",
     project: projectDir,
+    ...(opts.beatId ? { beat: opts.beatId } : {}),
     videoPath,
     reportPath,
     params: {
       projectDir,
+      beatId: opts.beatId,
       videoPath: opts.videoPath,
       outputPath: opts.outputPath,
       writeReport,
@@ -224,7 +230,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
   const issues: ReviewIssue[] = [];
   const retryWith: string[] = [];
   const model = opts.model ?? DEFAULT_AI_MODEL;
-  const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath);
+  const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath, opts.beatId);
   const checks: RenderInspectResult["checks"] = {
     renderFound: videoPath !== null,
     blackFrames: [],
@@ -242,10 +248,18 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     issues.push({
       severity: "error",
       code: "RENDER_NOT_FOUND",
-      message: "No rendered video was found. Pass --video or render the project first.",
-      suggestedFix: "Run `vibe build --stage render --json` or `vibe render --json`.",
+      message: opts.beatId
+        ? `No rendered video was found for beat "${opts.beatId}". Pass --video or render the beat first.`
+        : "No rendered video was found. Pass --video or render the project first.",
+      suggestedFix: opts.beatId
+        ? "Run `vibe render <project> --beat <id> --json`."
+        : "Run `vibe build --stage render --json` or `vibe render --json`.",
     });
-    retryWith.push(`vibe build ${projectDir} --stage render --json`, `vibe render ${projectDir} --json`);
+    retryWith.push(
+      ...(opts.beatId
+        ? [`vibe render ${projectDir} --beat ${opts.beatId} --json`]
+        : [`vibe build ${projectDir} --stage render --json`, `vibe render ${projectDir} --json`])
+    );
     if (checks.ai) {
       checks.ai.error = "Skipped AI review because no rendered video was found.";
     }
@@ -253,6 +267,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       schemaVersion: "1",
       kind: "render",
       project: projectDir,
+      ...(opts.beatId ? { beat: opts.beatId } : {}),
       videoPath: null,
       status: "fail",
       score: scoreRenderReview(issues),
@@ -270,12 +285,18 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       code: "EMPTY_RENDER",
       message: "Rendered video file is empty.",
       file: displayPath(videoPath),
-      suggestedFix: "Render again with `vibe render --json`.",
+      suggestedFix: opts.beatId
+        ? "Render again with `vibe render --beat <id> --json`."
+        : "Render again with `vibe render --json`.",
     });
-    retryWith.push(`vibe render ${projectDir} --json`);
+    retryWith.push(
+      opts.beatId
+        ? `vibe render ${projectDir} --beat ${opts.beatId} --json`
+        : `vibe render ${projectDir} --json`
+    );
   }
 
-  const expectedDurationSec = await expectedDurationFromBuildReport(projectDir);
+  const expectedDurationSec = await expectedDurationFromBuildReport(projectDir, opts.beatId);
   if (expectedDurationSec !== undefined) checks.expectedDurationSec = expectedDurationSec;
 
   if (!commandExists("ffprobe")) {
@@ -311,9 +332,15 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
           code: "NO_AUDIO_STREAM",
           message: "Rendered file has no audio stream.",
           file: displayPath(videoPath),
-          suggestedFix: "Check narration assets and rerun `vibe build --stage sync --json`.",
+          suggestedFix: opts.beatId
+            ? "Check narration assets and rerun `vibe build --beat <id> --stage sync --json`."
+            : "Check narration assets and rerun `vibe build --stage sync --json`.",
         });
-        retryWith.push(`vibe build ${projectDir} --stage sync --json`);
+        retryWith.push(
+          opts.beatId
+            ? `vibe build ${projectDir} --beat ${opts.beatId} --stage sync --json`
+            : `vibe build ${projectDir} --stage sync --json`
+        );
       }
 
       if (durationSec !== undefined && expectedDurationSec !== undefined) {
@@ -324,9 +351,18 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
             severity: "warning",
             code: "DURATION_DRIFT",
             message: `Rendered duration differs from build-report duration by ${drift.toFixed(2)}s.`,
-            suggestedFix: "Rerun `vibe build --stage sync --json` before rendering.",
+            suggestedFix: opts.beatId
+              ? "Rerun `vibe build --beat <id> --stage sync --json` before rendering."
+              : "Rerun `vibe build --stage sync --json` before rendering.",
           });
-          retryWith.push(`vibe build ${projectDir} --stage sync --json`, `vibe render ${projectDir} --json`);
+          retryWith.push(
+            ...(opts.beatId
+              ? [
+                  `vibe build ${projectDir} --beat ${opts.beatId} --stage sync --json`,
+                  `vibe render ${projectDir} --beat ${opts.beatId} --json`,
+                ]
+              : [`vibe build ${projectDir} --stage sync --json`, `vibe render ${projectDir} --json`])
+          );
         }
       }
 
@@ -383,7 +419,9 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
             code: "LONG_SILENCE",
             message: `Long silence from ${range.start.toFixed(2)}s to ${range.end.toFixed(2)}s (${range.duration.toFixed(2)}s).`,
             file: displayPath(videoPath),
-            suggestedFix: "Check narration/music wiring and rerun `vibe build --stage sync --json`.",
+            suggestedFix: opts.beatId
+              ? "Check narration/music wiring and rerun `vibe build --beat <id> --stage sync --json`."
+              : "Check narration/music wiring and rerun `vibe build --stage sync --json`.",
           });
         }
       } catch (error) {
@@ -420,8 +458,12 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
         if (aiIssues.length > 0) {
           retryWith.push(
             'codex "fix issues from review-report.json"',
-            `vibe render ${projectDir} --json`,
-            `vibe inspect render ${projectDir} --ai --json`,
+            opts.beatId
+              ? `vibe render ${projectDir} --beat ${opts.beatId} --json`
+              : `vibe render ${projectDir} --json`,
+            opts.beatId
+              ? `vibe inspect render ${projectDir} --beat ${opts.beatId} --ai --json`
+              : `vibe inspect render ${projectDir} --ai --json`,
           );
         }
       } else {
@@ -443,6 +485,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     schemaVersion: "1",
     kind: "render",
     project: projectDir,
+    ...(opts.beatId ? { beat: opts.beatId } : {}),
     videoPath,
     status,
     score: scoreRenderReview(issues, aiOverallScore),
@@ -469,20 +512,39 @@ async function maybeWriteRenderReport(
   }
 }
 
-export async function resolveRenderVideoPath(projectDir: string, explicit?: string): Promise<string | null> {
+export async function resolveRenderVideoPath(
+  projectDir: string,
+  explicit?: string,
+  beatId?: string
+): Promise<string | null> {
   if (explicit) {
     const candidate = resolve(process.cwd(), explicit);
     return existsSync(candidate) ? candidate : null;
   }
 
+  const renderReportPath = join(projectDir, "render-report.json");
+  if (existsSync(renderReportPath)) {
+    try {
+      const report = JSON.parse(await readFile(renderReportPath, "utf-8")) as {
+        beat?: unknown;
+        outputPath?: unknown;
+      };
+      const reportBeat = typeof report.beat === "string" ? report.beat : null;
+      if ((!beatId && reportBeat === null) || (beatId && reportBeat === beatId)) {
+        const candidate = resolveReportedPath(projectDir, report.outputPath);
+        if (candidate && existsSync(candidate)) return candidate;
+      }
+    } catch {
+      // Fall through to build-report/renders scan.
+    }
+  }
+
   const reportPath = join(projectDir, "build-report.json");
-  if (existsSync(reportPath)) {
+  if (!beatId && existsSync(reportPath)) {
     try {
       const report = JSON.parse(await readFile(reportPath, "utf-8")) as { outputPath?: unknown };
-      if (typeof report.outputPath === "string" && report.outputPath.length > 0) {
-        const candidate = isAbsolute(report.outputPath) ? report.outputPath : resolve(projectDir, report.outputPath);
-        if (existsSync(candidate)) return candidate;
-      }
+      const candidate = resolveReportedPath(projectDir, report.outputPath);
+      if (candidate && existsSync(candidate)) return candidate;
     } catch {
       // Fall through to renders/ scan.
     }
@@ -496,6 +558,7 @@ export async function resolveRenderVideoPath(projectDir: string, explicit?: stri
     if (!entry.isFile()) continue;
     const ext = entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase();
     if (!VIDEO_EXTENSIONS.has(ext)) continue;
+    if (beatId && !entry.name.includes(sanitizeFileSegment(beatId))) continue;
     const full = join(rendersDir, entry.name);
     const info = await stat(full);
     candidates.push({ path: full, mtimeMs: info.mtimeMs });
@@ -523,14 +586,30 @@ function resolveStoryboardPath(projectDir: string): string | null {
   return existsSync(storyboardPath) ? storyboardPath : null;
 }
 
-async function expectedDurationFromBuildReport(projectDir: string): Promise<number | undefined> {
+async function expectedDurationFromBuildReport(
+  projectDir: string,
+  beatId?: string
+): Promise<number | undefined> {
   const reportPath = join(projectDir, "build-report.json");
   if (!existsSync(reportPath)) return undefined;
   try {
     const report = JSON.parse(await readFile(reportPath, "utf-8")) as {
-      beats?: Array<{ sceneDurationSec?: unknown }>;
+      beats?: Array<{
+        id?: unknown;
+        sceneDurationSec?: unknown;
+        narration?: { sceneDurationSec?: unknown };
+      }>;
     };
-    const durations = report.beats?.map((beat) => parseOptionalNumber(beat.sceneDurationSec)).filter((n): n is number => n !== undefined) ?? [];
+    const beats = beatId
+      ? (report.beats ?? []).filter((beat) => beat.id === beatId)
+      : (report.beats ?? []);
+    const durations = beats
+      .map(
+        (beat) =>
+          parseOptionalNumber(beat.sceneDurationSec) ??
+          parseOptionalNumber(beat.narration?.sceneDurationSec)
+      )
+      .filter((n): n is number => n !== undefined);
     if (durations.length === 0) return undefined;
     return Number(durations.reduce((sum, value) => sum + value, 0).toFixed(3));
   } catch {
@@ -592,4 +671,13 @@ function displayPath(path: string): string {
 
 function toSnakeCase(value: string): string {
   return value.replace(/[A-Z]/g, (match) => `_${match}`).toUpperCase();
+}
+
+function resolveReportedPath(projectDir: string, value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return isAbsolute(value) ? value : resolve(projectDir, value);
+}
+
+function sanitizeFileSegment(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "") || "beat";
 }

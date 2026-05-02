@@ -20,6 +20,10 @@
  */
 
 import { z, type ZodTypeAny } from "zod";
+import {
+  productSurfaceForToolName,
+  type ProductSurface,
+} from "../commands/_shared/product-surface.js";
 
 export type CostTier = "free" | "low" | "medium" | "high" | "very-high";
 export type Surface = "mcp" | "agent";
@@ -57,6 +61,12 @@ export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {
   category: string;
   /** Cost tier from `.claude/rules/architecture.md` cost table. */
   cost: CostTier;
+  /** Product-facing command classification. Transport surfaces use `surfaces`. */
+  productSurface?: ProductSurface;
+  /** Preferred replacement when `productSurface` is legacy. */
+  replacement?: string;
+  /** Short explanation for product-surface routing. */
+  note?: string;
   /** Identical for MCP description and Agent description. One paragraph. */
   description: string;
   /** Single source of truth for argument shape. Must be a `z.object({...})`. */
@@ -83,10 +93,14 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 
 function validateToolDefinition<S extends ZodTypeAny>(t: ToolDefinition<S>): void {
   if (!NAME_PATTERN.test(t.name)) {
-    throw new Error(`Tool name "${t.name}" must be snake_case (matches /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/)`);
+    throw new Error(
+      `Tool name "${t.name}" must be snake_case (matches /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/)`
+    );
   }
   if (!t.category || !/^[a-z-]+$/.test(t.category)) {
-    throw new Error(`Tool "${t.name}" has invalid category "${t.category}" (must be lowercase, dash-separated)`);
+    throw new Error(
+      `Tool "${t.name}" has invalid category "${t.category}" (must be lowercase, dash-separated)`
+    );
   }
   // Schema must be a ZodObject so we can derive {properties, required}. We
   // accept any ZodTypeAny in the type sig for ergonomics, then runtime-check.
@@ -95,12 +109,19 @@ function validateToolDefinition<S extends ZodTypeAny>(t: ToolDefinition<S>): voi
     throw new Error(`Tool "${t.name}" schema must be a z.object({...}); got ${schemaTypeName}`);
   }
   if (t.surfaces && t.surfaces.length === 0) {
-    throw new Error(`Tool "${t.name}" has empty surfaces array; use [] only via explicit type override`);
+    throw new Error(
+      `Tool "${t.name}" has empty surfaces array; use [] only via explicit type override`
+    );
   }
 }
 
 export function defineTool<S extends ZodTypeAny>(t: ToolDefinition<S>): ToolDefinition<S> {
   validateToolDefinition(t);
-  return t;
+  const surface = productSurfaceForToolName(t.name);
+  return {
+    ...t,
+    productSurface: t.productSurface ?? surface.surface,
+    replacement: t.replacement ?? surface.replacement,
+    note: t.note ?? surface.note,
+  };
 }
-

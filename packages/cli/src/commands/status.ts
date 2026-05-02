@@ -6,9 +6,9 @@ import { applyTier } from "./_shared/cost-tier.js";
 import {
   findProjectRoot,
   inspectProjectStatus,
+  makeJobStatusResult,
   readJobRecord,
   refreshJobRecord,
-  retryWithForJob,
   type JobRecord,
   type JobStatusResult,
   type ProjectStatusResult,
@@ -93,14 +93,11 @@ statusCommand
 applyTier(statusCommand.commands[statusCommand.commands.length - 1], "free");
 
 function localJobStatus(record: JobRecord): JobStatusResult {
-  return {
-    schemaVersion: "1",
-    job: record,
+  return makeJobStatusResult(record, {
     refreshed: false,
     live: { supported: false },
     warnings: [],
-    retryWith: retryWithForJob(record),
-  };
+  });
 }
 
 function printJobStatus(result: JobStatusResult): void {
@@ -128,6 +125,8 @@ function printProjectStatus(result: ProjectStatusResult): void {
   console.log(chalk.bold.cyan("Project Status"));
   console.log(chalk.dim("-".repeat(60)));
   console.log(`  Project:   ${chalk.bold(result.project)}`);
+  console.log(`  Status:    ${formatStatus(result.status)} (${result.currentStage})`);
+  console.log(`  Beats:     ${result.beats.assetsReady}/${result.beats.total} assets, ${result.beats.compositionsReady}/${result.beats.total} compositions`);
   console.log(`  Build:     ${result.build ? formatBuild(result.build) : chalk.dim("no build-report.json")}`);
   console.log(`  Review:    ${result.review ? formatReview(result.review) : chalk.dim("no review-report.json")}`);
   console.log(`  Jobs:      ${result.jobs.total} total, ${result.jobs.active} active, ${result.jobs.failed} failed`);

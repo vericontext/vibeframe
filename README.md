@@ -161,6 +161,12 @@ vibe inspect project my-video --json
 vibe render my-video -o renders/final.mp4 --quality standard
 vibe inspect render my-video --cheap --json
 vibe scene repair --project my-video --json
+
+# Focus a single beat during iteration
+vibe build my-video --beat hook --stage sync --json
+vibe inspect project my-video --beat hook --json
+vibe render my-video --beat hook --json
+vibe inspect render my-video --beat hook --cheap --json
 ```
 
 Each storyboard beat can include YAML cues:
@@ -348,6 +354,7 @@ hooks instead of this README:
 
 ```bash
 vibe schema --list --json     # full command catalog (current count via `length`)
+vibe schema --list --surface public  # small first-run/product surface
 vibe schema --list --filter very-high  # narrow to a cost tier
 vibe schema <command> --json  # JSON Schema for one command
 vibe context                  # agent quickstart (rules, envelope shape, conventions)

@@ -19,6 +19,10 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format as formatMarkdown } from "prettier";
 import { TIER_DESCRIPTION, type CostTier } from "../packages/cli/src/commands/_shared/cost-tier.js";
+import {
+  PRODUCT_SURFACES,
+  type ProductSurface,
+} from "../packages/cli/src/commands/_shared/product-surface.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CLI_BIN = resolve(REPO_ROOT, "packages/cli/dist/index.js");
@@ -32,6 +36,9 @@ if (!existsSync(CLI_BIN)) {
 interface SchemaListEntry {
   path: string;
   description: string;
+  surface: ProductSurface;
+  replacement?: string;
+  note?: string;
   cost?: CostTier;
 }
 
@@ -45,6 +52,9 @@ interface ParameterSchema {
 interface ToolSchema {
   name: string;
   description: string;
+  surface: ProductSurface;
+  replacement?: string;
+  note?: string;
   cost?: CostTier;
   parameters: {
     type: "object";
@@ -90,15 +100,29 @@ const MENTAL_MODEL = `## Mental model
 
 The **storyboard project** is the primary product lane. \`STORYBOARD.md\`
 and \`DESIGN.md\` are the source of truth; generated files under
-\`compositions/\` are artifacts. Use \`vibe storyboard *\` for narrow cue
-edits and direct Markdown edits for larger creative rewrites.
+\`compositions/\` are artifacts. Use \`vibe storyboard revise --dry-run\`
+for project-aware STORYBOARD.md rewrites, \`vibe storyboard *\` for narrow
+cue edits, and direct Markdown edits for larger DESIGN.md rewrites.
 
 \`\`\`
-init --from → storyboard validate → plan → build → inspect → render  ← storyboard-to-video
+init --from → storyboard revise → storyboard validate → plan → build → inspect → render
 generate / edit / inspect / remix                          ← one-shot media tools
 scene / timeline                                            ← lower-level authoring
 run / agent / schema / context                              ← automation + agents
 \`\`\`
+
+\`vibe plan --json\` emits \`data.kind:"build-plan"\`,
+\`schemaVersion:"1"\`, \`status:"ready"|"invalid"\`, \`summary\`,
+\`validation\`, \`retryWith\`, and \`nextCommands\`. \`vibe plan\`,
+\`vibe build --dry-run\`, and \`vibe build\` validate \`STORYBOARD.md\`
+before cost caps or provider dispatch. Invalid storyboards return
+\`code:"STORYBOARD_VALIDATION_FAILED"\` with validate/revise recovery
+commands.
+
+Real \`vibe build\` runs deterministic scene repair after compose
+(sub-compositions only) and after sync (including root \`index.html\`) before
+render. Repair failures return \`code:"SCENE_REPAIR_FAILED"\` with
+\`sceneRepair.retryWith\`, and \`build-report.json\` includes \`sceneRepair\`.
 `;
 
 const GLOBAL_FLAGS = `## Global flags
@@ -186,6 +210,48 @@ function renderCostTiers(leaves: SchemaListEntry[]): string {
   return lines.join("\n");
 }
 
+function surfaceLabel(surface: ProductSurface): string {
+  return surface[0].toUpperCase() + surface.slice(1);
+}
+
+function renderProductSurfaces(leaves: SchemaListEntry[]): string {
+  const buckets: Record<ProductSurface, string[]> = {
+    public: [],
+    agent: [],
+    advanced: [],
+    legacy: [],
+    internal: [],
+  };
+
+  for (const leaf of leaves) buckets[leaf.surface].push(leaf.path);
+
+  const formatExamples = (paths: string[]): string => {
+    const examples = paths.slice(0, 10).map((path) => `\`${path}\``);
+    if (paths.length > examples.length) examples.push(`+${paths.length - examples.length} more`);
+    return examples.join(" · ") || "-";
+  };
+
+  const lines: string[] = [
+    "## Product surfaces",
+    "",
+    "Generated from the live `surface` field in `vibe schema --list`. Use",
+    "`vibe schema --list --surface public` for the small first-run command",
+    "surface, and inspect `replacement` on legacy commands before using them.",
+    "",
+    "| Surface | Count | Examples |",
+    "|---|---:|---|",
+  ];
+
+  for (const surface of PRODUCT_SURFACES) {
+    lines.push(
+      `| **${surfaceLabel(surface)}** | ${buckets[surface].length} | ${formatExamples(buckets[surface])} |`
+    );
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
 const ENVELOPE = `## JSON envelope
 
 ### Success
@@ -207,9 +273,12 @@ const ENVELOPE = `## JSON envelope
 {
   "success": false,
   "error": "<message>",
+  "message": "<message>",
   "code": "USAGE_ERROR | NOT_FOUND | API_ERROR | NETWORK_ERROR | AUTH_ERROR | ERROR",
   "exitCode": 0 | 1 | 2 | 3 | 4 | 5 | 6,
   "suggestion": "<actionable next step>",
+  "retryWith": ["<command or action>"],
+  "recoverable": true,
   "retryable": true | false
 }
 \`\`\`
@@ -249,6 +318,9 @@ interface RenderedLeaf {
   pathDots: string; // e.g. "edit.silence-cut"
   pathSpace: string; // e.g. "edit silence-cut"
   description: string;
+  surface: ProductSurface;
+  replacement?: string;
+  note?: string;
   cost?: CostTier;
   parameters: Record<string, ParameterSchema>;
   required: string[];
@@ -269,6 +341,10 @@ function renderLeaf(leaf: RenderedLeaf): string {
   lines.push("");
   lines.push(leaf.description);
   lines.push("");
+  lines.push(`Product surface: \`${leaf.surface}\``);
+  if (leaf.replacement) lines.push(`Replacement: \`${leaf.replacement}\``);
+  if (leaf.note) lines.push(`Note: ${leaf.note}`);
+  lines.push("");
   lines.push(`Cost tier: ${leaf.cost ? `\`${leaf.cost}\`` : "_not tagged_"}`);
   lines.push("");
   const props = Object.entries(leaf.parameters);
@@ -281,8 +357,43 @@ function renderLeaf(leaf: RenderedLeaf): string {
       lines.push(renderArg(name, schema, leaf.required.includes(name)));
     }
   }
+  const notes = leafNotes(leaf.pathDots);
+  if (notes.length > 0) {
+    lines.push("");
+    lines.push(...notes);
+  }
   lines.push("");
   return lines.join("\n");
+}
+
+function leafNotes(pathDots: string): string[] {
+  if (pathDots === "status.job") {
+    return [
+      'JSON payload: `data.kind` is `"job"` and includes flat job fields (`id`, `jobType`, `provider`, `status`, timestamps), `progress`, `result`, `retryWith`, and the raw `job` record for compatibility.',
+    ];
+  }
+  if (pathDots === "status.project") {
+    return [
+      'JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes issue/error/warning counts plus `retryWith`, and top-level `retryWith` is the resume contract.',
+    ];
+  }
+  if (pathDots === "storyboard.revise") {
+    return [
+      'JSON payload: `data.kind` is `"storyboard-revision"` and includes `provider`, `summary`, `changedBeats`, `validation`, `wrote`, `warnings`, and `retryWith`. Use `--dry-run` before writing.',
+    ];
+  }
+  if (pathDots === "plan") {
+    return [
+      'JSON payload: `data.kind` is `"build-plan"` and includes `schemaVersion:"1"`, `status:"ready"|"invalid"`, `summary`, `validation`, `retryWith`, and `nextCommands`. Invalid storyboards exit non-zero with `code:"STORYBOARD_VALIDATION_FAILED"`.',
+    ];
+  }
+  if (pathDots === "build") {
+    return [
+      '`--dry-run --json` returns `data.plan.kind:"build-plan"`. `build --dry-run` and real `build` validate `STORYBOARD.md` before cost caps or provider dispatch, and invalid storyboards fail with `code:"STORYBOARD_VALIDATION_FAILED"` plus validate/revise `retryWith` commands.',
+      'Real `build` runs deterministic scene repair after compose and sync before render. JSON/build-report payloads include `sceneRepair`; repair failures use `code:"SCENE_REPAIR_FAILED"` and `sceneRepair.retryWith`.',
+    ];
+  }
+  return [];
 }
 
 function renderGroup(groupName: string, leaves: RenderedLeaf[]): string {
@@ -308,6 +419,9 @@ function buildReference(): string {
       pathDots: leaf.path,
       pathSpace: leaf.path.replace(/\./g, " "),
       description: leaf.description,
+      surface: schema.surface ?? leaf.surface,
+      replacement: schema.replacement ?? leaf.replacement,
+      note: schema.note ?? leaf.note,
       cost: schema.cost ?? leaf.cost,
       parameters: schema.parameters?.properties ?? {},
       required: schema.parameters?.required ?? [],
@@ -331,6 +445,7 @@ function buildReference(): string {
     MENTAL_MODEL,
     GLOBAL_FLAGS,
     OPTION_DISCOVERY,
+    renderProductSurfaces(leaves),
     renderCostTiers(leaves),
     ENVELOPE,
     MCP_MAPPING,
@@ -402,7 +517,9 @@ if (checkMode) {
   let shown = 0;
   for (let i = 0; i < max && shown < 20; i++) {
     if (existingLines[i] !== freshLines[i]) {
-      console.error(`L${i + 1}:\n  committed: ${JSON.stringify(existingLines[i] ?? "<EOF>")}\n  fresh:     ${JSON.stringify(freshLines[i] ?? "<EOF>")}`);
+      console.error(
+        `L${i + 1}:\n  committed: ${JSON.stringify(existingLines[i] ?? "<EOF>")}\n  fresh:     ${JSON.stringify(freshLines[i] ?? "<EOF>")}`
+      );
       shown++;
     }
   }

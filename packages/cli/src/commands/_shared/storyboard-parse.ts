@@ -60,6 +60,7 @@ export interface ProjectFrontmatter {
   providers?: {
     tts?: string;
     image?: string;
+    video?: string;
     music?: string;
   };
   /** Default voice id for TTS (provider-specific — see `--voice` flag). */

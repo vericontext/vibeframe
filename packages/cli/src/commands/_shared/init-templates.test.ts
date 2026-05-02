@@ -10,6 +10,7 @@ import {
 describe("AGENTS_MD template", () => {
   it("includes the self-discovery commands so agents can read the surface dynamically", () => {
     expect(AGENTS_MD).toContain("vibe schema --list");
+    expect(AGENTS_MD).toContain("vibe schema --list --surface public");
     expect(AGENTS_MD).toContain("vibe doctor");
     expect(AGENTS_MD).toContain("vibe schema generate.video");
   });
@@ -40,6 +41,7 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("vibe remix highlights");
     expect(AGENTS_MD).toContain("vibe edit silence-cut");
     expect(AGENTS_MD).toContain("vibe audio dub");
+    expect(AGENTS_MD).toContain("vibe generate narration");
   });
 });
 

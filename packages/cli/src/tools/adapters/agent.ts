@@ -15,9 +15,7 @@ import type {
 } from "../../agent/types.js";
 
 function formatZodError(err: ZodError): string {
-  return err.issues
-    .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-    .join("; ");
+  return err.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
 }
 
 /**
@@ -38,6 +36,9 @@ function toAgentDefinition(t: ToolDefinition): AgentToolDefinition {
   return {
     name: t.name,
     description: t.description,
+    surface: t.productSurface,
+    replacement: t.replacement,
+    note: t.note,
     // Propagate the manifest's cost tier so the agent's executor can
     // mandate a confirm prompt for high-spend tools without needing a
     // parallel SSOT.
@@ -53,7 +54,7 @@ function toAgentDefinition(t: ToolDefinition): AgentToolDefinition {
 /** Register every manifest entry tagged `agent` (or surfaces undefined) into a ToolRegistry. */
 export function registerManifestIntoAgent(
   registry: ToolRegistry,
-  manifest: readonly ToolDefinition[],
+  manifest: readonly ToolDefinition[]
 ): void {
   for (const tool of manifest) {
     if (tool.surfaces && !tool.surfaces.includes("agent")) continue;

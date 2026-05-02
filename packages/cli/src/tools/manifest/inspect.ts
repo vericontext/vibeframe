@@ -28,6 +28,7 @@ export const inspectProjectTool = defineTool({
     "Local project inspection: checks STORYBOARD.md, DESIGN.md, config, build-report, scene lint, composition files, and referenced assets. Writes review-report.json by default.",
   schema: z.object({
     projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    beat: z.string().optional().describe("Inspect only one storyboard beat where beat-scoped checks apply."),
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
     report: z.boolean().optional().describe("Write review-report.json. Default true."),
   }),
@@ -35,6 +36,7 @@ export const inspectProjectTool = defineTool({
     const projectDir = args.projectDir ? resolve(ctx.workingDirectory, args.projectDir) : ctx.workingDirectory;
     const result = await inspectProject({
       projectDir,
+      beatId: args.beat,
       outputPath: args.outputPath ? resolve(ctx.workingDirectory, args.outputPath) : undefined,
       writeReport: args.report !== false,
     });
@@ -60,6 +62,7 @@ export const inspectRenderTool = defineTool({
     "Render inspection: runs cheap local video checks by default, optionally adds Gemini AI review with ai: true, and writes review-report.json by default.",
   schema: z.object({
     projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    beat: z.string().optional().describe("Inspect a render for one storyboard beat."),
     videoPath: z.string().optional().describe("Rendered video path. Defaults to build-report outputPath or latest renders/* video."),
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
     report: z.boolean().optional().describe("Write review-report.json. Default true."),
@@ -72,6 +75,7 @@ export const inspectRenderTool = defineTool({
     if (args.dryRun) {
       const result = await previewInspectRender({
         projectDir,
+        beatId: args.beat,
         videoPath: args.videoPath ? resolve(ctx.workingDirectory, args.videoPath) : undefined,
         outputPath: args.outputPath ? resolve(ctx.workingDirectory, args.outputPath) : undefined,
         writeReport: args.report !== false,
@@ -89,6 +93,7 @@ export const inspectRenderTool = defineTool({
     }
     const result = await inspectRender({
       projectDir,
+      beatId: args.beat,
       videoPath: args.videoPath ? resolve(ctx.workingDirectory, args.videoPath) : undefined,
       outputPath: args.outputPath ? resolve(ctx.workingDirectory, args.outputPath) : undefined,
       writeReport: args.report !== false,

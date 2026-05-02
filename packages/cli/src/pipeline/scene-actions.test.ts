@@ -40,7 +40,13 @@ describe("pipeline action: scene-build", () => {
       success: true,
       phase: "done",
       mode: "batch",
-      beats: [{ beatId: "hook", narrationStatus: "generated", backdropStatus: "generated" }],
+      beats: [{
+        beatId: "hook",
+        narrationStatus: "generated",
+        backdropStatus: "generated",
+        videoStatus: "no-cue",
+        musicStatus: "no-cue",
+      }],
       outputPath: "/tmp/render.mp4",
       totalLatencyMs: 1234,
     });

@@ -21,6 +21,7 @@ export const renderCommand = new Command("render")
   .argument("[project-dir]", "Video project directory", ".")
   .option("-o, --out <path>", "Output file (default: renders/<name>-<timestamp>.<format>)")
   .option("--root <file>", "Root composition file", "index.html")
+  .option("--beat <id>", "Render only one storyboard beat using a temporary root")
   .option("--fps <n>", `Frames per second: ${VALID_FPS.join("|")}`, "30")
   .option("--quality <q>", `Quality preset: ${VALID_QUALITIES.join("|")}`, "standard")
   .option("--format <f>", `Output container: ${VALID_FORMATS.join("|")}`, "mp4")
@@ -43,6 +44,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
     const params = {
       projectDir,
       root: options.root,
+      beatId: options.beat,
       output: options.out,
       fps,
       quality,
@@ -68,6 +70,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
     const result = await executeSceneRender({
       projectDir,
       root: options.root,
+      beatId: options.beat,
       output: options.out,
       fps,
       quality,
@@ -99,6 +102,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
 type RenderDryRunParams = {
   projectDir: string;
   root: unknown;
+  beatId?: string;
   output: unknown;
   fps: RenderFps;
   quality: RenderQuality;
@@ -112,6 +116,7 @@ function printRenderDryRun(projectDirArg: string, params: RenderDryRunParams): v
   console.log(chalk.dim("-".repeat(60)));
   console.log(`  Project:       ${chalk.bold(projectDirArg)}`);
   console.log(`  Root:          ${chalk.bold(String(params.root))}`);
+  if (params.beatId) console.log(`  Beat:          ${chalk.bold(params.beatId)}`);
   console.log(`  Output:        ${chalk.bold(String(params.output ?? `renders/<name>-<timestamp>.${params.format}`))}`);
   console.log(`  Format:        ${chalk.bold(params.format)}`);
   console.log(`  Quality/FPS:   ${chalk.bold(`${params.quality} / ${params.fps}`)}`);
@@ -126,6 +131,8 @@ function printRenderResult(spinner: ReturnType<typeof ora> | null, result: Scene
   console.log(chalk.bold.cyan("Output"));
   console.log(chalk.dim("-".repeat(60)));
   console.log(`  File:      ${chalk.bold(result.outputPath)}`);
+  if (result.beat) console.log(`  Beat:      ${result.beat}`);
+  if (result.root) console.log(`  Root:      ${result.root}`);
   console.log(`  Format:    ${result.format ?? "mp4"}`);
   console.log(`  Quality:   ${result.quality ?? "standard"}`);
   console.log(`  FPS:       ${result.fps ?? 30}`);

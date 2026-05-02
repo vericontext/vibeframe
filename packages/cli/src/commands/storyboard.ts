@@ -2,7 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import {
@@ -12,7 +12,12 @@ import {
   STORYBOARD_CUE_KEYS,
   validateStoryboardMarkdown,
 } from "./_shared/storyboard-edit.js";
-import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
+import {
+  executeStoryboardRevision,
+  type StoryboardRevisionResult,
+} from "./_shared/storyboard-revise.js";
+import { isComposerProvider, type ComposerProvider } from "./_shared/composer-resolve.js";
+import { applyTiers } from "./_shared/cost-tier.js";
 import { exitWithError, generalError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
 export const storyboardCommand = new Command("storyboard")
@@ -164,8 +169,9 @@ storyboardCommand
   .argument("<project-dir>", "Project directory")
   .requiredOption("--from <brief>", "Revision request or path to a text/markdown file")
   .option("-d, --duration <sec>", "Target total duration in seconds")
+  .option("--composer <provider>", "Revision LLM provider: claude|openai|gemini")
   .option("--dry-run", "Preview the revised storyboard without writing")
-  .action(async (projectDirArg: string, options: { from: string; duration?: string; dryRun?: boolean }) => {
+  .action(async (projectDirArg: string, options: { from: string; duration?: string; composer?: string; dryRun?: boolean }) => {
     const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
     const brief = await readBrief(options.from, process.cwd());
@@ -173,25 +179,30 @@ storyboardCommand
     if (duration !== undefined && (!Number.isFinite(duration) || duration <= 0)) {
       exitWithError(usageError(`Invalid --duration: ${options.duration}`, "Duration must be a positive number of seconds."));
     }
-    const draft = draftStoryboardFromBrief({
-      name: basename(projectDir),
-      brief,
+    const composer = parseComposer(options.composer);
+    const result = await executeStoryboardRevision({
+      projectDir,
+      request: brief,
       durationSec: duration,
+      composer,
+      dryRun: options.dryRun ?? false,
     });
-    if (!options.dryRun) {
-      await writeFile(storyboardPath(projectDir), draft.storyboardMd, "utf-8");
+    if (!result.success && !isJsonMode()) {
+      exitWithError(generalError(result.message ?? "Storyboard revision failed", result.suggestion));
     }
+
     outputSuccess({
       command: "storyboard revise",
       startedAt,
       dryRun: options.dryRun ?? false,
-      warnings: draft.warnings,
-      data: {
-        projectDir,
-        storyboardPath: storyboardPath(projectDir),
-        storyboard: options.dryRun ? draft.storyboardMd : undefined,
-      },
+      warnings: result.warnings,
+      data: result as unknown as Record<string, unknown>,
     });
+    if (!result.success) {
+      process.exitCode = 1;
+      return;
+    }
+    if (!isJsonMode()) printRevisionResult(result);
   });
 
 storyboardCommand
@@ -246,6 +257,12 @@ function storyboardPath(projectDir: string): string {
   return resolve(projectDir, "STORYBOARD.md");
 }
 
+function parseComposer(value: string | undefined): ComposerProvider | undefined {
+  if (value === undefined) return undefined;
+  if (isComposerProvider(value)) return value;
+  exitWithError(usageError(`Invalid --composer: ${value}`, "Must be one of: claude, openai, gemini"));
+}
+
 async function readBrief(value: string, cwd: string): Promise<string> {
   const candidate = resolve(cwd, value);
   if (existsSync(candidate)) {
@@ -253,3 +270,28 @@ async function readBrief(value: string, cwd: string): Promise<string> {
   }
   return value;
 }
+
+function printRevisionResult(result: StoryboardRevisionResult): void {
+  console.log();
+  console.log(chalk.bold.cyan("Storyboard Revision"));
+  console.log(chalk.dim("-".repeat(60)));
+  console.log(`  Project:       ${result.projectDir}`);
+  console.log(`  Provider:      ${result.provider ?? "unknown"}`);
+  console.log(`  Status:        ${result.success ? chalk.green("ok") : chalk.red("failed")}`);
+  console.log(`  Wrote:         ${result.wrote ? "yes" : "no"}`);
+  if (result.changedBeats.length > 0) console.log(`  Changed beats: ${result.changedBeats.join(", ")}`);
+  if (result.summary) console.log(`  Summary:       ${result.summary}`);
+  if (result.storyboard) {
+    console.log();
+    console.log(result.storyboard);
+  }
+}
+
+applyTiers(storyboardCommand, {
+  list: "free",
+  get: "free",
+  set: "free",
+  move: "free",
+  revise: "low",
+  validate: "free",
+});

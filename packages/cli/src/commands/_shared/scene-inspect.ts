@@ -17,6 +17,7 @@ import {
 
 export interface ProjectInspectOptions {
   projectDir: string;
+  beatId?: string;
   outputPath?: string;
   writeReport?: boolean;
 }
@@ -25,6 +26,7 @@ export interface ProjectInspectResult {
   schemaVersion: "1";
   kind: "project";
   project: string;
+  beat?: string;
   status: ReviewStatus;
   score: number;
   issues: ReviewIssue[];
@@ -76,10 +78,14 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
       severity: "error",
       code: "PROJECT_NOT_FOUND",
       message: `Project directory not found: ${projectDir}`,
-      suggestedFix: "Run `vibe init <dir> --from \"brief\" --json` first.",
+      suggestedFix: 'Run `vibe init <dir> --from "brief" --json` first.',
     });
     retryWith.push(`vibe init ${projectDir} --from "<brief>" --json`);
-    return maybeWriteProjectReport(projectDir, opts, makeProjectResult(projectDir, issues, checks, retryWith));
+    return maybeWriteProjectReport(
+      projectDir,
+      opts,
+      makeProjectResult(projectDir, issues, checks, retryWith)
+    );
   }
 
   const coreFiles = {
@@ -95,6 +101,7 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
   }
 
   let beatIds: string[] = [];
+  let inspectedBeatIds: string[] = [];
   if (!checks.files.storyboard) {
     issues.push({
       severity: "error",
@@ -107,6 +114,7 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     const storyboard = await readFile(coreFiles.storyboard, "utf-8");
     const validation = validateStoryboardMarkdown(storyboard);
     beatIds = validation.beats.map((beat) => beat.id);
+    inspectedBeatIds = opts.beatId ? beatIds.filter((beatId) => beatId === opts.beatId) : beatIds;
     checks.storyboard = { ok: validation.ok, beatCount: validation.beats.length };
     for (const issue of validation.issues) {
       issues.push({
@@ -114,10 +122,20 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
         code: `STORYBOARD_${issue.code}`,
         message: issue.message,
         scene: issue.beatId,
-        suggestedFix: "Run `vibe storyboard validate --json` and edit STORYBOARD.md or use `vibe storyboard set`.",
+        suggestedFix:
+          "Run `vibe storyboard validate --json` and edit STORYBOARD.md or use `vibe storyboard set`.",
       });
     }
     if (!validation.ok) retryWith.push(`vibe storyboard validate ${projectDir} --json`);
+    if (opts.beatId && inspectedBeatIds.length === 0) {
+      issues.push({
+        severity: "error",
+        code: "BEAT_NOT_FOUND",
+        message: `Beat "${opts.beatId}" was not found in STORYBOARD.md.`,
+        suggestedFix: "Run `vibe storyboard validate --json` and choose an existing beat id.",
+      });
+      retryWith.push(`vibe storyboard validate ${projectDir} --json`);
+    }
   }
 
   if (!checks.files.design) {
@@ -154,9 +172,11 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
   }
 
   const compositionsDir = join(projectDir, "compositions");
-  const existingComps = existsSync(compositionsDir) ? new Set(await listHtmlBasenames(compositionsDir)) : new Set<string>();
-  checks.compositions.expected = beatIds.length;
-  for (const beatId of beatIds) {
+  const existingComps = existsSync(compositionsDir)
+    ? new Set(await listHtmlBasenames(compositionsDir))
+    : new Set<string>();
+  checks.compositions.expected = inspectedBeatIds.length;
+  for (const beatId of inspectedBeatIds) {
     const file = `scene-${beatId}.html`;
     if (existingComps.has(file)) {
       checks.compositions.found++;
@@ -173,7 +193,9 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     }
   }
   if (checks.compositions.missing.length > 0) {
-    retryWith.push(`vibe build ${projectDir} --stage compose --json`);
+    retryWith.push(
+      `vibe build ${projectDir}${opts.beatId ? ` --beat ${opts.beatId}` : ""} --stage compose --json`
+    );
   }
 
   if (!checks.files.buildReport) {
@@ -185,30 +207,39 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     });
     retryWith.push(`vibe build ${projectDir} --dry-run --json`);
   } else {
-    await inspectBuildReport(projectDir, coreFiles.buildReport, checks, issues, retryWith);
+    await inspectBuildReport(projectDir, coreFiles.buildReport, opts.beatId, checks, issues, retryWith);
   }
 
   if (checks.files.root) {
     try {
       const lint = await runProjectLint({ projectDir });
+      const lintFiles = opts.beatId
+        ? lint.files.filter(
+            (file) =>
+              file.file === "index.html" ||
+              file.file === join("compositions", `scene-${opts.beatId}.html`)
+          )
+        : lint.files;
+      const lintCounts = countLintFindings(lintFiles);
       checks.lint = {
-        ok: lint.ok,
-        errorCount: lint.errorCount,
-        warningCount: lint.warningCount,
-        infoCount: lint.infoCount,
+        ok: lintCounts.errorCount === 0,
+        errorCount: lintCounts.errorCount,
+        warningCount: lintCounts.warningCount,
+        infoCount: lintCounts.infoCount,
       };
-      for (const file of lint.files) {
+      for (const file of lintFiles) {
         for (const finding of file.findings) {
           issues.push({
             severity: finding.severity,
             code: `SCENE_LINT_${finding.code}`,
             message: finding.message,
             file: file.file,
-            suggestedFix: finding.fixHint ?? "Run `vibe scene repair --json` or edit the scene HTML.",
+            suggestedFix:
+              finding.fixHint ?? "Run `vibe scene repair --json` or edit the scene HTML.",
           });
         }
       }
-      if (!lint.ok) retryWith.push(`vibe scene repair --project ${projectDir} --json`);
+      if (lintCounts.errorCount > 0) retryWith.push(`vibe scene repair --project ${projectDir} --json`);
     } catch (error) {
       issues.push({
         severity: "error",
@@ -218,7 +249,11 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     }
   }
 
-  return maybeWriteProjectReport(projectDir, opts, makeProjectResult(projectDir, issues, checks, retryWith));
+  return maybeWriteProjectReport(
+    projectDir,
+    opts,
+    makeProjectResult(projectDir, issues, checks, retryWith, opts.beatId)
+  );
 }
 
 function makeProjectResult(
@@ -226,12 +261,14 @@ function makeProjectResult(
   issues: ReviewIssue[],
   checks: ProjectInspectResult["checks"],
   retryWith: string[],
+  beatId?: string
 ): ProjectInspectResult {
   const status = statusFromIssues(issues);
   return {
     schemaVersion: "1",
     kind: "project",
     project: projectDir,
+    ...(beatId ? { beat: beatId } : {}),
     status,
     score: scoreIssues(issues),
     issues,
@@ -243,10 +280,12 @@ function makeProjectResult(
 async function maybeWriteProjectReport(
   projectDir: string,
   opts: ProjectInspectOptions,
-  result: ProjectInspectResult,
+  result: ProjectInspectResult
 ): Promise<ProjectInspectResult> {
   if (opts.writeReport === false) return result;
-  const reportPath = opts.outputPath ? resolve(process.cwd(), opts.outputPath) : defaultReviewReportPath(projectDir);
+  const reportPath = opts.outputPath
+    ? resolve(process.cwd(), opts.outputPath)
+    : defaultReviewReportPath(projectDir);
   try {
     const withPath = { ...result, reportPath };
     await writeReviewReport(reportPath, withPath as unknown as Record<string, unknown>);
@@ -259,9 +298,10 @@ async function maybeWriteProjectReport(
 async function inspectBuildReport(
   projectDir: string,
   reportPath: string,
+  beatId: string | undefined,
   checks: ProjectInspectResult["checks"],
   issues: ReviewIssue[],
-  retryWith: string[],
+  retryWith: string[]
 ): Promise<void> {
   checks.buildReport.exists = true;
   try {
@@ -271,30 +311,87 @@ async function inspectBuildReport(
         id?: unknown;
         narrationPath?: unknown;
         backdropPath?: unknown;
+        videoPath?: unknown;
+        musicPath?: unknown;
         compositionPath?: unknown;
+        narration?: { path?: unknown };
+        backdrop?: { path?: unknown };
+        video?: { path?: unknown };
+        music?: { path?: unknown };
+      }>;
+      jobs?: Array<{
+        id?: unknown;
+        beatId?: unknown;
+        outputPath?: unknown;
+        cachePath?: unknown;
       }>;
     };
     if (typeof report.outputPath === "string") checks.buildReport.outputPath = report.outputPath;
-    for (const beat of report.beats ?? []) {
+    const reportBeats = report.beats ?? [];
+    const selectedReportBeats = reportBeats.filter((item) => !beatId || item.id === beatId);
+    if (beatId && selectedReportBeats.length === 0) {
+      issues.push({
+        severity: "warning",
+        code: "BUILD_REPORT_BEAT_MISSING",
+        message: `build-report.json does not contain beat "${beatId}".`,
+        file: "build-report.json",
+        scene: beatId,
+        suggestedFix: "Rerun the selected beat build.",
+      });
+      retryWith.push(`vibe build ${projectDir} --beat ${beatId} --stage sync --json`);
+    }
+    for (const beat of selectedReportBeats) {
       const id = typeof beat.id === "string" ? beat.id : undefined;
-      for (const key of ["narrationPath", "backdropPath", "compositionPath"] as const) {
-        const value = beat[key];
-        if (typeof value !== "string" || value.length === 0) continue;
-        checks.assets.checked++;
-        if (isExternalRef(value)) continue;
-        const abs = isAbsolute(value) ? value : resolve(projectDir, value);
-        if (!existsSync(abs)) {
-          checks.assets.missing.push(value);
-          issues.push({
-            severity: "warning",
-            code: "MISSING_REPORTED_ASSET",
-            message: `Build report references a missing ${key}: ${value}`,
-            file: value,
-            scene: id,
-            suggestedFix: "Rerun the relevant build stage with --force.",
-          });
-          retryWith.push(`vibe build ${projectDir} --stage assets --force --json`);
-        }
+      for (const key of [
+        "narrationPath",
+        "backdropPath",
+        "videoPath",
+        "musicPath",
+        "compositionPath",
+      ] as const) {
+        inspectReportedAsset({
+          projectDir,
+          value: beat[key],
+          label: key,
+          scene: id,
+          checks,
+          issues,
+          retryWith,
+        });
+      }
+      for (const [label, value] of [
+        ["narration.path", beat.narration?.path],
+        ["backdrop.path", beat.backdrop?.path],
+        ["video.path", beat.video?.path],
+        ["music.path", beat.music?.path],
+      ] as const) {
+        inspectReportedAsset({
+          projectDir,
+          value,
+          label,
+          scene: id,
+          checks,
+          issues,
+          retryWith,
+        });
+      }
+    }
+    for (const job of (report.jobs ?? []).filter((item) => {
+      const jobBeatId = typeof item.beatId === "string" ? item.beatId : undefined;
+      return !beatId || jobBeatId === beatId;
+    })) {
+      const id = typeof job.id === "string" ? job.id : undefined;
+      const beatId = typeof job.beatId === "string" ? job.beatId : undefined;
+      for (const key of ["outputPath", "cachePath"] as const) {
+        inspectReportedAsset({
+          projectDir,
+          value: job[key],
+          label: id ? `job ${id} ${key}` : `job ${key}`,
+          scene: beatId,
+          checks,
+          issues,
+          retryWith,
+        });
       }
     }
   } catch (error) {
@@ -309,6 +406,52 @@ async function inspectBuildReport(
   }
 }
 
+function inspectReportedAsset(opts: {
+  projectDir: string;
+  value: unknown;
+  label: string;
+  scene?: string;
+  checks: ProjectInspectResult["checks"];
+  issues: ReviewIssue[];
+  retryWith: string[];
+}): void {
+  if (typeof opts.value !== "string" || opts.value.length === 0) return;
+  opts.checks.assets.checked++;
+  if (isExternalRef(opts.value)) return;
+  const abs = isAbsolute(opts.value) ? opts.value : resolve(opts.projectDir, opts.value);
+  if (existsSync(abs)) return;
+  opts.checks.assets.missing.push(opts.value);
+  opts.issues.push({
+    severity: "warning",
+    code: "MISSING_REPORTED_ASSET",
+    message: `Build report references a missing ${opts.label}: ${opts.value}`,
+    file: opts.value,
+    scene: opts.scene,
+    suggestedFix: "Rerun the relevant build stage with --force.",
+  });
+  opts.retryWith.push(
+    `vibe build ${opts.projectDir}${opts.scene ? ` --beat ${opts.scene}` : ""} --stage assets --force --json`
+  );
+}
+
+function countLintFindings(files: Array<{ findings: Array<{ severity: string }> }>): {
+  errorCount: number;
+  warningCount: number;
+  infoCount: number;
+} {
+  let errorCount = 0;
+  let warningCount = 0;
+  let infoCount = 0;
+  for (const file of files) {
+    for (const finding of file.findings) {
+      if (finding.severity === "error") errorCount++;
+      else if (finding.severity === "warning") warningCount++;
+      else infoCount++;
+    }
+  }
+  return { errorCount, warningCount, infoCount };
+}
+
 async function isDirectory(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isDirectory();
@@ -319,7 +462,9 @@ async function isDirectory(path: string): Promise<boolean> {
 
 async function listHtmlBasenames(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
-  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".html")).map((entry) => entry.name);
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+    .map((entry) => entry.name);
 }
 
 function isExternalRef(value: string): boolean {
@@ -327,7 +472,8 @@ function isExternalRef(value: string): boolean {
 }
 
 export function displayIssue(issue: ReviewIssue): string {
-  const file = issue.file ? ` ${relative(process.cwd(), resolve(issue.file)) || basename(issue.file)}` : "";
+  const file = issue.file
+    ? ` ${relative(process.cwd(), resolve(issue.file)) || basename(issue.file)}`
+    : "";
   return `[${issue.severity}] ${issue.code}${file}: ${issue.message}`;
 }
-

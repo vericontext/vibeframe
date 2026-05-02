@@ -15,6 +15,14 @@ export interface ToolDefinition {
   name: string;
   description: string;
   /**
+   * Product-facing classification propagated from the manifest. This is
+   * separate from MCP/agent transport exposure and helps agents prefer the
+   * intended public workflow over legacy or internal primitives.
+   */
+  surface?: "public" | "agent" | "advanced" | "legacy" | "internal";
+  replacement?: string;
+  note?: string;
+  /**
    * Cost tier propagated from the manifest's `defineTool` declaration.
    * Five tiers (free / low / medium / high / very-high). Used by the
    * agent executor to decide whether a confirm prompt is mandatory.
