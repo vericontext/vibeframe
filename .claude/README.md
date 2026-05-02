@@ -62,12 +62,40 @@ This directory configures Claude Code for the VibeFrame project.
 
 - Invoked via natural language ("run code review") or @-mention
 - Each has specific tools, model, and max turns
-- `code-reviewer` runs proactively after code changes
+- No PostToolUse hook auto-invokes any agent. Use `/code-review` (plugin)
+  or @-mention `code-reviewer` manually after substantial changes.
 
 ### Hooks
 
-- **PreToolUse (Bash)**: Validates SSOT before `git push`
-- **PostToolUse (Edit|Write)**: Auto-lints TypeScript files after edits
+- **PreToolUse (Bash)**: `pre-push-validate.sh` — only fires on `git push`,
+  exits early on every other Bash. 10 gates (in order):
+  1. Version sync across `package.json` files
+  2. Version bump required when `feat:`/`fix:` commits exist since last tag
+  3. No hardcoded version fallbacks in `apps/web`
+  4. No stale model IDs in `.claude/skills/` (per `MODELS.md`)
+  5. `scripts/sync-counts.sh --check` passes
+  6. `CHANGELOG.md` has entry for current root version
+  7. `pnpm lint` passes
+  8. `pnpm build` passes
+  9. `pnpm typecheck` passes
+  10. `pnpm gen:reference:check` passes (catches stale `docs/cli-reference.md`)
+
+  On failure, the last 5 lines of the failing command's output are
+  attached to the error.
+
+- **PostToolUse (Edit|Write)**: `post-edit-lint.sh` — runs ESLint on
+  edited `.ts` files in `packages/*/src`. Reports issues, never blocks.
+
+### Plugins
+
+Enabled in `settings.json` under `enabledPlugins`:
+
+| Plugin                | Provides                                                  |
+| --------------------- | --------------------------------------------------------- |
+| `claude-code-setup`   | `claude-automation-recommender` skill                     |
+| `code-review`         | `/code-review` skill for PR review                        |
+| `code-simplifier`     | `simplify` skill for review-and-fix                       |
+| `security-guidance`   | `/security-review` skill for branch security audit        |
 
 ## Adding New Components
 

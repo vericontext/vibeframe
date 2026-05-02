@@ -1,4 +1,59 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git tag:*)",
+      "Bash(git stash list:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git remote:*)",
+      "Bash(git config --get:*)",
+      "Bash(git describe:*)",
+      "Bash(git blame:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh api repos/:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(jq:*)",
+      "Bash(awk:*)",
+      "Bash(node --version)",
+      "Bash(node -v)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm gen:reference:*)",
+      "Bash(pnpm -F @vibeframe/cli build:*)",
+      "Bash(pnpm -F @vibeframe/cli test:*)",
+      "Bash(pnpm -F @vibeframe/cli lint:*)",
+      "Bash(pnpm -F @vibeframe/cli exec vitest:*)",
+      "Bash(pnpm -r exec --:*)",
+      "Bash(pnpm vitest:*)",
+      "Bash(npm view:*)",
+      "Bash(ps aux:*)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -22,5 +77,11 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true
   }
 }

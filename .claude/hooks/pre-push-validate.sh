@@ -69,22 +69,42 @@ if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
   fi
 fi
 
+# Run a checked command, capturing combined output. On failure, attach
+# the last 5 lines to the error so the user can fix it without manually
+# re-running. Pre-fix this used `> /dev/null 2>&1`, which left users
+# guessing what actually failed.
+TMP_LOG=$(mktemp -t vibe-prepush.XXXXXX)
+trap 'rm -f "$TMP_LOG"' EXIT
+gated_check() {
+  local label="$1"
+  local fix="$2"
+  shift 2
+  if ! (cd "$PROJECT_DIR" && "$@" > "$TMP_LOG" 2>&1); then
+    local tail_lines
+    tail_lines=$(tail -5 "$TMP_LOG" | sed 's/^/      /')
+    ERRORS+=("$label failed. Fix: $fix
+$tail_lines")
+  fi
+}
+
 # 7. Lint check
-if ! (cd "$PROJECT_DIR" && pnpm lint > /dev/null 2>&1); then
-  ERRORS+=("Lint failed. Fix: pnpm lint")
-fi
+gated_check "Lint" "pnpm lint" pnpm lint
 
 # 8. Build check
-if ! (cd "$PROJECT_DIR" && pnpm build > /dev/null 2>&1); then
-  ERRORS+=("Build failed. Fix: pnpm build")
-fi
+gated_check "Build" "pnpm build" pnpm build
 
 # 9. Type check — `pnpm build` uses esbuild (no type validation), so strict
 # TS errors slip past locally and get caught only by CI's typecheck job.
 # Mirror that gate here so local pushes catch the same class of failures.
-if ! (cd "$PROJECT_DIR" && pnpm typecheck > /dev/null 2>&1); then
-  ERRORS+=("Type check failed. Fix: pnpm typecheck")
-fi
+gated_check "Type check" "pnpm typecheck" pnpm typecheck
+
+# 10. CLI reference sync — `gen:reference` reads the dist binary, so a stale
+# dist (bumped version not rebuilt) produces a file that fails CI's check.
+# This gate caught the 0.96.{1,2,3} CI failures only after the fact —
+# moving it pre-push closes the loop. Cheap (<1s).
+gated_check "docs/cli-reference.md is stale" \
+  "pnpm -F @vibeframe/cli build && pnpm gen:reference" \
+  pnpm gen:reference:check
 
 # Report
 if [ ${#ERRORS[@]} -gt 0 ]; then
