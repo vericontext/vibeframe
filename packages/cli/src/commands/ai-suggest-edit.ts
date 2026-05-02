@@ -8,11 +8,11 @@
  * @see MODELS.md for AI model configuration
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { GeminiProvider } from '@vibeframe/ai-providers';
-import { Project, type ProjectFile } from '../engine/index.js';
-import { applySuggestion } from './ai-helpers.js';
+import { readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { GeminiProvider, type EditSuggestion } from "@vibeframe/ai-providers";
+import { Project, type ProjectFile } from "../engine/index.js";
+import { applySuggestion } from "./ai-helpers.js";
 
 export interface ExecuteSuggestEditOptions {
   projectPath: string;
@@ -20,8 +20,9 @@ export interface ExecuteSuggestEditOptions {
   apply?: boolean;
   apiKey?: string;
 }
+
 export interface SuggestEditEntry {
-  type: string;
+  type: EditSuggestion["type"];
   description: string;
   confidence: number;
   clipIds: string[];
@@ -36,7 +37,9 @@ export interface ExecuteSuggestEditResult {
   error?: string;
 }
 
-export async function executeSuggestEdit(options: ExecuteSuggestEditOptions): Promise<ExecuteSuggestEditResult> {
+export async function executeSuggestEdit(
+  options: ExecuteSuggestEditOptions
+): Promise<ExecuteSuggestEditResult> {
   try {
     const apiKey = options.apiKey ?? process.env.GOOGLE_API_KEY;
     if (!apiKey) return { success: false, error: "GOOGLE_API_KEY required for suggest" };
@@ -70,6 +73,9 @@ export async function executeSuggestEdit(options: ExecuteSuggestEditOptions): Pr
 
     return { success: true, suggestions };
   } catch (error) {
-    return { success: false, error: `Suggest failed: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Suggest failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }

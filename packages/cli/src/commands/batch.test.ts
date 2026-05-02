@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync } from "child_process";
-import {
-  readFileSync,
-  writeFileSync,
-  mkdtempSync,
-  mkdirSync,
-  rmSync,
-} from "fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
+import type { ProjectFile } from "../engine/index.js";
+
+type SourceLike = ProjectFile["state"]["sources"][number];
+type ClipLike = ProjectFile["state"]["clips"][number];
 
 const CLI = `node ${resolve(__dirname, "../../dist/index.js")}`;
 
@@ -53,16 +51,16 @@ describe("batch commands", () => {
     });
 
     it("filters files by extension", () => {
-      execSync(
-        `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
       expect(content.state.sources).toHaveLength(3);
-      expect(content.state.sources.every((s: any) => s.name.endsWith(".mp4"))).toBe(
-        true
-      );
+      expect(
+        (content as ProjectFile).state.sources.every((s: SourceLike) => s.name.endsWith(".mp4"))
+      ).toBe(true);
     });
 
     it("imports recursively", () => {
@@ -84,14 +82,14 @@ describe("batch commands", () => {
   describe("batch concat", () => {
     beforeEach(() => {
       // Import media first
-      execSync(
-        `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       // Set durations for sources
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
-      content.state.sources.forEach((s: any, i: number) => {
+      (content as ProjectFile).state.sources.forEach((s: SourceLike, i: number) => {
         s.duration = 5 + i; // 5, 6, 7 seconds
       });
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
@@ -141,13 +139,13 @@ describe("batch commands", () => {
 
     beforeEach(() => {
       // Import and concat
-      execSync(
-        `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       let content = JSON.parse(readFileSync(projectFile, "utf-8"));
-      content.state.sources.forEach((s: any) => {
+      (content as ProjectFile).state.sources.forEach((s: SourceLike) => {
         s.duration = 5;
       });
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
@@ -158,7 +156,7 @@ describe("batch commands", () => {
       });
 
       content = JSON.parse(readFileSync(projectFile, "utf-8"));
-      clipIds = content.state.clips.map((c: any) => c.id);
+      clipIds = (content as ProjectFile).state.clips.map((c: ClipLike) => c.id);
     });
 
     it("applies effect to all clips", () => {
@@ -175,20 +173,20 @@ describe("batch commands", () => {
     });
 
     it("applies effect with custom duration", () => {
-      execSync(
-        `${CLI} batch apply-effect "${projectFile}" fadeOut --all -d 2`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch apply-effect "${projectFile}" fadeOut --all -d 2`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
       expect(content.state.clips[0].effects[0].duration).toBe(2);
     });
 
     it("applies effect to specific clips", () => {
-      execSync(
-        `${CLI} batch apply-effect "${projectFile}" blur ${clipIds[0]} ${clipIds[2]}`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch apply-effect "${projectFile}" blur ${clipIds[0]} ${clipIds[2]}`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
       expect(content.state.clips[0].effects).toHaveLength(1);
@@ -200,13 +198,13 @@ describe("batch commands", () => {
   describe("batch remove-clips", () => {
     beforeEach(() => {
       // Import and concat
-      execSync(
-        `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
-      content.state.sources.forEach((s: any) => {
+      (content as ProjectFile).state.sources.forEach((s: SourceLike) => {
         s.duration = 5;
       });
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");
@@ -247,13 +245,13 @@ describe("batch commands", () => {
   describe("batch info", () => {
     beforeEach(() => {
       // Import and concat
-      execSync(
-        `${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`,
-        { cwd: tempDir, encoding: "utf-8" }
-      );
+      execSync(`${CLI} batch import "${projectFile}" "${mediaDir}" --filter ".mp4"`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
 
       const content = JSON.parse(readFileSync(projectFile, "utf-8"));
-      content.state.sources.forEach((s: any) => {
+      (content as ProjectFile).state.sources.forEach((s: SourceLike) => {
         s.duration = 5;
       });
       writeFileSync(projectFile, JSON.stringify(content, null, 2), "utf-8");

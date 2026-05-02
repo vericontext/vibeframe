@@ -5,9 +5,16 @@ import { resolve, basename, extname } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
-import type { MediaType } from "@vibeframe/core/timeline";
+import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
-import { exitWithError, generalError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
+import {
+  exitWithError,
+  generalError,
+  isJsonMode,
+  notFoundError,
+  outputSuccess,
+  usageError,
+} from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { resolveTimelineFile } from "../utils/project-resolver.js";
 import {
@@ -18,7 +25,9 @@ import {
 
 export const timelineCommand = new Command("timeline")
   .description("Low-level timeline JSON commands")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   $ vibe timeline create my-video                               # my-video/timeline.json
   $ vibe timeline add-source my-video video.mp4                 # Returns source ID
@@ -30,7 +39,8 @@ Examples:
 
 Typical workflow: create → add-source → add-clip → trim-clip/split-clip → export
 Cost: Free (no API keys needed).
-Run 'vibe schema timeline.<command>' for structured parameter info.`);
+Run 'vibe schema timeline.<command>' for structured parameter info.`
+  );
 
 timelineCommand
   .command("create")
@@ -283,7 +293,9 @@ timelineCommand
       const project = Project.fromJSON(data);
 
       const existingTracks = project.getTracksByType(type as MediaType);
-      const trackName = options.name || `${type.charAt(0).toUpperCase() + type.slice(1)} ${existingTracks.length + 1}`;
+      const trackName =
+        options.name ||
+        `${type.charAt(0).toUpperCase() + type.slice(1)} ${existingTracks.length + 1}`;
       const order = project.getTracks().length;
 
       const track = project.addTrack({
@@ -327,7 +339,10 @@ timelineCommand
   .description("Add an effect to a clip")
   .argument("<project>", "Timeline file or directory")
   .argument("<clip-id>", "Clip ID")
-  .argument("<effect-type>", "Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)")
+  .argument(
+    "<effect-type>",
+    "Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)"
+  )
   .option("--start <seconds>", "Effect start time (relative to clip)", "0")
   .option("-d, --duration <seconds>", "Effect duration (defaults to clip duration)")
   .option("--params <json>", "Effect parameters as JSON", "{}")
@@ -374,7 +389,7 @@ timelineCommand
       const params = JSON.parse(options.params);
 
       const effect = project.addEffect(clipId, {
-        type: effectType as any,
+        type: effectType as EffectType,
         startTime,
         duration,
         params,
@@ -582,7 +597,9 @@ timelineCommand
             track.isMuted ? "muted" : null,
             track.isLocked ? "locked" : null,
             !track.isVisible ? "hidden" : null,
-          ].filter(Boolean).join(", ");
+          ]
+            .filter(Boolean)
+            .join(", ");
           console.log(`  ${chalk.yellow(track.id)}`);
           console.log(`    ${track.name} (${track.type})${status ? ` [${status}]` : ""}`);
         }
@@ -598,7 +615,9 @@ timelineCommand
           for (const clip of clips) {
             const source = project.getSource(clip.sourceId);
             console.log(`  ${chalk.yellow(clip.id)}`);
-            console.log(`    ${source?.name || "unknown"} @ ${clip.startTime}s (${clip.duration}s)`);
+            console.log(
+              `    ${source?.name || "unknown"} @ ${clip.startTime}s (${clip.duration}s)`
+            );
             if (clip.effects.length > 0) {
               console.log(`    Effects: ${clip.effects.map((e) => e.type).join(", ")}`);
             }
@@ -935,10 +954,10 @@ function detectMediaType(path: string): MediaType {
 // no FFmpeg renders. Tag every one as `free` so `vibe schema --filter free`
 // finds them and the doctor's cost mix counts them honestly.
 applyTiers(timelineCommand, {
-  "create": "free",
-  "info": "free",
-  "set": "free",
-  "list": "free",
+  create: "free",
+  info: "free",
+  set: "free",
+  list: "free",
   "add-source": "free",
   "add-clip": "free",
   "add-track": "free",

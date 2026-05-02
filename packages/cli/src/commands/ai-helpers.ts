@@ -5,7 +5,16 @@
  * ai.ts imports and re-uses these internally.
  */
 
+import type { EditSuggestion } from "@vibeframe/ai-providers";
+import type { EffectType } from "@vibeframe/core/timeline";
 import { Project } from "../engine/index.js";
+
+/**
+ * Minimal shape required by {@link applySuggestion}. Accepts the canonical
+ * {@link EditSuggestion} from the AI provider as well as the CLI's local
+ * `SuggestEditEntry`, which omits the optional `id`/`previewUrl`.
+ */
+export type ApplicableSuggestion = Pick<EditSuggestion, "type" | "clipIds" | "params">;
 
 /**
  * Download a video from URL, handling Veo/Google API authentication.
@@ -34,29 +43,45 @@ export function formatTime(seconds: number): string {
 }
 
 /** Apply a single AI edit suggestion to a project */
-export function applySuggestion(project: Project, suggestion: any): boolean {
+export function applySuggestion(project: Project, suggestion: ApplicableSuggestion): boolean {
   const { type, clipIds, params } = suggestion;
 
   if (clipIds.length === 0) return false;
   const clipId = clipIds[0];
 
   switch (type) {
-    case "trim":
-      if (params.newDuration) {
-        return project.trimClipEnd(clipId, params.newDuration);
+    case "trim": {
+      const newDuration = params.newDuration;
+      if (typeof newDuration === "number") {
+        return project.trimClipEnd(clipId, newDuration);
       }
       break;
-    case "add-effect":
-      if (params.effectType) {
+    }
+    case "add-effect": {
+      const effectType = params.effectType;
+      if (typeof effectType === "string") {
+        const startTime = typeof params.startTime === "number" ? params.startTime : 0;
+        const duration = typeof params.duration === "number" ? params.duration : 1;
+        const rawEffectParams =
+          params.effectParams && typeof params.effectParams === "object"
+            ? (params.effectParams as Record<string, unknown>)
+            : {};
+        const effectParams: Record<string, string | number | boolean> = {};
+        for (const [k, v] of Object.entries(rawEffectParams)) {
+          if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+            effectParams[k] = v;
+          }
+        }
         const effect = project.addEffect(clipId, {
-          type: params.effectType,
-          startTime: params.startTime || 0,
-          duration: params.duration || 1,
-          params: params.effectParams || {},
+          type: effectType as EffectType,
+          startTime,
+          duration,
+          params: effectParams,
         });
         return effect !== null;
       }
       break;
+    }
     case "delete":
       return project.removeClip(clipId);
   }
