@@ -110,13 +110,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Current quickstart recording anchored above the surface guides. */}
+      {/* Quickstart recording placeholder — actual demo is being re-cut. */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
               <Video className="w-4 h-4" />
-              <span>What you can build · quickstart recording</span>
+              <span>Quickstart recording · coming soon</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               Prompt to finished clip
@@ -126,28 +126,12 @@ export default function LandingPage() {
               designed motion overlay from the CLI.
             </p>
           </div>
-          <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black mx-auto max-w-4xl">
-            <video
-              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/quickstart-claude-code.mp4"
-              controls
-              muted
-              autoPlay
-              loop
-              playsInline
-              className="w-full h-auto"
-            />
+          <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 mx-auto max-w-4xl aspect-video flex flex-col items-center justify-center gap-3">
+            <Video className="w-10 h-10 text-muted-foreground/60" />
+            <p className="text-muted-foreground text-sm">
+              New recording coming soon.
+            </p>
           </div>
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Sample:{" "}
-            <Link
-              href="https://github.com/vericontext/vibeframe/blob/main/assets/demos/quickstart-claude-code.mp4"
-              target="_blank"
-              className="underline hover:text-foreground"
-            >
-              assets/demos/quickstart-claude-code.mp4
-            </Link>
-            {" — Claude Code driving image generation, video generation, inspection, and overlay editing."}
-          </p>
         </div>
       </section>
 
