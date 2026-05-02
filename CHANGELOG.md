@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.1] - 2026-05-02
+
+### Fixed
+
+- mcp-server: update hardcoded tool count (69 → 76) and `CLI_TREE` to include the 0.97 storyboard/plan/narration surface so `cli-sync.test.ts` and `index.test.ts` pass on CI
+
 ## [0.97.0] - 2026-05-02
 
 ### Added
