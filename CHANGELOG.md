@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.96.0] - 2026-05-02
+
+### Added
+
+- add edit motion-overlay + rename walkthrough → guide *(cli)*
+
+### Documentation
+
+- align README, web, and docs with guide rename + motion-overlay
+- rewrite DEMO_v2 to mirror real Claude Code flow + clarify two-yaml setup
+
 ## [0.95.2] - 2026-05-01
 
 ### Fixed
