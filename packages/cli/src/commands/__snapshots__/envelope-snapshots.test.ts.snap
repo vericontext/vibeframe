@@ -2931,9 +2931,21 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "description": "Restrict the plan to one beat",
         "type": "string",
       },
+      "composer": {
+        "description": "Batch composer: claude|openai|gemini",
+        "type": "string",
+      },
       "force": {
         "description": "Plan regeneration even when outputs already exist",
         "type": "boolean",
+      },
+      "imageProvider": {
+        "description": "Image provider: openai",
+        "type": "string",
+      },
+      "imageSize": {
+        "description": "Image size: 1024x1024|1536x1024|1024x1536",
+        "type": "string",
       },
       "maxCost": {
         "description": "Fail if estimated cost exceeds this USD cap",
@@ -2944,21 +2956,49 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "description": "Build mode: agent|batch|auto",
         "type": "string",
       },
+      "musicProvider": {
+        "description": "Music provider: elevenlabs|replicate",
+        "type": "string",
+      },
       "project-dir": {
         "description": "Video project directory",
+        "type": "string",
+      },
+      "quality": {
+        "description": "Image quality: standard|hd",
         "type": "string",
       },
       "skipBackdrop": {
         "description": "Don't include backdrop image generation in the plan",
         "type": "boolean",
       },
+      "skipMusic": {
+        "description": "Don't include music generation in the plan",
+        "type": "boolean",
+      },
       "skipNarration": {
         "description": "Don't include narration generation in the plan",
+        "type": "boolean",
+      },
+      "skipVideo": {
+        "description": "Don't include video generation in the plan",
         "type": "boolean",
       },
       "stage": {
         "default": "all",
         "description": "Stage to plan: assets|compose|sync|render|all",
+        "type": "string",
+      },
+      "tts": {
+        "description": "TTS provider: auto|elevenlabs|kokoro",
+        "type": "string",
+      },
+      "videoProvider": {
+        "description": "Video provider: seedance|grok|kling|runway|veo",
+        "type": "string",
+      },
+      "voice": {
+        "description": "Voice id",
         "type": "string",
       },
     },

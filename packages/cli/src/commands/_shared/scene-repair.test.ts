@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -38,6 +38,7 @@ describe("executeSceneRepair", () => {
     expect(result.dryRun).toBe(true);
     expect(result.wouldFix.some((item) => item.file.endsWith("scene-bad.html"))).toBe(true);
     expect(result.fixed).toEqual([]);
+    expect(result.remainingIssues.every((issue) => issue.fixOwner === "host-agent")).toBe(true);
     expect(after).toBe(before);
   });
 
@@ -65,5 +66,74 @@ describe("executeSceneRepair", () => {
     expect(result.fixed.some((item) => item.file.endsWith("scene-bad.html"))).toBe(true);
     expect(after).toContain('<div class="clip" data-start="0" data-duration="2"');
     expect(result.files.some((file) => file.file === "index.html")).toBe(false);
+  });
+
+  it("repairs root clip refs, narration audio wiring, and duration", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "vibe-scene-repair-root-"));
+    await scaffoldSceneProject({ dir, name: "repair-root", aspect: "16:9", duration: 1 });
+    await mkdir(resolve(dir, "compositions"), { recursive: true });
+    await writeFile(
+      resolve(dir, "compositions", "scene-hook.html"),
+      "<template></template>",
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "compositions", "scene-close.html"),
+      "<template></template>",
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Root sync
+
+## Beat hook - Hook
+
+\`\`\`yaml
+duration: 3
+narration: "Hello."
+\`\`\`
+
+## Beat close - Close
+
+\`\`\`yaml
+duration: 2
+\`\`\`
+`,
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "build-report.json"),
+      JSON.stringify({
+        schemaVersion: "1",
+        kind: "build",
+        beats: [
+          {
+            id: "hook",
+            sceneDurationSec: 4,
+            narration: { path: "assets/narration-hook.wav", sceneDurationSec: 4 },
+          },
+          { id: "close", sceneDurationSec: 2 },
+        ],
+      }),
+      "utf-8"
+    );
+
+    const result = await executeSceneRepair({ projectDir: dir });
+    const root = await readFile(resolve(dir, "index.html"), "utf-8");
+
+    expect(result.fixed).toContainEqual(
+      expect.objectContaining({
+        file: "index.html",
+        codes: expect.arrayContaining([
+          "root_clip_refs_synced",
+          "root_duration_synced",
+          "root_narration_audio_synced",
+        ]),
+      })
+    );
+    expect(root).toContain('data-composition-src="compositions/scene-hook.html"');
+    expect(root).toContain('id="narration-hook" src="assets/narration-hook.wav"');
+    expect(root).toContain('id="root"');
+    expect(root).toContain('data-duration="6"');
   });
 });

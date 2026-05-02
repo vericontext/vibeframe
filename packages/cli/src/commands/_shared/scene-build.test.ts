@@ -133,7 +133,23 @@ beforeEach(() => {
       outputPath: projectDir,
       data: {
         beats: 2,
-        written: [],
+        written: [
+          {
+            beatId: "hook",
+            path: join(projectDir, "compositions", "scene-hook.html"),
+            cached: false,
+            cacheKey: "compose-hook-key",
+            lintAttempts: 1,
+            costUsd: 0.03,
+          },
+          {
+            beatId: "close",
+            path: join(projectDir, "compositions", "scene-close.html"),
+            cached: true,
+            cacheKey: "compose-close-key",
+            lintAttempts: 1,
+          },
+        ],
         totalCostUsd: 0.05,
         totalTokensIn: 0,
         totalTokensOut: 0,
@@ -214,6 +230,12 @@ describe("executeSceneBuild", () => {
     expect(rootHtml).toContain('data-duration="3"');
 
     const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.providerResolution).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "narration", resolved: "kokoro" }),
+        expect.objectContaining({ kind: "backdrop", resolved: "openai" }),
+      ])
+    );
     expect(report.beats[0].narration).toMatchObject({
       text: "Type a YAML.",
       voice: "af_heart",
@@ -222,14 +244,18 @@ describe("executeSceneBuild", () => {
       status: "generated",
       sceneDurationSec: 3,
     });
-    expect(report.beats[0].narration.cachePath).toContain(
-      ".vibeframe/cache/assets/narration-"
-    );
+    expect(report.beats[0].narration.cachePath).toContain(".vibeframe/cache/assets/narration-");
     expect(report.beats[0].backdrop).toMatchObject({
       prompt: "Abstract dark tech background",
       provider: "openai",
       path: "assets/backdrop-hook.png",
       status: "generated",
+    });
+    expect(report.beats[0].composition).toMatchObject({
+      path: "compositions/scene-hook.html",
+      exists: true,
+      status: "generated",
+      cacheKey: "compose-hook-key",
     });
   });
 
@@ -279,6 +305,102 @@ describe("executeSceneBuild", () => {
     expect(r.beats[0].backdropStatus).toBe("skipped");
     expect(resolveTtsProvider).not.toHaveBeenCalled();
     expect(OpenAIImageProvider).not.toHaveBeenCalled();
+  });
+
+  it("uses referenced narration and backdrop assets without provider calls", async () => {
+    mkdirSync(join(projectDir, "assets"), { recursive: true });
+    writeFileSync(join(projectDir, "assets", "voice.wav"), Buffer.from([1, 2, 3]));
+    writeFileSync(join(projectDir, "assets", "frame.png"), Buffer.from([4, 5, 6]));
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      `# Referenced assets
+
+## Beat hook — Hook
+
+\`\`\`yaml
+duration: 3
+narration: "assets/voice.wav"
+asset: "assets/frame.png"
+\`\`\`
+`
+    );
+
+    const r = await executeSceneBuild({ projectDir, stage: "assets" });
+
+    expect(r.success).toBe(true);
+    expect(r.beats[0].narrationStatus).toBe("referenced");
+    expect(r.beats[0].narrationPath).toBe("assets/voice.wav");
+    expect(r.beats[0].narrationSourcePath).toBe("assets/voice.wav");
+    expect(r.beats[0].backdropStatus).toBe("referenced");
+    expect(r.beats[0].backdropPath).toBe("assets/frame.png");
+    expect(r.beats[0].backdropSourcePath).toBe("assets/frame.png");
+    expect(resolveTtsProvider).not.toHaveBeenCalled();
+    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report.providerResolution).toEqual([]);
+    expect(report.beats[0].narration).toMatchObject({
+      provider: "local",
+      path: "assets/voice.wav",
+      sourcePath: "assets/voice.wav",
+      status: "referenced",
+    });
+    expect(report.beats[0].backdrop).toMatchObject({
+      provider: "local",
+      path: "assets/frame.png",
+      sourcePath: "assets/frame.png",
+      status: "referenced",
+    });
+    expect(report.beats[0].composition).toMatchObject({
+      path: "compositions/scene-hook.html",
+      exists: false,
+      status: "skipped",
+    });
+  });
+
+  it("fails invalid asset references before provider dispatch or compose", async () => {
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      `# Invalid reference
+
+## Beat hook — Hook
+
+\`\`\`yaml
+backdrop: "../outside.png"
+\`\`\`
+`
+    );
+
+    const r = await executeSceneBuild({ projectDir });
+
+    expect(r.success).toBe(false);
+    expect(r.phase).toBe("failed");
+    expect(r.code).toBe("ASSET_REFERENCE_INVALID");
+    expect(r.recoverable).toBe(true);
+    expect(r.currentStage).toBe("assets");
+    expect(r.retryWith).toContain(`vibe storyboard validate ${projectDir} --json`);
+    expect(r.retryWith).toContain(`vibe build ${projectDir} --beat hook --stage assets --json`);
+    expect(r.beats[0].backdropStatus).toBe("failed");
+    expect(r.beats[0].backdropError).toBe(
+      'Asset reference "../outside.png" must stay inside the project directory.'
+    );
+    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report).toMatchObject({
+      success: false,
+      phase: "failed",
+      code: "ASSET_REFERENCE_INVALID",
+      status: "failed",
+      currentStage: "assets",
+    });
+    expect(report.beats[0].backdrop).toMatchObject({
+      provider: "local",
+      sourcePath: "../outside.png",
+      status: "failed",
+      error: 'Asset reference "../outside.png" must stay inside the project directory.',
+    });
   });
 
   it("--skip-render runs compose but skips render", async () => {
@@ -425,8 +547,56 @@ backdrop: "This should not dispatch."
     });
     const r = await executeSceneBuild({ projectDir });
     expect(r.success).toBe(false);
+    expect(r.code).toBe("COMPOSE_FAILED");
+    expect(r.currentStage).toBe("compose");
+    expect(r.recoverable).toBe(true);
     expect(r.error).toContain("compose failed: rate limited");
+    expect(r.retryWith).toContain(`vibe build ${projectDir} --stage compose --json`);
+    expect(r.stageReports?.compose.retryWith).toContain(
+      `vibe build ${projectDir} --stage compose --json`
+    );
     expect(r.beats).toHaveLength(2); // primitives still ran
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report).toMatchObject({
+      success: false,
+      code: "COMPOSE_FAILED",
+      currentStage: "compose",
+    });
+  });
+
+  it("render failure surfaces a stable code and retry contract", async () => {
+    vi.mocked(executeSceneRender).mockResolvedValueOnce({
+      success: false,
+      kind: "render",
+      code: "CHROME_UNAVAILABLE",
+      error: "Chrome not found",
+      retryWith: ["vibe doctor --json"],
+    });
+
+    const r = await executeSceneBuild({ projectDir });
+
+    expect(r.success).toBe(false);
+    expect(r.code).toBe("CHROME_UNAVAILABLE");
+    expect(r.currentStage).toBe("render");
+    expect(r.recoverable).toBe(true);
+    expect(r.retryWith).toEqual(
+      expect.arrayContaining([
+        "vibe doctor --json",
+        `vibe inspect project ${projectDir} --json`,
+        `vibe build ${projectDir} --stage sync --json`,
+        `vibe build ${projectDir} --stage render --json`,
+        `vibe render ${projectDir} --json`,
+      ])
+    );
+    expect(r.stageReports?.render.retryWith).toContain(`vibe render ${projectDir} --json`);
+
+    const report = JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
+    expect(report).toMatchObject({
+      success: false,
+      code: "CHROME_UNAVAILABLE",
+      currentStage: "render",
+    });
   });
 
   it("propagates frontmatter voice as default when --voice not set", async () => {

@@ -7,13 +7,17 @@ import type { VideoReviewFeedback } from "../ai-edit.js";
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
 import { readProjectConfig } from "./project-config.js";
 import {
+  buildReviewReport,
   defaultReviewReportPath,
+  normalizeReviewIssues,
   scoreIssues,
   statusFromIssues,
+  summarizeReviewIssues,
   uniqueRetryWith,
   writeReviewReport,
   type ReviewIssue,
   type ReviewSeverity,
+  type ReviewSummary,
   type ReviewStatus,
 } from "./review-report.js";
 
@@ -71,12 +75,15 @@ export interface RenderAiCheck {
 export interface RenderInspectResult {
   schemaVersion: "1";
   kind: "render";
+  mode: "render";
   project: string;
   beat?: string;
   videoPath: string | null;
   status: ReviewStatus;
   score: number;
   issues: ReviewIssue[];
+  summary: ReviewSummary;
+  sourceReports: string[];
   checks: {
     renderFound: boolean;
     fileSizeBytes?: number;
@@ -121,7 +128,8 @@ const AI_CATEGORY_LABELS = {
 
 export function parseBlackdetectOutput(output: string): TimeRange[] {
   const ranges: TimeRange[] = [];
-  const regex = /black_start:(-?\d+(?:\.\d+)?)\s+black_end:(-?\d+(?:\.\d+)?)\s+black_duration:(-?\d+(?:\.\d+)?)/g;
+  const regex =
+    /black_start:(-?\d+(?:\.\d+)?)\s+black_end:(-?\d+(?:\.\d+)?)\s+black_duration:(-?\d+(?:\.\d+)?)/g;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(output)) !== null) {
     ranges.push({
@@ -155,7 +163,9 @@ export function parseSilencedetectOutput(output: string): TimeRange[] {
   return ranges;
 }
 
-export async function previewInspectRender(opts: RenderInspectOptions): Promise<RenderInspectDryRunResult> {
+export async function previewInspectRender(
+  opts: RenderInspectOptions
+): Promise<RenderInspectDryRunResult> {
   const projectDir = resolve(opts.projectDir);
   const videoPath = await resolveRenderVideoPath(projectDir, opts.videoPath, opts.beatId);
   const writeReport = opts.writeReport !== false;
@@ -197,10 +207,12 @@ export function aiReviewSeverity(score: number): ReviewSeverity {
 
 export function mapAiReviewFeedbackToIssues(
   feedback: VideoReviewFeedback,
-  videoPath?: string,
+  videoPath?: string
 ): ReviewIssue[] {
   const issues: ReviewIssue[] = [];
-  for (const [key, label] of Object.entries(AI_CATEGORY_LABELS) as Array<[keyof typeof AI_CATEGORY_LABELS, string]>) {
+  for (const [key, label] of Object.entries(AI_CATEGORY_LABELS) as Array<
+    [keyof typeof AI_CATEGORY_LABELS, string]
+  >) {
     const category = feedback.categories[key];
     if (!category || category.issues.length === 0) continue;
     for (const issue of category.issues) {
@@ -209,6 +221,7 @@ export function mapAiReviewFeedbackToIssues(
         code: `AI_REVIEW_${toSnakeCase(String(key))}`,
         message: `${label}: ${issue}`,
         file: videoPath ? displayPath(videoPath) : undefined,
+        fixOwner: "host-agent",
         suggestedFix: category.fixable
           ? "Adjust the relevant storyboard or scene composition, then rerender."
           : "Review this finding manually before rerendering.",
@@ -263,18 +276,11 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     if (checks.ai) {
       checks.ai.error = "Skipped AI review because no rendered video was found.";
     }
-    return maybeWriteRenderReport(projectDir, opts, {
-      schemaVersion: "1",
-      kind: "render",
-      project: projectDir,
-      ...(opts.beatId ? { beat: opts.beatId } : {}),
-      videoPath: null,
-      status: "fail",
-      score: scoreRenderReview(issues),
-      issues,
-      checks,
-      retryWith: uniqueRetryWith(retryWith),
-    });
+    return maybeWriteRenderReport(
+      projectDir,
+      opts,
+      makeRenderResult(projectDir, opts, null, issues, checks, retryWith, scoreRenderReview(issues))
+    );
   }
 
   const fileStat = await stat(videoPath);
@@ -361,7 +367,10 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
                   `vibe build ${projectDir} --beat ${opts.beatId} --stage sync --json`,
                   `vibe render ${projectDir} --beat ${opts.beatId} --json`,
                 ]
-              : [`vibe build ${projectDir} --stage sync --json`, `vibe render ${projectDir} --json`])
+              : [
+                  `vibe build ${projectDir} --stage sync --json`,
+                  `vibe render ${projectDir} --json`,
+                ])
           );
         }
       }
@@ -463,7 +472,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
               : `vibe render ${projectDir} --json`,
             opts.beatId
               ? `vibe inspect render ${projectDir} --beat ${opts.beatId} --ai --json`
-              : `vibe inspect render ${projectDir} --ai --json`,
+              : `vibe inspect render ${projectDir} --ai --json`
           );
         }
       } else {
@@ -480,36 +489,93 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     }
   }
 
-  const status = statusFromIssues(issues);
-  const result: RenderInspectResult = {
+  const result = makeRenderResult(
+    projectDir,
+    opts,
+    videoPath,
+    issues,
+    checks,
+    retryWith,
+    scoreRenderReview(issues, aiOverallScore)
+  );
+  return maybeWriteRenderReport(projectDir, opts, result);
+}
+
+function makeRenderResult(
+  projectDir: string,
+  opts: RenderInspectOptions,
+  videoPath: string | null,
+  issues: ReviewIssue[],
+  checks: RenderInspectResult["checks"],
+  retryWith: string[],
+  score: number
+): RenderInspectResult {
+  const normalizedIssues = normalizeReviewIssues(issues);
+  const status = statusFromIssues(normalizedIssues);
+  return {
     schemaVersion: "1",
     kind: "render",
+    mode: "render",
     project: projectDir,
     ...(opts.beatId ? { beat: opts.beatId } : {}),
     videoPath,
     status,
-    score: scoreRenderReview(issues, aiOverallScore),
-    issues,
+    score,
+    issues: normalizedIssues,
+    summary: summarizeReviewIssues(normalizedIssues),
+    sourceReports: renderSourceReports(projectDir, videoPath, checks),
     checks,
     retryWith: uniqueRetryWith(retryWith),
   };
-  return maybeWriteRenderReport(projectDir, opts, result);
 }
 
 async function maybeWriteRenderReport(
   projectDir: string,
   opts: RenderInspectOptions,
-  result: RenderInspectResult,
+  result: RenderInspectResult
 ): Promise<RenderInspectResult> {
   if (opts.writeReport === false) return result;
-  const reportPath = opts.outputPath ? resolve(process.cwd(), opts.outputPath) : defaultReviewReportPath(projectDir);
+  const reportPath = opts.outputPath
+    ? resolve(process.cwd(), opts.outputPath)
+    : defaultReviewReportPath(projectDir);
   try {
-    const withPath = { ...result, reportPath };
-    await writeReviewReport(reportPath, withPath as unknown as Record<string, unknown>);
-    return withPath;
+    const reviewReport = buildReviewReport({
+      project: projectDir,
+      mode: "render",
+      beat: result.beat,
+      status: result.status,
+      score: result.score,
+      issues: result.issues,
+      retryWith: result.retryWith,
+      sourceReports: result.sourceReports,
+      reportPath,
+    });
+    await writeReviewReport(reportPath, reviewReport as unknown as Record<string, unknown>);
+    return { ...result, reportPath };
   } catch {
     return result;
   }
+}
+
+function renderSourceReports(
+  projectDir: string,
+  videoPath: string | null,
+  checks: RenderInspectResult["checks"]
+): string[] {
+  const reports: string[] = [];
+  if (existsSync(join(projectDir, "build-report.json"))) reports.push("build-report.json");
+  if (existsSync(join(projectDir, "render-report.json"))) reports.push("render-report.json");
+  if (videoPath) reports.push(displayPath(videoPath));
+  if (
+    checks.durationSec !== undefined ||
+    checks.width !== undefined ||
+    checks.height !== undefined
+  ) {
+    reports.push("ffprobe");
+  }
+  if (checks.blackFrames.length > 0 || checks.silences.length > 0) reports.push("ffmpeg");
+  if (checks.ai) reports.push("gemini-review");
+  return reports;
 }
 
 export async function resolveRenderVideoPath(
@@ -570,7 +636,7 @@ export async function resolveRenderVideoPath(
 async function runAiRenderReview(
   projectDir: string,
   videoPath: string,
-  model: RenderInspectModel,
+  model: RenderInspectModel
 ): Promise<ReviewResult> {
   return executeReview({
     videoPath,
@@ -619,8 +685,10 @@ async function expectedDurationFromBuildReport(
 
 async function ffprobe(videoPath: string): Promise<FfprobeInfo> {
   const { stdout } = await execSafe("ffprobe", [
-    "-v", "error",
-    "-print_format", "json",
+    "-v",
+    "error",
+    "-print_format",
+    "json",
     "-show_format",
     "-show_streams",
     videoPath,
@@ -639,13 +707,11 @@ async function detectLongSilences(videoPath: string): Promise<TimeRange[]> {
 }
 
 async function ffmpegNull(input: string, filterArgs: string[]): Promise<string> {
-  const { stdout, stderr } = await execSafe("ffmpeg", [
-    "-hide_banner",
-    "-i", input,
-    ...filterArgs,
-    "-f", "null",
-    "-",
-  ], { maxBuffer: 50 * 1024 * 1024 }).catch((err: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => {
+  const { stdout, stderr } = await execSafe(
+    "ffmpeg",
+    ["-hide_banner", "-i", input, ...filterArgs, "-f", "null", "-"],
+    { maxBuffer: 50 * 1024 * 1024 }
+  ).catch((err: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => {
     if (err.stdout !== undefined || err.stderr !== undefined) {
       return { stdout: err.stdout || "", stderr: err.stderr || "" };
     }

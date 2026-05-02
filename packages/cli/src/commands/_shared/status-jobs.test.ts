@@ -75,10 +75,19 @@ describe("status job records", () => {
     await writeFile(
       join(dir, "review-report.json"),
       JSON.stringify({
-        kind: "render",
+        kind: "review",
+        mode: "render",
         status: "warn",
         score: 82,
-        issues: [{ severity: "warning", code: "X", message: "Check" }],
+        issues: [{ severity: "warning", code: "X", message: "Check", fixOwner: "host-agent" }],
+        summary: {
+          issueCount: 1,
+          errorCount: 0,
+          warningCount: 1,
+          infoCount: 0,
+          fixOwners: { vibe: 0, hostAgent: 1 },
+        },
+        sourceReports: ["render-report.json", "ffprobe"],
         retryWith: [`vibe scene repair --project ${dir} --json`],
       }),
       "utf-8"
@@ -102,11 +111,16 @@ describe("status job records", () => {
     });
     expect(status.build).toMatchObject({ success: true, phase: "done" });
     expect(status.review).toMatchObject({
+      kind: "review",
+      mode: "render",
       status: "warn",
       score: 82,
       issueCount: 1,
       errorCount: 0,
       warningCount: 1,
+      infoCount: 0,
+      fixOwners: { vibe: 0, hostAgent: 1 },
+      sourceReports: ["render-report.json", "ffprobe"],
       retryWith: [`vibe scene repair --project ${dir} --json`],
     });
     expect(status.retryWith).toContain(`vibe scene repair --project ${dir} --json`);

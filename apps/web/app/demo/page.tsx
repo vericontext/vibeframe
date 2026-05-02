@@ -5,10 +5,10 @@ import {
   Terminal,
   Github,
   ArrowRight,
-  Wand2,
-  Image,
-  Music,
   Video,
+  FileText,
+  ClipboardList,
+  Hammer,
 } from "lucide-react";
 import { ThemeToggle } from "../../components/theme-toggle";
 
@@ -16,10 +16,8 @@ export default function DemoPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Background */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+      <div className="fixed inset-0 -z-10 bg-background">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:64px_64px] opacity-[0.05]" />
       </div>
 
       {/* Navigation */}
@@ -50,25 +48,72 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      {/* Current quickstart recording. */}
+      {/* Storyboard project loop. */}
       <section className="pt-32 pb-12 px-4">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-6 animate-fade-in">
               <Video className="w-4 h-4" />
-              <span>Recorded from <code className="font-mono text-xs">DEMO-quickstart.md</code></span>
+              <span>North-star workflow</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-              What agents<br />
-              <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">can build.</span>
+              The storyboard<br />
+              <span className="text-primary">project loop.</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in-up delay-100">
-              Claude Code drives the installed VibeFrame CLI through image
-              generation, image-to-video, inspection, and motion-overlay
-              editing.
+              A host agent drafts <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">STORYBOARD.md</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">DESIGN.md</code>,
+              dry-runs the build, generates assets, inspects reports, repairs
+              deterministic issues, and renders the final MP4.
             </p>
           </div>
-          <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black animate-fade-in-up delay-200">
+
+          <div className="grid md:grid-cols-2 gap-4 animate-fade-in-up delay-200">
+            <CommandCard
+              icon={<FileText className="w-5 h-5" />}
+              title="Draft Project"
+              command='vibe init launch --from brief.md --json'
+              color="from-blue-500 to-cyan-500"
+            />
+            <CommandCard
+              icon={<ClipboardList className="w-5 h-5" />}
+              title="Validate and Plan"
+              command="vibe storyboard validate launch --json && vibe plan launch --json"
+              color="from-cyan-500 to-emerald-500"
+            />
+            <CommandCard
+              icon={<Hammer className="w-5 h-5" />}
+              title="Build with Cost Gate"
+              command="vibe build launch --dry-run --max-cost 5 --json && vibe build launch --max-cost 5 --json"
+              color="from-orange-500 to-yellow-500"
+            />
+            <CommandCard
+              icon={<Video className="w-5 h-5" />}
+              title="Inspect, Repair, Render"
+              command="vibe inspect project launch --json && vibe scene repair --project launch --json && vibe render launch --json"
+              color="from-purple-500 to-pink-500"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Current media primitive recording. */}
+      <section className="py-16 px-4 border-t border-border/50">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-6 animate-fade-in">
+              <Video className="w-4 h-4" />
+              <span>Media primitive demo · recorded from <code className="font-mono text-xs">DEMO-quickstart.md</code></span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Lower-level tools still work directly.
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+              This existing recording shows Claude Code using image generation,
+              image-to-video, inspection, and motion-overlay editing outside
+              the full storyboard project loop.
+            </p>
+          </div>
+          <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black">
             <video
               src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/quickstart-claude-code.mp4"
               controls
@@ -84,7 +129,7 @@ export default function DemoPage() {
 
       {/* Reproducible surfaces — VHS tape recipes, run locally with
           `vhs assets/demos/<name>.tape`. */}
-      <section className="pt-32 pb-20 px-4">
+      <section className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-8 animate-fade-in">
@@ -92,12 +137,13 @@ export default function DemoPage() {
               <span>Reproducible surfaces · run any tape locally</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-              Use VibeFrame how<br />
-              <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">you already work.</span>
+              Reproduce the flows<br />
+              <span className="text-primary">from your terminal.</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-              Plain CLI, optional built-in agent, or a host agent — same tools,
-              multiple entry points. Each surface below ships a VHS tape; install{" "}
+              Plain CLI, optional built-in agent, or a host agent — same
+              project files and command contracts. Each surface below ships a
+              VHS tape; install{" "}
               <a
                 href="https://github.com/charmbracelet/vhs"
                 target="_blank"
@@ -112,15 +158,15 @@ export default function DemoPage() {
 
           <div className="grid md:grid-cols-2 gap-6 animate-fade-in-up delay-200">
             <TapeCard
-              badge="1 · Quickstart"
+              badge="1 · Media primitives"
               title="DEMO-quickstart"
               note="Host agent drives image generation, video generation, inspection, and overlay editing"
               command="vhs assets/demos/quickstart-claude-code.tape"
             />
             <TapeCard
-              badge="2 · Dogfood"
+              badge="2 · Storyboard dogfood"
               title="DEMO-dogfood"
-              note="Host agent runs the fuller storyboard build, render, and YAML workflow"
+              note="Host agent runs the fuller storyboard build, report, render, and YAML workflow"
               command="vhs assets/demos/dogfood-claude-code.tape"
             />
           </div>
@@ -148,36 +194,37 @@ export default function DemoPage() {
               <span>CLI Workflow</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Text to video in your terminal
+              The sequence agents repeat
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              The full pipeline — generate, animate, narrate, compose — all from CLI commands.
+              The full project pipeline is a set of shell commands with JSON
+              output, reports, and deterministic repair paths.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <CommandCard
-              icon={<Image className="w-5 h-5" />}
-              title="Generate Image"
-              command='vibe generate image "sunset over mountains" -p openai -o scene.png'
+              icon={<FileText className="w-5 h-5" />}
+              title="Init from Brief"
+              command='vibe init my-video --from "45-second launch video" --json'
               color="from-blue-500 to-cyan-500"
             />
             <CommandCard
-              icon={<Video className="w-5 h-5" />}
-              title="Image to Video"
-              command='vibe generate video "camera zooms in" -p seedance -i scene.png -d 8 -o scene.mp4'
+              icon={<ClipboardList className="w-5 h-5" />}
+              title="Validate and Plan"
+              command="vibe storyboard validate my-video --json && vibe plan my-video --json"
               color="from-purple-500 to-pink-500"
             />
             <CommandCard
-              icon={<Wand2 className="w-5 h-5" />}
-              title="Generate Narration"
-              command='vibe generate speech "Welcome to VibeFrame" -o narration.mp3'
+              icon={<Hammer className="w-5 h-5" />}
+              title="Build and Poll"
+              command="vibe build my-video --max-cost 5 --json && vibe status project my-video --refresh --json"
               color="from-orange-500 to-yellow-500"
             />
             <CommandCard
-              icon={<Music className="w-5 h-5" />}
-              title="Generate Music"
-              command='vibe generate music "cinematic ambient" -o bgm.mp3 -d 20'
+              icon={<Video className="w-5 h-5" />}
+              title="Inspect and Render"
+              command="vibe inspect project my-video --json && vibe render my-video --json"
               color="from-green-500 to-emerald-500"
             />
           </div>
@@ -188,13 +235,13 @@ export default function DemoPage() {
       <section className="py-20 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Create your own
+            Create from a storyboard
           </h2>
           <p className="text-muted-foreground text-lg mb-8">
             Open source. MIT licensed. One install command.
           </p>
 
-          <div className="bg-gradient-to-r from-secondary to-secondary/50 rounded-xl p-1 max-w-xl mx-auto mb-8 shadow-xl">
+          <div className="bg-secondary rounded-xl p-1 max-w-xl mx-auto mb-8 shadow-xl border border-border/50">
             <div className="flex items-center gap-2 px-4 py-3 bg-background rounded-lg font-mono text-xs sm:text-sm">
               <span className="text-primary">$</span>
               <span className="text-foreground whitespace-nowrap">curl -fsSL https://vibeframe.ai/install.sh | bash</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -69,16 +69,19 @@ describe("render inspect parsers", () => {
         severity: "error",
         code: "AI_REVIEW_PACING",
         message: "Pacing: Opening drags",
+        fixOwner: "host-agent",
       }),
       expect.objectContaining({
         severity: "warning",
         code: "AI_REVIEW_TEXT_READABILITY",
         message: "Text readability: Caption contrast is low",
+        fixOwner: "host-agent",
       }),
       expect.objectContaining({
         severity: "info",
         code: "AI_REVIEW_AUDIO_VISUAL_SYNC",
         message: "Audio-visual sync: Voiceover lands slightly late",
+        fixOwner: "host-agent",
       }),
     ]);
   });
@@ -114,8 +117,28 @@ describe("render inspect parsers", () => {
     const result = await inspectRender({ projectDir: dir, beatId: "hook", writeReport: false });
 
     expect(result.status).toBe("fail");
+    expect(result.mode).toBe("render");
     expect(result.beat).toBe("hook");
+    expect(result.summary.errorCount).toBe(1);
+    expect(result.issues[0].fixOwner).toBe("vibe");
     expect(result.retryWith).toEqual([`vibe render ${dir} --beat hook --json`]);
+  });
+
+  it("writes a normalized review report by default", async () => {
+    const dir = await makeTmp();
+
+    const result = await inspectRender({ projectDir: dir });
+
+    expect(result.reportPath).toBe(resolve(dir, "review-report.json"));
+    const report = JSON.parse(await readFile(resolve(dir, "review-report.json"), "utf-8"));
+    expect(report).toMatchObject({
+      schemaVersion: "1",
+      kind: "review",
+      mode: "render",
+      project: resolve(dir),
+      status: "fail",
+      summary: { errorCount: 1, fixOwners: { vibe: 1, hostAgent: 0 } },
+    });
   });
 
   it("uses the selected beat duration from build-report.json", async () => {
@@ -149,7 +172,11 @@ describe("render inspect parsers", () => {
   it("includes beat parameters in dry-run previews", async () => {
     const dir = await makeTmp();
 
-    const result = await previewInspectRender({ projectDir: dir, beatId: "hook", writeReport: false });
+    const result = await previewInspectRender({
+      projectDir: dir,
+      beatId: "hook",
+      writeReport: false,
+    });
 
     expect(result.beat).toBe("hook");
     expect(result.params.beatId).toBe("hook");

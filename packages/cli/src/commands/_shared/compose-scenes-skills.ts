@@ -34,19 +34,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-import {
-  runHyperframeLint,
-  type PreparedHyperframeLintInput,
-} from "@hyperframes/producer";
+import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframes/producer";
 
 import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
 import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
-import {
-  type ComposerProvider,
-  resolveComposer,
-  composerEnvVar,
-} from "./composer-resolve.js";
+import { type ComposerProvider, resolveComposer, composerEnvVar } from "./composer-resolve.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 
 /** Effort level → token caps. Model is per-provider (see MODEL_SETTINGS_BY_PROVIDER). */
@@ -69,24 +62,24 @@ interface ModelSettings {
 const MODEL_SETTINGS_BY_PROVIDER: Record<ComposerProvider, Record<ComposeEffort, ModelSettings>> = {
   // Anthropic Claude Sonnet 4.6 — v0.69 baseline. ~9 s/beat, $3/$15 per MTok.
   claude: {
-    low:    { model: "claude-sonnet-4-6", maxTokens: 4_000, costPerMTokIn: 3, costPerMTokOut: 15 },
+    low: { model: "claude-sonnet-4-6", maxTokens: 4_000, costPerMTokIn: 3, costPerMTokOut: 15 },
     medium: { model: "claude-sonnet-4-6", maxTokens: 6_000, costPerMTokIn: 3, costPerMTokOut: 15 },
-    high:   { model: "claude-sonnet-4-6", maxTokens: 8_000, costPerMTokIn: 3, costPerMTokOut: 15 },
+    high: { model: "claude-sonnet-4-6", maxTokens: 8_000, costPerMTokIn: 3, costPerMTokOut: 15 },
   },
   // OpenAI gpt-5 — high reasoning latency (~70 s/beat in spike) but matches
   // Claude on cost. Picked as default because spike-validated; users may
   // prefer a faster/lower model via env override in a follow-up.
   openai: {
-    low:    { model: "gpt-5", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
+    low: { model: "gpt-5", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
     medium: { model: "gpt-5", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
-    high:   { model: "gpt-5", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
+    high: { model: "gpt-5", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
   },
   // Google Gemini 2.5 Pro — ~2.6× cheaper than Claude per spike, ~20 s/beat.
   // Strong instruction-following on the Hyperframes skill bundle.
   gemini: {
-    low:    { model: "gemini-2.5-pro", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+    low: { model: "gemini-2.5-pro", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
     medium: { model: "gemini-2.5-pro", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
-    high:   { model: "gemini-2.5-pro", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+    high: { model: "gemini-2.5-pro", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
   },
 };
 
@@ -146,7 +139,9 @@ export interface ComposeBeatResult {
 // ── Prompt construction (pure) ──────────────────────────────────────────
 
 /** Build the system prompt — skill bundle + DESIGN.md hard-gate. */
-export function buildSystemPrompt(ctx: Pick<ComposeBeatContext, "skillBundle" | "designMd">): string {
+export function buildSystemPrompt(
+  ctx: Pick<ComposeBeatContext, "skillBundle" | "designMd">
+): string {
   return `You are a Hyperframes composition author. The skill content below
 defines the framework rules, motion principles, and quality standards.
 Read it thoroughly before writing any HTML.
@@ -198,7 +193,9 @@ function formatBeatCues(cues: Beat["cues"]): string {
 }
 
 /** Build the user prompt — instructions + storyboard global + beat body. */
-export function buildUserPrompt(ctx: Pick<ComposeBeatContext, "beat" | "storyboardGlobal" | "retryFeedback">): string {
+export function buildUserPrompt(
+  ctx: Pick<ComposeBeatContext, "beat" | "storyboardGlobal" | "retryFeedback">
+): string {
   const compositionId = `scene-${ctx.beat.id}`;
 
   const baseRequirements = `Build the Hyperframes sub-composition HTML for this beat. The composition
@@ -368,14 +365,18 @@ export function extractHtml(responseText: string): string {
   if (trimmed.startsWith("<")) return trimmed;
   throw new ComposeBeatError(
     "no-html-in-response",
-    `Could not extract HTML from response. First 200 chars: ${trimmed.slice(0, 200)}`,
+    `Could not extract HTML from response. First 200 chars: ${trimmed.slice(0, 200)}`
   );
 }
 
 // ── Errors ──────────────────────────────────────────────────────────────
 
 export class ComposeBeatError extends Error {
-  constructor(public readonly code: string, message: string, public readonly cause?: unknown) {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly cause?: unknown
+  ) {
     super(message);
     this.name = "ComposeBeatError";
   }
@@ -410,7 +411,10 @@ const defaultCallLLM: LLMCallFn = async (req) => {
       messages: [{ role: "user", content: req.userPrompt }],
     });
     if (!("content" in response) || !Array.isArray(response.content)) {
-      throw new ComposeBeatError("unexpected-response-shape", "Anthropic response missing `content` array.");
+      throw new ComposeBeatError(
+        "unexpected-response-shape",
+        "Anthropic response missing `content` array."
+      );
     }
     const block = response.content.find((b) => b.type === "text");
     if (!block || block.type !== "text") {
@@ -444,7 +448,10 @@ const defaultCallLLM: LLMCallFn = async (req) => {
   }
   // gemini
   const client = new GoogleGenerativeAI(req.apiKey);
-  const model = client.getGenerativeModel({ model: req.model, systemInstruction: req.systemPrompt });
+  const model = client.getGenerativeModel({
+    model: req.model,
+    systemInstruction: req.systemPrompt,
+  });
   const response = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: req.userPrompt }] }],
     generationConfig: { maxOutputTokens: req.maxTokens },
@@ -473,7 +480,7 @@ const defaultCallLLM: LLMCallFn = async (req) => {
  */
 export async function composeBeatHtml(
   ctx: ComposeBeatContext,
-  overrides?: { callLLM?: LLMCallFn; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number }
 ): Promise<ComposeBeatResult> {
   const effort: ComposeEffort = ctx.effort ?? "medium";
   const settings = MODEL_SETTINGS_BY_PROVIDER[ctx.provider][effort];
@@ -500,7 +507,7 @@ export async function composeBeatHtml(
   if (!ctx.apiKey) {
     throw new ComposeBeatError(
       "missing-api-key",
-      `${composerEnvVar(ctx.provider)} required for compose-scenes-with-skills (set it in env or .env).`,
+      `${composerEnvVar(ctx.provider)} required for compose-scenes-with-skills (set it in env or .env).`
     );
   }
   const callLLM = overrides?.callLLM ?? defaultCallLLM;
@@ -522,7 +529,7 @@ export async function composeBeatHtml(
     throw new ComposeBeatError(
       "api-call-failed",
       `${ctx.provider} API call failed: ${err instanceof Error ? err.message : String(err)}`,
-      err,
+      err
     );
   }
   const latencyMs = now() - t0;
@@ -538,8 +545,9 @@ export async function composeBeatHtml(
     // ignore — caller still gets the HTML
   }
 
-  const costUsd = (result.inputTokens / 1_000_000) * settings.costPerMTokIn
-    + (result.outputTokens / 1_000_000) * settings.costPerMTokOut;
+  const costUsd =
+    (result.inputTokens / 1_000_000) * settings.costPerMTokIn +
+    (result.outputTokens / 1_000_000) * settings.costPerMTokOut;
 
   return {
     html,
@@ -624,7 +632,7 @@ export interface ComposeBeatWithRetryResult extends ComposeBeatResult {
  */
 export async function composeBeatWithRetry(
   ctx: ComposeBeatContext,
-  overrides?: { callLLM?: LLMCallFn; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number }
 ): Promise<ComposeBeatWithRetryResult> {
   // Attempt 1 — no retry feedback (cache-friendly first shot).
   const first = await composeBeatHtml(ctx, overrides);
@@ -644,7 +652,7 @@ export async function composeBeatWithRetry(
   // Both failed → fatal.
   throw new ComposeBeatError(
     "lint-failed-after-retry",
-    `Beat "${ctx.beat.id}" failed lint after retry. Final findings:\n${formatLintFeedback(lint2.findings)}`,
+    `Beat "${ctx.beat.id}" failed lint after retry. Final findings:\n${formatLintFeedback(lint2.findings)}`
   );
 }
 
@@ -670,8 +678,22 @@ export async function composeBeatWithRetry(
 /** Per-beat lifecycle event emitted to the optional `onProgress` callback. */
 export type ComposeProgressEvent =
   | { type: "beat-start"; beatId: string; beatIndex: number; totalBeats: number }
-  | { type: "beat-cached"; beatId: string; beatIndex: number; totalBeats: number; lintAttempts: 1 | 2 }
-  | { type: "beat-fresh"; beatId: string; beatIndex: number; totalBeats: number; lintAttempts: 1 | 2; costUsd?: number; latencyMs?: number }
+  | {
+      type: "beat-cached";
+      beatId: string;
+      beatIndex: number;
+      totalBeats: number;
+      lintAttempts: 1 | 2;
+    }
+  | {
+      type: "beat-fresh";
+      beatId: string;
+      beatIndex: number;
+      totalBeats: number;
+      lintAttempts: 1 | 2;
+      costUsd?: number;
+      latencyMs?: number;
+    }
   | { type: "beat-failed"; beatId: string; beatIndex: number; totalBeats: number; error: string };
 
 export interface ComposeScenesParams {
@@ -705,6 +727,7 @@ export interface ComposeScenesActionResult {
       beatId: string;
       path: string;
       cached: boolean;
+      cacheKey: string;
       lintAttempts: 1 | 2;
       costUsd?: number;
     }>;
@@ -724,7 +747,7 @@ const CONFIG_PROVIDER_BY_COMPOSER: Record<ComposerProvider, string> = {
 
 async function resolveComposerConfigAware(
   explicit: ComposerProvider | undefined,
-  cwd: string,
+  cwd: string
 ): Promise<{ provider: ComposerProvider; apiKey: string }> {
   if (explicit) {
     const configKey = await getApiKeyFromConfig(CONFIG_PROVIDER_BY_COMPOSER[explicit], { cwd });
@@ -752,7 +775,7 @@ async function resolveComposerConfigAware(
 export async function executeComposeScenesWithSkills(
   params: ComposeScenesParams,
   outputDir: string,
-  overrides?: { callLLM?: LLMCallFn; now?: () => number },
+  overrides?: { callLLM?: LLMCallFn; now?: () => number }
 ): Promise<ComposeScenesActionResult> {
   const projectRoot = params.project ? resolve(outputDir, params.project) : resolve(outputDir);
   const designPath = resolve(projectRoot, params.design ?? "DESIGN.md");
@@ -823,61 +846,65 @@ export async function executeComposeScenesWithSkills(
         error: string;
       };
 
-  const tasks: Array<Promise<FanoutOutcome>> = beats.map(async (beat, beatIndex): Promise<FanoutOutcome> => {
-    onProgress({ type: "beat-start", beatId: beat.id, beatIndex, totalBeats });
-    try {
-      const result = await composeBeatWithRetry(
-        {
-          beat,
-          designMd,
-          storyboardGlobal,
-          skillBundle,
-          provider,
-          apiKey,
-          effort: params.effort,
-          cacheDir: params.cacheDir,
-        },
-        overrides,
-      );
+  const tasks: Array<Promise<FanoutOutcome>> = beats.map(
+    async (beat, beatIndex): Promise<FanoutOutcome> => {
+      onProgress({ type: "beat-start", beatId: beat.id, beatIndex, totalBeats });
+      try {
+        const result = await composeBeatWithRetry(
+          {
+            beat,
+            designMd,
+            storyboardGlobal,
+            skillBundle,
+            provider,
+            apiKey,
+            effort: params.effort,
+            cacheDir: params.cacheDir,
+          },
+          overrides
+        );
 
-      const compositionPath = join(compositionsDir, `scene-${beat.id}.html`);
-      await mkdir(dirname(compositionPath), { recursive: true });
-      await writeFile(compositionPath, result.html, "utf-8");
+        const compositionPath = join(compositionsDir, `scene-${beat.id}.html`);
+        await mkdir(dirname(compositionPath), { recursive: true });
+        await writeFile(compositionPath, result.html, "utf-8");
 
-      if (result.cached) {
-        onProgress({
-          type: "beat-cached",
-          beatId: beat.id,
-          beatIndex,
-          totalBeats,
-          lintAttempts: result.lintAttempts,
-        });
-      } else {
-        onProgress({
-          type: "beat-fresh",
-          beatId: beat.id,
-          beatIndex,
-          totalBeats,
-          lintAttempts: result.lintAttempts,
-          costUsd: result.costUsd,
-          latencyMs: result.latencyMs,
-        });
+        if (result.cached) {
+          onProgress({
+            type: "beat-cached",
+            beatId: beat.id,
+            beatIndex,
+            totalBeats,
+            lintAttempts: result.lintAttempts,
+          });
+        } else {
+          onProgress({
+            type: "beat-fresh",
+            beatId: beat.id,
+            beatIndex,
+            totalBeats,
+            lintAttempts: result.lintAttempts,
+            costUsd: result.costUsd,
+            latencyMs: result.latencyMs,
+          });
+        }
+
+        return { ok: true, beatId: beat.id, beatIndex, path: compositionPath, result };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        onProgress({ type: "beat-failed", beatId: beat.id, beatIndex, totalBeats, error: message });
+        return { ok: false, beatId: beat.id, beatIndex, error: message };
       }
-
-      return { ok: true, beatId: beat.id, beatIndex, path: compositionPath, result };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      onProgress({ type: "beat-failed", beatId: beat.id, beatIndex, totalBeats, error: message });
-      return { ok: false, beatId: beat.id, beatIndex, error: message };
     }
-  });
+  );
 
   const outcomes = await Promise.all(tasks);
 
   // Aggregate metadata in beat order. `outcomes` is already ordered by
   // input position (Promise.all preserves order).
   const written: ComposeScenesActionResult["data"] extends infer D
-    ? D extends { written: infer W } ? W : never
+    ? D extends { written: infer W }
+      ? W
+      : never
     : never = [];
   const failures: Array<{ beatId: string; error: string }> = [];
   let totalCostUsd = 0;
@@ -895,6 +922,7 @@ export async function executeComposeScenesWithSkills(
       beatId: outcome.beatId,
       path: outcome.path,
       cached: r.cached,
+      cacheKey: r.cacheKey,
       lintAttempts: r.lintAttempts,
       costUsd: r.costUsd,
     });
@@ -917,9 +945,10 @@ export async function executeComposeScenesWithSkills(
     return {
       success: false,
       outputPath: projectRoot,
-      error: failures.length === 1
-        ? `compose-scenes-with-skills failed at beat "${failures[0].beatId}": ${failures[0].error}`
-        : `compose-scenes-with-skills failed at ${failures.length} beats:\n${failures.map((f) => `  - ${f.beatId}: ${f.error}`).join("\n")}`,
+      error:
+        failures.length === 1
+          ? `compose-scenes-with-skills failed at beat "${failures[0].beatId}": ${failures[0].error}`
+          : `compose-scenes-with-skills failed at ${failures.length} beats:\n${failures.map((f) => `  - ${f.beatId}: ${f.error}`).join("\n")}`,
       data: aggregateData,
     };
   }

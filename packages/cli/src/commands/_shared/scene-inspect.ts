@@ -5,13 +5,18 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { validateStoryboardMarkdown } from "./storyboard-edit.js";
 import { readProjectConfig } from "./project-config.js";
 import { runProjectLint } from "./scene-lint.js";
+import { createProjectRootSyncPlan } from "./root-sync.js";
 import {
+  buildReviewReport,
   defaultReviewReportPath,
+  normalizeReviewIssues,
   scoreIssues,
   statusFromIssues,
+  summarizeReviewIssues,
   uniqueRetryWith,
   writeReviewReport,
   type ReviewIssue,
+  type ReviewSummary,
   type ReviewStatus,
 } from "./review-report.js";
 
@@ -25,11 +30,14 @@ export interface ProjectInspectOptions {
 export interface ProjectInspectResult {
   schemaVersion: "1";
   kind: "project";
+  mode: "project";
   project: string;
   beat?: string;
   status: ReviewStatus;
   score: number;
   issues: ReviewIssue[];
+  summary: ReviewSummary;
+  sourceReports: string[];
   checks: {
     files: Record<string, boolean>;
     storyboard: {
@@ -55,6 +63,11 @@ export interface ProjectInspectResult {
       checked: number;
       missing: string[];
     };
+    rootSync: {
+      ok: boolean | null;
+      issueCount: number;
+      issues: string[];
+    };
   };
   retryWith: string[];
   reportPath?: string;
@@ -71,6 +84,7 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     lint: { ok: null, errorCount: 0, warningCount: 0, infoCount: 0 },
     buildReport: { exists: false },
     assets: { checked: 0, missing: [] },
+    rootSync: { ok: null, issueCount: 0, issues: [] },
   };
 
   if (!existsSync(projectDir) || !(await isDirectory(projectDir))) {
@@ -122,6 +136,7 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
         code: `STORYBOARD_${issue.code}`,
         message: issue.message,
         scene: issue.beatId,
+        beatId: issue.beatId,
         suggestedFix:
           "Run `vibe storyboard validate --json` and edit STORYBOARD.md or use `vibe storyboard set`.",
       });
@@ -188,6 +203,7 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
         message: `Composition for beat "${beatId}" is missing.`,
         file: join("compositions", file),
         scene: beatId,
+        beatId,
         suggestedFix: "Run `vibe build --stage compose --json`.",
       });
     }
@@ -207,7 +223,42 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
     });
     retryWith.push(`vibe build ${projectDir} --dry-run --json`);
   } else {
-    await inspectBuildReport(projectDir, coreFiles.buildReport, opts.beatId, checks, issues, retryWith);
+    await inspectBuildReport(
+      projectDir,
+      coreFiles.buildReport,
+      opts.beatId,
+      checks,
+      issues,
+      retryWith
+    );
+  }
+
+  if (checks.files.root && checks.files.storyboard) {
+    try {
+      const rootSync = await createProjectRootSyncPlan({ projectDir });
+      checks.rootSync = {
+        ok: rootSync.issues.length === 0,
+        issueCount: rootSync.issues.length,
+        issues: rootSync.issues.map((issue) => issue.code),
+      };
+      if (rootSync.issues.length > 0) {
+        issues.push(...rootSync.issues);
+        if (rootSync.issues.some((issue) => issue.fixOwner === "vibe")) {
+          retryWith.push(
+            `vibe scene repair --project ${projectDir} --json`,
+            `vibe build ${projectDir} --stage sync --json`
+          );
+        }
+      }
+    } catch (error) {
+      issues.push({
+        severity: "warning",
+        code: "ROOT_SYNC_CHECK_FAILED",
+        message: `Root sync check failed: ${error instanceof Error ? error.message : String(error)}`,
+        file: "index.html",
+        suggestedFix: "Run `vibe build --stage sync --json`.",
+      });
+    }
   }
 
   if (checks.files.root) {
@@ -239,7 +290,8 @@ export async function inspectProject(opts: ProjectInspectOptions): Promise<Proje
           });
         }
       }
-      if (lintCounts.errorCount > 0) retryWith.push(`vibe scene repair --project ${projectDir} --json`);
+      if (lintCounts.errorCount > 0)
+        retryWith.push(`vibe scene repair --project ${projectDir} --json`);
     } catch (error) {
       issues.push({
         severity: "error",
@@ -263,15 +315,19 @@ function makeProjectResult(
   retryWith: string[],
   beatId?: string
 ): ProjectInspectResult {
-  const status = statusFromIssues(issues);
+  const normalizedIssues = normalizeReviewIssues(issues);
+  const status = statusFromIssues(normalizedIssues);
   return {
     schemaVersion: "1",
     kind: "project",
+    mode: "project",
     project: projectDir,
     ...(beatId ? { beat: beatId } : {}),
     status,
-    score: scoreIssues(issues),
-    issues,
+    score: scoreIssues(normalizedIssues),
+    issues: normalizedIssues,
+    summary: summarizeReviewIssues(normalizedIssues),
+    sourceReports: projectSourceReports(checks),
     checks,
     retryWith: uniqueRetryWith(retryWith),
   };
@@ -287,12 +343,34 @@ async function maybeWriteProjectReport(
     ? resolve(process.cwd(), opts.outputPath)
     : defaultReviewReportPath(projectDir);
   try {
-    const withPath = { ...result, reportPath };
-    await writeReviewReport(reportPath, withPath as unknown as Record<string, unknown>);
-    return withPath;
+    const reviewReport = buildReviewReport({
+      project: projectDir,
+      mode: "project",
+      beat: result.beat,
+      status: result.status,
+      score: result.score,
+      issues: result.issues,
+      retryWith: result.retryWith,
+      sourceReports: result.sourceReports,
+      reportPath,
+    });
+    await writeReviewReport(reportPath, reviewReport as unknown as Record<string, unknown>);
+    return { ...result, reportPath };
   } catch {
     return result;
   }
+}
+
+function projectSourceReports(checks: ProjectInspectResult["checks"]): string[] {
+  const reports: string[] = [];
+  if (checks.files.storyboard) reports.push("STORYBOARD.md");
+  if (checks.files.design) reports.push("DESIGN.md");
+  if (checks.files.config) reports.push("vibe.config.json");
+  if (checks.files.root) reports.push("index.html");
+  if (checks.buildReport.exists) reports.push("build-report.json");
+  if (checks.rootSync.ok !== null) reports.push("root-sync");
+  if (checks.lint.ok !== null) reports.push("scene-lint");
+  return reports;
 }
 
 async function inspectBuildReport(
@@ -314,10 +392,11 @@ async function inspectBuildReport(
         videoPath?: unknown;
         musicPath?: unknown;
         compositionPath?: unknown;
-        narration?: { path?: unknown };
-        backdrop?: { path?: unknown };
-        video?: { path?: unknown };
-        music?: { path?: unknown };
+        narration?: { path?: unknown; sourcePath?: unknown };
+        backdrop?: { path?: unknown; sourcePath?: unknown };
+        video?: { path?: unknown; sourcePath?: unknown };
+        music?: { path?: unknown; sourcePath?: unknown };
+        composition?: { path?: unknown };
       }>;
       jobs?: Array<{
         id?: unknown;
@@ -336,6 +415,7 @@ async function inspectBuildReport(
         message: `build-report.json does not contain beat "${beatId}".`,
         file: "build-report.json",
         scene: beatId,
+        beatId,
         suggestedFix: "Rerun the selected beat build.",
       });
       retryWith.push(`vibe build ${projectDir} --beat ${beatId} --stage sync --json`);
@@ -364,6 +444,11 @@ async function inspectBuildReport(
         ["backdrop.path", beat.backdrop?.path],
         ["video.path", beat.video?.path],
         ["music.path", beat.music?.path],
+        ["narration.sourcePath", beat.narration?.sourcePath],
+        ["backdrop.sourcePath", beat.backdrop?.sourcePath],
+        ["video.sourcePath", beat.video?.sourcePath],
+        ["music.sourcePath", beat.music?.sourcePath],
+        ["composition.path", beat.composition?.path],
       ] as const) {
         inspectReportedAsset({
           projectDir,
@@ -427,6 +512,7 @@ function inspectReportedAsset(opts: {
     message: `Build report references a missing ${opts.label}: ${opts.value}`,
     file: opts.value,
     scene: opts.scene,
+    beatId: opts.scene,
     suggestedFix: "Rerun the relevant build stage with --force.",
   });
   opts.retryWith.push(

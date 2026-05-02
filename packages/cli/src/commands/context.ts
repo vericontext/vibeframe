@@ -65,11 +65,26 @@ export const contextCommand = new Command("context")
         failureCode: "SCENE_REPAIR_FAILED",
         retrySource: "sceneRepair.retryWith",
       },
+      assetFailureContract: {
+        gate: "full build stops before compose/render when assets fail",
+        codes: ["ASSET_REFERENCE_INVALID", "MISSING_API_KEY", "ASSET_GENERATION_FAILED"],
+        fields: ["currentStage", "suggestion", "recoverable", "retryWith"],
+      },
+      reviewReportContract: {
+        kind: "review",
+        modes: ["project", "render"],
+        fields: ["status", "score", "issues", "summary", "sourceReports", "retryWith"],
+        issueFixOwner: {
+          vibe: "deterministic CLI recovery",
+          "host-agent": "storyboard/design/composition edits the host agent should make",
+        },
+      },
       machineStatusContract: {
         buildReport:
           "kind/status/currentStage/beatSummary/jobs/sceneRepair/stageReports/warnings/retryWith plus nested per-beat asset metadata",
         projectStatus: "kind/status/currentStage/beats/jobs.latest/build/review/warnings/retryWith",
-        reviewSummary: "review.issueCount/errorCount/warningCount/retryWith",
+        reviewSummary:
+          "review.mode/issueCount/errorCount/warningCount/infoCount/fixOwners/sourceReports/retryWith",
       },
       productSurfaceContract: {
         surfaces: ["public", "agent", "advanced", "legacy", "internal"],
@@ -144,16 +159,26 @@ legacy \`vibe.project.yaml\` -> configured/env default -> VibeFrame default.
 
 \`vibe plan --json\` emits \`data.kind:"build-plan"\`,
 \`schemaVersion:"1"\`, \`status:"ready"|"invalid"\`, \`summary\`,
-\`validation\`, \`retryWith\`, and \`nextCommands\`. \`vibe plan\`,
-\`vibe build --dry-run\`, and \`vibe build\` validate \`STORYBOARD.md\`
+\`providerResolution\`, cache-aware per-asset plans, \`validation\`,
+\`retryWith\`, and \`nextCommands\`. \`vibe plan\`, \`vibe build --dry-run\`,
+and \`vibe build\` validate \`STORYBOARD.md\`
 before cost caps or provider dispatch. Invalid storyboards exit non-zero
 with \`code:"STORYBOARD_VALIDATION_FAILED"\`.
 
 Real \`vibe build\` runs deterministic scene repair after compose
 (sub-compositions only) and after sync (including root \`index.html\`) before
 render. Repair failures return \`code:"SCENE_REPAIR_FAILED"\` with
-\`sceneRepair.retryWith\`. \`build-report.json\` includes \`sceneRepair\`, and
-\`status project\` carries review issue counts plus \`review.retryWith\`.
+\`sceneRepair.retryWith\`. If assets fail, full build stops before compose/
+render with \`currentStage:"assets"\` and \`code:"ASSET_REFERENCE_INVALID"\`,
+\`code:"MISSING_API_KEY"\`, or \`code:"ASSET_GENERATION_FAILED"\`.
+\`build-report.json\` includes \`sceneRepair\`, and \`status project\` carries
+review issue counts, \`fixOwners\`, \`sourceReports\`, and
+\`review.retryWith\`.
+
+\`review-report.json\` is written by \`inspect project\` and \`inspect render\`
+as \`kind:"review"\` with \`mode:"project"|"render"\`, \`summary\`,
+\`sourceReports\`, \`retryWith\`, and issue-level
+\`fixOwner:"vibe"|"host-agent"\`.
 
 \`vibe schema --list\` includes \`surface\`, \`replacement\`, and \`note\`.
 Prefer \`vibe schema --list --surface public\` for the small product surface,

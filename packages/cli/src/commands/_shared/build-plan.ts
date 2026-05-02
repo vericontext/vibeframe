@@ -1,13 +1,42 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
-import { parseStoryboard } from "./storyboard-parse.js";
+import { config as loadDotenv } from "dotenv";
+
+import { getApiKeyFromConfig } from "../../config/index.js";
+import { PROVIDER_ENV_VARS } from "../../config/schema.js";
+import {
+  isReadyAssetReference,
+  resolveGenericAssetReference,
+  resolveTypedAssetReference,
+  type AssetReferenceCandidate,
+} from "./build-asset-reference.js";
+import {
+  backdropCacheDescriptor,
+  type BuildAssetKind,
+  type CacheAssetDescriptor,
+  musicCacheDescriptor,
+  narrationCacheDescriptor,
+  videoCacheDescriptor,
+} from "./build-cache.js";
+import { composerEnvVar, isComposerProvider, type ComposerProvider } from "./composer-resolve.js";
+import { parseStoryboard, type ParsedStoryboard } from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
 
 export type BuildStage = "assets" | "compose" | "sync" | "render" | "all";
 export type BuildPlanStatus = "ready" | "invalid";
+export type AssetPlanReason =
+  | "canonical-exists"
+  | "content-cache-hit"
+  | "force"
+  | "missing"
+  | "referenced-asset"
+  | "invalid-reference"
+  | "stage-skipped";
+export type ProviderResolutionKind = BuildAssetKind | "composer";
+export type ProviderResolutionSource = "cli" | "storyboard" | "project-config" | "default" | "auto";
 
 export interface BuildPlanBeat {
   id: string;
@@ -27,11 +56,33 @@ export interface BuildPlanBeat {
 }
 
 export interface AssetPlan {
+  kind: BuildAssetKind;
   cue: string;
+  provider: string;
   path: string;
+  cachePath?: string;
+  cacheKey?: string;
+  sourcePath?: string;
+  referenceError?: string;
   exists: boolean;
+  canonicalExists: boolean;
+  cacheHit: boolean;
+  willCopyFromCache: boolean;
   willGenerate: boolean;
   estimatedCostUsd: number;
+  reason: AssetPlanReason;
+}
+
+export interface ProviderResolution {
+  kind: ProviderResolutionKind;
+  requested: string | null;
+  resolved: string;
+  source: ProviderResolutionSource;
+  requiresKey: boolean;
+  configured: boolean;
+  configKey?: string;
+  missingKey?: string;
+  retryWith: string[];
 }
 
 export interface BuildPlanResult {
@@ -47,6 +98,7 @@ export interface BuildPlanResult {
   beats: BuildPlanBeat[];
   missing: string[];
   providers: string[];
+  providerResolution: ProviderResolution[];
   estimatedCostUsd: number;
   summary: BuildPlanSummary;
   nextCommands: string[];
@@ -76,33 +128,43 @@ export interface CreateBuildPlanOptions {
   skipBackdrop?: boolean;
   skipVideo?: boolean;
   skipMusic?: boolean;
+  ttsProvider?: string;
+  voice?: string;
+  imageProvider?: string;
+  imageQuality?: "standard" | "hd";
+  imageSize?: string;
   videoProvider?: string;
   musicProvider?: string;
+  composer?: string;
   force?: boolean;
 }
 
-const NARRATION_COST_USD = 0.05;
 const BACKDROP_COST_USD = 3;
 const VIDEO_COST_USD = 5;
 const MUSIC_COST_USD = 0.5;
+const ELEVENLABS_NARRATION_COST_USD = 0.05;
 const COMPOSE_COST_USD = 0.06;
 
 export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<BuildPlanResult> {
   const projectDir = resolve(opts.projectDir);
+  loadPlanEnv(projectDir);
   const stage = opts.stage ?? "all";
   const config = await readProjectConfig(projectDir);
   const storyboardPath = join(projectDir, "STORYBOARD.md");
   const warnings: string[] = [];
   const retryWith: string[] = [];
+  const providerResolution: ProviderResolution[] = [];
 
   if (!existsSync(storyboardPath)) {
     const validation = {
       ok: false,
-      issues: [{
-        severity: "error" as const,
-        code: "STORYBOARD_NOT_FOUND",
-        message: `STORYBOARD.md not found at ${storyboardPath}.`,
-      }],
+      issues: [
+        {
+          severity: "error" as const,
+          code: "STORYBOARD_NOT_FOUND",
+          message: `STORYBOARD.md not found at ${storyboardPath}.`,
+        },
+      ],
     };
     return finalizeBuildPlan({
       projectDir,
@@ -115,6 +177,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       beats: [],
       missing: ["storyboard"],
       providers: [],
+      providerResolution,
       estimatedCostUsd: 0,
       warnings: [`STORYBOARD.md not found at ${storyboardPath}.`],
       retryWith: [`vibe init ${projectDir} --from "<brief>" --json`],
@@ -129,7 +192,9 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   if (opts.beat) {
     const selected = sourceBeats.find((beat) => beat.id === opts.beat);
     if (!selected) {
-      warnings.push(`Beat "${opts.beat}" not found. Available: ${sourceBeats.map((beat) => beat.id).join(", ")}`);
+      warnings.push(
+        `Beat "${opts.beat}" not found. Available: ${sourceBeats.map((beat) => beat.id).join(", ")}`
+      );
       retryWith.push(`vibe storyboard list ${projectDir} --json`);
       sourceBeats = [];
     } else {
@@ -142,69 +207,189 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   let estimatedCostUsd = 0;
   const includeAssets = stage === "all" || stage === "assets";
   const includeCompose = stage === "all" || stage === "compose";
-  const resolvedVideoProvider = normalizeVideoProvider(opts.videoProvider ?? config.config.providers.video);
-  const resolvedMusicProvider = normalizeMusicProvider(opts.musicProvider ?? config.config.providers.music);
+  const mode = opts.mode ?? config.config.build.mode;
+  const imageQuality = opts.imageQuality ?? config.config.build.imageQuality ?? "hd";
+  const imageSize = opts.imageSize ?? config.config.build.imageSize ?? "1536x1024";
+  const needsComposer =
+    includeCompose &&
+    mode !== "agent" &&
+    sourceBeats.some((beat) => !existsSync(join(projectDir, `compositions/scene-${beat.id}.html`)));
+  const resolved = await resolvePlanProviders({
+    projectDir,
+    config,
+    parsed,
+    opts,
+    needsComposer,
+  });
+
+  const warnedProviderKinds = new Set<string>();
+  const noteProviderNeed = (resolution: ProviderResolution, commandContext: string) => {
+    if (resolution.configured) return;
+    const key = `${resolution.kind}:${resolution.resolved}`;
+    if (warnedProviderKinds.has(key)) return;
+    warnedProviderKinds.add(key);
+    const missingKey = resolution.missingKey ? ` (${resolution.missingKey})` : "";
+    warnings.push(
+      `${commandContext} will need ${resolution.resolved}${missingKey}, but no key/config is available.`
+    );
+    retryWith.push(...resolution.retryWith);
+  };
 
   const beats = sourceBeats.map((beat) => {
     const cue = beat.cues ?? {};
-    const narration = typeof cue.narration === "string" && !opts.skipNarration
-      ? assetPlan({
-          cue: cue.narration,
-          path: firstExisting(projectDir, [`assets/narration-${beat.id}.mp3`, `assets/narration-${beat.id}.wav`]) ?? `assets/narration-${beat.id}.mp3`,
-          projectDir,
-          force: opts.force,
-          cost: NARRATION_COST_USD,
-          active: includeAssets,
-        })
-      : null;
-    const backdrop = typeof cue.backdrop === "string" && !opts.skipBackdrop
-      ? assetPlan({
-          cue: cue.backdrop,
-          path: `assets/backdrop-${beat.id}.png`,
-          projectDir,
-          force: opts.force,
-          cost: BACKDROP_COST_USD,
-          active: includeAssets,
-        })
-      : null;
-    const video = typeof cue.video === "string" && !opts.skipVideo
-      ? assetPlan({
-          cue: cue.video,
-          path: `assets/video-${beat.id}.mp4`,
-          projectDir,
-          force: opts.force,
-          cost: VIDEO_COST_USD,
-          active: includeAssets,
-        })
-      : null;
-    const music = typeof cue.music === "string" && !opts.skipMusic
-      ? assetPlan({
-          cue: cue.music,
-          path: `assets/music-${beat.id}.mp3`,
-          projectDir,
-          force: opts.force,
-          cost: MUSIC_COST_USD,
-          active: includeAssets,
-        })
-      : null;
+    const voice = stringOrUndefined(cue.voice) ?? resolved.voice;
+    const narrationText = stringOrUndefined(cue.narration);
+    const backdropPrompt = stringOrUndefined(cue.backdrop);
+    const videoPrompt = stringOrUndefined(cue.video);
+    const musicPrompt = stringOrUndefined(cue.music);
+    const genericReference = resolveGenericAssetReference(projectDir, cue.asset);
+    const narrationReference = resolveTypedAssetReference(projectDir, "narration", cue.narration);
+    const backdropReference =
+      resolveTypedAssetReference(projectDir, "backdrop", cue.backdrop) ??
+      (!backdropPrompt && genericReference?.kind === "backdrop" ? genericReference : null);
+    const videoReference =
+      resolveTypedAssetReference(projectDir, "video", cue.video) ??
+      (!videoPrompt && genericReference?.kind === "video" ? genericReference : null);
+    const musicReference =
+      resolveTypedAssetReference(projectDir, "music", cue.music) ??
+      (!musicPrompt && genericReference?.kind === "music" ? genericReference : null);
+    const narrationCue = narrationText ?? narrationReference?.raw;
+    const backdropCue = backdropPrompt ?? backdropReference?.raw;
+    const videoCue = videoPrompt ?? videoReference?.raw;
+    const musicCue = musicPrompt ?? musicReference?.raw;
+    const narrationCost =
+      resolved.narration.resolved === "elevenlabs" ? ELEVENLABS_NARRATION_COST_USD : 0;
+    const narrationCache =
+      narrationText && !narrationReference
+        ? narrationCacheDescriptor({
+            beatId: beat.id,
+            cue: narrationText,
+            provider: resolved.narration.resolved,
+            voice,
+            ext: resolved.narration.resolved === "elevenlabs" ? "mp3" : "wav",
+          })
+        : null;
+    const backdropCache =
+      backdropPrompt && !backdropReference
+        ? backdropCacheDescriptor({
+            beatId: beat.id,
+            cue: backdropPrompt,
+            provider: resolved.image.resolved,
+            quality: imageQuality,
+            size: imageSize,
+          })
+        : null;
+    const videoCache =
+      videoPrompt && !videoReference
+        ? videoCacheDescriptor({
+            beatId: beat.id,
+            cue: videoPrompt,
+            provider: resolved.video.resolved,
+            duration: beat.duration,
+          })
+        : null;
+    const musicCache =
+      musicPrompt && !musicReference
+        ? musicCacheDescriptor({
+            beatId: beat.id,
+            cue: musicPrompt,
+            provider: resolved.music.resolved,
+            duration: beat.duration,
+          })
+        : null;
+
+    const narration =
+      narrationCue && !opts.skipNarration
+        ? assetPlan({
+            kind: "narration",
+            cue: narrationCue,
+            provider: resolved.narration.resolved,
+            path:
+              firstExisting(projectDir, [
+                `assets/narration-${beat.id}.mp3`,
+                `assets/narration-${beat.id}.wav`,
+              ]) ?? `assets/narration-${beat.id}.${narrationCache?.ext ?? "mp3"}`,
+            cache: narrationCache,
+            reference: narrationReference,
+            projectDir,
+            force: opts.force,
+            cost: narrationCost,
+            active: includeAssets,
+          })
+        : null;
+    const backdrop =
+      backdropCue && !opts.skipBackdrop
+        ? assetPlan({
+            kind: "backdrop",
+            cue: backdropCue,
+            provider: resolved.image.resolved,
+            path: `assets/backdrop-${beat.id}.png`,
+            cache: backdropCache,
+            reference: backdropReference,
+            projectDir,
+            force: opts.force,
+            cost: BACKDROP_COST_USD,
+            active: includeAssets,
+          })
+        : null;
+    const video =
+      videoCue && !opts.skipVideo
+        ? assetPlan({
+            kind: "video",
+            cue: videoCue,
+            provider: resolved.video.resolved,
+            path: `assets/video-${beat.id}.mp4`,
+            cache: videoCache,
+            reference: videoReference,
+            projectDir,
+            force: opts.force,
+            cost: VIDEO_COST_USD,
+            active: includeAssets,
+          })
+        : null;
+    const music =
+      musicCue && !opts.skipMusic
+        ? assetPlan({
+            kind: "music",
+            cue: musicCue,
+            provider: resolved.music.resolved,
+            path: `assets/music-${beat.id}.mp3`,
+            cache: musicCache,
+            reference: musicReference,
+            projectDir,
+            force: opts.force,
+            cost: MUSIC_COST_USD,
+            active: includeAssets,
+          })
+        : null;
     const compositionPath = `compositions/scene-${beat.id}.html`;
     const compositionExists = existsSync(join(projectDir, compositionPath));
 
     for (const asset of [narration, backdrop, video, music]) {
       if (!asset) continue;
+      if (asset.referenceError) {
+        missing.add("assets");
+        warnings.push(asset.referenceError);
+        retryWith.push(
+          `vibe storyboard set ${projectDir} ${beat.id} ${asset.kind} "<prompt-or-project-asset-path>" --json`
+        );
+        continue;
+      }
       if (asset.willGenerate) {
         estimatedCostUsd += asset.estimatedCostUsd;
         missing.add("assets");
+        providers.add(asset.provider);
       }
     }
-    if (narration?.willGenerate) providers.add(config.config.providers.narration ?? "auto-tts");
-    if (backdrop?.willGenerate) providers.add(config.config.providers.image ?? "openai");
-    if (video?.willGenerate) providers.add(resolvedVideoProvider);
-    if (music?.willGenerate) providers.add(resolvedMusicProvider);
+    if (narration?.willGenerate) noteProviderNeed(resolved.narration, "Narration");
+    if (backdrop?.willGenerate) noteProviderNeed(resolved.image, "Backdrop generation");
+    if (video?.willGenerate) noteProviderNeed(resolved.video, "Video generation");
+    if (music?.willGenerate) noteProviderNeed(resolved.music, "Music generation");
     if (!compositionExists) missing.add("compositions");
-    if (includeCompose && !compositionExists && (opts.mode ?? config.config.build.mode) !== "agent") {
+    if (includeCompose && !compositionExists && mode !== "agent") {
       estimatedCostUsd += COMPOSE_COST_USD;
-      providers.add(config.config.providers.composer ?? "auto-composer");
+      providers.add(resolved.composer?.resolved ?? "auto-composer");
+      if (resolved.composer) noteProviderNeed(resolved.composer, "Composition");
     }
 
     return {
@@ -219,18 +404,36 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       },
     };
   });
+  providerResolution.push(...providerResolutionsForPlan(resolved, beats, opts, includeAssets));
 
   if (!existsSync(join(projectDir, config.config.composition.entry))) {
     missing.add("root-composition");
     if (validation.ok) retryWith.push(`vibe build ${projectDir} --stage sync --json`);
   }
   if (config.legacy) {
-    warnings.push(`Using legacy ${config.source}; write ${projectDir}/vibe.config.json to use the TO-BE project contract.`);
+    warnings.push(
+      `Using legacy ${config.source}; write ${projectDir}/vibe.config.json to use the TO-BE project contract.`
+    );
+  }
+  if (
+    resolved.image.resolved !== "openai" &&
+    beats.some((beat) => {
+      const backdrop = beat.assets.backdrop;
+      return (
+        backdrop &&
+        !["referenced-asset", "invalid-reference", "stage-skipped"].includes(backdrop.reason)
+      );
+    }) &&
+    !opts.skipBackdrop
+  ) {
+    warnings.push(
+      `Image provider "${resolved.image.resolved}" is not supported by build assets yet; use --image-provider openai.`
+    );
   }
   if (!validation.ok) {
     retryWith.push(
       `vibe storyboard validate ${projectDir} --json`,
-      `vibe storyboard revise ${projectDir} --from "<request>" --dry-run --json`,
+      `vibe storyboard revise ${projectDir} --from "<request>" --dry-run --json`
     );
   }
 
@@ -240,11 +443,12 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     stage,
     status: validation.ok ? "ready" : "invalid",
     currentStage: stage,
-    mode: opts.mode ?? config.config.build.mode,
+    mode,
     beat: opts.beat ?? null,
     beats,
     missing: [...missing],
     providers: [...providers].filter(Boolean),
+    providerResolution,
     estimatedCostUsd: Number(estimatedCostUsd.toFixed(2)),
     warnings,
     retryWith,
@@ -255,7 +459,9 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   });
 }
 
-function finalizeBuildPlan(plan: Omit<BuildPlanResult, "schemaVersion" | "kind" | "summary" | "nextCommands">): BuildPlanResult {
+function finalizeBuildPlan(
+  plan: Omit<BuildPlanResult, "schemaVersion" | "kind" | "summary" | "nextCommands">
+): BuildPlanResult {
   const providers = [...plan.providers].filter(Boolean);
   const missing = [...plan.missing];
   const summary: BuildPlanSummary = {
@@ -264,7 +470,8 @@ function finalizeBuildPlan(plan: Omit<BuildPlanResult, "schemaVersion" | "kind" 
     providers,
     estimatedCostUsd: Number(plan.estimatedCostUsd.toFixed(2)),
     validationErrors: plan.validation.issues.filter((issue) => issue.severity === "error").length,
-    validationWarnings: plan.validation.issues.filter((issue) => issue.severity === "warning").length,
+    validationWarnings: plan.validation.issues.filter((issue) => issue.severity === "warning")
+      .length,
   };
   return {
     schemaVersion: "1",
@@ -272,39 +479,337 @@ function finalizeBuildPlan(plan: Omit<BuildPlanResult, "schemaVersion" | "kind" 
     ...plan,
     providers,
     missing,
+    providerResolution: plan.providerResolution,
     summary,
     nextCommands: nextCommandsForPlan({ ...plan, missing, providers, summary }),
     retryWith: unique(plan.retryWith),
   };
 }
 
-function nextCommandsForPlan(plan: Omit<BuildPlanResult, "schemaVersion" | "kind" | "nextCommands">): string[] {
+function nextCommandsForPlan(
+  plan: Omit<BuildPlanResult, "schemaVersion" | "kind" | "nextCommands">
+): string[] {
   if (plan.status === "invalid") return unique(plan.retryWith);
   const commands: string[] = [];
-  if (plan.missing.includes("assets")) commands.push(`vibe build ${plan.projectDir} --stage assets --json`);
-  if (plan.missing.includes("compositions")) commands.push(`vibe build ${plan.projectDir} --stage compose --json`);
-  if (plan.missing.includes("root-composition")) commands.push(`vibe build ${plan.projectDir} --stage sync --json`);
-  if (commands.length === 0) commands.push(`vibe build ${plan.projectDir} --stage ${plan.stage} --json`);
+  if (plan.missing.includes("assets"))
+    commands.push(`vibe build ${plan.projectDir} --stage assets --json`);
+  if (plan.missing.includes("compositions"))
+    commands.push(`vibe build ${plan.projectDir} --stage compose --json`);
+  if (plan.missing.includes("root-composition"))
+    commands.push(`vibe build ${plan.projectDir} --stage sync --json`);
+  if (commands.length === 0)
+    commands.push(`vibe build ${plan.projectDir} --stage ${plan.stage} --json`);
   return unique(commands);
 }
 
 function assetPlan(opts: {
+  kind: BuildAssetKind;
   cue: string;
+  provider: string;
   path: string;
+  cache: CacheAssetDescriptor | null;
+  reference?: AssetReferenceCandidate | null;
   projectDir: string;
   cost: number;
   active: boolean;
   force?: boolean;
 }): AssetPlan {
-  const exists = existsSync(join(opts.projectDir, opts.path));
-  const willGenerate = opts.active && (!exists || !!opts.force);
+  if (!opts.active) {
+    return {
+      kind: opts.kind,
+      cue: opts.cue,
+      provider: opts.provider,
+      path: opts.path,
+      cachePath: opts.cache?.path,
+      cacheKey: opts.cache?.key,
+      exists: false,
+      canonicalExists: false,
+      cacheHit: false,
+      willCopyFromCache: false,
+      willGenerate: false,
+      estimatedCostUsd: 0,
+      reason: "stage-skipped",
+    };
+  }
+
+  if (opts.reference) {
+    const ready = isReadyAssetReference(opts.reference);
+    const sourcePath = opts.reference.relPath ?? opts.reference.raw;
+    return {
+      kind: opts.kind,
+      cue: opts.cue,
+      provider: "local",
+      path: ready ? sourcePath : opts.path,
+      sourcePath,
+      referenceError: opts.reference.error,
+      exists: ready,
+      canonicalExists: false,
+      cacheHit: false,
+      willCopyFromCache: false,
+      willGenerate: false,
+      estimatedCostUsd: 0,
+      reason: ready ? "referenced-asset" : "invalid-reference",
+    };
+  }
+
+  const canonicalExists = existsSync(join(opts.projectDir, opts.path));
+  const cacheHit = opts.cache ? existsSync(join(opts.projectDir, opts.cache.path)) : false;
+  const force = !!opts.force;
+  const willCopyFromCache = !force && !canonicalExists && cacheHit;
+  const willGenerate = force || (!canonicalExists && !cacheHit);
+  const reason: AssetPlanReason = force
+    ? "force"
+    : canonicalExists
+      ? "canonical-exists"
+      : cacheHit
+        ? "content-cache-hit"
+        : "missing";
   return {
+    kind: opts.kind,
     cue: opts.cue,
+    provider: opts.provider,
     path: opts.path,
-    exists,
+    cachePath: opts.cache?.path,
+    cacheKey: opts.cache?.key,
+    exists: canonicalExists,
+    canonicalExists,
+    cacheHit,
+    willCopyFromCache,
     willGenerate,
     estimatedCostUsd: willGenerate ? opts.cost : 0,
+    reason,
   };
+}
+
+function providerResolutionsForPlan(
+  resolved: ResolvedBuildProviders,
+  beats: BuildPlanBeat[],
+  opts: CreateBuildPlanOptions,
+  includeAssets: boolean
+): ProviderResolution[] {
+  const needsProvider = (kind: BuildAssetKind) =>
+    beats.some((beat) => {
+      const asset = beat.assets[kind];
+      return (
+        asset &&
+        asset.reason !== "referenced-asset" &&
+        asset.reason !== "invalid-reference" &&
+        asset.reason !== "stage-skipped"
+      );
+    });
+  return [
+    includeAssets && !opts.skipNarration && needsProvider("narration") ? resolved.narration : null,
+    includeAssets && !opts.skipBackdrop && needsProvider("backdrop") ? resolved.image : null,
+    includeAssets && !opts.skipVideo && needsProvider("video") ? resolved.video : null,
+    includeAssets && !opts.skipMusic && needsProvider("music") ? resolved.music : null,
+    resolved.composer ?? null,
+  ].filter((resolution): resolution is ProviderResolution => Boolean(resolution));
+}
+
+interface ResolvedBuildProviders {
+  narration: ProviderResolution;
+  image: ProviderResolution;
+  video: ProviderResolution;
+  music: ProviderResolution;
+  composer?: ProviderResolution;
+  voice?: string;
+}
+
+async function resolvePlanProviders(opts: {
+  projectDir: string;
+  config: LoadedProjectConfig;
+  parsed: ParsedStoryboard;
+  opts: CreateBuildPlanOptions;
+  needsComposer: boolean;
+}): Promise<ResolvedBuildProviders> {
+  const frontmatterProviders = opts.parsed.frontmatter?.providers as
+    | Record<string, unknown>
+    | undefined;
+  const narrationInput = providerInput({
+    cli: opts.opts.ttsProvider,
+    storyboard: stringOrUndefined(frontmatterProviders?.tts),
+    projectConfig: opts.config.config.providers.narration,
+    fallback: "auto",
+  });
+  const imageInput = providerInput({
+    cli: opts.opts.imageProvider,
+    storyboard: stringOrUndefined(frontmatterProviders?.image),
+    projectConfig: opts.config.config.providers.image,
+    fallback: "openai",
+  });
+  const videoInput = providerInput({
+    cli: opts.opts.videoProvider,
+    storyboard: stringOrUndefined(frontmatterProviders?.video),
+    projectConfig: opts.config.config.providers.video,
+    fallback: "seedance",
+  });
+  const musicInput = providerInput({
+    cli: opts.opts.musicProvider,
+    storyboard: stringOrUndefined(frontmatterProviders?.music),
+    projectConfig: opts.config.config.providers.music,
+    fallback: "elevenlabs",
+  });
+  const composerInput = providerInput({
+    cli: opts.opts.composer,
+    storyboard: stringOrUndefined(frontmatterProviders?.composer),
+    projectConfig: opts.config.config.providers.composer,
+    fallback: "auto",
+  });
+
+  const narration = await resolveNarrationProvider(narrationInput, opts.projectDir);
+  const image = await keyedProviderResolution(
+    {
+      kind: "backdrop",
+      input: {
+        ...imageInput,
+        value: normalizeImageProvider(imageInput.value),
+      },
+      configKey: imageConfigKey(normalizeImageProvider(imageInput.value)),
+    },
+    opts.projectDir
+  );
+  const videoProvider = normalizeVideoProvider(videoInput.value);
+  const video = await keyedProviderResolution(
+    {
+      kind: "video",
+      input: {
+        ...videoInput,
+        value: videoProvider,
+      },
+      configKey: videoConfigKey(videoProvider),
+    },
+    opts.projectDir
+  );
+  const musicProvider = normalizeMusicProvider(musicInput.value);
+  const music = await keyedProviderResolution(
+    {
+      kind: "music",
+      input: {
+        ...musicInput,
+        value: musicProvider,
+      },
+      configKey: musicProvider,
+    },
+    opts.projectDir
+  );
+  const composer = opts.needsComposer
+    ? await resolveComposerProvider(composerInput, opts.projectDir)
+    : undefined;
+  return {
+    narration,
+    image,
+    video,
+    music,
+    composer,
+    voice: opts.opts.voice ?? stringOrUndefined(opts.parsed.frontmatter?.voice),
+  };
+}
+
+interface ProviderInput {
+  value: string;
+  requested: string | null;
+  source: ProviderResolutionSource;
+}
+
+function providerInput(opts: {
+  cli?: string | null;
+  storyboard?: string | null;
+  projectConfig?: string | null;
+  fallback: string;
+}): ProviderInput {
+  const cli = stringOrUndefined(opts.cli);
+  if (cli) return { value: cli, requested: cli, source: "cli" };
+  const storyboard = stringOrUndefined(opts.storyboard);
+  if (storyboard) return { value: storyboard, requested: storyboard, source: "storyboard" };
+  const projectConfig = stringOrUndefined(opts.projectConfig);
+  if (projectConfig)
+    return { value: projectConfig, requested: projectConfig, source: "project-config" };
+  return {
+    value: opts.fallback,
+    requested: null,
+    source: opts.fallback === "auto" ? "auto" : "default",
+  };
+}
+
+async function resolveNarrationProvider(
+  input: ProviderInput,
+  projectDir: string
+): Promise<ProviderResolution> {
+  const requested = input.value.toLowerCase();
+  const hasElevenLabs = Boolean(await getApiKeyFromConfig("elevenlabs", { cwd: projectDir }));
+  const resolved =
+    requested === "elevenlabs"
+      ? "elevenlabs"
+      : requested === "kokoro"
+        ? "kokoro"
+        : hasElevenLabs
+          ? "elevenlabs"
+          : "kokoro";
+  return {
+    kind: "narration",
+    requested: input.requested,
+    resolved,
+    source: input.source,
+    requiresKey: resolved === "elevenlabs",
+    configured: resolved !== "elevenlabs" || hasElevenLabs,
+    ...(resolved === "elevenlabs" ? { configKey: "elevenlabs" } : {}),
+    ...(resolved === "elevenlabs" && !hasElevenLabs
+      ? { missingKey: providerEnvVar("elevenlabs") }
+      : {}),
+    retryWith: resolved === "elevenlabs" && !hasElevenLabs ? ["vibe setup --full"] : [],
+  };
+}
+
+async function keyedProviderResolution(
+  opts: {
+    kind: ProviderResolutionKind;
+    input: ProviderInput;
+    configKey: string;
+  },
+  projectDir: string
+): Promise<ProviderResolution> {
+  const configured = Boolean(await getApiKeyFromConfig(opts.configKey, { cwd: projectDir }));
+  return {
+    kind: opts.kind,
+    requested: opts.input.requested,
+    resolved: opts.input.value,
+    source: opts.input.source,
+    requiresKey: true,
+    configured,
+    configKey: opts.configKey,
+    ...(!configured ? { missingKey: providerEnvVar(opts.configKey) } : {}),
+    retryWith: configured ? [] : ["vibe setup --full"],
+  };
+}
+
+async function resolveComposerProvider(
+  input: ProviderInput,
+  projectDir: string
+): Promise<ProviderResolution> {
+  const requested = input.value.toLowerCase();
+  const explicit = isComposerProvider(requested) ? requested : undefined;
+  const resolved = explicit ?? (await firstConfiguredComposer(projectDir)) ?? "claude";
+  const configKey = composerConfigKey(resolved);
+  const configured = Boolean(await getApiKeyFromConfig(configKey, { cwd: projectDir }));
+  return {
+    kind: "composer",
+    requested: input.requested,
+    resolved,
+    source: explicit ? input.source : "auto",
+    requiresKey: true,
+    configured,
+    configKey,
+    ...(!configured ? { missingKey: composerEnvVar(resolved) } : {}),
+    retryWith: configured ? [] : ["vibe setup --full"],
+  };
+}
+
+async function firstConfiguredComposer(projectDir: string): Promise<ComposerProvider | null> {
+  for (const provider of ["claude", "gemini", "openai"] as const) {
+    if (await getApiKeyFromConfig(composerConfigKey(provider), { cwd: projectDir }))
+      return provider;
+  }
+  return null;
 }
 
 function firstExisting(projectDir: string, paths: string[]): string | null {
@@ -314,10 +819,21 @@ function firstExisting(projectDir: string, paths: string[]): string | null {
   return null;
 }
 
+function normalizeImageProvider(value: string | null | undefined): string {
+  const provider = String(value ?? "openai").toLowerCase();
+  return provider || "openai";
+}
+
 function normalizeVideoProvider(value: string | null | undefined): string {
   const provider = String(value ?? "seedance").toLowerCase();
   if (provider === "fal") return "seedance";
-  if (provider === "seedance" || provider === "grok" || provider === "kling" || provider === "runway" || provider === "veo") {
+  if (
+    provider === "seedance" ||
+    provider === "grok" ||
+    provider === "kling" ||
+    provider === "runway" ||
+    provider === "veo"
+  ) {
     return provider;
   }
   return "seedance";
@@ -328,6 +844,48 @@ function normalizeMusicProvider(value: string | null | undefined): string {
   return provider === "replicate" ? "replicate" : "elevenlabs";
 }
 
+function imageConfigKey(provider: string): string {
+  if (provider === "grok") return "xai";
+  if (provider === "gemini") return "google";
+  return "openai";
+}
+
+function videoConfigKey(provider: string): string {
+  return provider === "seedance"
+    ? "fal"
+    : provider === "grok"
+      ? "xai"
+      : provider === "veo"
+        ? "google"
+        : provider;
+}
+
+function composerConfigKey(provider: ComposerProvider): string {
+  return provider === "claude" ? "anthropic" : provider === "gemini" ? "google" : "openai";
+}
+
+function providerEnvVar(configKey: string): string {
+  return PROVIDER_ENV_VARS[configKey] ?? `${configKey.toUpperCase()}_API_KEY`;
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 function unique(items: string[]): string[] {
   return [...new Set(items.filter((item) => item.length > 0))];
+}
+
+function loadPlanEnv(projectDir: string): void {
+  loadDotenv({ path: join(projectDir, ".env"), quiet: true });
+  loadDotenv({ path: resolve(process.cwd(), ".env"), quiet: true });
+
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
+      loadDotenv({ path: join(dir, ".env"), quiet: true });
+      return;
+    }
+    dir = dirname(dir);
+  }
 }

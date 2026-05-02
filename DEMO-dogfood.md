@@ -1,22 +1,25 @@
-# VibeFrame Demo
+# VibeFrame Dogfood Demo
 
-This is the copy-paste demo path for VibeFrame as a general video CLI.
+This is the internal copy-paste dogfood path for this repo. It uses
+`pnpm vibe` because the checkout is local. For an installed CLI workspace,
+replace `pnpm vibe` with `vibe`.
 
-It covers:
+The goal is to validate the current `FUNCTIONS-TOBE.md` direction:
 
-1. Check local setup
-2. Generate image and video assets
-3. Process existing media with free/local commands
-4. Build a storyboard-based video project
-5. Run the same idea as YAML
-6. Validate the produced files and command surface
+```text
+STORYBOARD.md and DESIGN.md are the source of truth
+-> plan and dry-run expose cost/provider needs
+-> build writes machine-readable reports
+-> inspect and repair close the agent loop
+-> render produces MP4
+```
 
-Commands below use `pnpm vibe` because this repo is checked out locally. For an
-installed CLI, replace `pnpm vibe` with `vibe`.
+This document intentionally leads with the storyboard project loop. Media
+primitives and YAML remain covered, but they are secondary paths.
 
 ---
 
-## 0. Check Setup
+## 0. Check Setup And Public Surface
 
 Run these first:
 
@@ -24,214 +27,69 @@ Run these first:
 pnpm vibe --help
 pnpm vibe setup --show
 pnpm vibe doctor
-pnpm vibe doctor --test-keys   # optional: live-validate stored keys
+pnpm vibe context
+pnpm vibe schema --list --surface public --json
 ```
 
-Every command help screen and `vibe schema --list` show a colored cost
-badge — `[FREE]`, `[LOW]`, `[HIGH]`, `[VERY-HIGH]` — so you can plan
-spend before running anything paid.
+Every command help screen and schema entry shows a cost tier such as `[FREE]`,
+`[LOW]`, `[HIGH]`, or `[VERY-HIGH]`. Use `--dry-run`, `--max-cost`, and
+`--json` whenever a host agent is driving the command.
 
-For the full demo, these keys should be available:
-
-```text
-OPENAI_API_KEY    text-to-image and batch HTML composition
-FAL_API_KEY           Seedance text/image-to-video through fal.ai
-IMGBB_API_KEY     local image upload host for image-to-video
-```
-
-The storyboard project demo below uses `--tts kokoro`, so it does not require a
-paid TTS key.
-
-Useful guide command:
+Useful guides:
 
 ```bash
 pnpm vibe guide
-pnpm vibe guide motion
 pnpm vibe guide scene
 pnpm vibe guide pipeline
 pnpm vibe guide architecture
 ```
 
-`guide` explains the workflow. It does not create files.
+Recommended keys for the full dogfood pass:
+
+```text
+OPENAI_API_KEY    image generation and optional batch composition
+GOOGLE_API_KEY    optional render review and media understanding
+FAL_API_KEY       Seedance image/video generation
+IMGBB_API_KEY     local image upload host for image-to-video
+```
+
+The main dogfood path below uses Kokoro narration and can skip generated
+backdrops/videos/music to keep cost low.
 
 ---
 
-## 1. Quick Media Smoke
+## 1. Create The Project
 
-These commands create standalone media assets in `demo-output/`.
-
-```bash
-mkdir -p demo-output
-```
-
-### 1.1 Text to Image
-
-```bash
-pnpm vibe generate image \
-  "A polished VibeFrame CLI demo hero frame: a modern terminal window producing cinematic video assets, subtle timeline elements, crisp product-documentation style, 16:9 composition, high contrast, no readable brand logos" \
-  -p openai \
-  -m 2 \
-  --size 1536x1024 \
-  --quality hd \
-  -o demo-output/vibe-cli-generated-image.png
-```
-
-Expected file:
-
-```text
-demo-output/vibe-cli-generated-image.png
-```
-
-### 1.2 Text to Video
-
-```bash
-pnpm vibe generate video \
-  "A modern VibeFrame CLI product demo in motion: terminal commands trigger generated frames, a cinematic timeline assembles, clean UI panels animate smoothly, polished developer-tool promo, no readable text, 16:9" \
-  -p seedance \
-  -d 5 \
-  -r 16:9 \
-  -o demo-output/vibe-cli-generated-video.mp4
-```
-
-Expected file:
-
-```text
-demo-output/vibe-cli-generated-video.mp4
-```
-
-Notes:
-
-- `-p seedance` means ByteDance Seedance 2.0 through fal.ai.
-- `-d 5` is used to keep demo cost and queue time low.
-- Seedance supports longer clips too, for example `-d 10` or `-d 15`.
-- `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed
-  at the 1.0 cut. New scripts should use `-p seedance`.
-
-### 1.3 Image to Video
-
-Use the image from step 1.1:
-
-```bash
-pnpm vibe generate video \
-  "The terminal UI comes alive: timeline tracks slide into place, rendered frames glow, a clean cinematic product-demo motion, smooth camera push-in, professional documentation demo style, no extra text" \
-  -p seedance \
-  -i demo-output/vibe-cli-generated-image.png \
-  -d 5 \
-  -r 16:9 \
-  -o demo-output/vibe-cli-generated-i2v-video.mp4
-```
-
-Expected file:
-
-```text
-demo-output/vibe-cli-generated-i2v-video.mp4
-```
-
-Seedance image-to-video needs an HTTPS image URL. The CLI uploads local images
-through ImgBB first, so `IMGBB_API_KEY` must be valid when using `-i` with
-Seedance or Kling.
-
-### 1.4 Existing Media Checks
-
-Use the generated video as input for local/free and dry-run workflows:
-
-```bash
-pnpm vibe media info demo-output/vibe-cli-generated-video.mp4
-
-pnpm vibe detect scenes \
-  demo-output/vibe-cli-generated-video.mp4 \
-  -o demo-output/scenes.json
-
-pnpm vibe edit text-overlay \
-  demo-output/vibe-cli-generated-video.mp4 \
-  --text "VibeFrame" \
-  --style lower-third \
-  -o demo-output/vibe-cli-text-overlay.mp4
-
-pnpm vibe edit silence-cut \
-  demo-output/vibe-cli-generated-video.mp4 \
-  -o demo-output/vibe-cli-silence-cut.mp4 \
-  --dry-run
-
-pnpm vibe remix animated-caption \
-  demo-output/vibe-cli-generated-video.mp4 \
-  --style highlight \
-  -o demo-output/vibe-cli-animated-caption.mp4 \
-  --dry-run
-```
-
-Expected files from the commands that execute:
-
-```text
-demo-output/scenes.json
-demo-output/vibe-cli-text-overlay.mp4
-```
-
-The `silence-cut` and `animated-caption` examples use `--dry-run` so this
-section demonstrates the route without spending on transcription.
-
----
-
-## 2. Storyboard to Composed Video
-
-This is the main project flow:
-
-```text
-vibe init -> edit STORYBOARD.md / DESIGN.md -> vibe build -> vibe render
-```
-
-A local-narration sample exists at:
-
-```text
-my-video/
-```
-
-Final rendered file:
-
-```text
-my-video/renders/my-video-final.mp4
-```
-
-### 2.1 Create a New Video Project
-
-This command is idempotent. If `my-video` already exists, it keeps
-the existing authored files and merges only missing support files.
+Start from a brief so `init` exercises the product-facing entry point:
 
 ```bash
 pnpm vibe init my-video \
+  --from "30-second product video showing VibeFrame as a storyboard-first video CLI for coding agents" \
   --profile agent \
   --visual-style "Swiss Pulse" \
   -r 16:9 \
-  -d 18
+  -d 30 \
+  --json
 ```
 
-Open these two files first:
+Expected files:
 
 ```text
 my-video/STORYBOARD.md
 my-video/DESIGN.md
+my-video/vibe.config.json
+my-video/AGENTS.md
 ```
 
-`vibe init` creates a few support files because this is both a VibeFrame
-project and a render project.
+`STORYBOARD.md` is the intent layer. `DESIGN.md` is the visual system.
+`assets/`, `compositions/`, `build-report.json`, and `review-report.json`
+are generated or report artifacts.
 
-| Profile | Command             | What it creates                                                                                          |
-| ------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
-| Minimal | `--profile minimal` | `STORYBOARD.md`, `DESIGN.md`, `vibe.project.yaml`, `.gitignore`                                          |
-| Agent   | `--profile agent`   | Minimal files plus `SKILL.md`, `references/`, `CLAUDE.md`                                                |
-| Full    | `--profile full`    | Agent files plus render scaffold: `index.html`, `compositions/`, `assets/`, `renders/`, backend metadata |
+---
 
-Recommended default: `--profile agent`.
+## 2. Author A Reproducible Four-Beat Storyboard
 
-The default `agent` profile does not create `hyperframes.json` up front. That
-file is backend metadata for the current HTML renderer and appears only when
-you choose `--profile full` or when `vibe build` needs to add the render
-scaffold.
-
-### 2.2 Author the Sample Files
-
-For a reproducible dogfood run, replace the starter files with this compact
-four-beat project:
+For a stable dogfood run, replace the starter files with this compact project.
 
 ````bash
 cat > my-video/DESIGN.md <<'MD'
@@ -244,10 +102,10 @@ high-contrast panels, clean editorial motion, no mascot or cartoon styling.
 
 ## Palette
 
-- `#070A12` — background
-- `#1B66FF` — primary blue
-- `#F4F7FB` — text
-- `#6EE7B7` — success accent
+- `#070A12` - background
+- `#1B66FF` - primary blue
+- `#F4F7FB` - text
+- `#6EE7B7` - success accent
 
 ## Typography
 
@@ -261,124 +119,177 @@ MD
 cat > my-video/STORYBOARD.md <<'MD'
 # VibeFrame Dogfood
 
-## Beat setup — CLI setup
+## Beat setup - Project starts from intent
 
 ```yaml
-narration: "Start in the terminal. VibeFrame exposes every video workflow as a command."
-backdrop: "developer terminal with setup and doctor output, dark UI, blue highlights"
-duration: 5
+duration: 6
+narration: "Start with a storyboard. VibeFrame turns intent into project files."
+backdrop: "developer terminal beside STORYBOARD.md and DESIGN.md, dark UI, blue highlights"
+motion: "project files slide into a clean grid"
+voice: "af_heart"
 ```
 
 Show the command line as the control surface.
 
-## Beat media — AI media
+## Beat plan - Agents dry-run before spending
 
 ```yaml
-narration: "Generate images and motion assets, then keep every file inspectable."
-backdrop: "generated product demo frame becoming a short video clip, timeline panels"
-duration: 5
+duration: 6
+narration: "Agents validate, plan, and dry-run before provider spend."
+backdrop: "terminal showing JSON plan, cost cap, provider needs, and warnings"
+motion: "cost and provider cards count up, then lock under a budget line"
+voice: "af_heart"
 ```
 
-Show image and video assets as files, not hidden state.
+Make `--json`, `--dry-run`, and `--max-cost` visible.
 
-## Beat compose — Storyboard composition
+## Beat build - Files and reports drive the loop
 
 ```yaml
-narration: "Storyboard beats become editable browser scenes before final render."
-backdrop: "storyboard markdown connected to HTML scene cards and a render timeline"
-duration: 5
+duration: 6
+narration: "Builds create assets, scene compositions, and reports the next agent can read."
+backdrop: "build-report.json and review-report.json beside generated scene cards"
+motion: "report cards connect to composition files and render output"
+voice: "af_heart"
 ```
 
-Show STORYBOARD.md and DESIGN.md driving scene composition.
+Show build artifacts as normal files.
 
-## Beat workflow — YAML automation
+## Beat render - Inspect, repair, render again
 
 ```yaml
-narration: "When the process needs to repeat, capture it as YAML with dry-runs and checkpoints."
-backdrop: "YAML pipeline with step references and a budget line, clean terminal UI"
-duration: 5
+duration: 6
+narration: "Inspect, repair deterministic issues, then render the final MP4."
+backdrop: "render preview with passing checks and a final MP4 file"
+motion: "repair checklist resolves, final video card lands"
+voice: "af_heart"
 ```
 
-End on the repeatable workflow.
+End on the closed agent loop.
 MD
-
 ````
 
-### 2.3 Preview the Build
-
-Start with dry-run. This prints the plan without creating assets or spending
-provider budget:
+Validate and inspect the authored storyboard:
 
 ```bash
-pnpm vibe build my-video \
-  --dry-run
+pnpm vibe storyboard validate my-video --json
+pnpm vibe storyboard list my-video --json
+pnpm vibe storyboard get my-video setup --json
 ```
 
-### 2.4 Build the Sample Project
+---
 
-The sample uses local Kokoro narration and skips AI backdrops. It uses OpenAI
-only as the batch HTML composer, so the copy-paste path is self-contained and
-does not require a host coding agent to write scene files:
+## 3. Plan And Dry-Run
+
+Plan the build with the same options you intend to run:
 
 ```bash
-pnpm vibe build my-video \
+pnpm vibe plan my-video \
   --mode batch \
   --composer openai \
   --tts kokoro \
   --skip-backdrop \
-  --skip-render
+  --skip-video \
+  --skip-music \
+  --max-cost 5 \
+  --json
 ```
 
-With `--skip-render`, this prepares narration/assets and authors scene HTML
-without exporting the final MP4. Run `vibe render` after lint passes.
-
-When a host coding agent is driving VibeFrame and should own the HTML, use
-agent mode instead:
+Dry-run the build:
 
 ```bash
 pnpm vibe build my-video \
+  --dry-run \
   --mode batch \
   --composer openai \
   --tts kokoro \
   --skip-backdrop \
-  --skip-render
-
-pnpm vibe scene compose-prompts my-video --json
+  --skip-video \
+  --skip-music \
+  --max-cost 5 \
+  --json
 ```
 
-If agent mode returns a `needs-author` plan, the host agent should author the
-listed `compositions/scene-*.html` files and then rerun `vibe build`.
-
-To exercise the full paid AI image asset path, remove `--skip-backdrop` and
-choose the image provider you want.
-
-### 2.5 Lint the Project
-
-```bash
-pnpm vibe scene lint index.html \
-  --project my-video \
-  --fix
-```
-
-Expected result:
+Expected behavior:
 
 ```text
-No fatal lint errors.
+no media files are written
+estimated cost is visible
+provider needs are visible
+retry suggestions are machine-readable
 ```
 
-Info-level messages about CDN scripts are okay for this demo.
+---
 
-### 2.6 Render the Final MP4
+## 4. Build, Inspect, Repair, Render
+
+Build generated assets and compositions, but render in a separate command:
+
+```bash
+pnpm vibe build my-video \
+  --mode batch \
+  --composer openai \
+  --tts kokoro \
+  --skip-backdrop \
+  --skip-video \
+  --skip-music \
+  --skip-render \
+  --max-cost 5 \
+  --json
+```
+
+Poll the project state. This is especially useful when paid providers create
+async jobs:
+
+```bash
+pnpm vibe status project my-video --refresh --json
+```
+
+Inspect project artifacts and write/refresh report state:
+
+```bash
+pnpm vibe inspect project my-video --json
+```
+
+Apply deterministic repairs:
+
+```bash
+pnpm vibe scene repair --project my-video --json
+```
+
+Render the final MP4:
 
 ```bash
 pnpm vibe render my-video \
   -o renders/my-video-final.mp4 \
-  --quality standard
+  --quality standard \
+  --fps 30 \
+  --json
 ```
 
-Expected file:
+Inspect the render locally:
+
+```bash
+pnpm vibe inspect render my-video \
+  --video renders/my-video-final.mp4 \
+  --cheap \
+  --json
+```
+
+Optional AI review:
+
+```bash
+pnpm vibe inspect render my-video \
+  --video renders/my-video-final.mp4 \
+  --ai \
+  --json
+```
+
+Expected files:
 
 ```text
+my-video/build-report.json
+my-video/review-report.json
 my-video/renders/my-video-final.mp4
 ```
 
@@ -388,68 +299,62 @@ Expected shape:
 H.264 + AAC MP4
 1920x1080
 30fps
-about 20 seconds, or longer if narration timing stretches a beat
-```
-
-The final duration may be longer than the storyboard minimums because
-generated narration extends each beat so speech is not cut off.
-
-The sample includes four beats. The media flow from section 1 demonstrates the
-asset side of the system:
-
-```text
-generate image -> generate video -> inspect/process media -> build/render storyboard project
+about 24 seconds, or longer if narration timing stretches a beat
 ```
 
 ---
 
-## 3. Video as YAML
+## 5. Exercise The Agent-Safe Storyboard API
 
-VibeFrame has two YAML surfaces. Use the one that matches the job.
+Use structured mutation commands for narrow cue changes:
 
-### 3.1 STORYBOARD.md
+```bash
+pnpm vibe storyboard get my-video setup --json
 
-Use this for a composed video project.
+pnpm vibe storyboard set \
+  my-video \
+  setup \
+  narration \
+  "Start with a storyboard. VibeFrame turns one brief into files, reports, and a render." \
+  --json
 
-Example beat:
-
-````markdown
-## Beat hook — Storyboard becomes a render plan
-
-```yaml
-narration: "Start with a storyboard. VibeFrame turns each beat into a render plan an agent can execute."
-backdrop: "A precise developer terminal beside structured storyboard cues, dark interface, blue grid lines"
-duration: 5
+pnpm vibe storyboard validate my-video --json
 ```
-````
 
-Run:
+Rebuild one beat:
 
 ```bash
 pnpm vibe build my-video \
-  --mode agent \
+  --beat setup \
+  --stage sync \
+  --mode batch \
+  --composer openai \
   --tts kokoro \
   --skip-backdrop \
-  --skip-render
+  --skip-video \
+  --skip-music \
+  --json
+
+pnpm vibe inspect project my-video --beat setup --json
+pnpm vibe render my-video --beat setup --json
+pnpm vibe inspect render my-video --beat setup --cheap --json
 ```
 
-### 3.2 Pipeline YAML
+Use larger Markdown edits for creative rewrites, then validate again.
 
-Use this for a reproducible multi-step workflow.
+---
 
-The local-narration sample file is:
+## 6. Video As YAML
 
-```text
-my-video/video-as-yaml.yaml
-```
+Use pipeline YAML when the same process needs to be reproducible.
 
-Create it:
+Create `my-video/video-as-yaml.yaml`:
 
 ```bash
 cat > my-video/video-as-yaml.yaml <<'YAML'
 name: my-video-yaml
 budget:
-  costUsd: 2
+  costUsd: 5
   maxToolErrors: 1
 steps:
   - id: build
@@ -471,7 +376,7 @@ steps:
 YAML
 ```
 
-Preview cost and steps:
+Preview:
 
 ```bash
 pnpm vibe run my-video/video-as-yaml.yaml \
@@ -486,31 +391,26 @@ pnpm vibe run my-video/video-as-yaml.yaml \
   -o .
 ```
 
-The pipeline does:
-
-```text
-scene-build -> scene-render
-```
-
 Expected file:
 
 ```text
 my-video/renders/my-video-yaml-final.mp4
 ```
 
-`-o .` makes `project: my-video` resolve to
-`my-video`.
+The pipeline does:
 
-For paid text-to-image -> image-to-video YAML, see
-`my-video/ai-media.yaml`.
+```text
+scene-build -> scene-render
+```
 
-### 3.3 AI Media Layer
+---
 
-This optional path demonstrates the part that goes beyond Hyperframes-style
-HTML composition: VibeFrame can orchestrate AI image/video providers and keep
-those assets next to the composed project.
+## 7. Optional Paid AI Media Layer
 
-Create the pipeline:
+This path validates generated image/video primitives that can be referenced by
+storyboard cues or used independently.
+
+Create `my-video/ai-media.yaml`:
 
 ```bash
 cat > my-video/ai-media.yaml <<'YAML'
@@ -555,24 +455,11 @@ pnpm vibe run my-video/ai-media.yaml \
   --budget-usd 6
 ```
 
-The pipeline does:
-
-```text
-generate-image -> generate-video
-```
-
 Expected files:
 
 ```text
 my-video/assets/my-video-ai-hero.png
 my-video/assets/my-video-ai-motion.mp4
-```
-
-Expected shape after execution:
-
-```text
-my-video-ai-hero.png     PNG image
-my-video-ai-motion.mp4   H.264 MP4, 1280x720, 24fps, about 5 seconds
 ```
 
 Required keys:
@@ -583,14 +470,9 @@ FAL_API_KEY
 IMGBB_API_KEY
 ```
 
-After these files exist, you can reference them from hand-authored scene HTML or
-use them as inputs to edit/remix commands. The key point for this dogfood pass
-is that generated media, storyboard composition, and YAML orchestration all
-share normal file paths.
-
 ---
 
-## 4. Validate Outputs
+## 8. Validate Outputs
 
 Inspect the final storyboard video:
 
@@ -612,46 +494,41 @@ ffprobe -v error \
   my-video/renders/my-video-yaml-final.mp4
 ```
 
-Run focused tests:
+Run focused tests for this dogfood surface:
 
 ```bash
 pnpm -F @vibeframe/cli test -- \
+  src/commands/_shared/build-plan.test.ts \
   src/commands/_shared/scene-build.test.ts \
-  src/commands/_shared/scene-audio-mux.test.ts \
-  src/commands/_shared/scene-project.test.ts \
+  src/commands/_shared/scene-inspect.test.ts \
+  src/commands/_shared/scene-repair.test.ts \
+  src/commands/_shared/render-inspect.test.ts \
+  src/commands/_shared/status-jobs.test.ts \
   --run
 ```
 
 ---
 
-## 5. Command Map
+## 9. Command Map
 
-| Goal                                  | Command                                                    |
-| ------------------------------------- | ---------------------------------------------------------- |
-| Start a video project                 | `pnpm vibe init my-video --profile agent`                  |
-| Build storyboard assets/compositions  | `pnpm vibe build my-video --mode batch --composer openai`  |
-| Render project to MP4                 | `pnpm vibe render my-video`                                |
-| Generate a standalone image           | `pnpm vibe generate image "..."`                           |
-| Generate a standalone video           | `pnpm vibe generate video "..." -p seedance`               |
-| Inspect a media file                  | `pnpm vibe media info video.mp4`                           |
-| Detect scenes or silence              | `pnpm vibe detect scenes video.mp4`                        |
-| Add static text to a video            | `pnpm vibe edit text-overlay video.mp4 --text "..."`       |
-| Add designed overlay to a video       | `pnpm vibe edit motion-overlay video.mp4 "lower-third..."` |
-| Preview caption/remix workflows       | `pnpm vibe remix animated-caption video.mp4 --dry-run`     |
-| Transcribe audio or video             | `pnpm vibe audio transcribe clip.mp4 -o transcript.json`   |
-| Run a YAML workflow                   | `pnpm vibe run workflow.yaml`                              |
-| Run the built-in no-key smoke demo    | `pnpm vibe demo --keep`                                    |
-| Print integration context for agents  | `pnpm vibe context`                                        |
-| Learn the scene workflow              | `pnpm vibe guide scene`                                    |
-| Learn the YAML workflow               | `pnpm vibe guide pipeline`                                 |
-| Compare agent / build / run           | `pnpm vibe guide architecture`                             |
-| List free-tier commands only          | `pnpm vibe schema --list --filter free`                    |
-| Drive an agent with a USD ceiling     | `pnpm vibe agent --budget-usd 5`                           |
-| Non-interactive first-run setup       | `pnpm vibe setup --yes --provider openai`                  |
-| Project-only setup (no global writes) | `pnpm vibe setup --scope project --yes --import-env`       |
-| Install shell completion (zsh)        | `pnpm vibe completion zsh > ~/.zfunc/_vibe`                |
-| Low-level timeline scripting          | `pnpm vibe timeline create rough-cut`                      |
-| Batch import media                    | `pnpm vibe batch import rough-cut ./clips --recursive`     |
+| Goal | Command |
+| --- | --- |
+| Start a storyboard project | `pnpm vibe init my-video --from "..." --profile agent --json` |
+| Validate storyboard cues | `pnpm vibe storyboard validate my-video --json` |
+| Mutate one beat safely | `pnpm vibe storyboard set/get/move/list` |
+| Show cost and provider needs | `pnpm vibe plan my-video --max-cost 5 --json` |
+| Preview without spending | `pnpm vibe build my-video --dry-run --max-cost 5 --json` |
+| Build assets and compositions | `pnpm vibe build my-video --json` |
+| Poll project jobs/state | `pnpm vibe status project my-video --refresh --json` |
+| Inspect project artifacts | `pnpm vibe inspect project my-video --json` |
+| Repair deterministic scene issues | `pnpm vibe scene repair --project my-video --json` |
+| Render MP4 | `pnpm vibe render my-video --json` |
+| Inspect final MP4 | `pnpm vibe inspect render my-video --cheap --json` |
+| Run a YAML workflow | `pnpm vibe run workflow.yaml` |
+| Generate a standalone image/video | `pnpm vibe generate image ...`, `pnpm vibe generate video ...` |
+| Edit an existing media file | `pnpm vibe edit ...`, `pnpm vibe remix ...`, `pnpm vibe audio ...` |
+| Print integration context for agents | `pnpm vibe context` |
+| List public commands | `pnpm vibe schema --list --surface public --json` |
 
 Advanced namespace:
 
@@ -659,17 +536,20 @@ Advanced namespace:
 vibe scene ...
 ```
 
-Use `vibe scene ...` when you need lower-level scene commands such as
-`scene lint`, `scene install-skill`, `scene compose-prompts`, or `scene add`.
+Use `vibe scene ...` for generated composition artifacts. Use
+`vibe storyboard ...` for the source-of-truth intent layer.
 
 ---
 
-## 6. Terminal Recordings
+## 10. Terminal Recordings
 
-The VHS terminal recordings live in [`assets/demos/`](assets/demos/). They are
-useful for docs and short product clips, but the primary demo path is
-CLI-first and artifact-first:
+The VHS terminal recordings live in [`assets/demos/`](assets/demos/).
 
 ```text
-run vibe -> inspect files -> render MP4
+assets/demos/quickstart-claude-code.tape
+assets/demos/dogfood-claude-code.tape
 ```
+
+The existing quickstart MP4 is a media primitive demo. The dogfood tape should
+be regenerated when we want a fresh recording of the storyboard-first project
+loop.

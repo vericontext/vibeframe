@@ -142,11 +142,18 @@ export interface BuildSummary {
 export interface ReviewSummary {
   reportPath: string;
   kind?: string;
+  mode?: string;
   status?: string;
   score?: number;
   issueCount: number;
   errorCount: number;
   warningCount: number;
+  infoCount: number;
+  fixOwners: {
+    vibe: number;
+    hostAgent: number;
+  };
+  sourceReports: string[];
   updatedAt?: string;
   retryWith: string[];
 }
@@ -670,14 +677,39 @@ async function readReviewSummary(projectDir: string): Promise<ReviewSummary | nu
   if (!report) return null;
   const info = await statOrNull(reportPath);
   const issues = Array.isArray(report.issues) ? report.issues : [];
+  const summary =
+    report.summary && typeof report.summary === "object"
+      ? (report.summary as Record<string, unknown>)
+      : {};
+  const fixOwners =
+    summary.fixOwners && typeof summary.fixOwners === "object"
+      ? (summary.fixOwners as Record<string, unknown>)
+      : {};
+  const computedFixOwners = countIssueFixOwners(issues);
   return stripUndefined({
     reportPath,
     kind: typeof report.kind === "string" ? report.kind : undefined,
+    mode: typeof report.mode === "string" ? report.mode : undefined,
     status: typeof report.status === "string" ? report.status : undefined,
     score: typeof report.score === "number" ? report.score : undefined,
-    issueCount: issues.length,
-    errorCount: issues.filter((issue) => issueSeverity(issue) === "error").length,
-    warningCount: issues.filter((issue) => issueSeverity(issue) === "warning").length,
+    issueCount: numberOr(issues.length, summary.issueCount),
+    errorCount: numberOr(
+      issues.filter((issue) => issueSeverity(issue) === "error").length,
+      summary.errorCount
+    ),
+    warningCount: numberOr(
+      issues.filter((issue) => issueSeverity(issue) === "warning").length,
+      summary.warningCount
+    ),
+    infoCount: numberOr(
+      issues.filter((issue) => issueSeverity(issue) === "info").length,
+      summary.infoCount
+    ),
+    fixOwners: {
+      vibe: numberOr(computedFixOwners.vibe, fixOwners.vibe),
+      hostAgent: numberOr(computedFixOwners.hostAgent, fixOwners.hostAgent),
+    },
+    sourceReports: stringArray(report.sourceReports),
     updatedAt: info?.mtime.toISOString(),
     retryWith: stringArray(report.retryWith),
   });
@@ -963,6 +995,27 @@ function issueSeverity(issue: unknown): string | undefined {
   if (!issue || typeof issue !== "object") return undefined;
   const severity = (issue as Record<string, unknown>).severity;
   return typeof severity === "string" ? severity : undefined;
+}
+
+function issueFixOwner(issue: unknown): string | undefined {
+  if (!issue || typeof issue !== "object") return undefined;
+  const fixOwner = (issue as Record<string, unknown>).fixOwner;
+  return typeof fixOwner === "string" ? fixOwner : undefined;
+}
+
+function countIssueFixOwners(issues: unknown[]): { vibe: number; hostAgent: number } {
+  let vibe = 0;
+  let hostAgent = 0;
+  for (const issue of issues) {
+    const owner = issueFixOwner(issue);
+    if (owner === "host-agent") hostAgent++;
+    else vibe++;
+  }
+  return { vibe, hostAgent };
+}
+
+function numberOr(fallback: number, value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function stringArray(value: unknown): string[] {

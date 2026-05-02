@@ -113,16 +113,37 @@ run / agent / schema / context                              ← automation + age
 
 \`vibe plan --json\` emits \`data.kind:"build-plan"\`,
 \`schemaVersion:"1"\`, \`status:"ready"|"invalid"\`, \`summary\`,
-\`validation\`, \`retryWith\`, and \`nextCommands\`. \`vibe plan\`,
-\`vibe build --dry-run\`, and \`vibe build\` validate \`STORYBOARD.md\`
-before cost caps or provider dispatch. Invalid storyboards return
-\`code:"STORYBOARD_VALIDATION_FAILED"\` with validate/revise recovery
-commands.
+\`providerResolution\`, cache-aware per-asset plans, asset reference metadata
+(\`sourcePath\`, \`referenceError\`), \`validation\`, \`retryWith\`, and
+\`nextCommands\`. Existing project-local media referenced by \`backdrop\`,
+\`video\`, \`music\`, \`narration\`, or generic \`asset\` cues is planned as
+\`reason:"referenced-asset"\` with no provider spend; invalid/out-of-project
+paths are surfaced before provider dispatch. \`vibe plan\`,
+\`vibe build --dry-run\`, and \`vibe build\` validate \`STORYBOARD.md\` before
+cost caps or provider dispatch. Invalid storyboards return
+\`code:"STORYBOARD_VALIDATION_FAILED"\` with validate/revise recovery commands.
 
 Real \`vibe build\` runs deterministic scene repair after compose
 (sub-compositions only) and after sync (including root \`index.html\`) before
 render. Repair failures return \`code:"SCENE_REPAIR_FAILED"\` with
 \`sceneRepair.retryWith\`, and \`build-report.json\` includes \`sceneRepair\`.
+\`vibe scene repair\` also fixes deterministic root timeline drift: clip refs,
+root duration, and root narration audio wiring.
+Asset-stage failures stop the full build before compose/render and return
+\`currentStage:"assets"\` with \`code:"ASSET_REFERENCE_INVALID"\`,
+\`code:"MISSING_API_KEY"\`, or \`code:"ASSET_GENERATION_FAILED"\` plus
+\`suggestion\`, \`recoverable:true\`, and \`retryWith\`.
+Compose failures return \`code:"COMPOSE_FAILED"\`; render failures return the
+render code or \`code:"RENDER_FAILED"\`. Both include \`currentStage\`,
+\`suggestion\`, \`recoverable:true\`, and \`retryWith\`.
+
+\`vibe inspect project\` and \`vibe inspect render\` write
+\`review-report.json\` by default. The file uses \`kind:"review"\`,
+\`mode:"project"|"render"\`, \`status\`, \`score\`, \`issues[]\`,
+\`summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}\`,
+\`sourceReports\`, and \`retryWith\`. Issue-level \`fixOwner:"vibe"\` means
+deterministic CLI recovery; \`fixOwner:"host-agent"\` means storyboard/design/
+composition edits should be handled by the host agent.
 `;
 
 const GLOBAL_FLAGS = `## Global flags
@@ -374,7 +395,17 @@ function leafNotes(pathDots: string): string[] {
   }
   if (pathDots === "status.project") {
     return [
-      'JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes issue/error/warning counts plus `retryWith`, and top-level `retryWith` is the resume contract.',
+      'JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, and `retryWith`; top-level `retryWith` is the resume contract.',
+    ];
+  }
+  if (pathDots === "inspect.project") {
+    return [
+      '`review-report.json` payload uses `kind:"review"`, `mode:"project"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. Command output keeps `data.kind:"project"`.',
+    ];
+  }
+  if (pathDots === "inspect.render") {
+    return [
+      '`review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.',
     ];
   }
   if (pathDots === "storyboard.revise") {
@@ -384,13 +415,15 @@ function leafNotes(pathDots: string): string[] {
   }
   if (pathDots === "plan") {
     return [
-      'JSON payload: `data.kind` is `"build-plan"` and includes `schemaVersion:"1"`, `status:"ready"|"invalid"`, `summary`, `validation`, `retryWith`, and `nextCommands`. Invalid storyboards exit non-zero with `code:"STORYBOARD_VALIDATION_FAILED"`.',
+      'JSON payload: `data.kind` is `"build-plan"` and includes `schemaVersion:"1"`, `status:"ready"|"invalid"`, `summary`, `providerResolution`, cache-aware asset plans, asset reference metadata, `validation`, `retryWith`, and `nextCommands`. Invalid storyboards exit non-zero with `code:"STORYBOARD_VALIDATION_FAILED"`.',
     ];
   }
   if (pathDots === "build") {
     return [
       '`--dry-run --json` returns `data.plan.kind:"build-plan"`. `build --dry-run` and real `build` validate `STORYBOARD.md` before cost caps or provider dispatch, and invalid storyboards fail with `code:"STORYBOARD_VALIDATION_FAILED"` plus validate/revise `retryWith` commands.',
-      'Real `build` runs deterministic scene repair after compose and sync before render. JSON/build-report payloads include `sceneRepair`; repair failures use `code:"SCENE_REPAIR_FAILED"` and `sceneRepair.retryWith`.',
+      'Real `build` runs deterministic scene repair after compose and sync before render. JSON/build-report payloads include `providerResolution`, nested asset `sourcePath`, nested `composition` status/cache metadata, and `sceneRepair`; repair failures use `code:"SCENE_REPAIR_FAILED"` and `sceneRepair.retryWith`. `scene repair` also fixes root clip refs, root duration, and root narration audio wiring.',
+      'Asset-stage failures stop before compose/render and return `currentStage:"assets"` with `code:"ASSET_REFERENCE_INVALID"|"MISSING_API_KEY"|"ASSET_GENERATION_FAILED"`, `suggestion`, `recoverable:true`, and `retryWith`.',
+      'Compose failures return `code:"COMPOSE_FAILED"`; render failures return the render code or `code:"RENDER_FAILED"`. Both include `currentStage`, `suggestion`, `recoverable:true`, and `retryWith`.',
     ];
   }
   return [];

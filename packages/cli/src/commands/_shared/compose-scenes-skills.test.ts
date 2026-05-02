@@ -55,7 +55,7 @@ function mockCallLLM(
         maxTokens: number;
         systemPrompt: string;
         userPrompt: string;
-      }) => Promise<{ text: string; inputTokens?: number; outputTokens?: number }>),
+      }) => Promise<{ text: string; inputTokens?: number; outputTokens?: number }>)
 ) {
   return vi.fn(async (req) => {
     const r = typeof resolution === "function" ? await resolution(req) : resolution;
@@ -85,9 +85,9 @@ describe("buildUserPrompt", () => {
 
   it("uses scene-<id>.html as the composition path", () => {
     const u = buildUserPrompt({ beat, storyboardGlobal: "" });
-    expect(u).toContain('compositions/scene-1.html');
+    expect(u).toContain("compositions/scene-1.html");
     expect(u).toContain('data-composition-id="scene-1"');
-    expect(u).toContain('scene-1-template');
+    expect(u).toContain("scene-1-template");
   });
 
   it("emits placeholder when global direction is empty", () => {
@@ -99,10 +99,10 @@ describe("buildUserPrompt", () => {
     const u = buildUserPrompt({
       beat,
       storyboardGlobal: "",
-      retryFeedback: "ERROR: missing class=\"clip\" on the headline div",
+      retryFeedback: 'ERROR: missing class="clip" on the headline div',
     });
     expect(u).toContain("Previous attempt failed lint");
-    expect(u).toContain("missing class=\"clip\"");
+    expect(u).toContain('missing class="clip"');
   });
 
   it("omits retry-feedback section when retryFeedback is empty / whitespace", () => {
@@ -125,19 +125,44 @@ describe("computeCacheKey", () => {
   });
 
   it("changes when provider / system / user / model differs", () => {
-    const base = computeCacheKey({ provider: claude, systemPrompt: "S", userPrompt: "U", model: "M" });
-    expect(computeCacheKey({ provider: "openai", systemPrompt: "S", userPrompt: "U", model: "M" })).not.toBe(base);
-    expect(computeCacheKey({ provider: "gemini", systemPrompt: "S", userPrompt: "U", model: "M" })).not.toBe(base);
-    expect(computeCacheKey({ provider: claude, systemPrompt: "S2", userPrompt: "U", model: "M" })).not.toBe(base);
-    expect(computeCacheKey({ provider: claude, systemPrompt: "S", userPrompt: "U2", model: "M" })).not.toBe(base);
-    expect(computeCacheKey({ provider: claude, systemPrompt: "S", userPrompt: "U", model: "M2" })).not.toBe(base);
+    const base = computeCacheKey({
+      provider: claude,
+      systemPrompt: "S",
+      userPrompt: "U",
+      model: "M",
+    });
+    expect(
+      computeCacheKey({ provider: "openai", systemPrompt: "S", userPrompt: "U", model: "M" })
+    ).not.toBe(base);
+    expect(
+      computeCacheKey({ provider: "gemini", systemPrompt: "S", userPrompt: "U", model: "M" })
+    ).not.toBe(base);
+    expect(
+      computeCacheKey({ provider: claude, systemPrompt: "S2", userPrompt: "U", model: "M" })
+    ).not.toBe(base);
+    expect(
+      computeCacheKey({ provider: claude, systemPrompt: "S", userPrompt: "U2", model: "M" })
+    ).not.toBe(base);
+    expect(
+      computeCacheKey({ provider: claude, systemPrompt: "S", userPrompt: "U", model: "M2" })
+    ).not.toBe(base);
   });
 
   it("avoids prefix collisions via record separator", () => {
     // Without separators, "AB" + "C" and "A" + "BC" would hash identically.
     // With ␞ (RECORD SEPARATOR) between fields, they don't.
-    const a = computeCacheKey({ provider: claude, systemPrompt: "AB", userPrompt: "C", model: "M" });
-    const b = computeCacheKey({ provider: claude, systemPrompt: "A", userPrompt: "BC", model: "M" });
+    const a = computeCacheKey({
+      provider: claude,
+      systemPrompt: "AB",
+      userPrompt: "C",
+      model: "M",
+    });
+    const b = computeCacheKey({
+      provider: claude,
+      systemPrompt: "A",
+      userPrompt: "BC",
+      model: "M",
+    });
     expect(a).not.toBe(b);
   });
 });
@@ -162,7 +187,9 @@ describe("extractHtml", () => {
 
   it("throws on prose-only response with no HTML markers", () => {
     expect(() => extractHtml("I cannot generate that.")).toThrowError(ComposeBeatError);
-    try { extractHtml("x"); } catch (e) {
+    try {
+      extractHtml("x");
+    } catch (e) {
       expect((e as ComposeBeatError).code).toBe("no-html-in-response");
     }
   });
@@ -230,8 +257,8 @@ describe("composeBeatHtml", () => {
 
     const callLLM2 = mockCallLLM({ text: "```html\n<template>v2-after-retry</template>\n```" });
     const r2 = await composeBeatHtml(
-      { ...baseCtx, cacheDir, retryFeedback: "ERROR: missing class=\"clip\"" },
-      { callLLM: callLLM2 },
+      { ...baseCtx, cacheDir, retryFeedback: 'ERROR: missing class="clip"' },
+      { callLLM: callLLM2 }
     );
 
     expect(r2.cached).toBe(false);
@@ -243,13 +270,13 @@ describe("composeBeatHtml", () => {
     const callLLMa = mockCallLLM({ text: "```html\n<template>claude</template>\n```" });
     const ra = await composeBeatHtml(
       { ...baseCtx, provider: "claude", cacheDir },
-      { callLLM: callLLMa },
+      { callLLM: callLLMa }
     );
 
     const callLLMb = mockCallLLM({ text: "```html\n<template>gemini</template>\n```" });
     const rb = await composeBeatHtml(
       { ...baseCtx, provider: "gemini", cacheDir },
-      { callLLM: callLLMb },
+      { callLLM: callLLMb }
     );
 
     expect(ra.cacheKey).not.toBe(rb.cacheKey);
@@ -260,15 +287,15 @@ describe("composeBeatHtml", () => {
   it("throws ComposeBeatError when API call fails", async () => {
     const callLLM = vi.fn().mockRejectedValue(new Error("network unreachable"));
 
-    await expect(
-      composeBeatHtml({ ...baseCtx, cacheDir }, { callLLM }),
-    ).rejects.toThrowError(/claude API call failed: network unreachable/);
+    await expect(composeBeatHtml({ ...baseCtx, cacheDir }, { callLLM })).rejects.toThrowError(
+      /claude API call failed: network unreachable/
+    );
   });
 
   it("throws missing-api-key error when apiKey is empty AND cache miss", async () => {
-    await expect(
-      composeBeatHtml({ ...baseCtx, apiKey: "", cacheDir }),
-    ).rejects.toThrow(/ANTHROPIC_API_KEY required/);
+    await expect(composeBeatHtml({ ...baseCtx, apiKey: "", cacheDir })).rejects.toThrow(
+      /ANTHROPIC_API_KEY required/
+    );
   });
 
   it("uses the cached value even when apiKey is empty (cache hit doesn't need a key)", async () => {
@@ -297,9 +324,7 @@ describe("composeBeatHtml", () => {
 describe("formatLintFeedback", () => {
   it("returns empty string when no errors", () => {
     expect(formatLintFeedback([])).toBe("");
-    const warningsOnly: LintFinding[] = [
-      { severity: "warning", code: "x", message: "y" },
-    ];
+    const warningsOnly: LintFinding[] = [{ severity: "warning", code: "x", message: "y" }];
     expect(formatLintFeedback(warningsOnly)).toBe("");
   });
 
@@ -323,7 +348,7 @@ describe("formatLintFeedback", () => {
       },
     ];
     const out = formatLintFeedback(findings);
-    expect(out).toContain("Fix hint: add class=\"clip\"");
+    expect(out).toContain('Fix hint: add class="clip"');
   });
 
   it("filters out non-error findings (warnings/info)", () => {
@@ -399,7 +424,8 @@ describe("composeBeatWithRetry", () => {
   });
 
   it("retries with feedback when first shot fails lint, returns lintAttempts=2 on success", async () => {
-    const callLLM = vi.fn()
+    const callLLM = vi
+      .fn()
       .mockResolvedValueOnce({ text: fenced(invalidHtml), inputTokens: 1, outputTokens: 1 })
       .mockResolvedValueOnce({ text: fenced(validHtml), inputTokens: 1, outputTokens: 1 });
 
@@ -417,12 +443,12 @@ describe("composeBeatWithRetry", () => {
   it("throws lint-failed-after-retry when both attempts fail", async () => {
     const callLLM = mockCallLLM({ text: fenced(invalidHtml) });
 
-    await expect(
-      composeBeatWithRetry({ ...baseCtx, cacheDir }, { callLLM }),
-    ).rejects.toMatchObject({
-      name: "ComposeBeatError",
-      code: "lint-failed-after-retry",
-    });
+    await expect(composeBeatWithRetry({ ...baseCtx, cacheDir }, { callLLM })).rejects.toMatchObject(
+      {
+        name: "ComposeBeatError",
+        code: "lint-failed-after-retry",
+      }
+    );
     expect(callLLM).toHaveBeenCalledTimes(2);
   });
 });
@@ -473,9 +499,13 @@ describe("executeComposeScenesWithSkills", () => {
     seedProject(
       projectRoot,
       "# Design\n\n## Palette\n- `#000000`\n",
-      "**Format:** 1920x1080\n\n## Beat 1 — Hook\n\nbody1\n\n## Beat 2 — Outro\n\nbody2\n",
+      "**Format:** 1920x1080\n\n## Beat 1 — Hook\n\nbody1\n\n## Beat 2 — Outro\n\nbody2\n"
     );
-    const callLLM = mockCallLLM({ text: fenceHtml(validSceneHtml), inputTokens: 10, outputTokens: 5 });
+    const callLLM = mockCallLLM({
+      text: fenceHtml(validSceneHtml),
+      inputTokens: 10,
+      outputTokens: 5,
+    });
 
     const r = await executeComposeScenesWithSkills({ cacheDir }, projectRoot, { callLLM });
 
@@ -484,6 +514,7 @@ describe("executeComposeScenesWithSkills", () => {
     expect(r.data?.beats).toBe(2);
     expect(r.data?.written).toHaveLength(2);
     expect(r.data?.written[0].beatId).toBe("1");
+    expect(r.data?.written[0].cacheKey).toMatch(/^[a-f0-9]{64}$/);
     expect(r.data?.written[1].beatId).toBe("2");
     expect(r.data?.cacheHits).toBe(0);
     expect(r.data?.totalTokensIn).toBeGreaterThan(0);
@@ -521,12 +552,12 @@ describe("executeComposeScenesWithSkills", () => {
   });
 
   it("emits onProgress events per beat: start → fresh|cached|failed", async () => {
-    seedProject(
-      projectRoot,
-      "# d",
-      "## Beat 1 — A\n\nbody\n\n## Beat 2 — B\n\nbody\n",
-    );
-    const callLLM = mockCallLLM({ text: fenceHtml(validSceneHtml), inputTokens: 10, outputTokens: 5 });
+    seedProject(projectRoot, "# d", "## Beat 1 — A\n\nbody\n\n## Beat 2 — B\n\nbody\n");
+    const callLLM = mockCallLLM({
+      text: fenceHtml(validSceneHtml),
+      inputTokens: 10,
+      outputTokens: 5,
+    });
     const events: string[] = [];
 
     await executeComposeScenesWithSkills(
@@ -535,7 +566,7 @@ describe("executeComposeScenesWithSkills", () => {
         onProgress: (e) => events.push(`${e.type}:${e.beatId}:${e.beatIndex}`),
       },
       projectRoot,
-      { callLLM },
+      { callLLM }
     );
 
     // Both beats fired through start → fresh (no cache hits on first run).
@@ -555,7 +586,7 @@ describe("executeComposeScenesWithSkills", () => {
     await executeComposeScenesWithSkills(
       { cacheDir, onProgress: (e) => events1.push(e.type) },
       projectRoot,
-      { callLLM },
+      { callLLM }
     );
     expect(events1).toContain("beat-fresh");
 
@@ -564,20 +595,16 @@ describe("executeComposeScenesWithSkills", () => {
     await executeComposeScenesWithSkills(
       { cacheDir, onProgress: (e) => events2.push(e.type) },
       projectRoot,
-      { callLLM },
+      { callLLM }
     );
     expect(events2).toContain("beat-cached");
     expect(events2).not.toContain("beat-fresh");
   });
 
   it("aggregates multiple beat failures into one error message (doesn't fail-fast)", async () => {
-    seedProject(
-      projectRoot,
-      "# d",
-      "## Beat 1 — Bad\n\nbody\n\n## Beat 2 — AlsoBad\n\nbody\n",
-    );
+    seedProject(projectRoot, "# d", "## Beat 1 — Bad\n\nbody\n\n## Beat 2 — AlsoBad\n\nbody\n");
     // Every call returns invalid HTML → both beats fail twice → both throw.
-    const callLLM = mockCallLLM({ text: fenceHtml("<template id=\"x\"><div>nope</div></template>") });
+    const callLLM = mockCallLLM({ text: fenceHtml('<template id="x"><div>nope</div></template>') });
 
     const r = await executeComposeScenesWithSkills({ cacheDir }, projectRoot, { callLLM });
 
@@ -591,16 +618,21 @@ describe("executeComposeScenesWithSkills", () => {
   });
 
   it("aborts on first beat failure and reports partial progress", async () => {
-    seedProject(
-      projectRoot,
-      "# d",
-      "## Beat 1 — Good\n\nbody\n\n## Beat 2 — Bad\n\nbody\n",
-    );
+    seedProject(projectRoot, "# d", "## Beat 1 — Good\n\nbody\n\n## Beat 2 — Bad\n\nbody\n");
     // First beat: good HTML. Second beat: invalid HTML → fails lint twice → throws.
-    const callLLM = vi.fn()
+    const callLLM = vi
+      .fn()
       .mockResolvedValueOnce({ text: fenceHtml(validSceneHtml), inputTokens: 1, outputTokens: 1 })
-      .mockResolvedValueOnce({ text: fenceHtml("<template id=\"x\"><div>nope</div></template>"), inputTokens: 1, outputTokens: 1 })
-      .mockResolvedValueOnce({ text: fenceHtml("<template id=\"x\"><div>still nope</div></template>"), inputTokens: 1, outputTokens: 1 });
+      .mockResolvedValueOnce({
+        text: fenceHtml('<template id="x"><div>nope</div></template>'),
+        inputTokens: 1,
+        outputTokens: 1,
+      })
+      .mockResolvedValueOnce({
+        text: fenceHtml('<template id="x"><div>still nope</div></template>'),
+        inputTokens: 1,
+        outputTokens: 1,
+      });
 
     const r = await executeComposeScenesWithSkills({ cacheDir }, projectRoot, { callLLM });
 

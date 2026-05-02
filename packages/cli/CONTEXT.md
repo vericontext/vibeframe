@@ -136,11 +136,16 @@ legacy vibe.project.yaml → configured/env default → VibeFrame default
 Build planning contract:
 
 `vibe plan --json` emits `data.kind:"build-plan"`, `schemaVersion:"1"`,
-`status:"ready"|"invalid"`, `summary`, `validation`, `retryWith`, and
-`nextCommands`. `vibe plan`, `vibe build --dry-run`, and `vibe build`
-validate `STORYBOARD.md` before cost caps or provider dispatch. Invalid
-storyboards exit non-zero with `code:"STORYBOARD_VALIDATION_FAILED"` and
-`retryWith` entries for `storyboard validate` / `storyboard revise`.
+`status:"ready"|"invalid"`, `summary`, `providerResolution`, cache-aware
+per-asset plans, asset reference metadata (`sourcePath`, `referenceError`),
+`validation`, `retryWith`, and `nextCommands`. `backdrop`, `video`, `music`,
+`narration`, and generic `asset` cues may point at existing project-local media;
+those are planned as `reason:"referenced-asset"` with no provider spend, while
+invalid/out-of-project paths are surfaced before provider dispatch. `vibe plan`,
+`vibe build --dry-run`, and `vibe build` validate `STORYBOARD.md` before cost
+caps or provider dispatch. Invalid storyboards exit non-zero with
+`code:"STORYBOARD_VALIDATION_FAILED"` and `retryWith` entries for
+`storyboard validate` / `storyboard revise`.
 
 Build repair contract:
 
@@ -148,7 +153,30 @@ Real `vibe build` runs deterministic scene repair after compose
 (sub-compositions only) and after sync (including root `index.html`) before
 render. Failed repair returns `code:"SCENE_REPAIR_FAILED"` and
 `sceneRepair:{ran,stage,status,score,fixed,remainingIssues,retryWith}`; use
-those `retryWith` commands before trying to render.
+those `retryWith` commands before trying to render. `vibe scene repair`
+also repairs deterministic root timeline drift: clip refs, root duration, and
+root narration audio wiring.
+
+Asset stage failure contract:
+
+If assets fail during a full build, `vibe build` stops before compose/render
+and returns `currentStage:"assets"` with `code:"ASSET_REFERENCE_INVALID"`,
+`code:"MISSING_API_KEY"`, or `code:"ASSET_GENERATION_FAILED"` plus
+`suggestion`, `recoverable:true`, and `retryWith`.
+Compose failures use `code:"COMPOSE_FAILED"` and render failures use the
+render code or `code:"RENDER_FAILED"`; both include `currentStage`,
+`suggestion`, `recoverable:true`, and `retryWith`.
+
+Review report contract:
+
+`vibe inspect project` and `vibe inspect render` write
+`review-report.json` by default. The file uses `kind:"review"`,
+`mode:"project"|"render"`, `status`, `score`, `issues[]`,
+`summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}`,
+`sourceReports`, and `retryWith`. Each issue has `fixOwner:"vibe"` for
+deterministic CLI recovery or `fixOwner:"host-agent"` for storyboard/design/
+composition edits the host agent should make. Use `retryWith` first, then
+hand remaining `host-agent` issues to the agent.
 
 Product surface contract:
 
@@ -210,11 +238,11 @@ vibe scene repair --project my-video --json
 
 ### Machine status contract
 
-`build-report.json` keeps the detailed `beats[]` array and also includes `kind:"build"`, `status`, `currentStage`, `beatSummary`, `jobs[]`, `sceneRepair`, `stageReports`, `warnings`, and `retryWith`. Each beat keeps legacy flat asset fields and nested `narration`, `backdrop`, `video`, and `music` objects with provider/path/status metadata. `render-report.json` records the latest render output, including `beat` when `vibe render --beat <id>` is used.
+`build-report.json` keeps the detailed `beats[]` array and also includes `kind:"build"`, `status`, `currentStage`, `providerResolution`, `beatSummary`, `jobs[]`, `sceneRepair`, `stageReports`, `warnings`, and `retryWith`. Each beat keeps legacy flat asset fields and nested `narration`, `backdrop`, `video`, and `music` objects with provider/path/status/sourcePath/cache metadata, plus a nested `composition` object with path/existence/status/cacheKey visibility. `render-report.json` records the latest render output, including `beat` when `vibe render --beat <id>` is used.
 
 `vibe status job --json` emits the normal success envelope with `data.kind:"job"`, flat job fields (`id`, `jobType`, `provider`, `status`, timestamps), `progress`, `result`, `retryWith`, and the raw `job` record for compatibility.
 
-`vibe status project --json` emits `data.kind:"project"`, `status`, `currentStage`, `beats:{total,assetsReady,compositionsReady,needsAuthor}`, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `issueCount`, `errorCount`, `warningCount`, and its own `retryWith`; top-level `retryWith` carries the next resume command. Use `retryWith` rather than guessing the next command.
+`vibe status project --json` emits `data.kind:"project"`, `status`, `currentStage`, `beats:{total,assetsReady,compositionsReady,needsAuthor}`, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, `issueCount`, `errorCount`, `warningCount`, `infoCount`, `fixOwners`, `sourceReports`, and its own `retryWith`; top-level `retryWith` carries the next resume command. Use `retryWith` rather than guessing the next command.
 
 ### Storyboard revision contract
 

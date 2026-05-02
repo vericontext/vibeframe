@@ -12,15 +12,15 @@ const inter = Inter({ subsets: ["latin"] });
 // source. Falls back to conservative static numbers if env var lookup fails.
 const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "13";
 const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "82";
-const SHARE_DESCRIPTION = `Create, edit, generate, and render video from the terminal with YAML pipelines, ${AI_PROVIDERS} AI providers, and ${MCP_TOOLS} MCP tools.`;
+const SHARE_DESCRIPTION = `Turn STORYBOARD.md and DESIGN.md into generated assets, review reports, and rendered video from the terminal with ${AI_PROVIDERS} AI providers and ${MCP_TOOLS} MCP tools.`;
 
 export const metadata: Metadata = {
-  title: "VibeFrame — The video CLI for AI agents",
+  title: "VibeFrame — Storyboard-first video CLI for AI agents",
   description: SHARE_DESCRIPTION,
-  keywords: ["video CLI", "AI agent", "agentic CLI", "YAML pipelines", "MCP", "video editor", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
+  keywords: ["video CLI", "storyboard to video", "STORYBOARD.md", "DESIGN.md", "AI agent", "agentic CLI", "build-report.json", "review-report.json", "MCP", "YAML pipelines", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
   metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
-    title: "VibeFrame — The video CLI for AI agents",
+    title: "VibeFrame — Storyboard-first video CLI for AI agents",
     description: SHARE_DESCRIPTION,
     type: "website",
     url: "https://vibeframe.ai",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "VibeFrame — The video CLI for AI agents",
+    title: "VibeFrame — Storyboard-first video CLI for AI agents",
     description: SHARE_DESCRIPTION,
   },
 };

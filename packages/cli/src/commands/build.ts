@@ -12,9 +12,21 @@ import {
   type BuildMusicProvider,
   type BuildVideoProvider,
 } from "./_shared/scene-build.js";
-import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
+import {
+  createBuildPlan,
+  type AssetPlan,
+  type BuildPlanResult,
+  type BuildStage,
+} from "./_shared/build-plan.js";
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
-import { exitWithError, generalError, isJsonMode, isQuietMode, outputSuccess, usageError } from "./output.js";
+import {
+  exitWithError,
+  generalError,
+  isJsonMode,
+  isQuietMode,
+  outputSuccess,
+  usageError,
+} from "./output.js";
 
 const VALID_MODES: SceneBuildMode[] = ["agent", "batch", "auto"];
 const VALID_STAGES: BuildStage[] = ["assets", "compose", "sync", "render", "all"];
@@ -44,30 +56,51 @@ export const buildCommand = new Command("build")
   .option("--image-size <s>", "Image size: 1024x1024|1536x1024|1024x1536", "1536x1024")
   .option("--force", "Re-dispatch primitives even when assets already exist")
   .option("--dry-run", "Preview parameters without dispatching")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   $ vibe init my-video --profile agent
   $ vibe build my-video --mode agent --tts kokoro
   $ vibe build my-video --skip-render
 
-Advanced equivalent: \`vibe scene build\`.`)
+Advanced equivalent: \`vibe scene build\`.`
+  )
   .action(async (projectDirArg: string, options) => {
     const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
     const mode = String(options.mode ?? "auto") as SceneBuildMode;
     if (!VALID_MODES.includes(mode)) {
-      exitWithError(usageError(`Invalid --mode: ${mode}`, `Must be one of: ${VALID_MODES.join(", ")}`));
+      exitWithError(
+        usageError(`Invalid --mode: ${mode}`, `Must be one of: ${VALID_MODES.join(", ")}`)
+      );
     }
     const stage = String(options.stage ?? "all") as BuildStage;
     if (!VALID_STAGES.includes(stage)) {
-      exitWithError(usageError(`Invalid --stage: ${stage}`, `Must be one of: ${VALID_STAGES.join(", ")}`));
+      exitWithError(
+        usageError(`Invalid --stage: ${stage}`, `Must be one of: ${VALID_STAGES.join(", ")}`)
+      );
     }
-    const maxCostUsd = options.maxCost !== undefined ? Number.parseFloat(String(options.maxCost)) : undefined;
+    const maxCostUsd =
+      options.maxCost !== undefined ? Number.parseFloat(String(options.maxCost)) : undefined;
     if (maxCostUsd !== undefined && (!Number.isFinite(maxCostUsd) || maxCostUsd < 0)) {
-      exitWithError(usageError(`Invalid --max-cost: ${String(options.maxCost)}`, "Must be a non-negative USD amount."));
+      exitWithError(
+        usageError(
+          `Invalid --max-cost: ${String(options.maxCost)}`,
+          "Must be a non-negative USD amount."
+        )
+      );
     }
-    const videoProvider = parseOptionalProvider(options.videoProvider, VALID_VIDEO_PROVIDERS, "video") as BuildVideoProvider | undefined;
-    const musicProvider = parseOptionalProvider(options.musicProvider, VALID_MUSIC_PROVIDERS, "music") as BuildMusicProvider | undefined;
+    const videoProvider = parseOptionalProvider(
+      options.videoProvider,
+      VALID_VIDEO_PROVIDERS,
+      "video"
+    ) as BuildVideoProvider | undefined;
+    const musicProvider = parseOptionalProvider(
+      options.musicProvider,
+      VALID_MUSIC_PROVIDERS,
+      "music"
+    ) as BuildMusicProvider | undefined;
 
     const params = {
       projectDir,
@@ -102,8 +135,14 @@ Advanced equivalent: \`vibe scene build\`.`)
         skipBackdrop: options.skipBackdrop,
         skipVideo: options.skipVideo,
         skipMusic: options.skipMusic,
+        ttsProvider: options.tts,
+        voice: options.voice,
+        imageProvider: options.imageProvider,
+        imageQuality: options.quality,
+        imageSize: options.imageSize,
         videoProvider,
         musicProvider,
+        composer: options.composer,
         force: options.force,
       });
       if (!plan.validation.ok) {
@@ -129,11 +168,12 @@ Advanced equivalent: \`vibe scene build\`.`)
       }
       if (maxCostUsd !== undefined && plan.estimatedCostUsd > maxCostUsd) {
         const warning = `Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCostUsd.toFixed(2)}.`;
+        const retryWith = unique([
+          ...plan.retryWith,
+          `vibe build ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
+          `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
+        ]);
         if (isJsonMode() || isQuietMode()) {
-          const retryWith = [
-            `vibe build ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
-            `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
-          ];
           outputSuccess({
             command: "build",
             startedAt,
@@ -154,6 +194,9 @@ Advanced equivalent: \`vibe scene build\`.`)
           return;
         }
         console.log(chalk.red(warning));
+        if (retryWith.length > 0) {
+          console.log(chalk.dim(`Retry: ${retryWith[0]}`));
+        }
         process.exitCode = 1;
         return;
       }
@@ -252,7 +295,11 @@ type BuildDryRunParams = {
   force: boolean;
 };
 
-function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams, plan?: Awaited<ReturnType<typeof createBuildPlan>>): void {
+function printBuildDryRun(
+  projectDirArg: string,
+  params: BuildDryRunParams,
+  plan?: Awaited<ReturnType<typeof createBuildPlan>>
+): void {
   console.log();
   console.log(chalk.bold.cyan("VibeFrame Build - dry run"));
   console.log(chalk.dim("-".repeat(60)));
@@ -260,12 +307,21 @@ function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams, plan
   console.log(`  Stage:         ${chalk.bold(params.stage)}`);
   if (params.beatId) console.log(`  Beat:          ${chalk.bold(String(params.beatId))}`);
   console.log(`  Mode:          ${chalk.bold(params.mode)}`);
-  if (params.maxCostUsd !== undefined) console.log(`  Max cost:      ${chalk.bold(`$${String(params.maxCostUsd)}`)}`);
+  if (params.maxCostUsd !== undefined)
+    console.log(`  Max cost:      ${chalk.bold(`$${String(params.maxCostUsd)}`)}`);
   console.log(`  Composer:      ${chalk.bold(String(params.composer ?? "auto"))}`);
-  console.log(`  TTS:           ${chalk.bold(String(params.ttsProvider ?? "auto"))}${params.skipNarration ? chalk.dim(" (skipped)") : ""}`);
-  console.log(`  Image:         ${chalk.bold(String(params.imageProvider ?? "openai"))} ${chalk.dim(`${params.imageQuality} ${params.imageSize}`)}${params.skipBackdrop ? chalk.dim(" (skipped)") : ""}`);
-  console.log(`  Video:         ${chalk.bold(String(params.videoProvider ?? "auto"))}${params.skipVideo ? chalk.dim(" (skipped)") : ""}`);
-  console.log(`  Music:         ${chalk.bold(String(params.musicProvider ?? "auto"))}${params.skipMusic ? chalk.dim(" (skipped)") : ""}`);
+  console.log(
+    `  TTS:           ${chalk.bold(String(params.ttsProvider ?? "auto"))}${params.skipNarration ? chalk.dim(" (skipped)") : ""}`
+  );
+  console.log(
+    `  Image:         ${chalk.bold(String(params.imageProvider ?? "openai"))} ${chalk.dim(`${params.imageQuality} ${params.imageSize}`)}${params.skipBackdrop ? chalk.dim(" (skipped)") : ""}`
+  );
+  console.log(
+    `  Video:         ${chalk.bold(String(params.videoProvider ?? "auto"))}${params.skipVideo ? chalk.dim(" (skipped)") : ""}`
+  );
+  console.log(
+    `  Music:         ${chalk.bold(String(params.musicProvider ?? "auto"))}${params.skipMusic ? chalk.dim(" (skipped)") : ""}`
+  );
   console.log(`  Render:        ${chalk.bold(params.skipRender ? "skip" : "yes")}`);
   console.log(`  Regenerate:    ${chalk.bold(params.force ? "yes" : "cache when possible")}`);
 
@@ -277,11 +333,23 @@ function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams, plan
     console.log();
     console.log(chalk.bold.cyan("Estimated cost"));
     console.log(chalk.dim("-".repeat(60)));
-    console.log(`  Status:        ${plan.status === "invalid" ? chalk.red(plan.status) : chalk.green(plan.status)}`);
+    console.log(
+      `  Status:        ${plan.status === "invalid" ? chalk.red(plan.status) : chalk.green(plan.status)}`
+    );
     console.log(`  Beats:         ${chalk.bold(plan.beats.length)}`);
-    console.log(`  Missing:       ${chalk.bold(plan.missing.length > 0 ? plan.missing.join(", ") : "none")}`);
-    console.log(`  Providers:     ${chalk.bold(plan.providers.length > 0 ? plan.providers.join(", ") : "none")}`);
-    console.log(`  ${chalk.bold("Total:")}         ${chalk.bold(`$${plan.estimatedCostUsd.toFixed(2)}`)}`);
+    console.log(
+      `  Missing:       ${chalk.bold(plan.missing.length > 0 ? plan.missing.join(", ") : "none")}`
+    );
+    console.log(
+      `  Providers:     ${chalk.bold(plan.providers.length > 0 ? plan.providers.join(", ") : "none")}`
+    );
+    console.log(
+      `  ${chalk.bold("Total:")}         ${chalk.bold(`$${plan.estimatedCostUsd.toFixed(2)}`)}`
+    );
+    if (plan.warnings.length > 0) {
+      console.log();
+      for (const warning of plan.warnings) console.log(chalk.yellow(`  Warning: ${warning}`));
+    }
     if (plan.validation.issues.length > 0) {
       console.log();
       for (const issue of plan.validation.issues) {
@@ -289,6 +357,7 @@ function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams, plan
         console.log(color(`  [${issue.code}] ${issue.message}`));
       }
     }
+    printBuildAssetPlan(plan);
     if (plan.nextCommands.length > 0) {
       console.log();
       console.log(chalk.bold.cyan("Next"));
@@ -301,21 +370,62 @@ function printBuildDryRun(projectDirArg: string, params: BuildDryRunParams, plan
     console.log(chalk.dim("-".repeat(60)));
     console.log(`  Beats:         ${chalk.bold(estimate.beats)}`);
     if (!params.skipNarration) {
-      console.log(`  Narration:     ${chalk.cyan(`$${estimate.narrationUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × low)`)}`);
+      console.log(
+        `  Narration:     ${chalk.cyan(`$${estimate.narrationUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × low)`)}`
+      );
     }
     if (!params.skipBackdrop) {
-      console.log(`  Backdrops:     ${chalk.yellow(`$${estimate.backdropUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × high)`)}`);
+      console.log(
+        `  Backdrops:     ${chalk.yellow(`$${estimate.backdropUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × high)`)}`
+      );
     }
     if (params.mode !== "agent") {
-      console.log(`  Compose (LLM): ${chalk.cyan(`$${estimate.composeUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × ~$0.06 batch mode)`)}`);
+      console.log(
+        `  Compose (LLM): ${chalk.cyan(`$${estimate.composeUsd.toFixed(2)}`)} ${chalk.dim(`(${estimate.beats} × ~$0.06 batch mode)`)}`
+      );
     } else {
-      console.log(`  Compose:       ${chalk.dim(`$0.00 (agent mode — host LLM does composition)`)}`);
+      console.log(
+        `  Compose:       ${chalk.dim(`$0.00 (agent mode — host LLM does composition)`)}`
+      );
     }
-    console.log(`  ${chalk.bold("Total:")}         ${chalk.bold(`$${estimate.totalUsd.toFixed(2)}`)}`);
+    console.log(
+      `  ${chalk.bold("Total:")}         ${chalk.bold(`$${estimate.totalUsd.toFixed(2)}`)}`
+    );
   }
 
   console.log();
   console.log(chalk.dim("No assets, provider calls, or video files were created."));
+}
+
+function printBuildAssetPlan(plan: BuildPlanResult): void {
+  if (plan.beats.length === 0) return;
+  console.log();
+  console.log(chalk.bold.cyan("Asset plan"));
+  console.log(chalk.dim("-".repeat(60)));
+  for (const beat of plan.beats) {
+    const parts = [
+      `narration: ${formatAssetPlanStatus(beat.assets.narration)}`,
+      `backdrop: ${formatAssetPlanStatus(beat.assets.backdrop)}`,
+      `video: ${formatAssetPlanStatus(beat.assets.video)}`,
+      `music: ${formatAssetPlanStatus(beat.assets.music)}`,
+    ];
+    console.log(`  ${chalk.bold(beat.id.padEnd(12))} ${parts.join("   ")}`);
+  }
+}
+
+function formatAssetPlanStatus(asset: AssetPlan | null): string {
+  if (!asset) return chalk.dim("no cue");
+  if (asset.reason === "referenced-asset") {
+    return chalk.cyan(`reference ${asset.sourcePath ?? asset.path}`);
+  }
+  if (asset.reason === "invalid-reference") {
+    return chalk.red(`invalid ref ${asset.sourcePath ?? asset.path}`);
+  }
+  if (asset.willGenerate) return chalk.yellow(`generate ${asset.provider}`);
+  if (asset.willCopyFromCache) return chalk.cyan(`cache ${asset.cachePath ?? asset.path}`);
+  if (asset.exists) return chalk.dim(`exists ${asset.path}`);
+  if (asset.reason === "stage-skipped") return chalk.dim("skipped");
+  return chalk.yellow("missing");
 }
 
 function buildFailureData(result: SceneBuildResult): Record<string, unknown> {
@@ -325,7 +435,9 @@ function buildFailureData(result: SceneBuildResult): Record<string, unknown> {
     ...result,
     code: result.code ?? (result.phase === "needs-author" ? "NEEDS_AUTHOR" : "BUILD_FAILED"),
     message,
-    suggestion: result.suggestion ?? (retryWith.length > 0 ? "Run one of retryWith to continue or repair the build." : undefined),
+    suggestion:
+      result.suggestion ??
+      (retryWith.length > 0 ? "Run one of retryWith to continue or repair the build." : undefined),
     retryWith,
     recoverable: result.recoverable ?? retryWith.length > 0,
   };
@@ -335,7 +447,8 @@ function buildPlanValidationFailureData(plan: BuildPlanResult): Record<string, u
   return {
     code: "STORYBOARD_VALIDATION_FAILED",
     message: `${plan.summary.validationErrors} storyboard validation error(s).`,
-    suggestion: "Run storyboard validate, then fix STORYBOARD.md or use storyboard revise --dry-run.",
+    suggestion:
+      "Run storyboard validate, then fix STORYBOARD.md or use storyboard revise --dry-run.",
     retryWith: plan.retryWith,
     recoverable: true,
     validation: plan.validation,
@@ -414,11 +527,27 @@ function printNeedsAuthor(result: SceneBuildResult): void {
   console.log(chalk.dim("-".repeat(60)));
   console.log("  Ask your coding agent to author the missing HTML files.");
   console.log("  Then run: vibe build");
-  console.log(chalk.dim("  Use `vibe build --mode batch` when you want the CLI to call an LLM composer instead."));
+  console.log(
+    chalk.dim(
+      "  Use `vibe build --mode batch` when you want the CLI to call an LLM composer instead."
+    )
+  );
 }
 
-function printBuildResult(spinner: ReturnType<typeof ora> | null, result: SceneBuildResult, projectDirArg: string): void {
-  spinner?.succeed(chalk.green(result.phase === "pending-jobs" ? "Build paused for async jobs" : result.outputPath ? `Build complete: ${result.outputPath}` : "Build complete"));
+function printBuildResult(
+  spinner: ReturnType<typeof ora> | null,
+  result: SceneBuildResult,
+  projectDirArg: string
+): void {
+  spinner?.succeed(
+    chalk.green(
+      result.phase === "pending-jobs"
+        ? "Build paused for async jobs"
+        : result.outputPath
+          ? `Build complete: ${result.outputPath}`
+          : "Build complete"
+    )
+  );
   console.log();
   console.log(chalk.bold.cyan("Beats"));
   console.log(chalk.dim("-".repeat(60)));
@@ -427,20 +556,26 @@ function printBuildResult(spinner: ReturnType<typeof ora> | null, result: SceneB
     const backdrop = formatPrimitiveStatus(beat.backdropStatus, beat.backdropPath);
     const video = formatPrimitiveStatus(beat.videoStatus, beat.videoPath);
     const music = formatPrimitiveStatus(beat.musicStatus, beat.musicPath);
-    console.log(`  ${chalk.bold(beat.beatId.padEnd(12))} narration: ${narration}   backdrop: ${backdrop}   video: ${video}   music: ${music}`);
+    console.log(
+      `  ${chalk.bold(beat.beatId.padEnd(12))} narration: ${narration}   backdrop: ${backdrop}   video: ${video}   music: ${music}`
+    );
     if (beat.narrationError) console.log(chalk.red(`    ! narration: ${beat.narrationError}`));
     if (beat.backdropError) console.log(chalk.red(`    ! backdrop: ${beat.backdropError}`));
     if (beat.videoError) console.log(chalk.red(`    ! video: ${beat.videoError}`));
     if (beat.musicError) console.log(chalk.red(`    ! music: ${beat.musicError}`));
-    if (beat.videoJobId) console.log(chalk.dim(`    video job: vibe status job ${beat.videoJobId} --json`));
-    if (beat.musicJobId) console.log(chalk.dim(`    music job: vibe status job ${beat.musicJobId} --json`));
+    if (beat.videoJobId)
+      console.log(chalk.dim(`    video job: vibe status job ${beat.videoJobId} --json`));
+    if (beat.musicJobId)
+      console.log(chalk.dim(`    music job: vibe status job ${beat.musicJobId} --json`));
   }
   if (result.composeData) {
     console.log();
     console.log(chalk.bold.cyan("Compose"));
     console.log(chalk.dim("-".repeat(60)));
     console.log(`  beats     ${result.composeData.beats}`);
-    console.log(`  cache     ${result.composeData.cacheHits} hit / ${result.composeData.beats - result.composeData.cacheHits} fresh`);
+    console.log(
+      `  cache     ${result.composeData.cacheHits} hit / ${result.composeData.beats - result.composeData.cacheHits} fresh`
+    );
     console.log(`  cost      $${result.composeData.totalCostUsd.toFixed(4)}`);
   }
   console.log();
@@ -463,6 +598,8 @@ function formatPrimitiveStatus(status: string, path?: string): string {
       return chalk.green(path ?? "generated");
     case "cached":
       return chalk.dim(path ?? "cached");
+    case "referenced":
+      return chalk.cyan(path ?? "referenced");
     case "pending":
       return chalk.yellow(path ? `pending -> ${path}` : "pending");
     case "skipped":
@@ -476,9 +613,22 @@ function formatPrimitiveStatus(status: string, path?: string): string {
   }
 }
 
-function parseOptionalProvider<T extends string>(value: unknown, valid: readonly T[], label: string): T | undefined {
+function parseOptionalProvider<T extends string>(
+  value: unknown,
+  valid: readonly T[],
+  label: string
+): T | undefined {
   if (value === undefined) return undefined;
   const provider = String(value).toLowerCase();
   if (valid.includes(provider as T)) return provider as T;
-  exitWithError(usageError(`Invalid --${label}-provider: ${String(value)}`, `Must be one of: ${valid.join(", ")}`));
+  exitWithError(
+    usageError(
+      `Invalid --${label}-provider: ${String(value)}`,
+      `Must be one of: ${valid.join(", ")}`
+    )
+  );
+}
+
+function unique(items: string[]): string[] {
+  return [...new Set(items.filter((item) => item.length > 0))];
 }

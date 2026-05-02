@@ -11,6 +11,7 @@ import {
   type FileLintResult,
   type LintFinding,
 } from "./scene-lint.js";
+import { createProjectRootSyncPlan } from "./root-sync.js";
 import {
   scoreIssues,
   statusFromIssues,
@@ -51,6 +52,22 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
   const fixed: FileFixResult[] = [];
   const wouldFix: FileFixResult[] = [];
   const files: FileLintResult[] = [];
+  const rootSyncIssues: ReviewIssue[] = [];
+
+  if ((opts.includeRoot ?? true) && root) {
+    const rootSync = await createProjectRootSyncPlan({ projectDir, rootRel: opts.rootRel });
+    if (rootSync.fixCodes.length > 0 && rootSync.nextHtml) {
+      const item = { file: rootSync.rootRel, codes: rootSync.fixCodes };
+      if (dryRun) {
+        wouldFix.push(item);
+      } else {
+        await writeFile(rootSync.rootPath, rootSync.nextHtml, "utf-8");
+        fixed.push(item);
+      }
+    } else if (rootSync.issues.length > 0) {
+      rootSyncIssues.push(...rootSync.issues);
+    }
+  }
 
   for (const target of targets) {
     const rel = relative(projectDir, target.abs) || target.abs;
@@ -75,7 +92,7 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
     }
   }
 
-  const remainingIssues = lintFilesToIssues(files);
+  const remainingIssues = [...rootSyncIssues, ...lintFilesToIssues(files)];
   const status = statusFromIssues(remainingIssues);
   const retryWith =
     status === "fail"
@@ -119,7 +136,8 @@ function lintFilesToIssues(files: FileLintResult[]): ReviewIssue[] {
         code: `SCENE_LINT_${finding.code}`,
         message: finding.message,
         file: file.file,
-        suggestedFix: finding.fixHint ?? "Edit the scene HTML directly.",
+        fixOwner: "host-agent",
+        suggestedFix: finding.fixHint ?? "Edit remaining scene HTML findings with the host agent.",
       });
     }
   }

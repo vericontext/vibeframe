@@ -21,11 +21,9 @@ import { ThemeToggle } from "../components/theme-toggle";
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Structured product backdrop */}
+      <div className="fixed inset-0 -z-10 bg-background">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:64px_64px] opacity-[0.05]" />
       </div>
 
       {/* Navigation */}
@@ -48,7 +46,7 @@ export default function LandingPage() {
             <Link
               href="https://github.com/vericontext/vibeframe#quick-start"
               target="_blank"
-              className="rounded-lg bg-gradient-to-r from-primary to-purple-600 px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
             >
               Docs
             </Link>
@@ -58,30 +56,65 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="pt-32 pb-20 px-4 relative">
-        <div className="mx-auto max-w-4xl text-center">
+        <div className="mx-auto max-w-5xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-8 animate-fade-in">
             <Terminal className="w-4 h-4" />
-            <span>The video CLI for AI agents</span>
+            <span>Storyboard-first video CLI for coding agents</span>
             <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">v{process.env.NEXT_PUBLIC_VERSION}</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
-            Create videos<br />
-            <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">from the terminal.</span>
+            Storyboard to video<br />
+            <span className="text-primary">with your coding agent.</span>
           </h1>
 
           <p className="text-2xl sm:text-3xl font-semibold text-foreground/90 mb-6 animate-fade-in-up delay-75">
-            The CLI is your agent's UI.
+            The CLI is the agent interface.
           </p>
 
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-            VibeFrame helps humans and AI coding agents create, edit, analyze, and render video from shell commands.
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 animate-fade-in-up delay-100">
+            VibeFrame turns <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">STORYBOARD.md</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">DESIGN.md</code> into generated assets, timed scene compositions, review reports, and final MP4 renders.
             {" "}{process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands, {process.env.NEXT_PUBLIC_AI_PROVIDERS} AI providers, {process.env.NEXT_PUBLIC_MCP_TOOLS} MCP tools.
             Works from your terminal, Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode, or any bash-capable AI agent.
           </p>
 
+          <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4 max-w-5xl mx-auto mb-10 text-left animate-fade-in-up delay-150">
+            <div className="rounded-xl border border-border/60 bg-secondary/45 overflow-hidden shadow-xl">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-background/45">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                <span className="ml-2 text-xs text-muted-foreground font-mono">agent loop</span>
+              </div>
+              <pre className="p-4 sm:p-5 text-xs sm:text-sm overflow-x-auto">
+                <code className="text-muted-foreground"># Draft, validate, cost, build, inspect, render{"\n"}</code>
+                <code className="text-foreground">vibe init launch --from brief.md --json{"\n"}</code>
+                <code className="text-foreground">vibe storyboard validate launch --json{"\n"}</code>
+                <code className="text-foreground">vibe plan launch --json{"\n"}</code>
+                <code className="text-foreground">vibe build launch --dry-run --max-cost 5 --json{"\n"}</code>
+                <code className="text-foreground">vibe build launch --max-cost 5 --json{"\n"}</code>
+                <code className="text-foreground">vibe inspect project launch --json{"\n"}</code>
+                <code className="text-foreground">vibe render launch -o renders/final.mp4 --json{"\n"}</code>
+                <code className="text-green-400">{"✓ review-report.json ready for the next agent pass"}</code>
+              </pre>
+            </div>
+            <div className="grid gap-3">
+              {[
+                ["Intent", "STORYBOARD.md"],
+                ["Design", "DESIGN.md"],
+                ["Build", "build-report.json"],
+                ["Review", "review-report.json"],
+              ].map(([label, file]) => (
+                <div key={file} className="rounded-xl border border-border/60 bg-secondary/35 px-4 py-3">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+                  <div className="font-mono text-sm text-foreground mt-1">{file}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Install Command */}
-          <div className="bg-gradient-to-r from-secondary to-secondary/50 rounded-xl p-1 max-w-xl mx-auto mb-8 animate-fade-in-up delay-200 shadow-xl">
+          <div className="bg-secondary rounded-xl p-1 max-w-xl mx-auto mb-8 animate-fade-in-up delay-200 shadow-xl border border-border/50">
             <div className="flex items-center gap-2 px-4 py-3 bg-background rounded-lg font-mono text-xs sm:text-sm overflow-x-auto">
               <span className="text-primary flex-shrink-0">$</span>
               <span className="text-foreground whitespace-nowrap">curl -fsSL https://vibeframe.ai/install.sh | bash</span>
@@ -93,7 +126,7 @@ export default function LandingPage() {
             <Link
               href="https://github.com/vericontext/vibeframe"
               target="_blank"
-              className="group flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-purple-600 px-6 py-3 font-medium text-primary-foreground hover:opacity-90 transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
+              className="group flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground hover:bg-primary/90 transition-all shadow-lg shadow-primary/25"
             >
               <Github className="w-5 h-5" />
               View on GitHub
@@ -110,26 +143,27 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Quickstart recording placeholder — actual demo is being re-cut. */}
+      {/* Storyboard recording placeholder — actual demo is being re-cut. */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
               <Video className="w-4 h-4" />
-              <span>Quickstart recording · coming soon</span>
+              <span>Storyboard-to-video recording · coming soon</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Prompt to finished clip
+              Brief to reviewed MP4
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Generate an image, animate it, inspect the result, and add a
-              designed motion overlay from the CLI.
+              The next recording will show the full project loop:
+              draft the storyboard, dry-run the cost, build scenes, inspect
+              reports, repair, and render from one agent session.
             </p>
           </div>
           <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 mx-auto max-w-4xl aspect-video flex flex-col items-center justify-center gap-3">
             <Video className="w-10 h-10 text-muted-foreground/60" />
             <p className="text-muted-foreground text-sm">
-              New recording coming soon.
+              Storyboard project recording coming soon.
             </p>
           </div>
         </div>
@@ -144,12 +178,12 @@ export default function LandingPage() {
               <span>From install to MP4</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Four steps. Same flow on every agent host.
+              Project files, reports, final render.
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Use the project-level commands first. The lower-level
-              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs ml-1">vibe scene</code>
-              namespace is still available when you need it.
+              Use the project-level commands first. Lower-level media,
+              scene, timeline, and YAML commands stay available when an agent
+              needs to debug a specific stage.
             </p>
           </div>
 
@@ -160,31 +194,27 @@ export default function LandingPage() {
               <p className="text-xs text-muted-foreground mt-3">Adds the <code className="text-primary">vibe</code> CLI.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">2. Setup · user scope</div>
-              <code className="font-mono text-xs text-foreground">vibe setup</code>
-              <p className="text-xs text-muted-foreground mt-3">API keys + LLM provider, once per machine. Detects your agent host.</p>
+              <div className="text-xs text-muted-foreground mb-2">2. Draft · project files</div>
+              <code className="font-mono text-xs text-foreground block break-all">vibe init my-video --from brief.md --json</code>
+              <p className="text-xs text-muted-foreground mt-3">Creates <code className="text-primary">STORYBOARD.md</code>, <code className="text-primary">DESIGN.md</code>, and agent guidance.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Init · video project</div>
-              <code className="font-mono text-xs text-foreground">vibe init my-video --profile agent</code>
-              <p className="text-xs text-muted-foreground mt-3">
-                Scaffolds <code className="text-primary">DESIGN.md</code> + <code className="text-primary">STORYBOARD.md</code> + <code className="text-primary">SKILL.md</code>.
-              </p>
+              <div className="text-xs text-muted-foreground mb-2">3. Plan · cost gate</div>
+              <code className="font-mono text-xs text-foreground block break-all">vibe build my-video --dry-run --max-cost 5 --json</code>
+              <p className="text-xs text-muted-foreground mt-3">Shows missing cues, provider needs, estimated cost, and planned assets.</p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Build + render</div>
-              <code className="font-mono text-xs text-foreground">vibe build my-video && vibe render my-video</code>
-              <p className="text-xs text-muted-foreground mt-3">Builds storyboard assets/compositions, then exports MP4.</p>
+              <div className="text-xs text-muted-foreground mb-2">4. Build · review · render</div>
+              <code className="font-mono text-xs text-foreground block break-all">vibe build my-video --json && vibe render my-video --json</code>
+              <p className="text-xs text-muted-foreground mt-3">Writes reports agents can inspect, repair, and re-render.</p>
             </div>
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
-            Two flows depending on intent —{" "}
-            <span className="text-foreground font-medium">BUILD</span> from text via{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code>,{" "}
-            <span className="text-foreground font-medium">REMIX</span> existing media via{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe remix</code> /{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code> /{" "}
+            Primary path: <span className="text-foreground font-medium">BUILD</span> from storyboard via{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code>. Existing-media workflows still use{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe remix</code>,{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code>, and{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">audio</code>.
           </p>
         </div>
@@ -199,11 +229,11 @@ export default function LandingPage() {
               <span>CLI-First</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Every edit is a command
+              The project loop is a command sequence
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands for video editing, generation, and post-production.
-              Scriptable from your terminal, an agent host, or MCP.
+              Agents can reason from structured files and JSON reports instead
+              of guessing which UI state changed.
             </p>
           </div>
 
@@ -215,32 +245,33 @@ export default function LandingPage() {
               <span className="ml-2 text-sm text-muted-foreground">terminal</span>
             </div>
             <pre className="p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto">
-              <code className="text-muted-foreground"># Generate an image, then animate it{"\n"}</code>
-              <code className="text-foreground">vibe generate image "sunset over mountains" -o sunset.png{"\n"}</code>
-              <code className="text-green-400">{"✓ Image saved to sunset.png\n\n"}</code>
+              <code className="text-muted-foreground"># Create a project from intent{"\n"}</code>
+              <code className="text-foreground">vibe init my-video --from "45-second launch video" --json{"\n"}</code>
+              <code className="text-green-400">{"✓ STORYBOARD.md + DESIGN.md created\n\n"}</code>
 
-              <code className="text-muted-foreground"># Image-to-video (recommended workflow){"\n"}</code>
-              <code className="text-foreground">vibe generate video "camera zooms in slowly" -p seedance -i sunset.png -d 8 -o scene.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Generated video with Seedance via fal.ai\n\n"}</code>
+              <code className="text-muted-foreground"># Validate, plan, and dry-run before spending{"\n"}</code>
+              <code className="text-foreground">vibe storyboard validate my-video --json{"\n"}</code>
+              <code className="text-foreground">vibe plan my-video --json{"\n"}</code>
+              <code className="text-foreground">vibe build my-video --dry-run --max-cost 5 --json{"\n"}</code>
+              <code className="text-green-400">{"✓ build-report.json includes cost and missing cues\n\n"}</code>
 
-              <code className="text-muted-foreground"># Add captions and remove silence{"\n"}</code>
-              <code className="text-foreground">vibe edit caption video.mp4 -o captioned.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Transcribed 3:24, burned 156 caption segments\n\n"}</code>
-
-              <code className="text-muted-foreground"># Render final video{"\n"}</code>
-              <code className="text-foreground">vibe render my-video -o final.mp4{"\n"}</code>
-              <code className="text-green-400">{"✓ Rendered: final.mp4 (3:24, 1080p)"}</code>
+              <code className="text-muted-foreground"># Build, review, repair, render{"\n"}</code>
+              <code className="text-foreground">vibe build my-video --max-cost 5 --json{"\n"}</code>
+              <code className="text-foreground">vibe inspect project my-video --json{"\n"}</code>
+              <code className="text-foreground">vibe scene repair --project my-video --json{"\n"}</code>
+              <code className="text-foreground">vibe render my-video -o renders/final.mp4 --json{"\n"}</code>
+              <code className="text-green-400">{"✓ final.mp4 + review-report.json"}</code>
             </pre>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto mt-8">
             {[
-              ["Generate", "image, video, speech, music, motion"],
-              ["Edit", "captions, silence, overlays, grade, reframe"],
-              ["Inspect", "image/video understanding and review"],
-              ["Remix + Audio", "highlights, shorts, animated captions, dub"],
-              ["Scene + YAML", "storyboard builds and reproducible pipelines"],
-              ["Timeline + Batch", "low-level JSON edits, detect, bulk ops"],
+              ["Storyboard", "list, get, set, move, validate, revise"],
+              ["Plan", "costs, missing cues, provider needs"],
+              ["Build", "assets, scene composition, timing sync"],
+              ["Review", "inspect project, inspect render, reports"],
+              ["Repair", "deterministic scene fixes after review"],
+              ["Primitives", "generate, edit, remix, audio, YAML"],
             ].map(([title, body]) => (
               <div key={title} className="rounded-lg border border-border/50 bg-secondary/30 px-4 py-3">
                 <div className="font-mono text-sm font-semibold text-foreground">{title}</div>
@@ -260,25 +291,27 @@ export default function LandingPage() {
               <span>Use with your AI agent</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Natural language, real commands
+              Natural language, report-driven commands
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Describe what you want. Your AI coding agent can run the same <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> commands you would run by hand.
+              Describe the video. Your coding agent edits project files, calls
+              <code className="text-primary bg-primary/10 px-2 py-0.5 rounded mx-1">vibe</code>
+              with JSON output, then uses reports for the next pass.
             </p>
           </div>
 
           <div className="space-y-4 max-w-3xl mx-auto mb-12">
             <AgentCommandExample
-              input="Remove silence from interview.mp4"
-              command="vibe edit silence-cut interview.mp4 -o clean.mp4"
+              input="Build a 45-second launch video from brief.md"
+              command="vibe init launch --from brief.md --json && vibe build launch --dry-run --json"
             />
             <AgentCommandExample
-              input="Add Korean subtitles to video.mp4"
-              command="vibe edit caption video.mp4 -o captioned.mp4"
+              input="Revise the hook and keep the same visual system"
+              command={'vibe storyboard revise launch --from "stronger hook" --dry-run --json'}
             />
             <AgentCommandExample
-              input="Build a 9:16 promo from STORYBOARD.md"
-              command={`vibe init promo -r 9:16 && vibe build promo && vibe render promo`}
+              input="Fix issues from the latest render review"
+              command="vibe scene repair --project launch --json && vibe render launch --json"
             />
           </div>
 
@@ -322,25 +355,26 @@ export default function LandingPage() {
               <span>Workflow guides</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              <code className="text-primary bg-primary/10 px-3 py-1 rounded">vibe guide</code>
+              <code className="text-primary bg-primary/10 px-3 py-1 rounded">vibe context</code> and guides
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Step-by-step workflow guides built into the CLI. Use them when the next command is not obvious.
+              Agents can load the project rules, JSON envelope shape, public
+              command surface, and step-by-step guides directly from the CLI.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 max-w-5xl mx-auto mb-8">
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
-              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe guide motion</div>
-              <p className="text-sm text-muted-foreground">Choose between static text, designed overlays, standalone motion, and Lottie overlays.</p>
+              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe context</div>
+              <p className="text-sm text-muted-foreground">Load agent rules, JSON envelope conventions, project files, and report locations.</p>
             </div>
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
               <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe guide scene</div>
               <p className="text-sm text-muted-foreground">Scene authoring — STORYBOARD.md → composed video via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe build</code> and <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">vibe render</code>.</p>
             </div>
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
-              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe guide pipeline</div>
-              <p className="text-sm text-muted-foreground">YAML pipeline authoring — Video as Code with cost estimates, checkpoints, and step references.</p>
+              <div className="font-mono text-sm font-semibold text-cyan-400 mb-2">vibe schema --list --surface public</div>
+              <p className="text-sm text-muted-foreground">Expose the small first-run command set before an agent searches the full catalog.</p>
             </div>
           </div>
 
@@ -350,7 +384,11 @@ export default function LandingPage() {
               vibe guide                    <span className="text-muted-foreground"># list available topics</span>
             </code>
             <code className="font-mono text-xs text-foreground block mt-1">
-              vibe guide motion --json      <span className="text-muted-foreground"># structured shape for an agent host</span>
+              vibe schema --list --surface public --json
+              <span className="text-muted-foreground"> # compact command catalog</span>
+            </code>
+            <code className="font-mono text-xs text-foreground block mt-1">
+              vibe guide scene --json       <span className="text-muted-foreground"># structured workflow for an agent host</span>
             </code>
           </div>
 
@@ -365,21 +403,18 @@ export default function LandingPage() {
       {/* ③ MCP Section */}
       <section className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-4xl">
-          <div className="bg-gradient-to-br from-primary/20 via-purple-500/10 to-pink-500/5 border border-primary/20 rounded-2xl p-8 sm:p-12 relative overflow-hidden">
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
-
-            <div className="relative">
+          <div className="bg-secondary/45 border border-border/60 rounded-2xl p-8 sm:p-12">
+            <div>
               <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
+                <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
                   <MessageSquare className="w-6 h-6 text-primary-foreground" />
                 </div>
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
                   <p className="text-muted-foreground">
                     {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, OpenCode, or Claude Code.
-                    Use MCP when your host prefers typed JSON-RPC tool calls.
+                    MCP is optional; use it when your host prefers typed JSON-RPC
+                    tool calls over shell commands.
                   </p>
                 </div>
               </div>
@@ -393,7 +428,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {["scene_build", "generate_image", "generate_video", "export_video", "edit_silence_cut", "guide"].map((tool) => (
+                {["init", "storyboard_validate", "plan", "build", "inspect_project", "scene_repair"].map((tool) => (
                   <span key={tool} className="text-xs bg-background/50 backdrop-blur-sm border border-border/50 px-3 py-1.5 rounded-full font-mono">
                     {tool}
                   </span>
@@ -441,7 +476,7 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Wand2 className="w-5 h-5" />}
                 title="Natural Language"
-                description="'Trim the clip to 5 seconds and add a fade' — no flags needed"
+                description="'Build this storyboard into a launch video' — when no host agent is available"
                 gradient="from-blue-500 to-cyan-500"
               />
               <FeatureItem
@@ -453,7 +488,7 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Sparkles className="w-5 h-5" />}
                 title={`${process.env.NEXT_PUBLIC_AGENT_TOOLS} Tools`}
-                description="Project, timeline, AI generation, media, export, batch, filesystem"
+                description="Project files, build reports, generation, media, export, batch, filesystem"
                 gradient="from-purple-500 to-pink-500"
               />
               <FeatureItem
@@ -476,11 +511,12 @@ export default function LandingPage() {
               <span>Video as Code</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Declarative YAML pipelines
+              Declarative YAML pipelines when you need them
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Define reproducible video workflows. Version control your production.
-              Dry-run costs, resume from checkpoints, and share pipeline templates.
+              The storyboard project loop is the default. Use YAML when you
+              need a reproducible multi-step workflow with budget guards,
+              checkpoints, and step references.
             </p>
           </div>
 
@@ -492,7 +528,7 @@ export default function LandingPage() {
               <span className="ml-2 text-sm text-muted-foreground">promo.yaml</span>
             </div>
             <pre className="p-4 sm:p-6 text-xs sm:text-sm overflow-x-auto">
-              <code className="text-purple-400">{"name: "}</code><code className="text-foreground">{"promo-video\n"}</code>
+              <code className="text-purple-400">{"name: "}</code><code className="text-foreground">{"asset-pipeline\n"}</code>
               <code className="text-purple-400">{"steps:\n"}</code>
               <code className="text-purple-400">{"  - id: "}</code><code className="text-foreground">{"backdrop\n"}</code>
               <code className="text-purple-400">{"    action: "}</code><code className="text-blue-400">{"generate-image\n"}</code>
@@ -500,10 +536,10 @@ export default function LandingPage() {
               <code className="text-purple-400">{"  - id: "}</code><code className="text-foreground">{"video\n"}</code>
               <code className="text-purple-400">{"    action: "}</code><code className="text-blue-400">{"generate-video\n"}</code>
               <code className="text-purple-400">{"    image: "}</code><code className="text-yellow-400">{"$backdrop.output"}</code><code className="text-muted-foreground">{"  # reference\n"}</code>
-              <code className="text-purple-400">{"  - id: "}</code><code className="text-foreground">{"final\n"}</code>
-              <code className="text-purple-400">{"    action: "}</code><code className="text-blue-400">{"edit-grade\n"}</code>
-              <code className="text-purple-400">{"    input: "}</code><code className="text-yellow-400">{"$video.output\n"}</code>
-              <code className="text-purple-400">{"    preset: "}</code><code className="text-green-400">{"cinematic-warm"}</code>
+              <code className="text-purple-400">{"  - id: "}</code><code className="text-foreground">{"narration\n"}</code>
+              <code className="text-purple-400">{"    action: "}</code><code className="text-blue-400">{"generate-tts\n"}</code>
+              <code className="text-purple-400">{"    text: "}</code><code className="text-green-400">{"\"Start with a storyboard.\"\n"}</code>
+              <code className="text-purple-400">{"    output: "}</code><code className="text-yellow-400">{"assets/narration.mp3"}</code>
             </pre>
           </div>
 
@@ -523,19 +559,20 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              AI Pipelines
+              Project and primitive workflows
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Reusable workflows for common video tasks.
+              Start with the storyboard path. Drop into primitives when an
+              agent needs one asset, one edit, or one reproducible pipeline.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <PipelineCard
               icon={<Film className="w-6 h-6" />}
-              title="Scene Build"
-              command="vibe build my-promo"
-              description="STORYBOARD.md + DESIGN.md → narrated, captioned MP4"
+              title="Storyboard Build"
+              command="vibe build my-video --json"
+              description="STORYBOARD.md + DESIGN.md to assets, scenes, reports"
               gradient="from-blue-500 to-purple-500"
             />
             <PipelineCard
@@ -581,10 +618,11 @@ export default function LandingPage() {
       <section className="py-20 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Open source video workflows for agents.
+            Open source storyboard workflows for agents.
           </h2>
           <p className="text-muted-foreground text-lg mb-8">
-            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands for terminal, YAML, and MCP workflows.
+            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · project files,
+            JSON reports, terminal commands, YAML, and MCP workflows.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -691,17 +729,17 @@ function TerminalAnimation() {
 
   const lines = [
     { type: "logo", content: "" },
-    { type: "prompt", content: "create a new project and add intro.mp4" },
-    { type: "agent", content: "I'll create a project and add the media file." },
-    { type: "tool", content: "(uses: timeline_create, timeline_add_source)" },
-    { type: "success", content: "Project created, intro.mp4 added" },
-    { type: "prompt", content: "trim it to 5 seconds and add fade effects" },
-    { type: "agent", content: "I'll trim the clip and add fade in/out effects." },
-    { type: "tool", content: "(uses: timeline_trim_clip, timeline_add_effect x2)" },
-    { type: "success", content: "Done: trimmed to 5s, fadeIn + fadeOut applied" },
-    { type: "prompt", content: "export to mp4" },
-    { type: "tool", content: "(uses: export_video)" },
-    { type: "success", content: "Exported: my-project.mp4 (5s, 1080p)" },
+    { type: "prompt", content: "build a 30-second launch video from this brief" },
+    { type: "agent", content: "I'll draft STORYBOARD.md and DESIGN.md, then dry-run the build." },
+    { type: "tool", content: "(runs: vibe init launch --from brief.md --json)" },
+    { type: "success", content: "Project created with storyboard, design, and agent guidance" },
+    { type: "prompt", content: "keep cost under five dollars and review before final render" },
+    { type: "agent", content: "I'll validate, plan, build with the cost gate, then inspect reports." },
+    { type: "tool", content: "(runs: vibe build launch --dry-run --max-cost 5 --json)" },
+    { type: "success", content: "build-report.json ready; estimated cost within budget" },
+    { type: "prompt", content: "repair anything deterministic and render" },
+    { type: "tool", content: "(runs: vibe scene repair --project launch --json && vibe render launch --json)" },
+    { type: "success", content: "Rendered: renders/final.mp4; review-report.json updated" },
   ];
 
   useEffect(() => {
