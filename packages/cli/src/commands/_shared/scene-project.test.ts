@@ -135,6 +135,14 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("hard-gate");
     expect(md).toContain("npx skills add heygen-com/hyperframes");
   });
+
+  it("keeps nested scene agents on parent project-scope config and vibe generation", () => {
+    const md = buildProjectAgentsMd("my-promo");
+    expect(md).toContain("vibe setup --scope project");
+    expect(md).toContain("../.vibeframe/config.yaml");
+    expect(md).toContain("data.scope.project.configPath");
+    expect(md).toContain("host agent's built-in image/audio generation tool");
+  });
 });
 
 describe("buildProjectClaudeMd", () => {

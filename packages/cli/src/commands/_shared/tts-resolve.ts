@@ -18,8 +18,7 @@
 
 import { ElevenLabsProvider, KokoroProvider } from "@vibeframe/ai-providers";
 import type { KokoroLoadEvent } from "@vibeframe/ai-providers";
-import { hasApiKey } from "../../utils/api-key.js";
-import { getApiKey } from "../../utils/api-key.js";
+import { getApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 
 /** TTS providers VibeFrame can route to. `"auto"` picks based on key availability. */
 export type TtsProviderName = "auto" | "elevenlabs" | "kokoro";
@@ -68,14 +67,15 @@ export interface TtsResolution {
  *   - `"elevenlabs"`: requires `ELEVENLABS_API_KEY`. Throws an `ApiKeyError`-style
  *     error via {@link getApiKey} (consumed by `requireApiKey`/`exitWithError`).
  *   - `"kokoro"`: always available (local). No key check.
- *   - `"auto"` (or `undefined`): if `ELEVENLABS_API_KEY` is set, picks
- *     ElevenLabs; otherwise falls back to Kokoro.
+ *   - `"auto"` (or `undefined`): if an ElevenLabs key is configured in
+ *     project/user config.yaml, .env, or process env, picks ElevenLabs;
+ *     otherwise falls back to Kokoro.
  */
 export async function resolveTtsProvider(
   preferred: TtsProviderName = "auto",
 ): Promise<TtsResolution> {
   const choice = preferred === "auto"
-    ? (hasApiKey("ELEVENLABS_API_KEY") ? "elevenlabs" : "kokoro")
+    ? ((await getConfiguredApiKey("ELEVENLABS_API_KEY")) ? "elevenlabs" : "kokoro")
     : preferred;
 
   if (choice === "elevenlabs") {

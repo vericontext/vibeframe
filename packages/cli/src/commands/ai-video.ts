@@ -24,7 +24,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { resolveUploadHost } from "../utils/upload-host.js";
 import { downloadVideo } from "./ai-helpers.js";
-import { hasApiKey } from "../utils/api-key.js";
+import { getConfiguredApiKey } from "../utils/api-key.js";
 
 // ============================================================================
 // Video Generation
@@ -89,7 +89,7 @@ export async function executeVideoGenerate(
       fal: "FAL_API_KEY",
     };
     const envKey = envKeyMap[provider] || "";
-    const key = apiKey || (hasApiKey(envKey) ? process.env[envKey] : undefined);
+    const key = await getConfiguredApiKey(envKey, apiKey);
     if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
     let referenceImage: string | undefined;

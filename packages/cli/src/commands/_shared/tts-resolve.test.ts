@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
     elevenLabsInitialize: vi.fn(),
     kokoroTextToSpeech: vi.fn(),
     kokoroInitialize: vi.fn(),
-    hasApiKey: vi.fn(),
+    getConfiguredApiKey: vi.fn(),
     getApiKey: vi.fn(),
   };
 });
@@ -30,7 +30,7 @@ vi.mock("@vibeframe/ai-providers", () => ({
 }));
 
 vi.mock("../../utils/api-key.js", () => ({
-  hasApiKey: (...args: unknown[]) => mocks.hasApiKey(...args),
+  getConfiguredApiKey: (...args: unknown[]) => mocks.getConfiguredApiKey(...args),
   getApiKey: (...args: unknown[]) => mocks.getApiKey(...args),
 }));
 
@@ -39,7 +39,7 @@ const {
   elevenLabsInitialize,
   kokoroTextToSpeech,
   kokoroInitialize,
-  hasApiKey,
+  getConfiguredApiKey,
   getApiKey,
 } = mocks;
 
@@ -73,7 +73,7 @@ describe("resolveTtsProvider", () => {
     elevenLabsInitialize.mockReset();
     kokoroTextToSpeech.mockReset();
     kokoroInitialize.mockReset();
-    hasApiKey.mockReset();
+    getConfiguredApiKey.mockReset();
     getApiKey.mockReset();
   });
 
@@ -83,19 +83,19 @@ describe("resolveTtsProvider", () => {
 
   describe("auto", () => {
     it("picks ElevenLabs when ELEVENLABS_API_KEY is set", async () => {
-      hasApiKey.mockReturnValue(true);
+      getConfiguredApiKey.mockResolvedValue("sk-test");
       getApiKey.mockResolvedValue("sk-test");
 
       const r = await resolveTtsProvider("auto");
 
       expect(r.provider).toBe("elevenlabs");
       expect(r.audioExtension).toBe("mp3");
-      expect(hasApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
+      expect(getConfiguredApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
       expect(elevenLabsInitialize).toHaveBeenCalledWith({ apiKey: "sk-test" });
     });
 
     it("falls back to Kokoro when ELEVENLABS_API_KEY is unset", async () => {
-      hasApiKey.mockReturnValue(false);
+      getConfiguredApiKey.mockResolvedValue(undefined);
 
       const r = await resolveTtsProvider("auto");
 
@@ -106,7 +106,7 @@ describe("resolveTtsProvider", () => {
     });
 
     it("treats undefined preferred the same as auto", async () => {
-      hasApiKey.mockReturnValue(false);
+      getConfiguredApiKey.mockResolvedValue(undefined);
 
       const r = await resolveTtsProvider();
 
@@ -142,13 +142,13 @@ describe("resolveTtsProvider", () => {
       expect(r.audioExtension).toBe("wav");
       expect(kokoroInitialize).toHaveBeenCalled();
       expect(getApiKey).not.toHaveBeenCalled();
-      expect(hasApiKey).not.toHaveBeenCalled();
+      expect(getConfiguredApiKey).not.toHaveBeenCalled();
     });
   });
 
   describe("call dispatch", () => {
     it("forwards voice + speed to ElevenLabs as voiceId/speed", async () => {
-      hasApiKey.mockReturnValue(true);
+      getConfiguredApiKey.mockResolvedValue("sk-test");
       getApiKey.mockResolvedValue("sk-test");
       elevenLabsTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("x") });
 

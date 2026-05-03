@@ -12,7 +12,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
 import { GeminiProvider, GrokProvider, getProvidersFor } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
+import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { isJsonMode, outputSuccess, log, exitWithError, apiError, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
@@ -132,7 +132,10 @@ Examples:
             );
           }
           // Explicit choice's key missing → fall back via resolver
-          if (providerEnvMap[provider] && !hasApiKey(providerEnvMap[provider]) && !options.apiKey) {
+          if (
+            providerEnvMap[provider] &&
+            !(await hasConfiguredApiKey(providerEnvMap[provider], options.apiKey))
+          ) {
             const resolved = resolveProvider("image");
             if (resolved) {
               log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));

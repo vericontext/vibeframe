@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { loadEnv, getApiKey, hasApiKey, providerKeyForEnvVar } from "./api-key.js";
+import {
+  loadEnv,
+  getApiKey,
+  getConfiguredApiKey,
+  hasConfiguredApiKey,
+  hasApiKey,
+  providerKeyForEnvVar,
+} from "./api-key.js";
 
 describe("api-key utilities", () => {
   const originalEnv = process.env;
@@ -40,6 +47,27 @@ describe("api-key utilities", () => {
       delete process.env.TEST_KEY;
       const result = await getApiKey("TEST_KEY", "Test");
       expect(result).toBeNull();
+    });
+  });
+
+  describe("getConfiguredApiKey", () => {
+    it("returns option value without prompting", async () => {
+      const result = await getConfiguredApiKey("TEST_KEY", "option-key");
+      expect(result).toBe("option-key");
+    });
+
+    it("returns env value without prompting", async () => {
+      process.env.TEST_KEY = "env-api-key";
+      const result = await getConfiguredApiKey("TEST_KEY");
+      expect(result).toBe("env-api-key");
+      await expect(hasConfiguredApiKey("TEST_KEY")).resolves.toBe(true);
+    });
+
+    it("returns undefined when no non-interactive key source exists", async () => {
+      delete process.env.TEST_KEY;
+      const result = await getConfiguredApiKey("TEST_KEY");
+      expect(result).toBeUndefined();
+      await expect(hasConfiguredApiKey("TEST_KEY")).resolves.toBe(false);
     });
   });
 

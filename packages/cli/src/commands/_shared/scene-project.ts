@@ -365,6 +365,25 @@ consult this file — run the generate command directly.
 Browse named styles: \`vibe scene list-styles\`. Re-seed from one with
 \`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).
 
+## Provider keys and project scope
+
+Use VibeFrame CLI generation for project assets:
+\`vibe generate image|video|speech ...\`. This lets VibeFrame use keys
+from \`vibe setup --scope project\`.
+
+Project-scope keys may live in a parent directory, for example
+\`../.vibeframe/config.yaml\` when this scene was created by
+\`vibe init launch\`. The \`vibe\` CLI searches upward automatically, so do
+not decide keys are missing just because \`.vibeframe/config.yaml\` is not
+inside this scene folder.
+
+To verify scope without exposing secrets, run \`vibe doctor --json\` from
+this directory and inspect \`data.scope.activeScope\` plus
+\`data.scope.project.configPath\`. Never print config contents. Do not use
+a host agent's built-in image/audio generation tool for VibeFrame project
+assets unless the user explicitly requests an external, non-VibeFrame
+asset.
+
 ## Skills — USE THESE FIRST
 
 @SKILL.md

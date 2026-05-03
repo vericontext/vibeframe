@@ -15,8 +15,7 @@ import {
   ElevenLabsProvider,
   ReplicateProvider,
 } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
+import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 import {
   isJsonMode,
   outputSuccess,
@@ -56,9 +55,7 @@ export async function executeMusic(
     const provider = options.provider || "elevenlabs";
 
     if (provider === "elevenlabs") {
-      const apiKey = hasApiKey("ELEVENLABS_API_KEY")
-        ? ((await getApiKeyFromConfig("elevenlabs")) || process.env.ELEVENLABS_API_KEY!)
-        : null;
+      const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY");
       if (!apiKey)
         return {
           success: false,
@@ -85,9 +82,7 @@ export async function executeMusic(
     }
 
     // Replicate MusicGen
-    const apiKey = hasApiKey("REPLICATE_API_TOKEN")
-      ? ((await getApiKeyFromConfig("replicate")) || process.env.REPLICATE_API_TOKEN!)
-      : null;
+    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN");
     if (!apiKey)
       return {
         success: false,

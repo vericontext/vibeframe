@@ -49,6 +49,13 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("vibe inspect media");
     expect(AGENTS_MD).not.toContain("vibe inspect video");
   });
+
+  it("tells agents to use project-scope config through vibe commands", () => {
+    expect(AGENTS_MD).toContain("vibe setup --scope project");
+    expect(AGENTS_MD).toContain(".vibeframe/config.yaml");
+    expect(AGENTS_MD).toContain("data.scope.project.configPath");
+    expect(AGENTS_MD).toContain("Do not switch to a host agent's built-in image/audio generation tool");
+  });
 });
 
 describe("CLAUDE_MD template", () => {

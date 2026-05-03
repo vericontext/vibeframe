@@ -18,7 +18,7 @@ import {
   RunwayProvider,
   FalProvider,
 } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
+import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
   isJsonMode,
@@ -172,7 +172,10 @@ Examples:
             );
             provider = "seedance";
           }
-          if (videoEnvMap[provider] && !hasApiKey(videoEnvMap[provider]) && !options.apiKey) {
+          if (
+            videoEnvMap[provider] &&
+            !(await hasConfiguredApiKey(videoEnvMap[provider], options.apiKey))
+          ) {
             const resolved = resolveProvider("video");
             if (resolved) {
               log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));

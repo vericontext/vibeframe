@@ -10,8 +10,7 @@ import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
 import { ElevenLabsProvider } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
+import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 
@@ -33,9 +32,7 @@ export async function executeSoundEffect(
   options: ExecuteSoundEffectOptions,
 ): Promise<ExecuteSoundEffectResult> {
   try {
-    const apiKey = hasApiKey("ELEVENLABS_API_KEY")
-      ? ((await getApiKeyFromConfig("elevenlabs")) || process.env.ELEVENLABS_API_KEY!)
-      : null;
+    const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY");
     if (!apiKey)
       return {
         success: false,

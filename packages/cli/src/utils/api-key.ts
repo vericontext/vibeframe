@@ -118,27 +118,8 @@ export async function getApiKey(
   providerName: string,
   optionValue?: string
 ): Promise<string | null> {
-  // 1. Check command line option
-  if (optionValue) {
-    return optionValue;
-  }
-
-  // 2. Check user/project config.yaml
-  // Map env var to provider key
-  const providerKey = providerKeyForEnvVar(envVar);
-  if (providerKey) {
-    const configKey = await getApiKeyFromConfig(providerKey);
-    if (configKey) {
-      return configKey;
-    }
-  }
-
-  // 3. Load .env and check environment
-  loadEnv();
-  const envValue = getEnvValue(envVar);
-  if (envValue) {
-    return envValue;
-  }
+  const configuredKey = await getConfiguredApiKey(envVar, optionValue);
+  if (configuredKey) return configuredKey;
 
   // 4. Check if running in TTY (interactive terminal)
   if (!process.stdin.isTTY) {
@@ -168,6 +149,40 @@ export async function getApiKey(
   }
 
   return apiKey.trim();
+}
+
+/**
+ * Resolve an API key without prompting.
+ *
+ * This is for library-style execution paths that should respect
+ * `vibe setup --scope project` but must not stop for interactive input
+ * when no key exists. Precedence matches `getApiKey()` up to the prompt:
+ * CLI override > nearest project/user config.yaml > .env/process env.
+ */
+export async function getConfiguredApiKey(
+  envVar: string,
+  optionValue?: string,
+  options: { cwd?: string } = {}
+): Promise<string | undefined> {
+  if (optionValue) return optionValue;
+
+  const providerKey = providerKeyForEnvVar(envVar);
+  if (providerKey) {
+    const configKey = await getApiKeyFromConfig(providerKey, { cwd: options.cwd });
+    if (configKey) return configKey;
+  }
+
+  loadEnv();
+  return getEnvValue(envVar);
+}
+
+/** True when a key exists in CLI override, config.yaml, .env, or env. */
+export async function hasConfiguredApiKey(
+  envVar: string,
+  optionValue?: string,
+  options: { cwd?: string } = {}
+): Promise<boolean> {
+  return Boolean(await getConfiguredApiKey(envVar, optionValue, options));
 }
 
 /**

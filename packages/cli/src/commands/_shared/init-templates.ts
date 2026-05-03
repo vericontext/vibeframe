@@ -162,11 +162,25 @@ When you run vibe commands programmatically:
    echo '{"video":"long.mp4","count":3,"aspect":"9:16"}' | vibe remix auto-shorts --stdin --json
    \`\`\`
 
-## Provider keys
+## Provider keys and project scope
 
-API keys live in \`.env\` (gitignored). Copy \`.env.example\` to start. Run
-\`vibe doctor\` to see which keys are currently detected and which providers
-they unlock.
+Prefer \`vibe setup --scope project\` for project-local keys. It writes
+\`.vibeframe/config.yaml\` in the setup directory; when you work from a
+nested scene directory, the \`vibe\` CLI automatically searches parent
+directories and uses the nearest project config. Do not assume the config
+file must exist in the current subdirectory.
+
+Run \`vibe doctor --json\` from the directory where you will run commands
+and check \`data.scope.project.configPath\` / \`data.scope.activeScope\` before
+deciding keys are missing. Never print or copy config file contents.
+
+For generated project assets, use VibeFrame commands such as
+\`vibe generate image|video|speech ...\` so these project-scope keys are
+used. Do not switch to a host agent's built-in image/audio generation tool
+unless the user explicitly asks for a non-VibeFrame asset.
+
+\`.env\` is still supported as a gitignored fallback. Copy \`.env.example\`
+to start if you prefer environment variables.
 
 ### Composition rules (scene HTML)
 

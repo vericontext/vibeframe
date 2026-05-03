@@ -10,8 +10,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
 import { OpenAIImageProvider } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
+import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 
@@ -36,11 +35,7 @@ export async function executeBackground(
   options: ExecuteBackgroundOptions
 ): Promise<ExecuteBackgroundResult> {
   try {
-    const apiKey =
-      options.apiKey ??
-      (hasApiKey("OPENAI_API_KEY")
-        ? (await getApiKeyFromConfig("openai")) || process.env.OPENAI_API_KEY!
-        : null);
+    const apiKey = await getConfiguredApiKey("OPENAI_API_KEY", options.apiKey);
     if (!apiKey)
       return { success: false, error: "OPENAI_API_KEY required for background generation" };
 

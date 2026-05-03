@@ -8,8 +8,7 @@
 import type { Command } from "commander";
 import chalk from "chalk";
 import { ReplicateProvider } from "@vibeframe/ai-providers";
-import { requireApiKey, hasApiKey } from "../../utils/api-key.js";
-import { getApiKeyFromConfig } from "../../config/index.js";
+import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
 
 // ── Library: executeMusicStatus ─────────────────────────────────────────
@@ -30,12 +29,7 @@ export async function executeMusicStatus(
   options: ExecuteMusicStatusOptions,
 ): Promise<ExecuteMusicStatusResult> {
   try {
-    const apiKey =
-      options.apiKey ??
-      (hasApiKey("REPLICATE_API_TOKEN")
-        ? ((await getApiKeyFromConfig("replicate")) ||
-          process.env.REPLICATE_API_TOKEN!)
-        : null);
+    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN", options.apiKey);
     if (!apiKey)
       return { success: false, error: "REPLICATE_API_TOKEN required for music status" };
 
