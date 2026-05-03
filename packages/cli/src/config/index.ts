@@ -29,11 +29,46 @@ import {
 
 export type Scope = "user" | "project";
 
-/** User-scope config directory (~/.vibeframe). */
-export const USER_CONFIG_DIR = resolve(homedir(), ".vibeframe");
+function resolveEnvPath(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value ? resolve(value) : null;
+}
 
-/** User-scope config file (~/.vibeframe/config.yaml). */
+function resolveXdgAppDir(opts: {
+  overrideEnv: string;
+  xdgEnv: string;
+  fallbackHomeRel: string;
+}): string {
+  const override = resolveEnvPath(opts.overrideEnv);
+  if (override) return override;
+  const xdgBase = resolveEnvPath(opts.xdgEnv);
+  const base = xdgBase ?? resolve(homedir(), opts.fallbackHomeRel);
+  return resolve(base, "vibeframe");
+}
+
+/** User-scope config directory (~/.vibeframe by default). */
+export const USER_CONFIG_DIR =
+  resolveEnvPath("VIBEFRAME_CONFIG_HOME") ?? resolve(homedir(), ".vibeframe");
+
+/** User-scope config file (~/.vibeframe/config.yaml by default). */
 export const USER_CONFIG_PATH = resolve(USER_CONFIG_DIR, "config.yaml");
+
+/** User data directory (~/.local/share/vibeframe by default). */
+export const USER_DATA_DIR = resolveXdgAppDir({
+  overrideEnv: "VIBEFRAME_DATA_HOME",
+  xdgEnv: "XDG_DATA_HOME",
+  fallbackHomeRel: ".local/share",
+});
+
+/** User cache directory (~/.vibeframe/cache by default). */
+export const USER_CACHE_DIR =
+  resolveEnvPath("VIBEFRAME_CACHE_HOME") ?? resolve(USER_CONFIG_DIR, "cache");
+
+/** Legacy user-scope config directory used by pre-XDG installs. */
+export const LEGACY_USER_CONFIG_DIR = resolve(homedir(), ".vibeframe");
+
+/** Legacy user-scope config file used by pre-XDG installs. */
+export const LEGACY_USER_CONFIG_PATH = resolve(LEGACY_USER_CONFIG_DIR, "config.yaml");
 
 /**
  * Back-compat aliases. New code should use `USER_CONFIG_PATH` /
@@ -71,11 +106,63 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+export interface UserConfigStatus {
+  /** True when either the primary config file or legacy ~/.vibeframe/config.yaml exists. */
+  configured: boolean;
+  /** Path loadConfig({scope:"user"}) will read from, or the write path when absent. */
+  configPath: string;
+  /** Write target for new user-scope saves. */
+  writePath: string;
+  /** Legacy fallback path. */
+  legacyConfigPath: string;
+  /** True when the primary write target exists. */
+  primaryConfigured: boolean;
+  /** True when the legacy fallback exists. */
+  legacyConfigured: boolean;
+  /** Source currently used for user-scope reads. */
+  source: "user" | "legacy" | null;
+}
+
+export async function getUserConfigStatus(): Promise<UserConfigStatus> {
+  const primaryConfigured = await fileExists(USER_CONFIG_PATH);
+  const legacyConfigured =
+    LEGACY_USER_CONFIG_PATH === USER_CONFIG_PATH
+      ? primaryConfigured
+      : await fileExists(LEGACY_USER_CONFIG_PATH);
+  const source = primaryConfigured
+    ? "user"
+    : legacyConfigured && LEGACY_USER_CONFIG_PATH !== USER_CONFIG_PATH
+      ? "legacy"
+      : null;
+  return {
+    configured: primaryConfigured || legacyConfigured,
+    configPath:
+      source === "user"
+        ? USER_CONFIG_PATH
+        : source === "legacy"
+          ? LEGACY_USER_CONFIG_PATH
+          : USER_CONFIG_PATH,
+    writePath: USER_CONFIG_PATH,
+    legacyConfigPath: LEGACY_USER_CONFIG_PATH,
+    primaryConfigured,
+    legacyConfigured,
+    source,
+  };
+}
+
 export async function findProjectConfigPath(cwd: string = process.cwd()): Promise<string | null> {
   let dir = resolve(cwd);
+  const homeDir = resolve(homedir());
   for (;;) {
+    if (dir === homeDir) return null;
     const candidate = getProjectConfigPath(dir);
-    if (await fileExists(candidate)) return candidate;
+    if (
+      candidate !== USER_CONFIG_PATH &&
+      candidate !== LEGACY_USER_CONFIG_PATH &&
+      (await fileExists(candidate))
+    ) {
+      return candidate;
+    }
     const parent = resolve(dir, "..");
     if (parent === dir) return null;
     dir = parent;
@@ -119,6 +206,12 @@ async function readConfigFile(path: string): Promise<VibeConfig | null> {
   }
 }
 
+async function readUserConfigFile(): Promise<VibeConfig | null> {
+  if (await fileExists(USER_CONFIG_PATH)) return readConfigFile(USER_CONFIG_PATH);
+  if (await fileExists(LEGACY_USER_CONFIG_PATH)) return readConfigFile(LEGACY_USER_CONFIG_PATH);
+  return null;
+}
+
 export interface LoadConfigOptions {
   /** Force a specific scope. Default: auto (project if exists, else user). */
   scope?: Scope;
@@ -135,7 +228,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
   const { scope, cwd, merge } = options;
 
   if (merge) {
-    const user = await readConfigFile(USER_CONFIG_PATH);
+    const user = await readUserConfigFile();
     const projectPath = await findProjectConfigPath(cwd);
     const project = projectPath ? await readConfigFile(projectPath) : null;
     if (!user && !project) return null;
@@ -157,7 +250,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
   }
 
   if (scope) {
-    return readConfigFile(getConfigPath(scope, cwd));
+    return scope === "user" ? readUserConfigFile() : readConfigFile(getConfigPath(scope, cwd));
   }
 
   // Auto: nearest project config takes priority — using project means
@@ -165,7 +258,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
   const projectPath = await findProjectConfigPath(cwd);
   const project = projectPath ? await readConfigFile(projectPath) : null;
   if (project) return project;
-  return readConfigFile(USER_CONFIG_PATH);
+  return readUserConfigFile();
 }
 
 export interface SaveConfigOptions {
@@ -193,8 +286,8 @@ export async function saveConfig(
  * Check if any configuration is present and the primary LLM provider has a
  * key (in the active scope or the environment).
  */
-export async function isConfigured(): Promise<boolean> {
-  const config = await loadConfig();
+export async function isConfigured(options: Pick<LoadConfigOptions, "cwd"> = {}): Promise<boolean> {
+  const config = await loadConfig({ cwd: options.cwd });
   if (!config) return false;
 
   const provider = config.llm.provider;
@@ -219,7 +312,7 @@ export async function isConfigured(): Promise<boolean> {
  */
 export async function getApiKeyFromConfig(
   providerKey: string,
-  options: Pick<LoadConfigOptions, "cwd"> = {},
+  options: Pick<LoadConfigOptions, "cwd"> = {}
 ): Promise<string | undefined> {
   const config = await loadConfig({ cwd: options.cwd });
   if (config?.providers[providerKey as keyof typeof config.providers]) {
@@ -257,4 +350,9 @@ export async function updateProviderKey(
 
 // Re-export types
 export type { VibeConfig, LLMProvider } from "./schema.js";
-export { createDefaultConfig, PROVIDER_NAMES, PROVIDER_ENV_ALIASES, PROVIDER_ENV_VARS } from "./schema.js";
+export {
+  createDefaultConfig,
+  PROVIDER_NAMES,
+  PROVIDER_ENV_ALIASES,
+  PROVIDER_ENV_VARS,
+} from "./schema.js";

@@ -13,6 +13,7 @@ import {
   saveConfig,
   createDefaultConfig,
   USER_CONFIG_PATH,
+  getUserConfigStatus,
   getConfigPath,
   getActiveScope,
   type LLMProvider,
@@ -616,6 +617,7 @@ interface NonInteractiveOptions {
 
 async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void> {
   const scope: Scope = opts.scope ?? "user";
+  const userStatusBefore = scope === "user" ? await getUserConfigStatus() : null;
   let config = await loadConfig({ scope });
   if (!config) {
     config = createDefaultConfig();
@@ -664,6 +666,13 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
   // Output: one structured line per change, plus warnings on stderr.
   console.log(chalk.green(`✓ Setup complete (non-interactive, ${scope} scope)`));
   console.log(chalk.dim(`  Config: ${getConfigPath(scope)}`));
+  if (userStatusBefore?.source === "legacy") {
+    console.log(
+      chalk.dim(
+        `  Imported legacy config from ${userStatusBefore.legacyConfigPath}; future writes use ${userStatusBefore.writePath}`
+      )
+    );
+  }
   if (changes.length > 0) {
     for (const c of changes) {
       console.log(chalk.dim(`  ${c}`));
@@ -722,13 +731,27 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
 async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise<void> {
   console.log();
   loadEnv();
-  const cfgPath = getConfigPath(scope).replace(homedir(), "~");
+  const userStatus = scope === "user" ? await getUserConfigStatus() : null;
+  const displayPath =
+    scope === "user"
+      ? userStatus?.source === "legacy"
+        ? userStatus.configPath
+        : USER_CONFIG_PATH
+      : getConfigPath(scope);
+  const cfgPath = displayPath.replace(homedir(), "~");
   const scopeNote =
     scope === "project"
       ? "applies to this project only · add .vibeframe/ to .gitignore"
       : "applies to every project for this user";
   console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.bold(` — ${scope} scope`));
   console.log(chalk.dim(`${cfgPath} · ${scopeNote}`));
+  if (userStatus?.source === "legacy") {
+    console.log(
+      chalk.dim(
+        `Legacy user config detected; saving will migrate it to ${userStatus.writePath.replace(homedir(), "~")}`
+      )
+    );
+  }
   if (scope === "user") {
     console.log(
       chalk.dim("Tip: for per-project keys, cd into a project and run: vibe setup --scope project")
@@ -1180,8 +1203,14 @@ async function runCustomSetup(
   opts: { showComplete?: boolean } = {}
 ): Promise<void> {
   // LLM Provider selection (for optional built-in agent mode)
-  console.log(chalk.bold("1. LLM Provider") + chalk.dim(" (optional built-in vibe agent / fallback)"));
-  console.log(chalk.dim("   Most Claude Code/Codex/Cursor users can skip this and let the host agent drive vibe directly."));
+  console.log(
+    chalk.bold("1. LLM Provider") + chalk.dim(" (optional built-in vibe agent / fallback)")
+  );
+  console.log(
+    chalk.dim(
+      "   Most Claude Code/Codex/Cursor users can skip this and let the host agent drive vibe directly."
+    )
+  );
   console.log();
 
   const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "ollama"];
@@ -1424,9 +1453,10 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
   }
 
   const activeScope = await getActiveScope();
-  const userPath = USER_CONFIG_PATH;
+  const userStatus = await getUserConfigStatus();
+  const userPath = userStatus.configPath;
   const projectPath = getConfigPath("project");
-  const userExists = (await loadConfig({ scope: "user" })) !== null;
+  const userExists = userStatus.configured;
   const projectExists = (await loadConfig({ scope: "project" })) !== null;
 
   console.log();
@@ -1447,6 +1477,11 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
         : chalk.dim("(missing)");
   console.log(chalk.dim(`Scopes:`));
   console.log(chalk.dim(`  user     ${userPath} ${userMark}`));
+  if (userStatus.source === "legacy") {
+    console.log(chalk.dim(`           writes to ${userStatus.writePath} (migrates on save)`));
+  } else if (!userStatus.configured) {
+    console.log(chalk.dim(`           writes to ${userStatus.writePath}`));
+  }
   console.log(chalk.dim(`  project  ${projectPath} ${projectMark}`));
   if (hasCwdEnv) {
     console.log(chalk.dim(`  .env     ${cwdEnvPath} ${chalk.dim("(env vars override config)")}`));

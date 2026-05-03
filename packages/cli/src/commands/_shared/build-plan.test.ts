@@ -83,6 +83,8 @@ describe("createBuildPlan", () => {
       validationErrors: 0,
       validationWarnings: 0,
     });
+    expect(plan.warnings.some((warning) => warning.includes("--skip-backdrop"))).toBe(true);
+    expect(plan.retryWith).toContain(`vibe build ${dir} --stage assets --skip-backdrop --json`);
     expect(plan.providerResolution).toEqual([
       expect.objectContaining({
         kind: "narration",
@@ -243,7 +245,11 @@ describe("createBuildPlan", () => {
 
   it("invalidates generated backdrop cues when the build image provider is not supported", async () => {
     const dir = await makeProject();
-    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", imageProvider: "runway" });
+    const plan = await createBuildPlan({
+      projectDir: dir,
+      stage: "assets",
+      imageProvider: "runway",
+    });
 
     expect(plan.status).toBe("invalid");
     expect(plan.validation.ok).toBe(false);
@@ -280,7 +286,11 @@ asset: "assets/source.png"
       "utf-8"
     );
 
-    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", imageProvider: "gemini" });
+    const plan = await createBuildPlan({
+      projectDir: dir,
+      stage: "assets",
+      imageProvider: "gemini",
+    });
 
     expect(plan.status).toBe("ready");
     expect(plan.estimatedCostUsd).toBe(0);

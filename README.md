@@ -96,6 +96,11 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 vibe doctor
 ```
 
+The installer places the CLI checkout under the XDG data directory
+(`~/.local/share/vibeframe` by default). User-scope API keys stay in a clean
+`~/.vibeframe/config.yaml`; project-scope setup still writes
+`./.vibeframe/config.yaml`.
+
 For local development:
 
 ```bash

@@ -123,7 +123,7 @@ export async function getApiKey(
     return optionValue;
   }
 
-  // 2. Check ~/.vibeframe/config.yaml
+  // 2. Check user/project config.yaml
   // Map env var to provider key
   const providerKey = providerKeyForEnvVar(envVar);
   if (providerKey) {

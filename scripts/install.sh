@@ -21,7 +21,21 @@ DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Installation directory
-VIBE_HOME="${VIBE_HOME:-$HOME/.vibeframe}"
+if [ -z "${VIBE_HOME:-}" ]; then
+  if [ -n "${VIBEFRAME_DATA_HOME:-}" ]; then
+    VIBE_HOME="$VIBEFRAME_DATA_HOME"
+  else
+    VIBE_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/vibeframe"
+  fi
+fi
+LEGACY_VIBE_HOME="$HOME/.vibeframe"
+if [ -n "${VIBEFRAME_CONFIG_HOME:-}" ]; then
+  VIBE_CONFIG_HOME="$VIBEFRAME_CONFIG_HOME"
+else
+  VIBE_CONFIG_HOME="$HOME/.vibeframe"
+fi
+VIBE_CONFIG_PATH="$VIBE_CONFIG_HOME/config.yaml"
+LEGACY_CONFIG_PATH="$LEGACY_VIBE_HOME/config.yaml"
 
 # Default options
 FULL_INSTALL=false
@@ -139,6 +153,39 @@ else
   fi
 fi
 
+echo ""
+echo -e "  ${DIM}Install dir: $VIBE_HOME${NC}"
+if [ "$VIBE_HOME" != "$LEGACY_VIBE_HOME" ] && [ -d "$LEGACY_VIBE_HOME" ]; then
+  PRESERVED_CONFIG=""
+  if [ -f "$LEGACY_CONFIG_PATH" ]; then
+    PRESERVED_CONFIG="$(mktemp)"
+    cp "$LEGACY_CONFIG_PATH" "$PRESERVED_CONFIG"
+  fi
+  CURRENT_DIR="$(pwd -P)"
+  LEGACY_REAL="$(cd "$LEGACY_VIBE_HOME" 2>/dev/null && pwd -P || printf '%s' "$LEGACY_VIBE_HOME")"
+  case "$CURRENT_DIR" in
+    "$LEGACY_REAL"|"$LEGACY_REAL"/*)
+      if [ -n "$PRESERVED_CONFIG" ]; then
+        rm -f "$PRESERVED_CONFIG"
+      fi
+      warn "Legacy checkout remains at $LEGACY_VIBE_HOME because the current shell is inside it"
+      ;;
+    *)
+      step "Removing legacy checkout..."
+      rm -rf "$LEGACY_VIBE_HOME"
+      if [ -n "$PRESERVED_CONFIG" ] && [ ! -f "$VIBE_CONFIG_PATH" ]; then
+        mkdir -p "$VIBE_CONFIG_HOME"
+        cp "$PRESERVED_CONFIG" "$VIBE_CONFIG_PATH"
+        chmod 600 "$VIBE_CONFIG_PATH" 2>/dev/null || true
+        echo -e "  ${DIM}Preserved config: $VIBE_CONFIG_PATH${NC}"
+      fi
+      if [ -n "$PRESERVED_CONFIG" ]; then
+        rm -f "$PRESERVED_CONFIG"
+      fi
+      echo -e "  ${DIM}Removed $LEGACY_VIBE_HOME after preserving config when present.${NC}"
+      ;;
+  esac
+fi
 echo ""
 
 # Check if already installed

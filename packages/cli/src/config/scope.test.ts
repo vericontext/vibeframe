@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { join, resolve } from "node:path";
 import { rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +7,17 @@ import { createDefaultConfig, type VibeConfig } from "./schema.js";
 
 // Mock homedir → unique tmp dir per test run.
 const TEST_HOME = resolve(tmpdir(), `vibe-scope-home-${Date.now()}`);
+const ORIGINAL_XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME;
+const ORIGINAL_XDG_CACHE_HOME = process.env.XDG_CACHE_HOME;
+const ORIGINAL_XDG_DATA_HOME = process.env.XDG_DATA_HOME;
+const ORIGINAL_VIBEFRAME_CONFIG_HOME = process.env.VIBEFRAME_CONFIG_HOME;
+const ORIGINAL_VIBEFRAME_CACHE_HOME = process.env.VIBEFRAME_CACHE_HOME;
+
+process.env.VIBEFRAME_CONFIG_HOME = resolve(TEST_HOME, ".vibeframe");
+process.env.VIBEFRAME_CACHE_HOME = resolve(TEST_HOME, ".vibeframe", "cache");
+process.env.XDG_CONFIG_HOME = resolve(TEST_HOME, ".config");
+process.env.XDG_CACHE_HOME = resolve(TEST_HOME, ".cache");
+process.env.XDG_DATA_HOME = resolve(TEST_HOME, ".local", "share");
 
 vi.mock("node:os", async () => {
   const actual = await vi.importActual("node:os");
@@ -19,12 +30,27 @@ vi.mock("node:os", async () => {
 const {
   loadConfig,
   saveConfig,
+  findProjectConfigPath,
   getActiveScope,
   USER_CONFIG_DIR,
   USER_CONFIG_PATH,
   getProjectConfigDir,
   getProjectConfigPath,
+  getUserConfigStatus,
 } = await import("./index.js");
+
+afterAll(() => {
+  if (ORIGINAL_XDG_CONFIG_HOME === undefined) delete process.env.XDG_CONFIG_HOME;
+  else process.env.XDG_CONFIG_HOME = ORIGINAL_XDG_CONFIG_HOME;
+  if (ORIGINAL_XDG_CACHE_HOME === undefined) delete process.env.XDG_CACHE_HOME;
+  else process.env.XDG_CACHE_HOME = ORIGINAL_XDG_CACHE_HOME;
+  if (ORIGINAL_XDG_DATA_HOME === undefined) delete process.env.XDG_DATA_HOME;
+  else process.env.XDG_DATA_HOME = ORIGINAL_XDG_DATA_HOME;
+  if (ORIGINAL_VIBEFRAME_CONFIG_HOME === undefined) delete process.env.VIBEFRAME_CONFIG_HOME;
+  else process.env.VIBEFRAME_CONFIG_HOME = ORIGINAL_VIBEFRAME_CONFIG_HOME;
+  if (ORIGINAL_VIBEFRAME_CACHE_HOME === undefined) delete process.env.VIBEFRAME_CACHE_HOME;
+  else process.env.VIBEFRAME_CACHE_HOME = ORIGINAL_VIBEFRAME_CACHE_HOME;
+});
 
 const PROJECT_CWD = resolve(tmpdir(), `vibe-scope-project-${Date.now()}`);
 
@@ -52,6 +78,13 @@ describe("Config scope", () => {
   describe("getActiveScope", () => {
     it("returns 'user' when no project config exists at cwd", async () => {
       expect(await getActiveScope(PROJECT_CWD)).toBe("user");
+    });
+
+    it("does not treat ~/.vibeframe/config.yaml as a parent project config", async () => {
+      await writeUserConfig({ llm: { provider: "claude" } });
+      const nestedCwd = resolve(TEST_HOME, "dev", "project");
+      expect(await getActiveScope(nestedCwd)).toBe("user");
+      expect(await findProjectConfigPath(nestedCwd)).toBeNull();
     });
 
     it("returns 'project' when a project config exists at cwd", async () => {
@@ -163,13 +196,16 @@ describe("Config scope", () => {
   });
 
   describe("saveConfig (scope)", () => {
-    it("default scope is 'user' (back-compat)", async () => {
+    it("default scope is 'user' and writes ~/.vibeframe config", async () => {
       const cfg = createDefaultConfig();
       cfg.llm.provider = "openai";
       await saveConfig(cfg);
 
       const back = await loadConfig({ scope: "user" });
       expect(back?.llm.provider).toBe("openai");
+      const status = await getUserConfigStatus();
+      expect(status.configPath).toBe(USER_CONFIG_PATH);
+      expect(status.source).toBe("user");
 
       const project = await loadConfig({ scope: "project", cwd: PROJECT_CWD });
       expect(project).toBeNull();

@@ -475,6 +475,21 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     );
   }
 
+  if (validationOk && includeAssets && !opts.skipBackdrop) {
+    const generatedBackdrops = beats
+      .map((beat) => beat.assets.backdrop)
+      .filter((asset): asset is AssetPlan => Boolean(asset?.willGenerate));
+    if (generatedBackdrops.length > 0) {
+      const cost = generatedBackdrops.reduce((sum, asset) => sum + asset.estimatedCostUsd, 0);
+      const beatFlag = opts.beat ? ` --beat ${opts.beat}` : "";
+      const skipCommand = `vibe build ${projectDir}${beatFlag} --stage ${stage} --skip-backdrop --json`;
+      warnings.push(
+        `Backdrop image generation will run for ${generatedBackdrops.length} beat(s), estimated $${cost.toFixed(2)}. Use --skip-backdrop for HTML/CSS-derived visuals: ${skipCommand}`
+      );
+      retryWith.push(skipCommand);
+    }
+  }
+
   return finalizeBuildPlan({
     projectDir,
     config,
@@ -626,9 +641,9 @@ function assetPlan(opts: {
         ? "canonical-unknown"
         : canonicalExists
           ? "canonical-exists"
-      : cacheHit
-        ? "content-cache-hit"
-        : "missing";
+          : cacheHit
+            ? "content-cache-hit"
+            : "missing";
   return {
     kind: opts.kind,
     cue: opts.cue,

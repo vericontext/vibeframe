@@ -1,6 +1,6 @@
 /**
  * Smart provider auto-resolution
- * 1. Check ~/.vibeframe/config.yaml defaults (if set)
+ * 1. Check user/project config.yaml defaults (if set)
  * 2. Fall back to first provider with a configured API key
  *
  * Provider candidate lists (image / video / speech) are derived from the

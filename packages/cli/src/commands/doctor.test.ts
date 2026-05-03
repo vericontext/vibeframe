@@ -25,21 +25,26 @@ afterEach(() => {
 });
 
 function runDoctor(cwd = projectDir): { json: ReturnType<typeof JSON.parse>; stderr: string } {
-  const out = execFileSync(
-    process.execPath,
-    [CLI, "doctor", "--json"],
-    {
-      cwd,
-      env: {
-        ...process.env,
-        HOME: fakeHome,
-        PATH: "/usr/bin:/bin",
-        NO_COLOR: "1",
-      },
-      encoding: "utf-8",
-    },
-  );
+  const out = execFileSync(process.execPath, [CLI, "doctor", "--json"], {
+    cwd,
+    env: testEnv({ PATH: "/usr/bin:/bin" }),
+    encoding: "utf-8",
+  });
   return { json: JSON.parse(out), stderr: "" };
+}
+
+function testEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOME: fakeHome,
+    VIBEFRAME_CONFIG_HOME: join(fakeHome, ".vibeframe"),
+    VIBEFRAME_CACHE_HOME: join(fakeHome, ".vibeframe", "cache"),
+    XDG_CONFIG_HOME: join(fakeHome, ".config"),
+    XDG_CACHE_HOME: join(fakeHome, ".cache"),
+    XDG_DATA_HOME: join(fakeHome, ".local", "share"),
+    NO_COLOR: "1",
+    ...extra,
+  };
 }
 
 describe("vibe doctor — scope diagnostics", () => {
@@ -63,7 +68,9 @@ describe("vibe doctor — scope diagnostics", () => {
     const { json } = runDoctor();
     expect(json.data.scope.project.initialized).toBe(true);
 
-    const agents = json.data.scope.project.files.find((f: { path: string }) => f.path === "AGENTS.md");
+    const agents = json.data.scope.project.files.find(
+      (f: { path: string }) => f.path === "AGENTS.md"
+    );
     expect(agents.exists).toBe(true);
   });
 
@@ -73,6 +80,7 @@ describe("vibe doctor — scope diagnostics", () => {
     const { json } = runDoctor();
     expect(json.data.scope.user.configured).toBe(true);
     expect(json.data.scope.user.configPath).toContain(".vibeframe");
+    expect(json.data.scope.user.source).toBe("user");
   });
 
   it("agentHosts.detected is empty in a sterilised environment", () => {
@@ -103,7 +111,10 @@ describe("vibe doctor — scope diagnostics", () => {
 
   it("reports provider keys configured from project config.yaml", () => {
     mkdirSync(join(projectDir, ".vibeframe"));
-    writeFileSync(join(projectDir, ".vibeframe", "config.yaml"), "providers:\n  openai: project-openai\n");
+    writeFileSync(
+      join(projectDir, ".vibeframe", "config.yaml"),
+      "providers:\n  openai: project-openai\n"
+    );
 
     const { json } = runDoctor();
     expect(json.data.providers.openai.configured).toBe(true);
@@ -111,7 +122,10 @@ describe("vibe doctor — scope diagnostics", () => {
 
   it("finds project config from a parent directory when run inside a scene project", () => {
     mkdirSync(join(projectDir, ".vibeframe"));
-    writeFileSync(join(projectDir, ".vibeframe", "config.yaml"), "providers:\n  openai: project-openai\n");
+    writeFileSync(
+      join(projectDir, ".vibeframe", "config.yaml"),
+      "providers:\n  openai: project-openai\n"
+    );
     const sceneDir = join(projectDir, "launch");
     mkdirSync(sceneDir);
     writeFileSync(join(sceneDir, "CLAUDE.md"), "# launch\n");
@@ -143,40 +157,24 @@ describe("vibe doctor — Plan H scene composer readiness", () => {
 
   it("VIBE_BUILD_MODE env override beats host auto-detection", () => {
     mkdirSync(join(fakeHome, ".claude"));
-    const out = execFileSync(
-      process.execPath,
-      [CLI, "doctor", "--json"],
-      {
-        cwd: projectDir,
-        env: {
-          ...process.env,
-          HOME: fakeHome,
-          PATH: "/usr/bin:/bin",
-          NO_COLOR: "1",
-          VIBE_BUILD_MODE: "batch",
-        },
-        encoding: "utf-8",
-      },
-    );
+    const out = execFileSync(process.execPath, [CLI, "doctor", "--json"], {
+      cwd: projectDir,
+      env: testEnv({ PATH: "/usr/bin:/bin", VIBE_BUILD_MODE: "batch" }),
+      encoding: "utf-8",
+    });
     const json = JSON.parse(out);
     expect(json.data.scope.sceneComposer.recommendedMode).toBe("batch");
   });
 
   it("composer=null when no API keys are present", () => {
-    const out = execFileSync(
-      process.execPath,
-      [CLI, "doctor", "--json"],
-      {
-        cwd: projectDir,
-        env: {
-          // Sterilise — drop every composer key so resolveComposer fails cleanly.
-          HOME: fakeHome,
-          PATH: "/usr/bin:/bin",
-          NO_COLOR: "1",
-        },
-        encoding: "utf-8",
-      },
-    );
+    const out = execFileSync(process.execPath, [CLI, "doctor", "--json"], {
+      cwd: projectDir,
+      env: testEnv({
+        // Sterilise — drop every composer key so resolveComposer fails cleanly.
+        PATH: "/usr/bin:/bin",
+      }),
+      encoding: "utf-8",
+    });
     const json = JSON.parse(out);
     expect(json.data.scope.sceneComposer.composer).toBeNull();
     expect(json.data.scope.sceneComposer.composerEnvVar).toBeNull();

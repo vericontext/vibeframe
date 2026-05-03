@@ -4,12 +4,11 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { access } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  CONFIG_PATH,
   findProjectConfigPath,
+  getUserConfigStatus,
   getProjectConfigPath,
   getActiveScope,
   loadConfig,
@@ -58,8 +57,14 @@ const FREE_COMMANDS = [
 export const doctorCommand = new Command("doctor")
   .description("Check system health and available commands")
   .option("--json", "Output in JSON format")
-  .option("-v, --verbose", "Show full report (every provider row, scene composer block, free-command list)")
-  .option("--test-keys", "Make a lightweight authenticated request to each provider (validates configured keys; skips providers without a cheap test endpoint)")
+  .option(
+    "-v, --verbose",
+    "Show full report (every provider row, scene composer block, free-command list)"
+  )
+  .option(
+    "--test-keys",
+    "Make a lightweight authenticated request to each provider (validates configured keys; skips providers without a cheap test endpoint)"
+  )
   .addHelpText(
     "after",
     `
@@ -102,29 +107,33 @@ Examples:
  * `homebrew-ffmpeg/ffmpeg` tap rebuilds with the kitchen sink. Apple's
  * suggestions used to read "brew reinstall ffmpeg" — that does nothing
  * because the formula itself omits the libs. Fixed in v0.79.1. */
-const REQUIRED_FFMPEG_FILTERS: Record<string, { commands: string[]; fix: Record<string, string> }> = {
-  drawtext: {
-    commands: ["edit text-overlay", "edit caption"],
-    fix: {
-      darwin: "brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-freetype (Homebrew core ffmpeg lacks libfreetype)",
-      linux: "sudo apt install ffmpeg (or rebuild with --enable-libfreetype)",
+const REQUIRED_FFMPEG_FILTERS: Record<string, { commands: string[]; fix: Record<string, string> }> =
+  {
+    drawtext: {
+      commands: ["edit text-overlay", "edit caption"],
+      fix: {
+        darwin:
+          "brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-freetype (Homebrew core ffmpeg lacks libfreetype)",
+        linux: "sudo apt install ffmpeg (or rebuild with --enable-libfreetype)",
+      },
     },
-  },
-  subtitles: {
-    commands: ["edit caption"],
-    fix: {
-      darwin: "brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass (Homebrew core ffmpeg lacks libass)",
-      linux: "sudo apt install ffmpeg (or rebuild with --enable-libass)",
+    subtitles: {
+      commands: ["edit caption"],
+      fix: {
+        darwin:
+          "brew tap homebrew-ffmpeg/ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass (Homebrew core ffmpeg lacks libass)",
+        linux: "sudo apt install ffmpeg (or rebuild with --enable-libass)",
+      },
     },
-  },
-  afftdn: {
-    commands: ["edit noise-reduce"],
-    fix: {
-      darwin: "brew install ffmpeg (afftdn ships in the default Homebrew formula; a reinstall is rarely needed)",
-      linux: "sudo apt install ffmpeg (or rebuild with --enable-libfftw3)",
+    afftdn: {
+      commands: ["edit noise-reduce"],
+      fix: {
+        darwin:
+          "brew install ffmpeg (afftdn ships in the default Homebrew formula; a reinstall is rarely needed)",
+        linux: "sudo apt install ffmpeg (or rebuild with --enable-libfftw3)",
+      },
     },
-  },
-};
+  };
 
 /** Optional external tools for advanced commands */
 const OPTIONAL_TOOLS: Record<string, { commands: string[]; install: string }> = {
@@ -169,9 +178,12 @@ interface DiagnosticResults {
      */
     activeScope: Scope;
     user: {
-      /** `~/.vibeframe/config.yaml` exists — `vibe setup` has been run. */
+      /** User-scope config exists at ~/.vibeframe/config.yaml or an override path. */
       configured: boolean;
       configPath: string;
+      writePath: string;
+      legacyConfigPath: string;
+      source: "user" | "legacy" | null;
     };
     project: {
       /** Current working directory. */
@@ -207,10 +219,7 @@ interface DiagnosticResults {
       skillInstalled: boolean;
     };
   };
-  providers: Record<
-    string,
-    { envVar: string; configured: boolean; commands: readonly string[] }
-  >;
+  providers: Record<string, { envVar: string; configured: boolean; commands: readonly string[] }>;
   readyCount: number;
   totalCount: number;
 }
@@ -273,7 +282,15 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
       const chromePaths = [
         process.env.HYPERFRAMES_CHROME_PATH,
         process.env.CHROME_PATH,
-        join(homedir(), ".cache", "puppeteer", "chrome-headless-shell", "mac_arm-147.0.7727.56", "chrome-headless-shell-mac_arm", "chrome-headless-shell"),
+        join(
+          homedir(),
+          ".cache",
+          "puppeteer",
+          "chrome-headless-shell",
+          "mac_arm-147.0.7727.56",
+          "chrome-headless-shell-mac_arm",
+          "chrome-headless-shell"
+        ),
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Chromium.app/Contents/MacOS/Chromium",
         "/usr/bin/google-chrome",
@@ -291,13 +308,8 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
     };
   }
 
-  let configExists = false;
-  try {
-    await access(CONFIG_PATH);
-    configExists = true;
-  } catch {
-    // not configured
-  }
+  const userConfig = await getUserConfigStatus();
+  const configExists = userConfig.configured;
 
   const cwd = process.cwd();
   const activeConfig = await loadConfig({ cwd });
@@ -309,15 +321,14 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
 
   for (const [envVar, commands] of Object.entries(COMMAND_KEY_MAP)) {
     const providerName =
-      Object.entries(PROVIDER_ENV_VARS).find(([, v]) => v === envVar)?.[0] ??
-      envVar;
+      Object.entries(PROVIDER_ENV_VARS).find(([, v]) => v === envVar)?.[0] ?? envVar;
     const configuredInConfig = Boolean(
       activeConfig?.providers[providerName as keyof typeof activeConfig.providers]
     );
     const configured = Boolean(
       process.env[envVar] ||
-        PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean) ||
-        configuredInConfig
+      PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean) ||
+      configuredInConfig
     );
     providers[providerName] = { envVar, configured, commands };
     totalCount += commands.length;
@@ -360,13 +371,23 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   return {
     system: {
       node: { version: nodeVersion, ok: true },
-      ffmpeg: { version: ffmpegVersion, ok: ffmpegExists, ...(ffmpegFilters ? { filters: ffmpegFilters } : {}) },
-      config: { path: CONFIG_PATH, ok: configExists },
+      ffmpeg: {
+        version: ffmpegVersion,
+        ok: ffmpegExists,
+        ...(ffmpegFilters ? { filters: ffmpegFilters } : {}),
+      },
+      config: { path: userConfig.configPath, ok: configExists },
       ...(Object.keys(optionalTools).length > 0 ? { optionalTools } : {}),
     },
     scope: {
       activeScope,
-      user: { configured: configExists, configPath: CONFIG_PATH },
+      user: {
+        configured: configExists,
+        configPath: userConfig.configPath,
+        writePath: userConfig.writePath,
+        legacyConfigPath: userConfig.legacyConfigPath,
+        source: userConfig.source,
+      },
       project: {
         cwd,
         initialized: projectInitialized,
@@ -391,7 +412,7 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
 
 function printReport(
   results: DiagnosticResults,
-  opts: { verbose: boolean; program?: Command | null } = { verbose: false },
+  opts: { verbose: boolean; program?: Command | null } = { verbose: false }
 ): void {
   const { verbose, program } = opts;
   console.log();
@@ -403,11 +424,11 @@ function printReport(
 
   // FFmpeg
   if (results.system.ffmpeg.ok) {
-    console.log(
-      `    FFmpeg     ${results.system.ffmpeg.version}  ${chalk.green("OK")}`
-    );
+    console.log(`    FFmpeg     ${results.system.ffmpeg.version}  ${chalk.green("OK")}`);
   } else {
-    console.log(`    FFmpeg     ${chalk.red("NOT FOUND")}  ${chalk.dim("Install: brew install ffmpeg")}`);
+    console.log(
+      `    FFmpeg     ${chalk.red("NOT FOUND")}  ${chalk.dim("Install: brew install ffmpeg")}`
+    );
   }
 
   // FFmpeg filters
@@ -424,7 +445,9 @@ function printReport(
         }
       }
     } else {
-      console.log(`    Filters    ${chalk.green("OK")}  ${chalk.dim("drawtext, subtitles, afftdn")}`);
+      console.log(
+        `    Filters    ${chalk.green("OK")}  ${chalk.dim("drawtext, subtitles, afftdn")}`
+      );
     }
   }
 
@@ -434,7 +457,9 @@ function printReport(
     if (verbose) {
       for (const [name, info] of tools) {
         if (info.installed) {
-          console.log(`    ${name.padEnd(11)}${chalk.green("OK")}  ${chalk.dim(info.commands.join(", "))}`);
+          console.log(
+            `    ${name.padEnd(11)}${chalk.green("OK")}  ${chalk.dim(info.commands.join(", "))}`
+          );
         } else {
           console.log(
             `    ${name.padEnd(11)}${chalk.yellow("MISSING")}  ${chalk.dim(`needed by: ${info.commands.join(", ")}`)}`
@@ -467,20 +492,26 @@ function printReport(
   const activeMark = chalk.cyan(" ← active");
 
   if (results.scope.user.configured) {
+    const userPath =
+      results.scope.user.source === "legacy"
+        ? `${results.scope.user.configPath} ${chalk.dim(`(legacy; writes ${results.scope.user.writePath})`)}`
+        : results.scope.user.configPath;
     console.log(
-      `    Cfg(user)  ${chalk.green("OK")}       ${chalk.dim(results.scope.user.configPath)}${userActive ? activeMark : ""}`,
+      `    Cfg(user)  ${chalk.green("OK")}       ${chalk.dim(userPath)}${userActive ? activeMark : ""}`
     );
   } else {
-    console.log(`    Cfg(user)  ${chalk.yellow("NOT SET")}  ${chalk.dim("Run: vibe setup")}`);
+    console.log(
+      `    Cfg(user)  ${chalk.yellow("NOT SET")}  ${chalk.dim(`Run: vibe setup  (writes ${results.scope.user.writePath})`)}`
+    );
   }
 
   if (results.scope.project.configFileExists) {
     console.log(
-      `    Cfg(proj)  ${chalk.green("OK")}       ${chalk.dim(results.scope.project.configPath)}${projectActive ? activeMark : ""}`,
+      `    Cfg(proj)  ${chalk.green("OK")}       ${chalk.dim(results.scope.project.configPath)}${projectActive ? activeMark : ""}`
     );
   } else {
     console.log(
-      `    Cfg(proj)  ${chalk.dim("none")}     ${chalk.dim(`Run: vibe setup --scope project  (cwd: ${results.scope.project.cwd})`)}`,
+      `    Cfg(proj)  ${chalk.dim("none")}     ${chalk.dim(`Run: vibe setup --scope project  (cwd: ${results.scope.project.cwd})`)}`
     );
   }
 
@@ -489,7 +520,9 @@ function printReport(
     const present = results.scope.project.files.filter((f) => f.exists).map((f) => f.path);
     console.log(`    Init       ${chalk.green("OK")}       ${chalk.dim(present.join(", "))}`);
   } else {
-    console.log(`    Init       ${chalk.yellow("NOT INIT")} ${chalk.dim(`Run: vibe init  (cwd: ${results.scope.project.cwd})`)}`);
+    console.log(
+      `    Init       ${chalk.yellow("NOT INIT")} ${chalk.dim(`Run: vibe init  (cwd: ${results.scope.project.cwd})`)}`
+    );
   }
 
   // Agent hosts — informational
@@ -500,30 +533,35 @@ function printReport(
     console.log();
     console.log(chalk.bold("  Scene composer (vibe build)"));
     const sc = results.scope.sceneComposer;
-    const modeBadge = sc.recommendedMode === "agent"
-      ? chalk.cyan("agent")
-      : chalk.dim("batch");
-    const modeNote = sc.recommendedMode === "agent"
-      ? chalk.dim("host agent authors HTML; no internal LLM call")
-      : chalk.dim("CLI's internal LLM authors HTML");
+    const modeBadge = sc.recommendedMode === "agent" ? chalk.cyan("agent") : chalk.dim("batch");
+    const modeNote =
+      sc.recommendedMode === "agent"
+        ? chalk.dim("host agent authors HTML; no internal LLM call")
+        : chalk.dim("CLI's internal LLM authors HTML");
     console.log(`    Mode (auto)  ${modeBadge}  ${modeNote}`);
     if (sc.composer) {
       console.log(
-        `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`,
+        `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`
       );
     } else {
       console.log(
-        `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`,
+        `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`
       );
     }
     if (sc.sceneProjectInCwd) {
       if (sc.skillInstalled) {
-        console.log(`    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`);
+        console.log(
+          `    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`
+        );
       } else {
-        console.log(`    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`);
+        console.log(
+          `    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`
+        );
       }
     } else {
-      console.log(`    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`);
+      console.log(
+        `    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`
+      );
     }
   }
 
@@ -566,7 +604,9 @@ function printReport(
       // Compact: one summary line — keeps the "what's missing" signal but
       // doesn't blast 11 rows when the user has only configured 2.
       console.log(
-        chalk.dim(`    ${missing.length} provider${missing.length === 1 ? "" : "s"} unconfigured (${missing.slice(0, 4).join(", ")}${missing.length > 4 ? ", …" : ""}). Run with --verbose to list.`),
+        chalk.dim(
+          `    ${missing.length} provider${missing.length === 1 ? "" : "s"} unconfigured (${missing.slice(0, 4).join(", ")}${missing.length > 4 ? ", …" : ""}). Run with --verbose to list.`
+        )
       );
     }
   }
@@ -589,7 +629,7 @@ function printReport(
   const readyColor = pct >= 80 ? chalk.green : pct >= 40 ? chalk.yellow : chalk.red;
 
   let catalogTotal = 0;
-  let tierCounts: Record<CostTier, number> = { "free": 0, "low": 0, "high": 0, "very-high": 0 };
+  let tierCounts: Record<CostTier, number> = { free: 0, low: 0, high: 0, "very-high": 0 };
   if (program) {
     catalogTotal = countCatalog(program);
     tierCounts = countCostTiers(program);
@@ -598,7 +638,9 @@ function printReport(
 
   console.log(chalk.bold("  Catalog"));
   if (catalogTotal > 0) {
-    console.log(`    Total commands         ${chalk.bold(catalogTotal)} ${chalk.dim("(see: vibe schema --list)")}`);
+    console.log(
+      `    Total commands         ${chalk.bold(catalogTotal)} ${chalk.dim("(see: vibe schema --list)")}`
+    );
   }
   console.log(
     `    Runnable with keys     ${readyColor(`${results.readyCount}/${results.totalCount}`)} ${chalk.dim(`(${pct}%)`)}`
@@ -610,7 +652,9 @@ function printReport(
       `${TIER_COLOR.high(`${tierCounts.high} high`)}`,
       `${TIER_COLOR["very-high"](`${tierCounts["very-high"]} very-high`)}`,
     ];
-    console.log(`    Cost-tagged            ${chalk.bold(taggedTotal)}  ${parts.join(chalk.dim(", "))}`);
+    console.log(
+      `    Cost-tagged            ${chalk.bold(taggedTotal)}  ${parts.join(chalk.dim(", "))}`
+    );
   }
 
   // ── v0.61: scope-aware "what to do next" hint ────────────────────────
@@ -656,9 +700,9 @@ function countCatalog(program: Command): number {
  */
 function countCostTiers(program: Command): Record<CostTier, number> {
   const counts: Record<CostTier, number> = {
-    "free": 0,
-    "low": 0,
-    "high": 0,
+    free: 0,
+    low: 0,
+    high: 0,
     "very-high": 0,
   };
   const walk = (cmd: Command) => {
@@ -678,7 +722,9 @@ function countCostTiers(program: Command): Record<CostTier, number> {
 async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
   console.log();
   console.log(chalk.bold("  Live key tests"));
-  console.log(chalk.dim("    Hits each provider's cheapest authenticated endpoint with a 5s timeout."));
+  console.log(
+    chalk.dim("    Hits each provider's cheapest authenticated endpoint with a 5s timeout.")
+  );
 
   const configured = Object.entries(results.providers).filter(([, info]) => info.configured);
   if (configured.length === 0) {

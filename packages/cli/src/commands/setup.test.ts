@@ -29,28 +29,36 @@ afterEach(() => {
 
 function runSetup(
   args: string[],
-  extraEnv: Record<string, string> = {},
+  extraEnv: Record<string, string> = {}
 ): { stdout: string; stderr: string; configPath: string } {
-  const result = execFileSync(
-    process.execPath,
-    [CLI, "setup", ...args],
-    {
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        HOME: fakeHome,
-        PATH: "/usr/bin:/bin",
-        NO_COLOR: "1",
-        ...extraEnv,
-      },
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
+  const result = execFileSync(process.execPath, [CLI, "setup", ...args], {
+    cwd: projectDir,
+    env: testEnv({ PATH: "/usr/bin:/bin", ...extraEnv }),
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   return {
     stdout: result,
     stderr: "",
-    configPath: join(fakeHome, ".vibeframe", "config.yaml"),
+    configPath: userConfigPath(),
+  };
+}
+
+function userConfigPath(): string {
+  return join(fakeHome, ".vibeframe", "config.yaml");
+}
+
+function testEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOME: fakeHome,
+    VIBEFRAME_CONFIG_HOME: join(fakeHome, ".vibeframe"),
+    VIBEFRAME_CACHE_HOME: join(fakeHome, ".vibeframe", "cache"),
+    XDG_CONFIG_HOME: join(fakeHome, ".config"),
+    XDG_CACHE_HOME: join(fakeHome, ".cache"),
+    XDG_DATA_HOME: join(fakeHome, ".local", "share"),
+    NO_COLOR: "1",
+    ...extra,
   };
 }
 
@@ -125,19 +133,18 @@ describe("vibe setup --yes (non-interactive)", () => {
   it("rejects an invalid --provider value", () => {
     let threw = false;
     try {
-      execFileSync(
-        process.execPath,
-        [CLI, "setup", "--yes", "--provider", "bogus"],
-        {
-          cwd: projectDir,
-          env: { ...process.env, HOME: fakeHome, NO_COLOR: "1" },
-          encoding: "utf-8",
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+      execFileSync(process.execPath, [CLI, "setup", "--yes", "--provider", "bogus"], {
+        cwd: projectDir,
+        env: testEnv(),
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
     } catch (err) {
       threw = true;
-      const msg = (err as { stderr?: string; stdout?: string }).stderr ?? (err as { stdout?: string }).stdout ?? "";
+      const msg =
+        (err as { stderr?: string; stdout?: string }).stderr ??
+        (err as { stdout?: string }).stdout ??
+        "";
       expect(msg).toMatch(/Invalid --provider/);
     }
     expect(threw).toBe(true);
@@ -155,10 +162,7 @@ describe("vibe setup --yes (non-interactive)", () => {
   });
 
   it("--import-env reads .env in cwd", () => {
-    writeFileSync(
-      join(projectDir, ".env"),
-      "ANTHROPIC_API_KEY=sk-ant-from-dotenv\n",
-    );
+    writeFileSync(join(projectDir, ".env"), "ANTHROPIC_API_KEY=sk-ant-from-dotenv\n");
     const { stdout, configPath } = runSetup(["--yes", "--import-env"]);
     expect(stdout).toContain("imported");
     const cfg = parseYaml(readFileSync(configPath, "utf-8"));
@@ -166,22 +170,13 @@ describe("vibe setup --yes (non-interactive)", () => {
   });
 
   it("--import-env warns on unusual key format but still saves", () => {
-    const result = execFileSync(
-      process.execPath,
-      [CLI, "setup", "--yes", "--import-env"],
-      {
-        cwd: projectDir,
-        env: {
-          ...process.env,
-          HOME: fakeHome,
-          NO_COLOR: "1",
-          ANTHROPIC_API_KEY: "totally-not-the-right-prefix",
-        },
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    const configPath = join(fakeHome, ".vibeframe", "config.yaml");
+    const result = execFileSync(process.execPath, [CLI, "setup", "--yes", "--import-env"], {
+      cwd: projectDir,
+      env: testEnv({ ANTHROPIC_API_KEY: "totally-not-the-right-prefix" }),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const configPath = userConfigPath();
     const cfg = parseYaml(readFileSync(configPath, "utf-8"));
     expect(cfg.providers.anthropic).toBe("totally-not-the-right-prefix");
     // The warning is on stderr; execFileSync collects it via stdio[2].
@@ -197,25 +192,22 @@ describe("vibe setup --yes (non-interactive)", () => {
 });
 
 describe("vibe setup --scope project", () => {
-  it("writes to ./.vibeframe/config.yaml, not ~/.vibeframe/config.yaml", () => {
+  it("writes to ./.vibeframe/config.yaml, not user-scope config", () => {
     const { stdout } = runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
     expect(stdout).toContain("project scope");
 
     const projectConfigPath = join(projectDir, ".vibeframe", "config.yaml");
-    const userConfigPath = join(fakeHome, ".vibeframe", "config.yaml");
+    const userPath = userConfigPath();
 
     expect(existsSync(projectConfigPath)).toBe(true);
-    expect(existsSync(userConfigPath)).toBe(false);
+    expect(existsSync(userPath)).toBe(false);
 
     const cfg = parseYaml(readFileSync(projectConfigPath, "utf-8"));
     expect(cfg.llm.provider).toBe("openai");
   });
 
   it("project-scope --import-env reads .env from cwd", () => {
-    writeFileSync(
-      join(projectDir, ".env"),
-      "ANTHROPIC_API_KEY=sk-ant-project\n",
-    );
+    writeFileSync(join(projectDir, ".env"), "ANTHROPIC_API_KEY=sk-ant-project\n");
     runSetup(["--yes", "--scope", "project", "--import-env"]);
 
     const projectConfigPath = join(projectDir, ".vibeframe", "config.yaml");
@@ -226,19 +218,18 @@ describe("vibe setup --scope project", () => {
   it("rejects an invalid --scope value", () => {
     let threw = false;
     try {
-      execFileSync(
-        process.execPath,
-        [CLI, "setup", "--yes", "--scope", "global"],
-        {
-          cwd: projectDir,
-          env: { ...process.env, HOME: fakeHome, NO_COLOR: "1" },
-          encoding: "utf-8",
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+      execFileSync(process.execPath, [CLI, "setup", "--yes", "--scope", "global"], {
+        cwd: projectDir,
+        env: testEnv(),
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
     } catch (err) {
       threw = true;
-      const msg = (err as { stderr?: string; stdout?: string }).stderr ?? (err as { stdout?: string }).stdout ?? "";
+      const msg =
+        (err as { stderr?: string; stdout?: string }).stderr ??
+        (err as { stdout?: string }).stdout ??
+        "";
       expect(msg).toMatch(/Invalid --scope/);
     }
     expect(threw).toBe(true);
@@ -248,7 +239,7 @@ describe("vibe setup --scope project", () => {
     runSetup(["--yes", "--provider", "claude"]);
     runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
 
-    const userCfg = parseYaml(readFileSync(join(fakeHome, ".vibeframe", "config.yaml"), "utf-8"));
+    const userCfg = parseYaml(readFileSync(userConfigPath(), "utf-8"));
     const projCfg = parseYaml(readFileSync(join(projectDir, ".vibeframe", "config.yaml"), "utf-8"));
 
     expect(userCfg.llm.provider).toBe("claude");

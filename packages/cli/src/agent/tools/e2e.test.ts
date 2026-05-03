@@ -51,11 +51,7 @@ function checkApiKey(keyName: string): boolean {
 
   // Check config file
   try {
-    const configPath = resolve(
-      process.env.HOME || "~",
-      ".vibeframe",
-      "config.yaml"
-    );
+    const configPath = resolve(process.env.HOME || "~", ".vibeframe", "config.yaml");
     if (existsSync(configPath)) {
       const content = execSync(`cat "${configPath}"`, { encoding: "utf-8" });
       const keyMapping: Record<string, string> = {

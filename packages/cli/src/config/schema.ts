@@ -1,6 +1,6 @@
 /**
  * Configuration schema for VibeFrame CLI
- * Stored at ~/.vibeframe/config.yaml
+ * Stored at ~/.vibeframe/config.yaml by default.
  */
 
 export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai" | "openrouter";

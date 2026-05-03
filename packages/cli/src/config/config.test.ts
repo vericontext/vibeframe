@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { resolve } from "node:path";
 import { rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,6 +11,17 @@ import {
 
 // Mock homedir for tests
 const TEST_HOME = resolve(tmpdir(), `vibe-config-test-${Date.now()}`);
+const ORIGINAL_XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME;
+const ORIGINAL_XDG_CACHE_HOME = process.env.XDG_CACHE_HOME;
+const ORIGINAL_XDG_DATA_HOME = process.env.XDG_DATA_HOME;
+const ORIGINAL_VIBEFRAME_CONFIG_HOME = process.env.VIBEFRAME_CONFIG_HOME;
+const ORIGINAL_VIBEFRAME_CACHE_HOME = process.env.VIBEFRAME_CACHE_HOME;
+
+process.env.VIBEFRAME_CONFIG_HOME = resolve(TEST_HOME, ".vibeframe");
+process.env.VIBEFRAME_CACHE_HOME = resolve(TEST_HOME, ".vibeframe", "cache");
+process.env.XDG_CONFIG_HOME = resolve(TEST_HOME, ".config");
+process.env.XDG_CACHE_HOME = resolve(TEST_HOME, ".cache");
+process.env.XDG_DATA_HOME = resolve(TEST_HOME, ".local", "share");
 
 vi.mock("node:os", async () => {
   const actual = await vi.importActual("node:os");
@@ -23,6 +34,19 @@ vi.mock("node:os", async () => {
 // Import after mock
 const { loadConfig, saveConfig, isConfigured, CONFIG_DIR, CONFIG_PATH } =
   await import("./index.js");
+
+afterAll(() => {
+  if (ORIGINAL_XDG_CONFIG_HOME === undefined) delete process.env.XDG_CONFIG_HOME;
+  else process.env.XDG_CONFIG_HOME = ORIGINAL_XDG_CONFIG_HOME;
+  if (ORIGINAL_XDG_CACHE_HOME === undefined) delete process.env.XDG_CACHE_HOME;
+  else process.env.XDG_CACHE_HOME = ORIGINAL_XDG_CACHE_HOME;
+  if (ORIGINAL_XDG_DATA_HOME === undefined) delete process.env.XDG_DATA_HOME;
+  else process.env.XDG_DATA_HOME = ORIGINAL_XDG_DATA_HOME;
+  if (ORIGINAL_VIBEFRAME_CONFIG_HOME === undefined) delete process.env.VIBEFRAME_CONFIG_HOME;
+  else process.env.VIBEFRAME_CONFIG_HOME = ORIGINAL_VIBEFRAME_CONFIG_HOME;
+  if (ORIGINAL_VIBEFRAME_CACHE_HOME === undefined) delete process.env.VIBEFRAME_CACHE_HOME;
+  else process.env.VIBEFRAME_CACHE_HOME = ORIGINAL_VIBEFRAME_CACHE_HOME;
+});
 
 describe("Config Schema", () => {
   describe("createDefaultConfig", () => {
@@ -84,7 +108,7 @@ describe("Config Loader", () => {
 
   describe("loadConfig", () => {
     it("returns null when config does not exist", async () => {
-      const config = await loadConfig();
+      const config = await loadConfig({ cwd: TEST_HOME });
       expect(config).toBeNull();
     });
 
@@ -104,7 +128,7 @@ describe("Config Loader", () => {
       const { stringify } = await import("yaml");
       await fsWrite(CONFIG_PATH, stringify(testConfig), "utf-8");
 
-      const loaded = await loadConfig();
+      const loaded = await loadConfig({ cwd: TEST_HOME });
       expect(loaded).not.toBeNull();
       expect(loaded?.llm.provider).toBe("openai");
       expect(loaded?.providers.openai).toBe("test-key");
@@ -126,7 +150,7 @@ describe("Config Loader", () => {
       const { stringify } = await import("yaml");
       await fsWrite(CONFIG_PATH, stringify(partialConfig), "utf-8");
 
-      const loaded = await loadConfig();
+      const loaded = await loadConfig({ cwd: TEST_HOME });
       expect(loaded?.llm.provider).toBe("gemini");
       expect(loaded?.defaults.aspectRatio).toBe("16:9"); // Default
       expect(loaded?.repl.autoSave).toBe(true); // Default
@@ -155,14 +179,14 @@ describe("Config Loader", () => {
       config2.llm.provider = "gemini";
       await saveConfig(config2);
 
-      const loaded = await loadConfig();
+      const loaded = await loadConfig({ cwd: TEST_HOME });
       expect(loaded?.llm.provider).toBe("gemini");
     });
   });
 
   describe("isConfigured", () => {
     it("returns false when no config exists", async () => {
-      const configured = await isConfigured();
+      const configured = await isConfigured({ cwd: TEST_HOME });
       expect(configured).toBe(false);
     });
 
@@ -170,7 +194,7 @@ describe("Config Loader", () => {
       const config = createDefaultConfig();
       await saveConfig(config);
 
-      const configured = await isConfigured();
+      const configured = await isConfigured({ cwd: TEST_HOME });
       expect(configured).toBe(false);
     });
 
@@ -180,7 +204,7 @@ describe("Config Loader", () => {
       config.providers.anthropic = "test-key";
       await saveConfig(config);
 
-      const configured = await isConfigured();
+      const configured = await isConfigured({ cwd: TEST_HOME });
       expect(configured).toBe(true);
     });
 
@@ -192,7 +216,7 @@ describe("Config Loader", () => {
       // Set environment variable
       process.env.OPENAI_API_KEY = "test-env-key";
 
-      const configured = await isConfigured();
+      const configured = await isConfigured({ cwd: TEST_HOME });
       expect(configured).toBe(true);
 
       // Clean up

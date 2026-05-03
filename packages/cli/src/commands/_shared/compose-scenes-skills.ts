@@ -6,7 +6,7 @@
  *
  *   1. Compute a sha256 cache key over (skill-bundle hash, DESIGN.md,
  *      storyboard global direction, beat body, model id, retry-feedback).
- *   2. Read `~/.vibeframe/cache/compose-scenes/<key>.html` if present.
+ *   2. Read the user cache's `compose-scenes/<key>.html` if present.
  *   3. Otherwise call Claude Sonnet 4.6 with the skill bundle as system
  *      prompt and the beat as user prompt; parse HTML out of a fenced
  *      code block; persist to cache.
@@ -31,8 +31,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { USER_CACHE_DIR } from "../../config/index.js";
 
 import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframes/producer";
 
@@ -354,7 +354,7 @@ export function computeCacheKey(parts: {
 
 /** Default cache root: `~/.vibeframe/cache/compose-scenes/`. */
 export function defaultCacheDir(): string {
-  return join(homedir(), ".vibeframe", "cache", "compose-scenes");
+  return join(USER_CACHE_DIR, "compose-scenes");
 }
 
 // ── HTML extraction ─────────────────────────────────────────────────────

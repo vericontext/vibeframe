@@ -168,7 +168,7 @@ describe("computeCacheKey", () => {
 });
 
 describe("defaultCacheDir", () => {
-  it("returns ~/.vibeframe/cache/compose-scenes/", () => {
+  it("returns the user cache compose-scenes directory", () => {
     const d = defaultCacheDir();
     expect(d).toMatch(/\.vibeframe\/cache\/compose-scenes$/);
   });

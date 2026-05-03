@@ -6,12 +6,12 @@
 import { access, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import chalk from "chalk";
-import { CONFIG_PATH } from "../config/index.js";
+import { USER_CONFIG_DIR, loadConfig } from "../config/index.js";
 import { PROVIDER_ENV_VARS } from "../config/schema.js";
 import { loadEnv } from "./api-key.js";
 
 /** Marker file to track if banner has been shown */
-const BANNER_SHOWN_PATH = CONFIG_PATH.replace(/config\.yaml$/, ".banner-shown");
+const BANNER_SHOWN_PATH = `${USER_CONFIG_DIR}/.banner-shown`;
 
 /**
  * Check if this is the user's first run (no config and no env vars set)
@@ -25,13 +25,8 @@ export async function isFirstRun(): Promise<boolean> {
     // Banner not shown yet
   }
 
-  // Check if config file exists
-  try {
-    await access(CONFIG_PATH);
-    return false;
-  } catch {
-    // Config doesn't exist, check env vars
-  }
+  // Check if user config exists, including the legacy ~/.vibeframe fallback.
+  if (await loadConfig({ scope: "user" })) return false;
 
   // Load .env files
   loadEnv();
@@ -66,12 +61,16 @@ export function showFirstRunBanner(): void {
   console.log(chalk.cyan.bold("  Welcome to VibeFrame!"));
   console.log(chalk.dim("  AI-native video editing from your terminal."));
   console.log();
-  console.log(`  ${chalk.white("1.")} ${chalk.green("vibe setup")}         Configure API keys ${chalk.dim("(1 min)")}`);
+  console.log(
+    `  ${chalk.white("1.")} ${chalk.green("vibe setup")}         Configure API keys ${chalk.dim("(1 min)")}`
+  );
   console.log(`  ${chalk.white("2.")} ${chalk.green("vibe doctor")}        Check system health`);
   console.log(`  ${chalk.white("3.")} ${chalk.green("vibe --help")}        See all commands`);
   console.log();
   console.log(chalk.dim("  Try without keys:"));
-  console.log(`    ${chalk.green("vibe demo")}                          Run sample edits on a test video`);
+  console.log(
+    `    ${chalk.green("vibe demo")}                          Run sample edits on a test video`
+  );
   console.log(chalk.dim("    vibe edit silence-cut video.mp4 -o clean.mp4"));
   console.log(chalk.dim("    vibe detect scenes video.mp4"));
   console.log();
