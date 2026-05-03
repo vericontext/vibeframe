@@ -26,6 +26,7 @@ import {
   assetMetadataPath,
   type AssetFreshness,
 } from "./build-asset-metadata.js";
+import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { composerEnvVar, isComposerProvider, type ComposerProvider } from "./composer-resolve.js";
 import { parseStoryboard, type ParsedStoryboard } from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
@@ -253,6 +254,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const voice = stringOrUndefined(cue.voice) ?? resolved.voice;
     const narrationText = stringOrUndefined(cue.narration);
     const backdropPrompt = stringOrUndefined(cue.backdrop);
+    const augmentedBackdropPrompt = backdropPrompt ? augmentBackdropPrompt(backdropPrompt) : null;
     const videoPrompt = stringOrUndefined(cue.video);
     const musicPrompt = stringOrUndefined(cue.music);
     const genericReference = resolveGenericAssetReference(projectDir, cue.asset);
@@ -283,10 +285,10 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const backdropCache =
-      backdropPrompt && !backdropReference
+      augmentedBackdropPrompt && !backdropReference
         ? backdropCacheDescriptor({
             beatId: beat.id,
-            cue: backdropPrompt,
+            cue: augmentedBackdropPrompt,
             provider: resolved.image.resolved,
             quality: imageQuality,
             size: imageSize,

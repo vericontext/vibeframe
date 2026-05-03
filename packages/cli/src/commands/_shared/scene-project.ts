@@ -288,7 +288,7 @@ YAML cues that drive narration, backdrop generation, and timing.
 
 \`\`\`yaml
 narration: "Introduce the promise in one crisp sentence."
-backdrop: "Cinematic abstract technology backdrop, precise light, premium editorial feel"
+backdrop: "Topic-aligned editorial background plate, abstract visual system, no readable text, no logos, no consumer products, clean negative space for HTML overlays"
 duration: 4
 \`\`\`
 
@@ -299,7 +299,7 @@ screen and one spoken breath.
 
 \`\`\`yaml
 narration: "Show the mechanism or proof point that makes the promise believable."
-backdrop: "Layered interface details, subtle motion trails, high-contrast product storytelling"
+backdrop: "Topic-aligned analytical background plate, abstract dashboard structure, no readable text, no product photos, no shoes, no unrelated objects"
 duration: 4
 \`\`\`
 
@@ -310,7 +310,7 @@ before/after.
 
 \`\`\`yaml
 narration: "Close with the action the viewer should remember."
-backdrop: "Resolved hero frame, confident final composition, clean negative space"
+backdrop: "Resolved editorial background plate, confident final composition, clean negative space, no readable text, no logos, no unrelated products"
 duration: 4
 \`\`\`
 
@@ -445,7 +445,11 @@ npx hyperframes render
    \`\`\`
 4. Videos use \`muted\` with a separate \`<audio>\` element for the audio track.
 5. Sub-compositions use \`data-composition-src="compositions/file.html"\`.
-6. Only deterministic logic — no \`Date.now()\`, \`Math.random()\`, or network fetches.
+6. For render-stable text, do not apply continuous \`scale\`, \`x\`, \`y\`, or
+   \`filter\` tweens to \`.scene-content\` or any ancestor containing live text.
+   Animate background/media layers instead; text/cards should enter briefly and
+   then hold still at their final CSS positions.
+7. Only deterministic logic — no \`Date.now()\`, \`Math.random()\`, or network fetches.
 
 ## Linting — run after changes
 

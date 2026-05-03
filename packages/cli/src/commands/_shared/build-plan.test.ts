@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 import { createBuildPlan } from "./build-plan.js";
+import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { backdropCacheDescriptor, narrationCacheDescriptor } from "./build-cache.js";
 import { writeAssetMetadata } from "./build-asset-metadata.js";
 import { projectConfigJson } from "./project-config.js";
@@ -183,7 +184,7 @@ describe("createBuildPlan", () => {
     });
     const backdropCache = backdropCacheDescriptor({
       beatId: "hook",
-      cue: "Clean product frame.",
+      cue: augmentBackdropPrompt("Clean product frame."),
       provider: "openai",
       quality: "hd",
       size: "1536x1024",
@@ -378,7 +379,7 @@ backdrop: "../outside.png"
     const dir = await makeProject();
     const backdropCache = backdropCacheDescriptor({
       beatId: "hook",
-      cue: "Clean product frame.",
+      cue: augmentBackdropPrompt("Clean product frame."),
       provider: "openai",
       quality: "hd",
       size: "1536x1024",

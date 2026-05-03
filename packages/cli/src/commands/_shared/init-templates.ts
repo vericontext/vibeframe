@@ -194,6 +194,12 @@ principles, type system, and visual-identity hard-gate. The same skill
 governs \`vibe scene lint\` so your authored HTML and the linter stay in
 agreement.
 
+For render-stable text, do not apply continuous \`scale\`, \`x\`, \`y\`,
+\`filter\`, or other transform tweens to \`.scene-content\` or any ancestor
+containing live text/cards. Put ambient zoom/parallax on background or media
+layers only; text should enter briefly and then hold still at its final CSS
+position.
+
 To retro-install on a project scaffolded before this command existed, run
 \`vibe scene install-skill [--host all]\`.
 

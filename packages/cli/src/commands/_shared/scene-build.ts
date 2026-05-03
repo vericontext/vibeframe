@@ -70,6 +70,7 @@ import {
   writeAssetMetadata,
   type AssetFreshness,
 } from "./build-asset-metadata.js";
+import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { executeVideoGenerate } from "../ai-video.js";
 import { executeMusic } from "../generate/music.js";
 import { createAndWriteJobRecord, type JobRecord } from "./status-jobs.js";
@@ -1233,8 +1234,9 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
   const reference = assetReferenceForBeat(ctx.projectDir, "backdrop", beat);
   if (reference) return referencePrimitiveOutcome("backdrop", beat, ctx, reference);
 
-  const prompt = stringOrUndefined(beat.cues?.backdrop);
-  if (!prompt) return { status: "no-cue" };
+  const cue = stringOrUndefined(beat.cues?.backdrop);
+  if (!cue) return { status: "no-cue" };
+  const prompt = augmentBackdropPrompt(cue);
 
   const rel = `assets/backdrop-${beat.id}.png`;
   const abs = join(ctx.projectDir, rel);

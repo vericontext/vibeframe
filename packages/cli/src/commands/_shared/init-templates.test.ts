@@ -56,6 +56,13 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("data.scope.project.configPath");
     expect(AGENTS_MD).toContain("Do not switch to a host agent's built-in image/audio generation tool");
   });
+
+  it("warns agents not to animate text-containing containers continuously", () => {
+    expect(AGENTS_MD).toContain("render-stable text");
+    expect(AGENTS_MD).toContain("do not apply continuous");
+    expect(AGENTS_MD).toContain(".scene-content");
+    expect(AGENTS_MD).toContain("background or media");
+  });
 });
 
 describe("CLAUDE_MD template", () => {

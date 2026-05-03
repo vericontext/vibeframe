@@ -219,13 +219,18 @@ Requirements (non-negotiable):
   producer's seek lands past the timeline's natural end and visibility state
   goes stale — the hold phase renders BLACK. Anchor the timeline to the full
   beat duration via either:
-    1. A subtle idle motion spanning 0→duration on a parent element, e.g.
-       \`tl.fromTo(".scene-content", { scale: 1.0 }, { scale: 1.015, duration: <beat>, ease: "none" }, 0);\`
+    1. A subtle idle motion spanning 0→duration on a background/media layer,
+       e.g. \`tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: <beat>, ease: "none" }, 0);\`
        (Ken-Burns, breathing opacity, gradient drift — should be barely
        perceptible so it doesn't compete with entry/exit beats).
     2. OR an explicit \`tl.set(target, { ...natural state... }, <beat - 0.001>)\`
        anchor at the end.
   This is the #2 source of "text disappears mid-beat" bugs after \`.clip\` sizing.
+- Do not apply continuous \`scale\`, \`x\`, \`y\`, \`filter\`, or other transform
+  tweens to \`.scene-content\` or any ancestor that contains live text/cards.
+  Animate the backdrop/media plane instead; let text enter briefly, then hold
+  still at its final CSS position. Continuous transforms on text ancestors can
+  create subpixel shimmer in screenshot-captured renders.
 - Timed children inside the composition have \`class="clip"\` plus
   \`data-start\`, \`data-duration\`, \`data-track-index\`.
 - If \`assets/backdrop-${ctx.beat.id}.png\` exists, use that local file as the
@@ -295,7 +300,9 @@ Reference shape (verbatim — match this skeleton exactly, no DOCTYPE / html / b
       const tl = gsap.timeline({ paused: true });
       // Idle motion spanning full beat duration — required to keep timeline
       // length aligned with data-duration (otherwise hold phase goes black).
-      tl.fromTo(".scene-content", { scale: 1.0 }, { scale: 1.015, duration: <sec>, ease: "none" }, 0);
+      // Keep continuous motion on the background/media layer so live text does
+      // not shimmer from subpixel resampling.
+      tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: <sec>, ease: "none" }, 0);
       // entry tweens
       window.__timelines["${compositionId}"] = tl;
     </script>

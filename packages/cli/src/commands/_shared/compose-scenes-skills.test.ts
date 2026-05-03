@@ -90,6 +90,14 @@ describe("buildUserPrompt", () => {
     expect(u).toContain("scene-1-template");
   });
 
+  it("keeps continuous idle motion off text-containing scene-content", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "" });
+    expect(u).toContain("Animate the backdrop/media plane instead");
+    expect(u).toContain("subpixel shimmer");
+    expect(u).toContain('tl.fromTo(".backdrop"');
+    expect(u).not.toContain('tl.fromTo(".scene-content", { scale');
+  });
+
   it("emits placeholder when global direction is empty", () => {
     const u = buildUserPrompt({ beat, storyboardGlobal: "" });
     expect(u).toContain("(no global direction)");

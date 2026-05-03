@@ -78,7 +78,7 @@ function fourBeatDraft(opts: {
         : `${opts.product} starts with one clear promise.`,
       backdrop: scenic
         ? `misty mountain ridge at sunrise, golden light, fog layers, cinematic ${opts.theme}`
-        : `polished opening frame for ${opts.product}, ${opts.theme}, clear hero subject`,
+        : `topic-aligned editorial background plate for ${opts.product}, ${opts.theme}, no readable text, no logos, no unrelated consumer products, clean negative space for HTML overlays`,
       motion: scenic
         ? "quiet title reveal, soft parallax, slow camera drift"
         : "large readable headline, restrained camera push, immediate value reveal",
@@ -95,7 +95,7 @@ function fourBeatDraft(opts: {
         : "The proof appears when each step is visible.",
       backdrop: scenic
         ? "ridge trail emerging through fog, warm sunrise edge light, high contrast"
-        : `concrete proof frame for ${opts.product}, visible workflow, before and after contrast`,
+        : `topic-aligned proof background plate for ${opts.product}, abstract workflow structure, no readable text, no product photos, no shoes, no unrelated objects`,
       motion: scenic
         ? "thin line traces the path, small labels fade in"
         : "interface panels or proof points slide into place with precise transitions",
@@ -119,7 +119,7 @@ function fourBeatDraft(opts: {
         : `${opts.product} is ready to show.`,
       backdrop: scenic
         ? "wide mountain ridge at peak golden hour, valley filled with warm light"
-        : `resolved final frame for ${opts.product}, clean negative space, confident lockup`,
+        : `resolved editorial background plate for ${opts.product}, clean negative space, confident lockup, no readable text, no logos, no unrelated products`,
       motion: "clean final title, slow settling motion, gentle fade to the final frame",
       body: "End with a quiet branded title and no new idea.",
     },
@@ -138,7 +138,7 @@ function threeBeatDraft(opts: {
       title: "Hook",
       duration: opts.durations[0],
       narration: `${opts.product} starts with one clear promise.`,
-      backdrop: `polished opening frame for ${opts.product}, ${opts.theme}, clear hero subject`,
+      backdrop: `topic-aligned editorial background plate for ${opts.product}, ${opts.theme}, no readable text, no logos, no unrelated consumer products, clean negative space for HTML overlays`,
       motion: "large readable headline, restrained camera push, immediate value reveal",
       body: "Make the value obvious in one beat.",
     },
@@ -147,7 +147,7 @@ function threeBeatDraft(opts: {
       title: "Proof",
       duration: opts.durations[1],
       narration: "The proof appears when each step is visible.",
-      backdrop: `concrete proof frame for ${opts.product}, visible workflow, before and after contrast`,
+      backdrop: `topic-aligned proof background plate for ${opts.product}, abstract workflow structure, no readable text, no product photos, no shoes, no unrelated objects`,
       motion: "layered panels, highlighted cause and effect, precise transitions",
       body: "Show the mechanism, metric, or before/after that makes the promise believable.",
     },
@@ -156,7 +156,7 @@ function threeBeatDraft(opts: {
       title: "Close",
       duration: opts.durations[2],
       narration: `${opts.product} is ready to show.`,
-      backdrop: `resolved final frame for ${opts.product}, clean negative space, confident lockup`,
+      backdrop: `resolved editorial background plate for ${opts.product}, clean negative space, confident lockup, no readable text, no logos, no unrelated products`,
       motion: "clean final title, subtle parallax, gentle fade to the final frame",
       body: "End on the product name, offer, command, or memorable final line.",
     },

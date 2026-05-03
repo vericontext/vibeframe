@@ -143,6 +143,14 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("data.scope.project.configPath");
     expect(md).toContain("host agent's built-in image/audio generation tool");
   });
+
+  it("guides scene agents away from continuous transforms on live text", () => {
+    const md = buildProjectAgentsMd("my-promo");
+    expect(md).toContain("render-stable text");
+    expect(md).toContain("do not apply continuous");
+    expect(md).toContain(".scene-content");
+    expect(md).toContain("Animate background/media layers instead");
+  });
 });
 
 describe("buildProjectClaudeMd", () => {
@@ -165,6 +173,9 @@ describe("buildStoryboardMd", () => {
     expect(md).toContain("narration:");
     expect(md).toContain("backdrop:");
     expect(md).toContain("duration:");
+    expect(md).toContain("background plate");
+    expect(md).toContain("no readable text");
+    expect(md).toContain("no product photos");
   });
 });
 
