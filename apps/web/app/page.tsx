@@ -14,9 +14,9 @@ import {
   Wand2,
   Film,
   Code2,
-  Video,
 } from "lucide-react";
 import { ThemeToggle } from "../components/theme-toggle";
+import { DemoShowcase } from "../components/demo-showcase";
 
 export default function LandingPage() {
   return (
@@ -105,8 +105,12 @@ export default function LandingPage() {
                 <code className="text-muted-foreground">
                   # Draft, validate, cost, build, inspect, render{"\n"}
                 </code>
+                <code className="text-foreground">vibe setup --scope project{"\n"}</code>
                 <code className="text-foreground">
                   vibe init launch --from brief.md --json{"\n"}
+                </code>
+                <code className="text-muted-foreground">
+                  # Agent researches the topic, then edits STORYBOARD.md + DESIGN.md{"\n"}
                 </code>
                 <code className="text-foreground">
                   vibe storyboard validate launch --json{"\n"}
@@ -183,25 +187,47 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Storyboard recording placeholder — actual demo is being re-cut. */}
+      {/* Demo pair */}
       <section className="py-20 px-4 border-t border-border/50 relative">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
-              <Video className="w-4 h-4" />
-              <span>Storyboard-to-video recording · coming soon</span>
+              <Film className="w-4 h-4" />
+              <span>Process and result</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Brief to reviewed MP4</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              The next recording will show the full project loop: draft the storyboard, dry-run the
-              cost, build scenes, inspect reports, repair, and render from one agent session.
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              From project setup to shareable video.
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
+              A coding agent researches the topic, edits <code>STORYBOARD.md</code> and{" "}
+              <code>DESIGN.md</code>, tightens image-generation cues, runs the build, then reviews
+              the final MP4. The same CLI also exposes direct image/video generation and edit/remix
+              tools when you only need one asset or one media edit.
             </p>
           </div>
-          <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 mx-auto max-w-4xl aspect-video flex flex-col items-center justify-center gap-3">
-            <Video className="w-10 h-10 text-muted-foreground/60" />
-            <p className="text-muted-foreground text-sm">
-              Storyboard project recording coming soon.
-            </p>
+
+          <DemoShowcase />
+
+          <div className="mt-8 grid md:grid-cols-3 gap-3 text-sm">
+            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
+              <div className="font-mono font-semibold text-foreground">BUILD</div>
+              <p className="mt-2 text-muted-foreground">
+                Start from intent: setup, init, storyboard/design, generated assets, composition,
+                render.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
+              <div className="font-mono font-semibold text-foreground">GENERATE</div>
+              <p className="mt-2 text-muted-foreground">
+                Ask for one standalone image, video, narration, music, or motion asset.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
+              <div className="font-mono font-semibold text-foreground">EDIT / REMIX</div>
+              <p className="mt-2 text-muted-foreground">
+                Change an existing video: captions, reframe, highlights, overlays, BGM, cleanup.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -223,7 +249,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
               <div className="text-xs text-muted-foreground mb-2">1. Install · global</div>
               <code className="font-mono text-xs text-foreground block break-all">
@@ -234,9 +260,19 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">2. Draft · project files</div>
+              <div className="text-xs text-muted-foreground mb-2">2. Configure · project keys</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe init my-video --from brief.md --json
+                vibe setup --scope project
+              </code>
+              <p className="text-xs text-muted-foreground mt-3">
+                Writes <code className="text-primary">./.vibeframe/config.yaml</code> for this
+                workspace.
+              </p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">3. Draft · project files</div>
+              <code className="font-mono text-xs text-foreground block break-all">
+                vibe init launch --from brief.md --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
                 Creates <code className="text-primary">STORYBOARD.md</code>,{" "}
@@ -244,19 +280,19 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Plan · cost gate</div>
+              <div className="text-xs text-muted-foreground mb-2">4. Plan · cost gate</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe build my-video --dry-run --max-cost 5 --json
+                vibe build launch --dry-run --max-cost 5 --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
                 Shows missing cues, provider needs, estimated cost, and planned assets.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Build · review · render</div>
+              <div className="text-xs text-muted-foreground mb-2">5. Build · review · render</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe build my-video --json && vibe render my-video --json && vibe inspect render
-                my-video --cheap --json
+                vibe build launch --json && vibe render launch --json && vibe inspect render launch
+                --cheap --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
                 Writes reports agents can inspect, repair, and re-render.

@@ -1,8 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Terminal, Github, ArrowRight, Video, FileText, ClipboardList, Hammer } from "lucide-react";
 import { ThemeToggle } from "../../components/theme-toggle";
+import { DemoShowcase } from "../../components/demo-showcase";
 
 export default function DemoPage() {
   return (
@@ -45,19 +47,27 @@ export default function DemoPage() {
 
       {/* Storyboard project loop. */}
       <section className="pt-32 pb-12 px-4">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-6 animate-fade-in">
               <Video className="w-4 h-4" />
-              <span>North-star workflow</span>
+              <span>Agentic storyboard demo</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-              The storyboard
+              From setup
               <br />
-              <span className="text-primary">project loop.</span>
+              <span className="text-primary">to final MP4.</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in-up delay-100">
-              A host agent drafts{" "}
+              The demo starts with{" "}
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
+                vibe setup --scope project
+              </code>
+              , runs{" "}
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
+                vibe init launch
+              </code>
+              , then a host agent researches a topic and edits{" "}
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
                 STORYBOARD.md
               </code>{" "}
@@ -65,68 +75,76 @@ export default function DemoPage() {
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
                 DESIGN.md
               </code>
-              , dry-runs the build, generates assets, inspects reports, repairs deterministic
-              issues, and renders the final MP4.
+              , including image-generation cues, before building and reviewing the final render.
             </p>
+          </div>
+
+          <div className="mb-10 animate-fade-in-up delay-150">
+            <DemoShowcase />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 animate-fade-in-up delay-200">
             <CommandCard
               icon={<FileText className="w-5 h-5" />}
-              title="Draft Project"
-              command="vibe init launch --from brief.md --json"
+              title="Configure and Draft"
+              command="vibe setup --scope project && vibe init launch --from brief.md --json"
               color="from-blue-500 to-cyan-500"
             />
             <CommandCard
               icon={<ClipboardList className="w-5 h-5" />}
-              title="Validate and Plan"
-              command="vibe storyboard validate launch --json && vibe plan launch --json"
+              title="Research and Update Files"
+              command={
+                'codex "research the topic and update launch/STORYBOARD.md launch/DESIGN.md"'
+              }
               color="from-cyan-500 to-emerald-500"
             />
             <CommandCard
               icon={<Hammer className="w-5 h-5" />}
-              title="Build with Cost Gate"
-              command="vibe build launch --dry-run --max-cost 5 --json && vibe build launch --max-cost 5 --json"
+              title="Validate and Build"
+              command="vibe storyboard validate launch --json && vibe build launch --dry-run --json && vibe build launch --json"
               color="from-orange-500 to-yellow-500"
             />
             <CommandCard
               icon={<Video className="w-5 h-5" />}
-              title="Inspect, Repair, Render"
-              command="vibe status project launch --refresh --json && vibe inspect project launch --json && vibe scene repair launch --json && vibe render launch --json && vibe inspect render launch --cheap --json"
+              title="Render and Inspect"
+              command="vibe render launch --json && vibe inspect render launch --cheap --json"
               color="from-purple-500 to-pink-500"
             />
           </div>
         </div>
       </section>
 
-      {/* Current media primitive recording. */}
+      {/* Workflow lanes. */}
       <section className="py-16 px-4 border-t border-border/50">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-6 animate-fade-in">
-              <Video className="w-4 h-4" />
-              <span>
-                Media primitive demo · recorded from{" "}
-                <code className="font-mono text-xs">DEMO-quickstart.md</code>
-              </span>
+              <Terminal className="w-4 h-4" />
+              <span>Choose the right surface</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Lower-level tools still work directly.
+              Build, generate, edit, and remix are separate lanes.
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              This existing recording shows Claude Code using image generation, image-to-video,
-              inspection, and motion-overlay editing outside the full storyboard project loop.
+              Use the storyboard project loop for full videos. Use primitives for one asset. Use
+              edit/remix/audio when the input is already a media file.
             </p>
           </div>
-          <div className="rounded-xl overflow-hidden border border-border/50 shadow-2xl bg-black">
-            <video
-              src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/quickstart-claude-code.mp4"
-              controls
-              muted
-              autoPlay
-              loop
-              playsInline
-              className="w-full h-auto"
+          <div className="grid md:grid-cols-3 gap-4">
+            <LaneCard
+              title="Build"
+              command="vibe build launch --json"
+              body="Storyboard and design files become generated assets, scene compositions, reports, and a render."
+            />
+            <LaneCard
+              title="Generate"
+              command="vibe generate image|video|music"
+              body="Create a standalone image, video, narration, music bed, sound effect, or motion asset."
+            />
+            <LaneCard
+              title="Edit / Remix"
+              command="vibe edit ... / vibe remix ..."
+              body="Caption, reframe, grade, add overlays, make highlights, duck BGM, or repurpose existing media."
             />
           </div>
         </div>
@@ -307,7 +325,7 @@ function CommandCard({
   command,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   command: string;
   color: string;
@@ -326,6 +344,18 @@ function CommandCard({
         <span className="text-green-400">$ </span>
         <span className="text-foreground">{command}</span>
       </div>
+    </div>
+  );
+}
+
+function LaneCard({ title, command, body }: { title: string; command: string; body: string }) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-secondary/30 p-5">
+      <div className="font-mono text-sm font-semibold text-foreground">{title}</div>
+      <code className="mt-3 block rounded-lg border border-border/30 bg-background/50 px-3 py-2 text-xs text-primary">
+        {command}
+      </code>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{body}</p>
     </div>
   );
 }

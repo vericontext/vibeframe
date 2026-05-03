@@ -22,31 +22,56 @@ fallback when you do not already have an AI coding agent.
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
 ```bash
-vibe init my-video --from "45-second launch video for an AI-native editor" --json
-vibe storyboard validate my-video --json
-vibe plan my-video --json
-vibe build my-video --dry-run --max-cost 5 --json
-vibe build my-video --max-cost 5 --json
-vibe status project my-video --refresh --json
-vibe inspect project my-video --json
-vibe render my-video -o renders/final.mp4 --json
-vibe inspect render my-video --cheap --json
-vibe scene repair my-video --json
+curl -fsSL https://vibeframe.ai/install.sh | bash
+
+mkdir launch-demo && cd launch-demo
+vibe setup --scope project
+vibe init launch --from brief.md --json
+
+# Ask Codex, Claude Code, Cursor, or another host agent:
+# "Research this topic and update launch/STORYBOARD.md and launch/DESIGN.md.
+#  Tighten the image-generation cues, then build and inspect the video."
+
+vibe storyboard validate launch --json
+vibe build launch --dry-run --json
+vibe build launch --json
+vibe render launch -o renders/final.mp4 --json
+vibe inspect render launch --cheap --json
 ```
 
 ## Demo
 
-The current quickstart recording shows Claude Code driving the installed
-`vibe` CLI through lower-level media primitives: image generation,
-image-to-video, media inspection, and a motion-overlay edit. That remains a
-useful compatibility demo, but the primary product workflow is now the
-storyboard-to-video project loop shown above.
+This demo shows the intended first-run shape:
 
-<p align="center">
-  <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/quickstart-claude-code.mp4" controls width="800" muted></video>
-</p>
+1. Install `vibe`.
+2. Run `vibe setup --scope project`.
+3. Run `vibe init launch`.
+4. Ask a coding agent to research a topic and update `STORYBOARD.md` and
+   `DESIGN.md`.
+5. Let the storyboard include explicit image-generation cues.
+6. Build, render, inspect, and share the final MP4.
 
-For the full copy-paste quickstart, see [DEMO-quickstart.md](DEMO-quickstart.md).
+<table>
+  <tr>
+    <td width="50%">
+      <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/process-highlights/demo-process-highlight-bgm.mp4" controls muted width="100%"></video>
+      <br />
+      <strong>Process highlight</strong><br />
+      <sub>Agent-driven setup, research, storyboard/design edits, image cues, build, render, and review.</sub>
+    </td>
+    <td width="50%">
+      <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/demo-result.mp4" controls muted width="100%"></video>
+      <br />
+      <strong>Rendered result</strong><br />
+      <sub>The final MP4 produced from the storyboard composition workflow.</sub>
+    </td>
+  </tr>
+</table>
+
+The older [DEMO-quickstart.md](DEMO-quickstart.md) still shows direct media
+primitives such as standalone image generation, image-to-video, inspection,
+and motion overlay. Those remain useful, but the primary workflow is the
+storyboard project loop.
 
 ## What It Does
 
@@ -62,6 +87,20 @@ For the full copy-paste quickstart, see [DEMO-quickstart.md](DEMO-quickstart.md)
   silence, and beats, and script low-level timeline or batch operations.
 - **Automate from any host:** drive the same workflows from a terminal, coding
   agent, YAML pipeline, or optional MCP server.
+
+## Three Workflow Lanes
+
+Use the highest-level lane that matches the job:
+
+| Lane             | Use it when...                                        | Commands                                                        |
+| ---------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
+| **Build**        | You want a complete video from a written brief        | `vibe init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
+| **Generate**     | You need one standalone asset                         | `vibe generate image`, `video`, `narration`, `music`, `motion`  |
+| **Edit / Remix** | You already have media and want to change or reuse it | `vibe edit`, `vibe remix`, `vibe audio`, `vibe detect`          |
+
+For the longer product-surface direction and command classification, see
+[FUNCTIONS-TOBE.md](FUNCTIONS-TOBE.md). The README stays focused on what a
+new user should run first.
 
 ## 30-Second Map
 
@@ -117,6 +156,7 @@ First run:
 
 ```bash
 vibe setup
+vibe setup --scope project  # optional: store provider keys in this repo only
 vibe doctor
 vibe guide
 ```
@@ -396,6 +436,7 @@ tests/                   Manual smoke checks outside CI
 - [docs/cookbook.md](docs/cookbook.md): practical recipes
 - [docs/video-project-concepts.md](docs/video-project-concepts.md): project model
 - [docs/comparison.md](docs/comparison.md): how VibeFrame relates to Hyperframes
+- [FUNCTIONS-TOBE.md](FUNCTIONS-TOBE.md): product-surface direction and command classification
 - [MODELS.md](MODELS.md): provider/model reference
 - [ROADMAP.md](ROADMAP.md): roadmap
 
