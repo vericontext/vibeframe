@@ -54,24 +54,23 @@ This demo shows the intended first-run shape:
 <table>
   <tr>
     <td width="50%">
-      <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/process-highlights/demo-process-highlight-bgm.mp4" controls muted width="100%"></video>
+      <video src="./assets/demos/process-highlights/demo-process-highlight-bgm.mp4" controls muted width="100%"></video>
       <br />
       <strong>Process highlight</strong><br />
       <sub>Agent-driven setup, research, storyboard/design edits, image cues, build, render, and review.</sub>
+      <br />
+      <sub><a href="./assets/demos/process-highlights/demo-process-highlight-bgm.mp4">Open MP4</a></sub>
     </td>
     <td width="50%">
-      <video src="https://raw.githubusercontent.com/vericontext/vibeframe/main/assets/demos/demo-result.mp4" controls muted width="100%"></video>
+      <video src="./assets/demos/demo-result.mp4" controls muted width="100%"></video>
       <br />
       <strong>Rendered result</strong><br />
       <sub>The final MP4 produced from the storyboard composition workflow.</sub>
+      <br />
+      <sub><a href="./assets/demos/demo-result.mp4">Open MP4</a></sub>
     </td>
   </tr>
 </table>
-
-The older [DEMO-quickstart.md](DEMO-quickstart.md) still shows direct media
-primitives such as standalone image generation, image-to-video, inspection,
-and motion overlay. Those remain useful, but the primary workflow is the
-storyboard project loop.
 
 ## What It Does
 
@@ -88,19 +87,32 @@ storyboard project loop.
 - **Automate from any host:** drive the same workflows from a terminal, coding
   agent, YAML pipeline, or optional MCP server.
 
-## Three Workflow Lanes
+## Workflow Lanes
 
 Use the highest-level lane that matches the job:
 
-| Lane             | Use it when...                                        | Commands                                                        |
-| ---------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
-| **Build**        | You want a complete video from a written brief        | `vibe init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
-| **Generate**     | You need one standalone asset                         | `vibe generate image`, `video`, `narration`, `music`, `motion`  |
-| **Edit / Remix** | You already have media and want to change or reuse it | `vibe edit`, `vibe remix`, `vibe audio`, `vibe detect`          |
+| Lane                 | Use it when...                                        | Source of truth               | Commands                                                        |
+| -------------------- | ----------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| **BUILD**            | You want a complete video from a written brief        | `STORYBOARD.md` + `DESIGN.md` | `vibe init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
+| **GENERATE / ASSET** | You need one standalone image, clip, voice, or music  | The prompt and provider flags | `vibe generate image`, `video`, `narration`, `music`, `motion`  |
+| **EDIT / REMIX**     | You already have media and want to change or reuse it | The existing media file       | `vibe edit`, `vibe remix`, `vibe audio`, `vibe detect`          |
 
-For the longer product-surface direction and command classification, see
-[FUNCTIONS-TOBE.md](FUNCTIONS-TOBE.md). The README stays focused on what a
-new user should run first.
+This is the same routing model scaffolded into project `AGENTS.md`. It keeps
+agents from treating every natural-language request as a full scene project:
+
+- **BUILD:** create or revise a multi-scene video. Edit `STORYBOARD.md` for
+  narration, beat timing, and image/video/music cues. Edit `DESIGN.md` for
+  palette, typography, composition, and motion language. Then run `vibe build`
+  and `vibe render`.
+- **GENERATE / ASSET:** create one asset directly. Do not edit
+  `STORYBOARD.md` or `DESIGN.md` unless the user explicitly asks for a
+  storyboard project.
+- **EDIT / REMIX:** start from an existing media file. Use `vibe edit`,
+  `vibe remix`, or `vibe audio` for captions, overlays, highlights, BGM,
+  dubbing, reframing, silence cuts, and similar transformations.
+
+The README focuses on the first-run product path. For a concise command-routing
+reference, see [FUNCTIONS.md](FUNCTIONS.md).
 
 ## 30-Second Map
 
@@ -191,6 +203,17 @@ vibe inspect render my-video --beat hook --cheap --json
 
 # Let a host agent handle semantic issues from the report
 codex "fix issues from my-video/review-report.json"
+```
+
+Use direct media commands when you do not need a full project:
+
+```bash
+vibe generate image "cinematic product demo frame" -p openai -o frame.png
+vibe generate video "interface animates into a polished demo" -p seedance -i frame.png -o motion.mp4
+vibe edit caption demo.mp4 -o captioned.mp4
+vibe remix highlights demo-process.mp4 -d 60 -o highlight.mp4
+vibe generate music "minimal instrumental tech pulse" --instrumental -d 60 -o bgm.mp3
+vibe audio duck bgm.mp3 --voice highlight.mp4 -o bgm-ducked.mp3
 ```
 
 Each storyboard beat can include YAML cues:
@@ -427,18 +450,13 @@ scripts/                 Install, docs generation, demos, and maintainer helpers
 tests/                   Manual smoke checks outside CI
 ```
 
-## Useful Docs
+## Reference
 
-- [docs/README.md](docs/README.md): compact docs index
-- [docs/cli-reference.md](docs/cli-reference.md): every command, flag, and JSON envelope (auto-generated from `vibe schema --list`)
-- [DEMO-quickstart.md](DEMO-quickstart.md): copy-paste first-video flow
-- [DEMO-dogfood.md](DEMO-dogfood.md): contributor dogfood flow
-- [docs/cookbook.md](docs/cookbook.md): practical recipes
-- [docs/video-project-concepts.md](docs/video-project-concepts.md): project model
-- [docs/comparison.md](docs/comparison.md): how VibeFrame relates to Hyperframes
-- [FUNCTIONS-TOBE.md](FUNCTIONS-TOBE.md): product-surface direction and command classification
-- [MODELS.md](MODELS.md): provider/model reference
-- [ROADMAP.md](ROADMAP.md): roadmap
+- [MODELS.md](MODELS.md): provider and model reference.
+- [CHANGELOG.md](CHANGELOG.md): versioned release notes.
+- [FUNCTIONS.md](FUNCTIONS.md): workflow lanes, command routing, and agent
+  usage rules.
+- [ROADMAP.md](ROADMAP.md): short public roadmap.
 
 For machine-readable access (agents, scripts) use the live introspection
 hooks instead of this README:

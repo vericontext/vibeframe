@@ -1,4 +1,4 @@
-# Video Project Concepts
+# Project Files And Flow
 
 VibeFrame has two main flows:
 
@@ -24,11 +24,11 @@ vibe render my-video -o renders/final.mp4
 
 `vibe init` supports three profiles:
 
-| Profile | Use when | What it creates |
-|---|---|---|
-| `minimal` | You only want the authoring docs at first | `STORYBOARD.md`, `DESIGN.md`, project config |
-| `agent` | Recommended for Codex, Claude Code, Cursor, Aider, Gemini CLI, OpenCode | authoring docs plus local agent guidance |
-| `full` | You want all render/backend files up front | authoring docs, agent guidance, render scaffold |
+| Profile   | Use when                                                                | What it creates                                 |
+| --------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `minimal` | You only want the authoring docs at first                               | `STORYBOARD.md`, `DESIGN.md`, project config    |
+| `agent`   | Recommended for Codex, Claude Code, Cursor, Aider, Gemini CLI, OpenCode | authoring docs plus local agent guidance        |
+| `full`    | You want all render/backend files up front                              | authoring docs, agent guidance, render scaffold |
 
 The default is `agent`.
 

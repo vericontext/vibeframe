@@ -1,4 +1,4 @@
-# VibeFrame Cookbook
+# VibeFrame Recipes
 
 Verified recipes for common VibeFrame workflows.
 

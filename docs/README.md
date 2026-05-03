@@ -11,12 +11,12 @@ vibe schema <command.path> --json
 
 ## Public Docs
 
-- [CLI reference](cli-reference.md) - generated from the live CLI surface.
-- [Cookbook](cookbook.md) - practical workflows.
-- [Video project concepts](video-project-concepts.md) - project files,
-  profiles, and backend metadata.
-- [VibeFrame and Hyperframes](comparison.md) - boundary between VibeFrame and
-  the renderer layer.
+- [CLI reference](cli-reference.md) - generated command catalog from the live
+  CLI surface.
+- [Recipes](recipes.md) - practical copy-paste workflows.
+- [Projects](projects.md) - project files, profiles, and backend metadata.
+- [Hyperframes renderer boundary](hyperframes.md) - how VibeFrame uses the
+  renderer layer.
 
 Historical plans, audit notes, and one-off launch drafts are not kept here
 because they age quickly and confuse new contributors.

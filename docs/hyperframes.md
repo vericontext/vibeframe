@@ -1,4 +1,4 @@
-# VibeFrame And Hyperframes
+# Hyperframes Renderer Boundary
 
 VibeFrame uses Hyperframes as its HTML scene rendering layer. They are not
 competing abstractions in this repository: Hyperframes handles deterministic
@@ -30,17 +30,17 @@ editing commands.
 
 ## What Each Layer Provides
 
-| Concern | Hyperframes | VibeFrame |
-|---|---|---|
-| HTML scene composition and browser capture | Primary layer | Uses it through the scene renderer |
-| Visual scene files | HTML/CSS/JS composition | `compositions/*.html` inside a VibeFrame project |
-| Storyboard authoring | Not the main abstraction | `STORYBOARD.md` + `DESIGN.md` |
-| Project-level flow | Hyperframes project commands | `vibe init` -> `vibe build` -> `vibe render` |
-| AI image/video generation | Out of scope | `vibe generate image`, `vibe generate video`, YAML actions |
-| Editing existing media | Out of scope | `vibe edit`, `vibe audio`, `vibe remix` |
-| Agent guidance | Host-specific skills/rules | `AGENTS.md`, `SKILL.md`, host scaffolding, guides |
-| MCP surface | Out of scope | `@vibeframe/mcp-server` typed tools |
-| Video-as-code pipelines | Out of scope | `vibe run pipeline.yaml` |
+| Concern                                    | Hyperframes                  | VibeFrame                                                  |
+| ------------------------------------------ | ---------------------------- | ---------------------------------------------------------- |
+| HTML scene composition and browser capture | Primary layer                | Uses it through the scene renderer                         |
+| Visual scene files                         | HTML/CSS/JS composition      | `compositions/*.html` inside a VibeFrame project           |
+| Storyboard authoring                       | Not the main abstraction     | `STORYBOARD.md` + `DESIGN.md`                              |
+| Project-level flow                         | Hyperframes project commands | `vibe init` -> `vibe build` -> `vibe render`               |
+| AI image/video generation                  | Out of scope                 | `vibe generate image`, `vibe generate video`, YAML actions |
+| Editing existing media                     | Out of scope                 | `vibe edit`, `vibe audio`, `vibe remix`                    |
+| Agent guidance                             | Host-specific skills/rules   | `AGENTS.md`, `SKILL.md`, host scaffolding, guides          |
+| MCP surface                                | Out of scope                 | `@vibeframe/mcp-server` typed tools                        |
+| Video-as-code pipelines                    | Out of scope                 | `vibe run pipeline.yaml`                                   |
 
 ## Why Hyperframes Still Appears In Projects
 

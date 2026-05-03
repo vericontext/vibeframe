@@ -1,5 +1,8 @@
 # VibeFrame Functions TO-BE
 
+Public usage reference: see [FUNCTIONS.md](FUNCTIONS.md). This file remains a
+planning/design note and intentionally keeps TO-BE language.
+
 This document describes the ideal VibeFrame CLI lineup and workflow.
 It is intentionally product-facing and agent-facing, not a mirror of the
 current command tree.
