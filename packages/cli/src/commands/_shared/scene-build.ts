@@ -2118,7 +2118,9 @@ async function finalizeBuildResult(
   return withMeta;
 }
 
-function toBuildReport(projectDir: string, result: SceneBuildResult): Record<string, unknown> {
+export type BuildReport = ReturnType<typeof toBuildReport>;
+
+function toBuildReport(projectDir: string, result: SceneBuildResult) {
   let beatCursor = 0;
   return {
     schemaVersion: "1",

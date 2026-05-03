@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { executeSceneBuild } from "./scene-build.js";
+import { executeSceneBuild, type BuildReport } from "./scene-build.js";
 import { buildEmptyRootHtml } from "./scene-project.js";
 
 // ── Module mocks (must be hoisted before the imported module loads) ─────
@@ -232,12 +232,12 @@ afterEach(() => {
   delete process.env.VIBE_BUILD_MODE;
 });
 
-function readBuildReport(): Record<string, any> {
+function readBuildReport(): BuildReport {
   return JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
 }
 
 function expectBuildReportContract(
-  report: Record<string, any>,
+  report: BuildReport,
   expected: Record<string, unknown> = {}
 ): void {
   expect(report).toMatchObject({
@@ -557,7 +557,7 @@ backdrop: "../outside.png"
       selectedStage: "sync",
       success: true,
     });
-    expect(report.stageReports.render.status).toBe("skipped");
+    expect(report.stageReports!.render.status).toBe("skipped");
   });
 
   it("writes a stable beat-only assets build-report contract", async () => {
@@ -741,7 +741,7 @@ backdrop: "This should not dispatch."
       currentStage: "assets",
     });
     expect(report.code).toBe("STORYBOARD_VALIDATION_FAILED");
-    expect(report.validation.ok).toBe(false);
+    expect(report.validation!.ok).toBe(false);
     expect(report.retryWith).toEqual(r.retryWith);
   });
 
