@@ -54,20 +54,16 @@ This demo shows the intended first-run shape:
 <table>
   <tr>
     <td width="50%">
-      <video src="./assets/demos/process-highlights/demo-process-highlight-bgm.mp4" controls muted width="100%"></video>
+      <video src="https://github.com/user-attachments/assets/f080f5e4-02a9-4625-977f-8f16e7c434bb" controls muted width="100%"></video>
       <br />
       <strong>Process highlight</strong><br />
       <sub>Agent-driven setup, research, storyboard/design edits, image cues, build, render, and review.</sub>
-      <br />
-      <sub><a href="./assets/demos/process-highlights/demo-process-highlight-bgm.mp4">Open MP4</a></sub>
     </td>
     <td width="50%">
-      <video src="./assets/demos/demo-result.mp4" controls muted width="100%"></video>
+      <video src="https://github.com/user-attachments/assets/10c85f2b-d07c-4d82-9922-fbc114fcf8be" controls muted width="100%"></video>
       <br />
       <strong>Rendered result</strong><br />
       <sub>The final MP4 produced from the storyboard composition workflow.</sub>
-      <br />
-      <sub><a href="./assets/demos/demo-result.mp4">Open MP4</a></sub>
     </td>
   </tr>
 </table>
