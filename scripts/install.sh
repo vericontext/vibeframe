@@ -102,6 +102,24 @@ node_version() {
   node --version 2>/dev/null | sed 's/v//' | cut -d. -f1
 }
 
+prepare_cli_bin_placeholder() {
+  local cli_bin="packages/cli/dist/index.js"
+
+  if [ -f "$cli_bin" ]; then
+    return
+  fi
+
+  # pnpm links workspace package bins during install, before the CLI build
+  # creates dist/index.js. This placeholder is replaced by the build step.
+  mkdir -p "$(dirname "$cli_bin")"
+  cat > "$cli_bin" <<'EOF'
+#!/usr/bin/env node
+console.error("VibeFrame CLI is still building. Re-run this command after installation completes.");
+process.exit(1);
+EOF
+  chmod +x "$cli_bin"
+}
+
 banner
 
 # Check dependencies
@@ -137,11 +155,11 @@ if check_cmd ffmpeg; then
   echo -e "  ${DIM}FFmpeg $(ffmpeg -version 2>&1 | head -1 | cut -d' ' -f3)${NC}"
   # Check for subtitle/text support (needed for caption command)
   if ! ffmpeg -filters 2>/dev/null | grep -q "subtitles"; then
-    warn "FFmpeg missing subtitle support (libass). Caption command won't work."
+    warn "FFmpeg missing subtitle support (libass). Only caption/subtitle commands are affected."
     if [[ "$OSTYPE" == "darwin"* ]]; then
-      echo -e "  ${DIM}Fix: brew uninstall ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass --with-freetype${NC}"
+      echo -e "  ${DIM}Fix caption support: brew uninstall ffmpeg && brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass --with-freetype${NC}"
     else
-      echo -e "  ${DIM}Fix: sudo apt install libass-dev && sudo apt install --reinstall ffmpeg${NC}"
+      echo -e "  ${DIM}Fix caption support: sudo apt install libass-dev && sudo apt install --reinstall ffmpeg${NC}"
     fi
   fi
 else
@@ -209,6 +227,7 @@ fi
 
 # Install dependencies
 step "Installing dependencies..."
+prepare_cli_bin_placeholder
 pnpm install
 
 # Build
