@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/web",
-  "version": "0.103.1",
+  "version": "0.104.0",
   "description": "VibeFrame Web - landing and demo site for the storyboard-first agentic video CLI",
   "private": true,
   "keywords": [

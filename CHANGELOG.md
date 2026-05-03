@@ -5,11 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.103.1] - 2026-05-03
+## [0.104.0] - 2026-05-03
+
+### Added
+
+- XDG-aware paths for setup --scope user/project + legacy ~/.vibeframe migration *(cli)*
 
 ### Fixed
 
 - truncate long setup prompt options to terminal width *(cli)*
+- replace any scene-build test reports *(cli)*
 
 ## [0.103.0] - 2026-05-03
 
