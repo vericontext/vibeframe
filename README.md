@@ -53,13 +53,13 @@ This demo shows the intended first-run shape:
 
 <table>
   <tr>
-    <td width="50%">
+    <td width="50%" valign="top">
       <video src="https://github.com/user-attachments/assets/f080f5e4-02a9-4625-977f-8f16e7c434bb" controls muted width="100%"></video>
       <br />
       <strong>Process highlight</strong><br />
       <sub>Agent-driven setup, research, storyboard/design edits, image cues, build, render, and review.</sub>
     </td>
-    <td width="50%">
+    <td width="50%" valign="top">
       <video src="https://github.com/user-attachments/assets/10c85f2b-d07c-4d82-9922-fbc114fcf8be" controls muted width="100%"></video>
       <br />
       <strong>Rendered result</strong><br />
