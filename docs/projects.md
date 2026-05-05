@@ -5,11 +5,17 @@ VibeFrame has two main flows:
 - **Create a new video from text:** `vibe init --from`, edit `STORYBOARD.md` and `DESIGN.md`, then run `vibe storyboard validate`, `vibe plan`, `vibe build`, and `vibe render`.
 - **Process existing media:** use `vibe remix`, `vibe edit`, `vibe audio`, or `vibe inspect`.
 
+`brief.md` is a raw starting point, not a strict schema. It can be messy notes,
+pasted research, links, or a one-line idea. `vibe init --from` uses it to seed
+`STORYBOARD.md` and `DESIGN.md`; after init, those files are the source of
+truth.
+
 ## Project Commands
 
 Use these commands first:
 
 ```bash
+mkdir -p my-video/media
 vibe init my-video --from "45-second launch video"
 vibe storyboard validate my-video
 vibe plan my-video
@@ -19,6 +25,30 @@ vibe render my-video -o renders/final.mp4
 ```
 
 `vibe scene ...` is the advanced namespace. It remains useful when you want to add a single HTML scene, lint scene files, install agent rules, or render a scene project with low-level options.
+
+## Project File Roles
+
+Use the folders consistently:
+
+| Path            | Role                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------ |
+| `brief.md`      | Optional rough input before `vibe init`; can live outside or beside the project.     |
+| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues.                              |
+| `DESIGN.md`     | Palette, typography, layout, motion, transitions, and visual anti-patterns.          |
+| `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings.    |
+| `assets/`       | Generated or canonical build assets such as narration, backdrops, music, and videos. |
+| `references/`   | Composition rule docs installed by VibeFrame skills; do not use for user media.      |
+| `renders/`      | Final and intermediate MP4 outputs.                                                  |
+
+When a beat should reuse a local file, use a project-relative path in
+`STORYBOARD.md`:
+
+```yaml
+backdrop: "media/product-shot.png"
+video: "media/broll.mp4"
+narration: "media/voice.wav"
+asset: "media/logo.png"
+```
 
 ## Profiles
 

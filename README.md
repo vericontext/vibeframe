@@ -27,6 +27,22 @@ fallback when you do not already have an AI coding agent.
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
 mkdir launch-demo && cd launch-demo
+mkdir -p launch/media
+
+# brief.md can be rough notes, pasted research, links, or a one-line idea.
+cat > brief.md <<'EOF'
+Make a 30-second launch video for VibeFrame.
+
+Audience: developers using Codex, Claude Code, or Cursor.
+Message: a coding agent can turn a brief into a rendered MP4.
+Tone: technical, concise, credible.
+
+If media/product-shot.png exists, use it as the hero product reference.
+EOF
+
+# Optional: put your own photos, logos, screenshots, or B-roll in launch/media/.
+# cp ~/Desktop/product-shot.png launch/media/
+
 vibe setup --scope project
 vibe init launch --from brief.md --json
 
@@ -43,17 +59,21 @@ vibe inspect render launch --cheap --json
 
 ## Demo
 
-This demo shows the intended first-run shape: start with a brief, let a coding
-agent update the project files, then build, render, inspect, and share the
-MP4.
+This demo shows the intended first-run shape: start with rough intent, add any
+optional source media, let a coding agent update the project files, then build,
+render, inspect, and share the MP4.
 
 1. Install `vibe`.
 2. Run `vibe setup --scope project`.
-3. Run `vibe init launch`.
-4. Ask a coding agent to research a topic and update `STORYBOARD.md` and
+3. Write `brief.md` as messy notes, research, links, or a one-line idea.
+4. Optional: place photos, screenshots, logos, clips, or voice files in
+   `launch/media/`.
+5. Run `vibe init launch --from brief.md`.
+6. Ask a coding agent to research a topic and update `STORYBOARD.md` and
    `DESIGN.md`.
-5. Let the storyboard include explicit image-generation cues.
-6. Build, render, inspect, and share the final MP4.
+7. Let the storyboard include explicit image-generation cues or local
+   `media/...` references.
+8. Build, render, inspect, and share the final MP4.
 
 <table>
   <tr>
@@ -172,6 +192,31 @@ vibe doctor
 vibe guide
 ```
 
+`brief.md` is not a strict template. It is raw intent: rough notes, pasted
+research, links, a product brief, or a one-line idea. `vibe init --from` uses
+it only to seed `STORYBOARD.md` and `DESIGN.md`; after init, those two files
+become the working source of truth.
+
+`--from` accepts either a file path or a short inline brief:
+
+```bash
+vibe init launch --from brief.md --json
+vibe init launch --from "30-second launch video for VibeFrame" --json
+```
+
+If you already have source media, put it inside the scene project under
+`media/` before or after init:
+
+```bash
+mkdir -p my-video/media
+cp ~/Desktop/product-shot.png my-video/media/
+cp ~/Desktop/logo.png my-video/media/
+```
+
+Use `media/` for user-provided inputs, `assets/` for generated or canonical
+build assets, `renders/` for outputs, and `references/` for local composition
+rules installed by VibeFrame.
+
 ### Build A Storyboard Video
 
 ```bash
@@ -231,11 +276,22 @@ duration: 5
 ```
 ````
 
+Use text cues when you want VibeFrame to generate an asset. Use project-relative
+paths when you want to reuse a local file:
+
+```yaml
+backdrop: "media/product-shot.png" # existing still image
+video: "media/broll.mp4" # existing video/B-roll
+narration: "media/voice.wav" # existing recorded narration
+asset: "media/logo.png" # generic local asset reference
+```
+
 Agents should use `vibe storyboard set/get/move/list` for narrow cue edits
 and direct Markdown edits for larger creative rewrites. `STORYBOARD.md` is
 the intent layer, `DESIGN.md` is the visual system, `vibe.config.json` stores
-provider/model defaults, and files under `assets/` and `compositions/` are
-generated artifacts. `build-report.json` records build results and costs;
+provider/model defaults, `media/` stores user-provided source media, and files
+under `assets/` and `compositions/` are generated or canonical build artifacts.
+`build-report.json` records build results and costs;
 `review-report.json` records inspection findings and suggested fixes.
 When paid video or music providers return async jobs, `vibe status project
 --refresh` downloads completed outputs, updates `build-report.json`, and

@@ -26,15 +26,20 @@ async function makeTmp(label = "vibe-scene-test-"): Promise<string> {
 }
 
 async function pathExists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("aspectToDims", () => {
   it.each([
     ["16:9", 1920, 1080],
     ["9:16", 1080, 1920],
-    ["1:1",  1080, 1080],
-    ["4:5",  1080, 1350],
+    ["1:1", 1080, 1080],
+    ["4:5", 1080, 1350],
   ] as const)("%s → %dx%d", (ratio, w, h) => {
     expect(aspectToDims(ratio)).toEqual({ width: w, height: h });
   });
@@ -91,9 +96,9 @@ describe("mergeHyperframesConfig", () => {
     };
     const merged = mergeHyperframesConfig(existing, buildHyperframesConfig());
     expect(merged.paths).toEqual({
-      blocks: "custom-blocks",         // preserved
+      blocks: "custom-blocks", // preserved
       components: "compositions/components", // from defaults
-      assets: "media",                 // preserved
+      assets: "media", // preserved
     });
   });
 
@@ -142,6 +147,19 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("../.vibeframe/config.yaml");
     expect(md).toContain("data.scope.project.configPath");
     expect(md).toContain("host agent's built-in image/audio generation tool");
+  });
+
+  it("documents brief.md and media/ as local source inputs", () => {
+    const md = buildProjectAgentsMd("my-promo");
+    expect(md).toContain("brief.md");
+    expect(md).toContain("raw intent");
+    expect(md).toContain("Use `media/` for user-provided source files");
+    expect(md).toContain('backdrop: "media/product-shot.png"');
+    expect(md).toContain('video: "media/broll.mp4"');
+    expect(md).toContain('narration: "media/voice.wav"');
+    expect(md).toContain('asset: "media/logo.png"');
+    expect(md).toContain("media in `references/`");
+    expect(md).toContain("copy files into `media/` first");
   });
 
   it("guides scene agents away from continuous transforms on live text", () => {
@@ -357,7 +375,11 @@ describe("scaffoldSceneProject", () => {
     const claudeBefore = await readFile(resolve(dir, "CLAUDE.md"), "utf-8");
 
     // User edits CLAUDE.md
-    await writeFile(resolve(dir, "CLAUDE.md"), claudeBefore + "\n\n## My notes\n\nHand-written.\n", "utf-8");
+    await writeFile(
+      resolve(dir, "CLAUDE.md"),
+      claudeBefore + "\n\n## My notes\n\nHand-written.\n",
+      "utf-8"
+    );
 
     const second = await scaffoldSceneProject({ dir, name: "fixture" });
     const claudeAfter = await readFile(resolve(dir, "CLAUDE.md"), "utf-8");
@@ -376,7 +398,11 @@ describe("scaffoldSceneProject", () => {
   it("migrates an existing scene CLAUDE.md to import AGENTS.md without dropping content", async () => {
     const dir = await makeTmp();
     await mkdir(dir, { recursive: true });
-    await writeFile(resolve(dir, "CLAUDE.md"), "# Old scene guidance\n\nKeep this note.\n", "utf-8");
+    await writeFile(
+      resolve(dir, "CLAUDE.md"),
+      "# Old scene guidance\n\nKeep this note.\n",
+      "utf-8"
+    );
 
     const result = await scaffoldSceneProject({ dir, name: "fixture", profile: "agent" });
     const claude = await readFile(resolve(dir, "CLAUDE.md"), "utf-8");
@@ -396,7 +422,11 @@ describe("scaffoldSceneProject", () => {
       paths: { blocks: "custom-blocks", assets: "media" },
       userField: "kept",
     };
-    await writeFile(resolve(dir, "hyperframes.json"), JSON.stringify(preExisting, null, 2) + "\n", "utf-8");
+    await writeFile(
+      resolve(dir, "hyperframes.json"),
+      JSON.stringify(preExisting, null, 2) + "\n",
+      "utf-8"
+    );
 
     const result = await scaffoldSceneProject({ dir, name: "fixture" });
 

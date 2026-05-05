@@ -27,8 +27,13 @@ video.
 Use BUILD for storyboard-driven videos, explainers, demos, product clips, and
 multi-scene motion pieces.
 
+`brief.md` is raw input: messy notes, pasted research, links, or a one-line
+idea are all fine. Optional user-provided photos, logos, screenshots, clips, or
+voice files should live under the scene project's `media/` directory.
+
 ```bash
 vibe setup --scope project
+mkdir -p launch/media
 vibe init launch --from brief.md
 
 # Edit the source files:
@@ -47,6 +52,16 @@ vibe inspect render launch --cheap --json
 `STORYBOARD.md` controls story intent: beats, narration, duration, and asset
 cues. `DESIGN.md` controls visual execution: palette, typography, composition,
 motion language, transitions, and anti-patterns.
+
+Use text cues when VibeFrame should generate media. Use project-relative paths
+when the storyboard should reuse a local file:
+
+```yaml
+backdrop: "media/product-shot.png"
+video: "media/broll.mp4"
+narration: "media/voice.wav"
+asset: "media/logo.png"
+```
 
 Use `vibe build --stage assets` when assets need to be regenerated separately.
 Use `--skip-backdrop`, `--skip-narration`, `--skip-video`, or `--skip-music`

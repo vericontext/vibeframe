@@ -14,7 +14,7 @@ export function DemoShowcase() {
       <DemoVideoCard
         eyebrow="Process highlight"
         title="Agent loop in under a minute"
-        description="From a brief through project-scope setup, research, storyboard/design updates, image-generation cues, build, render, and review."
+        description="From rough brief and optional media inputs through setup, research, storyboard/design updates, image cues, build, render, and review."
         src={PROCESS_HIGHLIGHT_VIDEO}
         icon={<Terminal className="w-4 h-4" />}
       />

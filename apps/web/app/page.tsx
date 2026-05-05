@@ -102,6 +102,10 @@ export default function LandingPage() {
                 <code className="text-muted-foreground">
                   # Brief → project files → generated assets → MP4{"\n"}
                 </code>
+                <code className="text-muted-foreground">
+                  # brief.md can be messy notes; media/ can hold your files{"\n"}
+                </code>
+                <code className="text-foreground">mkdir -p launch/media{"\n"}</code>
                 <code className="text-foreground">vibe setup --scope project{"\n"}</code>
                 <code className="text-foreground">
                   vibe init launch --from brief.md --json{"\n"}
@@ -196,10 +200,10 @@ export default function LandingPage() {
               The first-run agent loop, end to end.
             </h2>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              A coding agent researches the topic, edits <code>STORYBOARD.md</code> and{" "}
-              <code>DESIGN.md</code>, tightens image-generation cues, runs the build, reviews the
-              reports, and renders the MP4. Direct image/video generation and edit/remix commands
-              stay available when the job is smaller than a full storyboard build.
+              <code>brief.md</code> can be rough notes, pasted research, links, or a one-line idea.
+              Optional photos, logos, screenshots, clips, or voice files can live in{" "}
+              <code>media/</code>. A coding agent then edits <code>STORYBOARD.md</code> and{" "}
+              <code>DESIGN.md</code>, runs the build, reviews the reports, and renders the MP4.
             </p>
           </div>
 
@@ -209,8 +213,8 @@ export default function LandingPage() {
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
               <div className="font-mono font-semibold text-foreground">BUILD</div>
               <p className="mt-2 text-muted-foreground">
-                Primary path: brief, setup, init, storyboard/design, generated assets, composition,
-                render.
+                Primary path: rough brief, optional media, setup, init, storyboard/design, generated
+                assets, composition, render.
               </p>
             </div>
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
@@ -243,8 +247,9 @@ export default function LandingPage() {
               Project files, reports, final render.
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Use the project-level commands first. Lower-level media, scene, timeline, and YAML
-              commands stay available when an agent needs to debug a specific stage.
+              Use a rough brief and optional <code>media/</code> inputs first. Lower-level media,
+              scene, timeline, and YAML commands stay available when an agent needs to debug a
+              specific stage.
             </p>
           </div>
 
@@ -274,8 +279,8 @@ export default function LandingPage() {
                 vibe init launch --from brief.md --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Creates <code className="text-primary">STORYBOARD.md</code>,{" "}
-                <code className="text-primary">DESIGN.md</code>, and agent guidance.
+                Reads rough <code className="text-primary">brief.md</code>. Optional source files
+                live in <code className="text-primary">launch/media/</code>.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
@@ -419,7 +424,7 @@ export default function LandingPage() {
 
           <div className="space-y-4 max-w-3xl mx-auto mb-12">
             <AgentCommandExample
-              input="Build a 45-second launch video from brief.md"
+              input="Build a 45-second launch video from brief.md and media/"
               command="vibe init launch --from brief.md --json && vibe build launch --dry-run --json"
             />
             <AgentCommandExample

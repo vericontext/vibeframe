@@ -68,6 +68,7 @@ The default public project surface is:
 ```text
 STORYBOARD.md
 DESIGN.md
+media/ (optional user-provided inputs)
 AGENTS.md / CLAUDE.md
 SKILL.md
 vibe.config.json

@@ -25,8 +25,8 @@ export type SceneScaffoldProfile = "minimal" | "agent" | "full";
 const ASPECT_DIMS: Record<SceneAspect, { width: number; height: number }> = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
-  "1:1":  { width: 1080, height: 1080 },
-  "4:5":  { width: 1080, height: 1350 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
 };
 
 export function aspectToDims(aspect: SceneAspect): { width: number; height: number } {
@@ -114,7 +114,7 @@ export function buildHyperframesMeta(name: string, now: Date = new Date()): Hype
  */
 export function mergeHyperframesConfig(
   existing: HyperframesConfig,
-  defaults: HyperframesConfig,
+  defaults: HyperframesConfig
 ): HyperframesConfig {
   const out: HyperframesConfig = { ...defaults, ...existing };
   // Preserve nested `paths` by shallow-merging.
@@ -183,10 +183,7 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
  * The agent-driven craft path expects this file as input — see
  * `.claude/skills/vibe-scene/SKILL.md`.
  */
-export function buildDesignMd(opts: {
-  name: string;
-  style?: VisualStyle;
-}): string {
+export function buildDesignMd(opts: { name: string; style?: VisualStyle }): string {
   const { name, style } = opts;
 
   const intro = style
@@ -365,6 +362,33 @@ consult this file — run the generate command directly.
 Browse named styles: \`vibe scene list-styles\`. Re-seed from one with
 \`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).
 
+## Brief and local media
+
+\`brief.md\` is raw intent, not a strict schema. It may contain messy notes,
+pasted research, links, product requirements, or a one-line idea. \`vibe init
+--from brief.md\` uses it only to seed \`STORYBOARD.md\` and \`DESIGN.md\`;
+after init, those two files are the working source of truth.
+
+Use \`media/\` for user-provided source files: product photos, screenshots,
+logos, B-roll, recorded narration, or reference clips. Keep those inputs
+inside this project so build references stay project-relative. Do not put user
+media in \`references/\`; that directory is reserved for local composition
+rules installed by VibeFrame.
+
+When a beat should reuse a local file, reference it from \`STORYBOARD.md\`
+with a project-relative path:
+
+\`\`\`yaml
+backdrop: "media/product-shot.png" # existing still image
+video: "media/broll.mp4"           # existing video/B-roll
+narration: "media/voice.wav"       # existing recorded narration
+asset: "media/logo.png"            # generic local asset reference
+\`\`\`
+
+Use text cues when you want VibeFrame to generate an asset. Use path cues
+when you want VibeFrame to reuse a local file. Avoid absolute paths or parent
+directory references; copy files into \`media/\` first.
+
 ## Provider keys and project scope
 
 Use VibeFrame CLI generation for project assets:
@@ -412,9 +436,11 @@ the framework-level minimum, not the cinematic craft layer.
 
 - \`DESIGN.md\` — visual identity contract (palette, type, motion, transitions)
 - \`STORYBOARD.md\` — per-beat narration/backdrop/duration cues for \`vibe build\`
+- \`media/\` — user-provided source files (photos, logos, clips, voice recordings)
 - \`index.html\` — root composition (timeline)
 - \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
-- \`assets/\` — shared media (narration audio, images, video)
+- \`assets/\` — generated/canonical build media (narration audio, images, video)
+- \`references/\` — composition rule docs installed by VibeFrame, not user media
 - \`transcript.json\` — Whisper word-level transcript (if narration exists)
 - \`hyperframes.json\` — HF registry config (speak to both toolchains)
 - \`vibe.config.json\` — canonical VibeFrame config (providers, budget)
@@ -624,7 +650,11 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     if (await pathExists(metaPath)) {
       skipped.push(metaPath);
     } else {
-      await writeFile(metaPath, JSON.stringify(buildHyperframesMeta(name, now), null, 2) + "\n", "utf-8");
+      await writeFile(
+        metaPath,
+        JSON.stringify(buildHyperframesMeta(name, now), null, 2) + "\n",
+        "utf-8"
+      );
       created.push(metaPath);
     }
 
@@ -643,11 +673,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   if (await pathExists(vibeConfigJsonPath)) {
     skipped.push(vibeConfigJsonPath);
   } else {
-    await writeFile(
-      vibeConfigJsonPath,
-      projectConfigJson({ name, aspect }),
-      "utf-8",
-    );
+    await writeFile(vibeConfigJsonPath, projectConfigJson({ name, aspect }), "utf-8");
     created.push(vibeConfigJsonPath);
   }
 
@@ -695,11 +721,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   if (await pathExists(designPath)) {
     skipped.push(designPath);
   } else {
-    await writeFile(
-      designPath,
-      buildDesignMd({ name, style: opts.visualStyle }),
-      "utf-8",
-    );
+    await writeFile(designPath, buildDesignMd({ name, style: opts.visualStyle }), "utf-8");
     created.push(designPath);
   }
 
