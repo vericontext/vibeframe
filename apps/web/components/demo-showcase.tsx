@@ -14,14 +14,14 @@ export function DemoShowcase() {
       <DemoVideoCard
         eyebrow="Process highlight"
         title="Agent loop in under a minute"
-        description="Project-scope setup, research, storyboard/design updates, image-generation cues, build, lint, render, and review."
+        description="From a brief through project-scope setup, research, storyboard/design updates, image-generation cues, build, render, and review."
         src={PROCESS_HIGHLIGHT_VIDEO}
         icon={<Terminal className="w-4 h-4" />}
       />
       <DemoVideoCard
         eyebrow="Final result"
         title="The rendered MP4"
-        description="The output from the storyboard-driven composition pass, ready to share without exposing the whole process."
+        description="The shareable MP4 from the storyboard-driven build path, without exposing the whole process."
         src={RESULT_VIDEO}
         icon={<Film className="w-4 h-4" />}
       />

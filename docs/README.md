@@ -15,8 +15,8 @@ vibe schema <command.path> --json
   CLI surface.
 - [Recipes](recipes.md) - practical copy-paste workflows.
 - [Projects](projects.md) - project files, profiles, and backend metadata.
-- [Hyperframes renderer boundary](hyperframes.md) - how VibeFrame uses the
-  renderer layer.
+- [Composition engine boundary](hyperframes.md) - how VibeFrame relates to
+  Remotion and Hyperframes.
 
 Historical plans, audit notes, and one-off launch drafts are not kept here
 because they age quickly and confuse new contributors.

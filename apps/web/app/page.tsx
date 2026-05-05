@@ -61,24 +61,24 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-8 animate-fade-in">
             <Terminal className="w-4 h-4" />
-            <span>Storyboard-first video CLI for coding agents</span>
+            <span>Brief-to-MP4 workflow for coding agents</span>
             <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">
               v{process.env.NEXT_PUBLIC_VERSION}
             </span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
-            Storyboard to video
+            Brief to MP4
             <br />
             <span className="text-primary">with your coding agent.</span>
           </h1>
 
           <p className="text-2xl sm:text-3xl font-semibold text-foreground/90 mb-6 animate-fade-in-up delay-75">
-            The CLI is the agent interface.
+            The CLI is the agent workflow layer.
           </p>
 
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 animate-fade-in-up delay-100">
-            VibeFrame turns{" "}
+            VibeFrame turns a written brief into{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
               STORYBOARD.md
             </code>{" "}
@@ -86,11 +86,8 @@ export default function LandingPage() {
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
               DESIGN.md
             </code>{" "}
-            into generated assets, timed scene compositions, review reports, and final MP4 renders.{" "}
-            {process.env.NEXT_PUBLIC_CLI_COMMANDS}+ commands, {process.env.NEXT_PUBLIC_AI_PROVIDERS}{" "}
-            AI providers, {process.env.NEXT_PUBLIC_MCP_TOOLS} MCP tools. Works from your terminal,
-            Claude Code, OpenAI Codex, Cursor, Aider, Gemini CLI, OpenCode, or any bash-capable AI
-            agent.
+            and then routes asset generation, scene composition, build reports, render inspection,
+            and final MP4 export through commands any bash-capable coding agent can run.
           </p>
 
           <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4 max-w-5xl mx-auto mb-10 text-left animate-fade-in-up delay-150">
@@ -103,7 +100,7 @@ export default function LandingPage() {
               </div>
               <pre className="p-4 sm:p-5 text-xs sm:text-sm overflow-x-auto">
                 <code className="text-muted-foreground">
-                  # Draft, validate, cost, build, inspect, render{"\n"}
+                  # Brief → project files → generated assets → MP4{"\n"}
                 </code>
                 <code className="text-foreground">vibe setup --scope project{"\n"}</code>
                 <code className="text-foreground">
@@ -196,13 +193,13 @@ export default function LandingPage() {
               <span>Process and result</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              From project setup to shareable video.
+              The first-run agent loop, end to end.
             </h2>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
               A coding agent researches the topic, edits <code>STORYBOARD.md</code> and{" "}
-              <code>DESIGN.md</code>, tightens image-generation cues, runs the build, then reviews
-              the final MP4. The same CLI also exposes direct image/video generation and edit/remix
-              tools when you only need one asset or one media edit.
+              <code>DESIGN.md</code>, tightens image-generation cues, runs the build, reviews the
+              reports, and renders the MP4. Direct image/video generation and edit/remix commands
+              stay available when the job is smaller than a full storyboard build.
             </p>
           </div>
 
@@ -212,20 +209,22 @@ export default function LandingPage() {
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
               <div className="font-mono font-semibold text-foreground">BUILD</div>
               <p className="mt-2 text-muted-foreground">
-                Start from intent: setup, init, storyboard/design, generated assets, composition,
+                Primary path: brief, setup, init, storyboard/design, generated assets, composition,
                 render.
               </p>
             </div>
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
               <div className="font-mono font-semibold text-foreground">GENERATE</div>
               <p className="mt-2 text-muted-foreground">
-                Ask for one standalone image, video, narration, music, or motion asset.
+                Escape hatch: ask for one standalone image, video, narration, music, or motion
+                asset.
               </p>
             </div>
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
               <div className="font-mono font-semibold text-foreground">EDIT / REMIX</div>
               <p className="mt-2 text-muted-foreground">
-                Change an existing video: captions, reframe, highlights, overlays, BGM, cleanup.
+                Escape hatch: change existing media with captions, reframe, highlights, overlays,
+                BGM, cleanup.
               </p>
             </div>
           </div>
@@ -732,10 +731,10 @@ export default function LandingPage() {
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Project and primitive workflows</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Primary path and escape hatches</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Start with the storyboard path. Drop into primitives when an agent needs one asset,
-              one edit, or one reproducible pipeline.
+              Start with the storyboard build. Drop into primitives only when an agent needs one
+              asset, one edit, or one reproducible pipeline.
             </p>
           </div>
 

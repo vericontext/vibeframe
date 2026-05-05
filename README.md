@@ -1,16 +1,18 @@
 # VibeFrame
 
-**A storyboard-first video CLI for coding agents.**
+**Brief to MP4 with your coding agent.**
 
-VibeFrame helps humans and AI coding agents turn `STORYBOARD.md` and
-`DESIGN.md` into generated assets, timed scene compositions, review reports,
-and final MP4 renders. The primary workflow is plain shell commands with JSON
-output, dry runs, deterministic project files, and machine-readable reports
-that Codex, Claude Code, Cursor, and other coding agents can act on.
+VibeFrame is an agentic video workflow layer around composition engines. It
+helps humans and AI coding agents turn a written brief into `STORYBOARD.md`,
+`DESIGN.md`, generated assets, timed scene compositions, review reports, and a
+final MP4.
 
-It still includes FFmpeg-style editing commands, AI media primitives, YAML
-pipelines, and an optional MCP server, but the north-star path is a
-storyboard-driven project loop.
+The primary interface is plain shell commands with JSON output, dry runs,
+cost gates, deterministic project files, and machine-readable reports that
+Codex, Claude Code, Cursor, and other coding agents can act on. VibeFrame also
+includes FFmpeg-style editing commands, AI media primitives, YAML pipelines,
+and an optional MCP server, but the north-star path is the storyboard-driven
+project loop.
 
 Most users do not need a new chat UI. Use VibeFrame from your terminal,
 Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode, or any other agent
@@ -41,7 +43,9 @@ vibe inspect render launch --cheap --json
 
 ## Demo
 
-This demo shows the intended first-run shape:
+This demo shows the intended first-run shape: start with a brief, let a coding
+agent update the project files, then build, render, inspect, and share the
+MP4.
 
 1. Install `vibe`.
 2. Run `vibe setup --scope project`.
@@ -70,18 +74,17 @@ This demo shows the intended first-run shape:
 
 ## What It Does
 
-- **Build videos from storyboards:** author `STORYBOARD.md` and `DESIGN.md`,
-  then run `vibe plan`, `vibe build`, `vibe inspect`, and `vibe render`.
+- **Build videos from briefs:** scaffold `STORYBOARD.md` and `DESIGN.md`, let
+  an agent revise them, then run `vibe plan`, `vibe build`, `vibe inspect`,
+  and `vibe render`.
 - **Run the agent loop safely:** use JSON output, dry runs, cost caps,
   `build-report.json`, `review-report.json`, and deterministic repair commands.
-- **Generate media primitives:** create images, videos, narration, music, sound
-  effects, motion graphics, and thumbnails through pluggable AI providers.
-- **Edit existing video:** silence cut, captions, translation, fades, speed
-  ramps, reframing, noise reduction, upscaling, and more.
-- **Understand and organize media:** inspect images/videos, detect scenes,
-  silence, and beats, and script low-level timeline or batch operations.
-- **Automate from any host:** drive the same workflows from a terminal, coding
-  agent, YAML pipeline, or optional MCP server.
+- **Route provider-heavy work:** generate images, video clips, narration,
+  music, sound effects, motion graphics, and thumbnails through pluggable AI
+  providers only when the storyboard or command asks for them.
+- **Use escape hatches:** drop into `generate`, `edit`, `remix`, `audio`,
+  YAML, timeline, or MCP workflows when the job is one asset, one media edit,
+  or one repeatable pipeline instead of a full storyboard build.
 
 ## Workflow Lanes
 
@@ -411,11 +414,20 @@ vibe doctor
 
 For model and provider details, see [MODELS.md](MODELS.md).
 
-## Relationship To Hyperframes
+## Relationship To Composition Engines
 
-VibeFrame is a video workflow CLI. Scene projects use `vibe.config.json` for
-provider, model, quality, and build defaults. Legacy projects may still carry
-`vibe.project.yaml`, where the composition engine can be declared like this:
+VibeFrame is not trying to replace lower-level composition engines. It wraps
+them in a workflow that agents can drive from brief to MP4:
+
+| Layer                                                    | Owns                                                                                                                                               |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.                                                                               |
+| [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture for agents.                                                                        |
+| VibeFrame                                                | `STORYBOARD.md` / `DESIGN.md`, provider routing, generated assets, build reports, render inspection, edit/remix commands, and host-agent guidance. |
+
+Scene projects use `vibe.config.json` for provider, model, quality, and build
+defaults. Legacy projects may still carry `vibe.project.yaml`, where the
+composition engine can be declared like this:
 
 ```yaml
 composition:
@@ -423,11 +435,10 @@ composition:
   entry: index.html
 ```
 
-[Hyperframes](https://github.com/heygen-com/hyperframes) provides deterministic
-browser-based capture and composition primitives. VibeFrame adds the
-storyboard/design source files, build and review reports, CLI workflows,
-provider routing, YAML orchestration, agent guidance, media generation, and
-traditional editing commands around that rendering layer.
+In practice, use Hyperframes directly when the job is only focused HTML scene
+authoring and rendering. Use VibeFrame when the job includes storyboard
+planning, image/video/audio generation, narration, build reports, render
+inspection, or editing/remix steps around the composition layer.
 
 VibeFrame is not affiliated with HeyGen. See [CREDITS.md](CREDITS.md) for
 dependency and provenance notes.
