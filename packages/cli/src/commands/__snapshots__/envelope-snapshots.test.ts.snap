@@ -3447,6 +3447,36 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "description": "Small label above the headline (explainer / product-shot)",
         "type": "string",
       },
+      "lottie": {
+        "description": "Lottie animation file (.json/.lottie) to overlay on the scene",
+        "type": "string",
+      },
+      "lottieNoLoop": {
+        "description": "Do not loop the Lottie animation",
+        "type": "boolean",
+      },
+      "lottieOpacity": {
+        "default": 1,
+        "description": "Lottie overlay opacity (0-1)",
+        "type": "number",
+      },
+      "lottiePosition": {
+        "default": "full",
+        "description": "Lottie position: full, center, top-left, top-right, bottom-left, bottom-right",
+        "enum": [
+          "full",
+          "center",
+          "top-left",
+          "top-right",
+          "bottom-left",
+          "bottom-right",
+        ],
+        "type": "string",
+      },
+      "lottieScale": {
+        "description": "Lottie overlay scale (0.01-2)",
+        "type": "number",
+      },
       "name": {
         "description": "Scene name (slugified into the composition id)",
         "type": "string",

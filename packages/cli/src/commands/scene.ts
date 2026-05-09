@@ -42,7 +42,6 @@ import {
   slugifySceneName,
   SCENE_PRESETS,
   SCENE_OVERLAP_SECONDS,
-  LOTTIE_POSITIONS,
   type ScenePreset,
   type LottiePosition,
   type LottieOverlayInput,
