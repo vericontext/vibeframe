@@ -42,7 +42,10 @@ import {
   slugifySceneName,
   SCENE_PRESETS,
   SCENE_OVERLAP_SECONDS,
+  LOTTIE_POSITIONS,
   type ScenePreset,
+  type LottiePosition,
+  type LottieOverlayInput,
 } from "./_shared/scene-html-emit.js";
 import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/scene-lint.js";
 // `executeSceneRender` and `executeSceneBuild` are no longer wired into
@@ -418,10 +421,29 @@ sceneCommand
   )
   .option("--transcribe-language <code>", "BCP-47 language code passed to Whisper (e.g. en, ko)")
   .option("--force", "Overwrite an existing compositions/scene-<id>.html")
+  .option("--lottie <path>", "Lottie animation file (.json/.lottie) to overlay on the scene")
+  .option(
+    "--lottie-position <position>",
+    "Lottie position: full, center, top-left, top-right, bottom-left, bottom-right",
+    "full"
+  )
+  .option("--lottie-scale <number>", "Lottie overlay scale (0.01-2)")
+  .option("--lottie-opacity <number>", "Lottie overlay opacity (0-1)", "1")
+  .option("--lottie-no-loop", "Do not loop the Lottie animation")
   .option("--dry-run", "Preview parameters without writing files or calling APIs")
   .action(async (name: string, options) => {
     const startedAt = Date.now();
     if (options.style) options.style = validatePreset(options.style);
+    if (options.lottiePosition) {
+      const validPositions = ["full", "center", "top-left", "top-right", "bottom-left", "bottom-right"];
+      if (!validPositions.includes(options.lottiePosition)) {
+        exitWithError(
+          usageError(
+            `Invalid --lottie-position "${options.lottiePosition}". Valid: ${validPositions.join(", ")}`
+          )
+        );
+      }
+    }
     if (options.duration !== undefined) options.duration = validateDuration(options.duration);
     let tts: TtsProviderName;
     try {
@@ -450,7 +472,9 @@ sceneCommand
             insertInto: options.insertInto,
             imageProvider: options.imageProvider,
             tts,
-            audio: options.audio, // commander sets `audio: false` when --no-audio is passed
+            audio: options.audio,
+            lottie: options.lottie ?? null,
+            lottiePosition: options.lottiePosition,
             image: options.image,
           },
         },
@@ -480,6 +504,15 @@ sceneCommand
         skipTranscribe: options.transcribe === false,
         transcribeLanguage: options.transcribeLanguage,
         force: !!options.force,
+        lottie: options.lottie
+          ? {
+              src: options.lottie as string,
+              position: (options.lottiePosition as LottiePosition) ?? "full",
+              scale: options.lottieScale !== undefined ? Number(options.lottieScale) : undefined,
+              opacity: options.lottieOpacity !== undefined ? Number(options.lottieOpacity) : 1,
+              loop: !options.lottieNoLoop,
+            }
+          : undefined,
         onProgress: (msg) => {
           if (spinner) spinner.text = msg;
         },
@@ -573,6 +606,8 @@ export interface SceneAddOptions {
   transcribeLanguage?: string;
   /** Overwrite existing compositions/scene-<id>.html. */
   force?: boolean;
+  /** Lottie animation overlay options. */
+  lottie?: LottieOverlayInput;
   /** Progress sink (CLI spinner / agent stream). */
   onProgress?: (msg: string) => void;
 }
@@ -595,6 +630,7 @@ export interface SceneAddResult {
   transcriptPath?: string;
   /** Number of word entries emitted into the transcript JSON. */
   transcriptWordCount?: number;
+  lottiePath?: string;
   error?: string;
 }
 
@@ -872,6 +908,33 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     }
   }
 
+  // -- Asset: Lottie overlay ------------------------------------------------
+  let lottieRelPath: string | undefined;
+  let lottieAbsPath: string | undefined;
+  let lottieInput: LottieOverlayInput | undefined;
+
+  if (opts.lottie) {
+    const sourceAbs = resolve(opts.lottie.src);
+    if (!(await pathExists(sourceAbs))) {
+      return errResult(`Lottie file not found: ${sourceAbs}`);
+    }
+    const ext = (sourceAbs.match(/\.([a-z0-9]+)$/i)?.[1] ?? "json").toLowerCase();
+    if (ext !== "json" && ext !== "lottie") {
+      return errResult(`Unsupported Lottie file extension: .${ext}. Use .json or .lottie.`);
+    }
+    lottieRelPath = `assets/lottie-${id}.${ext}`;
+    lottieAbsPath = resolve(projectDir, lottieRelPath);
+    await mkdir(dirname(lottieAbsPath), { recursive: true });
+    await copyFile(sourceAbs, lottieAbsPath);
+    lottieInput = {
+      src: lottieRelPath,
+      position: opts.lottie.position,
+      scale: opts.lottie.scale,
+      opacity: opts.lottie.opacity,
+      loop: opts.lottie.loop,
+    };
+  }
+
   // -- Decide scene duration -----------------------------------------------
   // Scene duration must be ≥ narration audio length, otherwise the parent
   // clip's data-duration cuts the audio short. The previous heuristic
@@ -914,6 +977,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     imagePath: imageRelPath,
     audioPath: audioRelPath,
     transcript: transcriptWords,
+    lottie: lottieInput,
   });
   await mkdir(dirname(scenePath), { recursive: true });
   await writeFile(scenePath, sceneHtml, "utf-8");
@@ -945,6 +1009,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     rootPath: relative(process.cwd(), rootPath) || rootPath,
     audioPath: audioAbsPath ? relative(process.cwd(), audioAbsPath) || audioAbsPath : undefined,
     imagePath: imageAbsPath ? relative(process.cwd(), imageAbsPath) || imageAbsPath : undefined,
+    lottiePath: lottieAbsPath ? relative(process.cwd(), lottieAbsPath) || lottieAbsPath : undefined,
     transcriptPath: transcriptAbsPath
       ? relative(process.cwd(), transcriptAbsPath) || transcriptAbsPath
       : undefined,

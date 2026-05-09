@@ -41,6 +41,40 @@ export interface SceneTranscriptWord {
   end: number;
 }
 
+/**
+ * Position value for Lottie overlays. Mirrors the vocabulary used by
+ * `vibe edit motion-overlay --position`.
+ */
+export type LottiePosition =
+  | "full"
+  | "center"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export const LOTTIE_POSITIONS: readonly LottiePosition[] = [
+  "full",
+  "center",
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
+] as const;
+
+export interface LottieOverlayInput {
+  /** Project-relative path to the `.json` or `.lottie` file (e.g. "assets/logo.lottie"). */
+  src: string;
+  /** Overlay position. Defaults to "full". */
+  position?: LottiePosition;
+  /** Scale factor (0.01-2). Defaults to 1. */
+  scale?: number;
+  /** Opacity (0-1). Defaults to 1. */
+  opacity?: number;
+  /** Whether the animation loops. Defaults to true. */
+  loop?: boolean;
+}
+
 export interface EmitSceneInput {
   /** Kebab-case scene id; appears in `data-composition-id` and template id. */
   id: string;
@@ -69,6 +103,12 @@ export interface EmitSceneInput {
    * their headlines are intentionally static.
    */
   transcript?: SceneTranscriptWord[];
+  /**
+   * Optional Lottie animation overlay. When supplied, a `<dotlottie-wc>`
+   * element is layered on top of the preset's content. Uses the same
+   * position/scale/opacity vocabulary as `vibe edit motion-overlay`.
+   */
+  lottie?: LottieOverlayInput;
 }
 
 const GSAP_CDN = "https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js";
@@ -534,6 +574,67 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
   }
 }
 
+// ---------------------------------------------------------------------------
+// Lottie overlay layer
+// ---------------------------------------------------------------------------
+
+const DOTLOTTIE_WC_CDN =
+  "https://cdn.jsdelivr.net/npm/@nicepkg/dotlottie-wc@0.5.0/dist/index.js";
+
+/**
+ * Build inline style for a positioned Lottie overlay. Mirrors the logic
+ * in `html-clips.ts → lottieInnerStyle()` so the visual result is
+ * identical to `vibe edit motion-overlay`.
+ */
+function lottieOverlayStyle(input: LottieOverlayInput): string {
+  const pos = input.position ?? "full";
+  const scale = input.scale ?? 1;
+  const opacity = input.opacity ?? 1;
+
+  const base = [
+    "position:absolute",
+    "pointer-events:none",
+    `opacity:${opacity}`,
+  ];
+
+  if (pos === "full") {
+    base.push("inset:0", "width:100%", "height:100%");
+  } else {
+    const pct = Math.round(scale * 100);
+    base.push(`width:${pct}%`, `height:${pct}%`);
+    switch (pos) {
+      case "center":
+        base.push("top:50%", "left:50%", "transform:translate(-50%,-50%)");
+        break;
+      case "top-left":
+        base.push("top:4%", "left:4%");
+        break;
+      case "top-right":
+        base.push("top:4%", "right:4%");
+        break;
+      case "bottom-left":
+        base.push("bottom:4%", "left:4%");
+        break;
+      case "bottom-right":
+        base.push("bottom:4%", "right:4%");
+        break;
+    }
+  }
+  return base.join(";");
+}
+
+/**
+ * Build the `<dotlottie-wc>` markup + module script for a Lottie overlay
+ * layer. Returns `{ markup, script }` to splice into the scene template.
+ */
+function buildLottieOverlay(input: LottieOverlayInput): { markup: string; script: string } {
+  const loop = (input.loop ?? true) ? " loop" : "";
+  const style = lottieOverlayStyle(input);
+  const markup = `<dotlottie-wc id="lottie-overlay" src="${esc(input.src)}" autoplay${loop} style="${style}"></dotlottie-wc>`;
+  const script = `<script type="module" src="${DOTLOTTIE_WC_CDN}"></script>`;
+  return { markup, script };
+}
+
 /**
  * Emit the full per-scene HTML. Returns a complete `<template>`-wrapped
  * composition ready to write to `compositions/scene-<id>.html`.
@@ -561,15 +662,19 @@ export function emitSceneHtml(input: EmitSceneInput): string {
     ></audio>\n`
     : "";
 
+  const lottieLayer = input.lottie ? buildLottieOverlay(input.lottie) : null;
+  const lottieMarkup = lottieLayer ? `\n    ${lottieLayer.markup}` : "";
+  const lottieScript = lottieLayer ? `\n    ${lottieLayer.script}` : "";
+
   return `<template id="scene-${id}-template">
   <div data-composition-id="${id}" data-start="0" data-duration="${dur}" data-width="${input.width}" data-height="${input.height}">
     <style>
       ${parts.css}
     </style>
 
-    ${parts.body}
+    ${parts.body}${lottieMarkup}
 ${audioBlock}
-    <script src="${GSAP_CDN}"></script>
+    <script src="${GSAP_CDN}"></script>${lottieScript}
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
