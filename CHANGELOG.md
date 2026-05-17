@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.105.0] - 2026-05-17
+
+### Added
+
+- add Seedance 2.0 reference-to-video support *(fal)*
+
+### Documentation
+
+- regenerate CLI reference for Seedance reference flags
+- add Lottie animation overlay recipe (#211)
+- document brief.md and media/ conventions for scene projects
+- reframe pitch as brief-to-MP4 with composition-engine boundary
+- align README demo videos with valign="top"
+- use github user-attachments URLs for README demo videos
+- rename doc set + add public FUNCTIONS.md, repoint README to relative demo paths
+- refresh landing + README around the new agentic-storyboard demo
+
+### Fixed
+
+- default OpenAI image generation to gpt-image-2 *(generate)*
+
+### Maintenance
+
+- add AGENTS.md as shared agent instructions + Codex config
+
 ## [0.104.3] - 2026-05-03
 
 ### Fixed
