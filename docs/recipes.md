@@ -191,6 +191,54 @@ vibe run promo.yaml --resume
 Checkpoints are written next to the YAML file. Use `--resume` after fixing a
 failed provider key, network issue, or invalid step input.
 
+## 6. Add A Lottie Animation Overlay
+
+Use this when you have a Lottie animation (`.json` or `.lottie` from
+[LottieFiles](https://lottiefiles.com/) or your own exports) and want to
+composite it over an existing video.
+
+Requires:
+
+- Chrome or Chromium (Hyperframes renderer)
+- FFmpeg for final compositing
+- A `.json` or `.lottie` animation file
+
+Overlay a Lottie logo on a product demo:
+
+```bash
+vibe edit motion-overlay demo.mp4 \
+  --asset logo.lottie \
+  --position bottom-right \
+  --scale 0.25 \
+  --opacity 0.9 \
+  -o demo-branded.mp4
+```
+
+Preview the parameters first:
+
+```bash
+vibe edit motion-overlay demo.mp4 \
+  --asset logo.lottie \
+  --position bottom-right \
+  --scale 0.25 \
+  --dry-run
+```
+
+Full-screen animated intro card:
+
+```bash
+vibe edit motion-overlay intro.mp4 \
+  --asset intro-card.json \
+  --position full \
+  --duration 3 \
+  --no-loop \
+  -o intro-with-card.mp4
+```
+
+Available positions: `full`, `center`, `top-left`, `top-right`, `bottom-left`,
+`bottom-right`. The overlay loops by default; pass `--no-loop` for one-shot
+animations. Use `--start <sec>` to delay when the overlay appears.
+
 ## Tips
 
 - Use `--dry-run` before provider-backed steps.
