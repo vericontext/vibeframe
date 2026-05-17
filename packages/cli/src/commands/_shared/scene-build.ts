@@ -40,7 +40,6 @@ import {
 } from "./compose-scenes-skills.js";
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
-import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
@@ -76,6 +75,9 @@ import { executeMusic } from "../generate/music.js";
 import { createAndWriteJobRecord, type JobRecord } from "./status-jobs.js";
 import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
+import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
+
+export { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 
 export type BuildImageProvider = "openai" | "gemini" | "grok";
 
@@ -184,8 +186,6 @@ export type BuildMusicProvider = "elevenlabs" | "replicate";
  *   forces it, OR (b) any agent host is detected via
  *   `detectedAgentHosts()`. Falls back to `batch`.
  */
-export type SceneBuildMode = "agent" | "batch" | "auto";
-
 export interface SceneBuildOptions {
   /** Project directory containing STORYBOARD.md, DESIGN.md, index.html. */
   projectDir: string;
@@ -2383,29 +2383,6 @@ function rootSyncBeatsFromOutcomes(
           : undefined,
     };
   });
-}
-
-/**
- * Decide which build mode to actually run. `auto` (default) prefers
- * `agent` whenever an agent host is detected — assumption: if the user
- * has Claude Code / Cursor / Codex / Aider installed, they're driving
- * VibeFrame from there and want the agent to do reasoning. Falls back to
- * `batch` for headless / CI contexts where no agent host is reachable.
- *
- * `VIBE_BUILD_MODE` env var overrides everything (`agent` or `batch`).
- * Useful for CI that has Claude installed but wants the deterministic
- * batch path, or for an agent that wants to force batch for benchmarking.
- */
-export function resolveSceneBuildMode(opts: { mode?: SceneBuildMode }): "agent" | "batch" {
-  const envOverride = process.env.VIBE_BUILD_MODE?.toLowerCase();
-  if (envOverride === "agent" || envOverride === "batch") return envOverride;
-
-  const requested = opts.mode ?? "auto";
-  if (requested === "agent") return "agent";
-  if (requested === "batch") return "batch";
-
-  // auto — pick agent when any host is present, batch otherwise.
-  return detectedAgentHosts().length > 0 ? "agent" : "batch";
 }
 
 async function resolveBeatDuration(opts: {

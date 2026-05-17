@@ -44,7 +44,7 @@ export function registerImageCommand(parent: Command): void {
     .option("--count <n>", "Number of images to generate", "1")
     .option(
       "-m, --model <model>",
-      "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)"
+      "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5"
     )
     .option("--dry-run", "Preview parameters without executing")
     .addHelpText(

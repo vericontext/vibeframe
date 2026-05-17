@@ -21,6 +21,7 @@ Brief description of what this PR does and why.
 - [ ] `pnpm test` passes
 - [ ] `pnpm lint` passes
 - [ ] `pnpm gen:reference:check` passes if CLI commands/options changed
+- [ ] `pnpm package:check` passes if package exports/build output changed
 - [ ] Manual testing done (describe below)
 
 **Manual test steps:**
@@ -34,6 +35,6 @@ If applicable, add screenshots or terminal output.
 - [ ] My code follows the [contributing guidelines](../CONTRIBUTING.md)
 - [ ] I have performed a self-review of my code
 - [ ] I have added tests for new functionality
-- [ ] I have updated public docs or demos if behavior changed (`README.md`, `docs/`, `DEMO-quickstart.md`, `DEMO-dogfood.md`)
+- [ ] I have updated public docs or demos if behavior changed (`README.md`, `docs/`, website/demo assets)
 - [ ] I have updated provider/model metadata if needed (`MODELS.md`, `packages/ai-providers/`)
 - [ ] My commit messages follow [conventional commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, etc.)

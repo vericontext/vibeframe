@@ -16,6 +16,7 @@ import {
 import type { GeminiMotionOptions, GeminiMotionResult } from "./gemini-motion.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
+import { errorMessage, fetchJson, sleep } from "../shared/http.js";
 
 /**
  * Gemini model types for image generation
@@ -292,28 +293,7 @@ export class GeminiProvider implements AIProvider {
         parameters,
       };
 
-      const response = await fetch(
-        `${this.baseUrl}/models/${model}:predictLongRunning`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": this.apiKey,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id: "",
-          status: "failed",
-          error: `Veo API error (${response.status}): ${errorText}`,
-        };
-      }
-
-      const data = await response.json() as {
+      const data = await fetchJson<{
         name?: string;
         done?: boolean;
         response?: {
@@ -328,7 +308,18 @@ export class GeminiProvider implements AIProvider {
           }>;
         };
         error?: { message: string };
-      };
+      }>(
+        "Veo API error",
+        `${this.baseUrl}/models/${model}:predictLongRunning`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": this.apiKey,
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
 
       // Veo uses long-running operations
       if (data.name) {
@@ -360,7 +351,7 @@ export class GeminiProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage(error),
       };
     }
   }
@@ -379,26 +370,7 @@ export class GeminiProvider implements AIProvider {
 
     try {
       // Poll the operation status
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${this.apiKey}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id: operationName,
-          status: "failed",
-          error: `Status check failed (${response.status}): ${errorText}`,
-        };
-      }
-
-      const data = await response.json() as {
+      const data = await fetchJson<{
         name: string;
         done?: boolean;
         metadata?: {
@@ -419,7 +391,16 @@ export class GeminiProvider implements AIProvider {
           code: number;
           message: string;
         };
-      };
+      }>(
+        "Status check failed",
+        `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${this.apiKey}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (data.error) {
         return {
@@ -461,7 +442,7 @@ export class GeminiProvider implements AIProvider {
       return {
         id: operationName,
         status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage(error),
       };
     }
   }
@@ -488,7 +469,7 @@ export class GeminiProvider implements AIProvider {
         return result;
       }
 
-      await this.sleep(pollingInterval);
+      await sleep(pollingInterval);
     }
 
     return {
@@ -496,13 +477,6 @@ export class GeminiProvider implements AIProvider {
       status: "failed",
       error: "Generation timed out",
     };
-  }
-
-  /**
-   * Sleep helper
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -539,7 +513,11 @@ export class GeminiProvider implements AIProvider {
         },
       };
 
-      const response = await fetch(
+      const data = await fetchJson<{
+        name?: string;
+        error?: { message: string };
+      }>(
+        "Veo extend API error",
         `${this.baseUrl}/models/${model}:predictLongRunning`,
         {
           method: "POST",
@@ -550,20 +528,6 @@ export class GeminiProvider implements AIProvider {
           body: JSON.stringify(requestBody),
         }
       );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id: "",
-          status: "failed",
-          error: `Veo extend API error (${response.status}): ${errorText}`,
-        };
-      }
-
-      const data = await response.json() as {
-        name?: string;
-        error?: { message: string };
-      };
 
       if (data.name) {
         return {
@@ -582,7 +546,7 @@ export class GeminiProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage(error),
       };
     }
   }

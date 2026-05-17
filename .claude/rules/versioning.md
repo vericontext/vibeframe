@@ -78,7 +78,15 @@ git tag vX.Y.Z
 
 ## SSOT Sync Checklist (before push)
 
-A `PreToolUse` hook (`.claude/hooks/pre-push-validate.sh`) automatically validates before `git push`. Manual checks:
+The shared gate lives at `scripts/pre-push-validate.sh`. Claude Code calls it
+through `.claude/hooks/pre-push-validate.sh`; regular Git/Codex pushes call it
+through `.githooks/pre-push` after:
+
+```bash
+pnpm hooks:install
+```
+
+Manual checks:
 
 1. **Version**: `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` → should show only 1 version
 2. **Landing page**: `apps/web/app/page.tsx` version badge, tool counts match actual

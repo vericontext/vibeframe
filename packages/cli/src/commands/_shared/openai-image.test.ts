@@ -6,6 +6,10 @@ describe("resolveOpenAIImageModel", () => {
   it.each([
     ["2", "gpt-image-2", "GPT Image 2"],
     ["gpt-image-2", "gpt-image-2", "GPT Image 2"],
+    [undefined, "gpt-image-2", "GPT Image 2"],
+    ["dalle", "gpt-image-2", "GPT Image 2"],
+    ["", "gpt-image-2", "GPT Image 2"],
+    ["gpt-image-1", "gpt-image-2", "GPT Image 2"],
   ] as const)(
     "model alias %s → openaiModel=%s, label=%s",
     (alias, expectedModel, expectedLabel) => {
@@ -16,14 +20,11 @@ describe("resolveOpenAIImageModel", () => {
   );
 
   it.each([
-    [undefined],
     ["1.5"],
-    ["dalle"],
-    [""],
-    ["gpt-image-1"],
-  ] as const)("model alias %s falls back to gpt-image-1.5 default", (alias) => {
+    ["gpt-image-1.5"],
+  ] as const)("model alias %s explicitly selects gpt-image-1.5", (alias) => {
     const r = resolveOpenAIImageModel(alias);
-    expect(r.openaiModel).toBeUndefined();
+    expect(r.openaiModel).toBe("gpt-image-1.5");
     expect(r.modelLabel).toBe("GPT Image 1.5");
   });
 

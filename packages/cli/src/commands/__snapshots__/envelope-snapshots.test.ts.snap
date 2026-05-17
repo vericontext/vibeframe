@@ -1756,7 +1756,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "type": "boolean",
       },
       "model": {
-        "description": "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)",
+        "description": "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5",
         "type": "string",
       },
       "output": {
@@ -2270,6 +2270,10 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "description": "Negative prompt - what to avoid (Kling/Veo)",
         "type": "string",
       },
+      "noGenerateAudio": {
+        "description": "Disable native audio when the provider supports it",
+        "type": "boolean",
+      },
       "noWait": {
         "description": "Start generation and return task ID without waiting",
         "type": "boolean",
@@ -2299,8 +2303,16 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         ],
         "type": "string",
       },
+      "refAudio": {
+        "description": "Reference audio for Seedance reference-to-video",
+        "type": "string",
+      },
       "refImages": {
-        "description": "Reference images for character consistency (Veo 3.1 only, max 3)",
+        "description": "Reference images for Seedance reference-to-video or Veo character consistency",
+        "type": "string",
+      },
+      "refVideos": {
+        "description": "Reference videos for Seedance reference-to-video",
         "type": "string",
       },
       "resolution": {
@@ -4553,6 +4565,7 @@ exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1
   "data": {
     "params": {
       "duration": "5",
+      "generateAudio": true,
       "mode": "std",
       "prompt": "test",
       "provider": "grok",

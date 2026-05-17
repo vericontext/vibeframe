@@ -120,6 +120,17 @@ describe("vibe doctor — scope diagnostics", () => {
     expect(json.data.providers.openai.configured).toBe(true);
   });
 
+  it("reports malformed active config instead of treating it as unconfigured", () => {
+    mkdirSync(join(projectDir, ".vibeframe"));
+    writeFileSync(join(projectDir, ".vibeframe", "config.yaml"), "providers:\n  openai: [bad\n");
+
+    const { json } = runDoctor();
+    expect(json.data.scope.activeScope).toBe("project");
+    expect(json.data.system.config.ok).toBe(false);
+    expect(json.data.scope.configError.path).toMatch(/\.vibeframe[\\/]config\.yaml$/);
+    expect(json.data.scope.configError.message).toContain("Failed to read VibeFrame config");
+  });
+
   it("finds project config from a parent directory when run inside a scene project", () => {
     mkdirSync(join(projectDir, ".vibeframe"));
     writeFileSync(

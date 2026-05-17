@@ -75,6 +75,9 @@ jobs:
       - name: Verify generated CLI reference
         run: pnpm gen:reference:check
 
+      - name: Package smoke
+        run: pnpm package:check
+
       - name: Test
         run: pnpm test
         env:

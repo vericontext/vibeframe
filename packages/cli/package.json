@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.104.3",
+  "version": "0.105.2",
   "description": "VibeFrame CLI - natural language video editing from the terminal",
   "private": false,
   "license": "MIT",
@@ -33,128 +33,28 @@
   ],
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "types": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./engine": {
-      "import": "./src/engine/index.ts",
-      "types": "./src/engine/index.ts"
-    },
-    "./agent": {
-      "import": "./src/agent/index.ts",
-      "types": "./src/agent/index.ts"
+      "types": "./dist/engine/index.d.ts",
+      "import": "./dist/engine/index.js"
     },
     "./tools/manifest": {
-      "import": "./src/tools/manifest/index.ts",
-      "types": "./src/tools/manifest/index.ts"
+      "types": "./dist/tools/manifest/index.d.ts",
+      "import": "./dist/tools/manifest/index.js"
     },
     "./tools/define-tool": {
-      "import": "./src/tools/define-tool.ts",
-      "types": "./src/tools/define-tool.ts"
+      "types": "./dist/tools/define-tool.d.ts",
+      "import": "./dist/tools/define-tool.js"
     },
     "./tools/adapters/mcp": {
-      "import": "./src/tools/adapters/mcp.ts",
-      "types": "./src/tools/adapters/mcp.ts"
+      "types": "./dist/tools/adapters/mcp.d.ts",
+      "import": "./dist/tools/adapters/mcp.js"
     },
     "./tools/adapters/agent": {
-      "import": "./src/tools/adapters/agent.ts",
-      "types": "./src/tools/adapters/agent.ts"
-    },
-    "./commands/export": {
-      "import": "./src/commands/export.ts",
-      "types": "./src/commands/export.ts"
-    },
-    "./commands/ai-edit": {
-      "import": "./src/commands/ai-edit.ts",
-      "types": "./src/commands/ai-edit.ts"
-    },
-    "./commands/ai-analyze": {
-      "import": "./src/commands/ai-analyze.ts",
-      "types": "./src/commands/ai-analyze.ts"
-    },
-    "./commands/ai-review": {
-      "import": "./src/commands/ai-review.ts",
-      "types": "./src/commands/ai-review.ts"
-    },
-    "./commands/ai-image": {
-      "import": "./src/commands/ai-image.ts",
-      "types": "./src/commands/ai-image.ts"
-    },
-    "./commands/ai-script-pipeline": {
-      "import": "./src/commands/ai-script-pipeline.ts",
-      "types": "./src/commands/ai-script-pipeline.ts"
-    },
-    "./commands/ai-highlights": {
-      "import": "./src/commands/ai-highlights.ts",
-      "types": "./src/commands/ai-highlights.ts"
-    },
-    "./commands/ai-narrate": {
-      "import": "./src/commands/ai-narrate.ts",
-      "types": "./src/commands/ai-narrate.ts"
-    },
-    "./commands/ai-motion": {
-      "import": "./src/commands/ai-motion.ts",
-      "types": "./src/commands/ai-motion.ts"
-    },
-    "./commands/ai-animated-caption": {
-      "import": "./src/commands/ai-animated-caption.ts",
-      "types": "./src/commands/ai-animated-caption.ts"
-    },
-    "./commands/detect": {
-      "import": "./src/commands/detect.ts",
-      "types": "./src/commands/detect.ts"
-    },
-    "./commands/generate": {
-      "import": "./src/commands/generate.ts",
-      "types": "./src/commands/generate.ts"
-    },
-    "./commands/ai-video": {
-      "import": "./src/commands/ai-video.ts",
-      "types": "./src/commands/ai-video.ts"
-    },
-    "./commands/ai-audio": {
-      "import": "./src/commands/ai-audio.ts",
-      "types": "./src/commands/ai-audio.ts"
-    },
-    "./commands/edit-cmd": {
-      "import": "./src/commands/edit-cmd.ts",
-      "types": "./src/commands/edit-cmd.ts"
-    },
-    "./commands/scene": {
-      "import": "./src/commands/scene.ts",
-      "types": "./src/commands/scene.ts"
-    },
-    "./commands/_shared/scene-project": {
-      "import": "./src/commands/_shared/scene-project.ts",
-      "types": "./src/commands/_shared/scene-project.ts"
-    },
-    "./commands/_shared/scene-lint": {
-      "import": "./src/commands/_shared/scene-lint.ts",
-      "types": "./src/commands/_shared/scene-lint.ts"
-    },
-    "./commands/_shared/scene-render": {
-      "import": "./src/commands/_shared/scene-render.ts",
-      "types": "./src/commands/_shared/scene-render.ts"
-    },
-    "./commands/_shared/scene-html-emit": {
-      "import": "./src/commands/_shared/scene-html-emit.ts",
-      "types": "./src/commands/_shared/scene-html-emit.ts"
-    },
-    "./commands/_shared/scene-build": {
-      "import": "./src/commands/_shared/scene-build.ts",
-      "types": "./src/commands/_shared/scene-build.ts"
-    },
-    "./commands/_shared/visual-styles": {
-      "import": "./src/commands/_shared/visual-styles.ts",
-      "types": "./src/commands/_shared/visual-styles.ts"
-    },
-    "./commands/ai-suggest-edit": {
-      "import": "./src/commands/ai-suggest-edit.ts",
-      "types": "./src/commands/ai-suggest-edit.ts"
-    },
-    "./pipeline": {
-      "import": "./src/pipeline/index.ts",
-      "types": "./src/pipeline/index.ts"
+      "types": "./dist/tools/adapters/agent.d.ts",
+      "import": "./dist/tools/adapters/agent.js"
     }
   },
   "scripts": {

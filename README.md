@@ -169,7 +169,9 @@ vibe doctor
 The installer places the CLI checkout under the XDG data directory
 (`~/.local/share/vibeframe` by default). User-scope API keys stay in a clean
 `~/.vibeframe/config.yaml`; project-scope setup still writes
-`./.vibeframe/config.yaml`.
+`./.vibeframe/config.yaml`. When a project config exists at your current
+directory or an ancestor, VibeFrame uses that project config in isolation and
+does not merge in user-scope keys.
 
 For local development:
 

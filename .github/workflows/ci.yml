@@ -82,5 +82,8 @@ jobs:
       - name: CLI reference is generated
         run: pnpm gen:reference:check
 
+      - name: Package smoke
+        run: pnpm package:check
+
       - name: Dogfood smoke
         run: pnpm test:dogfood

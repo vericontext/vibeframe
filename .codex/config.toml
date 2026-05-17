@@ -1,0 +1,15 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Project-scoped Codex settings for VibeFrame. Shared repository guidance lives
+# in AGENTS.md; keep this file focused on Codex runtime behavior.
+
+project_doc_max_bytes = 65536
+web_search = "cached"
+personality = "pragmatic"
+
+[features]
+hooks = true
+multi_agent = true
+
+[tools]
+view_image = true

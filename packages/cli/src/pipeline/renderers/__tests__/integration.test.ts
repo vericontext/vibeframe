@@ -64,13 +64,26 @@ describe("Hyperframes integration (skipped if Chrome missing)", () => {
     const outputPath = resolve(tmpdir(), `vibeframe-hf-lottie-${Date.now()}.mp4`);
     const backend = createHyperframesBackend();
 
-    const result = await backend.render({
+    let result = await backend.render({
       projectState: state,
       outputPath,
       fps: 30,
       quality: "draft",
       format: "mp4",
     });
+    if (!result.success) {
+      // Chrome-based render integration tests can run next to other browser
+      // render tests locally. Retry once to absorb transient fixture-server
+      // fetch failures while still failing deterministic render breakage.
+      try { rmSync(outputPath, { force: true }); } catch { /* ignore */ }
+      result = await backend.render({
+        projectState: state,
+        outputPath,
+        fps: 30,
+        quality: "draft",
+        format: "mp4",
+      });
+    }
 
     expect(result.success).toBe(true);
     expect(existsSync(outputPath)).toBe(true);

@@ -741,7 +741,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
   const cfgPath = displayPath.replace(homedir(), "~");
   const scopeNote =
     scope === "project"
-      ? "applies to this project only · add .vibeframe/ to .gitignore"
+      ? "applies to this project only · user config is ignored while this file exists · add .vibeframe/ to .gitignore"
       : "applies to every project for this user";
   console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.bold(` — ${scope} scope`));
   console.log(chalk.dim(`${cfgPath} · ${scopeNote}`));

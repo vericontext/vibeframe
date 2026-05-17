@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.104.3`
+> CLI version: `0.105.2`
 
 ## Mental model
 
@@ -465,7 +465,7 @@ Cost tier: `high`
 - `quality` _(string)_ _(standard \| hd)_ _(default: `"standard"`)_ — Quality: standard, hd (openai only)
 - `style` _(string)_ _(vivid \| natural)_ _(default: `"vivid"`)_ — Style: vivid, natural (openai only)
 - `count` _(number)_ _(default: `1`)_ — Number of images to generate
-- `model` _(string)_ — Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 1.5 (default), 2 (gpt-image-2)
+- `model` _(string)_ — Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5
 - `dryRun` _(boolean)_ — Preview parameters without executing
 
 #### `vibe generate motion`
@@ -648,7 +648,10 @@ Cost tier: `very-high`
 - `negative` _(string)_ — Negative prompt - what to avoid (Kling/Veo)
 - `resolution` _(string)_ _(720p \| 1080p \| 4k)_ — Video resolution: 720p, 1080p, 4k (Veo only)
 - `lastFrame` _(string)_ — Last frame image for frame interpolation (Veo only)
-- `refImages` _(string)_ — Reference images for character consistency (Veo 3.1 only, max 3)
+- `refImages` _(string)_ — Reference images for Seedance reference-to-video or Veo character consistency
+- `refVideos` _(string)_ — Reference videos for Seedance reference-to-video
+- `refAudio` _(string)_ — Reference audio for Seedance reference-to-video
+- `noGenerateAudio` _(boolean)_ — Disable native audio when the provider supports it
 - `person` _(string)_ — Person generation: allow_all, allow_adult (Veo only)
 - `veoModel` _(string)_ _(default: `"3.1-fast"`)_ — Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)
 - `runwayModel` _(string)_ _(default: `"gen4.5"`)_ — Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)

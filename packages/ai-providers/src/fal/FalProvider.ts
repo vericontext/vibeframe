@@ -4,6 +4,7 @@ import type {
   AICapability,
   ProviderConfig,
   GenerateOptions,
+  MediaReference,
   VideoResult,
 } from "../interface/types.js";
 
@@ -33,6 +34,11 @@ const ENDPOINT_TEXT_TO_VIDEO: Record<SeedanceVariant, string> = {
 const ENDPOINT_IMAGE_TO_VIDEO: Record<SeedanceVariant, string> = {
   "seedance-2.0":      "bytedance/seedance-2.0/image-to-video",
   "seedance-2.0-fast": "bytedance/seedance-2.0/fast/image-to-video",
+};
+
+const ENDPOINT_REFERENCE_TO_VIDEO: Record<SeedanceVariant, string> = {
+  "seedance-2.0":      "bytedance/seedance-2.0/reference-to-video",
+  "seedance-2.0-fast": "bytedance/seedance-2.0/fast/reference-to-video",
 };
 
 const DEFAULT_VARIANT: SeedanceVariant = "seedance-2.0";
@@ -70,7 +76,7 @@ export class FalProvider implements AIProvider {
   id = "seedance";
   name = "fal.ai (Seedance 2.0)";
   description = "fal.ai hosting ByteDance Seedance 2.0 — Artificial Analysis #2 on both text-to-video and image-to-video leaderboards";
-  capabilities: AICapability[] = ["text-to-video", "image-to-video"];
+  capabilities: AICapability[] = ["text-to-video", "image-to-video", "reference-to-video"];
   iconUrl = "/icons/fal.svg";
   isAvailable = true;
 
@@ -118,9 +124,13 @@ export class FalProvider implements AIProvider {
       };
     }
 
-    const referenceImage = pickReferenceImageUrl(options?.referenceImage);
+    const references = await normaliseReferences(options?.references, this.client);
+    const hasReferences = references.length > 0;
+    const referenceImage = hasReferences ? undefined : pickReferenceImageUrl(options?.referenceImage);
     const isImageToVideo = !!referenceImage;
-    const endpointId = isImageToVideo
+    const endpointId = hasReferences
+      ? ENDPOINT_REFERENCE_TO_VIDEO[variant]
+      : isImageToVideo
       ? ENDPOINT_IMAGE_TO_VIDEO[variant]
       : ENDPOINT_TEXT_TO_VIDEO[variant];
 
@@ -134,10 +144,19 @@ export class FalProvider implements AIProvider {
       resolution,
       duration,
     };
-    if (referenceImage) input.image_url = referenceImage;
+    if (hasReferences) {
+      const grouped = groupReferences(references);
+      if (grouped.image_urls.length > 0) input.image_urls = grouped.image_urls;
+      if (grouped.video_urls.length > 0) input.video_urls = grouped.video_urls;
+      if (grouped.audio_urls.length > 0) input.audio_urls = grouped.audio_urls;
+    } else if (referenceImage) {
+      input.image_url = referenceImage;
+    }
     if (options?.negativePrompt) input.negative_prompt = options.negativePrompt;
     if (typeof options?.seed === "number") input.seed = options.seed;
-    if (options?.lastFrame) input.end_image_url = options.lastFrame;
+    if (typeof options?.generateAudio === "boolean") input.generate_audio = options.generateAudio;
+    if (options?.endUserId) input.end_user_id = options.endUserId;
+    if (!hasReferences && options?.lastFrame) input.end_image_url = options.lastFrame;
 
     try {
       const out = await this.client.subscribe(endpointId, { input, logs: false });
@@ -160,9 +179,50 @@ export class FalProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: err instanceof Error ? err.message : String(err),
+        error: formatFalError(err),
       };
     }
+  }
+}
+
+function formatFalError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const parts = [error.message];
+  const details = falErrorDetails(error);
+  if (details) parts.push(details);
+  return parts.join(" - ");
+}
+
+function falErrorDetails(error: Error): string | undefined {
+  const withBody = error as Error & {
+    status?: number;
+    requestId?: string;
+    body?: unknown;
+    fieldErrors?: Array<{ loc?: unknown[]; msg?: string; type?: string }>;
+  };
+  const items: string[] = [];
+  if (typeof withBody.status === "number") items.push(`HTTP ${withBody.status}`);
+  if (withBody.requestId) items.push(`request ${withBody.requestId}`);
+  if (Array.isArray(withBody.fieldErrors) && withBody.fieldErrors.length > 0) {
+    items.push(
+      withBody.fieldErrors
+        .map((fieldError) => {
+          const path = Array.isArray(fieldError.loc) ? fieldError.loc.join(".") : "body";
+          return `${path}: ${fieldError.msg ?? fieldError.type ?? "invalid"}`;
+        })
+        .join("; ")
+    );
+  } else if (withBody.body !== undefined) {
+    items.push(safeJson(withBody.body));
+  }
+  return items.filter(Boolean).join(" - ") || undefined;
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
   }
 }
 
@@ -176,6 +236,67 @@ function pickReferenceImageUrl(input: unknown): string | undefined {
   if (typeof input !== "string") return undefined;
   if (input.startsWith("http://") || input.startsWith("https://")) return input;
   return undefined;
+}
+
+function isFalFileInput(value: string): boolean {
+  return (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("data:")
+  );
+}
+
+async function normaliseReferences(
+  input: MediaReference[] | undefined,
+  client: FalClient,
+): Promise<MediaReference[]> {
+  if (!input) return [];
+  const references: MediaReference[] = [];
+  for (const ref of input) {
+    if (!isFalFileInput(ref.url)) continue;
+    references.push({
+      ...ref,
+      url: ref.url.startsWith("data:")
+        ? await uploadDataUri(client, ref.url)
+        : ref.url,
+    });
+  }
+  return references;
+}
+
+async function uploadDataUri(client: FalClient, dataUri: string): Promise<string> {
+  const blob = dataUriToBlob(dataUri);
+  return client.storage.upload(blob, {
+    lifecycle: { expiresIn: "1h" },
+  });
+}
+
+function dataUriToBlob(dataUri: string): Blob {
+  const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUri);
+  if (!match) throw new Error("Invalid data URI reference.");
+  const mimeType = match[1] || "application/octet-stream";
+  const isBase64 = Boolean(match[2]);
+  const payload = match[3] ?? "";
+  const buffer = isBase64
+    ? Buffer.from(payload, "base64")
+    : Buffer.from(decodeURIComponent(payload), "utf-8");
+  return new Blob([new Uint8Array(buffer)], { type: mimeType });
+}
+
+function groupReferences(references: MediaReference[]): {
+  image_urls: string[];
+  video_urls: string[];
+  audio_urls: string[];
+} {
+  const image_urls: string[] = [];
+  const video_urls: string[] = [];
+  const audio_urls: string[] = [];
+  for (const ref of references) {
+    if (ref.kind === "image") image_urls.push(ref.url);
+    if (ref.kind === "video") video_urls.push(ref.url);
+    if (ref.kind === "audio") audio_urls.push(ref.url);
+  }
+  return { image_urls, video_urls, audio_urls };
 }
 
 function normaliseAspect(value?: string): SeedanceAspect {
