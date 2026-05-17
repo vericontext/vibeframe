@@ -8,8 +8,8 @@ Please be respectful and considerate of others. We want to foster an inclusive a
 
 ## Prerequisites
 
-- **Node.js** >= 18
-- **pnpm** >= 9 (`corepack enable && corepack prepare pnpm@9.0.0 --activate`)
+- **Node.js** >= 20
+- **pnpm** 9.15.4 (`corepack enable && corepack prepare pnpm@9.15.4 --activate`)
 - **FFmpeg** (required for video/audio commands): `brew install ffmpeg` (macOS) or see [ffmpeg.org](https://ffmpeg.org/download.html)
 - **API keys** (optional, only for AI features you're working on): Copy `.env.example` to `.env` and fill in relevant keys. See [MODELS.md](MODELS.md) for which commands need which keys.
 

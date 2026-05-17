@@ -129,14 +129,14 @@ step "Checking dependencies..."
 if ! check_cmd node; then
   error "Node.js is required but not installed."
   echo ""
-  echo "Install Node.js 18+ from: https://nodejs.org"
+  echo "Install Node.js 20+ from: https://nodejs.org"
   echo "Or use nvm: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
   exit 1
 fi
 
 NODE_VER=$(node_version)
-if [ "$NODE_VER" -lt 18 ]; then
-  error "Node.js 18+ is required. You have v$NODE_VER."
+if [ "$NODE_VER" -lt 20 ]; then
+  error "Node.js 20+ is required. You have v$NODE_VER."
   exit 1
 fi
 echo -e "  ${DIM}Node.js v$(node --version | sed 's/v//')${NC}"
