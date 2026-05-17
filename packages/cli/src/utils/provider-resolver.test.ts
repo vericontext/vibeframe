@@ -112,6 +112,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "generate video -p seedance (Seedance 2.0 via fal.ai — default since v0.57)",
         "generate video -p seedance --seedance-model fast (lower-latency variant)",
         "generate video -p seedance -i <image> (image-to-video)",
+        "generate video -p seedance --ref-images <images...> (reference-to-video)",
       ],
       ELEVENLABS_API_KEY: [
         "generate speech",
