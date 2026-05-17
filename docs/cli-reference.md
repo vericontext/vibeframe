@@ -1360,6 +1360,11 @@ Cost tier: `free`
 - `noTranscribe` _(boolean)_ — Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)
 - `transcribeLanguage` _(string)_ — BCP-47 language code passed to Whisper (e.g. en, ko)
 - `force` _(boolean)_ — Overwrite an existing compositions/scene-<id>.html
+- `lottie` _(string)_ — Lottie animation file (.json/.lottie) to overlay on the scene
+- `lottiePosition` _(string)_ _(full \| center \| top-left \| top-right \| bottom-left \| bottom-right)_ _(default: `"full"`)_ — Lottie position: full, center, top-left, top-right, bottom-left, bottom-right
+- `lottieScale` _(number)_ — Lottie overlay scale (0.01-2)
+- `lottieOpacity` _(number)_ _(default: `1`)_ — Lottie overlay opacity (0-1)
+- `lottieNoLoop` _(boolean)_ — Do not loop the Lottie animation
 - `dryRun` _(boolean)_ — Preview parameters without writing files or calling APIs
 
 #### `vibe scene compose-prompts`

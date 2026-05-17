@@ -630,3 +630,115 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
     }
   });
 });
+
+// ── Lottie overlay layer ────────────────────────────────────────────────────
+//
+// Regression coverage for the bug where the emit path pointed at a
+// non-existent CDN package (`@nicepkg/dotlottie-wc`), so `<dotlottie-wc>`
+// never registered and the overlay silently did not render. These tests
+// pin the loader to the real package (`@lottiefiles/dotlottie-wc`),
+// require an explicit `setWasmUrl(...)` call (the runtime needs its
+// WASM player or it 404s), and lock in the per-scene id so multiple
+// scenes with overlays don't collide.
+
+describe("emitSceneHtml — Lottie overlay layer", () => {
+  const lottieBase = {
+    ...baseInput,
+    preset: "simple" as const,
+    lottie: {
+      src: "assets/lottie-intro.json",
+      position: "full" as const,
+    },
+  };
+
+  it("renders nothing Lottie-related when no overlay is provided", () => {
+    const html = emitSceneHtml({ ...baseInput, preset: "simple" });
+    expect(html).not.toContain("dotlottie-wc");
+    expect(html).not.toContain("setWasmUrl");
+  });
+
+  it("loads the runtime from the real @lottiefiles/dotlottie-wc package on jsdelivr", () => {
+    const html = emitSceneHtml(lottieBase);
+    // The custom element + a module script that registers it must both ship.
+    expect(html).toContain("<dotlottie-wc");
+    expect(html).toContain('src="assets/lottie-intro.json"');
+    expect(html).toContain("@lottiefiles/dotlottie-wc");
+    // Guard against regression to the broken package name.
+    expect(html).not.toContain("@nicepkg/dotlottie-wc");
+    // Pinned version must track packages/cli/package.json (^0.9.12).
+    expect(html).toMatch(/@lottiefiles\/dotlottie-wc@0\.9\.\d+/);
+  });
+
+  it("calls setWasmUrl with the dotlottie-web WASM URL so the player can render", () => {
+    const html = emitSceneHtml(lottieBase);
+    expect(html).toContain("setWasmUrl");
+    expect(html).toContain("@lottiefiles/dotlottie-web");
+    expect(html).toMatch(/dotlottie-web@0\.71\.\d+\/dist\/dotlottie-player\.wasm/);
+  });
+
+  it("scopes the overlay id per scene to avoid collisions between scenes", () => {
+    const a = emitSceneHtml({ ...lottieBase, id: "intro" });
+    const b = emitSceneHtml({ ...lottieBase, id: "outro" });
+    expect(a).toContain('id="lottie-overlay-intro"');
+    expect(b).toContain('id="lottie-overlay-outro"');
+    // No leftover unscoped id from the original implementation.
+    expect(a).not.toContain('id="lottie-overlay"');
+  });
+
+  it("emits autoplay + loop by default and drops loop when loop:false", () => {
+    const looping = emitSceneHtml(lottieBase);
+    expect(looping).toMatch(/<dotlottie-wc[^>]*\sautoplay\s+loop\b/);
+
+    const oneShot = emitSceneHtml({
+      ...lottieBase,
+      lottie: { ...lottieBase.lottie, loop: false },
+    });
+    expect(oneShot).toMatch(/<dotlottie-wc[^>]*\sautoplay\b/);
+    expect(oneShot).not.toMatch(/<dotlottie-wc[^>]*\sloop\b/);
+  });
+
+  it("defaults non-full positions to scale 0.25 (matches html-clips.ts)", () => {
+    const html = emitSceneHtml({
+      ...lottieBase,
+      lottie: { src: "assets/x.json", position: "bottom-right" },
+    });
+    // Default corner scale is 0.25 → 25% width/height (not 100% as the prior bug emitted).
+    expect(html).toContain("width:25%");
+    expect(html).toContain("height:25%");
+  });
+
+  it("full position ignores scale and fills the scene", () => {
+    const html = emitSceneHtml({
+      ...lottieBase,
+      lottie: { src: "assets/x.json", position: "full", scale: 0.5 },
+    });
+    expect(html).toContain("inset:0");
+    expect(html).toContain("width:100%");
+    expect(html).toContain("height:100%");
+  });
+
+  it("clamps scale to [0.01, 2] and opacity to [0, 1]", () => {
+    const overscale = emitSceneHtml({
+      ...lottieBase,
+      lottie: { src: "assets/x.json", position: "top-left", scale: 5, opacity: 5 },
+    });
+    expect(overscale).toContain("width:200%");
+    expect(overscale).toContain("opacity:1");
+
+    const underscale = emitSceneHtml({
+      ...lottieBase,
+      lottie: { src: "assets/x.json", position: "top-left", scale: -1, opacity: -1 },
+    });
+    expect(underscale).toContain("width:1%");
+    expect(underscale).toContain("opacity:0");
+  });
+
+  it("escapes the lottie src to prevent HTML injection via the file path", () => {
+    const html = emitSceneHtml({
+      ...lottieBase,
+      lottie: { src: 'evil"><script>alert(1)</script>', position: "full" },
+    });
+    expect(html).not.toContain("<script>alert(1)");
+    expect(html).toContain("&quot;");
+  });
+});
