@@ -179,9 +179,50 @@ export class FalProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: err instanceof Error ? err.message : String(err),
+        error: formatFalError(err),
       };
     }
+  }
+}
+
+function formatFalError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const parts = [error.message];
+  const details = falErrorDetails(error);
+  if (details) parts.push(details);
+  return parts.join(" - ");
+}
+
+function falErrorDetails(error: Error): string | undefined {
+  const withBody = error as Error & {
+    status?: number;
+    requestId?: string;
+    body?: unknown;
+    fieldErrors?: Array<{ loc?: unknown[]; msg?: string; type?: string }>;
+  };
+  const items: string[] = [];
+  if (typeof withBody.status === "number") items.push(`HTTP ${withBody.status}`);
+  if (withBody.requestId) items.push(`request ${withBody.requestId}`);
+  if (Array.isArray(withBody.fieldErrors) && withBody.fieldErrors.length > 0) {
+    items.push(
+      withBody.fieldErrors
+        .map((fieldError) => {
+          const path = Array.isArray(fieldError.loc) ? fieldError.loc.join(".") : "body";
+          return `${path}: ${fieldError.msg ?? fieldError.type ?? "invalid"}`;
+        })
+        .join("; ")
+    );
+  } else if (withBody.body !== undefined) {
+    items.push(safeJson(withBody.body));
+  }
+  return items.filter(Boolean).join(" - ") || undefined;
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
   }
 }
 

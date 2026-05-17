@@ -148,6 +148,37 @@ describe("FalProvider", () => {
       expect(result.error).toContain("rate limited");
     });
 
+    it("includes fal validation details when subscribe rejects with a body", async () => {
+      const error = Object.assign(new Error("Unprocessable Entity"), {
+        status: 422,
+        requestId: "req-validation",
+        body: {
+          detail: [
+            {
+              loc: ["body", "image_urls", 0],
+              msg: "Invalid image URL",
+              type: "value_error",
+            },
+          ],
+        },
+        fieldErrors: [
+          {
+            loc: ["body", "image_urls", 0],
+            msg: "Invalid image URL",
+            type: "value_error",
+          },
+        ],
+      });
+      mocks.subscribe.mockRejectedValueOnce(error);
+
+      const result = await provider.generateVideo("p", { prompt: "p" });
+
+      expect(result.status).toBe("failed");
+      expect(result.error).toContain("HTTP 422");
+      expect(result.error).toContain("req-validation");
+      expect(result.error).toContain("body.image_urls.0: Invalid image URL");
+    });
+
     it("returns a structured failure when no video URL is returned", async () => {
       mocks.subscribe.mockResolvedValueOnce({
         requestId: "req-empty",

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Shared Git pre-push hook. Enable once with:
+#   git config core.hooksPath .githooks
+
+PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+export VIBEFRAME_PROJECT_DIR="$PROJECT_DIR"
+
+exec bash "$PROJECT_DIR/scripts/pre-push-validate.sh"

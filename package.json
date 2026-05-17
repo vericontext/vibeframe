@@ -1,6 +1,6 @@
 {
   "name": "vibeframe",
-  "version": "0.105.1",
+  "version": "0.105.2",
   "description": "AI-native video editing tool. CLI-first, MCP-ready.",
   "private": true,
   "license": "MIT",
@@ -39,7 +39,9 @@
     "scaffold:provider": "tsx scripts/scaffold-provider.mts",
     "scaffold:command": "tsx scripts/scaffold-command.mts",
     "gen:reference": "tsx scripts/gen-cli-reference.mts",
-    "gen:reference:check": "tsx scripts/gen-cli-reference.mts --check"
+    "gen:reference:check": "tsx scripts/gen-cli-reference.mts --check",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "package:check": "tsx scripts/package-smoke.mts"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

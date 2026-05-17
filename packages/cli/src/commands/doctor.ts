@@ -12,6 +12,7 @@ import {
   getProjectConfigPath,
   getActiveScope,
   loadConfig,
+  ConfigFileError,
   type Scope,
 } from "../config/index.js";
 import { PROVIDER_ENV_ALIASES, PROVIDER_ENV_VARS } from "../config/schema.js";
@@ -28,7 +29,7 @@ import {
   type ComposerProvider,
 } from "./_shared/composer-resolve.js";
 import { getCostTier, TIER_COLOR, type CostTier } from "./_shared/cost-tier.js";
-import { resolveSceneBuildMode } from "./_shared/scene-build.js";
+import { resolveSceneBuildMode } from "./_shared/scene-build-mode.js";
 import { outputSuccess } from "./output.js";
 
 /**
@@ -163,7 +164,7 @@ interface DiagnosticResults {
   system: {
     node: { version: string; ok: boolean };
     ffmpeg: { version: string | null; ok: boolean; filters?: Record<string, FFmpegFilterStatus> };
-    config: { path: string; ok: boolean };
+    config: { path: string; ok: boolean; error?: { path: string; message: string } };
     optionalTools?: Record<string, OptionalToolStatus>;
   };
   /**
@@ -218,6 +219,7 @@ interface DiagnosticResults {
       sceneProjectInCwd: boolean;
       skillInstalled: boolean;
     };
+    configError?: { path: string; message: string };
   };
   providers: Record<string, { envVar: string; configured: boolean; commands: readonly string[] }>;
   readyCount: number;
@@ -312,7 +314,14 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   const configExists = userConfig.configured;
 
   const cwd = process.cwd();
-  const activeConfig = await loadConfig({ cwd });
+  let activeConfig: Awaited<ReturnType<typeof loadConfig>> = null;
+  let configError: { path: string; message: string } | undefined;
+  try {
+    activeConfig = await loadConfig({ cwd });
+  } catch (err) {
+    if (!(err instanceof ConfigFileError)) throw err;
+    configError = { path: err.path, message: err.message };
+  }
 
   // Provider checks
   const providers: DiagnosticResults["providers"] = {};
@@ -376,7 +385,11 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
         ok: ffmpegExists,
         ...(ffmpegFilters ? { filters: ffmpegFilters } : {}),
       },
-      config: { path: userConfig.configPath, ok: configExists },
+      config: {
+        path: userConfig.configPath,
+        ok: (configExists || projectConfigExists) && !configError,
+        ...(configError ? { error: configError } : {}),
+      },
       ...(Object.keys(optionalTools).length > 0 ? { optionalTools } : {}),
     },
     scope: {
@@ -403,6 +416,7 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
         sceneProjectInCwd,
         skillInstalled,
       },
+      ...(configError ? { configError } : {}),
     },
     providers,
     readyCount,
@@ -490,14 +504,16 @@ function printReport(
   const userActive = results.scope.activeScope === "user" && results.scope.user.configured;
   const projectActive = results.scope.activeScope === "project";
   const activeMark = chalk.cyan(" ← active");
+  const configErrorPath = results.scope.configError?.path;
 
   if (results.scope.user.configured) {
     const userPath =
       results.scope.user.source === "legacy"
         ? `${results.scope.user.configPath} ${chalk.dim(`(legacy; writes ${results.scope.user.writePath})`)}`
         : results.scope.user.configPath;
+    const invalid = configErrorPath === results.scope.user.configPath;
     console.log(
-      `    Cfg(user)  ${chalk.green("OK")}       ${chalk.dim(userPath)}${userActive ? activeMark : ""}`
+      `    Cfg(user)  ${invalid ? chalk.red("INVALID") : chalk.green("OK")}  ${chalk.dim(userPath)}${userActive ? activeMark : ""}`
     );
   } else {
     console.log(
@@ -506,13 +522,23 @@ function printReport(
   }
 
   if (results.scope.project.configFileExists) {
+    const invalid = configErrorPath === results.scope.project.configPath;
     console.log(
-      `    Cfg(proj)  ${chalk.green("OK")}       ${chalk.dim(results.scope.project.configPath)}${projectActive ? activeMark : ""}`
+      `    Cfg(proj)  ${invalid ? chalk.red("INVALID") : chalk.green("OK")}  ${chalk.dim(results.scope.project.configPath)}${projectActive ? activeMark : ""}`
     );
+    if (projectActive) {
+      console.log(
+        `               ${chalk.dim("project scope is isolated; user config is ignored while this file exists")}`
+      );
+    }
   } else {
     console.log(
       `    Cfg(proj)  ${chalk.dim("none")}     ${chalk.dim(`Run: vibe setup --scope project  (cwd: ${results.scope.project.cwd})`)}`
     );
+  }
+
+  if (results.scope.configError) {
+    console.log(`    Cfg error  ${chalk.red(results.scope.configError.message)}`);
   }
 
   // Project init — vibe init scaffolding (AGENTS.md / CLAUDE.md / vibe.project.yaml)
@@ -734,7 +760,12 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
 
   // Lazy import keeps the module out of `vibe doctor` (no flag) cold-start.
   const { testKey } = await import("../utils/key-live-test.js");
-  const activeConfig = await loadConfig({ cwd: process.cwd() });
+  let activeConfig: Awaited<ReturnType<typeof loadConfig>> = null;
+  try {
+    activeConfig = await loadConfig({ cwd: process.cwd() });
+  } catch (err) {
+    if (!(err instanceof ConfigFileError)) throw err;
+  }
 
   for (const [name, info] of configured) {
     const value =

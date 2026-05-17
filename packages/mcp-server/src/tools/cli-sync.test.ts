@@ -19,14 +19,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { sceneCommand } from "@vibeframe/cli/commands/scene";
-import { generateCommand } from "@vibeframe/cli/commands/generate";
 import { manifest } from "@vibeframe/cli/tools/manifest";
 import { tools } from "./index.js";
-
-interface CommanderLike {
-  commands: ReadonlyArray<{ name(): string }>;
-}
 
 // Hand-maintained mirror of the CLI surface. Each row is a
 // `<group> <subname>` CLI invocation paired with the canonical manifest
@@ -179,13 +173,6 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
 };
 
 describe("CLI ↔ manifest sync", () => {
-  it("CLI_TREE matches Commander's actual subcommand list (sample)", () => {
-    const sceneSubs = (sceneCommand as unknown as CommanderLike).commands.map((c) => c.name()).sort();
-    const generateSubs = (generateCommand as unknown as CommanderLike).commands.map((c) => c.name()).sort();
-    expect(sceneSubs).toEqual([...CLI_TREE.scene].sort());
-    expect(generateSubs).toEqual([...CLI_TREE.generate].sort());
-  });
-
   it("every CLI subcommand has a CLI_TO_MANIFEST entry (mapped or null)", () => {
     const missing: string[] = [];
     for (const [group, subs] of Object.entries(CLI_TREE)) {

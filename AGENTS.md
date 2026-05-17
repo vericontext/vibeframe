@@ -119,6 +119,18 @@ Match verification to the change:
 - CLI schema/reference changes: run `pnpm gen:reference:check` when relevant.
 - Scene/video work: run `vibe scene lint`, `vibe render`, and `vibe inspect render --cheap`.
 
+Before pushing from any host, run the shared pre-push gate or enable the repo
+Git hook:
+
+```bash
+pnpm hooks:install
+bash scripts/pre-push-validate.sh
+```
+
+Claude Code's `.claude/hooks/pre-push-validate.sh` and Git's
+`.githooks/pre-push` both delegate to `scripts/pre-push-validate.sh`, so Codex,
+Claude Code, and direct terminal pushes use the same version/SSOT checks.
+
 ## Host-Specific Notes
 
 - Claude Code-specific skills, agents, hooks, and path-scoped rules live in `.claude/`.

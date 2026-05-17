@@ -37,6 +37,7 @@ const {
   getProjectConfigDir,
   getProjectConfigPath,
   getUserConfigStatus,
+  ConfigFileError,
 } = await import("./index.js");
 
 afterAll(() => {
@@ -136,6 +137,13 @@ describe("Config scope", () => {
       const cfg = await loadConfig({ cwd: join(PROJECT_CWD, "nested", "scene") });
       expect(cfg?.llm.provider).toBe("openai");
       expect(cfg?.providers.openai).toBe("project-openai");
+    });
+
+    it("throws a path-aware error when the active config is malformed", async () => {
+      await mkdir(getProjectConfigDir(PROJECT_CWD), { recursive: true });
+      await writeFile(getProjectConfigPath(PROJECT_CWD), "providers:\n  openai: [bad\n", "utf-8");
+
+      await expect(loadConfig({ cwd: PROJECT_CWD })).rejects.toBeInstanceOf(ConfigFileError);
     });
   });
 

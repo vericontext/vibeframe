@@ -14,7 +14,7 @@ hooks, and rules here.
 ├── settings.json          # Hooks configuration
 ├── README.md              # This file
 ├── hooks/
-│   ├── pre-push-validate.sh   # Blocks git push on SSOT violations
+│   ├── pre-push-validate.sh   # Claude wrapper for shared pre-push gate
 │   └── post-edit-lint.sh      # Auto-lints TypeScript files after edits
 ├── rules/                     # ALL path-scoped (load on-demand, not at startup)
 │   ├── architecture.md        # Architecture, agent rules, error handling (cli/core/ai-providers/**)
@@ -82,7 +82,17 @@ hooks, and rules here.
 ### Hooks
 
 - **PreToolUse (Bash)**: `pre-push-validate.sh` — only fires on `git push`,
-  exits early on every other Bash. 10 gates (in order):
+  exits early on every other Bash, then delegates to
+  `scripts/pre-push-validate.sh`. Git's `.githooks/pre-push` uses the same
+  shared script so Codex, Claude Code, and terminal pushes run the same gate.
+
+  Enable the Git hook once per clone:
+
+  ```bash
+  pnpm hooks:install
+  ```
+
+  Shared pre-push gates:
   1. Version sync across `package.json` files
   2. Version bump required when `feat:`/`fix:` commits exist since last tag
   3. No hardcoded version fallbacks in `apps/web`
@@ -93,6 +103,7 @@ hooks, and rules here.
   8. `pnpm build` passes
   9. `pnpm typecheck` passes
   10. `pnpm gen:reference:check` passes (catches stale `docs/cli-reference.md`)
+  11. `pnpm package:check` passes (published package/export smoke)
 
   On failure, the last 5 lines of the failing command's output are
   attached to the error.

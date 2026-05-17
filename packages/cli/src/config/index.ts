@@ -77,6 +77,18 @@ export const LEGACY_USER_CONFIG_PATH = resolve(LEGACY_USER_CONFIG_DIR, "config.y
 export const CONFIG_DIR = USER_CONFIG_DIR;
 export const CONFIG_PATH = USER_CONFIG_PATH;
 
+export class ConfigFileError extends Error {
+  readonly path: string;
+
+  constructor(path: string, cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(`Failed to read VibeFrame config at ${path}: ${detail}`);
+    this.name = "ConfigFileError";
+    this.path = path;
+    this.cause = cause;
+  }
+}
+
 /** Project-scope config directory (`<cwd>/.vibeframe`). */
 export function getProjectConfigDir(cwd: string = process.cwd()): string {
   return resolve(cwd, ".vibeframe");
@@ -201,8 +213,8 @@ async function readConfigFile(path: string): Promise<VibeConfig | null> {
     const content = await readFile(path, "utf-8");
     const parsed = parse(content) as VibeConfig;
     return applyDefaults(parsed);
-  } catch {
-    return null;
+  } catch (error) {
+    throw new ConfigFileError(path, error);
   }
 }
 
