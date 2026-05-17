@@ -42,6 +42,7 @@ import {
   slugifySceneName,
   SCENE_PRESETS,
   SCENE_OVERLAP_SECONDS,
+  LOTTIE_POSITIONS,
   type ScenePreset,
   type LottiePosition,
   type LottieOverlayInput,
@@ -423,7 +424,7 @@ sceneCommand
   .option("--lottie <path>", "Lottie animation file (.json/.lottie) to overlay on the scene")
   .option(
     "--lottie-position <position>",
-    "Lottie position: full, center, top-left, top-right, bottom-left, bottom-right",
+    `Lottie position: ${LOTTIE_POSITIONS.join(", ")}`,
     "full"
   )
   .option("--lottie-scale <number>", "Lottie overlay scale (0.01-2)")
@@ -434,12 +435,29 @@ sceneCommand
     const startedAt = Date.now();
     if (options.style) options.style = validatePreset(options.style);
     if (options.lottiePosition) {
-      const validPositions = ["full", "center", "top-left", "top-right", "bottom-left", "bottom-right"];
-      if (!validPositions.includes(options.lottiePosition)) {
+      if (!LOTTIE_POSITIONS.includes(options.lottiePosition as LottiePosition)) {
         exitWithError(
           usageError(
-            `Invalid --lottie-position "${options.lottiePosition}". Valid: ${validPositions.join(", ")}`
+            `Invalid --lottie-position "${options.lottiePosition}". Valid: ${LOTTIE_POSITIONS.join(", ")}`
           )
+        );
+      }
+    }
+    let lottieScale: number | undefined;
+    if (options.lottieScale !== undefined) {
+      lottieScale = Number(options.lottieScale);
+      if (!Number.isFinite(lottieScale) || lottieScale < 0.01 || lottieScale > 2) {
+        exitWithError(
+          usageError(`Invalid --lottie-scale "${options.lottieScale}". Must be between 0.01 and 2.`)
+        );
+      }
+    }
+    let lottieOpacity = 1;
+    if (options.lottieOpacity !== undefined) {
+      lottieOpacity = Number(options.lottieOpacity);
+      if (!Number.isFinite(lottieOpacity) || lottieOpacity < 0 || lottieOpacity > 1) {
+        exitWithError(
+          usageError(`Invalid --lottie-opacity "${options.lottieOpacity}". Must be between 0 and 1.`)
         );
       }
     }
@@ -474,6 +492,9 @@ sceneCommand
             audio: options.audio,
             lottie: options.lottie ?? null,
             lottiePosition: options.lottiePosition,
+            lottieScale: lottieScale ?? null,
+            lottieOpacity: options.lottieOpacity !== undefined ? lottieOpacity : null,
+            lottieLoop: !options.lottieNoLoop,
             image: options.image,
           },
         },
@@ -507,8 +528,8 @@ sceneCommand
           ? {
               src: options.lottie as string,
               position: (options.lottiePosition as LottiePosition) ?? "full",
-              scale: options.lottieScale !== undefined ? Number(options.lottieScale) : undefined,
-              opacity: options.lottieOpacity !== undefined ? Number(options.lottieOpacity) : 1,
+              scale: lottieScale,
+              opacity: options.lottieOpacity !== undefined ? lottieOpacity : 1,
               loop: !options.lottieNoLoop,
             }
           : undefined,

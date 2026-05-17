@@ -578,18 +578,35 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
 // Lottie overlay layer
 // ---------------------------------------------------------------------------
 
-const DOTLOTTIE_WC_CDN =
-  "https://cdn.jsdelivr.net/npm/@nicepkg/dotlottie-wc@0.5.0/dist/index.js";
+// `@lottiefiles/dotlottie-wc` is the real package used by the pipeline
+// renderer (see `pipeline/renderers/html-template.ts` + `project-builder.ts`).
+// The scene-emit path can't vendor the runtime into the project dir without
+// adding an asset-copy step to `executeSceneAdd`, so we load it from
+// jsdelivr the same way we load GSAP. The WASM URL must be set explicitly
+// because dotLottie's web component otherwise tries to fetch the WASM
+// from a path relative to the importing module — which would 404 on the
+// jsdelivr CDN (the WASM lives in the sibling `@lottiefiles/dotlottie-web`
+// package, not in `dotlottie-wc/dist/`).
+const DOTLOTTIE_WC_VERSION = "0.9.12";
+const DOTLOTTIE_WEB_VERSION = "0.71.0";
+const DOTLOTTIE_WC_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-wc@${DOTLOTTIE_WC_VERSION}/dist/index.js`;
+const DOTLOTTIE_WASM_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web@${DOTLOTTIE_WEB_VERSION}/dist/dotlottie-player.wasm`;
 
 /**
  * Build inline style for a positioned Lottie overlay. Mirrors the logic
  * in `html-clips.ts → lottieInnerStyle()` so the visual result is
  * identical to `vibe edit motion-overlay`.
+ *
+ * Defaults match `html-clips.ts`:
+ *   - scale defaults to 1 for `full`, 0.25 for any other position
+ *   - opacity defaults to 1
+ *   - scale is clamped to [0.01, 2], opacity to [0, 1]
  */
 function lottieOverlayStyle(input: LottieOverlayInput): string {
   const pos = input.position ?? "full";
-  const scale = input.scale ?? 1;
-  const opacity = input.opacity ?? 1;
+  const rawScale = input.scale ?? (pos === "full" ? 1 : 0.25);
+  const scale = Math.max(0.01, Math.min(2, rawScale));
+  const opacity = Math.max(0, Math.min(1, input.opacity ?? 1));
 
   const base = [
     "position:absolute",
@@ -600,7 +617,7 @@ function lottieOverlayStyle(input: LottieOverlayInput): string {
   if (pos === "full") {
     base.push("inset:0", "width:100%", "height:100%");
   } else {
-    const pct = Math.round(scale * 100);
+    const pct = scale * 100;
     base.push(`width:${pct}%`, `height:${pct}%`);
     switch (pos) {
       case "center":
@@ -626,12 +643,27 @@ function lottieOverlayStyle(input: LottieOverlayInput): string {
 /**
  * Build the `<dotlottie-wc>` markup + module script for a Lottie overlay
  * layer. Returns `{ markup, script }` to splice into the scene template.
+ *
+ * The script imports the web component module and calls `setWasmUrl(...)`
+ * with an explicit CDN URL so the dotLottie runtime can locate its WASM
+ * player. Without this call, the WASM fetch fails and the overlay never
+ * paints. See the equivalent setup in
+ * `pipeline/renderers/html-template.ts` (which vendors the runtime
+ * locally for the producer-served pipeline path).
  */
-function buildLottieOverlay(input: LottieOverlayInput): { markup: string; script: string } {
+function buildLottieOverlay(
+  input: LottieOverlayInput,
+  sceneId: string,
+): { markup: string; script: string } {
   const loop = (input.loop ?? true) ? " loop" : "";
   const style = lottieOverlayStyle(input);
-  const markup = `<dotlottie-wc id="lottie-overlay" src="${esc(input.src)}" autoplay${loop} style="${style}"></dotlottie-wc>`;
-  const script = `<script type="module" src="${DOTLOTTIE_WC_CDN}"></script>`;
+  // Per-scene id avoids DOM-id collisions when multiple scenes carry overlays.
+  const overlayId = `lottie-overlay-${sceneId}`;
+  const markup = `<dotlottie-wc id="${overlayId}" src="${esc(input.src)}" autoplay${loop} style="${style}"></dotlottie-wc>`;
+  const script = `<script type="module">
+      import { setWasmUrl } from "${DOTLOTTIE_WC_CDN}";
+      setWasmUrl("${DOTLOTTIE_WASM_CDN}");
+    </script>`;
   return { markup, script };
 }
 
@@ -662,7 +694,7 @@ export function emitSceneHtml(input: EmitSceneInput): string {
     ></audio>\n`
     : "";
 
-  const lottieLayer = input.lottie ? buildLottieOverlay(input.lottie) : null;
+  const lottieLayer = input.lottie ? buildLottieOverlay(input.lottie, id) : null;
   const lottieMarkup = lottieLayer ? `\n    ${lottieLayer.markup}` : "";
   const lottieScript = lottieLayer ? `\n    ${lottieLayer.script}` : "";
 
