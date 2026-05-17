@@ -30,8 +30,8 @@ export interface OpenAIImageHelperOptions {
 
 export interface OpenAIImageHelperResult {
   result: ImageResult;
-  /** Resolved model id passed to the API (`gpt-image-2` or `undefined` for default). */
-  openaiModel: "gpt-image-2" | undefined;
+  /** Resolved model id passed to the API. */
+  openaiModel: "gpt-image-2" | "gpt-image-1.5";
   /** Human-friendly label for spinner / success output. */
   modelLabel: "GPT Image 2" | "GPT Image 1.5";
 }
@@ -42,13 +42,13 @@ export interface OpenAIImageHelperResult {
  * for v0.52.0 bug).
  */
 export function resolveOpenAIImageModel(modelAlias?: string): {
-  openaiModel: "gpt-image-2" | undefined;
+  openaiModel: "gpt-image-2" | "gpt-image-1.5";
   modelLabel: "GPT Image 2" | "GPT Image 1.5";
 } {
-  const isGptImage2 = modelAlias === "2" || modelAlias === "gpt-image-2";
+  const isGptImage15 = modelAlias === "1.5" || modelAlias === "gpt-image-1.5";
   return {
-    openaiModel: isGptImage2 ? "gpt-image-2" : undefined,
-    modelLabel: isGptImage2 ? "GPT Image 2" : "GPT Image 1.5",
+    openaiModel: isGptImage15 ? "gpt-image-1.5" : "gpt-image-2",
+    modelLabel: isGptImage15 ? "GPT Image 1.5" : "GPT Image 2",
   };
 }
 
