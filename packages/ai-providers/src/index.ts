@@ -64,6 +64,7 @@ export type {
   AICapability,
   ProviderConfig,
   GenerateOptions,
+  MediaReference,
   VideoResult,
   TranscribeOptions,
   TranscriptGranularity,

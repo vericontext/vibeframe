@@ -11,7 +11,7 @@ defineProvider({
   // Review this alias at the 1.0 cut.
   aliases: ["fal"],
   models: ["seedance-2.0", "seedance-2.0-fast"],
-  capabilities: ["text-to-video", "image-to-video", "native-audio"],
+  capabilities: ["text-to-video", "image-to-video", "reference-to-video", "native-audio"],
   apiKey: "fal",
   kinds: ["video"],
   resolverPriority: { video: 1 },
@@ -19,5 +19,6 @@ defineProvider({
     "generate video -p seedance (Seedance 2.0 via fal.ai — default since v0.57)",
     "generate video -p seedance --seedance-model fast (lower-latency variant)",
     "generate video -p seedance -i <image> (image-to-video)",
+    "generate video -p seedance --ref-images <images...> (reference-to-video)",
   ],
 });

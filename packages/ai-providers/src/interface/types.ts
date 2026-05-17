@@ -22,6 +22,7 @@ export type { TimeSeconds } from "@vibeframe/core";
 export type AICapability =
   | "text-to-video"
   | "image-to-video"
+  | "reference-to-video"
   | "video-to-video"
   | "text-to-image"
   | "speech-to-text"
@@ -98,6 +99,8 @@ export interface GenerateOptions {
   referenceImage?: Blob | string;
   /** Reference video for video-to-video */
   referenceVideo?: Blob | string;
+  /** Multimodal references for providers that support explicit prompt labels */
+  references?: MediaReference[];
   /** Video resolution (Veo: 720p, 1080p, 4k) */
   resolution?: string;
   /** Last frame image for frame interpolation (Veo) */
@@ -108,6 +111,24 @@ export interface GenerateOptions {
   personGeneration?: string;
   /** Model-specific options */
   modelOptions?: Record<string, unknown>;
+  /** Generate native/synchronized audio when supported by the provider */
+  generateAudio?: boolean;
+  /** End-customer identifier for B2B/provider compliance when required */
+  endUserId?: string;
+}
+
+/**
+ * Multimodal reference input for video generation.
+ *
+ * Providers that support labeled reference prompting map these in order to
+ * labels such as @Image1, @Video1, and @Audio1. `url` may be a publicly
+ * reachable URL or a provider-supported data URI.
+ */
+export interface MediaReference {
+  kind: "image" | "video" | "audio";
+  url: string;
+  label?: string;
+  sourcePath?: string;
 }
 
 /**

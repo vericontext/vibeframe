@@ -21,6 +21,7 @@ import {
   GrokProvider,
   KlingProvider,
   RunwayProvider,
+  type MediaReference,
 } from "@vibeframe/ai-providers";
 import { resolveUploadHost } from "../utils/upload-host.js";
 import { downloadVideo } from "./ai-helpers.js";
@@ -34,6 +35,9 @@ export interface VideoGenerateOptions {
   prompt: string;
   provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal";
   image?: string;
+  refImages?: string[];
+  refVideos?: string[];
+  refAudio?: string[];
   duration?: number;
   ratio?: string;
   seed?: number;
@@ -43,6 +47,7 @@ export interface VideoGenerateOptions {
   veoModel?: string;
   runwayModel?: string;
   seedanceModel?: string;
+  generateAudio?: boolean;
   output?: string;
   wait?: boolean;
   apiKey?: string;
@@ -66,6 +71,9 @@ export async function executeVideoGenerate(
     prompt,
     provider = "kling",
     image,
+    refImages,
+    refVideos,
+    refAudio,
     duration = 5,
     ratio = "16:9",
     seed,
@@ -74,6 +82,7 @@ export async function executeVideoGenerate(
     resolution,
     veoModel = "3.1-fast",
     seedanceModel = "quality",
+    generateAudio,
     output,
     wait = true,
     apiKey,
@@ -116,8 +125,14 @@ export async function executeVideoGenerate(
       const fal = new FalProvider();
       await fal.initialize({ apiKey: key });
 
+      const references = await prepareSeedanceReferences({
+        refImages,
+        refVideos,
+        refAudio,
+      });
+
       let falImage = referenceImage;
-      if (falImage && falImage.startsWith("data:")) {
+      if (falImage && falImage.startsWith("data:") && references.length === 0) {
         const uploadHost = await resolveUploadHost();
         const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
           filename: image,
@@ -132,11 +147,14 @@ export async function executeVideoGenerate(
           : "seedance-2.0";
       const result = await fal.generateVideo(prompt, {
         prompt,
-        referenceImage: falImage,
+        referenceImage: references.length > 0 ? undefined : falImage,
+        references: references.length > 0 ? references : undefined,
         duration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1" | "4:5",
         negativePrompt: negative,
         model,
+        resolution,
+        generateAudio,
       });
 
       if (result.status === "failed")
@@ -337,6 +355,61 @@ export async function executeVideoGenerate(
       error: `Video generation failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+async function prepareSeedanceReferences(opts: {
+  refImages?: string[];
+  refVideos?: string[];
+  refAudio?: string[];
+}): Promise<MediaReference[]> {
+  const references: MediaReference[] = [];
+  for (const sourcePath of opts.refImages ?? []) {
+    references.push({
+      kind: "image",
+      url: await fileInputToUrlOrDataUri(sourcePath, "image/png"),
+      sourcePath,
+    });
+  }
+  for (const sourcePath of opts.refVideos ?? []) {
+    references.push({
+      kind: "video",
+      url: await fileInputToUrlOrDataUri(sourcePath, "video/mp4"),
+      sourcePath,
+    });
+  }
+  for (const sourcePath of opts.refAudio ?? []) {
+    references.push({
+      kind: "audio",
+      url: await fileInputToUrlOrDataUri(sourcePath, "audio/mpeg"),
+      sourcePath,
+    });
+  }
+  return references;
+}
+
+async function fileInputToUrlOrDataUri(input: string, fallbackMimeType: string): Promise<string> {
+  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("data:")) {
+    return input;
+  }
+  const absPath = resolve(process.cwd(), input);
+  const buffer = await readFile(absPath);
+  return `data:${mimeTypeForPath(input, fallbackMimeType)};base64,${buffer.toString("base64")}`;
+}
+
+function mimeTypeForPath(path: string, fallback: string): string {
+  const ext = path.toLowerCase().split(".").pop();
+  const mimeTypes: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+  };
+  return mimeTypes[ext || ""] || fallback;
 }
 
 // ============================================================================

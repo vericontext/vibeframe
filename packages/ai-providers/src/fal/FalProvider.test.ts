@@ -11,13 +11,14 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   subscribe: vi.fn(),
+  upload: vi.fn(),
   createFalClient: vi.fn(),
 }));
 
 vi.mock("@fal-ai/client", () => ({
   createFalClient: (...args: unknown[]) => {
     mocks.createFalClient(...args);
-    return { subscribe: mocks.subscribe };
+    return { subscribe: mocks.subscribe, storage: { upload: mocks.upload } };
   },
 }));
 
@@ -28,6 +29,8 @@ describe("FalProvider", () => {
 
   beforeEach(() => {
     mocks.subscribe.mockReset();
+    mocks.upload.mockReset();
+    mocks.upload.mockResolvedValue("https://fal.storage/uploaded-reference.png");
     mocks.createFalClient.mockReset();
     provider = new FalProvider();
   });
@@ -37,6 +40,7 @@ describe("FalProvider", () => {
       expect(provider.id).toBe("seedance");
       expect(provider.capabilities).toContain("text-to-video");
       expect(provider.capabilities).toContain("image-to-video");
+      expect(provider.capabilities).toContain("reference-to-video");
     });
 
     it("is unconfigured before initialize", () => {
@@ -194,6 +198,61 @@ describe("FalProvider", () => {
         "bytedance/seedance-2.0/text-to-video",
       );
       expect(mocks.subscribe.mock.calls[0][1].input.image_url).toBeUndefined();
+    });
+  });
+
+  describe("generateVideo — reference-to-video", () => {
+    beforeEach(async () => {
+      await provider.initialize({ apiKey: "fal_pst_test" });
+    });
+
+    it("routes explicit references to reference-to-video with grouped inputs", async () => {
+      mocks.subscribe.mockResolvedValueOnce({
+        requestId: "req-ref",
+        data: { video: { url: "https://fal.media/ref.mp4" } },
+      });
+
+      await provider.generateVideo("animate @Image1 with the timing of @Video1", {
+        prompt: "animate @Image1 with the timing of @Video1",
+        references: [
+          { kind: "image", url: "data:image/png;base64,iVBORw0" },
+          { kind: "image", url: "https://example.com/face.png" },
+          { kind: "video", url: "https://example.com/move.mp4" },
+          { kind: "audio", url: "https://example.com/voice.mp3" },
+        ],
+        generateAudio: false,
+        resolution: "1080p",
+      });
+
+      expect(mocks.subscribe.mock.calls[0][0]).toBe(
+        "bytedance/seedance-2.0/reference-to-video",
+      );
+      expect(mocks.subscribe.mock.calls[0][1].input).toMatchObject({
+        prompt: "animate @Image1 with the timing of @Video1",
+        image_urls: ["https://fal.storage/uploaded-reference.png", "https://example.com/face.png"],
+        video_urls: ["https://example.com/move.mp4"],
+        audio_urls: ["https://example.com/voice.mp3"],
+        generate_audio: false,
+        resolution: "1080p",
+      });
+      expect(mocks.upload).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops unsupported reference URL shapes before choosing endpoint", async () => {
+      mocks.subscribe.mockResolvedValueOnce({
+        requestId: "req-text",
+        data: { video: { url: "https://fal.media/text.mp4" } },
+      });
+
+      await provider.generateVideo("p", {
+        prompt: "p",
+        references: [{ kind: "image", url: "/tmp/local.png" }],
+      });
+
+      expect(mocks.subscribe.mock.calls[0][0]).toBe(
+        "bytedance/seedance-2.0/text-to-video",
+      );
+      expect(mocks.subscribe.mock.calls[0][1].input.image_urls).toBeUndefined();
     });
   });
 

@@ -17,6 +17,7 @@ import {
   KlingProvider,
   RunwayProvider,
   FalProvider,
+  type MediaReference,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
@@ -72,8 +73,11 @@ export function registerVideoCommand(parent: Command): void {
     .option("--last-frame <path>", "Last frame image for frame interpolation (Veo only)")
     .option(
       "--ref-images <paths...>",
-      "Reference images for character consistency (Veo 3.1 only, max 3)"
+      "Reference images for Seedance reference-to-video or Veo character consistency"
     )
+    .option("--ref-videos <paths...>", "Reference videos for Seedance reference-to-video")
+    .option("--ref-audio <paths...>", "Reference audio for Seedance reference-to-video")
+    .option("--no-generate-audio", "Disable native audio when the provider supports it")
     .option("--person <mode>", "Person generation: allow_all, allow_adult (Veo only)")
     .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
     .option(
@@ -256,6 +260,10 @@ Examples:
                 resolution: options.resolution,
                 veoModel: options.veoModel,
                 seedanceModel: options.seedanceModel,
+                refImages: options.refImages,
+                refVideos: options.refVideos,
+                refAudio: options.refAudio,
+                generateAudio: options.generateAudio,
               },
             },
           });
@@ -589,11 +597,16 @@ Examples:
           // separate wait/poll loop like the other providers.
           const fal = new FalProvider();
           await fal.initialize({ apiKey });
+          const seedanceReferences = await prepareSeedanceReferences({
+            refImages: options.refImages,
+            refVideos: options.refVideos,
+            refAudio: options.refAudio,
+          });
 
           // Seedance 2.0 image-to-video needs an HTTPS URL. base64 / data
           // URIs aren't accepted, so use the configured temporary upload host.
           let falImage = referenceImage;
-          if (falImage && falImage.startsWith("data:")) {
+          if (falImage && falImage.startsWith("data:") && seedanceReferences.length === 0) {
             try {
               const uploadHost = await resolveUploadHost();
               spinner.text = `Uploading image via ${uploadHost.provider} for Seedance...`;
@@ -620,11 +633,14 @@ Examples:
               : "seedance-2.0";
           result = await fal.generateVideo(prompt, {
             prompt,
-            referenceImage: falImage,
+            referenceImage: seedanceReferences.length > 0 ? undefined : falImage,
+            references: seedanceReferences.length > 0 ? seedanceReferences : undefined,
             duration: options.duration ? parseInt(options.duration) : undefined,
             aspectRatio: options.ratio as "16:9" | "9:16" | "1:1" | "4:5",
             negativePrompt: options.negative,
             model: falModel,
+            resolution: options.resolution,
+            generateAudio: options.generateAudio,
           });
           finalResult = result;
         }
@@ -683,6 +699,61 @@ Examples:
         exitWithError(apiError(`Video generation failed: ${(error as Error).message}`));
       }
     });
+}
+
+async function prepareSeedanceReferences(opts: {
+  refImages?: string[];
+  refVideos?: string[];
+  refAudio?: string[];
+}): Promise<MediaReference[]> {
+  const references: MediaReference[] = [];
+  for (const sourcePath of opts.refImages ?? []) {
+    references.push({
+      kind: "image",
+      url: await fileInputToUrlOrDataUri(sourcePath, "image/png"),
+      sourcePath,
+    });
+  }
+  for (const sourcePath of opts.refVideos ?? []) {
+    references.push({
+      kind: "video",
+      url: await fileInputToUrlOrDataUri(sourcePath, "video/mp4"),
+      sourcePath,
+    });
+  }
+  for (const sourcePath of opts.refAudio ?? []) {
+    references.push({
+      kind: "audio",
+      url: await fileInputToUrlOrDataUri(sourcePath, "audio/mpeg"),
+      sourcePath,
+    });
+  }
+  return references;
+}
+
+async function fileInputToUrlOrDataUri(input: string, fallbackMimeType: string): Promise<string> {
+  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("data:")) {
+    return input;
+  }
+  const absPath = resolve(process.cwd(), input);
+  const buffer = await readFile(absPath);
+  return `data:${mimeTypeForPath(input, fallbackMimeType)};base64,${buffer.toString("base64")}`;
+}
+
+function mimeTypeForPath(path: string, fallback: string): string {
+  const ext = path.toLowerCase().split(".").pop();
+  const mimeTypes: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+  };
+  return mimeTypes[ext || ""] || fallback;
 }
 
 async function recordVideoNoWaitJob(opts: {

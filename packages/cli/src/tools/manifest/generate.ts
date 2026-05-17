@@ -385,6 +385,18 @@ export const generateVideoTool = defineTool({
         "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider)"
       ),
     image: z.string().optional().describe("Reference image path for image-to-video"),
+    refImages: z
+      .array(z.string())
+      .optional()
+      .describe("Reference images for Seedance reference-to-video"),
+    refVideos: z
+      .array(z.string())
+      .optional()
+      .describe("Reference videos for Seedance reference-to-video"),
+    refAudio: z
+      .array(z.string())
+      .optional()
+      .describe("Reference audio files for Seedance reference-to-video"),
     duration: z
       .number()
       .optional()
@@ -399,6 +411,10 @@ export const generateVideoTool = defineTool({
       .string()
       .optional()
       .describe("Seedance variant: quality or fast (fal.ai only)"),
+    generateAudio: z
+      .boolean()
+      .optional()
+      .describe("Generate native synchronized audio when supported"),
     output: z.string().optional().describe("Output file path (downloads video)"),
     wait: z.boolean().optional().describe("Wait for completion (default: true)"),
   }),
