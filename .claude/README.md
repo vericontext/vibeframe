@@ -2,6 +2,11 @@
 
 This directory configures Claude Code for the VibeFrame project.
 
+Shared repository instructions live in `AGENTS.md`. The root `CLAUDE.md`
+imports that file with `@AGENTS.md`, then adds only Claude Code-specific notes.
+Keep cross-agent guidance in `AGENTS.md`; keep Claude-only skills, agents,
+hooks, and rules here.
+
 ## Structure
 
 ```
@@ -44,12 +49,21 @@ This directory configures Claude Code for the VibeFrame project.
 
 ## How It Works
 
+### Shared Instructions
+
+- `AGENTS.md` is the cross-agent source of truth for repository shape,
+  commands, CLI workflow rules, cost awareness, and verification expectations.
+- `CLAUDE.md` should stay thin and import `AGENTS.md`.
+- Do not duplicate cross-agent guidance in `.claude/`; only keep Claude-specific
+  details here.
+
 ### Rules
 
 - All 4 rules have `paths:` frontmatter — **none load at session start**
 - Rules load on-demand when Claude reads files matching the path patterns
 - Rules frontmatter should stay minimal: `paths` plus an optional `description`
-- This keeps initial context lean (~50 lines from CLAUDE.md only)
+- This keeps Claude-specific startup context lean while shared guidance is read
+  through the `CLAUDE.md` import.
 
 ### Skills
 
@@ -90,12 +104,12 @@ This directory configures Claude Code for the VibeFrame project.
 
 Enabled in `settings.json` under `enabledPlugins`:
 
-| Plugin                | Provides                                                  |
-| --------------------- | --------------------------------------------------------- |
-| `claude-code-setup`   | `claude-automation-recommender` skill                     |
-| `code-review`         | `/code-review` skill for PR review                        |
-| `code-simplifier`     | `simplify` skill for review-and-fix                       |
-| `security-guidance`   | `/security-review` skill for branch security audit        |
+| Plugin              | Provides                                           |
+| ------------------- | -------------------------------------------------- |
+| `claude-code-setup` | `claude-automation-recommender` skill              |
+| `code-review`       | `/code-review` skill for PR review                 |
+| `code-simplifier`   | `simplify` skill for review-and-fix                |
+| `security-guidance` | `/security-review` skill for branch security audit |
 
 ## Adding New Components
 

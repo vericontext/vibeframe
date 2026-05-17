@@ -82,3 +82,4 @@ docs/*.mp4
 # (golden-path smoke tests) — they're public on purpose.
 ROADMAP-CLOUD.md
 scripts/DEV_GUIDE.md
+.playwright-mcp/
