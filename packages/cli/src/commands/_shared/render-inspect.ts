@@ -36,7 +36,7 @@ export interface BeatTiming {
   narrationDurationSec?: number;
 }
 
-export type RenderInspectModel = "flash" | "flash-2.5" | "pro";
+export type RenderInspectModel = string;
 
 export interface RenderInspectOptions {
   projectDir: string;

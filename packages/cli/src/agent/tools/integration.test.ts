@@ -66,7 +66,7 @@ vi.mock("../../commands/ai-analyze.js", () => ({
   executeGeminiVideo: vi.fn().mockResolvedValue({
     success: true,
     response: "This is a test video summary.",
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.5-flash",
     totalTokens: 1000,
   }),
   executeAnalyze: vi.fn().mockResolvedValue({
@@ -412,8 +412,11 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         const tool = registry.get("inspect_video");
         const model = tool!.parameters.properties.model as { enum?: string[] };
         expect(model.enum).toContain("flash");
+        expect(model.enum).toContain("latest");
+        expect(model.enum).toContain("flash-3");
         expect(model.enum).toContain("flash-2.5");
         expect(model.enum).toContain("pro");
+        expect(model.enum).toContain("pro-3.1");
       });
     });
   });

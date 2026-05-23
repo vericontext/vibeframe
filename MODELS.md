@@ -72,16 +72,18 @@ To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonn
 
 > See [openrouter.ai/models](https://openrouter.ai/models) for the full list of 300+ available models.
 
-**Why Gemini 2.5 Flash, not 3.1 Pro?**
+**Why Gemini 2.5 Flash for agent mode, not Gemini 3.5 Flash?**
 
 Agent mode runs an agentic loop — the LLM is called repeatedly (potentially dozens of times per task) to reason and call tools. For this use case:
 
 - **Speed matters**: Flash responds ~3–5× faster than Pro, keeping the interactive session snappy
-- **Tool calling stability**: `gemini-2.5-flash` has well-tested, stable function calling support; `gemini-3.1-pro-preview` is a preview model with potentially unstable behavior in multi-turn tool calling loops
+- **Tool calling stability**: `gemini-2.5-flash` has well-tested, stable function calling support; newer Gemini 3.x models may have stricter rate limits or different behavior in multi-turn tool calling loops
 - **Cost**: Flash is significantly cheaper per token — important when a single agent task may trigger 20+ LLM calls
-- **Preview models in production**: Preview models can change response format or have stricter rate limits unsuitable for agentic loops
+- **Agent loop risk**: newer frontier models can be better for one-shot reasoning, but agent mode values predictable repeated tool calls
 
-`gemini-3.1-pro-preview` is available for **motion graphics code generation** (`vibe generate motion -m gemini-3.1-pro`) where its superior creative reasoning matters for a single, expensive generation call.
+For one-shot Gemini calls, VibeFrame now maps `flash` / `latest` to `gemini-3.5-flash`. That applies to media analysis, render review, storyboard generation, Gemini-backed silence-cut analysis, and Gemini composition. Agent mode keeps `gemini-2.5-flash` as its explicit default.
+
+`gemini-3.1-pro-preview` remains available for **motion graphics code generation** (`vibe generate motion -m gemini-3.1-pro`) where its creative reasoning matters for a single generation call.
 
 **Gemini model options:**
 
@@ -90,10 +92,12 @@ Agent mode runs an agentic loop — the LLM is called repeatedly (potentially do
 | Model ID | Variant | Notes |
 |----------|---------|-------|
 | `gemini-2.5-flash` | 2.5 Flash | **Default**. Fast, stable tool calling. Free tier available |
+| `gemini-3.5-flash` | 3.5 Flash | One-shot `flash` / `latest` default for analysis, review, storyboard, and Gemini composition |
+| `gemini-3-flash-preview` | 3 Flash Preview | Preview model available via `flash-3` or explicit model ID |
 | `gemini-2.5-pro` | 2.5 Pro | Higher reasoning capability, slower. $1.25/M input, $10/M output |
 | `gemini-3.1-pro-preview` | 3.1 Pro (preview) | Latest, preview — may have unstable tool calling |
 
-To use 2.5 Pro in agent mode: `vibe agent -p gemini --model gemini-2.5-pro`
+To opt into Gemini 3.5 Flash in agent mode: `vibe agent -p gemini --model gemini-3.5-flash`
 
 ---
 
@@ -106,7 +110,8 @@ Used for Remotion component code generation (`vibe generate motion`).
 | `sonnet` | `claude-sonnet-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
 | `opus` | `claude-opus-4-7` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality (step-change agentic coding) |
 | `opus-4-6` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus-4-6` | Previous Opus tier (legacy) |
-| `gemini` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Fast alternative |
+| `gemini` | `gemini-3.5-flash` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Gemini 3.5 Flash one-shot default |
+| `gemini-2.5-pro` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini-2.5-pro` | Previous Gemini motion alias target |
 | `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini | `GOOGLE_API_KEY` | `-m gemini-3.1-pro` | Gemini 3.1 Pro |
 
 ---
@@ -188,6 +193,10 @@ All text-to-video providers also support image-to-video. Key differences per pro
 | Veo | all models | Yes | base64 (first frame) | Supports `--last-frame` for frame interpolation |
 | Runway | `gen4.5` | Yes | URL or data URI | Text+image-to-video |
 | Runway | `gen4_turbo` | **I2V only** | URL or data URI | Cannot do text-only generation |
+
+### Gemini Omni Watchlist
+
+Google has started surfacing Gemini Omni Flash in consumer/editorial video products, but the Gemini API model docs do not currently list a stable API model ID for Omni video generation. Do not add `-p omni` or an Omni setup provider until Google publishes a Gemini API or Vertex AI endpoint with model ID, pricing, input/output schema, and region/safety constraints.
 
 ---
 

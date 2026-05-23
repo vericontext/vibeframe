@@ -38,7 +38,18 @@ export {
 
 // Individual providers
 export { WhisperProvider, whisperProvider } from "./whisper/index.js";
-export { GeminiProvider, geminiProvider } from "./gemini/index.js";
+export {
+  GEMINI_AGENT_DEFAULT_TEXT_MODEL,
+  GEMINI_DEFAULT_TEXT_MODEL,
+  GEMINI_TEXT_MODEL_ALIASES,
+  GEMINI_TEXT_MODEL_HELP,
+  GeminiProvider,
+  geminiProvider,
+  isGeminiTextModelAlias,
+  resolveGeminiTextModel,
+  type GeminiTextModel,
+  type GeminiTextModelAlias,
+} from "./gemini/index.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";

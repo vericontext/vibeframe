@@ -16,7 +16,7 @@
 import { resolve, dirname } from "node:path";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { GeminiProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, OpenAIImageProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 
 // ============================================================================
@@ -335,16 +335,10 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
       "and representative of the video content. Avoid blurry frames, transitions, or dark scenes. " +
       "Return ONLY a JSON object: {\"timestamp\": <seconds as number>, \"reason\": \"<brief explanation>\"}";
 
-    const modelMap: Record<string, string> = {
-      flash: "gemini-3-flash-preview",
-      latest: "gemini-2.5-flash",
-      "flash-2.5": "gemini-2.5-flash",
-      pro: "gemini-2.5-pro",
-    };
-    const modelId = modelMap[model] || "gemini-3-flash-preview";
+    const modelId = resolveGeminiTextModel(model);
 
     const result = await gemini.analyzeVideo(videoData, analysisPrompt, {
-      model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+      model: modelId,
       fps: 1,
     });
 

@@ -304,7 +304,7 @@ export function registerMotionOverlayCommand(parent: Command): void {
     .option("-d, --duration <sec>", "Overlay/render duration in seconds")
     .option("--start <sec>", "Overlay start time in seconds", "0")
     .option("--style <style>", "Style preset for generated overlays: minimal, corporate, playful, cinematic")
-    .option("-m, --model <alias>", "LLM model for generated overlays: sonnet, opus, gemini, gemini-3.1-pro", "sonnet")
+    .option("-m, --model <alias>", "LLM model for generated overlays: sonnet, opus, gemini, gemini-2.5-pro, gemini-3.1-pro", "sonnet")
     .option("--understand <mode>", "Analyze video before generated overlay: auto, off, required", "auto")
     .option("--understanding-prompt <text>", "Custom prompt for video understanding")
     .option("--position <position>", "Lottie position: full, center, top-left, top-right, bottom-left, bottom-right", "full")

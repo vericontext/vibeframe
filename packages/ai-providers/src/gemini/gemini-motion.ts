@@ -4,6 +4,8 @@
  * Extracted methods: generateMotion, refineMotion
  */
 
+import { GEMINI_DEFAULT_TEXT_MODEL, resolveGeminiTextModel } from "./gemini-models.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -51,8 +53,16 @@ export interface GeminiMotionResult {
 
 /** Supported model aliases for motion graphic generation */
 export const GEMINI_MOTION_MODELS = {
+  gemini: GEMINI_DEFAULT_TEXT_MODEL,
+  flash: GEMINI_DEFAULT_TEXT_MODEL,
+  latest: GEMINI_DEFAULT_TEXT_MODEL,
+  "flash-3.5": GEMINI_DEFAULT_TEXT_MODEL,
+  "flash-3": "gemini-3-flash-preview",
+  "flash-2.5": "gemini-2.5-flash",
   pro: "gemini-2.5-pro",
+  "2.5-pro": "gemini-2.5-pro",
   "3.1-pro": "gemini-3.1-pro-preview",
+  "pro-3.1": "gemini-3.1-pro-preview",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -243,7 +253,7 @@ export async function generateMotion(
   const duration = options.duration || 5;
   const durationInFrames = Math.round(duration * fps);
   const stylePreset = options.style || "modern and clean";
-  const modelId = options.model || "gemini-2.5-pro";
+  const modelId = resolveGeminiTextModel(options.model);
 
   let systemPrompt = buildMotionSystemPrompt(
     width,
@@ -364,7 +374,7 @@ export async function refineMotion(
   const fps = options.fps || 30;
   const duration = options.duration || 5;
   const durationInFrames = Math.round(duration * fps);
-  const modelId = options.model || "gemini-2.5-pro";
+  const modelId = resolveGeminiTextModel(options.model);
 
   const systemPrompt = `You are a world-class broadcast motion graphics designer. Modify the provided Remotion component based on instructions.
 

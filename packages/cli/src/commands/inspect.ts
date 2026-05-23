@@ -22,7 +22,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, isGeminiTextModelAlias } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
@@ -47,7 +47,14 @@ import {
 } from "./_shared/render-inspect.js";
 import type { ReviewIssue, ReviewStatus } from "./_shared/review-report.js";
 
-const VALID_RENDER_AI_MODELS: RenderInspectModel[] = ["flash", "flash-2.5", "pro"];
+const VALID_RENDER_AI_MODELS: RenderInspectModel[] = [
+  "flash",
+  "latest",
+  "flash-3",
+  "flash-2.5",
+  "pro",
+  "pro-3.1",
+];
 
 export const inspectCommand = new Command("inspect")
   .description("Inspect projects, renders, and media")
@@ -135,7 +142,7 @@ inspectCommand
   .argument("[project-dir]", "VibeFrame project directory", ".")
   .option("--cheap", "Run local checks only (default; no AI/API calls)")
   .option("--ai", "Also run Gemini video review and merge findings into review-report.json")
-  .option("-m, --model <model>", "Gemini model for --ai: flash (default), flash-2.5, pro", "flash")
+  .option("-m, --model <model>", `Gemini model for --ai: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
   .option("--beat <id>", "Inspect a render for one storyboard beat")
   .option(
     "--video <path>",
@@ -217,7 +224,7 @@ inspectCommand
   .argument("<source>", "Image/video file path, image URL, or YouTube URL")
   .argument("<prompt>", "Analysis prompt (e.g., 'Describe this image', 'Summarize this video')")
   .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-  .option("-m, --model <model>", "Model: flash (default), flash-2.5, pro", "flash")
+  .option("-m, --model <model>", `Model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
   .option("--fps <number>", "Frames per second for video (default: 1)")
   .option("--start <seconds>", "Start offset in seconds (video only)")
   .option("--end <seconds>", "End offset in seconds (video only)")
@@ -260,7 +267,7 @@ inspectCommand
       const result = await executeAnalyze({
         source,
         prompt,
-        model: options.model as "flash" | "flash-2.5" | "pro",
+        model: options.model,
         fps: options.fps ? parseFloat(options.fps) : undefined,
         start: options.start ? parseInt(options.start, 10) : undefined,
         end: options.end ? parseInt(options.end, 10) : undefined,
@@ -354,11 +361,14 @@ function printInspectSummary(
 }
 
 function parseRenderAiModel(value: string): RenderInspectModel {
-  if (VALID_RENDER_AI_MODELS.includes(value as RenderInspectModel)) {
-    return value as RenderInspectModel;
+  if (isGeminiTextModelAlias(value) || value.startsWith("gemini-")) {
+    return value;
   }
   exitWithError(
-    usageError(`Invalid --model: ${value}`, `Must be one of: ${VALID_RENDER_AI_MODELS.join(", ")}`)
+    usageError(
+      `Invalid --model: ${value}`,
+      `Must be one of: ${VALID_RENDER_AI_MODELS.join(", ")}, or a full gemini-* model ID`
+    )
   );
 }
 
@@ -370,7 +380,7 @@ inspectCommand
   .argument("<source>", "Video file path or YouTube URL")
   .argument("<prompt>", "Analysis prompt (e.g., 'Summarize this video')")
   .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-  .option("-m, --model <model>", "Model: flash (default), flash-2.5, pro", "flash")
+  .option("-m, --model <model>", `Model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
   .option("--fps <number>", "Frames per second (default: 1, higher for action)")
   .option("--start <seconds>", "Start offset in seconds (for clipping)")
   .option("--end <seconds>", "End offset in seconds (for clipping)")
@@ -413,7 +423,7 @@ inspectCommand
       const result = await executeGeminiVideo({
         source,
         prompt,
-        model: options.model as "flash" | "flash-2.5" | "pro",
+        model: options.model,
         fps: options.fps ? parseFloat(options.fps) : undefined,
         start: options.start ? parseInt(options.start, 10) : undefined,
         end: options.end ? parseInt(options.end, 10) : undefined,

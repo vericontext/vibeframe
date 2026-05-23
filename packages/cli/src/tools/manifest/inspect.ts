@@ -67,7 +67,7 @@ export const inspectRenderTool = defineTool({
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
     report: z.boolean().optional().describe("Write review-report.json. Default true."),
     ai: z.boolean().optional().describe("Also run Gemini video review and merge findings into review-report.json. Default false."),
-    model: z.enum(["flash", "flash-2.5", "pro"]).optional().describe("Gemini model variant for ai review. Default flash."),
+    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant for ai review. Default flash."),
     dryRun: z.boolean().optional().describe("Preview resolved inputs without probing video or calling Gemini."),
   }),
   async execute(args, ctx) {
@@ -123,7 +123,7 @@ export const analyzeMediaTool = defineTool({
   schema: z.object({
     source: z.string().describe("Path to image/video or YouTube URL"),
     prompt: z.string().describe("Analysis prompt (e.g., 'Describe the scene', 'Count people')"),
-    model: z.enum(["flash", "flash-2.5", "pro"]).optional().describe("Gemini model variant (default: flash)"),
+    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant (default: flash)"),
     fps: z.number().optional().describe("Frames per second for video sampling (default: 1)"),
     start: z.number().optional().describe("Start time in seconds for video analysis"),
     end: z.number().optional().describe("End time in seconds for video analysis"),
@@ -155,7 +155,7 @@ export const analyzeVideoTool = defineTool({
   schema: z.object({
     source: z.string().describe("Path to video file"),
     prompt: z.string().describe("Analysis prompt"),
-    model: z.enum(["flash", "flash-2.5", "pro"]).optional().describe("Gemini model variant (default: flash)"),
+    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant (default: flash)"),
     fps: z.number().optional().describe("Frames per second for sampling"),
     start: z.number().optional().describe("Start time in seconds"),
     end: z.number().optional().describe("End time in seconds"),
@@ -189,7 +189,7 @@ export const analyzeReviewTool = defineTool({
     storyboardPath: z.string().optional().describe("Path to storyboard.json for intent comparison"),
     autoApply: z.boolean().optional().describe("Automatically apply suggested fixes (default: false)"),
     verify: z.boolean().optional().describe("Re-review after applying fixes (default: false)"),
-    model: z.enum(["flash", "flash-2.5", "pro"]).optional().describe("Gemini model variant (default: flash)"),
+    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant (default: flash)"),
     outputPath: z.string().optional().describe("Output path for fixed video"),
   }),
   async execute(args) {

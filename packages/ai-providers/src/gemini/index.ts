@@ -1,5 +1,6 @@
 export * from "./GeminiProvider.js";
 export * from "./gemini-motion.js";
+export * from "./gemini-models.js";
 
 import { defineProvider } from "../define-provider.js";
 

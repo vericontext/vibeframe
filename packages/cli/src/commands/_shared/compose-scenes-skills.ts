@@ -28,6 +28,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GEMINI_DEFAULT_TEXT_MODEL } from "@vibeframe/ai-providers";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -74,12 +75,12 @@ const MODEL_SETTINGS_BY_PROVIDER: Record<ComposerProvider, Record<ComposeEffort,
     medium: { model: "gpt-5", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
     high: { model: "gpt-5", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 10 },
   },
-  // Google Gemini 2.5 Pro — ~2.6× cheaper than Claude per spike, ~20 s/beat.
-  // Strong instruction-following on the Hyperframes skill bundle.
+  // Google Gemini 3.5 Flash — current one-shot Gemini default for
+  // analysis/composition. Keep agent loops on their explicit 2.5 Flash default.
   gemini: {
-    low: { model: "gemini-2.5-pro", maxTokens: 4_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
-    medium: { model: "gemini-2.5-pro", maxTokens: 6_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
-    high: { model: "gemini-2.5-pro", maxTokens: 8_000, costPerMTokIn: 1.25, costPerMTokOut: 5 },
+    low: { model: GEMINI_DEFAULT_TEXT_MODEL, maxTokens: 4_000, costPerMTokIn: 1.5, costPerMTokOut: 9 },
+    medium: { model: GEMINI_DEFAULT_TEXT_MODEL, maxTokens: 6_000, costPerMTokIn: 1.5, costPerMTokOut: 9 },
+    high: { model: GEMINI_DEFAULT_TEXT_MODEL, maxTokens: 8_000, costPerMTokIn: 1.5, costPerMTokOut: 9 },
   },
 };
 

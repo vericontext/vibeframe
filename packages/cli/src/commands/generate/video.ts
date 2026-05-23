@@ -69,8 +69,9 @@ export function registerVideoCommand(parent: Command): void {
       "quality"
     )
     .option("--negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
-    .option("--resolution <res>", "Video resolution: 720p, 1080p, 4k (Veo only)")
-    .option("--last-frame <path>", "Last frame image for frame interpolation (Veo only)")
+    .option("--resolution <res>", "Video resolution: 480p, 720p, 1080p, or 4k depending on provider")
+    .option("--last-frame <path>", "Last frame image for frame interpolation (Veo) or Seedance end frame")
+    .option("--end-image <path>", "Ending frame image for Seedance image-to-video")
     .option(
       "--ref-images <paths...>",
       "Reference images for Seedance reference-to-video or Veo character consistency"
@@ -625,6 +626,32 @@ Examples:
             }
           }
 
+          let seedanceEndImage: string | undefined;
+          const seedanceEndImagePath = options.endImage ?? options.lastFrame;
+          if (seedanceEndImagePath && seedanceReferences.length === 0) {
+            try {
+              const absEndImagePath = resolve(process.cwd(), seedanceEndImagePath);
+              const endImageBuffer = await readFile(absEndImagePath);
+              const ext = seedanceEndImagePath.toLowerCase().split(".").pop();
+              const mimeType =
+                ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
+              const uploadHost = await resolveUploadHost();
+              spinner.text = `Uploading end image via ${uploadHost.provider} for Seedance...`;
+              const upload = await uploadHost.uploadImage(endImageBuffer, {
+                filename: seedanceEndImagePath,
+                mimeType,
+              });
+              seedanceEndImage = upload.url;
+            } catch (err) {
+              spinner.fail("End image upload failed");
+              const message = err instanceof Error ? err.message : String(err);
+              if (message.includes("IMGBB_API_KEY")) {
+                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
+              }
+              exitWithError(apiError(message, true));
+            }
+          }
+
           spinner.text = "Generating video with fal.ai Seedance 2.0 (this may take 1-3 minutes)...";
           const seedanceModel = String(options.seedanceModel ?? "quality").toLowerCase();
           const falModel =
@@ -641,6 +668,7 @@ Examples:
             model: falModel,
             resolution: options.resolution,
             generateAudio: options.generateAudio,
+            lastFrame: seedanceEndImage,
           });
           finalResult = result;
         }

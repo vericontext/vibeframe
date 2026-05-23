@@ -11,7 +11,7 @@ import { existsSync } from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { OpenAIImageProvider, GEMINI_TEXT_MODEL_HELP } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
 import { commandExists } from "../../utils/exec-safe.js";
 import {
@@ -40,7 +40,7 @@ export function registerThumbnailCommand(parent: Command): void {
     .option("--style <style>", "Platform style: youtube, instagram, tiktok, twitter")
     .option("--best-frame <video>", "Extract best thumbnail frame from video using Gemini AI")
     .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
-    .option("--model <model>", "Gemini model: flash, latest, pro (default: flash)", "flash")
+    .option("--model <model>", `Gemini model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
     .action(async (description: string | undefined, options) => {
       const startedAt = Date.now();
       try {

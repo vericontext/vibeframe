@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.105.2`
+> CLI version: `0.106.0`
 
 ## Mental model
 
@@ -494,7 +494,7 @@ Cost tier: `high`
 - `understand` _(string)_ _(default: `"auto"`)_ — Analyze --video with Gemini before generating motion: auto, off, required
 - `understandingPrompt` _(string)_ — Custom prompt for --video understanding
 - `fromTsx` _(string)_ — Refine an existing TSX file instead of generating from scratch
-- `model` _(string)_ _(default: `"sonnet"`)_ — LLM model: sonnet (default), opus, gemini, gemini-3.1-pro
+- `model` _(string)_ _(default: `"sonnet"`)_ — LLM model: sonnet (default), opus, gemini, gemini-2.5-pro, gemini-3.1-pro
 - `dryRun` _(boolean)_ — Preview parameters without executing
 
 #### `vibe generate music`
@@ -623,7 +623,7 @@ Cost tier: `free`
 - `style` _(string)_ _(youtube \| instagram \| tiktok \| twitter)_ — Platform style: youtube, instagram, tiktok, twitter
 - `bestFrame` _(string)_ — Extract best thumbnail frame from video using Gemini AI
 - `prompt` _(string)_ — Custom prompt for best-frame analysis
-- `model` _(string)_ _(flash \| latest \| pro)_ _(default: `"flash"`)_ — Gemini model: flash, latest, pro (default: flash)
+- `model` _(string)_ _(default: `"flash"`)_ — Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
 
 #### `vibe generate video`
 
@@ -646,8 +646,9 @@ Cost tier: `very-high`
 - `mode` _(string)_ _(default: `"std"`)_ — Generation mode: std or pro (Kling only)
 - `seedanceModel` _(string)_ _(default: `"quality"`)_ — Seedance variant: quality or fast (fal.ai only)
 - `negative` _(string)_ — Negative prompt - what to avoid (Kling/Veo)
-- `resolution` _(string)_ _(720p \| 1080p \| 4k)_ — Video resolution: 720p, 1080p, 4k (Veo only)
-- `lastFrame` _(string)_ — Last frame image for frame interpolation (Veo only)
+- `resolution` _(string)_ — Video resolution: 480p, 720p, 1080p, or 4k depending on provider
+- `lastFrame` _(string)_ — Last frame image for frame interpolation (Veo) or Seedance end frame
+- `endImage` _(string)_ — Ending frame image for Seedance image-to-video
 - `refImages` _(string)_ — Reference images for Seedance reference-to-video or Veo character consistency
 - `refVideos` _(string)_ — Reference videos for Seedance reference-to-video
 - `refAudio` _(string)_ — Reference audio for Seedance reference-to-video
@@ -863,7 +864,7 @@ Cost tier: `low`
 - `duration` _(number)_ — Overlay/render duration in seconds
 - `start` _(number)_ _(default: `0`)_ — Overlay start time in seconds
 - `style` _(string)_ — Style preset for generated overlays: minimal, corporate, playful, cinematic
-- `model` _(string)_ _(default: `"sonnet"`)_ — LLM model for generated overlays: sonnet, opus, gemini, gemini-3.1-pro
+- `model` _(string)_ _(default: `"sonnet"`)_ — LLM model for generated overlays: sonnet, opus, gemini, gemini-2.5-pro, gemini-3.1-pro
 - `understand` _(string)_ _(default: `"auto"`)_ — Analyze video before generated overlay: auto, off, required
 - `understandingPrompt` _(string)_ — Custom prompt for video understanding
 - `position` _(string)_ _(full \| center \| top-left \| top-right \| bottom-left \| bottom-right)_ _(default: `"full"`)_ — Lottie position: full, center, top-left, top-right, bottom-left, bottom-right
@@ -1023,7 +1024,7 @@ Cost tier: `low`
 - `source` _(string)_ **required** — Image/video file path, image URL, or YouTube URL
 - `prompt` _(string)_ **required** — Analysis prompt (e.g., 'Describe this image', 'Summarize this video')
 - `apiKey` _(string)_ — Google API key (or set GOOGLE_API_KEY env)
-- `model` _(string)_ _(default: `"flash"`)_ — Model: flash (default), flash-2.5, pro
+- `model` _(string)_ _(default: `"flash"`)_ — Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
 - `fps` _(number)_ — Frames per second for video (default: 1)
 - `start` _(number)_ — Start offset in seconds (video only)
 - `end` _(number)_ — End offset in seconds (video only)
@@ -1062,7 +1063,7 @@ Cost tier: `low`
 - `project-dir` _(string)_ — VibeFrame project directory
 - `cheap` _(boolean)_ — Run local checks only (default; no AI/API calls)
 - `ai` _(boolean)_ — Also run Gemini video review and merge findings into review-report.json
-- `model` _(string)_ _(default: `"flash"`)_ — Gemini model for --ai: flash (default), flash-2.5, pro
+- `model` _(string)_ _(default: `"flash"`)_ — Gemini model for --ai: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
 - `beat` _(string)_ — Inspect a render for one storyboard beat
 - `video` _(string)_ — Rendered video path. Defaults to build-report outputPath or latest renders/\* video.
 - `output` _(string)_ — Write review report to this path (default: <project>/review-report.json)
@@ -1087,7 +1088,7 @@ Cost tier: `low`
 - `storyboard` _(string)_ — Storyboard JSON file for context
 - `autoApply` _(boolean)_ — Automatically apply fixable corrections
 - `verify` _(boolean)_ — Run verification pass after applying fixes
-- `model` _(string)_ _(default: `"flash"`)_ — Gemini model: flash (default), flash-2.5, pro
+- `model` _(string)_ _(default: `"flash"`)_ — Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
 - `output` _(string)_ — Output video file path (for auto-apply)
 - `dryRun` _(boolean)_ — Preview parameters without executing
 
@@ -1123,7 +1124,7 @@ Cost tier: `low`
 - `source` _(string)_ **required** — Video file path or YouTube URL
 - `prompt` _(string)_ **required** — Analysis prompt (e.g., 'Summarize this video')
 - `apiKey` _(string)_ — Google API key (or set GOOGLE_API_KEY env)
-- `model` _(string)_ _(default: `"flash"`)_ — Model: flash (default), flash-2.5, pro
+- `model` _(string)_ _(default: `"flash"`)_ — Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
 - `fps` _(number)_ — Frames per second (default: 1, higher for action)
 - `start` _(number)_ — Start offset in seconds (for clipping)
 - `end` _(number)_ — End offset in seconds (for clipping)

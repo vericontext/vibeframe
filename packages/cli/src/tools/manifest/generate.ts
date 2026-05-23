@@ -59,7 +59,7 @@ export const generateMotionTool = defineTool({
       .optional()
       .describe("Custom prompt for video understanding when --video is provided"),
     model: z
-      .enum(["sonnet", "opus", "gemini", "gemini-3.1-pro"])
+      .enum(["sonnet", "opus", "gemini", "gemini-2.5-pro", "gemini-3.1-pro"])
       .optional()
       .describe("LLM model for code generation (default: sonnet)"),
     output: z.string().optional().describe("Output path (TSX if code-only, MP4 if rendered)"),
@@ -385,6 +385,7 @@ export const generateVideoTool = defineTool({
         "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider)"
       ),
     image: z.string().optional().describe("Reference image path for image-to-video"),
+    endImage: z.string().optional().describe("Ending frame image path for Seedance image-to-video"),
     refImages: z
       .array(z.string())
       .optional()
@@ -404,7 +405,7 @@ export const generateVideoTool = defineTool({
     ratio: z.string().optional().describe("Aspect ratio: 16:9, 9:16, 1:1 (default: 16:9)"),
     mode: z.string().optional().describe("Kling mode: std or pro"),
     negative: z.string().optional().describe("Negative prompt (Seedance/Kling/Veo)"),
-    resolution: z.string().optional().describe("Resolution: 720p, 1080p, 4k (Veo only)"),
+    resolution: z.string().optional().describe("Resolution: 480p, 720p, 1080p, or 4k depending on provider"),
     veoModel: z.string().optional().describe("Veo model: 3.0, 3.1, 3.1-fast"),
     runwayModel: z.string().optional().describe("Runway model: gen4.5, gen4_turbo"),
     seedanceModel: z

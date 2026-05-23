@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { ClaudeProvider, GeminiProvider } from "@vibeframe/ai-providers";
+import { ClaudeProvider, GeminiProvider, GEMINI_DEFAULT_TEXT_MODEL } from "@vibeframe/ai-providers";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { exitWithError, outputSuccess, apiError, generalError, usageError } from "./output.js";
@@ -45,7 +45,7 @@ export interface MotionCommandOptions {
   fromTsx?: string;
   /**
    * LLM model alias for code generation.
-   * sonnet (default) | opus | gemini | gemini-3.1-pro
+   * sonnet (default) | opus | gemini | gemini-2.5-pro | gemini-3.1-pro
    */
   model?: string;
   /** Output path (TSX if code-only, WebM/MP4 if rendered) */
@@ -66,7 +66,8 @@ const MODEL_MAP: Record<string, { provider: "claude" | "gemini"; modelId: string
   sonnet: { provider: "claude", modelId: "claude-sonnet-4-6" },
   opus: { provider: "claude", modelId: "claude-opus-4-7" },
   "opus-4-6": { provider: "claude", modelId: "claude-opus-4-6" },
-  gemini: { provider: "gemini", modelId: "gemini-2.5-pro" },
+  gemini: { provider: "gemini", modelId: GEMINI_DEFAULT_TEXT_MODEL },
+  "gemini-2.5-pro": { provider: "gemini", modelId: "gemini-2.5-pro" },
   "gemini-3.1-pro": { provider: "gemini", modelId: "gemini-3.1-pro-preview" },
 };
 
@@ -191,7 +192,7 @@ Use this image analysis to inform the color palette, typography placement, and o
 7. Any moments where overlays should pause, fade, or stay minimal`;
 
       const analysisResult = await gemini.analyzeVideo(videoBuffer, analysisPrompt, {
-        model: "gemini-2.5-flash",
+        model: GEMINI_DEFAULT_TEXT_MODEL,
         fps: 1,
         lowResolution: true,
       });
@@ -416,7 +417,7 @@ export function registerMotionCommand(aiCommand: Command): void {
     .option("--from-tsx <path>", "Refine an existing TSX file instead of generating from scratch")
     .option(
       "-m, --model <alias>",
-      "LLM model: sonnet (default), opus, gemini, gemini-3.1-pro",
+      "LLM model: sonnet (default), opus, gemini, gemini-2.5-pro, gemini-3.1-pro",
       "sonnet"
     )
     .option("--dry-run", "Preview parameters without executing")

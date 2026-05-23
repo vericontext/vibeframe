@@ -1,12 +1,13 @@
 /**
  * @module gemini-storyboard
  *
- * Storyboard generation using Gemini 2.5 Flash.
+ * Storyboard generation using the shared Gemini one-shot default.
  * Uses the same shared prompt as Claude and OpenAI storyboard generators.
  */
 
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
+import { GEMINI_DEFAULT_TEXT_MODEL } from "./gemini-models.js";
 
 /** Parameters for Gemini API calls */
 export interface GeminiApiParams {
@@ -15,7 +16,7 @@ export interface GeminiApiParams {
 }
 
 /**
- * Generate a storyboard from script content using Gemini 2.5 Flash.
+ * Generate a storyboard from script content using the shared Gemini default.
  *
  * @param api - Gemini API parameters (apiKey, baseUrl)
  * @param content - Script/content text to break into scenes
@@ -48,7 +49,7 @@ export async function analyzeContent(
     };
 
     const response = await fetch(
-      `${api.baseUrl}/models/gemini-2.5-flash:generateContent?key=${api.apiKey}`,
+      `${api.baseUrl}/models/${GEMINI_DEFAULT_TEXT_MODEL}:generateContent?key=${api.apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -17,7 +17,7 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, resolveGeminiTextModel } from "@vibeframe/ai-providers";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
@@ -37,7 +37,7 @@ export interface ReviewOptions {
   /** Run a verification pass after applying fixes */
   verify?: boolean;
   /** Gemini model shorthand (default: "flash") */
-  model?: "flash" | "flash-2.5" | "pro";
+  model?: string;
   /** Output path for the fixed video (auto-apply mode) */
   outputPath?: string;
 }
@@ -127,12 +127,7 @@ export async function executeReview(options: ReviewOptions): Promise<ReviewResul
     ? `\n\nProject context for beat-aware review:\n${projectContext}`
     : "";
 
-  const modelMap: Record<string, string> = {
-    flash: "gemini-3-flash-preview",
-    "flash-2.5": "gemini-2.5-flash",
-    pro: "gemini-2.5-pro",
-  };
-  const modelId = modelMap[model] || modelMap.flash;
+  const modelId = resolveGeminiTextModel(model);
 
   const reviewPrompt = `You are a professional video editor reviewing this video for quality. Analyze the video and return a JSON review with the following structure. Return ONLY valid JSON, no extra text.
 
@@ -168,7 +163,7 @@ Score each category 1-10. Prefer beatIssues when you can map a problem to a stor
 
   const videoData = await readFile(absVideoPath);
   const analysisResult = await gemini.analyzeVideo(videoData, reviewPrompt, {
-    model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+    model: modelId,
   });
 
   if (!analysisResult.success || !analysisResult.response) {
@@ -235,7 +230,7 @@ Score each category 1-10. Prefer beatIssues when you can map a problem to a stor
     const verifyResult = await gemini.analyzeVideo(
       verifyVideoData,
       'Rate this video overall quality on a scale of 1-10. Return ONLY a JSON object: {"score": <number>}',
-      { model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro" }
+      { model: modelId }
     );
 
     if (verifyResult.success && verifyResult.response) {
@@ -263,7 +258,7 @@ export function registerReviewCommand(aiCommand: Command): void {
     .option("--storyboard <path>", "Storyboard JSON file for context")
     .option("--auto-apply", "Automatically apply fixable corrections")
     .option("--verify", "Run verification pass after applying fixes")
-    .option("-m, --model <model>", "Gemini model: flash (default), flash-2.5, pro", "flash")
+    .option("-m, --model <model>", `Gemini model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
     .option("-o, --output <path>", "Output video file path (for auto-apply)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (videoPath: string, options) => {

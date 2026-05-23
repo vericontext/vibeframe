@@ -14,6 +14,8 @@ import {
   GEMINI_MOTION_MODELS,
 } from "./gemini-motion.js";
 import type { GeminiMotionOptions, GeminiMotionResult } from "./gemini-motion.js";
+import { GEMINI_DEFAULT_TEXT_MODEL, resolveGeminiTextModel } from "./gemini-models.js";
+import type { GeminiTextModel } from "./gemini-models.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { errorMessage, fetchJson, sleep } from "../shared/http.js";
@@ -116,7 +118,7 @@ export interface VeoVideoOptions {
  */
 export interface GeminiVideoOptions {
   /** Model to use for analysis */
-  model?: "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro";
+  model?: GeminiTextModel;
   /** MIME type of the video (for inline data) */
   mimeType?: string;
   /** Frames per second to sample (default: 1) */
@@ -147,7 +149,7 @@ export interface GeminiVideoResult {
  */
 export interface GeminiImageAnalysisOptions {
   /** Model to use for analysis */
-  model?: "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro";
+  model?: GeminiTextModel;
   /** Use low resolution mode (fewer tokens) */
   lowResolution?: boolean;
 }
@@ -902,7 +904,7 @@ export class GeminiProvider implements AIProvider {
       };
     }
 
-    const modelId = options.model || "gemini-3-flash-preview";
+    const modelId = resolveGeminiTextModel(options.model);
 
     try {
       // Build the video part
@@ -1048,7 +1050,7 @@ export class GeminiProvider implements AIProvider {
       };
     }
 
-    const modelId = options.model || "gemini-3-flash-preview";
+    const modelId = resolveGeminiTextModel(options.model);
 
     try {
       // Build image parts
@@ -1181,7 +1183,7 @@ Example response:
 Respond with ONLY the JSON array, no other text.`;
 
       const response = await fetch(
-        `${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
+        `${this.baseUrl}/models/${GEMINI_DEFAULT_TEXT_MODEL}:generateContent?key=${this.apiKey}`,
         {
           method: "POST",
           headers: {

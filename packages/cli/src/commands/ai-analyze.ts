@@ -18,7 +18,7 @@ import { extname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, resolveGeminiTextModel } from "@vibeframe/ai-providers";
 import { getApiKey } from "../utils/api-key.js";
 import { exitWithError, authError, apiError } from "./output.js";
 
@@ -29,7 +29,7 @@ export interface GeminiVideoOptions {
   /** Analysis prompt (e.g. "Summarize this video") */
   prompt: string;
   /** Gemini model shorthand (default: "flash") */
-  model?: "flash" | "flash-2.5" | "pro";
+  model?: string;
   /** Frames per second for video sampling (default: 1) */
   fps?: number;
   /** Start offset in seconds for clipping */
@@ -78,12 +78,7 @@ export async function executeGeminiVideo(
 
     const isYouTube = options.source.includes("youtube.com") || options.source.includes("youtu.be");
 
-    const modelMap: Record<string, string> = {
-      flash: "gemini-3-flash-preview",
-      "flash-2.5": "gemini-2.5-flash",
-      pro: "gemini-2.5-pro",
-    };
-    const modelId = modelMap[options.model || "flash"] || modelMap.flash;
+    const modelId = resolveGeminiTextModel(options.model);
 
     let videoData: Buffer | string;
     if (isYouTube) {
@@ -100,7 +95,7 @@ export async function executeGeminiVideo(
     await gemini.initialize({ apiKey });
 
     const result = await gemini.analyzeVideo(videoData, options.prompt, {
-      model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+      model: modelId,
       fps: options.fps,
       startOffset: options.start,
       endOffset: options.end,
@@ -134,7 +129,7 @@ export interface AnalyzeOptions {
   /** Analysis prompt (e.g. "Describe this image") */
   prompt: string;
   /** Gemini model shorthand (default: "flash") */
-  model?: "flash" | "flash-2.5" | "pro";
+  model?: string;
   /** Frames per second for video sampling (default: 1) */
   fps?: number;
   /** Start offset in seconds (video only) */
@@ -203,12 +198,7 @@ export async function executeAnalyze(
       };
     }
 
-    const modelMap: Record<string, string> = {
-      flash: "gemini-3-flash-preview",
-      "flash-2.5": "gemini-2.5-flash",
-      pro: "gemini-2.5-pro",
-    };
-    const modelId = modelMap[options.model || "flash"] || modelMap.flash;
+    const modelId = resolveGeminiTextModel(options.model);
 
     const gemini = new GeminiProvider();
     await gemini.initialize({ apiKey });
@@ -230,7 +220,7 @@ export async function executeAnalyze(
       }
 
       const result = await gemini.analyzeImage(imageBuffer, options.prompt, {
-        model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+        model: modelId,
         lowResolution: options.lowRes,
       });
 
@@ -270,7 +260,7 @@ export async function executeAnalyze(
     }
 
     const result = await gemini.analyzeVideo(videoData, options.prompt, {
-      model: modelId as "gemini-3-flash-preview" | "gemini-2.5-flash" | "gemini-2.5-pro",
+      model: modelId,
       fps: options.fps,
       startOffset: options.start,
       endOffset: options.end,
@@ -305,7 +295,7 @@ export function registerAnalyzeCommands(aiCommand: Command): void {
     .argument("<source>", "Video file path or YouTube URL")
     .argument("<prompt>", "Analysis prompt (e.g., 'Summarize this video')")
     .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-    .option("-m, --model <model>", "Model: flash (default), flash-2.5, pro", "flash")
+    .option("-m, --model <model>", `Model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
     .option("--fps <number>", "Frames per second (default: 1, higher for action)")
     .option("--start <seconds>", "Start offset in seconds (for clipping)")
     .option("--end <seconds>", "End offset in seconds (for clipping)")
@@ -326,7 +316,7 @@ export function registerAnalyzeCommands(aiCommand: Command): void {
         const result = await executeGeminiVideo({
           source,
           prompt,
-          model: options.model as "flash" | "flash-2.5" | "pro",
+          model: options.model,
           fps: options.fps ? parseFloat(options.fps) : undefined,
           start: options.start ? parseInt(options.start, 10) : undefined,
           end: options.end ? parseInt(options.end, 10) : undefined,
@@ -365,7 +355,7 @@ export function registerAnalyzeCommands(aiCommand: Command): void {
     .argument("<source>", "Image/video file path, image URL, or YouTube URL")
     .argument("<prompt>", "Analysis prompt (e.g., 'Describe this image', 'Summarize this video')")
     .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-    .option("-m, --model <model>", "Model: flash (default), flash-2.5, pro", "flash")
+    .option("-m, --model <model>", `Model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
     .option("--fps <number>", "Frames per second for video (default: 1)")
     .option("--start <seconds>", "Start offset in seconds (video only)")
     .option("--end <seconds>", "End offset in seconds (video only)")
@@ -386,7 +376,7 @@ export function registerAnalyzeCommands(aiCommand: Command): void {
         const result = await executeAnalyze({
           source,
           prompt,
-          model: options.model as "flash" | "flash-2.5" | "pro",
+          model: options.model,
           fps: options.fps ? parseFloat(options.fps) : undefined,
           start: options.start ? parseInt(options.start, 10) : undefined,
           end: options.end ? parseInt(options.end, 10) : undefined,

@@ -1223,7 +1223,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit motion-overlay --d
       },
       "model": {
         "default": "sonnet",
-        "description": "LLM model for generated overlays: sonnet, opus, gemini, gemini-3.1-pro",
+        "description": "LLM model for generated overlays: sonnet, opus, gemini, gemini-2.5-pro, gemini-3.1-pro",
         "type": "string",
       },
       "noLoop": {
@@ -1857,7 +1857,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate motion --descr
       },
       "model": {
         "default": "sonnet",
-        "description": "LLM model: sonnet (default), opus, gemini, gemini-3.1-pro",
+        "description": "LLM model: sonnet (default), opus, gemini, gemini-2.5-pro, gemini-3.1-pro",
         "type": "string",
       },
       "output": {
@@ -2200,12 +2200,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
       },
       "model": {
         "default": "flash",
-        "description": "Gemini model: flash, latest, pro (default: flash)",
-        "enum": [
-          "flash",
-          "latest",
-          "pro",
-        ],
+        "description": "Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
         "type": "string",
       },
       "output": {
@@ -2253,12 +2248,16 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "description": "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
         "type": "number",
       },
+      "endImage": {
+        "description": "Ending frame image for Seedance image-to-video",
+        "type": "string",
+      },
       "image": {
         "description": "Reference image for image-to-video",
         "type": "string",
       },
       "lastFrame": {
-        "description": "Last frame image for frame interpolation (Veo only)",
+        "description": "Last frame image for frame interpolation (Veo) or Seedance end frame",
         "type": "string",
       },
       "mode": {
@@ -2316,12 +2315,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "resolution": {
-        "description": "Video resolution: 720p, 1080p, 4k (Veo only)",
-        "enum": [
-          "720p",
-          "1080p",
-          "4k",
-        ],
+        "description": "Video resolution: 480p, 720p, 1080p, or 4k depending on provider",
         "type": "string",
       },
       "runwayModel": {
@@ -2625,7 +2619,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect media --describ
       },
       "model": {
         "default": "flash",
-        "description": "Model: flash (default), flash-2.5, pro",
+        "description": "Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
         "type": "string",
       },
       "prompt": {
@@ -2710,7 +2704,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect render --descri
       },
       "model": {
         "default": "flash",
-        "description": "Gemini model for --ai: flash (default), flash-2.5, pro",
+        "description": "Gemini model for --ai: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
         "type": "string",
       },
       "noReport": {
@@ -2754,7 +2748,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect review --descri
       },
       "model": {
         "default": "flash",
-        "description": "Gemini model: flash (default), flash-2.5, pro",
+        "description": "Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
         "type": "string",
       },
       "output": {
@@ -2857,7 +2851,7 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect video --describ
       },
       "model": {
         "default": "flash",
-        "description": "Model: flash (default), flash-2.5, pro",
+        "description": "Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
         "type": "string",
       },
       "prompt": {

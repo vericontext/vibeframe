@@ -8,7 +8,7 @@
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { GeminiProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
 import { getApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
@@ -39,7 +39,7 @@ export interface SilenceCutOptions {
   analyzeOnly?: boolean;
   /** Use Gemini multimodal analysis instead of FFmpeg silencedetect */
   useGemini?: boolean;
-  /** Gemini model shorthand: "flash", "flash-2.5", "pro" */
+  /** Gemini model shorthand or full gemini-* model ID */
   model?: string;
   /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
@@ -136,15 +136,7 @@ async function detectSilencePeriodsWithGemini(
 
   const videoBuffer = await readFile(videoPath);
 
-  // Map model shorthand to full model ID
-  const modelMap: Record<string, string> = {
-    flash: "gemini-3-flash-preview",
-    "flash-2.5": "gemini-2.5-flash",
-    pro: "gemini-2.5-pro",
-  };
-  const modelId = options.model
-    ? modelMap[options.model] || modelMap.flash
-    : undefined;
+  const modelId = options.model ? resolveGeminiTextModel(options.model) : undefined;
 
   const prompt = `Analyze this video and identify all silent or dead segments where there is NO meaningful content.
 
@@ -183,10 +175,7 @@ If there are no silent segments, return: { "silentSegments": [] }`;
     lowResolution: options.lowRes,
     ...(modelId
       ? {
-          model: modelId as
-            | "gemini-3-flash-preview"
-            | "gemini-2.5-flash"
-            | "gemini-2.5-pro",
+          model: modelId,
         }
       : {}),
   });

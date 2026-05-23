@@ -103,7 +103,7 @@ export interface GenerateOptions {
   references?: MediaReference[];
   /** Video resolution (Veo: 720p, 1080p, 4k) */
   resolution?: string;
-  /** Last frame image for frame interpolation (Veo) */
+  /** Last frame / ending image URL for providers that support frame interpolation */
   lastFrame?: string;
   /** Reference images for character consistency (Veo 3.1, max 3) */
   referenceImages?: Array<{ base64: string; mimeType: string }>;
