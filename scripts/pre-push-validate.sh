@@ -19,8 +19,32 @@ for pkg in packages/cli packages/core packages/ai-providers packages/mcp-server 
 done
 
 # 2. Version bump check — feat:/fix: commits since last tag should have a bump commit.
-LATEST_TAG=$(cd "$PROJECT_DIR" && git describe --tags --abbrev=0 2>/dev/null || echo "")
+# Prefer the newest remote v* tag when available. GitHub Actions creates
+# release tags after version commits land on main, so a developer clone can
+# otherwise have stale local tags and miss a required bump on the next push.
+remote_latest_tag() {
+  cd "$PROJECT_DIR" || return 1
+  git ls-remote --tags origin 'refs/tags/v*' 2>/dev/null \
+    | awk '{print $2}' \
+    | sed 's#refs/tags/##; s#\\^{}##' \
+    | sort -Vu \
+    | tail -1
+}
+
+local_latest_tag() {
+  cd "$PROJECT_DIR" || return 1
+  git tag --list 'v*' --sort=v:refname 2>/dev/null | tail -1
+}
+
+LATEST_TAG=$(remote_latest_tag)
+if [ -z "$LATEST_TAG" ]; then
+  LATEST_TAG=$(local_latest_tag)
+fi
+
 if [ -n "$LATEST_TAG" ]; then
+  if ! (cd "$PROJECT_DIR" && git rev-parse -q --verify "refs/tags/$LATEST_TAG" >/dev/null); then
+    (cd "$PROJECT_DIR" && git fetch --quiet origin "refs/tags/$LATEST_TAG:refs/tags/$LATEST_TAG" 2>/dev/null) || true
+  fi
   TAG_VERSION="${LATEST_TAG#v}"
   FEAT_FIX=$(cd "$PROJECT_DIR" && git log "$LATEST_TAG"..HEAD --oneline -E --grep="^(feat|fix)(\(.+\))?:" --format="%s" 2>/dev/null || true)
   if [ -n "$FEAT_FIX" ] && [ "$ROOT_VERSION" = "$TAG_VERSION" ]; then

@@ -38,7 +38,7 @@ npm version patch --no-git-tag-version
 pnpm -r exec -- npm version patch --no-git-tag-version
 
 # Step 3: Verify all versions match
-grep '"version"' package.json packages/*/package.json apps/*/package.json
+for f in package.json packages/*/package.json apps/*/package.json; do jq -r '.version' "$f"; done | sort -u
 
 # Step 4: Rebuild — embeds the new version into packages/cli/dist
 pnpm -F @vibeframe/cli build
@@ -54,13 +54,17 @@ pnpm gen:reference:check  # must pass before commit
 # Step 6: Commit (exclude test/temp files)
 git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md docs/cli-reference.md
 git commit -m "chore: bump version to X.Y.Z"
-git tag vX.Y.Z
 ```
+
+Do not create a local release tag in normal development. After the version
+commit lands on `main`, `.github/workflows/auto-tag.yml` creates `vX.Y.Z` and
+dispatches `.github/workflows/publish.yml`.
 
 **Common pitfalls:**
 - Running only `pnpm -r exec` will update workspace packages but NOT the root `package.json`, causing version mismatch. Always run both commands.
 - Regenerating `docs/cli-reference.md` BEFORE rebuilding produces a file pinned to the old version. CI rebuilds before checking, so `gen:reference:check` fails. Always: bump → rebuild → regen → check → commit.
-- Prefer the `/release` skill, which performs all steps in the correct order.
+- Prefer the `/release` skill, which performs all version-commit steps in the
+  correct order.
 
 **Files to update (must all have same version):**
 
@@ -72,9 +76,9 @@ git tag vX.Y.Z
 - `packages/ui/package.json`
 - `apps/web/package.json`
 
-**Current version:** Check with `grep '"version"' package.json | head -1`
+**Current version:** Check with `jq -r '.version' package.json`
 
-**Verify sync:** `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` should show only ONE version
+**Verify sync:** `for f in package.json packages/*/package.json apps/*/package.json; do jq -r '.version' "$f"; done | sort -u` should show only ONE version
 
 ## SSOT Sync Checklist (before push)
 
@@ -88,7 +92,7 @@ pnpm hooks:install
 
 Manual checks:
 
-1. **Version**: `grep '"version"' package.json packages/*/package.json apps/*/package.json | cut -d: -f2 | sort -u` → should show only 1 version
+1. **Version**: `for f in package.json packages/*/package.json apps/*/package.json; do jq -r '.version' "$f"; done | sort -u` → should show only 1 version
 2. **Landing page**: `apps/web/app/page.tsx` version badge, tool counts match actual
 3. **README.md**: test count, provider count, CLI command list are current
 
