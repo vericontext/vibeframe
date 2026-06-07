@@ -14,7 +14,7 @@
  *   generate motion         - Standalone motion assets (Claude/Gemini + Remotion)
  *   generate thumbnail      - Thumbnail generation/extraction
  *   generate background     - AI background generation (OpenAI)
- *   generate video-status   - Check video generation status (Grok/Runway/Kling)
+ *   generate video-status   - Check video generation status (Grok/Runway/Kling/Veo)
  *   generate video-cancel   - Cancel video generation (Grok/Runway)
  *   generate video-extend   - Extend video (Kling/Veo)
  *

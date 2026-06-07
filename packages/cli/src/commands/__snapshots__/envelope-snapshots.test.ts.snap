@@ -2447,13 +2447,13 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
 exports[`CLI --describe schemas (drift detection) > vibe generate video-status --describe 1`] = `
 {
   "cost": "free",
-  "description": "Check video generation status (Grok, Runway, or Kling)",
+  "description": "Check video generation status (Grok, Runway, Kling, or Veo)",
   "name": "generate.video-status",
   "note": "Provider-task polling primitive retained for compatibility.",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY env)",
+        "description": "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)",
         "type": "string",
       },
       "output": {
@@ -2462,11 +2462,12 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-status -
       },
       "provider": {
         "default": "grok",
-        "description": "Provider: grok, runway, kling",
+        "description": "Provider: grok, runway, kling, veo",
         "enum": [
           "grok",
           "runway",
           "kling",
+          "veo",
         ],
         "type": "string",
       },
