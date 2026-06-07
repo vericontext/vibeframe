@@ -10,8 +10,8 @@ Perform a version bump for VibeFrame. The argument MUST be one of: `patch`, `min
 Steps:
 1. **Read current version**: `jq -r '.version' package.json`
 2. **Bump root**: `npm version $ARGUMENTS --no-git-tag-version`
-3. **Bump all packages**: `pnpm -r exec -- npm version $ARGUMENTS --no-git-tag-version`
-4. **Read new version**: `jq -r '.version' package.json`
+3. **Read new version**: `NEW_VERSION=$(jq -r '.version' package.json)`
+4. **Set all packages to the exact new version**: `for dir in packages/cli packages/core packages/ai-providers packages/mcp-server packages/ui apps/web; do (cd "$dir" && npm version "$NEW_VERSION" --no-git-tag-version); done`
 5. **Verify sync**: `for f in package.json packages/*/package.json apps/*/package.json; do jq -r '.version' "$f"; done | sort -u` — must show exactly 1 version
 6. **Build**: `pnpm build` — must pass
 7. **Regenerate CLI reference**: `pnpm gen:reference` — auto-syncs `docs/cli-reference.md` to the built CLI surface so the published version always ships up-to-date docs. (Generator has no timestamp; only diffs when actual flags/commands changed.)

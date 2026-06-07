@@ -134,6 +134,7 @@ Claude Code, and direct terminal pushes use the same version/SSOT checks.
 ## Host-Specific Notes
 
 - Claude Code-specific skills, agents, hooks, and path-scoped rules live in `.claude/`.
-- Codex project-scope configuration lives in `.codex/config.toml`.
+- Codex repo-local skills live in `.agents/skills/<skill-name>/SKILL.md`.
+- Codex project-scope runtime configuration lives in `.codex/config.toml`.
 - Keep shared repository guidance in this file so Codex, Claude Code, Cursor,
   and other agents can consume the same baseline instructions.

@@ -5,10 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.106.1] - 2026-06-07
+
+### Fixed
+
+- refresh video job status across providers
+
+### Maintenance
+
+- align release automation guidance
+
 ## [0.106.0] - 2026-05-23
 
 ### Added
 
+- update Gemini defaults and Seedance video options
 - add --lottie overlay support to vibe scene add (#212) *(scene)*
 
 ### Documentation

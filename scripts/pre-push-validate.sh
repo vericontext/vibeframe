@@ -26,7 +26,7 @@ remote_latest_tag() {
   cd "$PROJECT_DIR" || return 1
   git ls-remote --tags origin 'refs/tags/v*' 2>/dev/null \
     | awk '{print $2}' \
-    | sed 's#refs/tags/##; s#\\^{}##' \
+    | sed 's#refs/tags/##; s#\^{}##' \
     | sort -Vu \
     | tail -1
 }
