@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Cancel in-flight runs for the same ref when a newer commit lands.
 # Saves CI minutes on rapid push sessions. Intentionally NOT applied
 # to publish.yml — never cancel an in-progress npm publish.
