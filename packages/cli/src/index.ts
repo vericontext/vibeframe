@@ -361,6 +361,14 @@ function propagateErrorHandling(cmd: Command): void {
 }
 propagateErrorHandling(program);
 
+// Compatibility shortcut: Commander exposes `--version`, but many users try
+// `vibe version` by muscle memory. Handle it before normal command parsing so
+// it does not become part of the agent-facing schema/tool surface.
+if (process.argv.length === 3 && process.argv[2] === "version") {
+  console.log(pkg.version);
+  process.exit(0);
+}
+
 // Global --describe: resolve command and output schema without parsing args
 if (process.argv.includes("--describe")) {
   const args = process.argv.slice(2).filter((a) => a !== "--describe" && a !== "--json");
@@ -389,7 +397,8 @@ if (process.argv.includes("--describe")) {
 // Check if any arguments provided
 if (process.argv.length <= 2) {
   // No arguments — show help (standard CLI behavior)
-  program.help();
+  program.outputHelp();
+  process.exit(0);
 } else {
   // Arguments provided - parse normally with global error handling
   (async () => {

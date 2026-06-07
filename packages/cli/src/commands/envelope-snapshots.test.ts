@@ -89,6 +89,20 @@ describe("schema product surface taxonomy", () => {
 });
 
 describe("CLI help product surface taxonomy", () => {
+  it("prints root help without leaking Commander help exceptions", () => {
+    const help = runCli("");
+    expect(help).toContain("Usage: vibe [options] [command]");
+    expect(help).not.toContain("CommanderError");
+    expect(help).not.toContain("at _Command._exit");
+  });
+
+  it("supports version as a command alias for the --version option", () => {
+    const optionVersion = runCli("--version").trim();
+    const commandVersion = runCli("version").trim();
+    expect(commandVersion).toBe(optionVersion);
+    expect(commandVersion).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
   it("keeps legacy/internal commands out of root cost examples", () => {
     const help = runCli("--help");
     const footer = help.slice(help.indexOf("Cost tiers"));
