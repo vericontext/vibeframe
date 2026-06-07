@@ -351,7 +351,7 @@ export async function refreshJobRecord(
       if (output) await mkdir(dirname(output), { recursive: true });
       const result = await executeVideoStatus({
         taskId: record.providerTaskId,
-        provider: record.provider as "runway" | "kling",
+        provider: record.provider as "grok" | "runway" | "kling" | "veo",
         taskType: record.providerTaskType as "text2video" | "image2video" | undefined,
         wait: opts.wait,
         output,
@@ -620,7 +620,10 @@ function resolveRefreshOutput(record: JobRecord, opts: RefreshJobOptions): strin
 function liveSupport(record: JobRecord): { supported: boolean; error?: string } {
   if (
     record.jobType === "generate-video" &&
-    (record.provider === "runway" || record.provider === "kling")
+    (record.provider === "grok" ||
+      record.provider === "runway" ||
+      record.provider === "kling" ||
+      record.provider === "veo")
   ) {
     return { supported: true };
   }
@@ -690,7 +693,8 @@ async function maybeWriteCompletedAssetMetadata(record: JobRecord): Promise<void
       provider: record.provider,
       options: record.assetOptions,
       cacheKey: record.cacheKey,
-      canonicalPath: record.canonicalPath ?? projectRelativePath(record.projectDir, record.outputPath),
+      canonicalPath:
+        record.canonicalPath ?? projectRelativePath(record.projectDir, record.outputPath),
       cachePath: record.cachePath
         ? projectRelativePath(record.projectDir, record.cachePath)
         : undefined,
@@ -700,10 +704,7 @@ async function maybeWriteCompletedAssetMetadata(record: JobRecord): Promise<void
   }
 }
 
-async function refreshBuildReportFromJobs(
-  projectDir: string,
-  records: JobRecord[]
-): Promise<void> {
+async function refreshBuildReportFromJobs(projectDir: string, records: JobRecord[]): Promise<void> {
   const reportPath = join(projectDir, "build-report.json");
   const report = await readJson(reportPath);
   if (!report || !Array.isArray(report.beats)) return;
@@ -1159,7 +1160,14 @@ function isActiveStatus(status: JobStatus): boolean {
 
 function providerStatusCommand(record: JobRecord): string | undefined {
   if (record.jobType === "generate-video") {
-    if (record.provider !== "runway" && record.provider !== "kling") return undefined;
+    if (
+      record.provider !== "grok" &&
+      record.provider !== "runway" &&
+      record.provider !== "kling" &&
+      record.provider !== "veo"
+    ) {
+      return undefined;
+    }
     const type =
       record.provider === "kling" && record.providerTaskType
         ? ` --type ${record.providerTaskType}`

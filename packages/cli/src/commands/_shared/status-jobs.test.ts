@@ -19,6 +19,7 @@ import {
   refreshJobRecord,
 } from "./status-jobs.js";
 import { executeMusicStatus } from "../generate/music-status.js";
+import { executeVideoStatus } from "../ai-video.js";
 
 async function tempProject(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "vibe-status-jobs-"));
@@ -272,7 +273,7 @@ describe("status job records", () => {
     expect(normalizeJobStatus("wat")).toBe("unknown");
   });
 
-  it("keeps unsupported provider refresh local", async () => {
+  it("refreshes supported Grok video jobs through the shared video status executor", async () => {
     const dir = await tempProject();
     const record = await createAndWriteJobRecord({
       id: "job_grok",
@@ -282,15 +283,55 @@ describe("status job records", () => {
       projectDir: dir,
       command: "generate video --no-wait",
     });
+    expect(record.retryWith).toContain("vibe generate video-status grok_1 -p grok --json");
 
-    const result = await refreshJobRecord(record);
-    expect(result.refreshed).toBe(false);
+    vi.mocked(executeVideoStatus).mockResolvedValueOnce({
+      success: true,
+      taskId: "grok_1",
+      status: "completed",
+      videoUrl: "https://example.test/grok.mp4",
+    });
+
+    const result = await refreshJobRecord(record, { write: false });
+    expect(result.refreshed).toBe(true);
     expect(result.kind).toBe("job");
     expect(result.id).toBe("job_grok");
-    expect(result.result).toBeNull();
-    expect(result.progress?.phase).toBe("provider-processing");
-    expect(result.live.supported).toBe(false);
-    expect(result.warnings[0]).toContain("not supported");
+    expect(result.result).toMatchObject({ url: "https://example.test/grok.mp4" });
+    expect(result.job.status).toBe("completed");
+    expect(result.live.supported).toBe(true);
+    expect(executeVideoStatus).toHaveBeenCalledWith({
+      taskId: "grok_1",
+      provider: "grok",
+      taskType: undefined,
+      wait: undefined,
+      output: undefined,
+    });
+  });
+
+  it("refreshes supported Veo video jobs through the shared video status executor", async () => {
+    const dir = await tempProject();
+    const record = await createAndWriteJobRecord({
+      id: "job_veo",
+      jobType: "generate-video",
+      provider: "veo",
+      providerTaskId: "operations/veo_1",
+      projectDir: dir,
+      command: "generate video --no-wait",
+    });
+    expect(record.retryWith).toContain("vibe generate video-status operations/veo_1 -p veo --json");
+
+    vi.mocked(executeVideoStatus).mockResolvedValueOnce({
+      success: true,
+      taskId: "operations/veo_1",
+      status: "processing",
+      progress: 50,
+    });
+
+    const result = await refreshJobRecord(record, { write: false });
+    expect(result.refreshed).toBe(true);
+    expect(result.job.status).toBe("running");
+    expect(result.progress).toMatchObject({ percent: 50, phase: "processing" });
+    expect(result.live.supported).toBe(true);
   });
 
   it("downloads completed music jobs to the recorded output path and cache path", async () => {

@@ -418,7 +418,7 @@ function mimeTypeForPath(path: string, fallback: string): string {
 
 export interface VideoStatusOptions {
   taskId: string;
-  provider?: "runway" | "kling";
+  provider?: "grok" | "runway" | "kling" | "veo";
   taskType?: "text2video" | "image2video";
   wait?: boolean;
   output?: string;
@@ -448,13 +448,41 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
 
   try {
     const envKeyMap: Record<string, string> = {
+      grok: "XAI_API_KEY",
       runway: "RUNWAY_API_SECRET",
       kling: "KLING_API_KEY",
+      veo: "GOOGLE_API_KEY",
     };
     const key = apiKey || process.env[envKeyMap[provider] || ""];
     if (!key) return { success: false, error: `${envKeyMap[provider]} required` };
 
-    if (provider === "runway") {
+    if (provider === "grok") {
+      const grok = new GrokProvider();
+      await grok.initialize({ apiKey: key });
+
+      let result = await grok.getGenerationStatus(taskId);
+
+      if (wait && result.status !== "completed" && result.status !== "failed") {
+        result = await grok.waitForCompletion(taskId, () => {});
+      }
+
+      let outputPath: string | undefined;
+      if (output && result.videoUrl) {
+        const buffer = await downloadVideo(result.videoUrl);
+        outputPath = resolve(process.cwd(), output);
+        await writeFile(outputPath, buffer);
+      }
+
+      return {
+        success: true,
+        taskId,
+        status: result.status,
+        progress: result.progress,
+        videoUrl: result.videoUrl,
+        outputPath,
+        error: result.error,
+      };
+    } else if (provider === "runway") {
       const runway = new RunwayProvider();
       await runway.initialize({ apiKey: key });
 
@@ -513,6 +541,38 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
         videoUrl: result.videoUrl,
         duration: result.duration,
         outputPath,
+        error: result.error,
+      };
+    } else if (provider === "veo") {
+      const gemini = new GeminiProvider();
+      await gemini.initialize({ apiKey: key });
+
+      let result = await gemini.getGenerationStatus(taskId);
+
+      if (
+        wait &&
+        result.status !== "completed" &&
+        result.status !== "failed" &&
+        result.status !== "cancelled"
+      ) {
+        result = await gemini.waitForVideoCompletion(taskId, () => {});
+      }
+
+      let outputPath: string | undefined;
+      if (output && result.videoUrl) {
+        const buffer = await downloadVideo(result.videoUrl, key);
+        outputPath = resolve(process.cwd(), output);
+        await writeFile(outputPath, buffer);
+      }
+
+      return {
+        success: true,
+        taskId,
+        status: result.status,
+        progress: result.progress,
+        videoUrl: result.videoUrl,
+        outputPath,
+        error: result.error,
       };
     }
 

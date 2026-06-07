@@ -1,8 +1,8 @@
 /**
  * @module generate/video-status
  * @description `vibe generate video-status` (hidden) — check Grok/Runway/
- * Kling video generation status, optionally wait + download. Split out of
- * `generate.ts` in v0.69 (Plan G Phase 2).
+ * Kling/Veo video generation status, optionally wait + download. Split out
+ * of `generate.ts` in v0.69 (Plan G Phase 2).
  */
 
 import type { Command } from "commander";
@@ -11,18 +11,13 @@ import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
 import {
+  GeminiProvider,
   GrokProvider,
   RunwayProvider,
   KlingProvider,
 } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
-import {
-  isJsonMode,
-  outputSuccess,
-  exitWithError,
-  apiError,
-  usageError,
-} from "../output.js";
+import { isJsonMode, outputSuccess, exitWithError, apiError, usageError } from "../output.js";
 import { downloadVideo } from "../ai-helpers.js";
 
 function getStatusColor(status: string): string {
@@ -44,10 +39,13 @@ function getStatusColor(status: string): string {
 export function registerVideoStatusCommand(parent: Command): void {
   parent
     .command("video-status", { hidden: true })
-    .description("Check video generation status (Grok, Runway, or Kling)")
+    .description("Check video generation status (Grok, Runway, Kling, or Veo)")
     .argument("<task-id>", "Task ID from video generation")
-    .option("-p, --provider <provider>", "Provider: grok, runway, kling", "grok")
-    .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY env)")
+    .option("-p, --provider <provider>", "Provider: grok, runway, kling, veo", "grok")
+    .option(
+      "-k, --api-key <key>",
+      "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)"
+    )
     .option("--type <type>", "Task type: text2video or image2video (Kling only)", "text2video")
     .option("--wait", "Wait for completion")
     .option("-o, --output <path>", "Download video when complete")
@@ -120,18 +118,12 @@ export function registerVideoStatusCommand(parent: Command): void {
               downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               downloadSpinner.fail(
-                chalk.red(
-                  `Failed to download video: ${err instanceof Error ? err.message : err}`,
-                ),
+                chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
               );
             }
           }
         } else if (provider === "runway") {
-          const apiKey = await requireApiKey(
-            "RUNWAY_API_SECRET",
-            "Runway",
-            options.apiKey,
-          );
+          const apiKey = await requireApiKey("RUNWAY_API_SECRET", "Runway", options.apiKey);
 
           const spinner = ora("Checking status...").start();
 
@@ -205,9 +197,7 @@ export function registerVideoStatusCommand(parent: Command): void {
               downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               downloadSpinner.fail(
-                chalk.red(
-                  `Failed to download video: ${err instanceof Error ? err.message : err}`,
-                ),
+                chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
               );
             }
           }
@@ -286,15 +276,93 @@ export function registerVideoStatusCommand(parent: Command): void {
               downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               downloadSpinner.fail(
-                chalk.red(
-                  `Failed to download video: ${err instanceof Error ? err.message : err}`,
-                ),
+                chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
+              );
+            }
+          }
+        } else if (provider === "veo") {
+          const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
+
+          const spinner = ora("Checking status...").start();
+
+          const gemini = new GeminiProvider();
+          await gemini.initialize({ apiKey });
+
+          let result = await gemini.getGenerationStatus(taskId);
+
+          if (
+            options.wait &&
+            result.status !== "completed" &&
+            result.status !== "failed" &&
+            result.status !== "cancelled"
+          ) {
+            spinner.text = "Waiting for completion...";
+            result = await gemini.waitForVideoCompletion(taskId, (status) => {
+              spinner.text =
+                status.progress !== undefined
+                  ? `Generating... ${status.progress}%`
+                  : `Generating... ${status.status}`;
+            });
+          }
+
+          spinner.stop();
+
+          if (isJsonMode()) {
+            let outputPath: string | undefined;
+            if (options.output && result.videoUrl) {
+              const buffer = await downloadVideo(result.videoUrl, apiKey);
+              outputPath = resolve(process.cwd(), options.output);
+              await writeFile(outputPath, buffer);
+            }
+            outputSuccess({
+              command: "generate video-status",
+              startedAt,
+              data: {
+                taskId,
+                provider: "veo",
+                status: result.status,
+                videoUrl: result.videoUrl,
+                progress: result.progress,
+                error: result.error,
+                outputPath,
+              },
+            });
+            return;
+          }
+
+          console.log();
+          console.log(chalk.bold.cyan("Generation Status"));
+          console.log(chalk.dim("─".repeat(60)));
+          console.log(`Task ID: ${taskId}`);
+          console.log(`Provider: Veo`);
+          console.log(`Status: ${getStatusColor(result.status)}`);
+          if (result.progress !== undefined) {
+            console.log(`Progress: ${result.progress}%`);
+          }
+          if (result.videoUrl) {
+            console.log(`Video URL: ${result.videoUrl}`);
+          }
+          if (result.error) {
+            console.log(`Error: ${chalk.red(result.error)}`);
+          }
+          console.log();
+
+          if (options.output && result.videoUrl) {
+            const downloadSpinner = ora("Downloading video...").start();
+            try {
+              const buffer = await downloadVideo(result.videoUrl, apiKey);
+              const outputPath = resolve(process.cwd(), options.output);
+              await writeFile(outputPath, buffer);
+              downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
+            } catch (err) {
+              downloadSpinner.fail(
+                chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
               );
             }
           }
         } else {
           exitWithError(
-            usageError(`Invalid provider: ${provider}. Use grok, runway, or kling.`),
+            usageError(`Invalid provider: ${provider}. Use grok, runway, kling, or veo.`)
           );
         }
       } catch (error) {

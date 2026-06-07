@@ -109,7 +109,8 @@ export const generateNarrationTool = defineTool({
   name: "generate_narration",
   category: "generate",
   cost: "low",
-  description: "Generate narration from text using ElevenLabs TTS. Product-facing alias for generate_speech. Requires ELEVENLABS_API_KEY.",
+  description:
+    "Generate narration from text using ElevenLabs TTS. Product-facing alias for generate_speech. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
     text: z.string().describe("Narration text to convert to speech"),
     output: z.string().optional().describe("Output audio file path (default: narration.mp3)"),
@@ -177,7 +178,10 @@ export const generateMusicTool = defineTool({
       .boolean()
       .optional()
       .describe("Force instrumental, no vocals (ElevenLabs only)"),
-    wait: z.boolean().optional().describe("Wait for Replicate completion. Set false to return a local job id."),
+    wait: z
+      .boolean()
+      .optional()
+      .describe("Wait for Replicate completion. Set false to return a local job id."),
   }),
   async execute(args, ctx) {
     const result = await executeMusic(args);
@@ -203,7 +207,9 @@ export const generateMusicTool = defineTool({
         taskId: result.taskId,
         status: result.status,
         jobId: job?.id,
-        statusCommand: job ? `vibe status job ${job.id} --project ${job.projectDir} --json` : undefined,
+        statusCommand: job
+          ? `vibe status job ${job.id} --project ${job.projectDir} --json`
+          : undefined,
       },
       humanLines: [
         `✅ Music${result.provider ? ` (${result.provider})` : ""} → ${result.outputPath ?? job?.id ?? "(async)"}`,
@@ -405,7 +411,10 @@ export const generateVideoTool = defineTool({
     ratio: z.string().optional().describe("Aspect ratio: 16:9, 9:16, 1:1 (default: 16:9)"),
     mode: z.string().optional().describe("Kling mode: std or pro"),
     negative: z.string().optional().describe("Negative prompt (Seedance/Kling/Veo)"),
-    resolution: z.string().optional().describe("Resolution: 480p, 720p, 1080p, or 4k depending on provider"),
+    resolution: z
+      .string()
+      .optional()
+      .describe("Resolution: 480p, 720p, 1080p, or 4k depending on provider"),
     veoModel: z.string().optional().describe("Veo model: 3.0, 3.1, 3.1-fast"),
     runwayModel: z.string().optional().describe("Runway model: gen4.5, gen4_turbo"),
     seedanceModel: z
@@ -428,7 +437,12 @@ export const generateVideoTool = defineTool({
         jobType: "generate-video",
         provider: result.provider ?? args.provider ?? "unknown",
         providerTaskId: result.taskId,
-        providerTaskType: result.provider === "kling" && args.image ? "image2video" : result.provider === "kling" ? "text2video" : undefined,
+        providerTaskType:
+          result.provider === "kling" && args.image
+            ? "image2video"
+            : result.provider === "kling"
+              ? "text2video"
+              : undefined,
         status: "running",
         workingDirectory: ctx.workingDirectory,
         command: "generate_video wait=false",
@@ -445,7 +459,9 @@ export const generateVideoTool = defineTool({
         outputPath: result.outputPath,
         provider: result.provider,
         jobId: job?.id,
-        statusCommand: job ? `vibe status job ${job.id} --project ${job.projectDir} --json` : undefined,
+        statusCommand: job
+          ? `vibe status job ${job.id} --project ${job.projectDir} --json`
+          : undefined,
       },
       humanLines: [
         `✅ Video (${result.provider}, ${result.status})${result.outputPath ? ` → ${result.outputPath}` : job ? ` → ${job.id}` : ""}`,
@@ -460,10 +476,13 @@ export const generateVideoStatusTool = defineTool({
   name: "generate_video_status",
   category: "generate",
   cost: "free",
-  description: "Check video generation status for Runway or Kling tasks.",
+  description: "Check video generation status for Grok, Runway, Kling, or Veo tasks.",
   schema: z.object({
     taskId: z.string().describe("Task ID from video generation"),
-    provider: z.enum(["runway", "kling"]).optional().describe("Provider (default: runway)"),
+    provider: z
+      .enum(["grok", "runway", "kling", "veo"])
+      .optional()
+      .describe("Provider (default: runway)"),
     taskType: z
       .enum(["text2video", "image2video"])
       .optional()

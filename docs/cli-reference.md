@@ -698,7 +698,7 @@ Cost tier: `very-high`
 
 #### `vibe generate video-status`
 
-Check video generation status (Grok, Runway, or Kling)
+Check video generation status (Grok, Runway, Kling, or Veo)
 
 Product surface: `legacy`
 Replacement: `vibe status job <job-id> --json`
@@ -709,8 +709,8 @@ Cost tier: `free`
 **Parameters:**
 
 - `task-id` _(string)_ **required** — Task ID from video generation
-- `provider` _(string)_ _(grok \| runway \| kling)_ _(default: `"grok"`)_ — Provider: grok, runway, kling
-- `apiKey` _(string)_ — API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY env)
+- `provider` _(string)_ _(grok \| runway \| kling \| veo)_ _(default: `"grok"`)_ — Provider: grok, runway, kling, veo
+- `apiKey` _(string)_ — API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `type` _(string)_ _(default: `"text2video"`)_ — Task type: text2video or image2video (Kling only)
 - `wait` _(boolean)_ — Wait for completion
 - `output` _(string)_ — Download video when complete
