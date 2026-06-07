@@ -222,7 +222,8 @@ echo ""
 # Install pnpm if needed
 if ! check_cmd pnpm; then
   step "Installing pnpm..."
-  npm install -g pnpm
+  PNPM_VERSION="$(node -p "require('./package.json').packageManager.split('@')[1]" 2>/dev/null || echo "9.15.4")"
+  npm install -g "pnpm@$PNPM_VERSION"
 fi
 
 # Install dependencies
@@ -236,11 +237,12 @@ if [ "$FULL_INSTALL" = true ]; then
   pnpm build
 else
   step "Building CLI packages..."
-  # Build only CLI-related packages (faster)
+  # Build only CLI-related packages (faster). The MCP server imports the CLI's
+  # public subpaths, so the CLI bundle must exist before mcp-server builds.
   pnpm --filter @vibeframe/core build
   pnpm --filter @vibeframe/ai-providers build
-  pnpm --filter @vibeframe/mcp-server build
   pnpm --filter @vibeframe/cli build
+  pnpm --filter @vibeframe/mcp-server build
 fi
 
 echo ""
