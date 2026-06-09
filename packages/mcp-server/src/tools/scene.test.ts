@@ -63,6 +63,8 @@ describe("MCP scene tools — registration", () => {
     expect(byName.scene_add.inputSchema.required).toEqual(["name"]);
     expect(byName.scene_lint.inputSchema.required).toEqual([]);
     expect(byName.render.inputSchema.required).toEqual([]);
+    expect(byName.render.inputSchema.properties).toHaveProperty("openAfterRender");
+    expect(byName.render.inputSchema.properties).toHaveProperty("revealInFinder");
   });
 
   it("explains MCP workspace-relative project paths", () => {

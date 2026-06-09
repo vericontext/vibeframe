@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
+  buildMediaOpenCommand,
   buildRenderConfig,
   defaultOutputPath,
   executeSceneRender,
@@ -71,6 +72,44 @@ describe("buildRenderConfig", () => {
       entryFile: "alt.html",
       crf: 18,
       workers: 4,
+    });
+  });
+});
+
+// ── buildMediaOpenCommand ──────────────────────────────────────────────────
+
+describe("buildMediaOpenCommand", () => {
+  it("builds macOS open and reveal commands", () => {
+    expect(buildMediaOpenCommand("open", "/tmp/My Video/out.mp4", "darwin")).toEqual({
+      command: "open",
+      args: ["/tmp/My Video/out.mp4"],
+      display: 'open "/tmp/My Video/out.mp4"',
+    });
+    expect(buildMediaOpenCommand("reveal", "/tmp/My Video/out.mp4", "darwin")).toEqual({
+      command: "open",
+      args: ["-R", "/tmp/My Video/out.mp4"],
+      display: 'open -R "/tmp/My Video/out.mp4"',
+    });
+  });
+
+  it("reveals the parent directory on Linux", () => {
+    expect(buildMediaOpenCommand("reveal", "/tmp/My Video/out.mp4", "linux")).toEqual({
+      command: "xdg-open",
+      args: ["/tmp/My Video"],
+      display: 'xdg-open "/tmp/My Video"',
+    });
+  });
+
+  it("builds Windows open and reveal commands", () => {
+    expect(buildMediaOpenCommand("open", "C:\\tmp\\out.mp4", "win32")).toEqual({
+      command: "cmd",
+      args: ["/c", "start", "", "C:\\tmp\\out.mp4"],
+      display: 'cmd /c start "" "C:\\\\tmp\\\\out.mp4"',
+    });
+    expect(buildMediaOpenCommand("reveal", "C:\\tmp\\out.mp4", "win32")).toEqual({
+      command: "explorer",
+      args: ["/select,C:\\tmp\\out.mp4"],
+      display: 'explorer "/select,C:\\\\tmp\\\\out.mp4"',
     });
   });
 });
@@ -271,6 +310,9 @@ describe("executeSceneRender — Chrome-gated render", () => {
 
     expect(result.success).toBe(true);
     expect(existsSync(out)).toBe(true);
+    expect(result.absoluteOutputPath).toBe(out);
+    expect(result.openCommand).toContain(out);
+    expect(result.revealCommand).toContain(out);
     expect(result.fps).toBe(30);
     expect(result.quality).toBe("draft");
     expect(result.format).toBe("mp4");

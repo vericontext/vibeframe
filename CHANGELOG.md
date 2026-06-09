@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.106.8] - 2026-06-10
+
+### Added
+
+- add render open/reveal commands and absolute output paths for MCP/host UX
+
+### Fixed
+
+- capture MCP tool stdout so renderer logs do not corrupt stdio JSON-RPC
+
 ## [0.106.7] - 2026-06-10
 
 ### Fixed
@@ -1935,4 +1945,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Debug
 
 - add REPL startup logging
-

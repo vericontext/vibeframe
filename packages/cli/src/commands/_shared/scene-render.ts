@@ -13,9 +13,11 @@
  * returns a structured result instead of throwing or exiting.
  */
 
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve, relative, dirname, basename, join, isAbsolute } from "node:path";
+import { promisify } from "node:util";
 import {
   createRenderJob,
   executeRenderJob,
@@ -31,6 +33,9 @@ import { aspectToDims, type SceneAspect } from "./scene-project.js";
 export type RenderFps = 24 | 30 | 60;
 export type RenderQuality = "draft" | "standard" | "high";
 export type RenderFormat = "mp4" | "webm" | "mov";
+export type RenderOpenAction = "open" | "reveal";
+
+const execFileAsync = promisify(execFile);
 
 export interface SceneRenderOptions {
   /** Project directory (defaults to cwd). */
@@ -48,6 +53,10 @@ export interface SceneRenderOptions {
   /** Hyperframes capture worker count. Default 1 (the existing backend's
    *  default — auto-worker mode times out on small comps). */
   workers?: number;
+  /** Open the rendered media in the OS default app after a successful render. */
+  openAfterRender?: boolean;
+  /** Reveal the rendered media in Finder/file manager after a successful render. */
+  revealInFinder?: boolean;
   signal?: AbortSignal;
   onProgress?: (pct: number, stage: string) => void;
 }
@@ -58,6 +67,13 @@ export interface SceneRenderResult {
   beat?: string | null;
   root?: string;
   outputPath?: string;
+  absoluteOutputPath?: string;
+  openCommand?: string;
+  revealCommand?: string;
+  opened?: boolean;
+  revealed?: boolean;
+  openError?: string;
+  revealError?: string;
   durationMs?: number;
   framesRendered?: number;
   totalFrames?: number;
@@ -74,6 +90,12 @@ export interface SceneRenderResult {
   code?: string;
   error?: string;
   retryWith?: string[];
+}
+
+export interface MediaOpenCommand {
+  command: string;
+  args: string[];
+  display: string;
 }
 
 /** Map a quality preset to an x264 CRF (lower = higher quality). */
@@ -124,6 +146,45 @@ export function buildRenderConfig(opts: {
     entryFile: opts.entryFile ?? "index.html",
     crf: qualityToCrf(quality),
     workers: opts.workers ?? 1,
+  };
+}
+
+export function buildMediaOpenCommand(
+  action: RenderOpenAction,
+  filePath: string,
+  platform: NodeJS.Platform = process.platform,
+): MediaOpenCommand {
+  if (platform === "darwin") {
+    const args = action === "reveal" ? ["-R", filePath] : [filePath];
+    return {
+      command: "open",
+      args,
+      display: ["open", ...args].map(quoteCliArg).join(" "),
+    };
+  }
+
+  if (platform === "win32") {
+    if (action === "reveal") {
+      const args = [`/select,${filePath}`];
+      return {
+        command: "explorer",
+        args,
+        display: ["explorer", ...args].map(quoteCliArg).join(" "),
+      };
+    }
+    const args = ["/c", "start", "", filePath];
+    return {
+      command: "cmd",
+      args,
+      display: ["cmd", ...args].map(quoteCliArg).join(" "),
+    };
+  }
+
+  const target = action === "reveal" ? dirname(filePath) : filePath;
+  return {
+    command: "xdg-open",
+    args: [target],
+    display: ["xdg-open", target].map(quoteCliArg).join(" "),
   };
 }
 
@@ -273,6 +334,9 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     beat: opts.beatId ?? null,
     root,
     outputPath: relative(process.cwd(), outputPath) || outputPath,
+    absoluteOutputPath: outputPath,
+    openCommand: buildMediaOpenCommand("open", outputPath).display,
+    revealCommand: buildMediaOpenCommand("reveal", outputPath).display,
     durationMs: Date.now() - start,
     framesRendered: job.framesRendered,
     totalFrames: job.totalFrames,
@@ -283,11 +347,42 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     audioMuxApplied,
     audioMuxWarning,
   };
+
+  if (opts.revealInFinder) {
+    try {
+      await runMediaOpenAction("reveal", outputPath);
+      result.revealed = true;
+    } catch (err) {
+      result.revealed = false;
+      result.revealError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  if (opts.openAfterRender) {
+    try {
+      await runMediaOpenAction("open", outputPath);
+      result.opened = true;
+    } catch (err) {
+      result.opened = false;
+      result.openError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   result.reportPath = await writeRenderReport(projectDir, {
     ...result,
     outputPath,
   });
   return result;
+}
+
+async function runMediaOpenAction(action: RenderOpenAction, filePath: string): Promise<void> {
+  const cmd = buildMediaOpenCommand(action, filePath);
+  await execFileAsync(cmd.command, cmd.args);
+}
+
+function quoteCliArg(value: string): string {
+  if (/^[A-Za-z0-9_/@%+=:,.-]+$/.test(value)) return value;
+  return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
 async function safeStat(p: string): Promise<{ isDirectory: () => boolean } | null> {
@@ -522,6 +617,13 @@ async function writeRenderReport(
           beat: result.beat ?? null,
           root: result.root,
           outputPath: result.outputPath,
+          absoluteOutputPath: result.absoluteOutputPath,
+          openCommand: result.openCommand,
+          revealCommand: result.revealCommand,
+          opened: result.opened,
+          revealed: result.revealed,
+          openError: result.openError,
+          revealError: result.revealError,
           fps: result.fps,
           quality: result.quality,
           format: result.format,

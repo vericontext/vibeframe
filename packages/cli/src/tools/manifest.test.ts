@@ -12,11 +12,13 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { manifest } from "./manifest/index.js";
-import { manifestToMcpTools } from "./adapters/mcp.js";
+import { buildMcpDispatcher, manifestToMcpTools } from "./adapters/mcp.js";
 import {
   registerManifestIntoAgent,
 } from "./adapters/agent.js";
+import { defineTool, type AnyTool } from "./define-tool.js";
 import { ToolRegistry } from "../agent/tools/index.js";
 
 describe("tool manifest invariants", () => {
@@ -62,6 +64,43 @@ describe("tool manifest invariants", () => {
       expect(tool.inputSchema.type).toBe("object");
       expect(tool.inputSchema.properties).toBeDefined();
       expect(Array.isArray(tool.inputSchema.required)).toBe(true);
+    }
+  });
+
+  it("MCP dispatcher captures noisy tool stdout so stdio transport stays JSON-only", async () => {
+    const originalWrite = process.stdout.write;
+    const leaked: string[] = [];
+    process.stdout.write = ((chunk: unknown, encodingOrCallback?: unknown, callback?: unknown) => {
+      leaked.push(Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk));
+      const cb = typeof encodingOrCallback === "function"
+        ? encodingOrCallback
+        : typeof callback === "function"
+          ? callback
+          : undefined;
+      if (cb) queueMicrotask(() => (cb as () => void)());
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      const noisyTool = defineTool({
+        name: "noisy_tool",
+        category: "test",
+        cost: "free",
+        surfaces: ["mcp"],
+        description: "Test tool that writes logs while returning JSON.",
+        schema: z.object({}),
+        async execute() {
+          console.log("[Compiler] this must not leak into MCP stdout");
+          process.stdout.write("[INFO] also not JSON\n");
+          return { success: true, data: { ok: true } };
+        },
+      });
+      const dispatch = buildMcpDispatcher([noisyTool as unknown as AnyTool]);
+      const response = await dispatch("noisy_tool", {});
+      expect(leaked).toEqual([]);
+      expect(JSON.parse(response.content[0].text)).toEqual({ success: true, ok: true });
+    } finally {
+      process.stdout.write = originalWrite;
     }
   });
 
