@@ -2517,6 +2517,75 @@ exports[`CLI --describe schemas (drift detection) > vibe guide --describe 1`] = 
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe host doctor --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Check Codex/Claude/Cursor app integration readiness",
+  "name": "host.doctor",
+  "parameters": {
+    "properties": {
+      "host": {
+        "description": "Host target: codex | claude | claude-code | claude-desktop | cursor | all",
+        "type": "string",
+      },
+      "project-dir": {
+        "description": "Project directory to inspect",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe host list --describe 1`] = `
+{
+  "cost": "free",
+  "description": "List supported app hosts and integration surfaces",
+  "name": "host.list",
+  "parameters": {
+    "properties": {},
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe host setup --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Print or write Codex/Claude/Cursor MCP and project integration config",
+  "name": "host.setup",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Show file actions without writing",
+        "type": "boolean",
+      },
+      "force": {
+        "description": "Replace an existing vibeframe MCP entry",
+        "type": "boolean",
+      },
+      "host": {
+        "description": "Host target: codex | claude | claude-code | claude-desktop | cursor | all",
+        "type": "string",
+      },
+      "project-dir": {
+        "description": "Project directory for project-scoped config",
+        "type": "string",
+      },
+      "write": {
+        "description": "Write config files instead of printing snippets only",
+        "type": "boolean",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
 {
   "description": "Scaffold a VibeFrame project (video scene project or project-scope agent files)",
@@ -2545,6 +2614,10 @@ exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
       "from": {
         "description": "Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file",
         "type": "string",
+      },
+      "mcp": {
+        "description": "Also write project-scoped MCP config for Codex/Claude Code/Cursor",
+        "type": "boolean",
       },
       "profile": {
         "default": "agent",

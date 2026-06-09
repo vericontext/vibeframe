@@ -137,6 +137,18 @@ describe("vibe init (black-box)", () => {
     expect(existsSync(join(projectDir, "AGENTS.md"))).toBe(false);
   });
 
+  it("--mcp writes project-scoped MCP config for Codex, Claude Code, and Cursor", () => {
+    const { stdout } = runInit(["--agent", "all", "--mcp"]);
+    const result = JSON.parse(stdout);
+
+    expect(result.data.actions.some((a: { path: string }) => a.path.endsWith(".codex/config.toml"))).toBe(true);
+    expect(result.data.actions.some((a: { path: string }) => a.path.endsWith(".mcp.json"))).toBe(true);
+    expect(result.data.actions.some((a: { path: string }) => a.path.endsWith(".cursor/mcp.json"))).toBe(true);
+    expect(readFileSync(join(projectDir, ".codex", "config.toml"), "utf-8")).toContain("[mcp_servers.vibeframe]");
+    expect(JSON.parse(readFileSync(join(projectDir, ".mcp.json"), "utf-8")).mcpServers.vibeframe.command).toBe("npx");
+    expect(JSON.parse(readFileSync(join(projectDir, ".cursor", "mcp.json"), "utf-8")).mcpServers.vibeframe.command).toBe("npx");
+  });
+
   it("rejects invalid --agent values", () => {
     const { stderr } = runInit(["--agent", "bogus"]);
     expect(stderr).toMatch(/Invalid --agent: bogus/);

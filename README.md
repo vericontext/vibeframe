@@ -7,16 +7,17 @@ helps humans and AI coding agents turn a written brief into `STORYBOARD.md`,
 `DESIGN.md`, generated assets, timed scene compositions, review reports, and a
 final MP4.
 
-The primary interface is plain shell commands with JSON output, dry runs,
-cost gates, deterministic project files, and machine-readable reports that
-Codex, Claude Code, Cursor, and other coding agents can act on. VibeFrame also
-includes FFmpeg-style editing commands, AI media primitives, YAML pipelines,
-and an optional MCP server, but the north-star path is the storyboard-driven
-project loop.
+VibeFrame is **CLI-first, not terminal-only**. The CLI is the stable runtime:
+JSON output, dry runs, cost gates, deterministic project files, and
+machine-readable reports that Codex, Claude Code, Cursor, and other host apps
+can act on. VibeFrame also includes FFmpeg-style editing commands, AI media
+primitives, YAML pipelines, and an optional MCP server, but the north-star path
+is the storyboard-driven project loop.
 
-Most users do not need a new chat UI. Use VibeFrame from your terminal,
-Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode, or any other agent
-that can run shell commands. `vibe agent` exists as an optional built-in
+Most users do not need a new chat UI. Install the runtime once, then ask Codex,
+Claude Code, Cursor, Aider, Gemini CLI, OpenCode, or any other shell-capable
+agent to operate the video project. For app hosts that prefer typed tools, use
+`vibe host setup` to configure MCP. `vibe agent` exists as an optional built-in
 fallback when you do not already have an AI coding agent.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -45,6 +46,7 @@ EOF
 
 vibe setup --scope project
 vibe init launch --from brief.md --json
+vibe host setup all launch # optional: print Codex/Claude/Cursor app config
 
 # Ask Codex, Claude Code, Cursor, or another host agent:
 # "Research this topic and update launch/STORYBOARD.md and launch/DESIGN.md.
@@ -399,11 +401,25 @@ guidance files, not a separate VibeFrame chat surface.
 Code, Codex, Cursor, Aider, Gemini CLI, OpenCode, and a universal `AGENTS.md`
 fallback.
 
+`vibe host` turns that guidance into app-ready configuration for Codex, Claude,
+and Cursor:
+
+```bash
+vibe host list --json
+vibe host setup all              # print snippets only
+vibe host setup cursor --write   # write .cursor/mcp.json
+vibe host doctor all --json      # verify guidance + MCP config
+```
+
+By default, `vibe host setup` does **not** modify files; pass `--write` to
+apply the printed config. Claude Desktop global config is also opt-in and is
+backed up before merge.
+
 How agents discover the right command:
 
 - Claude Code reads `CLAUDE.md`, which imports `AGENTS.md`.
-- Codex reads `AGENTS.md` directly.
-- Cursor/OpenCode can use `AGENTS.md` and MCP.
+- Codex reads `AGENTS.md` directly, and can load `.codex/config.toml` for MCP.
+- Cursor can use `AGENTS.md`, `.cursor/rules`, and `.cursor/mcp.json`.
 - Every host can fall back to `vibe schema`, `vibe context`, `vibe doctor`,
   and `vibe guide`.
 
@@ -423,8 +439,14 @@ the CLI through `AGENTS.md`, `--json`, `--dry-run`, `vibe context`, and
 
 ## MCP Server
 
-The CLI is the primary interface. For hosts that prefer MCP, VibeFrame also
-ships `@vibeframe/mcp-server`.
+The CLI is the primary runtime. For hosts that prefer MCP, VibeFrame also
+ships `@vibeframe/mcp-server`. Generate host-specific snippets with:
+
+```bash
+vibe host setup codex
+vibe host setup claude
+vibe host setup cursor
+```
 
 ```json
 {

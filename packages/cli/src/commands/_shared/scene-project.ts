@@ -408,6 +408,18 @@ a host agent's built-in image/audio generation tool for VibeFrame project
 assets unless the user explicitly requests an external, non-VibeFrame
 asset.
 
+## App host setup
+
+VibeFrame is CLI-first, not terminal-only. Codex, Claude Code, and Cursor can
+drive this project through shell commands, and app hosts can use the MCP server
+as a typed tool surface.
+
+\`\`\`bash
+vibe host setup all         # print Codex/Claude/Cursor snippets
+vibe host setup all --write # write project/app config
+vibe host doctor all --json # verify readiness
+\`\`\`
+
 ## Skills — USE THESE FIRST
 
 @SKILL.md

@@ -58,6 +58,8 @@ vibe schema --list             # full machine-readable catalog (80+)
 vibe schema --list --surface public  # small first-run/product command surface
 vibe schema generate.video     # JSON Schema for any single command
 vibe doctor                    # available providers + system health
+vibe host setup all            # print Codex/Claude/Cursor app integration snippets
+vibe host doctor all --json    # verify project guidance + MCP config
 vibe guide motion              # choose text-overlay vs motion-overlay vs generate motion
 vibe guide scene               # step-by-step authoring guide (scene)
 vibe guide pipeline            # step-by-step authoring guide (pipeline)
@@ -181,6 +183,22 @@ unless the user explicitly asks for a non-VibeFrame asset.
 
 \`.env\` is still supported as a gitignored fallback. Copy \`.env.example\`
 to start if you prefer environment variables.
+
+## App host setup
+
+VibeFrame is CLI-first, not terminal-only. Codex, Claude Code, and Cursor can
+drive the same project through shell commands, and app hosts can also use
+VibeFrame's MCP server as a typed tool surface.
+
+\`\`\`bash
+vibe host setup all         # print snippets only
+vibe host setup all --write # write project/app config
+vibe host doctor all --json # verify readiness
+\`\`\`
+
+Default setup is snippet-only; use \`--write\` when you want VibeFrame to merge
+the generated config. Keep provider keys in \`.vibeframe/config.yaml\`, user
+config, or env files — not in app host config.
 
 ### Composition rules (scene HTML)
 

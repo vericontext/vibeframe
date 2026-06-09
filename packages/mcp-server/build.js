@@ -1,8 +1,29 @@
 import { build } from "esbuild";
 import { rmSync } from "node:fs";
+import { resolve } from "node:path";
 
 // Clean dist
 rmSync("dist", { recursive: true, force: true });
+
+const root = resolve("../..");
+const cliSrc = resolve(root, "packages/cli/src");
+
+const cliSourceAliases = new Map([
+  ["@vibeframe/cli/engine", resolve(cliSrc, "engine/index.ts")],
+  ["@vibeframe/cli/tools/manifest", resolve(cliSrc, "tools/manifest/index.ts")],
+  ["@vibeframe/cli/tools/adapters/mcp", resolve(cliSrc, "tools/adapters/mcp.ts")],
+]);
+
+const cliSourceAliasPlugin = {
+  name: "cli-source-alias",
+  setup(pluginBuild) {
+    pluginBuild.onResolve({ filter: /^@vibeframe\/cli\/(engine|tools\/manifest|tools\/adapters\/mcp)$/ }, (args) => {
+      const path = cliSourceAliases.get(args.path);
+      if (!path) return undefined;
+      return { path };
+    });
+  },
+};
 
 await build({
   entryPoints: ["src/index.ts"],
@@ -23,16 +44,13 @@ await build({
   },
   // Externals are limited to:
   // 1. MCP SDK + zod — host communicates through these; must match host version
-  // 2. Optional AI provider SDKs — declared as peerDependencies (user brings their own)
-  // Everything else (chalk, ora, commander, yaml, dotenv, etc.) is bundled
-  // to keep runtime deps minimal and avoid version-drift bugs like ERR_MODULE_NOT_FOUND
+  // 2. Native/heavy optional graphs that are only loaded dynamically.
+  // Provider SDKs are bundled so `npx -y @vibeframe/mcp-server` works in a
+  // clean MCP host without requiring users to install peer dependencies.
   external: [
     "@modelcontextprotocol/sdk",
     "@modelcontextprotocol/sdk/*",
     "zod",
-    "@anthropic-ai/sdk",
-    "@google/generative-ai",
-    "openai",
     // KokoroProvider only fires its dynamic import when textToSpeech() is
     // called, which never happens through the MCP surface. Marking the heavy
     // native graph (~150 MB across onnxruntime-node + transformers.js) as
@@ -47,6 +65,7 @@ await build({
   sourcemap: false,
   minify: false,
   treeShaking: true,
+  plugins: [cliSourceAliasPlugin],
 });
 
 console.log("Bundle complete: dist/index.js");

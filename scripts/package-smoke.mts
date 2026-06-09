@@ -1,6 +1,8 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -60,6 +62,108 @@ async function smokeImport(label: string, absPath: string): Promise<void> {
   console.log(`ok import ${label}`);
 }
 
+async function smokeMcpCommand(
+  label: string,
+  command: string,
+  args: string[],
+  cwd: string
+): Promise<void> {
+  const child = spawn(command, args, {
+    cwd,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  let buffer = "";
+  let stderr = "";
+
+  const result = await new Promise<{ toolCount: number; firstTools: string[] }>((resolvePromise, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`${label} did not answer tools/list within 10s${stderr ? `\n${stderr}` : ""}`));
+    }, 10_000);
+
+    function send(message: unknown): void {
+      child.stdin.write(`${JSON.stringify(message)}\n`);
+    }
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk.toString();
+      let idx: number;
+      while ((idx = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line) continue;
+        const message = JSON.parse(line) as {
+          id?: number;
+          result?: { tools?: Array<{ name: string }> };
+        };
+        if (message.id === 1 && message.result) {
+          send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
+          send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+        }
+        if (message.id === 2 && message.result?.tools) {
+          clearTimeout(timeout);
+          resolvePromise({
+            toolCount: message.result.tools.length,
+            firstTools: message.result.tools.slice(0, 5).map((tool) => tool.name),
+          });
+          child.kill("SIGTERM");
+        }
+      }
+    });
+
+    child.on("exit", (code, signal) => {
+      if (code === 0 || signal === "SIGTERM") return;
+      clearTimeout(timeout);
+      reject(new Error(`${label} exited before smoke completed: code=${code} signal=${signal}${stderr ? `\n${stderr}` : ""}`));
+    });
+
+    send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "vibeframe-package-smoke", version: "0.0.0" },
+      },
+    });
+  });
+
+  if (result.toolCount <= 0) throw new Error("MCP server returned no tools");
+  console.log(`ok ${label} tools/list (${result.toolCount} tools; first: ${result.firstTools.join(", ")})`);
+}
+
+async function smokeMcpServer(absPath: string): Promise<void> {
+  await smokeMcpCommand("mcp server", process.execPath, [absPath], root);
+}
+
+async function smokePackedMcpServer(pkgDir: string): Promise<void> {
+  const tmp = await mkdtemp(join(tmpdir(), "vibeframe-mcp-pack-"));
+  try {
+    const tarballName = execFileSync(
+      "npm",
+      ["pack", pkgDir, "--pack-destination", tmp, "--silent"],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }
+    ).trim().split(/\r?\n/).pop();
+    if (!tarballName) throw new Error("npm pack returned no tarball name");
+    const runCwd = join(tmp, "run");
+    await mkdir(runCwd, { recursive: true });
+    await smokeMcpCommand(
+      "packed mcp server",
+      "npm",
+      ["exec", "--yes", "--package", resolve(tmp, tarballName), "--", "vibeframe-mcp"],
+      runCwd
+    );
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+}
+
 const cliDir = resolve(root, "packages/cli");
 const mcpDir = resolve(root, "packages/mcp-server");
 
@@ -94,5 +198,7 @@ await smokeImport(
   "@vibeframe/cli/tools/adapters/agent",
   resolve(cliDir, "dist/tools/adapters/agent.js")
 );
+await smokeMcpServer(resolve(mcpDir, "dist/index.js"));
+await smokePackedMcpServer(mcpDir);
 
 console.log("Package smoke checks passed.");

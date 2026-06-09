@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.106.4`
+> CLI version: `0.106.5`
 
 ## Mental model
 
@@ -94,7 +94,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    36 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +26 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    40 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +30 more |
+| **Advanced** |    43 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +33 more |
 | **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
@@ -106,7 +106,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    46 | `audio.duck` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · `scene.list-styles` · +38 more        | FFmpeg only, no API call                                                                          |
+| **Free**       |    49 | `audio.duck` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · `scene.list-styles` · +41 more        | FFmpeg only, no API call                                                                          |
 | **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
@@ -326,6 +326,7 @@ Cost tier: _not tagged_
 - `duration` _(number)_ _(default: `10`)_ — Default scene/root duration in seconds
 - `visualStyle` _(string)_ — Seed scene DESIGN.md from a named style
 - `agent` _(string)_ _(default: `"auto"`)_ — Agent target: claude-code | codex | cursor | aider | gemini-cli | opencode | all | auto
+- `mcp` _(boolean)_ — Also write project-scoped MCP config for Codex/Claude Code/Cursor
 - `force` _(boolean)_ — Overwrite existing files instead of skipping
 - `dryRun` _(boolean)_ — Print the file list without writing anything
 
@@ -1943,3 +1944,44 @@ Cost tier: `free`
 - `refresh` _(boolean)_ — Refresh active supported jobs before summarizing
 
 JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, and `retryWith`; top-level `retryWith` is the resume contract.
+
+### `host`
+
+#### `vibe host doctor`
+
+Check Codex/Claude/Cursor app integration readiness
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `host` _(string)_ — Host target: codex | claude | claude-code | claude-desktop | cursor | all
+- `project-dir` _(string)_ — Project directory to inspect
+
+#### `vibe host list`
+
+List supported app hosts and integration surfaces
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+_No parameters._
+
+#### `vibe host setup`
+
+Print or write Codex/Claude/Cursor MCP and project integration config
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `host` _(string)_ — Host target: codex | claude | claude-code | claude-desktop | cursor | all
+- `project-dir` _(string)_ — Project directory for project-scoped config
+- `write` _(boolean)_ — Write config files instead of printing snippets only
+- `dryRun` _(boolean)_ — Show file actions without writing
+- `force` _(boolean)_ — Replace an existing vibeframe MCP entry

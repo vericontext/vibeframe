@@ -2,7 +2,9 @@
 
 The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe). This package is *only* the MCP adapter — it exposes VibeFrame's operations as typed MCP tools so an MCP-capable host can call them by natural language.
 
-Confirmed MCP hosts today: **Claude Desktop**, **Cursor**, **OpenCode**, and **Claude Code** (Claude Code can drive `vibe` natively via shell + `AGENTS.md`; the `claude mcp add` route below adds the typed-tool option for users who prefer it). For non-MCP hosts (Codex, Aider, Gemini CLI, anything else that shells out to bash), use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) directly — same operations.
+VibeFrame is CLI-first, not terminal-only. The CLI is the stable runtime; MCP is the app-host surface for clients that prefer typed tools over shell commands.
+
+Confirmed MCP hosts today: **Claude Desktop**, **Cursor**, and **Claude Code**. Codex can drive `vibe` natively via shell + `AGENTS.md`, and can also load a project-scoped MCP server through `.codex/config.toml`. For other shell-capable hosts, use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) directly — same operations.
 
 > **Just want a CLI?** Use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) instead — same operations, invoked directly in your shell as `vibe <command>`. This package and the CLI wrap the same underlying engine; pick whichever fits your workflow. Many users install both.
 
@@ -15,6 +17,29 @@ Confirmed MCP hosts today: **Claude Desktop**, **Cursor**, **OpenCode**, and **C
 The tool list below is what the MCP host sees. The same operations exist as `vibe <verb> <noun>` subcommands in the CLI — see `vibe --help`.
 
 ## Quick Setup
+
+The easiest way to generate the right snippet is:
+
+```bash
+vibe host setup codex
+vibe host setup claude
+vibe host setup cursor
+vibe host doctor all
+```
+
+`vibe host setup` prints snippets by default. Add `--write` to merge the config
+into the relevant project/app file.
+
+### Codex
+
+Add to `.codex/config.toml`:
+
+```toml
+[mcp_servers.vibeframe]
+command = "npx"
+args = ["-y", "@vibeframe/mcp-server"]
+enabled = true
+```
 
 ### Claude Desktop
 
@@ -66,7 +91,7 @@ Add to `.opencode/mcp.json` (or your global config per [opencode.ai/docs/config]
 Claude Code drives `vibe` natively via shell + the scaffolded `AGENTS.md` / `CLAUDE.md` — MCP isn't required. If you'd like the typed-tool surface anyway:
 
 ```bash
-claude mcp add vibeframe -- npx -y @vibeframe/mcp-server
+claude mcp add vibeframe --scope project -- npx -y @vibeframe/mcp-server
 ```
 
 ## What You Can Do

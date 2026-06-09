@@ -413,16 +413,21 @@ export default function LandingPage() {
               <span>Use with your AI agent</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Natural language, report-driven commands
+              CLI-first, not terminal-only
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Describe the video. Your coding agent edits project files, calls
+              Describe the video in Codex, Claude, Cursor, or a terminal. Your host agent edits
+              project files, calls
               <code className="text-primary bg-primary/10 px-2 py-0.5 rounded mx-1">vibe</code>
               with JSON output, then uses reports for the next pass.
             </p>
           </div>
 
           <div className="space-y-4 max-w-3xl mx-auto mb-12">
+            <AgentCommandExample
+              input="Connect this repo to my AI apps"
+              command="vibe host setup all && vibe host doctor all --json"
+            />
             <AgentCommandExample
               input="Build a 45-second launch video from brief.md and media/"
               command="vibe init launch --from brief.md --json && vibe build launch --dry-run --json"
@@ -443,18 +448,30 @@ export default function LandingPage() {
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
                 vibe doctor
               </code>{" "}
-              auto-detects six host families today and{" "}
+              auto-detects host families and{" "}
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
-                vibe init
+                vibe host setup
               </code>{" "}
-              scaffolds the right project file for each.
+              prints or writes Codex, Claude, and Cursor integration config.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {[
-              { name: "Claude Code", scaffold: "CLAUDE.md + AGENTS.md", note: "project guidance" },
-              { name: "OpenAI Codex", scaffold: "AGENTS.md", note: "agents.md spec" },
-              { name: "Cursor", scaffold: "AGENTS.md + .cursor/rules", note: "MCP-ready" },
+              {
+                name: "OpenAI Codex",
+                scaffold: "AGENTS.md + .codex/config.toml",
+                note: "shell + MCP",
+              },
+              {
+                name: "Claude Code",
+                scaffold: "CLAUDE.md + .mcp.json",
+                note: "shell + optional MCP",
+              },
+              {
+                name: "Cursor",
+                scaffold: ".cursor/rules + .cursor/mcp.json",
+                note: "rules + MCP",
+              },
               { name: "Aider", scaffold: "AGENTS.md", note: "binary-detected" },
               { name: "Gemini CLI", scaffold: "AGENTS.md", note: "universal fallback" },
               { name: "OpenCode", scaffold: "AGENTS.md", note: "MCP-ready" },
@@ -475,7 +492,11 @@ export default function LandingPage() {
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs mx-1">
               AGENTS.md
             </code>
-            fallback.
+            fallback; app hosts can add typed tools with
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs mx-1">
+              vibe host setup
+            </code>
+            .
           </p>
         </div>
       </section>
@@ -566,9 +587,9 @@ export default function LandingPage() {
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
                   <p className="text-muted-foreground">
-                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, OpenCode,
-                    or Claude Code. MCP is optional; use it when your host prefers typed JSON-RPC
-                    tool calls over shell commands.
+                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, Claude
+                    Code, and Codex project configs. MCP is optional; use it when your host prefers
+                    typed JSON-RPC tool calls over shell commands.
                   </p>
                 </div>
               </div>
