@@ -106,7 +106,13 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
       });
       const text = result.success
         ? JSON.stringify({ success: true, ...result.data })
-        : `${name} failed: ${result.error ?? "unknown error"}`;
+        : result.data
+          ? JSON.stringify({
+              success: false,
+              error: result.error ?? "unknown error",
+              ...result.data,
+            })
+          : `${name} failed: ${result.error ?? "unknown error"}`;
       return { content: [{ type: "text", text }] };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

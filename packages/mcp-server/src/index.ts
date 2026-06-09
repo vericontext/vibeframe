@@ -12,6 +12,7 @@ import {
 import { tools, handleToolCall } from "./tools/index.js";
 import { resources, readResource } from "./resources/index.js";
 import { prompts, getPrompt } from "./prompts/index.js";
+import { buildServerInstructions } from "./instructions.js";
 
 /**
  * VibeFrame MCP Server
@@ -33,6 +34,7 @@ const server = new Server(
       resources: {},
       prompts: {},
     },
+    instructions: buildServerInstructions(),
   }
 );
 

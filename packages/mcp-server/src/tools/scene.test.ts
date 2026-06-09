@@ -64,6 +64,15 @@ describe("MCP scene tools — registration", () => {
     expect(byName.scene_lint.inputSchema.required).toEqual([]);
     expect(byName.render.inputSchema.required).toEqual([]);
   });
+
+  it("explains MCP workspace-relative project paths", () => {
+    const byName = Object.fromEntries(sceneMcpTools.map((t) => [t.name, t]));
+    expect(byName.init.inputSchema.properties.dir.description).toContain("workspace-relative");
+    expect(byName.init.inputSchema.properties.dir.description).toContain("Do not use /tmp");
+    expect(byName.scene_lint.inputSchema.properties.projectDir.description).toContain(
+      "configured server workspace"
+    );
+  });
 });
 
 describe("handleToolCall — scene offline path", () => {
@@ -108,6 +117,32 @@ describe("handleToolCall — scene offline path", () => {
       projectDir: resolve(await makeTmp(), "missing"),
     });
     expect(text).toMatch(/render failed|Project directory not found|Chrome not found|Root composition not found/);
+  });
+
+  it("status_project returns the MCP working directory and resolved projectDir", async () => {
+    const projectDir = await makeTmp();
+    const text = await callScene("status_project", { projectDir });
+    const parsed = JSON.parse(text) as {
+      success: boolean;
+      workingDirectory: string;
+      projectDir: string;
+    };
+    expect(parsed.success).toBe(true);
+    expect(parsed.workingDirectory).toBe(process.cwd());
+    expect(parsed.projectDir).toBe(projectDir);
+  });
+
+  it("inspect_project preserves path context even when inspection fails", async () => {
+    const projectDir = await makeTmp();
+    const text = await callScene("inspect_project", { projectDir, report: false });
+    const parsed = JSON.parse(text) as {
+      success: boolean;
+      workingDirectory: string;
+      projectDir: string;
+    };
+    expect(parsed.success).toBe(false);
+    expect(parsed.workingDirectory).toBe(process.cwd());
+    expect(parsed.projectDir).toBe(projectDir);
   });
 
   it("handleToolCall enforces required args (init without dir → error message)", async () => {

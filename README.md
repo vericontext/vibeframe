@@ -413,7 +413,12 @@ vibe host doctor all --json      # verify guidance + MCP config
 
 By default, `vibe host setup` does **not** modify files; pass `--write` to
 apply the printed config. Claude Desktop global config is also opt-in and is
-backed up before merge.
+backed up before merge. For Claude Desktop, pass the workspace directory you
+want relative project names to resolve under:
+
+```bash
+vibe host setup claude-desktop ~/dev/videos --write
+```
 
 How agents discover the right command:
 

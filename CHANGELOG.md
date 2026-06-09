@@ -5,19 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.106.5] - 2026-06-10
-
-### Added
-
-- add Codex, Claude, and Cursor host app setup commands
+## [0.106.6] - 2026-06-09
 
 ### Fixed
 
-- make the MCP server bundle runnable from clean npx installs
+- support host app MCP setup
+- anchor Claude Desktop MCP servers to the configured workspace with `cwd`
+- guide MCP agents to create projects under the workspace instead of `/tmp`
+- include workspace/project context in MCP status and inspect responses
 
 ### Testing
 
-- smoke test packed MCP server startup and tools/list responses
+- smoke test local and packed MCP server initialize instructions
 
 ## [0.106.4] - 2026-06-07
 

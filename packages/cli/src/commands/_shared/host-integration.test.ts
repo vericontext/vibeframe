@@ -8,12 +8,20 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hostDefinitions, planHostSetup, renderHostSnippet } from "./host-integration.js";
 
 let projectDir: string;
+let originalHome: string | undefined;
 
 beforeEach(async () => {
   projectDir = await mkdtemp(join(tmpdir(), "vibe-host-integration-"));
+  originalHome = process.env.HOME;
+  process.env.HOME = projectDir;
 });
 
 afterEach(async () => {
+  if (originalHome === undefined) {
+    delete process.env.HOME;
+  } else {
+    process.env.HOME = originalHome;
+  }
   await rm(projectDir, { recursive: true, force: true });
 });
 
@@ -33,6 +41,14 @@ describe("host integration helpers", () => {
     const snippet = JSON.parse(renderHostSnippet(host("cursor"), projectDir));
     expect(snippet.mcpServers.vibeframe.command).toBe("npx");
     expect(snippet.mcpServers.vibeframe.args).toEqual(["-y", "@vibeframe/mcp-server"]);
+    expect(snippet.mcpServers.vibeframe.cwd).toBeUndefined();
+  });
+
+  it("renders Claude Desktop config with an anchored cwd", () => {
+    const snippet = JSON.parse(renderHostSnippet(host("claude-desktop"), projectDir));
+    expect(snippet.mcpServers.vibeframe.command).toBe("npx");
+    expect(snippet.mcpServers.vibeframe.args).toEqual(["-y", "@vibeframe/mcp-server"]);
+    expect(snippet.mcpServers.vibeframe.cwd).toBe(projectDir);
   });
 
   it("snippet mode does not write files", async () => {
@@ -72,6 +88,46 @@ describe("host integration helpers", () => {
 
     expect(plan.files.find((file) => file.path === configPath)?.status).toBe("skipped-exists");
     expect(json.mcpServers.vibeframe.command).toBe("custom");
+  });
+
+  it("adds missing Claude Desktop cwd without replacing the existing server", async () => {
+    const configPath = host("claude-desktop").configPath(projectDir);
+    await mkdir(join(configPath, ".."), { recursive: true });
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        mcpServers: {
+          existing: { command: "node", args: ["server.js"] },
+          vibeframe: { command: "npx", args: ["-y", "@vibeframe/mcp-server"] },
+        },
+      }),
+      "utf-8"
+    );
+
+    const plan = await planHostSetup(host("claude-desktop"), projectDir, { write: true });
+    const json = JSON.parse(await readFile(configPath, "utf-8"));
+
+    expect(plan.files.find((file) => file.path === configPath)?.status).toBe("merged");
+    expect(json.mcpServers.existing.command).toBe("node");
+    expect(json.mcpServers.vibeframe.command).toBe("npx");
+    expect(json.mcpServers.vibeframe.cwd).toBe(projectDir);
+  });
+
+  it("does not add Claude Desktop cwd to a custom server without --force", async () => {
+    const configPath = host("claude-desktop").configPath(projectDir);
+    await mkdir(join(configPath, ".."), { recursive: true });
+    await writeFile(
+      configPath,
+      JSON.stringify({ mcpServers: { vibeframe: { command: "custom", args: [] } } }),
+      "utf-8"
+    );
+
+    const plan = await planHostSetup(host("claude-desktop"), projectDir, { write: true });
+    const json = JSON.parse(await readFile(configPath, "utf-8"));
+
+    expect(plan.files.find((file) => file.path === configPath)?.status).toBe("skipped-exists");
+    expect(json.mcpServers.vibeframe.command).toBe("custom");
+    expect(json.mcpServers.vibeframe.cwd).toBeUndefined();
   });
 
   it("creates and updates a Codex managed block", async () => {

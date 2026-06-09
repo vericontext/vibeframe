@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -76,7 +76,8 @@ async function smokeMcpCommand(
   let buffer = "";
   let stderr = "";
 
-  const result = await new Promise<{ toolCount: number; firstTools: string[] }>((resolvePromise, reject) => {
+  const result = await new Promise<{ toolCount: number; firstTools: string[]; instructions: string }>((resolvePromise, reject) => {
+    let instructions = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
       reject(new Error(`${label} did not answer tools/list within 10s${stderr ? `\n${stderr}` : ""}`));
@@ -99,9 +100,10 @@ async function smokeMcpCommand(
         if (!line) continue;
         const message = JSON.parse(line) as {
           id?: number;
-          result?: { tools?: Array<{ name: string }> };
+          result?: { instructions?: string; tools?: Array<{ name: string }> };
         };
         if (message.id === 1 && message.result) {
+          instructions = message.result.instructions ?? "";
           send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
           send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
         }
@@ -110,6 +112,7 @@ async function smokeMcpCommand(
           resolvePromise({
             toolCount: message.result.tools.length,
             firstTools: message.result.tools.slice(0, 5).map((tool) => tool.name),
+            instructions,
           });
           child.kill("SIGTERM");
         }
@@ -135,6 +138,19 @@ async function smokeMcpCommand(
   });
 
   if (result.toolCount <= 0) throw new Error("MCP server returned no tools");
+  const realCwd = await realpath(cwd).catch(() => cwd);
+  const acceptedCwds = new Set([cwd, realCwd]);
+  const hasExpectedCwd = [...acceptedCwds].some((expectedCwd) =>
+    result.instructions.includes(`VibeFrame MCP workspace root: ${expectedCwd}`)
+  );
+  if (!hasExpectedCwd) {
+    throw new Error(
+      `${label} initialize instructions did not include cwd ${cwd}\nInstructions:\n${result.instructions}`
+    );
+  }
+  if (!result.instructions.includes("Do not create projects in /tmp")) {
+    throw new Error(`${label} initialize instructions did not include workspace path guard`);
+  }
   console.log(`ok ${label} tools/list (${result.toolCount} tools; first: ${result.firstTools.join(", ")})`);
 }
 

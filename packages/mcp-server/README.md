@@ -50,11 +50,16 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "vibeframe": {
       "command": "npx",
-      "args": ["-y", "@vibeframe/mcp-server"]
+      "args": ["-y", "@vibeframe/mcp-server"],
+      "cwd": "/absolute/path/to/your/vibeframe-workspace"
     }
   }
 }
 ```
+
+`cwd` is important for Claude Desktop because it is a global app config. It
+anchors relative project paths so prompts like "create a project named launch"
+create `launch/` under your workspace instead of a temporary directory.
 
 ### Cursor
 

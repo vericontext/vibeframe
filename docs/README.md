@@ -16,6 +16,13 @@ vibe host setup all
 vibe host doctor all --json
 ```
 
+For Claude Desktop, provide the workspace directory when writing config so
+relative project names resolve under that directory:
+
+```bash
+vibe host setup claude-desktop ~/dev/videos --write
+```
+
 ## Public Docs
 
 - [CLI reference](cli-reference.md) - generated command catalog from the live
