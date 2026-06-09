@@ -26,7 +26,8 @@ vibe render my-video -o renders/final.mp4
 ```
 
 Claude Desktop uses global MCP config, so anchor it to the workspace you want
-relative project names to resolve under:
+relative project names to resolve under. VibeFrame writes a shell wrapper
+because Claude Desktop may not preserve a raw `cwd` field:
 
 ```bash
 vibe host setup claude-desktop ~/dev/videos --write

@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/core",
-  "version": "0.106.6",
+  "version": "0.106.7",
   "description": "VibeFrame Core - timeline data structures, effects, and FFmpeg export",
   "private": true,
   "license": "MIT",
