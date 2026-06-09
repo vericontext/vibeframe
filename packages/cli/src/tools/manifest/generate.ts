@@ -332,7 +332,7 @@ export const generateBackgroundTool = defineTool({
     output: z
       .string()
       .optional()
-      .describe("Output PNG path. Relative paths resolve against the surface's cwd."),
+      .describe("Output PNG path. Relative paths resolve against the surface's cwd; in MCP hosts, that is the configured server workspace."),
   }),
   async execute(args) {
     const result = await executeBackground(args);

@@ -25,6 +25,13 @@ vibe build my-video --max-cost 5
 vibe render my-video -o renders/final.mp4
 ```
 
+Claude Desktop uses global MCP config, so anchor it to the workspace you want
+relative project names to resolve under:
+
+```bash
+vibe host setup claude-desktop ~/dev/videos --write
+```
+
 `vibe scene ...` is the advanced namespace. It remains useful when you want to add a single HTML scene, lint scene files, install agent rules, or render a scene project with low-level options.
 
 ## Project File Roles

@@ -18,6 +18,9 @@ import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { inspectProject } from "../../commands/_shared/scene-inspect.js";
 import { inspectRender, previewInspectRender } from "../../commands/_shared/render-inspect.js";
 
+const PROJECT_DIR_DESCRIPTION =
+  "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
+
 // ── inspect_project ────────────────────────────────────────────────────────
 
 export const inspectProjectTool = defineTool({
@@ -27,7 +30,7 @@ export const inspectProjectTool = defineTool({
   description:
     "Local project inspection: checks STORYBOARD.md, DESIGN.md, config, build-report, scene lint, composition files, and referenced assets. Writes review-report.json by default.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     beat: z.string().optional().describe("Inspect only one storyboard beat where beat-scoped checks apply."),
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
     report: z.boolean().optional().describe("Write review-report.json. Default true."),
@@ -42,7 +45,11 @@ export const inspectProjectTool = defineTool({
     });
     return {
       success: result.status !== "fail",
-      data: result as unknown as Record<string, unknown>,
+      data: {
+        ...(result as unknown as Record<string, unknown>),
+        workingDirectory: ctx.workingDirectory,
+        projectDir,
+      },
       error: result.status === "fail" ? `${result.issues.filter((issue) => issue.severity === "error").length} project inspection error(s)` : undefined,
       humanLines: [
         `${result.status === "pass" ? "✅" : result.status === "warn" ? "⚠️" : "❌"} Project inspection ${result.status} — score ${result.score}/100`,
@@ -61,7 +68,7 @@ export const inspectRenderTool = defineTool({
   description:
     "Render inspection: runs cheap local video checks by default, optionally adds Gemini AI review with ai: true, and writes review-report.json by default.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     beat: z.string().optional().describe("Inspect a render for one storyboard beat."),
     videoPath: z.string().optional().describe("Rendered video path. Defaults to build-report outputPath or latest renders/* video."),
     outputPath: z.string().optional().describe("Optional review report path. Defaults to <project>/review-report.json."),
@@ -84,7 +91,11 @@ export const inspectRenderTool = defineTool({
       });
       return {
         success: true,
-        data: result as unknown as Record<string, unknown>,
+        data: {
+          ...(result as unknown as Record<string, unknown>),
+          workingDirectory: ctx.workingDirectory,
+          projectDir,
+        },
         humanLines: [
           `Render inspection dry-run — ${result.videoPath ? "render found" : "render missing"}`,
           ...(result.reportPath ? [`report: ${result.reportPath}`] : []),
@@ -102,7 +113,11 @@ export const inspectRenderTool = defineTool({
     });
     return {
       success: result.status !== "fail",
-      data: result as unknown as Record<string, unknown>,
+      data: {
+        ...(result as unknown as Record<string, unknown>),
+        workingDirectory: ctx.workingDirectory,
+        projectDir,
+      },
       error: result.status === "fail" ? `${result.issues.filter((issue) => issue.severity === "error").length} render inspection error(s)` : undefined,
       humanLines: [
         `${result.status === "pass" ? "✅" : result.status === "warn" ? "⚠️" : "❌"} Render inspection ${result.status} — score ${result.score}/100`,

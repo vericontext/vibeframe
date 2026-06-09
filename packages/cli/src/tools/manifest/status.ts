@@ -15,6 +15,9 @@ import {
   refreshJobRecord,
 } from "../../commands/_shared/status-jobs.js";
 
+const PROJECT_DIR_DESCRIPTION =
+  "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
+
 export const statusJobTool = defineTool({
   name: "status_job",
   category: "status",
@@ -23,7 +26,7 @@ export const statusJobTool = defineTool({
     "Read one local async job record and optionally refresh supported provider status. Supports Runway/Kling video and Replicate music live checks.",
   schema: z.object({
     jobId: z.string().describe("Local job id returned by a no-wait command."),
-    projectDir: z.string().optional().describe("Project directory containing .vibeframe/jobs. Defaults to nearest project root."),
+    projectDir: z.string().optional().describe("Project directory containing .vibeframe/jobs. Defaults to nearest project root; in MCP hosts, relative paths resolve under the configured server workspace."),
     refresh: z.boolean().optional().describe("Call provider status APIs when supported. Default true."),
     wait: z.boolean().optional().describe("Wait for completion when supported."),
     output: z.string().optional().describe("Download result media to this path when complete."),
@@ -61,7 +64,7 @@ export const statusProjectTool = defineTool({
   description:
     "Summarize build-report.json, review-report.json, and local async job records for a VibeFrame project.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     refresh: z.boolean().optional().describe("Refresh active supported jobs before summarizing. Default false."),
   }),
   async execute(args, ctx) {
@@ -69,7 +72,11 @@ export const statusProjectTool = defineTool({
     const result = await inspectProjectStatus(projectDir, { refresh: args.refresh === true });
     return {
       success: true,
-      data: result as unknown as Record<string, unknown>,
+      data: {
+        ...(result as unknown as Record<string, unknown>),
+        workingDirectory: ctx.workingDirectory,
+        projectDir,
+      },
       humanLines: [
         `Project status: ${result.status} (${result.currentStage}), ${result.jobs.active} active job(s), ${result.jobs.failed} failed job(s)`,
         ...(result.build ? [`build: ${result.build.phase ?? "unknown"}`] : []),

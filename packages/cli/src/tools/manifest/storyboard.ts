@@ -14,8 +14,11 @@ import {
 import { executeStoryboardRevision } from "../../commands/_shared/storyboard-revise.js";
 import { createBuildPlan } from "../../commands/_shared/build-plan.js";
 
+const PROJECT_DIR_DESCRIPTION =
+  "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
+
 const projectDirSchema = z.object({
-  projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
 });
 
 async function readStoryboard(
@@ -96,7 +99,7 @@ export const storyboardGetTool = defineTool({
   cost: "free",
   description: "Return one STORYBOARD.md beat as structured data.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     beat: z.string().describe("Beat id to return."),
   }),
   async execute(args, ctx) {
@@ -121,7 +124,7 @@ export const storyboardSetTool = defineTool({
   cost: "free",
   description: "Set or unset one cue on one beat in STORYBOARD.md.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     beat: z.string().describe("Beat id to mutate."),
     key: z.string().describe("Cue key to set."),
     value: z.string().optional().describe("Cue value. Required unless unset is true."),
@@ -161,7 +164,7 @@ export const storyboardMoveTool = defineTool({
   cost: "free",
   description: "Move one beat after another beat in STORYBOARD.md.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     beat: z.string().describe("Beat id to move."),
     after: z.string().describe("Beat id that should precede the moved beat."),
   }),
@@ -195,7 +198,7 @@ export const storyboardReviseTool = defineTool({
   description:
     "Revise an existing STORYBOARD.md from a natural-language request. Reads project context, validates the revised storyboard, and writes unless dryRun is true.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     request: z
       .string()
       .describe("Revision request, e.g. 'make the hook punchier and shorten to 30 seconds'."),
@@ -237,7 +240,7 @@ export const planTool = defineTool({
   description:
     "Read STORYBOARD.md and return the build plan, missing artifacts, provider needs, and estimated cost.",
   schema: z.object({
-    projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+    projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
     stage: z
       .enum(["assets", "compose", "sync", "render", "all"])
       .optional()

@@ -35,6 +35,12 @@ const SCENE_PRESETS = [
   "product-shot",
 ] as const;
 
+const PROJECT_DIR_DESCRIPTION =
+  "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
+
+const INIT_DIR_DESCRIPTION =
+  "Project directory to create. Prefer a project name or workspace-relative path; in MCP hosts, relative paths resolve under the configured server workspace. Do not use /tmp or /home/claude unless the user explicitly asks.";
+
 const sceneStylesSchema = z.object({
   name: z
     .string()
@@ -105,7 +111,7 @@ export const sceneStylesTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneInitSchema = z.object({
-  dir: z.string().describe("Project directory (created if missing)."),
+  dir: z.string().describe(INIT_DIR_DESCRIPTION),
   name: z.string().optional().describe("Project name. Defaults to the directory basename."),
   aspect: z.enum(["16:9", "9:16", "1:1", "4:5"]).optional().describe("Aspect ratio. Default 16:9."),
   duration: z
@@ -182,7 +188,7 @@ const sceneAddSchema = z.object({
     .string()
     .optional()
     .describe("Small label above the headline (used by 'explainer' and 'product-shot' presets)."),
-  projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
   insertInto: z
     .string()
     .optional()
@@ -258,7 +264,7 @@ export const sceneAddTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneLintSchema = z.object({
-  projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
   root: z
     .string()
     .optional()
@@ -332,7 +338,7 @@ export const sceneLintTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneRepairSchema = z.object({
-  projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
   root: z
     .string()
     .optional()
@@ -376,7 +382,7 @@ export const sceneRepairTool = defineTool({
 // ---------------------------------------------------------------------------
 
 const sceneRenderSchema = z.object({
-  projectDir: z.string().optional().describe("Project directory. Defaults to the surface's cwd."),
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
   root: z
     .string()
     .optional()
@@ -452,7 +458,7 @@ const sceneBuildSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd."
+      "Project directory containing STORYBOARD.md, DESIGN.md, index.html. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace."
     ),
   stage: z
     .enum(["assets", "compose", "sync", "render", "all"])
@@ -633,7 +639,7 @@ const sceneInstallSkillSchema = z.object({
   projectDir: z
     .string()
     .describe(
-      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit and prevent accidental installs in unintended cwd."
+      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit; in MCP hosts, relative paths resolve under the configured server workspace."
     ),
   host: z
     .enum(["claude-code", "cursor", "auto", "all"])
@@ -704,7 +710,7 @@ const sceneComposePromptsSchema = z.object({
   projectDir: z
     .string()
     .describe(
-      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit."
+      "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit; in MCP hosts, relative paths resolve under the configured server workspace."
     ),
   beat: z
     .string()

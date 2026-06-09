@@ -58,7 +58,13 @@ export interface HostDoctorResult {
   nextSteps: string[];
 }
 
-const VIBEFRAME_MCP_JSON = {
+interface McpServerJson {
+  command: string;
+  args: string[];
+  cwd?: string;
+}
+
+const VIBEFRAME_MCP_JSON: McpServerJson = {
   command: "npx",
   args: ["-y", "@vibeframe/mcp-server"],
 };
@@ -130,9 +136,15 @@ export function resolveHostSelection(selection: HostSelection): HostSetupId[] {
   return [selection];
 }
 
-export function renderHostSnippet(host: HostDefinition, _projectDir: string): string {
+function vibeframeMcpJson(host: HostDefinition, projectDir: string): McpServerJson {
+  return host.id === "claude-desktop"
+    ? { ...VIBEFRAME_MCP_JSON, cwd: resolve(projectDir) }
+    : { ...VIBEFRAME_MCP_JSON };
+}
+
+export function renderHostSnippet(host: HostDefinition, projectDir: string): string {
   if (host.configKind === "codex-toml") return CODEX_MCP_BLOCK.trimEnd();
-  return JSON.stringify({ mcpServers: { vibeframe: VIBEFRAME_MCP_JSON } }, null, 2);
+  return JSON.stringify({ mcpServers: { vibeframe: vibeframeMcpJson(host, projectDir) } }, null, 2);
 }
 
 export function claudeCodeAddCommand(): string {
@@ -173,6 +185,7 @@ export async function planHostSetup(
       host.configKind === "codex-toml"
         ? await mergeCodexToml(configPath, { force: opts.force === true })
         : await mergeMcpJson(configPath, {
+            server: vibeframeMcpJson(host, projectDir),
             force: opts.force === true,
             backup: host.id === "claude-desktop",
           });
@@ -203,10 +216,18 @@ export async function inspectHost(host: HostDefinition, projectDir: string): Pro
   if (existsSync(configPath)) {
     try {
       const content = await readFile(configPath, "utf-8");
-      configured =
-        host.configKind === "codex-toml"
-          ? /\[mcp_servers\.vibeframe\]/.test(content)
-          : hasVibeframeMcpServer(JSON.parse(content));
+      if (host.configKind === "codex-toml") {
+        configured = /\[mcp_servers\.vibeframe\]/.test(content);
+      } else {
+        const json = JSON.parse(content);
+        configured = hasVibeframeMcpServer(json);
+        const server = readVibeframeMcpServer(json);
+        if (host.id === "claude-desktop" && configured && !server?.cwd) {
+          warnings.push(
+            "Claude Desktop vibeframe MCP config has no cwd; run `vibe host setup claude-desktop <workspace> --write` to anchor relative paths."
+          );
+        }
+      }
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : String(error));
     }
@@ -217,7 +238,7 @@ export async function inspectHost(host: HostDefinition, projectDir: string): Pro
 
 async function mergeMcpJson(
   configPath: string,
-  opts: { force: boolean; backup: boolean }
+  opts: { server: McpServerJson; force: boolean; backup: boolean }
 ): Promise<HostFileAction> {
   let root: Record<string, unknown> = {};
   const exists = existsSync(configPath);
@@ -236,6 +257,19 @@ async function mergeMcpJson(
       : {};
 
   if (mcpServers.vibeframe && !opts.force) {
+    const existing = mcpServers.vibeframe;
+    if (canAddMissingCwd(existing, opts.server)) {
+      root.mcpServers = {
+        ...mcpServers,
+        vibeframe: { ...(existing as Record<string, unknown>), cwd: opts.server.cwd },
+      };
+      await mkdir(dirname(configPath), { recursive: true });
+      if (exists && opts.backup) {
+        await writeFile(`${configPath}.bak-${timestamp()}`, await readFile(configPath, "utf-8"), "utf-8");
+      }
+      await writeFile(configPath, JSON.stringify(root, null, 2) + "\n", "utf-8");
+      return { path: configPath, status: "merged", reason: "added cwd to existing vibeframe MCP server" };
+    }
     return {
       path: configPath,
       status: "skipped-exists",
@@ -243,7 +277,7 @@ async function mergeMcpJson(
     };
   }
 
-  root.mcpServers = { ...mcpServers, vibeframe: VIBEFRAME_MCP_JSON };
+  root.mcpServers = { ...mcpServers, vibeframe: opts.server };
   await mkdir(dirname(configPath), { recursive: true });
   if (exists && opts.backup) {
     await writeFile(`${configPath}.bak-${timestamp()}`, await readFile(configPath, "utf-8"), "utf-8");
@@ -293,6 +327,25 @@ function hasVibeframeMcpServer(value: unknown): boolean {
   const root = value as { mcpServers?: unknown };
   if (!root.mcpServers || typeof root.mcpServers !== "object") return false;
   return Object.prototype.hasOwnProperty.call(root.mcpServers, "vibeframe");
+}
+
+function readVibeframeMcpServer(value: unknown): (McpServerJson & Record<string, unknown>) | null {
+  if (!value || typeof value !== "object") return null;
+  const root = value as { mcpServers?: unknown };
+  if (!root.mcpServers || typeof root.mcpServers !== "object" || Array.isArray(root.mcpServers)) return null;
+  const server = (root.mcpServers as Record<string, unknown>).vibeframe;
+  if (!server || typeof server !== "object" || Array.isArray(server)) return null;
+  return server as McpServerJson & Record<string, unknown>;
+}
+
+function canAddMissingCwd(existing: unknown, target: McpServerJson): boolean {
+  if (!target.cwd) return false;
+  if (!existing || typeof existing !== "object" || Array.isArray(existing)) return false;
+  const current = existing as Record<string, unknown>;
+  if (current.cwd) return false;
+  if (current.command !== target.command) return false;
+  if (!Array.isArray(current.args)) return false;
+  return JSON.stringify(current.args) === JSON.stringify(target.args);
 }
 
 function hostNextSteps(host: HostDefinition): string[] {
