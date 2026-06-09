@@ -3399,6 +3399,10 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
         "description": "Frames per second: 24|30|60",
         "type": "number",
       },
+      "open": {
+        "description": "Open the rendered video in the OS default app after render",
+        "type": "boolean",
+      },
       "out": {
         "description": "Output file (default: renders/<name>-<timestamp>.<format>)",
         "type": "string",
@@ -3411,6 +3415,10 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
         "default": "standard",
         "description": "Quality preset: draft|standard|high",
         "type": "string",
+      },
+      "reveal": {
+        "description": "Reveal the rendered video in Finder/file manager after render",
+        "type": "boolean",
       },
       "root": {
         "default": "index.html",

@@ -399,6 +399,14 @@ const sceneRenderSchema = z.object({
     .describe("Quality preset. Default 'standard'."),
   format: z.enum(["mp4", "webm", "mov"]).optional().describe("Container format. Default 'mp4'."),
   workers: z.number().optional().describe("Capture worker count (1-16). Default 1."),
+  openAfterRender: z
+    .boolean()
+    .optional()
+    .describe("Open the rendered video in the OS default app after render. Default false."),
+  revealInFinder: z
+    .boolean()
+    .optional()
+    .describe("Reveal the rendered video in Finder/file manager after render. Default false."),
 });
 
 export const sceneRenderTool = defineTool({
@@ -421,6 +429,8 @@ export const sceneRenderTool = defineTool({
       quality: args.quality as RenderQuality | undefined,
       format: args.format as RenderFormat | undefined,
       workers: args.workers,
+      openAfterRender: args.openAfterRender,
+      revealInFinder: args.revealInFinder,
     });
     if (!result.success) {
       return { success: false, error: result.error ?? "render failed" };
@@ -429,6 +439,13 @@ export const sceneRenderTool = defineTool({
       success: true,
       data: {
         outputPath: result.outputPath,
+        absoluteOutputPath: result.absoluteOutputPath,
+        openCommand: result.openCommand,
+        revealCommand: result.revealCommand,
+        opened: result.opened,
+        revealed: result.revealed,
+        openError: result.openError,
+        revealError: result.revealError,
         beat: result.beat,
         root: result.root,
         reportPath: result.reportPath,
@@ -438,12 +455,23 @@ export const sceneRenderTool = defineTool({
         fps: result.fps,
         quality: result.quality,
         format: result.format,
+        audioCount: result.audioCount,
+        audioMuxApplied: result.audioMuxApplied,
+        audioMuxWarning: result.audioMuxWarning,
       },
       humanLines: [
-        `✅ Render complete: ${result.outputPath}`,
+        `✅ Render complete: ${result.absoluteOutputPath ?? result.outputPath}`,
         `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
         `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
         `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
+        `   audio:    ${result.audioCount && result.audioCount > 0 ? `${result.audioCount} track${result.audioCount === 1 ? "" : "s"} muxed` : "silent"}`,
+        ...(result.openCommand ? [`   open:     ${result.openCommand}`] : []),
+        ...(result.revealCommand ? [`   reveal:   ${result.revealCommand}`] : []),
+        `   inspect:  vibe inspect render ${projectDir} --cheap --json`,
+        ...(result.opened ? [`   opened:   yes`] : []),
+        ...(result.revealed ? [`   revealed: yes`] : []),
+        ...(result.openError ? [`   open warning: ${result.openError}`] : []),
+        ...(result.revealError ? [`   reveal warning: ${result.revealError}`] : []),
       ],
     };
   },

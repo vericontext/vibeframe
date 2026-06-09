@@ -32,6 +32,69 @@ export type McpDispatcher = (
   args: Record<string, unknown>,
 ) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
 
+type StdoutWrite = typeof process.stdout.write;
+
+function formatConsolePart(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return value.stack ?? value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function invokeWriteCallback(encodingOrCallback?: unknown, callback?: unknown): void {
+  const cb = typeof encodingOrCallback === "function"
+    ? encodingOrCallback
+    : typeof callback === "function"
+      ? callback
+      : undefined;
+  if (cb) queueMicrotask(() => (cb as () => void)());
+}
+
+function formatStdoutChunk(chunk: unknown, encodingOrCallback?: unknown): string {
+  if (Buffer.isBuffer(chunk)) {
+    const encoding = typeof encodingOrCallback === "string"
+      ? encodingOrCallback as BufferEncoding
+      : "utf8";
+    return chunk.toString(encoding);
+  }
+  return String(chunk);
+}
+
+async function withCapturedStdout<T>(fn: () => Promise<T>): Promise<T> {
+  const originalWrite = process.stdout.write;
+  const originalConsoleLog = console.log;
+  const originalConsoleInfo = console.info;
+  const originalConsoleDebug = console.debug;
+  let captured = "";
+  const captureConsole = (...values: unknown[]) => {
+    captured += `${values.map(formatConsolePart).join(" ")}\n`;
+  };
+
+  process.stdout.write = ((chunk: unknown, encodingOrCallback?: unknown, callback?: unknown) => {
+    captured += formatStdoutChunk(chunk, encodingOrCallback);
+    invokeWriteCallback(encodingOrCallback, callback);
+    return true;
+  }) as StdoutWrite;
+  console.log = captureConsole;
+  console.info = captureConsole;
+  console.debug = captureConsole;
+
+  try {
+    return await fn();
+  } finally {
+    process.stdout.write = originalWrite;
+    console.log = originalConsoleLog;
+    console.info = originalConsoleInfo;
+    console.debug = originalConsoleDebug;
+    if (captured.trim() && process.env.VIBE_MCP_DEBUG_STDIO === "1") {
+      process.stderr.write(captured);
+    }
+  }
+}
+
 function formatZodError(err: ZodError): string {
   // Surface "this required field is missing/null/undefined" as the legacy
   // "missing required argument" phrasing so existing MCP-host integrations
@@ -100,10 +163,12 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
       };
     }
     try {
-      const result = await tool.execute(parsed.data, {
-        workingDirectory: process.cwd(),
-        surface: "mcp",
-      });
+      const result = await withCapturedStdout(() =>
+        tool.execute(parsed.data, {
+          workingDirectory: process.cwd(),
+          surface: "mcp",
+        })
+      );
       const text = result.success
         ? JSON.stringify({ success: true, ...result.data })
         : result.data

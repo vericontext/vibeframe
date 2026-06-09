@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.106.7`
+> CLI version: `0.106.8`
 
 ## Mental model
 
@@ -381,6 +381,8 @@ Cost tier: _not tagged_
 - `quality` _(string)_ _(default: `"standard"`)_ — Quality preset: draft|standard|high
 - `format` _(string)_ _(default: `"mp4"`)_ — Output container: mp4|webm|mov
 - `workers` _(number)_ _(default: `1`)_ — Capture workers (1-16, default 1)
+- `open` _(boolean)_ — Open the rendered video in the OS default app after render
+- `reveal` _(boolean)_ — Reveal the rendered video in Finder/file manager after render
 - `dryRun` _(boolean)_ — Preview parameters without rendering
 
 #### `vibe run`

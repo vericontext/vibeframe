@@ -26,6 +26,8 @@ export const renderCommand = new Command("render")
   .option("--quality <q>", `Quality preset: ${VALID_QUALITIES.join("|")}`, "standard")
   .option("--format <f>", `Output container: ${VALID_FORMATS.join("|")}`, "mp4")
   .option("--workers <n>", "Capture workers (1-16, default 1)", "1")
+  .option("--open", "Open the rendered video in the OS default app after render")
+  .option("--reveal", "Reveal the rendered video in Finder/file manager after render")
   .option("--dry-run", "Preview parameters without rendering")
   .addHelpText("after", `
 Examples:
@@ -50,6 +52,8 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
       quality,
       format,
       workers,
+      openAfterRender: Boolean(options.open),
+      revealInFinder: Boolean(options.reveal),
     };
 
     if (options.dryRun) {
@@ -76,6 +80,8 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
       quality,
       format,
       workers,
+      openAfterRender: Boolean(options.open),
+      revealInFinder: Boolean(options.reveal),
       onProgress: (pct, stage) => {
         if (spinner) spinner.text = `Rendering [${Math.round(pct * 100)}%] ${stage}`;
       },
@@ -108,6 +114,8 @@ type RenderDryRunParams = {
   quality: RenderQuality;
   format: RenderFormat;
   workers: number;
+  openAfterRender: boolean;
+  revealInFinder: boolean;
 };
 
 function printRenderDryRun(projectDirArg: string, params: RenderDryRunParams): void {
@@ -121,6 +129,8 @@ function printRenderDryRun(projectDirArg: string, params: RenderDryRunParams): v
   console.log(`  Format:        ${chalk.bold(params.format)}`);
   console.log(`  Quality/FPS:   ${chalk.bold(`${params.quality} / ${params.fps}`)}`);
   console.log(`  Workers:       ${chalk.bold(String(params.workers))}`);
+  if (params.openAfterRender) console.log(`  Open:          ${chalk.bold("yes")}`);
+  if (params.revealInFinder) console.log(`  Reveal:        ${chalk.bold("yes")}`);
   console.log();
   console.log(chalk.dim("No browser capture, FFmpeg mux, or video files were created."));
 }
@@ -130,7 +140,7 @@ function printRenderResult(spinner: ReturnType<typeof ora> | null, result: Scene
   console.log();
   console.log(chalk.bold.cyan("Output"));
   console.log(chalk.dim("-".repeat(60)));
-  console.log(`  File:      ${chalk.bold(result.outputPath)}`);
+  console.log(`  File:      ${chalk.bold(result.absoluteOutputPath ?? result.outputPath)}`);
   if (result.beat) console.log(`  Beat:      ${result.beat}`);
   if (result.root) console.log(`  Root:      ${result.root}`);
   console.log(`  Format:    ${result.format ?? "mp4"}`);
@@ -145,6 +155,12 @@ function printRenderResult(spinner: ReturnType<typeof ora> | null, result: Scene
     console.log(`  Audio:     ${audio}`);
   }
   if (result.audioMuxWarning) console.log(chalk.yellow(`  Warning:   ${result.audioMuxWarning}`));
+  if (result.openCommand) console.log(`  Open:      ${chalk.dim(result.openCommand)}`);
+  if (result.revealCommand) console.log(`  Reveal:    ${chalk.dim(result.revealCommand)}`);
+  if (result.opened) console.log(chalk.green("  Opened:    yes"));
+  if (result.revealed) console.log(chalk.green("  Revealed:  yes"));
+  if (result.openError) console.log(chalk.yellow(`  Open warn: ${result.openError}`));
+  if (result.revealError) console.log(chalk.yellow(`  Reveal warn: ${result.revealError}`));
 }
 
 function parseFps(value: string): RenderFps {
