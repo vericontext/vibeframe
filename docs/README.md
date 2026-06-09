@@ -9,6 +9,13 @@ vibe schema --list --json
 vibe schema <command.path> --json
 ```
 
+For Codex, Claude, and Cursor app setup, use:
+
+```bash
+vibe host setup all
+vibe host doctor all --json
+```
+
 ## Public Docs
 
 - [CLI reference](cli-reference.md) - generated command catalog from the live

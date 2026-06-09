@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vibeframe": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@vibeframe/mcp-server"
+      ]
+    }
+  }
+}

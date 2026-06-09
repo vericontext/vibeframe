@@ -17,6 +17,7 @@ Use these commands first:
 ```bash
 mkdir -p my-video/media
 vibe init my-video --from "45-second launch video"
+vibe host setup all my-video
 vibe storyboard validate my-video
 vibe plan my-video
 vibe build my-video --dry-run --max-cost 5
@@ -61,6 +62,13 @@ asset: "media/logo.png"
 | `full`    | You want all render/backend files up front                              | authoring docs, agent guidance, render scaffold |
 
 The default is `agent`.
+
+Pass `--mcp` to `vibe init` when you want project-scoped MCP config for Codex,
+Claude Code, and Cursor created during init:
+
+```bash
+vibe init my-video --from brief.md --mcp
+```
 
 ## Backend Metadata
 

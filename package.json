@@ -1,7 +1,7 @@
 {
   "name": "vibeframe",
-  "version": "0.106.4",
-  "description": "AI-native video editing tool. CLI-first, MCP-ready.",
+  "version": "0.106.5",
+  "description": "Agentic video workflow layer. CLI-first, MCP-ready.",
   "private": true,
   "license": "MIT",
   "repository": {

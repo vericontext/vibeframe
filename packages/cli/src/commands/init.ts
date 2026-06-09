@@ -38,6 +38,7 @@ import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
 import { deriveInstallHosts, installHyperframesSkill } from "./_shared/install-skill.js";
+import { hostDefinitions, planHostSetup, type HostSetupId } from "./_shared/host-integration.js";
 import {
   AGENTS_MD,
   CLAUDE_MD,
@@ -89,6 +90,7 @@ export const initCommand = new Command("init")
   .option("-d, --duration <sec>", "Default scene/root duration in seconds", "10")
   .option("--visual-style <name>", "Seed scene DESIGN.md from a named style")
   .option("--agent <id>", `Agent target: ${VALID_AGENTS.join(" | ")}`, "auto")
+  .option("--mcp", "Also write project-scoped MCP config for Codex/Claude Code/Cursor")
   .option("--force", "Overwrite existing files instead of skipping")
   .option("--dry-run", "Print the file list without writing anything")
   .action(async (projectDirArg: string, options) => {
@@ -211,6 +213,15 @@ export const initCommand = new Command("init")
         options.dryRun
       )
     );
+
+    if (options.mcp === true) {
+      actions.push(
+        ...(await setupProjectMcpTargets(projectDir, targetHosts, {
+          force: options.force === true,
+          dryRun: options.dryRun === true,
+        }))
+      );
+    }
 
     // ── Output ─────────────────────────────────────────────────────────
     if (isJsonMode()) {
@@ -391,6 +402,13 @@ async function runSceneInit(
           hosts: deriveInstallHosts(detectedIds),
         })
       : { success: true, files: [], bundleVersion: "not-installed" };
+  const mcpActions =
+    options.mcp === true
+      ? await setupProjectMcpTargets(projectDir, detectedIds, {
+          force: options.force === true,
+          dryRun: false,
+        })
+      : [];
 
   if (isJsonMode()) {
     outputSuccess({
@@ -411,6 +429,7 @@ async function runSceneInit(
         groups: result.groups,
         skillFiles: skillResult.files,
         skillBundleVersion: skillResult.bundleVersion,
+        mcpFiles: mcpActions,
         warnings: draftWarnings,
       },
     });
@@ -448,6 +467,10 @@ async function runSceneInit(
     console.log(chalk.dim(`    · ${p.replace(projectDir + "/", "")} (kept existing)`));
   for (const f of skillResult.files.filter((f) => f.status === "wrote")) {
     console.log(chalk.green(`    + ${f.path.replace(projectDir + "/", "")}`));
+  }
+  for (const f of mcpActions) {
+    const icon = f.status === "wrote" || f.status === "merged" ? chalk.green("+") : chalk.dim("·");
+    console.log(`${icon} ${f.path.replace(projectDir + "/", "")} ${chalk.dim(`(${f.status})`)}`);
   }
   console.log();
   console.log(chalk.dim(`Tip: cd ${projectDirArg} before running the next commands.`));
@@ -533,6 +556,46 @@ function resolveTargets(agent: AgentSelection): AgentHostId[] {
     return [];
   }
   return [agent];
+}
+
+async function setupProjectMcpTargets(
+  projectDir: string,
+  targetHosts: AgentHostId[],
+  opts: { force: boolean; dryRun: boolean }
+): Promise<InitFileAction[]> {
+  const ids = new Set<HostSetupId>();
+  if (targetHosts.includes("codex")) ids.add("codex");
+  if (targetHosts.includes("claude-code")) ids.add("claude-code");
+  if (targetHosts.includes("cursor")) ids.add("cursor");
+  if (targetHosts.length === 0) {
+    ids.add("codex");
+    ids.add("claude-code");
+    ids.add("cursor");
+  }
+
+  const actions: InitFileAction[] = [];
+  for (const host of hostDefinitions(projectDir).filter((h) => ids.has(h.id))) {
+    const plan = await planHostSetup(host, projectDir, {
+      write: true,
+      dryRun: opts.dryRun,
+      force: opts.force,
+    });
+    const configAction = plan.files.find((file) => file.path === plan.configPath);
+    if (!configAction) continue;
+    actions.push({
+      path: configAction.path,
+      status: normalizeHostAction(configAction.status),
+      reason: configAction.reason,
+    });
+  }
+  return actions;
+}
+
+function normalizeHostAction(status: string): InitFileAction["status"] {
+  if (status === "merged") return "merged";
+  if (status === "wrote") return "wrote";
+  if (status === "skipped-exists") return "skipped-exists";
+  return "would-write";
 }
 
 async function writeIfMissing(

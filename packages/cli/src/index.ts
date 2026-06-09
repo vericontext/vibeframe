@@ -35,6 +35,7 @@ import { buildCommand } from "./commands/build.js";
 import { renderCommand } from "./commands/render.js";
 import { statusCommand } from "./commands/status.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { hostCommand } from "./commands/host.js";
 import { demoCommand } from "./commands/demo.js";
 import { contextCommand } from "./commands/context.js";
 import { runCommand } from "./commands/run.js";
@@ -176,6 +177,7 @@ this section shows the typical entry points by use case):
     vibe schema --list --surface public Compact first-run command catalog
     vibe schema generate.video          JSON schema for any command
     vibe context                        Agent integration quickstart
+    vibe host setup all                 Configure Codex/Claude/Cursor app integrations
     vibe agent                          Optional built-in agent when you do not use Claude Code/Codex/etc.
 
 Common-flag note: most commands accept --dry-run to preview cost/output
@@ -303,6 +305,7 @@ program.addCommand(buildCommand);
 program.addCommand(renderCommand);
 program.addCommand(statusCommand);
 program.addCommand(doctorCommand);
+program.addCommand(hostCommand);
 program.addCommand(demoCommand, { hidden: true });
 program.addCommand(runCommand);
 program.addCommand(agentCommand);

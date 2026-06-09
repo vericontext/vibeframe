@@ -13,3 +13,10 @@ multi_agent = true
 
 [tools]
 view_image = true
+
+# >>> VibeFrame MCP server >>>
+[mcp_servers.vibeframe]
+command = "npx"
+args = ["-y", "@vibeframe/mcp-server"]
+enabled = true
+# <<< VibeFrame MCP server <<<
