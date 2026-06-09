@@ -1,6 +1,6 @@
 import { build } from "esbuild";
-import { rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 // Clean dist
 rmSync("dist", { recursive: true, force: true });
@@ -68,4 +68,26 @@ await build({
   plugins: [cliSourceAliasPlugin],
 });
 
-console.log("Bundle complete: dist/index.js");
+// The bundled @hyperframes/producer resolves its verified Hyperframe runtime
+// (hyperframe.manifest.json + the iife artifact it names) as SIBLINGS of its
+// own module file. After bundling, import.meta.url points at dist/index.js,
+// so those siblings must be copied next to the bundle or every render fails
+// with "[HyperframeRuntimeLoader] Missing manifest at <root>/core/dist/...".
+// Producer is ESM-only (no "require" export condition) and a dependency of
+// the CLI package, so resolve its dist dir through the CLI's node_modules.
+const producerDist = resolve(root, "packages/cli/node_modules/@hyperframes/producer/dist");
+const manifestSrc = join(producerDist, "hyperframe.manifest.json");
+if (!existsSync(manifestSrc)) {
+  throw new Error(
+    `Missing ${manifestSrc} — run pnpm install (the @hyperframes/producer runtime ships it).`
+  );
+}
+const manifest = JSON.parse(readFileSync(manifestSrc, "utf8"));
+const iifeName = manifest.artifacts?.iife;
+if (!iifeName || !existsSync(join(producerDist, iifeName))) {
+  throw new Error(`Producer manifest at ${manifestSrc} names a missing iife artifact: ${iifeName}`);
+}
+copyFileSync(manifestSrc, join("dist", "hyperframe.manifest.json"));
+copyFileSync(join(producerDist, iifeName), join("dist", iifeName));
+
+console.log("Bundle complete: dist/index.js (+ hyperframe runtime siblings)");
