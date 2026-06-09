@@ -5,29 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.106.8] - 2026-06-10
-
-### Added
-
-- add render open/reveal commands and absolute output paths for MCP/host UX
+## [0.106.9] - 2026-06-09
 
 ### Fixed
 
-- capture MCP tool stdout so renderer logs do not corrupt stdio JSON-RPC
+- ship hyperframe runtime siblings with the bundled server *(mcp)*
 
-## [0.106.7] - 2026-06-10
+## [0.106.8] - 2026-06-09
 
 ### Fixed
 
-- write Claude Desktop MCP config with a workspace shell wrapper because the app may strip raw `cwd`
-- upgrade default Claude Desktop `npx` MCP entries to workspace-anchored wrappers without requiring `--force`
+- improve MCP render output UX (#218)
+
+## [0.106.7] - 2026-06-09
+
+### Fixed
+
+- anchor Claude Desktop MCP workspace
 
 ## [0.106.6] - 2026-06-09
 
 ### Fixed
 
-- add MCP workspace instructions and status/inspect path context
-- anchor MCP project paths for hosts that preserve server working-directory config
+- anchor MCP workspace paths
 
 ## [0.106.5] - 2026-06-09
 
@@ -1945,3 +1945,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Debug
 
 - add REPL startup logging
+
+
