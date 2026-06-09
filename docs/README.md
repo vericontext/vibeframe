@@ -17,7 +17,8 @@ vibe host doctor all --json
 ```
 
 For Claude Desktop, provide the workspace directory when writing config so
-relative project names resolve under that directory:
+relative project names resolve under that directory. VibeFrame writes a shell
+wrapper because Claude Desktop may not preserve a raw `cwd` field:
 
 ```bash
 vibe host setup claude-desktop ~/dev/videos --write

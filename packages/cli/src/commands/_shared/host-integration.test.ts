@@ -44,11 +44,13 @@ describe("host integration helpers", () => {
     expect(snippet.mcpServers.vibeframe.cwd).toBeUndefined();
   });
 
-  it("renders Claude Desktop config with an anchored cwd", () => {
+  it("renders Claude Desktop config with a workspace-anchored wrapper", () => {
     const snippet = JSON.parse(renderHostSnippet(host("claude-desktop"), projectDir));
-    expect(snippet.mcpServers.vibeframe.command).toBe("npx");
-    expect(snippet.mcpServers.vibeframe.args).toEqual(["-y", "@vibeframe/mcp-server"]);
-    expect(snippet.mcpServers.vibeframe.cwd).toBe(projectDir);
+    expect(snippet.mcpServers.vibeframe.command).toBe("bash");
+    expect(snippet.mcpServers.vibeframe.args).toEqual([
+      "-lc",
+      `cd '${projectDir}' && exec npx -y @vibeframe/mcp-server`,
+    ]);
   });
 
   it("snippet mode does not write files", async () => {
@@ -90,7 +92,7 @@ describe("host integration helpers", () => {
     expect(json.mcpServers.vibeframe.command).toBe("custom");
   });
 
-  it("adds missing Claude Desktop cwd without replacing the existing server", async () => {
+  it("upgrades the default Claude Desktop server to a workspace-anchored wrapper", async () => {
     const configPath = host("claude-desktop").configPath(projectDir);
     await mkdir(join(configPath, ".."), { recursive: true });
     await writeFile(
@@ -109,11 +111,14 @@ describe("host integration helpers", () => {
 
     expect(plan.files.find((file) => file.path === configPath)?.status).toBe("merged");
     expect(json.mcpServers.existing.command).toBe("node");
-    expect(json.mcpServers.vibeframe.command).toBe("npx");
-    expect(json.mcpServers.vibeframe.cwd).toBe(projectDir);
+    expect(json.mcpServers.vibeframe.command).toBe("bash");
+    expect(json.mcpServers.vibeframe.args).toEqual([
+      "-lc",
+      `cd '${projectDir}' && exec npx -y @vibeframe/mcp-server`,
+    ]);
   });
 
-  it("does not add Claude Desktop cwd to a custom server without --force", async () => {
+  it("does not replace a custom Claude Desktop server without --force", async () => {
     const configPath = host("claude-desktop").configPath(projectDir);
     await mkdir(join(configPath, ".."), { recursive: true });
     await writeFile(
@@ -127,7 +132,6 @@ describe("host integration helpers", () => {
 
     expect(plan.files.find((file) => file.path === configPath)?.status).toBe("skipped-exists");
     expect(json.mcpServers.vibeframe.command).toBe("custom");
-    expect(json.mcpServers.vibeframe.cwd).toBeUndefined();
   });
 
   it("creates and updates a Codex managed block", async () => {

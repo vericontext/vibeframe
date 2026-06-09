@@ -61,7 +61,6 @@ export interface HostDoctorResult {
 interface McpServerJson {
   command: string;
   args: string[];
-  cwd?: string;
 }
 
 const VIBEFRAME_MCP_JSON: McpServerJson = {
@@ -137,9 +136,20 @@ export function resolveHostSelection(selection: HostSelection): HostSetupId[] {
 }
 
 function vibeframeMcpJson(host: HostDefinition, projectDir: string): McpServerJson {
-  return host.id === "claude-desktop"
-    ? { ...VIBEFRAME_MCP_JSON, cwd: resolve(projectDir) }
-    : { ...VIBEFRAME_MCP_JSON };
+  if (host.id !== "claude-desktop") return { ...VIBEFRAME_MCP_JSON };
+
+  const workspace = resolve(projectDir);
+  if (process.platform === "win32") {
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", `cd /d ${cmdQuote(workspace)} && npx -y @vibeframe/mcp-server`],
+    };
+  }
+
+  return {
+    command: "bash",
+    args: ["-lc", `cd ${shellQuote(workspace)} && exec npx -y @vibeframe/mcp-server`],
+  };
 }
 
 export function renderHostSnippet(host: HostDefinition, projectDir: string): string {
@@ -222,9 +232,9 @@ export async function inspectHost(host: HostDefinition, projectDir: string): Pro
         const json = JSON.parse(content);
         configured = hasVibeframeMcpServer(json);
         const server = readVibeframeMcpServer(json);
-        if (host.id === "claude-desktop" && configured && !server?.cwd) {
+        if (host.id === "claude-desktop" && configured && !isAnchoredClaudeDesktopServer(server)) {
           warnings.push(
-            "Claude Desktop vibeframe MCP config has no cwd; run `vibe host setup claude-desktop <workspace> --write` to anchor relative paths."
+            "Claude Desktop vibeframe MCP config is not workspace-anchored; run `vibe host setup claude-desktop <workspace> --write` to anchor relative paths."
           );
         }
       }
@@ -258,17 +268,17 @@ async function mergeMcpJson(
 
   if (mcpServers.vibeframe && !opts.force) {
     const existing = mcpServers.vibeframe;
-    if (canAddMissingCwd(existing, opts.server)) {
+    if (canUpgradeDefaultServer(existing, opts.server)) {
       root.mcpServers = {
         ...mcpServers,
-        vibeframe: { ...(existing as Record<string, unknown>), cwd: opts.server.cwd },
+        vibeframe: opts.server,
       };
       await mkdir(dirname(configPath), { recursive: true });
       if (exists && opts.backup) {
         await writeFile(`${configPath}.bak-${timestamp()}`, await readFile(configPath, "utf-8"), "utf-8");
       }
       await writeFile(configPath, JSON.stringify(root, null, 2) + "\n", "utf-8");
-      return { path: configPath, status: "merged", reason: "added cwd to existing vibeframe MCP server" };
+      return { path: configPath, status: "merged", reason: "anchored existing default vibeframe MCP server" };
     }
     return {
       path: configPath,
@@ -338,14 +348,25 @@ function readVibeframeMcpServer(value: unknown): (McpServerJson & Record<string,
   return server as McpServerJson & Record<string, unknown>;
 }
 
-function canAddMissingCwd(existing: unknown, target: McpServerJson): boolean {
-  if (!target.cwd) return false;
+function isAnchoredClaudeDesktopServer(server: (McpServerJson & Record<string, unknown>) | null): boolean {
+  if (!server) return false;
+  if (server.command === "bash" && Array.isArray(server.args)) {
+    return server.args[0] === "-lc" && typeof server.args[1] === "string" && server.args[1].includes("exec npx -y @vibeframe/mcp-server");
+  }
+  if (server.command === "cmd.exe" && Array.isArray(server.args)) {
+    return server.args.some((arg) => typeof arg === "string" && arg.includes("npx -y @vibeframe/mcp-server"));
+  }
+  return false;
+}
+
+function canUpgradeDefaultServer(existing: unknown, target: McpServerJson): boolean {
   if (!existing || typeof existing !== "object" || Array.isArray(existing)) return false;
   const current = existing as Record<string, unknown>;
-  if (current.cwd) return false;
-  if (current.command !== target.command) return false;
   if (!Array.isArray(current.args)) return false;
-  return JSON.stringify(current.args) === JSON.stringify(target.args);
+  if (current.command === target.command && JSON.stringify(current.args) === JSON.stringify(target.args)) {
+    return false;
+  }
+  return current.command === VIBEFRAME_MCP_JSON.command && JSON.stringify(current.args) === JSON.stringify(VIBEFRAME_MCP_JSON.args);
 }
 
 function hostNextSteps(host: HostDefinition): string[] {
@@ -388,4 +409,12 @@ function ensureTrailingNewline(value: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function cmdQuote(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }
