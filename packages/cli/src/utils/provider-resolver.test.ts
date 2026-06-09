@@ -68,6 +68,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       replicate: "REPLICATE_API_TOKEN",
       xai: "XAI_API_KEY",
       openrouter: "OPENROUTER_API_KEY",
+      evolink: "EVOLINK_API_KEY",
     });
   });
 
@@ -155,6 +156,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "kling",
         "imgbb",
         "openrouter",
+        "evolink",
         "replicate",
       ])
     );

@@ -53,6 +53,10 @@ export async function createAdapter(provider: LLMProvider): Promise<LLMAdapter> 
       const { OpenRouterAdapter } = await import("./openrouter.js");
       return new OpenRouterAdapter();
     }
+    case "evolink": {
+      const { EvolinkAdapter } = await import("./evolink.js");
+      return new EvolinkAdapter();
+    }
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -64,3 +68,4 @@ export { GeminiAdapter } from "./gemini.js";
 export { OllamaAdapter } from "./ollama.js";
 export { XAIAdapter } from "./xai.js";
 export { OpenRouterAdapter } from "./openrouter.js";
+export { EvolinkAdapter } from "./evolink.js";

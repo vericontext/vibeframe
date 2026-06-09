@@ -4,7 +4,7 @@
 
 ---
 
-## Agent LLM Providers (6)
+## Agent LLM Providers (7)
 
 Used for natural language processing in Agent mode (`vibe` command).
 
@@ -15,6 +15,7 @@ Used for natural language processing in Agent mode (`vibe` command).
 | Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
 | xAI | Grok 4.1 Fast | `grok-4-1-fast-reasoning` | `XAI_API_KEY` | `-p xai` |
 | OpenRouter | Auto (300+ models) | `openrouter/auto` | `OPENROUTER_API_KEY` | `-p openrouter` |
+| Evolink | Auto (GPT-5, Claude, Gemini, DeepSeek & more) | `evolink-auto` | `EVOLINK_API_KEY` | `-p evolink` |
 | Ollama | Local models | user-configured | - | `-p ollama` |
 
 **OpenAI model options:**
@@ -71,6 +72,23 @@ To use Grok 4 in agent mode: `vibe agent -p xai --model grok-4`
 To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonnet-4-6`
 
 > See [openrouter.ai/models](https://openrouter.ai/models) for the full list of 300+ available models.
+
+**Evolink model options:**
+
+`evolink-auto` is the default — intelligently routes to the best available model. You can specify any model available on Evolink:
+
+| Model ID | Provider | Notes |
+|----------|----------|-------|
+| `evolink-auto` | Auto | **Default**. Automatically selects best model |
+| `gpt-5.2` | OpenAI | GPT-5.2 via Evolink |
+| `claude` | Anthropic | Claude via Evolink (Messages API) |
+| `gemini-2.5-pro` | Google | Gemini 2.5 Pro via Evolink |
+| `deepseek-chat` | DeepSeek | DeepSeek V3 via Evolink |
+| `doubao-seed-2.0-pro` | ByteDance | Doubao Seed 2.0 Pro via Evolink |
+
+To use a specific model: `vibe agent -p evolink --model gpt-5.2`
+
+> See [docs.evolink.ai](https://docs.evolink.ai/llms.txt) for the full model catalog.
 
 **Why Gemini 2.5 Flash for agent mode, not Gemini 3.5 Flash?**
 
@@ -221,6 +239,7 @@ export ANTHROPIC_API_KEY="sk-ant-..." # Claude
 export GOOGLE_API_KEY="AIza..."       # Gemini (image, Veo video)
 export XAI_API_KEY="xai-..."          # xAI Grok
 export OPENROUTER_API_KEY="sk-or-..." # OpenRouter (300+ models)
+export EVOLINK_API_KEY="el-..."          # Evolink (GPT-5, Claude, Gemini, DeepSeek & more)
 
 # Media Providers
 export ELEVENLABS_API_KEY="..."       # TTS, SFX
@@ -238,6 +257,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
 | `vibe -p xai` | `XAI_API_KEY` | Grok 4.1 Fast (Agent LLM) |
 | `vibe -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
+| `vibe -p evolink` | `EVOLINK_API_KEY` | Evolink Auto (Agent LLM) |
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | OpenAI image generation |
 | `vibe generate image -p gemini` | `GOOGLE_API_KEY` | Gemini image generation |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |
