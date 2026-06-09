@@ -15,7 +15,7 @@ Used for natural language processing in Agent mode (`vibe` command).
 | Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
 | xAI | Grok 4.1 Fast | `grok-4-1-fast-reasoning` | `XAI_API_KEY` | `-p xai` |
 | OpenRouter | Auto (300+ models) | `openrouter/auto` | `OPENROUTER_API_KEY` | `-p openrouter` |
-| Evolink | Auto (GPT-5, Claude, Gemini, DeepSeek & more) | `evolink-auto` | `EVOLINK_API_KEY` | `-p evolink` |
+| Evolink | GPT-5.2 (via unified API) | `gpt-5.2` | `EVOLINK_API_KEY` | `-p evolink` |
 | Ollama | Local models | user-configured | - | `-p ollama` |
 
 **OpenAI model options:**
@@ -75,12 +75,12 @@ To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonn
 
 **Evolink model options:**
 
-`evolink-auto` is the default — intelligently routes to the best available model. You can specify any model available on Evolink:
+`gpt-5.2` is the default — reliable, fast, and cost-effective for agentic loops. You can specify any model available on Evolink:
 
 | Model ID | Provider | Notes |
 |----------|----------|-------|
-| `evolink-auto` | Auto | **Default**. Automatically selects best model |
-| `gpt-5.2` | OpenAI | GPT-5.2 via Evolink |
+| `gpt-5.2` | OpenAI | **Default**. GPT-5.2 via Evolink |
+| `evolink-auto` | Auto | Auto-routing (may have spotty availability) |
 | `claude` | Anthropic | Claude via Evolink (Messages API) |
 | `gemini-2.5-pro` | Google | Gemini 2.5 Pro via Evolink |
 | `deepseek-chat` | DeepSeek | DeepSeek V3 via Evolink |

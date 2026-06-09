@@ -16,7 +16,7 @@ import type {
 export class EvolinkAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "evolink";
   private client: OpenAI | null = null;
-  private model: string = "evolink-auto";
+  private model: string = "gpt-5.2";
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new OpenAI({
