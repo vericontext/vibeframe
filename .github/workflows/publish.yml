@@ -83,6 +83,12 @@ jobs:
         env:
           CI: true
 
+      # Claude Desktop Extension bundle — attached to the GitHub Release
+      # below so users can install via Settings → Extensions without
+      # touching claude_desktop_config.json.
+      - name: Build MCPB extension bundle
+        run: pnpm -F @vibeframe/mcp-server build:mcpb
+
       # Dry-run both packages first to catch errors before any real publish
       - name: Validate publish (dry-run)
         run: |
@@ -135,8 +141,9 @@ jobs:
           tag_name: ${{ steps.resolve.outputs.tag }}
           name: ${{ steps.resolve.outputs.tag }}
           body_path: /tmp/release-notes.md
+          files: packages/mcp-server/dist-mcpb/*.mcpb
           draft: false
           prerelease: false
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

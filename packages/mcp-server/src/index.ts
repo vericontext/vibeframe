@@ -12,7 +12,7 @@ import {
 import { tools, handleToolCall } from "./tools/index.js";
 import { resources, readResource } from "./resources/index.js";
 import { prompts, getPrompt } from "./prompts/index.js";
-import { buildServerInstructions } from "./instructions.js";
+import { applyWorkspaceEnv, buildServerInstructions } from "./instructions.js";
 
 /**
  * VibeFrame MCP Server
@@ -35,10 +35,14 @@ console.log = (...args: unknown[]) => console.error(...args);
 console.info = (...args: unknown[]) => console.error(...args);
 console.debug = (...args: unknown[]) => console.error(...args);
 
+// Must run before buildServerInstructions() reads process.cwd().
+applyWorkspaceEnv();
+
 const server = new Server(
   {
     name: "vibeframe",
-    version: "0.1.0",
+    // Stamped with the package version by build.js at bundle time.
+    version: process.env.VIBE_MCP_SERVER_VERSION ?? "0.0.0-dev",
   },
   {
     capabilities: {

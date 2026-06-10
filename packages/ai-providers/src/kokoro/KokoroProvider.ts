@@ -112,7 +112,45 @@ async function loadKokoroFactory(): Promise<KokoroFactory> {
     const mod = (await import("kokoro-js")) as unknown as { KokoroTTS: KokoroFactory };
     return mod.KokoroTTS;
   } catch (err) {
+    const fallback = await loadKokoroFromWorkspace();
+    if (fallback) return fallback;
     throw mapKokoroImportError(err);
+  }
+}
+
+/**
+ * The bare specifier resolves relative to the bundle file, which works for
+ * npm installs (kokoro-js sits in the adjacent node_modules) but not for
+ * self-contained installs like the Claude Desktop MCPB extension, where the
+ * bundle lives alone in the extension directory. There the user installs
+ * kokoro-js into their workspace folder instead, so retry from
+ * `<cwd>/node_modules/kokoro-js` using its package.json entry point.
+ *
+ * Exported for tests — the primary bare-specifier import always succeeds in
+ * the repo (kokoro-js is installed), so the fallback is exercised directly.
+ */
+export async function loadKokoroFromWorkspace(
+  baseDir = process.cwd()
+): Promise<KokoroFactory | null> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { join, resolve } = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const pkgDir = resolve(baseDir, "node_modules", "kokoro-js");
+    const pkg = JSON.parse(await readFile(join(pkgDir, "package.json"), "utf-8")) as {
+      exports?: { node?: { import?: string }; default?: string };
+      module?: string;
+      main?: string;
+    };
+    const entry =
+      pkg.exports?.node?.import ?? pkg.exports?.default ?? pkg.module ?? pkg.main;
+    if (!entry) return null;
+    const mod = (await import(pathToFileURL(join(pkgDir, entry)).href)) as unknown as {
+      KokoroTTS: KokoroFactory;
+    };
+    return mod.KokoroTTS ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -130,7 +168,8 @@ export function mapKokoroImportError(err: unknown): Error {
     return new Error(
       "Local Kokoro TTS is unavailable: optional dependency kokoro-js is not installed " +
         "(its native dependencies may have failed to build on this platform). " +
-        "Install it with `npm i kokoro-js`, or set ELEVENLABS_API_KEY to use the " +
+        "Install it with `npm i kokoro-js` — run it inside your workspace folder when " +
+        "using the Claude Desktop extension — or set ELEVENLABS_API_KEY to use the " +
         "elevenlabs TTS provider instead."
     );
   }

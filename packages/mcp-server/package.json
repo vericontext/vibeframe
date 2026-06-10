@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "node build.js",
+    "build:mcpb": "node build-mcpb.js",
     "build:types": "tsc --emitDeclarationOnly",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",

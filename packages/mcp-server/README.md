@@ -41,7 +41,26 @@ args = ["-y", "@vibeframe/mcp-server"]
 enabled = true
 ```
 
-### Claude Desktop
+### Claude Desktop (recommended: extension)
+
+Install the prebuilt Desktop Extension — no Node, npx, or JSON editing needed:
+
+1. Download `vibeframe-<version>.mcpb` from the
+   [latest GitHub Release](https://github.com/vericontext/vibeframe/releases/latest).
+2. In Claude Desktop open **Settings → Extensions** and drag the `.mcpb` file in
+   (or double-click the file).
+3. In the extension's settings pick your **Workspace folder** (projects are
+   created there; a `.env` file in that folder is loaded for API keys) and
+   optionally paste provider keys.
+
+Rendering still needs Google Chrome and `ffmpeg` on the machine. For free local
+Kokoro TTS, run `npm i kokoro-js` once inside the workspace folder. To update,
+download the new release's `.mcpb` and install it over the old one.
+
+To build the bundle from source: `pnpm -F @vibeframe/mcp-server build:mcpb`
+(output in `packages/mcp-server/dist-mcpb/`).
+
+#### Claude Desktop (manual JSON config)
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -63,6 +82,10 @@ The shell wrapper is important for Claude Desktop because it is a global app
 config and may not preserve a raw `cwd` field. It anchors relative project paths
 so prompts like "create a project named launch" create `launch/` under your
 workspace instead of a temporary directory.
+
+Note: some Claude Desktop builds rewrite this file from memory and can mangle
+hand-edited entries (the entry comes back as `"command": "custom"`). The
+extension install above avoids that entirely and is the recommended path.
 
 ### Cursor
 
