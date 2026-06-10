@@ -155,6 +155,57 @@ export function filterSubCompFalsePositives(
 }
 
 /**
+ * VibeFrame-side finding: inner phase clips inside a sub-composition.
+ *
+ * The producer's screenshot render mode does NOT toggle the visibility of
+ * `.clip` elements INSIDE a sub-composition by their `data-start` window —
+ * a scene split into clip phases (0-10s, 10-26s) renders BOTH phases
+ * simultaneously and text stacks on top of itself. Root index.html clips
+ * are unaffected (their windows work); this rule only applies to
+ * sub-composition internals. Phase changes must instead be driven by GSAP
+ * (animate the old phase out with autoAlpha, the new one in) inside
+ * full-window clips.
+ */
+export function findInternalPhaseClipFindings(html: string): LintFinding[] {
+  const findings: LintFinding[] = [];
+  for (const tagMatch of html.matchAll(/<[a-z][a-z0-9-]*\s[^>]*>/gi)) {
+    const tag = tagMatch[0];
+    if (!/class="[^"]*\bclip\b[^"]*"/i.test(tag)) continue;
+    const startAttr = tag.match(/data-start="([^"]+)"/i);
+    if (!startAttr) continue;
+    const start = Number(startAttr[1]);
+    if (!Number.isFinite(start) || start === 0) continue;
+    findings.push({
+      code: "internal_phase_clip_unsupported",
+      severity: "error",
+      message:
+        `Inner .clip has data-start="${startAttr[1]}". The renderer does not toggle ` +
+        `internal clip visibility inside sub-compositions, so phased clips render ` +
+        `ALL phases at once (overlapping text).`,
+      fixHint:
+        'Give every inner .clip data-start="0" spanning the full beat, and drive phase ' +
+        "changes with GSAP autoAlpha instead (animate the previous phase out, the next one in).",
+      snippet: tag.slice(0, 120),
+    });
+  }
+  return findings;
+}
+
+/**
+ * Append VibeFrame-side findings for sub-composition HTML. Call at every
+ * lint site (batch composer, scene_submit, scene repair, project lint) so
+ * all authoring paths share the exact same contract.
+ */
+export function withVibeframeSubCompFindings(
+  findings: LintFinding[],
+  html: string,
+  isSubComposition: boolean,
+): LintFinding[] {
+  if (!isSubComposition) return findings;
+  return [...findings, ...findInternalPhaseClipFindings(html)];
+}
+
+/**
  * Apply mechanical `--fix` rewrites for known-safe finding codes. Returns the
  * (possibly unchanged) HTML and the list of codes that were fixed at least
  * once.
@@ -248,7 +299,11 @@ export async function runProjectLint(opts: RunProjectLintOptions): Promise<Proje
       source: "projectDir",
     };
     const raw = runHyperframeLint(prepared);
-    const findings = filterSubCompFalsePositives(raw.findings as LintFinding[], isSub);
+    const findings = withVibeframeSubCompFindings(
+      filterSubCompFalsePositives(raw.findings as LintFinding[], isSub),
+      html,
+      isSub
+    );
 
     if (opts.fix && findings.length > 0) {
       const { html: nextHtml, fixedCodes } = applyMechanicalFixes(html, findings);
@@ -260,7 +315,11 @@ export async function runProjectLint(opts: RunProjectLintOptions): Promise<Proje
         files.push({
           file: rel,
           isSubComposition: isSub,
-          findings: filterSubCompFalsePositives(reLinted.findings as LintFinding[], isSub),
+          findings: withVibeframeSubCompFindings(
+            filterSubCompFalsePositives(reLinted.findings as LintFinding[], isSub),
+            nextHtml,
+            isSub
+          ),
         });
         continue;
       }

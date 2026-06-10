@@ -61,3 +61,37 @@ describe("storyboard-edit", () => {
     expect(result.issues.map((issue) => issue.code)).toContain("INVALID_DURATION");
   });
 });
+
+describe("BEAT_DURATION_TOO_LONG pacing warning", () => {
+  const sb = (duration: number) => `---
+title: pacing
+duration: ${duration}
+---
+
+# Pacing
+
+## Beat hook — Hook
+
+\`\`\`yaml
+narration: "Long narration."
+duration: ${duration}
+\`\`\`
+
+Body.
+`;
+
+  it("warns on beats longer than 15s without failing validation", () => {
+    const result = validateStoryboardMarkdown(sb(23.5));
+    const warning = result.issues.find((i) => i.code === "BEAT_DURATION_TOO_LONG");
+    expect(warning).toBeDefined();
+    expect(warning?.severity).toBe("warning");
+    expect(warning?.beatId).toBe("hook");
+    expect(warning?.message).toContain("6-15s");
+    expect(result.ok).toBe(true);
+  });
+
+  it("stays quiet for beats within the 6-15s window", () => {
+    const result = validateStoryboardMarkdown(sb(12));
+    expect(result.issues.find((i) => i.code === "BEAT_DURATION_TOO_LONG")).toBeUndefined();
+  });
+});

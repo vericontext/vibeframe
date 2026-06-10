@@ -7,6 +7,7 @@ import {
   applyMechanicalFixes,
   discoverSceneFiles,
   filterSubCompFalsePositives,
+  withVibeframeSubCompFindings,
   type FileFixResult,
   type FileLintResult,
   type LintFinding,
@@ -145,7 +146,11 @@ function lintHtml(html: string, rel: string, isSub: boolean): LintFinding[] {
     source: "projectDir",
   };
   const raw = runHyperframeLint(prepared);
-  return filterSubCompFalsePositives(raw.findings as LintFinding[], isSub);
+  return withVibeframeSubCompFindings(
+    filterSubCompFalsePositives(raw.findings as LintFinding[], isSub),
+    html,
+    isSub
+  );
 }
 
 function lintFilesToIssues(files: FileLintResult[]): ReviewIssue[] {

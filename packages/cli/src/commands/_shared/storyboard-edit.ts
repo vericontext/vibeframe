@@ -48,6 +48,9 @@ const LEADING_CUE_RE = /^(\s*)```ya?ml\s*\n([\s\S]*?)\n```\s*(?:\n|$)/;
 const ALLOWED_CUE_KEYS = new Set<string>(STORYBOARD_CUE_KEYS);
 const STRING_CUE_KEYS = new Set<string>(["narration", "backdrop", "video", "motion", "voice", "music", "asset"]);
 
+/** Beats beyond this render as static, overstuffed scenes. */
+export const MAX_RECOMMENDED_BEAT_SEC = 15;
+
 export function validateStoryboardMarkdown(markdown: string): StoryboardValidationResult {
   const parsed = parseStoryboard(markdown);
   const sections = splitBeatSections(markdown);
@@ -119,6 +122,23 @@ export function validateStoryboardMarkdown(markdown: string): StoryboardValidati
           message: `Beat "${beat.id}" cue "${key}" must be a string.`,
         });
       }
+    }
+  }
+
+  // Pacing guard: beats much longer than ~15s render as static, overstuffed
+  // scenes (one layout cannot carry 20-30s of narration). Warn so the agent
+  // splits them before composing.
+  for (const beat of parsed.beats) {
+    if (beat.duration !== undefined && beat.duration > MAX_RECOMMENDED_BEAT_SEC) {
+      issues.push({
+        severity: "warning",
+        code: "BEAT_DURATION_TOO_LONG",
+        beatId: beat.id,
+        message:
+          `Beat "${beat.id}" is ${beat.duration}s — beats longer than ` +
+          `${MAX_RECOMMENDED_BEAT_SEC}s render static and overstuffed. Split it into ` +
+          `6-15s beats (a 90s video should have 6-8 beats).`,
+      });
     }
   }
 

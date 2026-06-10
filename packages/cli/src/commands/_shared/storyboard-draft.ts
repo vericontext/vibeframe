@@ -37,6 +37,9 @@ providers:
 
 # ${product} - Storyboard
 
+Pacing: keep beats 6-15 seconds. Longer beats render as static, overstuffed
+scenes — split them instead.
+
 Brief: ${brief}
 
 ${beats.map(renderBeatDraft).join("\n\n")}

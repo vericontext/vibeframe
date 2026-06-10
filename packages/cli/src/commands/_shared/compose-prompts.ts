@@ -238,7 +238,8 @@ function buildInstructions(args: {
   lines.push(`2. Read \`DESIGN.md\` for project-specific palette, typography, motion signature.`);
   lines.push(`3. For each beat in the \`beats\` array below, author HTML at \`outputPath\` matching the \`userPrompt\`. The beat \`body\` carries the narrative + visual + animation intent; \`cues\` carries machine-readable per-beat overrides (narration, duration, backdrop, voice).`);
   lines.push(`3b. Use each beat's \`finalDurationSec\` (narration-synced) for \`data-duration\` and timeline anchors when present — NOT the storyboard \`duration\`, which is only the minimum. Scenes composed at the storyboard duration end early and render black tails.`);
-  lines.push(`3c. If your environment cannot write files (e.g. Claude Desktop / MCP-only hosts), author each beat's HTML and submit it with the \`scene_submit\` tool (beat id + html). It validates with the same Hyperframes lint and writes the file for you; on lint errors it returns the findings without writing — fix and resubmit.`);
+  lines.push(`3c. Never give inner \`.clip\` elements a non-zero \`data-start\` — the renderer does not toggle internal clip visibility inside sub-compositions, so phased clips render all phases at once (overlapping text). Use full-window clips and GSAP autoAlpha phase transitions instead. Also keep beats 6-15s; split anything longer in the storyboard first.`);
+  lines.push(`3d. If your environment cannot write files (e.g. Claude Desktop / MCP-only hosts), author each beat's HTML and submit it with the \`scene_submit\` tool (beat id + html). It validates with the same Hyperframes lint and writes the file for you; on lint errors it returns the findings without writing — fix and resubmit.`);
   if (args.beatCount > 1) {
     lines.push(`4. After authoring all ${args.beatCount} beat(s), run \`vibe scene lint --fix\` to validate. Fix any remaining errors by editing the HTML directly.`);
   } else if (args.filtered) {

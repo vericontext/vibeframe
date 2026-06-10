@@ -38,7 +38,7 @@ import { USER_CACHE_DIR } from "../../config/index.js";
 import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframes/producer";
 
 import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
-import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
+import { filterSubCompFalsePositives, withVibeframeSubCompFindings, type LintFinding } from "./scene-lint.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import { type ComposerProvider, resolveComposer, composerEnvVar } from "./composer-resolve.js";
@@ -270,8 +270,14 @@ ${finalDurationBullet}
   Animate the backdrop/media plane instead; let text enter briefly, then hold
   still at its final CSS position. Continuous transforms on text ancestors can
   create subpixel shimmer in screenshot-captured renders.
-- Timed children inside the composition have \`class="clip"\` plus
-  \`data-start\`, \`data-duration\`, \`data-track-index\`.
+- Inner \`.clip\` elements carry \`data-start\`, \`data-duration\`,
+  \`data-track-index\` — but **every inner clip MUST be full-window:
+  \`data-start="0"\` spanning the whole beat.** The renderer does NOT toggle
+  internal clip visibility inside sub-compositions, so "phase clips" with a
+  non-zero \`data-start\` render ALL phases at once and text stacks on top of
+  itself. For multi-phase beats, drive phase changes with GSAP \`autoAlpha\`
+  inside full-window clips: animate phase A out (\`autoAlpha: 0\`), then
+  phase B in, on the same timeline.
 - If \`assets/backdrop-${ctx.beat.id}.png\` exists, use that local file as the
   full-frame visual backdrop. The exact path string is
   \`assets/backdrop-${ctx.beat.id}.png\`; do NOT prefix it with \`../\` or \`./\`
@@ -285,7 +291,9 @@ ${finalDurationBullet}
   narration.
 - Keep a meaningful visual progression across the full beat duration: line
   tracing, gentle camera drift, staged labels, value cards, or parallax. Avoid
-  a completed static frame holding silently for most of the beat.
+  a completed static frame holding silently for most of the beat. For longer
+  beats, progress through content phases with GSAP autoAlpha (old phase out,
+  new phase in) — never with inner clip windows.
 - Do not import external font or image URLs. Use the project DESIGN.md font
   choice when explicit; otherwise use \`Inter\`, which is available in the
   deterministic render font map.
@@ -643,7 +651,11 @@ export function lintBeatHtml(html: string, beatId: string): BeatLintResult {
     source: "projectDir",
   };
   const raw = runHyperframeLint(prepared);
-  const findings = filterSubCompFalsePositives(raw.findings as LintFinding[], true);
+  const findings = withVibeframeSubCompFindings(
+    filterSubCompFalsePositives(raw.findings as LintFinding[], true),
+    html,
+    true
+  );
   return {
     errorCount: findings.filter((f) => f.severity === "error").length,
     warningCount: findings.filter((f) => f.severity === "warning").length,

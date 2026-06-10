@@ -166,6 +166,26 @@ describe("executeSceneSubmit", () => {
     expect(result.warnings.join(" ")).toContain("narration-synced beat duration is 9.5");
   });
 
+  it("rejects internal phase clips with the shared lint contract", async () => {
+    const phased = `<template id="scene-hook-template">
+  <div data-composition-id="scene-hook" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+    <div class="clip" data-start="0" data-duration="2" data-track-index="0"><h1>A</h1></div>
+    <div class="clip" data-start="2" data-duration="2" data-track-index="0"><h1>B</h1></div>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("h1", { opacity: 0.9 }, { opacity: 1, duration: 4, ease: "none" }, 0);
+      window.__timelines["scene-hook"] = tl;
+    </script>
+  </div>
+</template>`;
+    const result = await executeSceneSubmit({ projectDir, beatId: "hook", html: phased });
+    expect(result.success).toBe(false);
+    expect(result.written).toBe(false);
+    expect(result.lint.findings.map((f) => f.code)).toContain("internal_phase_clip_unsupported");
+  });
+
   it("fails cleanly when STORYBOARD.md is missing", async () => {
     await rm(join(projectDir, "STORYBOARD.md"));
     const result = await executeSceneSubmit({

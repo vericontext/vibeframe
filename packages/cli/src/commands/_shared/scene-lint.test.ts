@@ -6,10 +6,12 @@ import {
   applyMechanicalFixes,
   discoverSceneFiles,
   filterSubCompFalsePositives,
+  findInternalPhaseClipFindings,
   isEpsilonOverlapFinding,
   rootExists,
   runProjectLint,
   SUB_COMP_FALSE_POSITIVES,
+  withVibeframeSubCompFindings,
   type LintFinding,
 } from "./scene-lint.js";
 import {
@@ -296,3 +298,43 @@ describe("runProjectLint — integration", () => {
   });
 });
 
+
+describe("findInternalPhaseClipFindings", () => {
+  const phased = `<template id="scene-x-template">
+  <div data-composition-id="scene-x" data-start="0" data-duration="26">
+    <div class="clip" data-start="0" data-duration="10" data-track-index="0"><h1>A</h1></div>
+    <div class="clip" data-start="10" data-duration="16" data-track-index="0"><h1>B</h1></div>
+  </div>
+</template>`;
+  const fullWindow = `<template id="scene-x-template">
+  <div data-composition-id="scene-x" data-start="0" data-duration="26">
+    <div class="clip" data-start="0" data-duration="26" data-track-index="0"><h1>A</h1></div>
+    <div class="clip" data-start="0" data-duration="26" data-track-index="1"><h1>B</h1></div>
+  </div>
+</template>`;
+
+  it("flags inner clips with non-zero data-start", () => {
+    const findings = findInternalPhaseClipFindings(phased);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      code: "internal_phase_clip_unsupported",
+      severity: "error",
+    });
+    expect(findings[0].fixHint).toContain("autoAlpha");
+  });
+
+  it("passes full-window clips", () => {
+    expect(findInternalPhaseClipFindings(fullWindow)).toEqual([]);
+  });
+
+  it("detects regardless of attribute order", () => {
+    const reordered = `<div data-start="5" data-duration="3" class="clip layer" data-track-index="0"></div>`;
+    expect(findInternalPhaseClipFindings(reordered)).toHaveLength(1);
+  });
+
+  it("withVibeframeSubCompFindings only applies to sub-compositions", () => {
+    const rootHtml = `<div class="clip" data-start="8.26" data-duration="10.97" data-track-index="0"></div>`;
+    expect(withVibeframeSubCompFindings([], rootHtml, false)).toEqual([]);
+    expect(withVibeframeSubCompFindings([], rootHtml, true)).toHaveLength(1);
+  });
+});

@@ -280,6 +280,8 @@ imageProvider: openai
 
 Edit these beats before running \`vibe build\`. Each beat starts with
 YAML cues that drive narration, backdrop generation, and timing.
+Pacing: keep beats 6-15 seconds (split longer ones); a 90s video should
+have 6-8 beats, not 3 long ones.
 
 ## Beat hook — Hook
 

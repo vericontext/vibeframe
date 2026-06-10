@@ -149,6 +149,14 @@ describe("buildUserPrompt", () => {
     expect(u).toContain("superseded by the final synced duration 9.84s");
   });
 
+  it("forbids internal phase clips and prescribes autoAlpha phases", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "" });
+    expect(u).not.toContain("Timed children inside the composition have");
+    expect(u).toContain('every inner clip MUST be full-window');
+    expect(u).toContain("autoAlpha");
+    expect(u).toContain("never with inner clip windows");
+  });
+
   it("changes the cache key when finalDurationSec changes", () => {
     const a = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 6 });
     const b = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 8.26 });

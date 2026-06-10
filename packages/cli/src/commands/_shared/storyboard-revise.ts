@@ -240,6 +240,7 @@ function revisionMessages(opts: {
     "Preserve existing frontmatter, beat ids, cue YAML keys, and useful prose unless the user asks to change structure.",
     "Keep cue YAML valid. Allowed cue keys are duration, narration, backdrop, video, motion, voice, music, asset.",
     "If a target duration is supplied, every beat must have a positive duration cue and durations must sum to that target.",
+  "Aim for 6-15 seconds per beat and never exceed ~15s — long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
   ].join("\n");
 
   const repairBlock = opts.invalidStoryboard
