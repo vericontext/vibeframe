@@ -83,7 +83,7 @@ export const setupCommand = new Command("setup")
   .option("-y, --yes", "Non-interactive: write config without prompting (CI / devcontainer)")
   .option(
     "--provider <id>",
-    "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)"
+    "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)"
   )
   .option("--import-env", "Promote API keys from .env / shell env into config.yaml")
   .option("--test", "After save, live-test each configured key (exits 7 if any FAIL)")
