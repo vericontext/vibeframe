@@ -3404,6 +3404,10 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
         "type": "boolean",
       },
       "out": {
+        "description": "(deprecated) alias for --output",
+        "type": "string",
+      },
+      "output": {
         "description": "Output file (default: renders/<name>-<timestamp>.<format>)",
         "type": "string",
       },
