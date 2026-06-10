@@ -99,6 +99,32 @@ describe("buildMcpDispatcher progress threading", () => {
     expect(seenCtx?.onProgress).toBeUndefined();
   });
 
+  it("passes JSON-RPC frames through the stdout capture but swallows plain logs", async () => {
+    const dispatcher = buildMcpDispatcher([
+      stubTool(async () => {
+        // Simulates the stdio transport emitting a notification mid-call
+        // (the SDK serializes the jsonrpc member in spread position, i.e.
+        // often last) alongside a stray renderer log.
+        process.stdout.write('{"method":"notifications/progress","params":{},"jsonrpc":"2.0"}\n');
+        process.stdout.write("stray renderer log\n");
+        return { success: true, data: {} };
+      }),
+    ]);
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown) => {
+      writes.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await dispatcher("stub_tool", {});
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+    expect(writes.some((w) => w.includes('"jsonrpc":"2.0"'))).toBe(true);
+    expect(writes.some((w) => w.includes("stray renderer log"))).toBe(false);
+  });
+
   it("stops forwarding progress after the call resolves", async () => {
     let leakedProgress: ExecuteContext["onProgress"];
     const dispatcher = buildMcpDispatcher([

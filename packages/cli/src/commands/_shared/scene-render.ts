@@ -281,7 +281,11 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
       job,
       projectDir,
       outputPath,
-      (j, msg) => opts.onProgress?.(j.progress, j.currentStage ?? msg),
+      // Producer reports progress on a 0-100 scale while this callback's
+      // contract (and the audio-mux phase below) is 0..1 — normalise here so
+      // every consumer (CLI spinner, MCP progress, job records) sees 0..1.
+      (j, msg) =>
+        opts.onProgress?.(j.progress > 1 ? j.progress / 100 : j.progress, j.currentStage ?? msg),
       opts.signal,
     );
   } catch (err) {

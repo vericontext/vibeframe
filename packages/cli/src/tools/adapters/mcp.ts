@@ -85,7 +85,23 @@ async function withCapturedStdout<T>(fn: () => Promise<T>): Promise<T> {
   };
 
   process.stdout.write = ((chunk: unknown, encodingOrCallback?: unknown, callback?: unknown) => {
-    captured += formatStdoutChunk(chunk, encodingOrCallback);
+    const text = formatStdoutChunk(chunk, encodingOrCallback);
+    // The stdio transport itself writes through process.stdout during tool
+    // execution (e.g. notifications/progress for the in-flight request).
+    // Those protocol frames must pass through — capturing them silently
+    // drops the notification. The SDK serializes the envelope with the
+    // jsonrpc key in spread position (often LAST), so check for the
+    // member anywhere in an object-shaped chunk; stray tool/renderer logs
+    // never contain a JSON-RPC envelope member.
+    if (text.startsWith("{") && text.includes('"jsonrpc":"2.0"')) {
+      return originalWrite.call(
+        process.stdout,
+        chunk as string | Uint8Array,
+        encodingOrCallback as BufferEncoding,
+        callback as (err?: Error | null) => void
+      );
+    }
+    captured += text;
     invokeWriteCallback(encodingOrCallback, callback);
     return true;
   }) as StdoutWrite;
