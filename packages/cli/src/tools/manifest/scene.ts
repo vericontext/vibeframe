@@ -5,7 +5,8 @@
 
 import { z } from "zod";
 import { resolve, relative } from "node:path";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, type ToolExecuteResult } from "../define-tool.js";
+import { runWithMcpPromotion, type LocalJobUpdate } from "../_shared/long-poll.js";
 import { listVisualStyles, getVisualStyle } from "../../commands/_shared/visual-styles.js";
 import { scaffoldSceneProject, type SceneAspect } from "../../commands/_shared/scene-project.js";
 import { executeSceneAdd } from "../../commands/scene.js";
@@ -16,7 +17,10 @@ import {
   type RenderQuality,
   type RenderFormat,
 } from "../../commands/_shared/scene-render.js";
-import { executeSceneBuild } from "../../commands/_shared/scene-build.js";
+import {
+  executeSceneBuild,
+  type SceneBuildProgressEvent,
+} from "../../commands/_shared/scene-build.js";
 import type { ScenePreset } from "../../commands/_shared/scene-html-emit.js";
 import {
   installHyperframesSkill,
@@ -409,71 +413,91 @@ const sceneRenderSchema = z.object({
     .describe("Reveal the rendered video in Finder/file manager after render. Default false."),
 });
 
+function mapRenderResultToToolResult(
+  result: Awaited<ReturnType<typeof executeSceneRender>>,
+  projectDir: string
+): ToolExecuteResult {
+  if (!result.success) {
+    return { success: false, error: result.error ?? "render failed" };
+  }
+  return {
+    success: true,
+    data: {
+      outputPath: result.outputPath,
+      absoluteOutputPath: result.absoluteOutputPath,
+      openCommand: result.openCommand,
+      revealCommand: result.revealCommand,
+      opened: result.opened,
+      revealed: result.revealed,
+      openError: result.openError,
+      revealError: result.revealError,
+      beat: result.beat,
+      root: result.root,
+      reportPath: result.reportPath,
+      durationMs: result.durationMs,
+      framesRendered: result.framesRendered,
+      totalFrames: result.totalFrames,
+      fps: result.fps,
+      quality: result.quality,
+      format: result.format,
+      audioCount: result.audioCount,
+      audioMuxApplied: result.audioMuxApplied,
+      audioMuxWarning: result.audioMuxWarning,
+    },
+    humanLines: [
+      `✅ Render complete: ${result.absoluteOutputPath ?? result.outputPath}`,
+      `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
+      `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
+      `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
+      `   audio:    ${result.audioCount && result.audioCount > 0 ? `${result.audioCount} track${result.audioCount === 1 ? "" : "s"} muxed` : "silent"}`,
+      ...(result.openCommand ? [`   open:     ${result.openCommand}`] : []),
+      ...(result.revealCommand ? [`   reveal:   ${result.revealCommand}`] : []),
+      `   inspect:  vibe inspect render ${projectDir} --cheap --json`,
+      ...(result.opened ? [`   opened:   yes`] : []),
+      ...(result.revealed ? [`   revealed: yes`] : []),
+      ...(result.openError ? [`   open warning: ${result.openError}`] : []),
+      ...(result.revealError ? [`   reveal warning: ${result.revealError}`] : []),
+    ],
+  };
+}
+
 export const sceneRenderTool = defineTool({
   name: "render",
   category: "scene",
   cost: "free",
   description:
-    "Render a scene project to MP4/WebM/MOV via the Hyperframes producer. Requires Chrome installed locally. Output defaults to renders/<projectName>-<isoStamp>.<format>.",
+    "Render a scene project to MP4/WebM/MOV via the Hyperframes producer. Requires Chrome installed locally. Output defaults to renders/<projectName>-<isoStamp>.<format>. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking render. Emits MCP progress notifications when the client supplies a progressToken.",
   schema: sceneRenderSchema,
   async execute(args, ctx) {
     const projectDir = args.projectDir
       ? resolve(ctx.workingDirectory, args.projectDir)
       : ctx.workingDirectory;
-    const result = await executeSceneRender({
-      projectDir,
-      root: args.root,
-      beatId: args.beat,
-      output: args.output,
-      fps: args.fps as RenderFps | undefined,
-      quality: args.quality as RenderQuality | undefined,
-      format: args.format as RenderFormat | undefined,
-      workers: args.workers,
-      openAfterRender: args.openAfterRender,
-      revealInFinder: args.revealInFinder,
-    });
-    if (!result.success) {
-      return { success: false, error: result.error ?? "render failed" };
+    const runRender = (report: (update: LocalJobUpdate) => void) =>
+      executeSceneRender({
+        projectDir,
+        root: args.root,
+        beatId: args.beat,
+        output: args.output,
+        fps: args.fps as RenderFps | undefined,
+        quality: args.quality as RenderQuality | undefined,
+        format: args.format as RenderFormat | undefined,
+        workers: args.workers,
+        openAfterRender: args.openAfterRender,
+        revealInFinder: args.revealInFinder,
+        onProgress: (pct, stage) => {
+          const progress = Math.round(pct * 100);
+          ctx.onProgress?.({ progress, total: 100, message: stage });
+          report({ progress, stage: "render", message: stage });
+        },
+      }).then((result) => mapRenderResultToToolResult(result, projectDir));
+    if (ctx.surface !== "mcp") {
+      return runRender(() => undefined);
     }
-    return {
-      success: true,
-      data: {
-        outputPath: result.outputPath,
-        absoluteOutputPath: result.absoluteOutputPath,
-        openCommand: result.openCommand,
-        revealCommand: result.revealCommand,
-        opened: result.opened,
-        revealed: result.revealed,
-        openError: result.openError,
-        revealError: result.revealError,
-        beat: result.beat,
-        root: result.root,
-        reportPath: result.reportPath,
-        durationMs: result.durationMs,
-        framesRendered: result.framesRendered,
-        totalFrames: result.totalFrames,
-        fps: result.fps,
-        quality: result.quality,
-        format: result.format,
-        audioCount: result.audioCount,
-        audioMuxApplied: result.audioMuxApplied,
-        audioMuxWarning: result.audioMuxWarning,
-      },
-      humanLines: [
-        `✅ Render complete: ${result.absoluteOutputPath ?? result.outputPath}`,
-        `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
-        `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
-        `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
-        `   audio:    ${result.audioCount && result.audioCount > 0 ? `${result.audioCount} track${result.audioCount === 1 ? "" : "s"} muxed` : "silent"}`,
-        ...(result.openCommand ? [`   open:     ${result.openCommand}`] : []),
-        ...(result.revealCommand ? [`   reveal:   ${result.revealCommand}`] : []),
-        `   inspect:  vibe inspect render ${projectDir} --cheap --json`,
-        ...(result.opened ? [`   opened:   yes`] : []),
-        ...(result.revealed ? [`   revealed: yes`] : []),
-        ...(result.openError ? [`   open warning: ${result.openError}`] : []),
-        ...(result.revealError ? [`   reveal warning: ${result.revealError}`] : []),
-      ],
-    };
+    return runWithMcpPromotion(runRender, {
+      jobType: "render",
+      projectDir,
+      command: `vibe render ${projectDir}`,
+    });
   },
 });
 
@@ -563,99 +587,128 @@ const sceneBuildSchema = z.object({
   force: z.boolean().optional().describe("Re-dispatch primitives even when cached assets exist."),
 });
 
+function mapBuildResultToToolResult(
+  result: Awaited<ReturnType<typeof executeSceneBuild>>
+): ToolExecuteResult {
+  if (!result.success) {
+    return {
+      success: false,
+      data: result as unknown as Record<string, unknown>,
+      error: result.error ?? "build failed",
+      humanLines: [
+        result.code
+          ? `${result.code}: ${result.error ?? "build failed"}`
+          : (result.error ?? "build failed"),
+        ...(result.retryWith?.length ? [`Retry: ${result.retryWith.join(" | ")}`] : []),
+      ],
+    };
+  }
+  return {
+    success: true,
+    data: {
+      phase: result.phase,
+      mode: result.mode,
+      selectedStage: result.selectedStage,
+      outputPath: result.outputPath,
+      reportPath: result.reportPath,
+      estimatedCostUsd: result.estimatedCostUsd,
+      costUsd: result.costUsd,
+      stageReports: result.stageReports,
+      sceneRepair: result.sceneRepair,
+      jobs: result.jobs,
+      beats: result.beats.map((b) => ({
+        beatId: b.beatId,
+        narrationStatus: b.narrationStatus,
+        narrationPath: b.narrationPath,
+        narrationError: b.narrationError,
+        backdropStatus: b.backdropStatus,
+        backdropPath: b.backdropPath,
+        backdropError: b.backdropError,
+        videoStatus: b.videoStatus,
+        videoPath: b.videoPath,
+        videoJobId: b.videoJobId,
+        videoError: b.videoError,
+        musicStatus: b.musicStatus,
+        musicPath: b.musicPath,
+        musicJobId: b.musicJobId,
+        musicError: b.musicError,
+      })),
+      composePrompts: result.composePrompts,
+      totalLatencyMs: result.totalLatencyMs,
+    },
+    humanLines: [
+      result.phase === "needs-author"
+        ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan.`
+        : result.phase === "pending-jobs"
+          ? `Build paused for ${result.jobs?.length ?? 0} async job(s). Poll with status_project/status_job, then rerun build.`
+          : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
+      `   beats: ${result.beats.length}`,
+      `   wall-clock: ${(result.totalLatencyMs / 1000).toFixed(1)}s`,
+      ...result.beats.map(
+        (b) =>
+          `   [${b.beatId}] narration=${b.narrationStatus} backdrop=${b.backdropStatus} video=${b.videoStatus} music=${b.musicStatus}`
+      ),
+    ],
+  };
+}
+
+function buildEventToUpdate(event: SceneBuildProgressEvent): LocalJobUpdate {
+  if (event.type === "phase-start") {
+    return { stage: event.phase, message: `${event.phase} started` };
+  }
+  if (event.type === "render-start") return { stage: "render", message: "render started" };
+  if (event.type === "render-done") return { stage: "render", message: "render done" };
+  const beatId = "beatId" in event ? event.beatId : undefined;
+  return { message: beatId ? `${event.type} ${beatId}` : event.type };
+}
+
 export const sceneBuildTool = defineTool({
   name: "build",
   category: "scene",
   cost: "high",
   description:
-    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap.",
+    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking build. Emits MCP progress notifications when the client supplies a progressToken.",
   schema: sceneBuildSchema,
   async execute(args, ctx) {
     const projectDir = args.projectDir
       ? resolve(ctx.workingDirectory, args.projectDir)
       : ctx.workingDirectory;
-    const result = await executeSceneBuild({
-      projectDir,
-      stage: args.stage,
-      beatId: args.beat,
-      mode: args.mode,
-      effort: args.effort,
-      composer: args.composer,
-      skipNarration: args.skipNarration,
-      skipBackdrop: args.skipBackdrop,
-      skipVideo: args.skipVideo,
-      skipMusic: args.skipMusic,
-      skipRender: args.skipRender,
-      ttsProvider: args.ttsProvider,
-      voice: args.voice,
-      imageProvider: args.imageProvider,
-      videoProvider: args.videoProvider,
-      musicProvider: args.musicProvider,
-      imageQuality: args.imageQuality,
-      imageSize: args.imageSize,
-      maxCostUsd: args.maxCostUsd,
-      force: args.force,
-    });
-    if (!result.success) {
-      return {
-        success: false,
-        data: result as unknown as Record<string, unknown>,
-        error: result.error ?? "build failed",
-        humanLines: [
-          result.code
-            ? `${result.code}: ${result.error ?? "build failed"}`
-            : (result.error ?? "build failed"),
-          ...(result.retryWith?.length ? [`Retry: ${result.retryWith.join(" | ")}`] : []),
-        ],
-      };
+    const runBuild = (report: (update: LocalJobUpdate) => void) =>
+      executeSceneBuild({
+        projectDir,
+        stage: args.stage,
+        beatId: args.beat,
+        mode: args.mode,
+        effort: args.effort,
+        composer: args.composer,
+        skipNarration: args.skipNarration,
+        skipBackdrop: args.skipBackdrop,
+        skipVideo: args.skipVideo,
+        skipMusic: args.skipMusic,
+        skipRender: args.skipRender,
+        ttsProvider: args.ttsProvider,
+        voice: args.voice,
+        imageProvider: args.imageProvider,
+        videoProvider: args.videoProvider,
+        musicProvider: args.musicProvider,
+        imageQuality: args.imageQuality,
+        imageSize: args.imageSize,
+        maxCostUsd: args.maxCostUsd,
+        force: args.force,
+        onProgress: (event) => {
+          const update = buildEventToUpdate(event);
+          ctx.onProgress?.({ message: update.message ?? update.stage });
+          report(update);
+        },
+      }).then(mapBuildResultToToolResult);
+    if (ctx.surface !== "mcp") {
+      return runBuild(() => undefined);
     }
-    return {
-      success: true,
-      data: {
-        phase: result.phase,
-        mode: result.mode,
-        selectedStage: result.selectedStage,
-        outputPath: result.outputPath,
-        reportPath: result.reportPath,
-        estimatedCostUsd: result.estimatedCostUsd,
-        costUsd: result.costUsd,
-        stageReports: result.stageReports,
-        sceneRepair: result.sceneRepair,
-        jobs: result.jobs,
-        beats: result.beats.map((b) => ({
-          beatId: b.beatId,
-          narrationStatus: b.narrationStatus,
-          narrationPath: b.narrationPath,
-          narrationError: b.narrationError,
-          backdropStatus: b.backdropStatus,
-          backdropPath: b.backdropPath,
-          backdropError: b.backdropError,
-          videoStatus: b.videoStatus,
-          videoPath: b.videoPath,
-          videoJobId: b.videoJobId,
-          videoError: b.videoError,
-          musicStatus: b.musicStatus,
-          musicPath: b.musicPath,
-          musicJobId: b.musicJobId,
-          musicError: b.musicError,
-        })),
-        composePrompts: result.composePrompts,
-        totalLatencyMs: result.totalLatencyMs,
-      },
-      humanLines: [
-        result.phase === "needs-author"
-          ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan.`
-          : result.phase === "pending-jobs"
-            ? `Build paused for ${result.jobs?.length ?? 0} async job(s). Poll with status_project/status_job, then rerun build.`
-            : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
-        `   beats: ${result.beats.length}`,
-        `   wall-clock: ${(result.totalLatencyMs / 1000).toFixed(1)}s`,
-        ...result.beats.map(
-          (b) =>
-            `   [${b.beatId}] narration=${b.narrationStatus} backdrop=${b.backdropStatus} video=${b.videoStatus} music=${b.musicStatus}`
-        ),
-      ],
-    };
+    return runWithMcpPromotion(runBuild, {
+      jobType: "build",
+      projectDir,
+      command: `vibe build ${projectDir}`,
+    });
   },
 });
 

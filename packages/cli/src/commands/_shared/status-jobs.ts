@@ -10,7 +10,19 @@ import { writeAssetMetadata } from "./build-asset-metadata.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "unknown";
-export type JobType = "generate-video" | "generate-music";
+/**
+ * `generate-video` / `generate-music` are provider-backed jobs refreshed by
+ * polling the provider. `build` / `render` are LOCAL jobs: long-running MCP
+ * tool calls promoted to the background inside the MCP server process — their
+ * records are updated in-process, so refresh just reads the file (plus orphan
+ * detection when the owning process died).
+ */
+export type JobType = "generate-video" | "generate-music" | "build" | "render";
+
+/** Local in-process jobs (see {@link JobType}). */
+export function isLocalJob(record: Pick<JobRecord, "jobType">): boolean {
+  return record.jobType === "build" || record.jobType === "render";
+}
 export type ProjectWorkflowStatus =
   | "empty"
   | "ready"
@@ -56,6 +68,16 @@ export interface JobRecord {
   error?: string;
   promptPreview?: string;
   retryWith: string[];
+  /** Owning process id — local jobs only; used for orphan detection. */
+  pid?: number;
+  /** Last liveness write by the owning process — local jobs only. */
+  heartbeatAt?: string;
+  /** Current pipeline stage label (e.g. "compose", "render") — local jobs. */
+  stage?: string;
+  /** Latest human-readable progress message — local jobs. */
+  message?: string;
+  /** Full tool result data, written when a local job completes. */
+  resultPayload?: Record<string, unknown>;
 }
 
 export interface CreateJobRecordOptions {
@@ -82,6 +104,10 @@ export interface CreateJobRecordOptions {
   canonicalPath?: string;
   metadataPath?: string;
   error?: string;
+  pid?: number;
+  heartbeatAt?: string;
+  stage?: string;
+  message?: string;
 }
 
 export interface RefreshJobOptions {
@@ -200,6 +226,8 @@ export interface JobResult {
   outputPath?: string;
   cachePath?: string;
   error?: string;
+  /** Full tool result data for completed local build/render jobs. */
+  payload?: Record<string, unknown>;
 }
 
 export interface ProjectBeatReadiness {
@@ -281,6 +309,10 @@ export function createJobRecord(opts: CreateJobRecordOptions): JobRecord {
     error: opts.error,
     promptPreview: previewPrompt(opts.prompt),
     retryWith: [],
+    pid: opts.pid,
+    heartbeatAt: opts.heartbeatAt,
+    stage: opts.stage,
+    message: opts.message,
   };
   base.retryWith = retryWithForJob(base);
   return stripUndefined(base);
@@ -332,6 +364,9 @@ export async function refreshJobRecord(
   opts: RefreshJobOptions = {}
 ): Promise<JobStatusResult> {
   const warnings: string[] = [];
+  if (isLocalJob(record)) {
+    return refreshLocalJobRecord(record, opts);
+  }
   const live = liveSupport(record);
   if (!live.supported) {
     warnings.push(
@@ -398,6 +433,61 @@ export async function refreshJobRecord(
       warnings,
     });
   }
+}
+
+/** How stale a local job's heartbeat may be before we treat it as orphaned. */
+const LOCAL_JOB_ORPHAN_AFTER_MS = 90_000;
+
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means the process exists but belongs to another user.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Local jobs are updated in-process by the promotion helper, so a refresh is
+ * a re-read plus orphan detection: if the owning process is gone (dead pid or
+ * stale heartbeat from another pid), the record is downgraded to `unknown`
+ * with a hint at the on-disk reports — the work may have completed before
+ * the crash.
+ */
+async function refreshLocalJobRecord(
+  record: JobRecord,
+  opts: RefreshJobOptions
+): Promise<JobStatusResult> {
+  const warnings: string[] = [];
+  let updated = record;
+  const active = record.status === "running" || record.status === "queued";
+  if (active && record.pid !== undefined && record.pid !== process.pid) {
+    const heartbeatAge = record.heartbeatAt
+      ? Date.now() - new Date(record.heartbeatAt).getTime()
+      : Number.POSITIVE_INFINITY;
+    const orphaned = !isPidAlive(record.pid) || heartbeatAge > LOCAL_JOB_ORPHAN_AFTER_MS;
+    if (orphaned) {
+      const hint =
+        `The process that ran this ${record.jobType} job is gone. ` +
+        `Check ${join(record.projectDir, record.jobType === "render" ? "render-report.json" : "build-report.json")} — ` +
+        `the work may have completed before the process exited.`;
+      warnings.push(hint);
+      updated = stripUndefined({
+        ...record,
+        status: "unknown" as JobStatus,
+        error: record.error ?? hint,
+        updatedAt: new Date().toISOString(),
+      });
+      updated.retryWith = retryWithForJob(updated);
+      if (opts.write !== false) await writeJobRecord(updated);
+    }
+  }
+  return makeJobStatusResult(updated, {
+    refreshed: true,
+    live: { supported: true },
+    warnings,
+  });
 }
 
 export async function inspectProjectStatus(
@@ -520,18 +610,27 @@ function jobProgress(record: JobRecord): JobProgress | undefined {
   }
   return stripUndefined({
     percent: record.progress,
-    phase: record.providerStatus ?? statusPhase(record.status),
-    providerStatus: record.providerStatus,
+    phase: record.stage ?? record.providerStatus ?? statusPhase(record.status),
+    providerStatus: record.providerStatus ?? record.message,
   });
 }
 
 function jobResult(record: JobRecord): JobResult | null {
-  if (!record.resultUrl && !record.outputPath && !record.cachePath && !record.error) return null;
+  if (
+    !record.resultUrl &&
+    !record.outputPath &&
+    !record.cachePath &&
+    !record.error &&
+    !record.resultPayload
+  ) {
+    return null;
+  }
   return stripUndefined({
     url: record.resultUrl,
     outputPath: record.outputPath,
     cachePath: record.cachePath,
     error: record.error,
+    payload: record.resultPayload,
   });
 }
 

@@ -43,6 +43,14 @@ export interface ExecuteContext {
     projectPath: string | null;
     setProjectPath(path: string): void;
   };
+  /**
+   * Optional progress sink. The MCP adapter wires this to MCP
+   * `notifications/progress` when the client supplied a progressToken;
+   * CLI/Agent surfaces leave it undefined. Omitting `progress` advances an
+   * internal monotonic counter; the adapter also throttles and enforces
+   * monotonicity defensively.
+   */
+  onProgress?: (update: { progress?: number; total?: number; message?: string }) => void;
 }
 
 export interface ToolExecuteResult {

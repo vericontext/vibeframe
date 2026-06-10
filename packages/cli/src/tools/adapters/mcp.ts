@@ -27,9 +27,20 @@ export interface McpTool {
   inputSchema: McpInputSchema;
 }
 
+/** Per-call extras forwarded by the MCP server request handler. */
+export interface McpCallExtra {
+  /**
+   * Raw progress sink — typically sends an MCP `notifications/progress` for
+   * the request's progressToken. The dispatcher wraps it with throttling,
+   * monotonicity, and post-completion cutoff before exposing it to tools.
+   */
+  onProgress?: (update: { progress: number; total?: number; message?: string }) => void;
+}
+
 export type McpDispatcher = (
   name: string,
   args: Record<string, unknown>,
+  extra?: McpCallExtra,
 ) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
 
 type StdoutWrite = typeof process.stdout.write;
@@ -95,6 +106,51 @@ async function withCapturedStdout<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+export interface ProgressSink {
+  send: (update: { progress?: number; total?: number; message?: string }) => void;
+  close: () => void;
+}
+
+/**
+ * Wrap a raw progress callback with the guarantees the MCP spec expects:
+ * `progress` increases monotonically per token, updates are throttled to at
+ * most one per `minIntervalMs` (the first always passes), and nothing is
+ * emitted after `close()` — progress notifications must stop once the
+ * request's result has been sent.
+ */
+export function makeProgressSink(
+  raw: McpCallExtra["onProgress"],
+  minIntervalMs = 1000
+): ProgressSink {
+  if (!raw) {
+    return { send: () => undefined, close: () => undefined };
+  }
+  let closed = false;
+  let lastSentAt = 0;
+  let lastProgress = 0;
+  return {
+    send: (update) => {
+      if (closed) return;
+      const now = Date.now();
+      if (lastSentAt !== 0 && now - lastSentAt < minIntervalMs) return;
+      lastSentAt = now;
+      const progress =
+        update.progress !== undefined && update.progress > lastProgress
+          ? update.progress
+          : lastProgress + 1;
+      lastProgress = progress;
+      raw({
+        progress,
+        ...(update.total !== undefined ? { total: update.total } : {}),
+        ...(update.message ? { message: update.message } : {}),
+      });
+    },
+    close: () => {
+      closed = true;
+    },
+  };
+}
+
 function formatZodError(err: ZodError): string {
   // Surface "this required field is missing/null/undefined" as the legacy
   // "missing required argument" phrasing so existing MCP-host integrations
@@ -151,7 +207,7 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
     }
   }
 
-  return async (name, args) => {
+  return async (name, args, extra) => {
     const tool = byName.get(name);
     if (!tool) {
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }] };
@@ -162,11 +218,13 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
         content: [{ type: "text", text: `${name} failed: ${formatZodError(parsed.error)}` }],
       };
     }
+    const sink = makeProgressSink(extra?.onProgress);
     try {
       const result = await withCapturedStdout(() =>
         tool.execute(parsed.data, {
           workingDirectory: process.cwd(),
           surface: "mcp",
+          ...(extra?.onProgress ? { onProgress: sink.send } : {}),
         })
       );
       const text = result.success
@@ -182,6 +240,10 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return { content: [{ type: "text", text: `${name} threw: ${msg}` }] };
+    } finally {
+      // Progress notifications must stop once the result is sent — this also
+      // covers promoted (backgrounded) work that keeps reporting afterwards.
+      sink.close();
     }
   };
 }

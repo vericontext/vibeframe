@@ -23,6 +23,18 @@ import { buildServerInstructions } from "./instructions.js";
  * - Access project state
  * - Use AI-powered editing features
  */
+/**
+ * The stdio transport owns stdout: any stray console.log corrupts JSON-RPC
+ * framing. The per-call capture in the MCP adapter covers synchronous tool
+ * execution, but promoted (backgrounded) build/render work keeps running
+ * after the capture is restored — so route console text output to stderr for
+ * the lifetime of the process. (process.stdout.write itself is untouched;
+ * the transport needs it.)
+ */
+console.log = (...args: unknown[]) => console.error(...args);
+console.info = (...args: unknown[]) => console.error(...args);
+console.debug = (...args: unknown[]) => console.error(...args);
+
 const server = new Server(
   {
     name: "vibeframe",
@@ -44,9 +56,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle tool calls
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const { name, arguments: args } = request.params;
-  return handleToolCall(name, args || {});
+  const progressToken = request.params._meta?.progressToken;
+  return handleToolCall(
+    name,
+    args || {},
+    progressToken === undefined
+      ? undefined
+      : {
+          onProgress: ({ progress, total, message }) => {
+            // Fire-and-forget: a dropped notification must never fail the
+            // tool call. Per MCP spec, clients reset their request timeout
+            // on each notifications/progress for the request's token.
+            void extra
+              .sendNotification({
+                method: "notifications/progress",
+                params: {
+                  progressToken,
+                  progress: progress ?? 0,
+                  ...(total !== undefined ? { total } : {}),
+                  ...(message ? { message } : {}),
+                },
+              })
+              .catch(() => undefined);
+          },
+        }
+  );
 });
 
 // List available resources

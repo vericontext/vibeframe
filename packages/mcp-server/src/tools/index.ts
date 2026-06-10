@@ -13,6 +13,7 @@ import { manifest } from "@vibeframe/cli/tools/manifest";
 import {
   manifestToMcpTools,
   buildMcpDispatcher,
+  type McpCallExtra,
 } from "@vibeframe/cli/tools/adapters/mcp";
 
 export const tools = manifestToMcpTools(manifest);
@@ -22,6 +23,7 @@ const dispatch = buildMcpDispatcher(manifest);
 export async function handleToolCall(
   name: string,
   args: Record<string, unknown>,
+  extra?: McpCallExtra,
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  return dispatch(name, args);
+  return dispatch(name, args, extra);
 }

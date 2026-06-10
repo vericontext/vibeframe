@@ -467,3 +467,77 @@ describe("status job records", () => {
     });
   });
 });
+
+describe("local build/render jobs", () => {
+  it("refresh reads the record without provider warnings", async () => {
+    const dir = await tempProject();
+    const record = await createAndWriteJobRecord({
+      jobType: "render",
+      provider: "local",
+      providerTaskId: "job_local_a",
+      projectDir: dir,
+      command: "vibe render .",
+      status: "running",
+      pid: process.pid,
+      heartbeatAt: new Date().toISOString(),
+      stage: "render",
+      message: "Rendering frames",
+      progress: 37,
+    });
+
+    const result = await refreshJobRecord(record);
+    expect(result.warnings).toEqual([]);
+    expect(result.live.supported).toBe(true);
+    expect(result.job.status).toBe("running");
+    expect(result.progress).toMatchObject({ percent: 37, phase: "render" });
+    expect(executeVideoStatus).not.toHaveBeenCalled();
+    expect(executeMusicStatus).not.toHaveBeenCalled();
+  });
+
+  it("downgrades orphaned running jobs to unknown with a report hint", async () => {
+    const dir = await tempProject();
+    const record = await createAndWriteJobRecord({
+      jobType: "build",
+      provider: "local",
+      providerTaskId: "job_local_b",
+      projectDir: dir,
+      command: "vibe build .",
+      status: "running",
+      pid: 999999999,
+      heartbeatAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+    });
+
+    const result = await refreshJobRecord(record);
+    expect(result.job.status).toBe("unknown");
+    expect(result.warnings.join(" ")).toContain("build-report.json");
+
+    const persisted = await readJobRecord(record.id, dir);
+    expect(persisted?.status).toBe("unknown");
+  });
+
+  it("surfaces resultPayload for completed local jobs", async () => {
+    const dir = await tempProject();
+    const record = await createAndWriteJobRecord({
+      jobType: "render",
+      provider: "local",
+      providerTaskId: "job_local_c",
+      projectDir: dir,
+      command: "vibe render .",
+      status: "running",
+      pid: process.pid,
+    });
+    const completed = {
+      ...record,
+      status: "completed" as const,
+      resultPayload: { outputPath: "renders/final.mp4", framesRendered: 100 },
+      outputPath: "renders/final.mp4",
+    };
+    const { writeJobRecord } = await import("./status-jobs.js");
+    await writeJobRecord(completed);
+
+    const result = await refreshJobRecord(completed);
+    expect(result.job.status).toBe("completed");
+    expect(result.result?.payload).toMatchObject({ framesRendered: 100 });
+    expect(result.result?.outputPath).toBe("renders/final.mp4");
+  });
+});
