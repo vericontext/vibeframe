@@ -6,6 +6,7 @@ import {
   applyWorkspaceEnv,
   buildServerInstructions,
   resolveServerWorkspaceRoot,
+  scrubUnresolvedUserConfigEnv,
 } from "./instructions.js";
 
 describe("MCP server instructions", () => {
@@ -75,5 +76,32 @@ describe("applyWorkspaceEnv", () => {
     const result = applyWorkspaceEnv({ VIBE_MCP_WORKSPACE: "\0invalid" }, chdir);
     expect(result).toBeNull();
     expect(chdirCalls).toEqual([]);
+  });
+});
+
+describe("scrubUnresolvedUserConfigEnv", () => {
+  it("removes literal ${user_config.*} values left by unfilled extension fields", () => {
+    const env: NodeJS.ProcessEnv = {
+      ANTHROPIC_API_KEY: "${user_config.anthropic_api_key}",
+      OPENAI_API_KEY: " ${user_config.openai_api_key} ",
+      ELEVENLABS_API_KEY: "real-key",
+      PATH: "/usr/bin",
+    };
+    const removed = scrubUnresolvedUserConfigEnv(env);
+    expect(removed.sort()).toEqual(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.ELEVENLABS_API_KEY).toBe("real-key");
+    expect(env.PATH).toBe("/usr/bin");
+  });
+
+  it("leaves values that merely contain a template substring", () => {
+    const env: NodeJS.ProcessEnv = {
+      NOTE: "uses ${user_config.workspace} internally",
+      EMPTY: "",
+    };
+    expect(scrubUnresolvedUserConfigEnv(env)).toEqual([]);
+    expect(env.NOTE).toBeDefined();
+    expect(env.EMPTY).toBe("");
   });
 });

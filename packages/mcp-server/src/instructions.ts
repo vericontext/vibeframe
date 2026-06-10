@@ -2,6 +2,26 @@ import { mkdirSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
 /**
+ * Claude Desktop substitutes "${user_config.key}" templates in the MCPB
+ * manifest's env block, but leaves UNFILLED optional fields unsubstituted —
+ * the spawned process sees the literal template string (observed on Desktop
+ * 1.11847.x: ANTHROPIC_API_KEY='${user_config.anthropic_api_key}'). Those
+ * values are truthy, so they would poison API-key detection AND block the
+ * workspace .env (dotenv never overrides existing vars). Drop them.
+ */
+export function scrubUnresolvedUserConfigEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+  const removed: string[] = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value !== "string") continue;
+    if (/^\$\{user_config\.[^}]+\}$/.test(value.trim())) {
+      delete env[key];
+      removed.push(key);
+    }
+  }
+  return removed;
+}
+
+/**
  * Workspace pinning for MCP hosts that cannot control the spawn cwd.
  * Claude Desktop MCPB extensions run from the extension install directory;
  * the manifest maps the user's chosen workspace folder to VIBE_MCP_WORKSPACE

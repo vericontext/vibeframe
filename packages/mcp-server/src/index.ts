@@ -12,7 +12,11 @@ import {
 import { tools, handleToolCall } from "./tools/index.js";
 import { resources, readResource } from "./resources/index.js";
 import { prompts, getPrompt } from "./prompts/index.js";
-import { applyWorkspaceEnv, buildServerInstructions } from "./instructions.js";
+import {
+  applyWorkspaceEnv,
+  buildServerInstructions,
+  scrubUnresolvedUserConfigEnv,
+} from "./instructions.js";
 
 /**
  * VibeFrame MCP Server
@@ -35,7 +39,9 @@ console.log = (...args: unknown[]) => console.error(...args);
 console.info = (...args: unknown[]) => console.error(...args);
 console.debug = (...args: unknown[]) => console.error(...args);
 
-// Must run before buildServerInstructions() reads process.cwd().
+// Both must run before buildServerInstructions() reads process.cwd() and
+// before any tool touches provider keys.
+scrubUnresolvedUserConfigEnv();
 applyWorkspaceEnv();
 
 const server = new Server(
