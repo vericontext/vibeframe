@@ -6,6 +6,7 @@ import {
   applyMechanicalFixes,
   discoverSceneFiles,
   filterSubCompFalsePositives,
+  isEpsilonOverlapFinding,
   rootExists,
   runProjectLint,
   SUB_COMP_FALSE_POSITIVES,
@@ -49,6 +50,42 @@ describe("filterSubCompFalsePositives", () => {
     expect(SUB_COMP_FALSE_POSITIVES.has("standalone_composition_wrapped_in_template")).toBe(true);
     expect(SUB_COMP_FALSE_POSITIVES.has("root_composition_missing_html_wrapper")).toBe(true);
     expect(SUB_COMP_FALSE_POSITIVES.size).toBe(2);
+  });
+});
+
+describe("isEpsilonOverlapFinding", () => {
+  const overlapFinding = (end: string, start: string): LintFinding => ({
+    code: "overlapping_clips_same_track",
+    severity: "error",
+    message: `Track 0: clip ending at ${end}s overlaps with clip starting at ${start}s. Overlapping clips on the same track cause rendering conflicts.`,
+  });
+
+  it("flags IEEE float-noise overlaps", () => {
+    expect(isEpsilonOverlapFinding(overlapFinding("19.240000000000002", "19.24"))).toBe(true);
+  });
+
+  it("keeps genuine overlaps", () => {
+    expect(isEpsilonOverlapFinding(overlapFinding("20", "19.24"))).toBe(false);
+  });
+
+  it("ignores other codes and unparseable messages", () => {
+    expect(
+      isEpsilonOverlapFinding({ code: "missing_timeline_registry", severity: "error", message: "x" })
+    ).toBe(false);
+    expect(
+      isEpsilonOverlapFinding({
+        code: "overlapping_clips_same_track",
+        severity: "error",
+        message: "clips overlap somewhere",
+      })
+    ).toBe(false);
+  });
+
+  it("is dropped by filterSubCompFalsePositives for root AND sub files", () => {
+    const epsilon = overlapFinding("19.240000000000002", "19.24");
+    const real = overlapFinding("20", "19.24");
+    expect(filterSubCompFalsePositives([epsilon, real], false)).toEqual([real]);
+    expect(filterSubCompFalsePositives([epsilon, real], true)).toEqual([real]);
   });
 });
 

@@ -120,15 +120,38 @@ async function collectHtmlRecursive(dir: string, into: string[]): Promise<void> 
 }
 
 /**
- * Drop findings that producer's lint emits as inverse-rules for sub-comp
- * files. Other findings pass through unchanged.
+ * IEEE float noise threshold for clip-overlap findings. Authored timeline
+ * values are exact to 2dp, but the producer computes each clip's end as
+ * `start + duration` in binary floats — e.g. 8.26 + 10.98 =
+ * 19.240000000000002, which it then flags as "overlapping" a clip starting
+ * at 19.24. Anything under 5ms is float noise, not a real overlap.
+ */
+export const OVERLAP_EPSILON_SEC = 0.005;
+
+/** True for overlapping_clips_same_track findings whose overlap is float noise. */
+export function isEpsilonOverlapFinding(finding: LintFinding): boolean {
+  if (finding.code !== "overlapping_clips_same_track") return false;
+  const match = finding.message.match(
+    /clip ending at ([\d.eE+-]+)s overlaps with clip starting at ([\d.eE+-]+)s/
+  );
+  if (!match) return false;
+  const end = Number(match[1]);
+  const start = Number(match[2]);
+  return Number.isFinite(end) && Number.isFinite(start) && end - start < OVERLAP_EPSILON_SEC;
+}
+
+/**
+ * Drop known false positives: float-epsilon clip overlaps (all files) and
+ * the producer findings that are inverse-rules for sub-comp files. Other
+ * findings pass through unchanged.
  */
 export function filterSubCompFalsePositives(
   findings: LintFinding[],
   isSubComposition: boolean,
 ): LintFinding[] {
-  if (!isSubComposition) return findings;
-  return findings.filter((f) => !SUB_COMP_FALSE_POSITIVES.has(f.code));
+  const noEpsilon = findings.filter((f) => !isEpsilonOverlapFinding(f));
+  if (!isSubComposition) return noEpsilon;
+  return noEpsilon.filter((f) => !SUB_COMP_FALSE_POSITIVES.has(f.code));
 }
 
 /**
