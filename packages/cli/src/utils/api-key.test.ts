@@ -24,6 +24,42 @@ describe("api-key utilities", () => {
     it("does not throw when .env file is missing", () => {
       expect(() => loadEnv()).not.toThrow();
     });
+
+    it("walks parent directories: nearest .env wins, ancestors fill gaps, env vars never overridden", async () => {
+      const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+
+      const root = await mkdtemp(join(tmpdir(), "vibe-loadenv-"));
+      const workspace = join(root, "workspace");
+      const project = join(workspace, "project");
+      await mkdir(project, { recursive: true });
+      await writeFile(
+        join(workspace, ".env"),
+        "VIBE_TEST_SHARED=workspace\nVIBE_TEST_ANCESTOR_ONLY=workspace\nVIBE_TEST_PRESET=workspace\n",
+        "utf-8"
+      );
+      await writeFile(join(project, ".env"), "VIBE_TEST_SHARED=project\n", "utf-8");
+
+      delete process.env.VIBE_TEST_SHARED;
+      delete process.env.VIBE_TEST_ANCESTOR_ONLY;
+      process.env.VIBE_TEST_PRESET = "from-shell";
+      const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(project);
+      try {
+        loadEnv();
+        // cwd .env wins for overlapping vars
+        expect(process.env.VIBE_TEST_SHARED).toBe("project");
+        // ancestor-only vars are discovered by the upward walk
+        expect(process.env.VIBE_TEST_ANCESTOR_ONLY).toBe("workspace");
+        // already-set process env always wins
+        expect(process.env.VIBE_TEST_PRESET).toBe("from-shell");
+      } finally {
+        cwdSpy.mockRestore();
+        delete process.env.VIBE_TEST_SHARED;
+        delete process.env.VIBE_TEST_ANCESTOR_ONLY;
+        delete process.env.VIBE_TEST_PRESET;
+      }
+    });
   });
 
   describe("getApiKey", () => {

@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import { readFile, writeFile, access } from "node:fs/promises";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
 import { config } from "dotenv";
 import chalk from "chalk";
 import { getApiKeyFromConfig, PROVIDER_ENV_ALIASES } from "../config/index.js";
@@ -30,16 +31,28 @@ function getEnvValue(envVar: string): string | undefined {
   );
 }
 
+/** Bound for the upward .env walk — covers any sane workspace nesting. */
+const MAX_ENV_WALK_LEVELS = 10;
+
 /**
  * Load environment variables from .env files.
- * Priority: CWD .env (project-scoped) > monorepo root .env (development)
- * Later loads don't override earlier values, so CWD takes precedence.
+ * Priority: CWD .env (project-scoped) > ancestor .env files (nearest wins,
+ * walking up to $HOME / fs root / {@link MAX_ENV_WALK_LEVELS}) > monorepo
+ * root .env (development). dotenv never overrides already-set vars, so load
+ * order IS precedence. The upward walk is what lets a project run from
+ * `<workspace>/<project>/` pick up the keys in `<workspace>/.env`.
  */
 export function loadEnv(): void {
-  // 1. Load from current working directory (project-scoped, highest priority)
-  config({ path: resolve(process.cwd(), ".env"), debug: false, quiet: true });
+  const home = homedir();
+  let dir = process.cwd();
+  for (let level = 0; level < MAX_ENV_WALK_LEVELS; level++) {
+    config({ path: resolve(dir, ".env"), debug: false, quiet: true });
+    const parent = dirname(dir);
+    if (dir === home || parent === dir) break;
+    dir = parent;
+  }
 
-  // 2. Load from monorepo root if in development (won't override existing vars)
+  // Monorepo-root safety net for repos nested deeper than the walk bound.
   const monorepoRoot = findMonorepoRoot();
   if (monorepoRoot && monorepoRoot !== process.cwd()) {
     config({ path: resolve(monorepoRoot, ".env"), debug: false, quiet: true });
