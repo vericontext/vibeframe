@@ -66,11 +66,14 @@ async function smokeMcpCommand(
   label: string,
   command: string,
   args: string[],
-  cwd: string
+  cwd: string,
+  opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number } = {}
 ): Promise<void> {
+  const timeoutMs = opts.timeoutMs ?? 10_000;
   const child = spawn(command, args, {
     cwd,
     stdio: ["pipe", "pipe", "pipe"],
+    env: opts.env ?? process.env,
   });
 
   let buffer = "";
@@ -80,8 +83,12 @@ async function smokeMcpCommand(
     let instructions = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error(`${label} did not answer tools/list within 10s${stderr ? `\n${stderr}` : ""}`));
-    }, 10_000);
+      reject(
+        new Error(
+          `${label} did not answer tools/list within ${timeoutMs / 1000}s${stderr ? `\n${stderr}` : ""}`
+        )
+      );
+    }, timeoutMs);
 
     function send(message: unknown): void {
       child.stdin.write(`${JSON.stringify(message)}\n`);
@@ -169,11 +176,16 @@ async function smokePackedMcpServer(pkgDir: string): Promise<void> {
     if (!tarballName) throw new Error("npm pack returned no tarball name");
     const runCwd = join(tmp, "run");
     await mkdir(runCwd, { recursive: true });
+    // npm exec installs the tarball (plus dependencies) before the server
+    // can answer. kokoro-js is an optionalDependency dragging a ~300MB
+    // native graph — omit optionals here both to keep the smoke fast and to
+    // prove the server boots without them; give the install headroom anyway.
     await smokeMcpCommand(
       "packed mcp server",
       "npm",
       ["exec", "--yes", "--package", resolve(tmp, tarballName), "--", "vibeframe-mcp"],
-      runCwd
+      runCwd,
+      { env: { ...process.env, npm_config_omit: "optional" }, timeoutMs: 60_000 }
     );
   } finally {
     await rm(tmp, { recursive: true, force: true });
