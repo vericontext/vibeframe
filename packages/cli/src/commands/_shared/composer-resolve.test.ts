@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// resolveComposer() pulls workspace .env files via loadEnv(); stub it so the
+// developer's real local keys can't leak into these hermetic env fixtures.
+vi.mock("../../utils/api-key.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../utils/api-key.js")>();
+  return { ...actual, loadEnv: vi.fn() };
+});
 
 import {
   ComposerResolveError,

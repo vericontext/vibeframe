@@ -14,6 +14,8 @@
  * always wins.
  */
 
+import { loadEnv } from "../../utils/api-key.js";
+
 export type ComposerProvider = "claude" | "openai" | "gemini";
 
 export interface ComposerResolution {
@@ -66,6 +68,11 @@ export function isComposerProvider(value: unknown): value is ComposerProvider {
  * missing, or (b) no provider's key is present.
  */
 export function resolveComposer(explicit?: ComposerProvider): ComposerResolution {
+  // Pull workspace .env keys into process.env first. Without this, the
+  // resolver only works when some earlier key lookup happened to run
+  // loadEnv() in the same process — true for most CLI sessions, but not for
+  // a fresh MCP server whose first tool call is storyboard_revise/compose.
+  loadEnv();
   if (explicit) {
     const key = readKey(explicit);
     if (!key) {
