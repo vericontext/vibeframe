@@ -5,15 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.109.1] - 2026-06-10
+## [0.109.2] - 2026-06-10
+
+### Fixed
+
+- load workspace .env before resolving the composer key *(cli)*
+- drop unresolved ${user_config.*} env values from extension installs *(mcp)*
+
+## [0.109.0] - 2026-06-10
 
 ### Added
 
 - package the server as a Claude Desktop MCPB extension *(mcp)*
-
-### Fixed
-
-- drop unresolved ${user_config.*} env values from extension installs *(mcp)*
 
 ## [0.108.1] - 2026-06-10
 
