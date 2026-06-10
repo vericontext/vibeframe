@@ -5,11 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.108.1] - 2026-06-10
+
+### Fixed
+
+- reject internal phase clips and warn on over-long beats *(scene)*
+
 ## [0.108.0] - 2026-06-10
 
 ### Added
 
 - add scene_submit so file-less hosts can author scenes themselves *(mcp)*
+
+## [0.107.1] - 2026-06-10
 
 ### Fixed
 
