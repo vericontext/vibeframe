@@ -11,7 +11,8 @@ import {
   type FileLintResult,
   type LintFinding,
 } from "./scene-lint.js";
-import { createProjectRootSyncPlan } from "./root-sync.js";
+import { createProjectRootSyncPlan, loadProjectRootSyncBeats } from "./root-sync.js";
+import { createSubCompDurationSyncPlans } from "./sub-comp-duration-sync.js";
 import {
   scoreIssues,
   statusFromIssues,
@@ -66,6 +67,26 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
       }
     } else if (rootSync.issues.length > 0) {
       rootSyncIssues.push(...rootSync.issues);
+    }
+
+    // Propagate narration-synced durations INTO the sub-compositions before
+    // the lint pass below (which re-reads from disk) so stretched root clip
+    // windows can't leave scene tails rendering black.
+    const subCompPlans = await createSubCompDurationSyncPlans({
+      projectDir,
+      beats: await loadProjectRootSyncBeats(projectDir),
+    });
+    for (const plan of subCompPlans) {
+      if (plan.changed && plan.nextHtml && plan.fixCodes.length > 0) {
+        const item = { file: plan.file, codes: plan.fixCodes };
+        if (dryRun) {
+          wouldFix.push(item);
+        } else {
+          await writeFile(resolve(projectDir, plan.file), plan.nextHtml, "utf-8");
+          fixed.push(item);
+        }
+      }
+      rootSyncIssues.push(...plan.issues);
     }
   }
 

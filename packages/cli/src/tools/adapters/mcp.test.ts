@@ -11,7 +11,7 @@ function stubTool(execute: AnyTool["execute"]): AnyTool {
     description: "test stub",
     schema: z.object({ value: z.string().optional() }),
     execute,
-  }) as AnyTool;
+  }) as unknown as AnyTool;
 }
 
 describe("makeProgressSink", () => {

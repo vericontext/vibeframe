@@ -40,6 +40,7 @@ import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframe
 import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
 import { filterSubCompFalsePositives, type LintFinding } from "./scene-lint.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import { resolveProjectBeatDurations } from "./root-sync.js";
 import { type ComposerProvider, resolveComposer, composerEnvVar } from "./composer-resolve.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 
@@ -114,6 +115,15 @@ export interface ComposeBeatContext {
    * Tests pass a temp dir.
    */
   cacheDir?: string;
+  /**
+   * Narration-synced FINAL beat duration in seconds. The root timeline
+   * stretches each beat to cover its generated narration
+   * (see resolveSyncedBeatDuration in root-sync.ts); when set, the prompt
+   * pins `data-duration` and every timeline anchor to this exact value so the
+   * scene cannot end early and render a black tail. The storyboard cue
+   * duration is then only the minimum and is annotated as superseded.
+   */
+  finalDurationSec?: number;
 }
 
 export interface ComposeBeatResult {
@@ -195,9 +205,36 @@ function formatBeatCues(cues: Beat["cues"]): string {
 
 /** Build the user prompt — instructions + storyboard global + beat body. */
 export function buildUserPrompt(
-  ctx: Pick<ComposeBeatContext, "beat" | "storyboardGlobal" | "retryFeedback">
+  ctx: Pick<
+    ComposeBeatContext,
+    "beat" | "storyboardGlobal" | "retryFeedback" | "finalDurationSec"
+  >
 ): string {
   const compositionId = `scene-${ctx.beat.id}`;
+  // When the narration-synced final duration is known, pin every duration
+  // placeholder to the literal value — composing at the storyboard duration
+  // while the root stretches the clip window is the black-tail bug.
+  const durLiteral = ctx.finalDurationSec !== undefined ? String(ctx.finalDurationSec) : undefined;
+  const SEC = durLiteral ?? "<sec>";
+  const BEAT_DURATION = durLiteral ?? "<beat duration in seconds>";
+  const BEAT = durLiteral ?? "<beat>";
+  const BEAT_END = durLiteral ? `${durLiteral} - 0.001` : "<beat - 0.001>";
+  const finalDurationBullet = durLiteral
+    ? `- **FINAL beat duration: ${durLiteral}s — use this exact value everywhere.**
+  This is the storyboard duration stretched to cover the generated narration
+  audio. Use exactly \`data-duration="${durLiteral}"\` on the composition root,
+  size full-beat \`.clip\` elements to end at ${durLiteral}s, and anchor the
+  timeline (idle motion or end \`tl.set\`) to exactly ${durLiteral}s. If the
+  beat cues show a different \`duration:\` value, that is only the storyboard
+  minimum — ignore it.
+`
+    : "";
+  const cueDurationNote =
+    durLiteral &&
+    ctx.beat.cues?.duration !== undefined &&
+    Number(ctx.beat.cues.duration) !== ctx.finalDurationSec
+      ? `\n(The \`duration: ${ctx.beat.cues.duration}s\` cue above is the storyboard minimum — superseded by the final synced duration ${durLiteral}s.)\n`
+      : "";
 
   const baseRequirements = `Build the Hyperframes sub-composition HTML for this beat. The composition
 will be loaded into a root index.html via
@@ -211,8 +248,9 @@ Requirements (non-negotiable):
   wrappers break sub-composition parsing.
 - Wrapper template id: \`${compositionId}-template\`. Inner div has
   \`data-composition-id="${compositionId}"\` AND \`data-start="0"\` AND
-  \`data-duration="<beat duration in seconds>"\` AND \`data-width="1920"\`
+  \`data-duration="${BEAT_DURATION}"\` AND \`data-width="1920"\`
   AND \`data-height="1080"\`.
+${finalDurationBullet}
 - One paused GSAP timeline registered on \`window.__timelines["${compositionId}"]\`.
 - **Timeline total duration MUST equal the beat \`data-duration\`.** Hyperframes
   renders in screenshot-capture mode with virtual time; if the timeline ends
@@ -221,10 +259,10 @@ Requirements (non-negotiable):
   goes stale — the hold phase renders BLACK. Anchor the timeline to the full
   beat duration via either:
     1. A subtle idle motion spanning 0→duration on a background/media layer,
-       e.g. \`tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: <beat>, ease: "none" }, 0);\`
+       e.g. \`tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: ${BEAT}, ease: "none" }, 0);\`
        (Ken-Burns, breathing opacity, gradient drift — should be barely
        perceptible so it doesn't compete with entry/exit beats).
-    2. OR an explicit \`tl.set(target, { ...natural state... }, <beat - 0.001>)\`
+    2. OR an explicit \`tl.set(target, { ...natural state... }, ${BEAT_END})\`
        anchor at the end.
   This is the #2 source of "text disappears mid-beat" bugs after \`.clip\` sizing.
 - Do not apply continuous \`scale\`, \`x\`, \`y\`, \`filter\`, or other transform
@@ -273,7 +311,7 @@ Reference shape (verbatim — match this skeleton exactly, no DOCTYPE / html / b
 
 \`\`\`
 <template id="${compositionId}-template">
-  <div data-composition-id="${compositionId}" data-start="0" data-duration="<sec>" data-width="1920" data-height="1080">
+  <div data-composition-id="${compositionId}" data-start="0" data-duration="${SEC}" data-width="1920" data-height="1080">
     <style>
       [data-composition-id="${compositionId}"] {
         position: relative;
@@ -291,7 +329,7 @@ Reference shape (verbatim — match this skeleton exactly, no DOCTYPE / html / b
       /* …per-element styles… */
     </style>
 
-    <div class="clip" data-start="0" data-duration="<sec>" data-track-index="0">
+    <div class="clip" data-start="0" data-duration="${SEC}" data-track-index="0">
       <!-- content; can use display:flex etc. since .clip now fills the scene -->
     </div>
 
@@ -303,7 +341,7 @@ Reference shape (verbatim — match this skeleton exactly, no DOCTYPE / html / b
       // length aligned with data-duration (otherwise hold phase goes black).
       // Keep continuous motion on the background/media layer so live text does
       // not shimmer from subpixel resampling.
-      tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: <sec>, ease: "none" }, 0);
+      tl.fromTo(".backdrop", { scale: 1.0 }, { scale: 1.015, duration: ${SEC}, ease: "none" }, 0);
       // entry tweens
       window.__timelines["${compositionId}"] = tl;
     </script>
@@ -318,7 +356,7 @@ ${ctx.storyboardGlobal || "(no global direction)"}
 === Beat to build ===
 
 ## ${ctx.beat.heading}
-${formatBeatCues(ctx.beat.cues)}
+${formatBeatCues(ctx.beat.cues)}${cueDurationNote}
 ${ctx.beat.body}
 
 === Output format ===
@@ -873,6 +911,16 @@ export async function executeComposeScenesWithSkills(
   const compositionsDir = join(projectRoot, "compositions");
   await mkdir(compositionsDir, { recursive: true });
 
+  // Assets run before compose, so narration durations are known here — pin
+  // every beat to its FINAL narration-synced duration (black-tail fix).
+  let finalDurations = new Map<string, number>();
+  try {
+    finalDurations = await resolveProjectBeatDurations(projectRoot);
+  } catch {
+    // Duration resolution must never block composing; the storyboard
+    // durations remain a valid (if shorter) fallback.
+  }
+
   const onProgress = params.onProgress ?? (() => {});
   const totalBeats = beats.length;
 
@@ -908,6 +956,7 @@ export async function executeComposeScenesWithSkills(
             apiKey,
             effort: params.effort,
             cacheDir: params.cacheDir,
+            finalDurationSec: finalDurations.get(beat.id),
           },
           overrides
         );

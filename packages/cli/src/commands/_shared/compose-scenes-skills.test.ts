@@ -120,6 +120,44 @@ describe("buildUserPrompt", () => {
     expect(b).toBe(a);
     expect(c).toBe(a);
   });
+
+  it("keeps duration placeholders when finalDurationSec is absent", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "" });
+    expect(u).toContain('data-duration="<beat duration in seconds>"');
+    expect(u).toContain('data-duration="<sec>"');
+    expect(u).not.toContain("FINAL beat duration");
+  });
+
+  it("pins every duration literal when finalDurationSec is set", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 8.26 });
+    expect(u).toContain('data-duration="8.26"');
+    expect(u).toContain("FINAL beat duration: 8.26s");
+    expect(u).toContain('duration: 8.26, ease: "none"');
+    expect(u).toContain("8.26 - 0.001");
+    expect(u).not.toContain("<sec>");
+    expect(u).not.toContain("<beat duration in seconds>");
+    expect(u).not.toContain("<beat>");
+  });
+
+  it("annotates a superseded storyboard cue duration", () => {
+    const cueBeat: Beat = {
+      ...beat,
+      cues: { narration: "Long narration text.", duration: 4 },
+    };
+    const u = buildUserPrompt({ beat: cueBeat, storyboardGlobal: "", finalDurationSec: 9.84 });
+    expect(u).toContain("duration: 4s");
+    expect(u).toContain("superseded by the final synced duration 9.84s");
+  });
+
+  it("changes the cache key when finalDurationSec changes", () => {
+    const a = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 6 });
+    const b = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 8.26 });
+    expect(
+      computeCacheKey({ provider: "claude", systemPrompt: "S", userPrompt: a, model: "M" })
+    ).not.toBe(
+      computeCacheKey({ provider: "claude", systemPrompt: "S", userPrompt: b, model: "M" })
+    );
+  });
 });
 
 describe("computeCacheKey", () => {

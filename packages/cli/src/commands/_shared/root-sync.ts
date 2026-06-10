@@ -179,7 +179,7 @@ async function expectedRootSync(opts: {
   const audioRefs: ExpectedRootSync["audioRefs"] = [];
 
   for (const beat of opts.beats) {
-    const duration = await resolveRootSyncBeatDuration({
+    const duration = await resolveSyncedBeatDuration({
       projectDir: opts.projectDir,
       beatDuration: beat.duration,
       narrationPath: beat.narrationPath,
@@ -228,7 +228,14 @@ async function expectedRootSync(opts: {
   return { block, totalDurationSec: Number(cursor.toFixed(2)), audioRefs };
 }
 
-async function resolveRootSyncBeatDuration(opts: {
+/**
+ * Canonical FINAL beat duration: the storyboard duration acts as a minimum
+ * that gets stretched to cover the generated narration audio (+0.5s pad).
+ * This is the duration the root timeline allocates per beat — and therefore
+ * the duration scenes must be composed at (data-duration + timeline anchors),
+ * or they go dark for the stretched tail.
+ */
+export async function resolveSyncedBeatDuration(opts: {
   projectDir: string;
   beatDuration?: number;
   narrationPath?: string;
@@ -244,6 +251,31 @@ async function resolveRootSyncBeatDuration(opts: {
   } catch {
     return Number(storyboardMin.toFixed(2));
   }
+}
+
+/**
+ * Final narration-synced duration per beat for a project on disk. Reads
+ * STORYBOARD.md + build-report.json + narration asset fallbacks via
+ * {@link loadProjectRootSyncBeats}.
+ */
+export async function resolveProjectBeatDurations(
+  projectDir: string
+): Promise<Map<string, number>> {
+  const root = resolve(projectDir);
+  const beats = await loadProjectRootSyncBeats(root);
+  const durations = new Map<string, number>();
+  for (const beat of beats) {
+    durations.set(
+      beat.id,
+      await resolveSyncedBeatDuration({
+        projectDir: root,
+        beatDuration: beat.duration,
+        narrationPath: beat.narrationPath,
+        sceneDurationSec: beat.sceneDurationSec,
+      })
+    );
+  }
+  return durations;
 }
 
 function rootSyncIssueCodes(

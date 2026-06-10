@@ -51,7 +51,11 @@ import {
   resolveTypedAssetReference,
   type AssetReferenceCandidate,
 } from "./build-asset-reference.js";
-import { syncRootComposition, type RootSyncBeatInput } from "./root-sync.js";
+import {
+  syncRootComposition,
+  resolveSyncedBeatDuration,
+  type RootSyncBeatInput,
+} from "./root-sync.js";
 import {
   backdropCacheDescriptor,
   type BuildAssetKind,
@@ -962,7 +966,7 @@ async function buildBeatPrimitives(
       narrationError: narration.error,
       narrationDurationSec: narration.durationSec,
       sceneDurationSec: narration.path
-        ? await resolveBeatDuration({
+        ? await resolveSyncedBeatDuration({
             beatDuration: beat.duration,
             narrationPath: narration.path,
             projectDir: ctx.projectDir,
@@ -2385,18 +2389,3 @@ function rootSyncBeatsFromOutcomes(
   });
 }
 
-async function resolveBeatDuration(opts: {
-  beatDuration?: number;
-  narrationPath?: string;
-  projectDir: string;
-}): Promise<number> {
-  const storyboardMin = opts.beatDuration ?? 3;
-  if (!opts.narrationPath) return Number(storyboardMin.toFixed(2));
-
-  try {
-    const audioDuration = await getAudioDuration(join(opts.projectDir, opts.narrationPath));
-    return Number(Math.max(storyboardMin, audioDuration + 0.5).toFixed(2));
-  } catch {
-    return Number(storyboardMin.toFixed(2));
-  }
-}

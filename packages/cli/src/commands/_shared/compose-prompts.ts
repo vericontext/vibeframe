@@ -38,6 +38,7 @@ import { join, relative, resolve } from "node:path";
 
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { buildUserPrompt } from "./compose-scenes-skills.js";
+import { resolveProjectBeatDurations } from "./root-sync.js";
 import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
 
 export interface ComposePromptsBeat {
@@ -47,8 +48,15 @@ export interface ComposePromptsBeat {
   heading: string;
   /** Path the agent should write the composition to (relative to projectDir). */
   outputPath: string;
-  /** Beat duration in seconds (from cues or `### Beat duration` subsection), if known. */
+  /** Storyboard beat duration in seconds (the MINIMUM — see finalDurationSec). */
   duration?: number;
+  /**
+   * Narration-synced FINAL beat duration in seconds — the storyboard duration
+   * stretched to cover generated narration audio. Use THIS for
+   * `data-duration` and timeline anchors when present; using the storyboard
+   * `duration` produces scenes that end early and render black tails.
+   */
+  finalDurationSec?: number;
   /** Per-beat YAML cues parsed from the leading code block of the body. */
   cues?: Record<string, unknown>;
   /** Beat body markdown (with the leading `\`\`\`yaml` cue block stripped). */
@@ -163,18 +171,31 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     beats = parsed.beats;
   }
 
+  // Pin prompts to the narration-synced FINAL durations when resolvable
+  // (assets stage already ran → narration files exist). Failure here must
+  // not block the plan; the storyboard durations remain a valid fallback.
+  let finalDurations = new Map<string, number>();
+  try {
+    finalDurations = await resolveProjectBeatDurations(projectDir);
+  } catch {
+    // best-effort only
+  }
+
   const result: ComposePromptsBeat[] = beats.map((beat) => {
     const outputPathAbs = join(compositionsDir, `scene-${beat.id}.html`);
     const outputPathRel = relative(projectDir, outputPathAbs);
+    const finalDurationSec = finalDurations.get(beat.id);
     const userPrompt = buildUserPrompt({
       beat,
       storyboardGlobal: parsed.global,
+      finalDurationSec,
     });
     return {
       id: beat.id,
       heading: beat.heading,
       outputPath: outputPathRel,
       duration: beat.duration,
+      finalDurationSec,
       cues: beat.cues,
       body: beat.body,
       userPrompt,
@@ -216,6 +237,7 @@ function buildInstructions(args: {
   }
   lines.push(`2. Read \`DESIGN.md\` for project-specific palette, typography, motion signature.`);
   lines.push(`3. For each beat in the \`beats\` array below, author HTML at \`outputPath\` matching the \`userPrompt\`. The beat \`body\` carries the narrative + visual + animation intent; \`cues\` carries machine-readable per-beat overrides (narration, duration, backdrop, voice).`);
+  lines.push(`3b. Use each beat's \`finalDurationSec\` (narration-synced) for \`data-duration\` and timeline anchors when present — NOT the storyboard \`duration\`, which is only the minimum. Scenes composed at the storyboard duration end early and render black tails.`);
   if (args.beatCount > 1) {
     lines.push(`4. After authoring all ${args.beatCount} beat(s), run \`vibe scene lint --fix\` to validate. Fix any remaining errors by editing the HTML directly.`);
   } else if (args.filtered) {
