@@ -374,7 +374,8 @@ Cost tier: _not tagged_
 **Parameters:**
 
 - `project-dir` _(string)_ — Video project directory
-- `out` _(string)_ — Output file (default: renders/<name>-<timestamp>.<format>)
+- `output` _(string)_ — Output file (default: renders/<name>-<timestamp>.<format>)
+- `out` _(string)_ — (deprecated) alias for --output
 - `root` _(string)_ _(default: `"index.html"`)_ — Root composition file
 - `beat` _(string)_ — Render only one storyboard beat using a temporary root
 - `fps` _(number)_ _(default: `30`)_ — Frames per second: 24|30|60

@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import { resolve } from "node:path";
@@ -19,7 +19,8 @@ const VALID_FORMATS: RenderFormat[] = ["mp4", "webm", "mov"];
 export const renderCommand = new Command("render")
   .description("Render a VibeFrame video project to MP4/WebM/MOV")
   .argument("[project-dir]", "Video project directory", ".")
-  .option("-o, --out <path>", "Output file (default: renders/<name>-<timestamp>.<format>)")
+  .option("-o, --output <path>", "Output file (default: renders/<name>-<timestamp>.<format>)")
+  .addOption(new Option("--out <path>", "(deprecated) alias for --output").hideHelp())
   .option("--root <file>", "Root composition file", "index.html")
   .option("--beat <id>", "Render only one storyboard beat using a temporary root")
   .option("--fps <n>", `Frames per second: ${VALID_FPS.join("|")}`, "30")
@@ -42,12 +43,16 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
     const quality = parseQuality(String(options.quality));
     const format = parseFormat(String(options.format));
     const workers = parseWorkers(String(options.workers));
+    const output = options.output ?? options.out;
+    if (options.out !== undefined && options.output === undefined && !isJsonMode() && !isQuietMode()) {
+      console.error(chalk.yellow("--out is deprecated; use -o, --output"));
+    }
 
     const params = {
       projectDir,
       root: options.root,
       beatId: options.beat,
-      output: options.out,
+      output,
       fps,
       quality,
       format,
@@ -75,7 +80,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
       projectDir,
       root: options.root,
       beatId: options.beat,
-      output: options.out,
+      output,
       fps,
       quality,
       format,
