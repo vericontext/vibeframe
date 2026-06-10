@@ -30,6 +30,7 @@ import {
 import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 import { getComposePrompts } from "../../commands/_shared/compose-prompts.js";
 import { executeSceneRepair } from "../../commands/_shared/scene-repair.js";
+import { executeSceneSubmit } from "../../commands/_shared/scene-submit.js";
 
 const SCENE_PRESETS = [
   "simple",
@@ -638,7 +639,7 @@ function mapBuildResultToToolResult(
     },
     humanLines: [
       result.phase === "needs-author"
-        ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan.`
+        ? `Agent mode — ${result.composePrompts?.beats.filter((b) => !b.exists).length ?? 0} beat(s) need to be authored by the host agent. See data.composePrompts for the plan. If you cannot write files (e.g. Claude Desktop), author each beat's HTML and submit it with scene_submit.`
         : result.phase === "pending-jobs"
           ? `Build paused for ${result.jobs?.length ?? 0} async job(s). Poll with status_project/status_job, then rerun build.`
           : `Scene build complete${result.outputPath ? ` — ${result.outputPath}` : " (skipRender)"}`,
@@ -806,7 +807,7 @@ export const sceneComposePromptsTool = defineTool({
   category: "scene",
   cost: "free",
   description:
-    "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus references to the project's SKILL.md (Hyperframes rules) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here. Pairs with scene_install_skill (Phase H1). Phase H2 of the agentic-native composer plan; the internal-LLM batch path (build) remains as a fallback for non-agent contexts.",
+    "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus references to the project's SKILL.md (Hyperframes rules) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here. Hosts that cannot write files (e.g. Claude Desktop) submit each authored beat with scene_submit instead. Pairs with scene_install_skill (Phase H1). Phase H2 of the agentic-native composer plan; the internal-LLM batch path (build) remains as a fallback for non-agent contexts.",
   schema: sceneComposePromptsSchema,
   async execute(args, ctx) {
     const projectDir = resolve(ctx.workingDirectory, args.projectDir);
@@ -837,6 +838,59 @@ export const sceneComposePromptsTool = defineTool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// scene_submit — agent-mode compose for hosts that cannot write files
+// ---------------------------------------------------------------------------
+
+const sceneSubmitSchema = z.object({
+  projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
+  beat: z.string().describe("Beat id from STORYBOARD.md (e.g. 'hook')."),
+  html: z
+    .string()
+    .describe(
+      "The complete scene HTML for this beat — a bare <template id=\"scene-<id>-template\"> fragment exactly as described by the beat's compose prompt. A ```html fence around it is accepted."
+    ),
+  validateOnly: z
+    .boolean()
+    .optional()
+    .describe("Lint the HTML without writing the file. Default false."),
+});
+
+export const sceneSubmitTool = defineTool({
+  name: "scene_submit",
+  category: "scene",
+  cost: "free",
+  description:
+    "Submit host-authored Hyperframes scene HTML for one beat. Validates with the same lint as the batch composer and writes compositions/scene-<id>.html on pass; on lint errors it returns the findings WITHOUT writing so you can fix and resubmit. This completes agent-mode compose for hosts that cannot write files (e.g. Claude Desktop): build (mode agent) → needs-author plan → author each beat from its composePrompts userPrompt → scene_submit per beat → build (stage sync) → render. No internal LLM call — the submitting agent is the composer.",
+  schema: sceneSubmitSchema,
+  async execute(args, ctx) {
+    const projectDir = args.projectDir
+      ? resolve(ctx.workingDirectory, args.projectDir)
+      : ctx.workingDirectory;
+    const result = await executeSceneSubmit({
+      projectDir,
+      beatId: args.beat,
+      html: args.html,
+      validateOnly: args.validateOnly,
+    });
+    return {
+      success: result.success,
+      data: result as unknown as Record<string, unknown>,
+      error: result.success ? undefined : (result.error ?? "scene submit failed"),
+      humanLines: [
+        result.success
+          ? `${result.written ? "✅ Scene written" : "✅ Scene valid (not written)"}: ${result.scenePath}`
+          : `❌ Scene submit failed: ${result.error}`,
+        `   lint: ${result.lint.errorCount} error(s), ${result.lint.warningCount} warning(s)` +
+          (result.mechanicalFixes.length > 0
+            ? `; auto-fixed: ${result.mechanicalFixes.join(", ")}`
+            : ""),
+        ...result.warnings.map((w) => `   ⚠️ ${w}`),
+      ],
+    };
+  },
+});
+
 /** All scene-category manifest entries (type-erased for heterogeneous aggregation). */
 export const sceneTools: readonly AnyTool[] = [
   sceneInitTool as unknown as AnyTool,
@@ -848,4 +902,5 @@ export const sceneTools: readonly AnyTool[] = [
   sceneStylesTool as unknown as AnyTool,
   sceneInstallSkillTool as unknown as AnyTool,
   sceneComposePromptsTool as unknown as AnyTool,
+  sceneSubmitTool as unknown as AnyTool,
 ];

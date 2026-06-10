@@ -3769,6 +3769,39 @@ exports[`CLI --describe schemas (drift detection) > vibe scene repair --describe
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe scene submit --describe 1`] = `
+{
+  "description": "Submit host-authored scene HTML for one beat: validates with the Hyperframes lint and writes compositions/scene-<id>.html on pass",
+  "name": "scene.submit",
+  "parameters": {
+    "properties": {
+      "beat": {
+        "description": "Beat id from STORYBOARD.md (e.g. 'hook')",
+        "type": "string",
+      },
+      "file": {
+        "description": "Read the scene HTML from a file ('-' reads raw HTML from stdin)",
+        "type": "string",
+      },
+      "html": {
+        "description": "Scene HTML inline (mainly for the global --stdin JSON payload: {"html": "..."})",
+        "type": "string",
+      },
+      "project-dir": {
+        "description": "Project directory containing STORYBOARD.md",
+        "type": "string",
+      },
+      "validateOnly": {
+        "description": "Lint without writing the file",
+        "type": "boolean",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = `
 {
   "description": "Configure VibeFrame (LLM provider, API keys)",

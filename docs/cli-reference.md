@@ -94,7 +94,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    36 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +26 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    43 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +33 more |
+| **Advanced** |    44 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +34 more |
 | **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
@@ -110,7 +110,7 @@ listed in their command sections for compatibility.
 | **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
-| **Not tagged** |    12 | `build` · `doctor` · `guide` · `init` · `plan` · `render` · `setup` · `context` · +4 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
+| **Not tagged** |    13 | `build` · `doctor` · `guide` · `init` · `plan` · `render` · `setup` · `context` · +5 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first — the response
 > includes a `costUsd` estimate when the command supports dry-run.
@@ -1441,6 +1441,22 @@ Cost tier: `free`
 - `root` _(string)_ — Project directory, or root composition file relative to --project
 - `project` _(string)_ _(default: `"."`)_ — Project directory
 - `dryRun` _(boolean)_ — Preview repairs without writing files
+
+#### `vibe scene submit`
+
+Submit host-authored scene HTML for one beat: validates with the Hyperframes lint and writes compositions/scene-<id>.html on pass
+
+Product surface: `advanced`
+
+Cost tier: _not tagged_
+
+**Parameters:**
+
+- `project-dir` _(string)_ — Project directory containing STORYBOARD.md
+- `beat` _(string)_ — Beat id from STORYBOARD.md (e.g. 'hook')
+- `file` _(string)_ — Read the scene HTML from a file ('-' reads raw HTML from stdin)
+- `html` _(string)_ — Scene HTML inline (mainly for the global --stdin JSON payload: {"html": "..."})
+- `validateOnly` _(boolean)_ — Lint without writing the file
 
 ### `timeline`
 

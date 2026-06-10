@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(98);
+      expect(tools.length).toBe(99);
     });
 
     it("should register all project tools (5)", () => {
@@ -593,13 +593,13 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(runTools.length).toBe(0); // v0.75: bare `run` is MCP-only (`surfaces: ["mcp"]`); not registered into the agent surface
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
-      expect(sceneTools.length).toBe(6); // +repair deterministic scene repair
+      expect(sceneTools.length).toBe(7); // +repair, +submit (host-authored HTML)
       expect(storyboardTools.length).toBe(6); // TO-BE: list/validate/get/set/move/revise
       expect(projectFlowTools.length).toBe(4); // v0.75+: init/plan/build/render top-level
       expect(guideTools.length).toBe(1); // v0.91: universal guide equivalent
       expect(statusTools.length).toBe(2); // TO-BE: job/project async status
 
-      // 5+13+4+12+14+16+6+3+0+3+3+6+6+4+1+2 = 98.
+      // 5+13+4+12+14+16+6+3+0+3+3+7+6+4+1+2 = 99.
       // timeline_create/info are canonical; project_create/info remain
       // compatibility aliases until v1.0.
       const totalTools =
@@ -619,7 +619,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         projectFlowTools.length +
         guideTools.length +
         statusTools.length;
-      expect(totalTools).toBe(98);
+      expect(totalTools).toBe(99);
     });
   });
 });

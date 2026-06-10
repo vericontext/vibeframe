@@ -24,7 +24,7 @@ async function callScene(name: string, args: Record<string, unknown>): Promise<s
 }
 
 describe("MCP scene tools — registration", () => {
-  it("exports nine tools with the canonical names", () => {
+  it("exports ten tools with the canonical names", () => {
     const names = sceneMcpTools.map((t) => t.name).sort();
     expect(names).toEqual([
       "build",
@@ -36,6 +36,7 @@ describe("MCP scene tools — registration", () => {
       "scene_lint",
       "scene_list_styles",
       "scene_repair",
+      "scene_submit",
     ]);
   });
 

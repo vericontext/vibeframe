@@ -63,6 +63,7 @@ import {
   type InstallSkillHost,
 } from "./_shared/install-skill.js";
 import { getComposePrompts } from "./_shared/compose-prompts.js";
+import { executeSceneSubmit } from "./_shared/scene-submit.js";
 import { executeSceneRepair } from "./_shared/scene-repair.js";
 
 function validateDuration(value: string): number {
@@ -290,6 +291,83 @@ sceneCommand
         "Re-run with --json to get the full per-beat userPrompt + cues for direct consumption."
       )
     );
+  });
+
+// ---------------------------------------------------------------------------
+// `vibe scene submit` — accept host-authored scene HTML (lint-gated write)
+
+sceneCommand
+  .command("submit")
+  .description(
+    "Submit host-authored scene HTML for one beat: validates with the Hyperframes lint and writes compositions/scene-<id>.html on pass"
+  )
+  .argument("[project-dir]", "Project directory containing STORYBOARD.md", ".")
+  .requiredOption("--beat <id>", "Beat id from STORYBOARD.md (e.g. 'hook')")
+  .option("--file <path>", "Read the scene HTML from a file ('-' reads raw HTML from stdin)")
+  .option(
+    "--html <html>",
+    "Scene HTML inline (mainly for the global --stdin JSON payload: {\"html\": \"...\"})"
+  )
+  .option("--validate-only", "Lint without writing the file")
+  .action(async (projectDirArg: string, options) => {
+    const startedAt = Date.now();
+    const projectDir = resolve(projectDirArg);
+
+    let html: string;
+    if (options.html) {
+      html = String(options.html);
+    } else if (options.file === "-") {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      html = Buffer.concat(chunks).toString("utf-8");
+    } else if (options.file) {
+      html = await readFile(resolve(String(options.file)), "utf-8");
+    } else {
+      exitWithError(
+        usageError(
+          "Provide the scene HTML via --file <path>, --file - (stdin), or --html.",
+          "cat scene.html | vibe scene submit <dir> --beat hook --file -"
+        )
+      );
+      return;
+    }
+
+    const result = await executeSceneSubmit({
+      projectDir,
+      beatId: String(options.beat),
+      html,
+      validateOnly: Boolean(options.validateOnly),
+    });
+
+    if (isJsonMode()) {
+      outputSuccess({ command: "scene submit", startedAt, data: { ...result } });
+      if (!result.success) process.exitCode = 1;
+      return;
+    }
+
+    if (!result.success) {
+      for (const finding of result.lint.findings) {
+        console.error(chalk.red(`  [${finding.severity}] ${finding.code}: ${finding.message}`));
+      }
+      exitWithError(generalError(result.error ?? "scene submit failed"));
+    }
+
+    console.log(
+      chalk.green(
+        `${result.written ? "✅ Scene written" : "✅ Scene valid (not written)"}: ${result.scenePath}`
+      )
+    );
+    console.log(
+      chalk.dim(
+        `   lint: ${result.lint.errorCount} error(s), ${result.lint.warningCount} warning(s)` +
+          (result.mechanicalFixes.length > 0
+            ? `; auto-fixed: ${result.mechanicalFixes.join(", ")}`
+            : "")
+      )
+    );
+    for (const w of result.warnings) console.log(chalk.yellow(`   ⚠ ${w}`));
   });
 
 // ---------------------------------------------------------------------------
