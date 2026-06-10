@@ -32,6 +32,7 @@ import {
 } from "@vibeframe/ai-providers";
 
 import { getAudioDuration } from "../../utils/audio.js";
+import { mapWithConcurrency } from "../../utils/concurrency.js";
 import {
   executeComposeScenesWithSkills,
   type ComposeEffort,
@@ -84,6 +85,15 @@ import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.j
 export { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 
 export type BuildImageProvider = "openai" | "gemini" | "grok";
+
+/**
+ * Cap on concurrent per-beat primitive dispatch. ElevenLabs subscriptions
+ * allow 5 concurrent requests; a 6+ beat build firing all narrations at once
+ * hits 429 too_many_concurrent_requests and fails the assets stage. 4 leaves
+ * headroom for other ElevenLabs traffic while keeping image/video dispatch
+ * effectively parallel.
+ */
+const BEAT_PRIMITIVES_CONCURRENCY = 4;
 
 // ── Public types ─────────────────────────────────────────────────────────
 
@@ -504,8 +514,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   let pendingJobs: JobRecord[] = [];
   if (shouldRunStage(selectedStage, "assets")) {
     onProgress({ type: "phase-start", phase: "primitives" });
-    const primitiveResults = await Promise.all(
-      activeBeats.map((beat) =>
+    const primitiveResults = await mapWithConcurrency(
+      activeBeats,
+      BEAT_PRIMITIVES_CONCURRENCY,
+      (beat) =>
         buildBeatPrimitives(beat, {
           projectDir,
           ttsProvider,
@@ -522,7 +534,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           force: opts.force ?? false,
           onProgress,
         })
-      )
     );
     beatOutcomes = primitiveResults.map((result) => result.outcome);
     pendingJobs = primitiveResults.flatMap((result) => result.jobs);

@@ -194,6 +194,10 @@ export function resolveVoiceId(input: string | undefined): string {
   );
 }
 
+/** One retry absorbs transient concurrent-limit overlap; see textToSpeech. */
+const TTS_429_MAX_RETRIES = 1;
+const TTS_429_RETRY_DELAY_MS = 2000;
+
 /**
  * ElevenLabs provider for text-to-speech
  */
@@ -272,28 +276,42 @@ export class ElevenLabsProvider implements AIProvider {
 
       const model = options.model || "eleven_v3";
 
-      const response = await fetch(
-        `${this.baseUrl}/text-to-speech/${voiceId}`,
-        {
-          method: "POST",
-          headers: {
-            "xi-api-key": this.apiKey,
-            "Content-Type": "application/json",
-            Accept: "audio/mpeg",
-          },
-          body: JSON.stringify({
-            text,
-            model_id: model,
-            voice_settings: {
-              stability: options.stability ?? 0.5,
-              similarity_boost: options.similarityBoost ?? 0.75,
-              style: options.style ?? 0,
-              use_speaker_boost: true,
+      // ElevenLabs subscriptions cap concurrent requests (5 on the standard
+      // tier) and reject overflow with 429 too_many_concurrent_requests.
+      // One short-backoff retry absorbs transient overlap with other
+      // in-flight requests without masking a genuinely saturated account.
+      let response: Response;
+      for (let attempt = 0; ; attempt++) {
+        response = await fetch(
+          `${this.baseUrl}/text-to-speech/${voiceId}`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key": this.apiKey,
+              "Content-Type": "application/json",
+              Accept: "audio/mpeg",
             },
-            ...(options.speed !== undefined && { speed: options.speed }),
-          }),
+            body: JSON.stringify({
+              text,
+              model_id: model,
+              voice_settings: {
+                stability: options.stability ?? 0.5,
+                similarity_boost: options.similarityBoost ?? 0.75,
+                style: options.style ?? 0,
+                use_speaker_boost: true,
+              },
+              ...(options.speed !== undefined && { speed: options.speed }),
+            }),
+          }
+        );
+        if (response.status === 429 && attempt < TTS_429_MAX_RETRIES) {
+          await new Promise((resolveDelay) =>
+            setTimeout(resolveDelay, TTS_429_RETRY_DELAY_MS * (attempt + 1))
+          );
+          continue;
         }
-      );
+        break;
+      }
 
       if (!response.ok) {
         const error = await response.text();
