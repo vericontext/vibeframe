@@ -51,11 +51,14 @@ await build({
     "@modelcontextprotocol/sdk",
     "@modelcontextprotocol/sdk/*",
     "zod",
-    // KokoroProvider only fires its dynamic import when textToSpeech() is
-    // called, which never happens through the MCP surface. Marking the heavy
-    // native graph (~150 MB across onnxruntime-node + transformers.js) as
-    // external keeps the bundle small and avoids esbuild's "no loader for
-    // .node files" error on prebuilt binaries.
+    // KokoroProvider loads kokoro-js via dynamic import only when local TTS
+    // actually runs. The heavy native graph (~150 MB across onnxruntime-node
+    // + transformers.js) stays external — bundling it would hit esbuild's
+    // "no loader for .node files" on prebuilt binaries. kokoro-js is
+    // declared in optionalDependencies so npm installs resolve the whole
+    // transitive graph (transformers → onnxruntime-node + sharp) next to
+    // the bundle; without that, `npx @vibeframe/mcp-server` kokoro TTS
+    // fails with ERR_MODULE_NOT_FOUND.
     "kokoro-js",
     "@huggingface/transformers",
     "onnxruntime-node",

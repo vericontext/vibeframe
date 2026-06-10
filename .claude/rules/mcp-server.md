@@ -29,6 +29,9 @@ Config file locations:
 **External deps** (NOT bundled — must be declared in `dependencies` or `peerDependencies`):
 - `@modelcontextprotocol/sdk`, `zod` — MCP protocol; host controls version
 - `@anthropic-ai/sdk`, `@google/generative-ai`, `openai` — optional AI SDKs via `peerDependencies`
+- `kokoro-js` — `optionalDependencies`; transitively provides `@huggingface/transformers`, `onnxruntime-node`, `sharp` (native `.node` binaries can't be bundled). Loaded via dynamic import only when local kokoro TTS runs.
+
+**Runtime artifacts copied next to the bundle by `build.js`:** `hyperframe.manifest.json` + `hyperframe.runtime.iife.js` (the bundled `@hyperframes/producer` resolves its verified runtime as siblings of its module file — without these every render fails with "Missing manifest").
 
 **Why bundle everything else?** Avoids version-drift bugs: if `build.js` externals and `package.json` dependencies fall out of sync, `npx -y @vibeframe/mcp-server` fails at runtime with `ERR_MODULE_NOT_FOUND`. Bundling = one fewer thing to synchronize.
 

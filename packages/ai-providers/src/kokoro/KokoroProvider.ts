@@ -108,8 +108,33 @@ async function loadKokoroFactory(): Promise<KokoroFactory> {
   // Dynamic import keeps the heavy `kokoro-js` graph (transformers.js +
   // onnxruntime-node, ~150MB combined) out of cold-path requires. Anything
   // that doesn't actually call `textToSpeech` pays zero cost.
-  const mod = (await import("kokoro-js")) as unknown as { KokoroTTS: KokoroFactory };
-  return mod.KokoroTTS;
+  try {
+    const mod = (await import("kokoro-js")) as unknown as { KokoroTTS: KokoroFactory };
+    return mod.KokoroTTS;
+  } catch (err) {
+    throw mapKokoroImportError(err);
+  }
+}
+
+/**
+ * kokoro-js ships as an optionalDependency (its native graph can fail to
+ * install on some platforms). Translate the raw module-resolution error into
+ * an actionable message instead of a bare ERR_MODULE_NOT_FOUND.
+ */
+export function mapKokoroImportError(err: unknown): Error {
+  const code =
+    err instanceof Error && "code" in err
+      ? (err as NodeJS.ErrnoException).code
+      : undefined;
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+    return new Error(
+      "Local Kokoro TTS is unavailable: optional dependency kokoro-js is not installed " +
+        "(its native dependencies may have failed to build on this platform). " +
+        "Install it with `npm i kokoro-js`, or set ELEVENLABS_API_KEY to use the " +
+        "elevenlabs TTS provider instead."
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 function loadModel(progress?: (event: KokoroLoadEvent) => void): Promise<KokoroModel> {

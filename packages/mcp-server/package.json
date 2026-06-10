@@ -45,6 +45,9 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.4"
   },
+  "optionalDependencies": {
+    "kokoro-js": "^1.2.1"
+  },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.39.0",
     "@google/generative-ai": ">=0.21.0",

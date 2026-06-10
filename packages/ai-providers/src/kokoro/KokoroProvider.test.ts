@@ -12,6 +12,7 @@ import {
   KOKORO_MODEL_ID,
   KokoroProvider,
   __setKokoroFactoryForTests,
+  mapKokoroImportError,
 } from "./KokoroProvider.js";
 
 function fakeWav(): ArrayBuffer {
@@ -207,3 +208,26 @@ describe("KokoroProvider — isolation", () => {
 
 // Suppress vi unused warning: keeps the import group ordered.
 void vi;
+
+describe("mapKokoroImportError", () => {
+  it("translates ERR_MODULE_NOT_FOUND into an actionable message", () => {
+    const raw = Object.assign(new Error("Cannot find package 'kokoro-js'"), {
+      code: "ERR_MODULE_NOT_FOUND",
+    });
+    const mapped = mapKokoroImportError(raw);
+    expect(mapped.message).toContain("kokoro-js is not installed");
+    expect(mapped.message).toContain("npm i kokoro-js");
+    expect(mapped.message).toContain("ELEVENLABS_API_KEY");
+  });
+
+  it("passes through unrelated errors untouched", () => {
+    const raw = new Error("weights download failed");
+    expect(mapKokoroImportError(raw)).toBe(raw);
+  });
+
+  it("wraps non-Error throwables", () => {
+    const mapped = mapKokoroImportError("boom");
+    expect(mapped).toBeInstanceOf(Error);
+    expect(mapped.message).toBe("boom");
+  });
+});
