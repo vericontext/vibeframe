@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.107.1] - 2026-06-10
+## [0.108.0] - 2026-06-10
+
+### Added
+
+- add scene_submit so file-less hosts can author scenes themselves *(mcp)*
+
+### Fixed
+
+- omit optional deps in the packed MCP smoke install *(ci)*
+
+## [0.107.0] - 2026-06-10
 
 ### Added
 
@@ -14,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- omit optional deps in the packed MCP smoke install *(ci)*
 - pass JSON-RPC frames through the stdout capture and normalise progress scale *(mcp)*
 - ignore float-epsilon clip overlaps in scene lint *(cli)*
 - walk parent directories for .env discovery in loadEnv *(cli)*
