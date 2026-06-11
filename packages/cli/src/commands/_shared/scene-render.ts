@@ -24,6 +24,10 @@ import {
   type RenderConfig,
 } from "@hyperframes/producer";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
+import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
+import { createProjectRootSyncPlan, loadProjectRootSyncBeats } from "./root-sync.js";
+import { createSubCompDurationSyncPlans } from "./sub-comp-duration-sync.js";
+import { executeSceneRepair } from "./scene-repair.js";
 import { rootExists } from "./scene-lint.js";
 import { scanSceneAudio } from "./scene-audio-scan.js";
 import { muxAudioIntoVideo } from "./scene-audio-mux.js";
@@ -87,6 +91,13 @@ export interface SceneRenderResult {
   /** Non-fatal warning from the audio mux pass — caller may surface to the user. */
   audioMuxWarning?: string;
   reportPath?: string;
+  /**
+   * True when the pre-render drift guard found narration-synced durations
+   * out of step with the composed timeline (e.g. sync stage skipped or run
+   * with stale durations) and re-synced root + scene durations first.
+   */
+  autoSyncApplied?: boolean;
+  autoSyncWarning?: string;
   code?: string;
   error?: string;
   retryWith?: string[];
@@ -216,6 +227,46 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
       beat: opts.beatId ?? null,
       error: `Project directory not found: ${projectDir}`,
     };
+  }
+
+  // ffmpeg muxes narration onto the producer's video and ffprobe powers the
+  // narration-duration drift guard below — fail early with one clear error.
+  if (!ffmpegToolsAvailable()) {
+    return {
+      success: false,
+      kind: "render",
+      beat: opts.beatId ?? null,
+      code: "FFMPEG_MISSING",
+      error:
+        "FFmpeg (ffmpeg/ffprobe) was not found on PATH; rendering needs it for audio mux and duration checks. Install it (macOS: `brew install ffmpeg`) and retry.",
+    };
+  }
+
+  // -- Drift guard: narration-synced durations vs composed timeline -------
+  // A project rendered without the sync stage (or synced while ffprobe was
+  // unavailable) has clips shorter than their narration, so the mux cuts
+  // audio at every beat boundary. Detect drift against the narration FILES
+  // and re-run the same repair pass `vibe build` uses before rendering.
+  let autoSyncApplied = false;
+  let autoSyncWarning: string | undefined;
+  if (!opts.beatId && existsSync(join(projectDir, "STORYBOARD.md"))) {
+    try {
+      const rootPlan = await createProjectRootSyncPlan({ projectDir });
+      const subPlans = await createSubCompDurationSyncPlans({
+        projectDir,
+        beats: await loadProjectRootSyncBeats(projectDir),
+      });
+      if (rootPlan.changed || subPlans.some((plan) => plan.changed)) {
+        await executeSceneRepair({ projectDir });
+        autoSyncApplied = true;
+        autoSyncWarning =
+          "Narration-synced durations drifted from the composed timeline; root and scene durations were re-synced before rendering (same pass as `vibe build --stage sync`).";
+      }
+    } catch (error) {
+      autoSyncWarning = `Narration drift check skipped: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+    }
   }
 
   let root = opts.root ?? projectConfig.config.composition.entry;
@@ -350,6 +401,8 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     audioCount,
     audioMuxApplied,
     audioMuxWarning,
+    ...(autoSyncApplied ? { autoSyncApplied } : {}),
+    ...(autoSyncWarning ? { autoSyncWarning } : {}),
   };
 
   if (opts.revealInFinder) {

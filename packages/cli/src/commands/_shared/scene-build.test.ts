@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { executeSceneBuild, type BuildReport } from "./scene-build.js";
+import { __setFfmpegToolsForTests } from "./ffmpeg-gate.js";
 import { buildEmptyRootHtml } from "./scene-project.js";
 
 // ── Module mocks (must be hoisted before the imported module loads) ─────
@@ -89,7 +90,23 @@ End frame.
 
 let projectDir: string;
 
+it("fails fast with FFMPEG_MISSING when ffprobe is unavailable", async () => {
+  __setFfmpegToolsForTests(false);
+  try {
+    const dir = mkdtempSync(join(tmpdir(), "scene-build-noffmpeg-"));
+    writeFileSync(join(dir, "STORYBOARD.md"), STORYBOARD_WITH_CUES);
+    const r = await executeSceneBuild({ projectDir: dir });
+    expect(r.success).toBe(false);
+    expect(r.code).toBe("FFMPEG_MISSING");
+    expect(r.suggestion).toContain("brew install ffmpeg");
+  } finally {
+    __setFfmpegToolsForTests(true);
+  }
+});
+
 beforeEach(() => {
+  // CI runners have no ffmpeg; these tests exercise stage logic, not probing.
+  __setFfmpegToolsForTests(true);
   projectDir = mkdtempSync(join(tmpdir(), "scene-build-test-"));
   mkdirSync(join(projectDir, "compositions"), { recursive: true });
   writeFileSync(join(projectDir, "STORYBOARD.md"), STORYBOARD_WITH_CUES);

@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { executeSceneBuild, resolveSceneBuildMode } from "./scene-build.js";
+import { __setFfmpegToolsForTests } from "./ffmpeg-gate.js";
 import { buildEmptyRootHtml } from "./scene-project.js";
 
 vi.mock("./tts-resolve.js", () => ({
@@ -90,6 +91,8 @@ function validCompositionHtml(id: string, duration: number): string {
 }
 
 beforeEach(() => {
+  // CI runners have no ffmpeg; these tests exercise mode dispatch, not probing.
+  __setFfmpegToolsForTests(true);
   projectDir = mkdtempSync(join(tmpdir(), "scene-build-mode-test-"));
   mkdirSync(join(projectDir, "compositions"), { recursive: true });
   writeFileSync(join(projectDir, "STORYBOARD.md"), STORYBOARD);

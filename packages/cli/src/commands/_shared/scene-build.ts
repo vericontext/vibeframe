@@ -32,6 +32,7 @@ import {
 } from "@vibeframe/ai-providers";
 
 import { getAudioDuration } from "../../utils/audio.js";
+import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
 import { mapWithConcurrency } from "../../utils/concurrency.js";
 import {
   executeComposeScenesWithSkills,
@@ -388,6 +389,33 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       providerResolution: buildPlan.providerResolution,
       ...result,
     });
+
+  // ffprobe powers every narration-duration probe. Without it the assets
+  // and sync stages would "succeed" with storyboard durations and the final
+  // video truncates audio at every clip boundary — fail loudly instead.
+  if (shouldRunStage(selectedStage, "assets") || shouldRunStage(selectedStage, "sync")) {
+    if (!ffmpegToolsAvailable()) {
+      return finishBuildResult({
+        success: false,
+        phase: "failed",
+        mode,
+        selectedStage,
+        code: "FFMPEG_MISSING",
+        error:
+          "ffprobe (part of FFmpeg) was not found on PATH. Narration-synced durations cannot be computed without it.",
+        message: "ffprobe not found on PATH.",
+        suggestion: "Install FFmpeg (macOS: `brew install ffmpeg`), then re-run the build.",
+        recoverable: true,
+        beats: [],
+        stageReports,
+        warnings,
+        retryWith,
+        status: "failed",
+        currentStage: "assets",
+        totalLatencyMs: Date.now() - startedAt,
+      });
+    }
+  }
 
   if (!buildPlan.validation.ok) {
     let invalidBeats: Beat[] = [];

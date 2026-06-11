@@ -455,9 +455,14 @@ function mapRenderResultToToolResult(
       audioCount: result.audioCount,
       audioMuxApplied: result.audioMuxApplied,
       audioMuxWarning: result.audioMuxWarning,
+      ...(result.autoSyncApplied ? { autoSyncApplied: true } : {}),
+      ...(result.autoSyncWarning ? { autoSyncWarning: result.autoSyncWarning } : {}),
     },
     humanLines: [
       `✅ Render complete: ${result.absoluteOutputPath ?? result.outputPath}`,
+      ...(result.autoSyncApplied
+        ? [`   auto-sync: narration-synced durations were re-applied before render`]
+        : []),
       `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
       `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
       `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
