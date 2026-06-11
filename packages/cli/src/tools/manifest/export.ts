@@ -13,6 +13,8 @@ export const exportVideoTool = defineTool({
   name: "export_video",
   category: "export",
   cost: "free",
+  title: "Export Timeline to Video",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Export a VibeFrame timeline to a video file (MP4, WebM, or MOV). Requires FFmpeg.",
   schema: z.object({

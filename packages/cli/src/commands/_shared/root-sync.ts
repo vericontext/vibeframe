@@ -240,16 +240,24 @@ export async function resolveSyncedBeatDuration(opts: {
   beatDuration?: number;
   narrationPath?: string;
   sceneDurationSec?: number;
+  /** Injectable for tests — defaults to the ffprobe-backed audio probe. */
+  probeAudioDuration?: (absPath: string) => Promise<number>;
 }): Promise<number> {
-  if (opts.sceneDurationSec !== undefined) return Number(opts.sceneDurationSec.toFixed(2));
   const storyboardMin = opts.beatDuration ?? 3;
-  if (!opts.narrationPath) return Number(storyboardMin.toFixed(2));
+  const reported = opts.sceneDurationSec;
+  if (!opts.narrationPath) return Number((reported ?? storyboardMin).toFixed(2));
 
+  // The narration FILE is the ground truth, not build-report.json: a report
+  // written while ffprobe was unavailable records the storyboard duration as
+  // sceneDurationSec, and trusting it truncates audio at every clip
+  // boundary. Probe fresh and let the largest honest value win — the
+  // reported value still acts as a floor so compose-time padding survives.
+  const probe = opts.probeAudioDuration ?? getAudioDuration;
   try {
-    const audioDuration = await getAudioDuration(join(opts.projectDir, opts.narrationPath));
-    return Number(Math.max(storyboardMin, audioDuration + 0.5).toFixed(2));
+    const audioDuration = await probe(join(opts.projectDir, opts.narrationPath));
+    return Number(Math.max(storyboardMin, reported ?? 0, audioDuration + 0.5).toFixed(2));
   } catch {
-    return Number(storyboardMin.toFixed(2));
+    return Number(Math.max(storyboardMin, reported ?? 0).toFixed(2));
   }
 }
 

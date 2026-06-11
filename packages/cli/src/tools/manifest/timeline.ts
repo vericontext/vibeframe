@@ -23,6 +23,8 @@ export const timelineCreateTool = defineTool({
   name: "timeline_create",
   category: "timeline",
   cost: "free",
+  title: "Create Timeline",
+  annotations: { readOnly: false, openWorld: false },
   description: "Create a low-level timeline JSON file for FFmpeg-style editing",
   schema: z.object({
     name: z.string().describe("Timeline name or directory path"),
@@ -56,6 +58,8 @@ export const timelineInfoTool = defineTool({
   name: "timeline_info",
   category: "timeline",
   cost: "free",
+  title: "Get Timeline Info",
+  annotations: { readOnly: true, openWorld: false },
   description: "Get information about a timeline JSON file. Legacy *.vibe.json files are supported.",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -84,6 +88,8 @@ export const timelineAddSourceTool = defineTool({
   name: "timeline_add_source",
   category: "timeline",
   cost: "free",
+  title: "Add Source to Timeline",
+  annotations: { readOnly: false, openWorld: false },
   description: "Add a media source (video, audio, image) to the timeline",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -110,6 +116,8 @@ export const timelineAddClipTool = defineTool({
   name: "timeline_add_clip",
   category: "timeline",
   cost: "free",
+  title: "Add Clip to Timeline",
+  annotations: { readOnly: false, openWorld: false },
   description: "Add a clip to the timeline from an existing source",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -142,6 +150,8 @@ export const timelineSplitClipTool = defineTool({
   name: "timeline_split_clip",
   category: "timeline",
   cost: "free",
+  title: "Split Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Split a clip at a specific time",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -161,6 +171,8 @@ export const timelineTrimClipTool = defineTool({
   name: "timeline_trim_clip",
   category: "timeline",
   cost: "free",
+  title: "Trim Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Trim a clip by adjusting its start or end",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -181,6 +193,8 @@ export const timelineMoveClipTool = defineTool({
   name: "timeline_move_clip",
   category: "timeline",
   cost: "free",
+  title: "Move Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Move a clip to a new position or track",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -204,6 +218,8 @@ export const timelineDeleteClipTool = defineTool({
   name: "timeline_delete_clip",
   category: "timeline",
   cost: "free",
+  title: "Delete Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Delete a clip from the timeline",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -223,6 +239,8 @@ export const timelineDuplicateClipTool = defineTool({
   name: "timeline_duplicate_clip",
   category: "timeline",
   cost: "free",
+  title: "Duplicate Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Duplicate a clip on the timeline (optionally at a new start time)",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -242,6 +260,8 @@ export const timelineAddEffectTool = defineTool({
   name: "timeline_add_effect",
   category: "timeline",
   cost: "free",
+  title: "Add Effect to Clip",
+  annotations: { readOnly: false, openWorld: false },
   description: "Add an effect to a clip",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -269,6 +289,8 @@ export const timelineAddTrackTool = defineTool({
   name: "timeline_add_track",
   category: "timeline",
   cost: "free",
+  title: "Add Track to Timeline",
+  annotations: { readOnly: false, openWorld: false },
   description: "Add a new track to the timeline",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
@@ -296,6 +318,8 @@ export const timelineListTool = defineTool({
   name: "timeline_list",
   category: "timeline",
   cost: "free",
+  title: "List Timeline Contents",
+  annotations: { readOnly: true, openWorld: false },
   description: "List all sources, tracks, and clips in a project",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),

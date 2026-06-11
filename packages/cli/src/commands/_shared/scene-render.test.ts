@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +11,7 @@ import {
   prepareBeatRenderRoot,
   qualityToCrf,
 } from "./scene-render.js";
+import { __setFfmpegToolsForTests } from "./ffmpeg-gate.js";
 import { scaffoldSceneProject } from "./scene-project.js";
 import { emitSceneHtml, insertClipIntoRoot } from "./scene-html-emit.js";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
@@ -233,6 +234,28 @@ describe("prepareBeatRenderRoot", () => {
 // preflight) WITHOUT requiring Chrome to be installed.
 
 describe("executeSceneRender — validation", () => {
+  // CI runners have no ffmpeg; these tests exercise the validation surface
+  // downstream of the FFMPEG_MISSING gate.
+  beforeAll(() => {
+    __setFfmpegToolsForTests(true);
+  });
+  afterAll(() => {
+    __setFfmpegToolsForTests(null);
+  });
+
+  it("fails fast with FFMPEG_MISSING when the toolchain is unavailable", async () => {
+    __setFfmpegToolsForTests(false);
+    try {
+      const dir = await makeTmp();
+      const r = await executeSceneRender({ projectDir: dir });
+      expect(r.success).toBe(false);
+      expect(r.code).toBe("FFMPEG_MISSING");
+      expect(r.error).toMatch(/brew install ffmpeg/);
+    } finally {
+      __setFfmpegToolsForTests(true);
+    }
+  });
+
   it("returns a structured error when the project directory doesn't exist", async () => {
     const r = await executeSceneRender({ projectDir: "/tmp/__vibe_does_not_exist__" });
     expect(r.success).toBe(false);

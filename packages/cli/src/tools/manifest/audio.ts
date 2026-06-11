@@ -22,6 +22,8 @@ export const audioTranscribeTool = defineTool({
   name: "audio_transcribe",
   category: "audio",
   cost: "low",
+  title: "Transcribe Audio",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Transcribe audio using OpenAI Whisper. Outputs text, SRT, or VTT. Requires OPENAI_API_KEY.",
   schema: z.object({
@@ -55,6 +57,8 @@ export const audioIsolateTool = defineTool({
   name: "audio_isolate",
   category: "audio",
   cost: "low",
+  title: "Isolate Vocals from Audio",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Isolate vocals from audio using ElevenLabs. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
@@ -78,6 +82,8 @@ export const audioVoiceCloneTool = defineTool({
   name: "audio_clone_voice",
   category: "audio",
   cost: "low",
+  title: "Clone Voice from Samples",
+  annotations: { readOnly: false, destructive: false, openWorld: true },
   description:
     "Clone a voice from audio samples using ElevenLabs. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
@@ -105,6 +111,8 @@ export const audioDubTool = defineTool({
   name: "audio_dub",
   category: "audio",
   cost: "high",
+  title: "Dub Audio to Another Language",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Dub audio/video to another language (transcribe + translate + TTS). Requires OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY.",
   schema: z.object({
@@ -139,6 +147,8 @@ export const audioDuckTool = defineTool({
   name: "audio_duck",
   category: "audio",
   cost: "free",
+  title: "Duck Background Music",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Auto-duck background music when voice is present using FFmpeg sidechain compression. Free, no API key needed.",
   schema: z.object({

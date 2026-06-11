@@ -41,7 +41,26 @@ args = ["-y", "@vibeframe/mcp-server"]
 enabled = true
 ```
 
-### Claude Desktop
+### Claude Desktop (recommended: extension)
+
+Install the prebuilt Desktop Extension — no Node, npx, or JSON editing needed:
+
+1. Download the extension: [vibeframe.mcpb (always latest)](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
+   — or pick a specific version from the [releases page](https://github.com/vericontext/vibeframe/releases).
+2. In Claude Desktop open **Settings → Extensions** and drag the `.mcpb` file in
+   (or double-click the file).
+3. In the extension's settings pick your **Workspace folder** (projects are
+   created there; a `.env` file in that folder is loaded for API keys) and
+   optionally paste provider keys.
+
+Rendering still needs Google Chrome and `ffmpeg` on the machine. For free local
+Kokoro TTS, run `npm i kokoro-js` once inside the workspace folder. To update,
+download the new release's `.mcpb` and install it over the old one.
+
+To build the bundle from source: `pnpm -F @vibeframe/mcp-server build:mcpb`
+(output in `packages/mcp-server/dist-mcpb/`).
+
+#### Claude Desktop (manual JSON config)
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -63,6 +82,10 @@ The shell wrapper is important for Claude Desktop because it is a global app
 config and may not preserve a raw `cwd` field. It anchors relative project paths
 so prompts like "create a project named launch" create `launch/` under your
 workspace instead of a temporary directory.
+
+Note: some Claude Desktop builds rewrite this file from memory and can mangle
+hand-edited entries (the entry comes back as `"command": "custom"`). The
+extension install above avoids that entirely and is the recommended path.
 
 ### Cursor
 
@@ -102,6 +125,21 @@ Claude Code drives `vibe` natively via shell + the scaffolded `AGENTS.md` / `CLA
 claude mcp add vibeframe --scope project -- npx -y @vibeframe/mcp-server
 ```
 
+## Human-in-the-Loop Choices
+
+The server prefers asking over silently picking defaults:
+
+- On hosts that support **MCP elicitation** (Claude Code 2.1.76+), the `build`
+  tool opens a native form before the build starts for any choice the call
+  left unspecified: narration provider (Kokoro free/local vs ElevenLabs),
+  backdrop image generation (skip vs paid OpenAI), and a max cost cap.
+  Declining cancels the build before any provider spend. Set
+  `VIBE_MCP_ELICIT=off` in the server env to disable the form (headless and
+  automation setups).
+- On hosts without elicitation (Claude Desktop today), the server
+  instructions tell the agent to present the same choices in chat and wait
+  for your answer.
+
 ## What You Can Do
 
 Once connected, your MCP host can resolve prompts like these into typed tool calls:
@@ -123,6 +161,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 
 | Tool | Description |
 |------|-------------|
+| `project_list` | List workspace video projects with build/render status (`_archive/` skipped) |
 | `init` | Scaffold a video project with `STORYBOARD.md` + `DESIGN.md` |
 | `build` | Build a storyboard project: narration TTS, image assets, scene HTML composition |
 | `render` | Deterministic Hyperframes render → MP4/WebM/MOV |
@@ -284,6 +323,23 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 
 - Node.js 20+
 - FFmpeg on `PATH` (export, editing, pipelines)
+
+## Privacy Policy
+
+VibeFrame is local-first: no telemetry, no VibeFrame-operated servers in the
+data path. Projects and generated media stay in the workspace folder you
+choose; content is sent only to the AI providers you configure (Anthropic,
+OpenAI, Google, ElevenLabs, …) when you explicitly invoke them, and API keys
+live only on your machine. Tools that reach external services are marked with
+`openWorldHint` in their MCP annotations; everything else (timeline edits,
+ffmpeg operations, linting, rendering, local Kokoro TTS) runs fully locally.
+
+Full policy: <https://vibeframe.ai/privacy> (source:
+[PRIVACY.md](https://github.com/vericontext/vibeframe/blob/main/PRIVACY.md)).
+
+> Installing the `.mcpb` file directly shows a standard "not verified by
+> Anthropic" sideload notice in Claude Desktop — that is expected for
+> extensions distributed outside the official directory.
 
 ## License
 

@@ -32,6 +32,7 @@ import {
 } from "@vibeframe/ai-providers";
 
 import { getAudioDuration } from "../../utils/audio.js";
+import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
 import { mapWithConcurrency } from "../../utils/concurrency.js";
 import {
   executeComposeScenesWithSkills,
@@ -45,7 +46,12 @@ import { getApiKeyFromConfig } from "../../config/index.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { scaffoldSceneProject } from "./scene-project.js";
-import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./build-plan.js";
+import {
+  backdropCostUsd,
+  createBuildPlan,
+  type BuildPlanResult,
+  type BuildStage,
+} from "./build-plan.js";
 import {
   isReadyAssetReference,
   resolveGenericAssetReference,
@@ -389,6 +395,33 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       ...result,
     });
 
+  // ffprobe powers every narration-duration probe. Without it the assets
+  // and sync stages would "succeed" with storyboard durations and the final
+  // video truncates audio at every clip boundary — fail loudly instead.
+  if (shouldRunStage(selectedStage, "assets") || shouldRunStage(selectedStage, "sync")) {
+    if (!ffmpegToolsAvailable()) {
+      return finishBuildResult({
+        success: false,
+        phase: "failed",
+        mode,
+        selectedStage,
+        code: "FFMPEG_MISSING",
+        error:
+          "ffprobe (part of FFmpeg) was not found on PATH. Narration-synced durations cannot be computed without it.",
+        message: "ffprobe not found on PATH.",
+        suggestion: "Install FFmpeg (macOS: `brew install ffmpeg`), then re-run the build.",
+        recoverable: true,
+        beats: [],
+        stageReports,
+        warnings,
+        retryWith,
+        status: "failed",
+        currentStage: "assets",
+        totalLatencyMs: Date.now() - startedAt,
+      });
+    }
+  }
+
   if (!buildPlan.validation.ok) {
     let invalidBeats: Beat[] = [];
     if (existsSync(storyboardPath)) {
@@ -549,7 +582,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       : pendingJobs.length > 0
         ? "pending-jobs"
         : "done";
-    stageReports.assets.costUsd = estimateActualAssetCost(beatOutcomes);
+    stageReports.assets.costUsd = estimateActualAssetCost(
+      beatOutcomes,
+      opts.imageQuality ?? "hd"
+    );
     stageReports.assets.retryWith = pendingJobs.map(
       (job) => `vibe status job ${job.id} --project ${projectDir} --json`
     );
@@ -1933,11 +1969,14 @@ function shouldRunStage(selected: BuildStage, stage: Exclude<BuildStage, "all">)
   return selected === stage;
 }
 
-function estimateActualAssetCost(outcomes: BeatBuildOutcome[]): number {
+function estimateActualAssetCost(
+  outcomes: BeatBuildOutcome[],
+  imageQuality: "standard" | "hd"
+): number {
   let cost = 0;
   for (const outcome of outcomes) {
     if (outcome.narrationStatus === "generated") cost += 0.05;
-    if (outcome.backdropStatus === "generated") cost += 3;
+    if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") cost += 5;
     if (outcome.musicStatus === "generated" || outcome.musicStatus === "pending") cost += 0.5;
   }

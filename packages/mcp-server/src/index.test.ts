@@ -16,8 +16,8 @@ describe("@vibeframe/mcp-server", () => {
       expect(tools.length).toBeGreaterThan(0);
     });
 
-    it("should have 83 tools total", () => {
-      expect(tools.length).toBe(83);
+    it("should have 84 tools total", () => {
+      expect(tools.length).toBe(84);
     });
 
     it("should have correct tool structure", () => {
@@ -27,6 +27,23 @@ describe("@vibeframe/mcp-server", () => {
       expect(tool.description).toBeDefined();
       expect(typeof tool.description).toBe("string");
       expect(tool.inputSchema).toBeDefined();
+    });
+
+    // Anthropic extension-directory requirement: every tool ships a display
+    // title plus a readOnlyHint or destructiveHint safety annotation.
+    it("every tool has a title and complete safety annotations", () => {
+      for (const tool of tools) {
+        expect(tool.title, `${tool.name} missing title`).toBeTruthy();
+        const a = tool.annotations;
+        expect(a, `${tool.name} missing annotations`).toBeDefined();
+        expect(typeof a.readOnlyHint, `${tool.name} readOnlyHint`).toBe("boolean");
+        expect(typeof a.openWorldHint, `${tool.name} openWorldHint`).toBe("boolean");
+        if (a.readOnlyHint) {
+          expect(a.destructiveHint, `${tool.name} read-only must omit destructiveHint`).toBeUndefined();
+        } else {
+          expect(typeof a.destructiveHint, `${tool.name} destructiveHint`).toBe("boolean");
+        }
+      }
     });
 
     it("should export handleToolCall function", () => {

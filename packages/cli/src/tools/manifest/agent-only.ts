@@ -76,6 +76,8 @@ export const fsListTool = defineTool({
   name: "fs_list",
   category: "agent-only",
   cost: "free",
+  title: "List Files",
+  annotations: { readOnly: true, openWorld: false },
   surfaces: ["agent"],
   description: "List files and directories in a path",
   schema: z.object({
@@ -113,6 +115,8 @@ export const fsReadTool = defineTool({
   name: "fs_read",
   category: "agent-only",
   cost: "free",
+  title: "Read File",
+  annotations: { readOnly: true, openWorld: false },
   surfaces: ["agent"],
   description: "Read contents of a text file",
   schema: z.object({
@@ -136,6 +140,8 @@ export const fsWriteTool = defineTool({
   name: "fs_write",
   category: "agent-only",
   cost: "free",
+  title: "Write File",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Write content to a file",
   schema: z.object({
@@ -157,6 +163,8 @@ export const fsExistsTool = defineTool({
   name: "fs_exists",
   category: "agent-only",
   cost: "free",
+  title: "Check Path Exists",
+  annotations: { readOnly: true, openWorld: false },
   surfaces: ["agent"],
   description: "Check if a file or directory exists",
   schema: z.object({
@@ -181,6 +189,8 @@ export const batchImportTool = defineTool({
   name: "batch_import",
   category: "agent-only",
   cost: "free",
+  title: "Batch Import Media",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description:
     "Import multiple media files from a directory into a project. Scans directory for video, audio, and image files.",
@@ -257,6 +267,8 @@ export const batchConcatTool = defineTool({
   name: "batch_concat",
   category: "agent-only",
   cost: "free",
+  title: "Batch Concatenate Sources",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Concatenate multiple sources into sequential clips on the timeline",
   schema: z.object({
@@ -335,6 +347,8 @@ export const batchApplyEffectTool = defineTool({
   name: "batch_apply_effect",
   category: "agent-only",
   cost: "free",
+  title: "Batch Apply Effect",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Apply an effect to multiple clips at once",
   schema: z.object({
@@ -404,6 +418,8 @@ export const timelineClearTool = defineTool({
   name: "timeline_clear",
   category: "agent-only",
   cost: "free",
+  title: "Clear Timeline",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Clear timeline contents (remove clips, tracks, or sources)",
   schema: z.object({
@@ -498,6 +514,8 @@ export const projectSetTool = defineTool({
   name: "project_set",
   category: "agent-only",
   cost: "free",
+  title: "Update Project Settings",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   surfaces: ["agent"],
   description: "Update timeline settings (name, aspect ratio, frame rate)",
   schema: z.object({
@@ -547,6 +565,8 @@ export const projectOpenTool = defineTool({
   name: "project_open",
   category: "agent-only",
   cost: "free",
+  title: "Open Project",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   surfaces: ["agent"],
   description: "Open an existing project and set it as the current context",
   schema: z.object({
@@ -587,6 +607,8 @@ export const projectSaveTool = defineTool({
   name: "project_save",
   category: "agent-only",
   cost: "free",
+  title: "Save Project",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Save the current project (uses ctx.agent.projectPath if no path given)",
   schema: z.object({
@@ -632,6 +654,8 @@ export const exportAudioTool = defineTool({
   name: "export_audio",
   category: "agent-only",
   cost: "free",
+  title: "Export Audio",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description:
     "Export audio track from a project. Not implemented — use export_video then strip audio with FFmpeg.",
@@ -653,6 +677,8 @@ export const exportSubtitlesTool = defineTool({
   name: "export_subtitles",
   category: "agent-only",
   cost: "free",
+  title: "Export Subtitles",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description:
     "Export subtitles from transcription. Not implemented — use audio_transcribe to generate subtitles from audio.",
@@ -676,6 +702,8 @@ export const mediaInfoTool = defineTool({
   name: "media_info",
   category: "agent-only",
   cost: "free",
+  title: "Get Media Info",
+  annotations: { readOnly: true, openWorld: false },
   surfaces: ["agent"],
   description: "Get information about a media file (duration, resolution, codec, etc.)",
   schema: z.object({
@@ -774,6 +802,8 @@ export const mediaCompressTool = defineTool({
   name: "media_compress",
   category: "agent-only",
   cost: "free",
+  title: "Compress Media",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Compress a video or audio file using FFmpeg",
   schema: z.object({
@@ -835,6 +865,8 @@ export const mediaConvertTool = defineTool({
   name: "media_convert",
   category: "agent-only",
   cost: "free",
+  title: "Convert Media",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Convert media file to a different format using FFmpeg",
   schema: z.object({
@@ -887,6 +919,8 @@ export const mediaConcatTool = defineTool({
   name: "media_concat",
   category: "agent-only",
   cost: "free",
+  title: "Concatenate Media Files",
+  annotations: { readOnly: false, openWorld: false },
   surfaces: ["agent"],
   description: "Concatenate multiple media files into one using FFmpeg",
   schema: z.object({

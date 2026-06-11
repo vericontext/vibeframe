@@ -7,6 +7,7 @@ import { z } from "zod";
 import { resolve, relative } from "node:path";
 import { defineTool, type AnyTool, type ToolExecuteResult } from "../define-tool.js";
 import { runWithMcpPromotion, type LocalJobUpdate } from "../_shared/long-poll.js";
+import { applyElicitationAnswers, planBuildElicitation } from "../_shared/elicit.js";
 import { listVisualStyles, getVisualStyle } from "../../commands/_shared/visual-styles.js";
 import { scaffoldSceneProject, type SceneAspect } from "../../commands/_shared/scene-project.js";
 import { executeSceneAdd } from "../../commands/scene.js";
@@ -57,6 +58,8 @@ export const sceneStylesTool = defineTool({
   name: "scene_list_styles",
   category: "scene",
   cost: "free",
+  title: "List Visual Styles",
+  annotations: { readOnly: true, openWorld: false },
   description:
     "List the 8 vendored visual identities available for `init --visual-style` (Swiss Pulse, Data Drift, …) or, when `name` is provided, return the full DESIGN.md hard-gate body for one style. The DESIGN.md content is what the LLM uses as a non-negotiable visual rulebook during compose-scenes-with-skills.",
   schema: sceneStylesSchema,
@@ -129,6 +132,8 @@ export const sceneInitTool = defineTool({
   name: "init",
   category: "scene",
   cost: "free",
+  title: "Initialize Video Project",
+  annotations: { readOnly: false, destructive: false, idempotent: true, openWorld: false },
   description:
     "Scaffold a new VibeFrame video scene project. Supports minimal, agent, and full profiles; full includes the current HTML render backend metadata. Idempotent: re-running keeps user-authored files and merges backend config instead of overwriting. No API keys required.",
   schema: sceneInitSchema,
@@ -212,6 +217,8 @@ export const sceneAddTool = defineTool({
   name: "scene_add",
   category: "scene",
   cost: "low",
+  title: "Add Scene from Preset",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Add a single scene to an existing scene project. Optionally generates narration audio (ElevenLabs) and/or a backdrop image (Gemini/OpenAI), then emits compositions/scene-<id>.html with a paused GSAP timeline and splices a clip reference into the root index.html. Use skipAudio:true and skipImage:true for text-only scenes that need no API calls.",
   schema: sceneAddSchema,
@@ -306,6 +313,8 @@ export const sceneLintTool = defineTool({
   name: "scene_lint",
   category: "scene",
   cost: "free",
+  title: "Lint Scene Compositions",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
     "Validate every scene file in a project against the public Hyperframes lint rules (in-process, no Chrome required). Returns errors, warnings, and info findings per file. Optional fix:true mechanically repairs `timed_element_missing_clip_class` only — other issues surface with fixHints.",
   schema: sceneLintSchema,
@@ -355,6 +364,8 @@ export const sceneRepairTool = defineTool({
   name: "scene_repair",
   category: "scene",
   cost: "free",
+  title: "Repair Scene Compositions",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
     "Apply deterministic mechanical scene repairs. Currently uses the safe lint auto-fix allow-list and never performs semantic creative rewrites.",
   schema: sceneRepairSchema,
@@ -444,9 +455,14 @@ function mapRenderResultToToolResult(
       audioCount: result.audioCount,
       audioMuxApplied: result.audioMuxApplied,
       audioMuxWarning: result.audioMuxWarning,
+      ...(result.autoSyncApplied ? { autoSyncApplied: true } : {}),
+      ...(result.autoSyncWarning ? { autoSyncWarning: result.autoSyncWarning } : {}),
     },
     humanLines: [
       `✅ Render complete: ${result.absoluteOutputPath ?? result.outputPath}`,
+      ...(result.autoSyncApplied
+        ? [`   auto-sync: narration-synced durations were re-applied before render`]
+        : []),
       `   duration: ${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
       `   frames:   ${result.framesRendered ?? "?"}${result.totalFrames ? ` / ${result.totalFrames}` : ""}`,
       `   config:   ${result.fps}fps · ${result.quality} · ${result.format}`,
@@ -466,6 +482,8 @@ export const sceneRenderTool = defineTool({
   name: "render",
   category: "scene",
   cost: "free",
+  title: "Render Video to MP4",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Render a scene project to MP4/WebM/MOV via the Hyperframes producer. Requires Chrome installed locally. Output defaults to renders/<projectName>-<isoStamp>.<format>. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking render. Emits MCP progress notifications when the client supplies a progressToken.",
   schema: sceneRenderSchema,
@@ -667,10 +685,38 @@ export const sceneBuildTool = defineTool({
   name: "build",
   category: "scene",
   cost: "high",
+  title: "Build Video from Storyboard",
+  annotations: { readOnly: false, openWorld: true },
   description:
-    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking build. Emits MCP progress notifications when the client supplies a progressToken.",
+    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking build. Emits MCP progress notifications when the client supplies a progressToken. When the MCP host supports elicitation, unspecified asset choices (narration provider, backdrop images, cost cap) are confirmed with the user via a form before the build starts.",
   schema: sceneBuildSchema,
   async execute(args, ctx) {
+    let warnings: string[] | undefined;
+    if (ctx.surface === "mcp" && ctx.elicit) {
+      const form = planBuildElicitation(args);
+      if (form) {
+        // Errors and timeouts fall back to today's defaults so a flaky or
+        // headless client can never brick a build; an explicit decline or
+        // cancel aborts before any provider spend.
+        const outcome = await ctx.elicit(form).catch(() => null);
+        if (outcome === null) {
+          warnings = ["Asset-choice elicitation failed or timed out; proceeding with defaults."];
+        } else if (outcome.action === "accept") {
+          args = applyElicitationAnswers(args, outcome.content);
+        } else {
+          return {
+            success: false,
+            error: "Build cancelled — the user declined the asset choices.",
+            data: {
+              cancelled: true,
+              retryWith: [
+                `build { projectDir: "${args.projectDir ?? "."}", ttsProvider: "kokoro", skipBackdrop: true }`,
+              ],
+            },
+          };
+        }
+      }
+    }
     const projectDir = args.projectDir
       ? resolve(ctx.workingDirectory, args.projectDir)
       : ctx.workingDirectory;
@@ -701,7 +747,13 @@ export const sceneBuildTool = defineTool({
           ctx.onProgress?.({ message: update.message ?? update.stage });
           report(update);
         },
-      }).then(mapBuildResultToToolResult);
+      })
+        .then(mapBuildResultToToolResult)
+        .then((result) =>
+          warnings === undefined
+            ? result
+            : { ...result, data: { ...result.data, elicitationWarnings: warnings } }
+        );
     if (ctx.surface !== "mcp") {
       return runBuild(() => undefined);
     }
@@ -745,6 +797,8 @@ export const sceneInstallSkillTool = defineTool({
   name: "scene_install_skill",
   category: "scene",
   cost: "free",
+  title: "Install Hyperframes Skill",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
     "Install the vendored Hyperframes skill bundle into a scene project so the host agent (Claude Code, Cursor, Codex, Aider) can read framework rules + house style directly. Writes a universal SKILL.md + references/ at the project root, plus per-host layouts (.claude/skills/hyperframes/ for Claude Code, .cursor/rules/hyperframes.mdc for Cursor) when those hosts are detected. Phase H1 of the agentic-native composer plan — once installed, the host agent itself can author scene HTML using the rules instead of relying on vibe's internal LLM call.",
   schema: sceneInstallSkillSchema,
@@ -806,6 +860,8 @@ export const sceneComposePromptsTool = defineTool({
   name: "scene_compose_prompts",
   category: "scene",
   cost: "free",
+  title: "Get Scene Authoring Prompts",
+  annotations: { readOnly: true, openWorld: false },
   description:
     "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus references to the project's SKILL.md (Hyperframes rules) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here. Hosts that cannot write files (e.g. Claude Desktop) submit each authored beat with scene_submit instead. Pairs with scene_install_skill (Phase H1). Phase H2 of the agentic-native composer plan; the internal-LLM batch path (build) remains as a fallback for non-agent contexts.",
   schema: sceneComposePromptsSchema,
@@ -860,6 +916,8 @@ export const sceneSubmitTool = defineTool({
   name: "scene_submit",
   category: "scene",
   cost: "free",
+  title: "Submit Scene HTML",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
     "Submit host-authored Hyperframes scene HTML for one beat. Validates with the same lint as the batch composer and writes compositions/scene-<id>.html on pass; on lint errors it returns the findings WITHOUT writing so you can fix and resubmit. This completes agent-mode compose for hosts that cannot write files (e.g. Claude Desktop): build (mode agent) → needs-author plan → author each beat from its composePrompts userPrompt → scene_submit per beat → build (stage sync) → render. No internal LLM call — the submitting agent is the composer.",
   schema: sceneSubmitSchema,

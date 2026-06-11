@@ -38,6 +38,8 @@ export const editSilenceCutTool = defineTool({
   name: "edit_silence_cut",
   category: "edit",
   cost: "free",
+  title: "Cut Silence from Video",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Remove silent segments from a video using FFmpeg or Gemini AI detection. No API key needed for FFmpeg mode.",
   schema: z.object({
@@ -72,6 +74,8 @@ export const editCaptionTool = defineTool({
   name: "edit_caption",
   category: "edit",
   cost: "low",
+  title: "Burn Captions into Video",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Transcribe audio and burn styled captions into video. Requires OPENAI_API_KEY for Whisper transcription.",
   schema: z.object({
@@ -100,6 +104,8 @@ export const editFadeTool = defineTool({
   name: "edit_fade",
   category: "edit",
   cost: "free",
+  title: "Apply Fade Effects",
+  annotations: { readOnly: false, openWorld: false },
   description: "Apply fade in/out effects to video and/or audio. No API key needed.",
   schema: z.object({
     videoPath: z.string().describe("Path to the input video file"),
@@ -126,6 +132,8 @@ export const editNoiseReduceTool = defineTool({
   name: "edit_noise_reduce",
   category: "edit",
   cost: "free",
+  title: "Reduce Audio Noise",
+  annotations: { readOnly: false, openWorld: false },
   description: "Reduce audio/video noise using FFmpeg filters. No API key needed.",
   schema: z.object({
     inputPath: z.string().describe("Path to the input media file"),
@@ -150,6 +158,8 @@ export const editJumpCutTool = defineTool({
   name: "edit_jump_cut",
   category: "edit",
   cost: "low",
+  title: "Remove Filler Words",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Remove filler words (um, uh, like, etc.) from video using Whisper transcription. Requires OPENAI_API_KEY.",
   schema: z.object({
@@ -177,6 +187,8 @@ export const editTextOverlayTool = defineTool({
   name: "edit_text_overlay",
   category: "edit",
   cost: "free",
+  title: "Overlay Static Text",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Apply simple static text burn-in on video using FFmpeg drawtext. No API key needed. For designed or animated overlays, use edit_motion_overlay.",
   schema: z.object({
@@ -207,6 +219,8 @@ export const editMotionOverlayTool = defineTool({
   name: "edit_motion_overlay",
   category: "edit",
   cost: "low",
+  title: "Apply Motion Graphics Overlay",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Apply designed motion graphics overlays to an existing video. Generates Remotion overlays from a prompt, or overlays a user-provided .json/.lottie animation via the Hyperframes renderer.",
   schema: z.object({
@@ -247,6 +261,8 @@ export const editTranslateSrtTool = defineTool({
   name: "edit_translate_srt",
   category: "edit",
   cost: "low",
+  title: "Translate SRT Subtitles",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Translate SRT subtitle files using Claude or OpenAI. Requires ANTHROPIC_API_KEY or OPENAI_API_KEY.",
   schema: z.object({
@@ -273,6 +289,8 @@ export const editGradeTool = defineTool({
   name: "edit_grade",
   category: "edit",
   cost: "low",
+  title: "Apply Color Grading",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Apply AI-generated color grading using Claude + FFmpeg. Use preset for free built-in grades, or style for custom AI-generated grades (needs ANTHROPIC_API_KEY).",
   schema: z.object({
@@ -299,6 +317,8 @@ export const editSpeedRampTool = defineTool({
   name: "edit_speed_ramp",
   category: "edit",
   cost: "low",
+  title: "Apply Content-Aware Speed Ramping",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Apply content-aware speed ramping. Analyzes speech with Whisper, plans speed changes with Claude, applies with FFmpeg. Requires OPENAI_API_KEY + ANTHROPIC_API_KEY.",
   schema: z.object({
@@ -327,6 +347,8 @@ export const editReframeTool = defineTool({
   name: "edit_reframe",
   category: "edit",
   cost: "free",
+  title: "Reframe Video Aspect Ratio",
+  annotations: { readOnly: false, openWorld: false },
   description: "Auto-reframe video to a different aspect ratio using smart cropping. Free (FFmpeg only).",
   schema: z.object({
     videoPath: z.string().describe("Input video file path"),
@@ -352,6 +374,8 @@ export const editInterpolateTool = defineTool({
   name: "edit_interpolate",
   category: "edit",
   cost: "free",
+  title: "Create Slow Motion with Frame Interpolation",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Create slow motion with AI frame interpolation using FFmpeg minterpolate. Free, no API key needed.",
   schema: z.object({
@@ -378,6 +402,8 @@ export const editUpscaleTool = defineTool({
   name: "edit_upscale",
   category: "edit",
   cost: "free",
+  title: "Upscale Video Resolution",
+  annotations: { readOnly: false, openWorld: false },
   description: "Upscale video resolution using FFmpeg (Lanczos scaling). Free, no API key needed.",
   schema: z.object({
     videoPath: z.string().describe("Input video file path"),
@@ -402,6 +428,8 @@ export const editAnimatedCaptionTool = defineTool({
   name: "edit_animated_caption",
   category: "edit",
   cost: "low",
+  title: "Add Animated Captions",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Add animated word-by-word captions (TikTok/Reels style). Supports highlight, bounce, pop-in, neon, karaoke-sweep, typewriter styles. Requires OPENAI_API_KEY for Whisper.",
   schema: z.object({
@@ -438,6 +466,8 @@ export const editImageTool = defineTool({
   name: "edit_image",
   category: "edit",
   cost: "low",
+  title: "Edit Image with AI",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Edit image(s) using Gemini (Nano Banana). Provide image paths and an edit prompt. Requires GOOGLE_API_KEY.",
   schema: z.object({
@@ -465,6 +495,8 @@ export const editFillGapsTool = defineTool({
   name: "edit_fill_gaps",
   category: "edit",
   cost: "high",
+  title: "Fill Timeline Gaps with AI Video",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Fill timeline gaps with AI-generated video using Kling image-to-video. Detects empty regions in a project's timeline, extracts the last frame of the preceding clip, and generates a continuation video. Requires KLING_API_KEY and IMGBB_API_KEY (image hosting for Kling).",
   schema: z.object({

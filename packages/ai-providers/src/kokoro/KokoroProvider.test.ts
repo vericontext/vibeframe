@@ -6,12 +6,16 @@
  * real model is exercised by the C6 smoke script.
  */
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   KOKORO_DEFAULT_VOICE,
   KOKORO_MODEL_ID,
   KokoroProvider,
   __setKokoroFactoryForTests,
+  loadKokoroFromWorkspace,
   mapKokoroImportError,
 } from "./KokoroProvider.js";
 
@@ -229,5 +233,44 @@ describe("mapKokoroImportError", () => {
     const mapped = mapKokoroImportError("boom");
     expect(mapped).toBeInstanceOf(Error);
     expect(mapped.message).toBe("boom");
+  });
+});
+
+describe("loadKokoroFromWorkspace", () => {
+  let workspace: string;
+
+  beforeEach(() => {
+    workspace = mkdtempSync(join(tmpdir(), "vibe-kokoro-ws-"));
+  });
+
+  afterEach(() => {
+    rmSync(workspace, { recursive: true, force: true });
+  });
+
+  it("loads kokoro-js from the workspace node_modules via its exports map", async () => {
+    const pkgDir = join(workspace, "node_modules", "kokoro-js");
+    mkdirSync(join(pkgDir, "dist"), { recursive: true });
+    writeFileSync(
+      join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: "kokoro-js",
+        type: "module",
+        exports: { node: { import: "./dist/kokoro.js" }, default: "./dist/kokoro.js" },
+      })
+    );
+    writeFileSync(
+      join(pkgDir, "dist", "kokoro.js"),
+      "export const KokoroTTS = { from_pretrained: () => 'workspace-fake' };\n"
+    );
+
+    const factory = await loadKokoroFromWorkspace(workspace);
+    expect(factory).not.toBeNull();
+    expect(
+      (factory as unknown as { from_pretrained: () => string }).from_pretrained()
+    ).toBe("workspace-fake");
+  });
+
+  it("returns null when the workspace has no kokoro-js install", async () => {
+    await expect(loadKokoroFromWorkspace(workspace)).resolves.toBeNull();
   });
 });

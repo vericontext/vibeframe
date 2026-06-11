@@ -32,6 +32,8 @@ export const guideTool = defineTool({
   name: "guide",
   category: "agent",
   cost: "free",
+  title: "Load Workflow Guide",
+  annotations: { readOnly: true, openWorld: false },
   description:
     "Load the step-by-step guide for a vibe workflow (motion overlays, BUILD scene authoring, YAML pipeline authoring, architecture choices). Universal CLI-equivalent of `vibe guide <topic>` and Claude Code's /vibe-* slash commands. Without a topic, returns the guide catalog for discovery.",
   schema: guideSchema,

@@ -446,7 +446,13 @@ the CLI through `AGENTS.md`, `--json`, `--dry-run`, `vibe context`, and
 ## MCP Server
 
 The CLI is the primary runtime. For hosts that prefer MCP, VibeFrame also
-ships `@vibeframe/mcp-server`. Generate host-specific snippets with:
+ships `@vibeframe/mcp-server`.
+
+**Claude Desktop users:** install the prebuilt extension instead of editing
+JSON — download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
+and drop it into **Settings → Extensions**, then pick a workspace folder.
+
+For other hosts, generate host-specific snippets with:
 
 ```bash
 vibe host setup codex

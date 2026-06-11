@@ -12,7 +12,13 @@ import {
 import { tools, handleToolCall } from "./tools/index.js";
 import { resources, readResource } from "./resources/index.js";
 import { prompts, getPrompt } from "./prompts/index.js";
-import { buildServerInstructions } from "./instructions.js";
+import {
+  applyWorkspaceEnv,
+  buildServerInstructions,
+  ensureSystemPath,
+  scrubUnresolvedUserConfigEnv,
+} from "./instructions.js";
+import { makeElicitFn, type ElicitCapableServer } from "./elicit.js";
 
 /**
  * VibeFrame MCP Server
@@ -35,10 +41,17 @@ console.log = (...args: unknown[]) => console.error(...args);
 console.info = (...args: unknown[]) => console.error(...args);
 console.debug = (...args: unknown[]) => console.error(...args);
 
+// These must run before buildServerInstructions() reads process.cwd() and
+// before any tool touches provider keys or spawns ffmpeg.
+scrubUnresolvedUserConfigEnv();
+applyWorkspaceEnv();
+ensureSystemPath();
+
 const server = new Server(
   {
     name: "vibeframe",
-    version: "0.1.0",
+    // Stamped with the package version by build.js at bundle time.
+    version: process.env.VIBE_MCP_SERVER_VERSION ?? "0.0.0-dev",
   },
   {
     capabilities: {
@@ -59,28 +72,45 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const { name, arguments: args } = request.params;
   const progressToken = request.params._meta?.progressToken;
+  // The SDK types requestedSchema.properties as its exact primitive-schema
+  // union; our structural view uses Record<string, unknown> for the same
+  // wire shape, which strict variance rejects despite being compatible.
+  const elicit = makeElicitFn(server as unknown as ElicitCapableServer);
   return handleToolCall(
     name,
     args || {},
-    progressToken === undefined
+    progressToken === undefined && elicit === undefined
       ? undefined
       : {
-          onProgress: ({ progress, total, message }) => {
-            // Fire-and-forget: a dropped notification must never fail the
-            // tool call. Per MCP spec, clients reset their request timeout
-            // on each notifications/progress for the request's token.
-            void extra
-              .sendNotification({
-                method: "notifications/progress",
-                params: {
-                  progressToken,
-                  progress: progress ?? 0,
-                  ...(total !== undefined ? { total } : {}),
-                  ...(message ? { message } : {}),
+          ...(elicit ? { elicit } : {}),
+          ...(progressToken === undefined
+            ? {}
+            : {
+                onProgress: ({
+                  progress,
+                  total,
+                  message,
+                }: {
+                  progress: number;
+                  total?: number;
+                  message?: string;
+                }) => {
+                  // Fire-and-forget: a dropped notification must never fail the
+                  // tool call. Per MCP spec, clients reset their request timeout
+                  // on each notifications/progress for the request's token.
+                  void extra
+                    .sendNotification({
+                      method: "notifications/progress",
+                      params: {
+                        progressToken,
+                        progress: progress ?? 0,
+                        ...(total !== undefined ? { total } : {}),
+                        ...(message ? { message } : {}),
+                      },
+                    })
+                    .catch(() => undefined);
                 },
-              })
-              .catch(() => undefined);
-          },
+              }),
         }
   );
 });

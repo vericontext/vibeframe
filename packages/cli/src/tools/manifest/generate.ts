@@ -33,6 +33,8 @@ export const generateMotionTool = defineTool({
   name: "generate_motion",
   category: "generate",
   cost: "low",
+  title: "Generate Motion Graphics",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate standalone motion graphics using Claude or Gemini + Remotion. For overlays on an existing video, prefer edit_motion_overlay. Requires ANTHROPIC_API_KEY (Claude) or GOOGLE_API_KEY (Gemini).",
   schema: z.object({
@@ -88,6 +90,8 @@ export const generateSpeechTool = defineTool({
   name: "generate_speech",
   category: "generate",
   cost: "low",
+  title: "Generate Speech Audio",
+  annotations: { readOnly: false, openWorld: true },
   description: "Generate speech from text using ElevenLabs TTS. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
     text: z.string().describe("Text to convert to speech"),
@@ -109,6 +113,8 @@ export const generateNarrationTool = defineTool({
   name: "generate_narration",
   category: "generate",
   cost: "low",
+  title: "Generate Narration Audio",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate narration from text using ElevenLabs TTS. Product-facing alias for generate_speech. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
@@ -137,6 +143,8 @@ export const generateSoundEffectTool = defineTool({
   name: "generate_sound_effect",
   category: "generate",
   cost: "low",
+  title: "Generate Sound Effect",
+  annotations: { readOnly: false, openWorld: true },
   description: "Generate sound effects using ElevenLabs. Requires ELEVENLABS_API_KEY.",
   schema: z.object({
     prompt: z.string().describe("Description of the sound effect"),
@@ -161,6 +169,8 @@ export const generateMusicTool = defineTool({
   name: "generate_music",
   category: "generate",
   cost: "low",
+  title: "Generate Music",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate background music from text prompt. ElevenLabs (default, up to 10min) or Replicate MusicGen (max 30s). Requires ELEVENLABS_API_KEY or REPLICATE_API_TOKEN.",
   schema: z.object({
@@ -224,6 +234,8 @@ export const generateMusicStatusTool = defineTool({
   name: "generate_music_status",
   category: "generate",
   cost: "free",
+  title: "Check Music Generation Status",
+  annotations: { readOnly: true, openWorld: true },
   description:
     "Check Replicate music generation task status. `generate_music` returns a task id; this tool polls it until the audio URL is ready. Requires REPLICATE_API_TOKEN.",
   schema: z.object({
@@ -251,6 +263,8 @@ export const generateImageTool = defineTool({
   name: "generate_image",
   category: "generate",
   cost: "low",
+  title: "Generate Image",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate an image using AI. Supports Gemini (free), OpenAI GPT Image, or Grok Imagine. Requires GOOGLE_API_KEY (Gemini), OPENAI_API_KEY (OpenAI), or XAI_API_KEY (Grok).",
   schema: z.object({
@@ -294,6 +308,8 @@ export const generateStoryboardTool = defineTool({
   name: "generate_storyboard",
   category: "generate",
   cost: "low",
+  title: "Generate Storyboard",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate a video storyboard from text content using Claude. Returns scene segments with descriptions, visuals, and narration. Requires ANTHROPIC_API_KEY.",
   schema: z.object({
@@ -324,6 +340,8 @@ export const generateBackgroundTool = defineTool({
   name: "generate_background",
   category: "generate",
   cost: "low",
+  title: "Generate Background Image",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate a cinematic backdrop image (OpenAI gpt-image-2 / DALL·E variant tuned for video backgrounds). Returns the image URL and, when `output` is provided, downloads the PNG to disk. Requires OPENAI_API_KEY.",
   schema: z.object({
@@ -355,6 +373,8 @@ export const generateThumbnailTool = defineTool({
   name: "generate_thumbnail",
   category: "generate",
   cost: "low",
+  title: "Generate Thumbnail",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Extract the best thumbnail frame from a video using Gemini AI analysis. Requires GOOGLE_API_KEY.",
   schema: z.object({
@@ -380,6 +400,8 @@ export const generateVideoTool = defineTool({
   name: "generate_video",
   category: "generate",
   cost: "high",
+  title: "Generate Video",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Generate video using AI. Supports Seedance 2.0 via fal.ai, Grok, Kling, Runway, and Veo. Requires FAL_API_KEY, XAI_API_KEY, KLING_API_KEY, RUNWAY_API_SECRET, or GOOGLE_API_KEY.",
   schema: z.object({
@@ -476,6 +498,8 @@ export const generateVideoStatusTool = defineTool({
   name: "generate_video_status",
   category: "generate",
   cost: "free",
+  title: "Check Video Generation Status",
+  annotations: { readOnly: false, openWorld: true },
   description: "Check video generation status for Grok, Runway, Kling, or Veo tasks.",
   schema: z.object({
     taskId: z.string().describe("Task ID from video generation"),
@@ -515,6 +539,8 @@ export const generateVideoCancelTool = defineTool({
   name: "generate_video_cancel",
   category: "generate",
   cost: "free",
+  title: "Cancel Video Generation",
+  annotations: { readOnly: false, openWorld: true },
   description: "Cancel a Runway video generation task.",
   schema: z.object({
     taskId: z.string().describe("Task ID to cancel"),
@@ -536,6 +562,8 @@ export const generateVideoExtendTool = defineTool({
   name: "generate_video_extend",
   category: "generate",
   cost: "high",
+  title: "Extend Generated Video",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Extend video duration using Kling or Veo. Requires the video/operation ID from a previous generation.",
   schema: z.object({

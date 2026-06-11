@@ -1,13 +1,68 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { buildMcpDispatcher, makeProgressSink } from "./mcp.js";
+import { buildMcpDispatcher, makeProgressSink, manifestToMcpTools } from "./mcp.js";
 import { defineTool, type AnyTool, type ExecuteContext } from "../define-tool.js";
+
+describe("manifestToMcpTools annotations projection", () => {
+  const base = {
+    category: "scene",
+    cost: "free" as const,
+    description: "test",
+    schema: z.object({}),
+    execute: async () => ({ success: true as const }),
+  };
+
+  it("projects readOnly tools as readOnlyHint without destructiveHint", () => {
+    const [tool] = manifestToMcpTools([
+      defineTool({
+        ...base,
+        name: "ro_tool",
+        title: "Read-Only Tool",
+        annotations: { readOnly: true, openWorld: true },
+      }) as unknown as AnyTool,
+    ]);
+    expect(tool.title).toBe("Read-Only Tool");
+    expect(tool.annotations).toEqual({ readOnlyHint: true, openWorldHint: true });
+  });
+
+  it("projects writers with explicit destructive/idempotent hints", () => {
+    const [tool] = manifestToMcpTools([
+      defineTool({
+        ...base,
+        name: "writer_tool",
+        title: "Writer Tool",
+        annotations: { readOnly: false, destructive: false, idempotent: true, openWorld: false },
+      }) as unknown as AnyTool,
+    ]);
+    expect(tool.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+  });
+
+  it("defaults destructiveHint to true for writers", () => {
+    const [tool] = manifestToMcpTools([
+      defineTool({
+        ...base,
+        name: "default_writer",
+        title: "Default Writer",
+        annotations: { readOnly: false, openWorld: true },
+      }) as unknown as AnyTool,
+    ]);
+    expect(tool.annotations.destructiveHint).toBe(true);
+    expect(tool.annotations.idempotentHint).toBeUndefined();
+  });
+});
 
 function stubTool(execute: AnyTool["execute"]): AnyTool {
   return defineTool({
     name: "stub_tool",
     category: "scene",
     cost: "free",
+    title: "Stub Tool",
+    annotations: { readOnly: true, openWorld: false },
     description: "test stub",
     schema: z.object({ value: z.string().optional() }),
     execute,

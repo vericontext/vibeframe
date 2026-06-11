@@ -27,6 +27,8 @@ export const pipelineHighlightsTool = defineTool({
   name: "remix_highlights",
   category: "pipeline",
   cost: "low",
+  title: "Extract Video Highlights",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Extract highlight clips from a longer video using AI analysis. Requires OPENAI_API_KEY+ANTHROPIC_API_KEY or GOOGLE_API_KEY (with --use-gemini).",
   schema: z.object({
@@ -62,6 +64,8 @@ export const pipelineAutoShortsTool = defineTool({
   name: "remix_auto_shorts",
   category: "pipeline",
   cost: "medium",
+  title: "Generate Auto Shorts",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Automatically generate short-form content (Reels/TikTok/Shorts) from a longer video. Same API key requirements as remix_highlights.",
   schema: z.object({
@@ -102,6 +106,8 @@ export const pipelineRunTool = defineTool({
   name: "run",
   category: "pipeline",
   cost: "very-high",
+  title: "Run YAML Pipeline",
+  annotations: { readOnly: false, openWorld: true },
   surfaces: ["mcp"],
   description:
     "Execute a declarative YAML pipeline (Video as Code). Accepts either a file path or inline YAML. Supports dry-run, resume-from-checkpoint, and budget limits. Cost depends on the steps — use dryRun: true first to preview.",
@@ -189,6 +195,8 @@ export const pipelineRegenerateSceneTool = defineTool({
   name: "remix_regenerate_scene",
   category: "pipeline",
   cost: "high",
+  title: "Regenerate Storyboard Scenes",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Regenerate specific scenes against an existing storyboard.{yaml,json} on disk. Can regenerate video, image, or narration independently.",
   schema: z.object({

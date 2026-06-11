@@ -8,6 +8,7 @@ node_modules
 
 # Build outputs
 dist
+dist-mcpb
 .next
 .turbo
 out

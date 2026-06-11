@@ -21,11 +21,44 @@ export interface McpInputSchema {
   description?: string;
 }
 
+/** MCP spec ToolAnnotations — safety hints surfaced to hosts. */
+export interface McpToolAnnotations {
+  readOnlyHint: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint: boolean;
+}
+
 export interface McpTool {
   name: string;
+  /** Human-readable display name (MCP BaseMetadata.title). */
+  title: string;
   description: string;
   inputSchema: McpInputSchema;
+  annotations: McpToolAnnotations;
 }
+
+/**
+ * Structural mirror of the MCP elicitation form request/result (the CLI
+ * package deliberately has no dependency on @modelcontextprotocol/sdk).
+ * `requestedSchema.properties` values follow the spec's flat primitive
+ * schema: string (optionally with enum/enumNames), number, boolean.
+ */
+export interface ElicitForm {
+  message: string;
+  requestedSchema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
+export interface ElicitOutcome {
+  action: "accept" | "decline" | "cancel";
+  content?: Record<string, string | number | boolean | string[]>;
+}
+
+export type ElicitFn = (form: ElicitForm) => Promise<ElicitOutcome>;
 
 /** Per-call extras forwarded by the MCP server request handler. */
 export interface McpCallExtra {
@@ -35,6 +68,12 @@ export interface McpCallExtra {
    * monotonicity, and post-completion cutoff before exposing it to tools.
    */
   onProgress?: (update: { progress: number; total?: number; message?: string }) => void;
+  /**
+   * Sends an `elicitation/create` form to the client and resolves with the
+   * user's answer. Only present when the connected client advertises the
+   * elicitation capability.
+   */
+  elicit?: ElicitFn;
 }
 
 export type McpDispatcher = (
@@ -203,6 +242,7 @@ export function manifestToMcpTools(manifest: readonly ToolDefinition[]): McpTool
       // the type for MCP consumers.
       return {
         name: t.name,
+        title: t.title,
         description: t.description,
         inputSchema: {
           type: "object" as const,
@@ -210,8 +250,28 @@ export function manifestToMcpTools(manifest: readonly ToolDefinition[]): McpTool
           required: inputSchema.required ?? [],
           ...(inputSchema.description ? { description: inputSchema.description } : {}),
         },
+        annotations: toMcpAnnotations(t.annotations),
       };
     });
+}
+
+/**
+ * Projects the manifest's declarative annotations onto the MCP wire shape.
+ * destructiveHint defaults to true for non-read-only tools (spec default,
+ * stated explicitly because the extension directory requires it); the
+ * openWorldHint is always explicit because the spec default of true would
+ * mislabel local-only ffmpeg/filesystem tools.
+ */
+function toMcpAnnotations(a: ToolDefinition["annotations"]): McpToolAnnotations {
+  if (a.readOnly) {
+    return { readOnlyHint: true, openWorldHint: a.openWorld };
+  }
+  return {
+    readOnlyHint: false,
+    destructiveHint: a.destructive ?? true,
+    ...(a.idempotent !== undefined ? { idempotentHint: a.idempotent } : {}),
+    openWorldHint: a.openWorld,
+  };
 }
 
 /** Build the dispatcher used by `handleToolCall` in the MCP server. */
@@ -241,6 +301,7 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
           workingDirectory: process.cwd(),
           surface: "mcp",
           ...(extra?.onProgress ? { onProgress: sink.send } : {}),
+          ...(extra?.elicit ? { elicit: extra.elicit } : {}),
         })
       );
       const text = result.success

@@ -51,6 +51,19 @@ export interface ExecuteContext {
    * monotonicity defensively.
    */
   onProgress?: (update: { progress?: number; total?: number; message?: string }) => void;
+  /**
+   * Optional MCP elicitation channel. Present only when the connected MCP
+   * client advertises the elicitation capability; CLI/Agent surfaces leave
+   * it undefined, so CLI behavior never changes. See adapters/mcp.ts for
+   * the structural types.
+   */
+  elicit?: (form: {
+    message: string;
+    requestedSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
+  }) => Promise<{
+    action: "accept" | "decline" | "cancel";
+    content?: Record<string, string | number | boolean | string[]>;
+  }>;
 }
 
 export interface ToolExecuteResult {
@@ -75,6 +88,26 @@ export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {
   replacement?: string;
   /** Short explanation for product-surface routing. */
   note?: string;
+  /**
+   * Human-readable display name shown by MCP hosts, e.g. "Add Clip to
+   * Timeline". Required by the Anthropic extension directory.
+   */
+  title: string;
+  /**
+   * MCP safety annotations (directory requirement: every tool declares
+   * readOnlyHint or destructiveHint).
+   * - `readOnly: true` — the tool never modifies files or project state.
+   * - `readOnly: false` — the tool writes; `destructive` defaults to true
+   *   (may overwrite/modify existing data), set false for purely additive
+   *   tools; `idempotent: true` when re-running with identical args has no
+   *   additional effect.
+   * - `openWorld` — true when the tool calls external provider APIs; false
+   *   for purely local work (ffmpeg, filesystem). Always stated explicitly
+   *   because the MCP spec default is true.
+   */
+  annotations:
+    | { readOnly: true; openWorld: boolean }
+    | { readOnly: false; destructive?: boolean; idempotent?: boolean; openWorld: boolean };
   /** Identical for MCP description and Agent description. One paragraph. */
   description: string;
   /** Single source of truth for argument shape. Must be a `z.object({...})`. */
