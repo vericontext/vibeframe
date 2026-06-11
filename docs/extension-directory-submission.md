@@ -41,7 +41,7 @@ to the Anthropic Connectors Directory.
 For sample media to exercise edit/detect/timeline tools, any short MP4 works:
 `ffmpeg -f lavfi -i testsrc=duration=8:size=640x360:rate=30 -f lavfi -i sine=frequency=440:duration=8 -shortest sample.mp4`
 
-## Tool inventory (83) with safety annotations and working examples
+## Tool inventory (84) with safety annotations and working examples
 
 Hints legend: **RO** = readOnlyHint:true · **W** = writes (destructiveHint:true
 unless noted) · **OW** = openWorldHint:true (calls an external provider).
@@ -150,6 +150,7 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | timeline_add_effect | W | `{"projectPath":"timeline.json","clipId":"<id>","effectType":"fade-in"}` |
 | timeline_add_track | W | `{"projectPath":"timeline.json","trackType":"audio"}` |
 | export_video | W | `{"projectPath":"timeline.json","outputPath":"final.mp4"}` |
+| project_list | RO | `{}` (lists workspace projects) |
 | project_create | W | `{"name":"demo-project"}` |
 | project_info | RO | `{"projectPath":"timeline.json"}` |
 

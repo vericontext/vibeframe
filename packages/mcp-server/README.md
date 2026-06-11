@@ -161,6 +161,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 
 | Tool | Description |
 |------|-------------|
+| `project_list` | List workspace video projects with build/render status (`_archive/` skipped) |
 | `init` | Scaffold a video project with `STORYBOARD.md` + `DESIGN.md` |
 | `build` | Build a storyboard project: narration TTS, image assets, scene HTML composition |
 | `render` | Deterministic Hyperframes render → MP4/WebM/MOV |

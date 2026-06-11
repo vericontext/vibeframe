@@ -162,7 +162,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(99);
+      expect(tools.length).toBe(100);
     });
 
     it("should register all project tools (5)", () => {
@@ -582,7 +582,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       const runTools = allTools.filter((t) => t.name === "run");
       const statusTools = allTools.filter((t) => t.name.startsWith("status_"));
 
-      expect(projectTools.length).toBe(5);
+      expect(projectTools.length).toBe(6); // +project_list (workspace scene-project listing)
       expect(timelineTools.length).toBe(13); // Includes canonical timeline_create/info
       expect(fsTools.length).toBe(4);
       expect(mediaTools.length).toBe(12); // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
@@ -619,7 +619,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         projectFlowTools.length +
         guideTools.length +
         statusTools.length;
-      expect(totalTools).toBe(99);
+      expect(totalTools).toBe(100);
     });
   });
 });
