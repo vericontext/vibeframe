@@ -21,10 +21,21 @@ export interface McpInputSchema {
   description?: string;
 }
 
+/** MCP spec ToolAnnotations — safety hints surfaced to hosts. */
+export interface McpToolAnnotations {
+  readOnlyHint: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint: boolean;
+}
+
 export interface McpTool {
   name: string;
+  /** Human-readable display name (MCP BaseMetadata.title). */
+  title: string;
   description: string;
   inputSchema: McpInputSchema;
+  annotations: McpToolAnnotations;
 }
 
 /**
@@ -231,6 +242,7 @@ export function manifestToMcpTools(manifest: readonly ToolDefinition[]): McpTool
       // the type for MCP consumers.
       return {
         name: t.name,
+        title: t.title,
         description: t.description,
         inputSchema: {
           type: "object" as const,
@@ -238,8 +250,28 @@ export function manifestToMcpTools(manifest: readonly ToolDefinition[]): McpTool
           required: inputSchema.required ?? [],
           ...(inputSchema.description ? { description: inputSchema.description } : {}),
         },
+        annotations: toMcpAnnotations(t.annotations),
       };
     });
+}
+
+/**
+ * Projects the manifest's declarative annotations onto the MCP wire shape.
+ * destructiveHint defaults to true for non-read-only tools (spec default,
+ * stated explicitly because the extension directory requires it); the
+ * openWorldHint is always explicit because the spec default of true would
+ * mislabel local-only ffmpeg/filesystem tools.
+ */
+function toMcpAnnotations(a: ToolDefinition["annotations"]): McpToolAnnotations {
+  if (a.readOnly) {
+    return { readOnlyHint: true, openWorldHint: a.openWorld };
+  }
+  return {
+    readOnlyHint: false,
+    destructiveHint: a.destructive ?? true,
+    ...(a.idempotent !== undefined ? { idempotentHint: a.idempotent } : {}),
+    openWorldHint: a.openWorld,
+  };
 }
 
 /** Build the dispatcher used by `handleToolCall` in the MCP server. */

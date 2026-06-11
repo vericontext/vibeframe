@@ -86,6 +86,8 @@ describe("tool manifest invariants", () => {
         name: "noisy_tool",
         category: "test",
         cost: "free",
+        title: "Noisy Tool",
+        annotations: { readOnly: true, openWorld: false },
         surfaces: ["mcp"],
         description: "Test tool that writes logs while returning JSON.",
         schema: z.object({}),

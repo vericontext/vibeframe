@@ -16,6 +16,8 @@ export const detectScenesTool = defineTool({
   name: "detect_scenes",
   category: "detect",
   cost: "free",
+  title: "Detect Scene Cuts",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description: "Detect scene changes in video using FFmpeg. No API key needed.",
   schema: z.object({
     videoPath: z.string().describe("Path to the input video file"),
@@ -41,6 +43,8 @@ export const detectSilenceTool = defineTool({
   name: "detect_silence",
   category: "detect",
   cost: "free",
+  title: "Detect Silence Periods",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description: "Detect silence periods in audio/video using FFmpeg. No API key needed.",
   schema: z.object({
     mediaPath: z.string().describe("Path to the audio/video file"),
@@ -63,6 +67,8 @@ export const detectBeatsTool = defineTool({
   name: "detect_beats",
   category: "detect",
   cost: "free",
+  title: "Detect Audio Beats",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
     "Detect beats in audio for music sync using FFmpeg loudness analysis. No API key needed.",
   schema: z.object({

@@ -33,6 +33,8 @@ export const storyboardListTool = defineTool({
   name: "storyboard_list",
   category: "storyboard",
   cost: "free",
+  title: "List Storyboard Beats",
+  annotations: { readOnly: true, openWorld: false },
   description: "List beats, ids, durations, and cue blocks from a project's STORYBOARD.md.",
   schema: projectDirSchema,
   async execute(args, ctx) {
@@ -62,6 +64,8 @@ export const storyboardValidateTool = defineTool({
   name: "storyboard_validate",
   category: "storyboard",
   cost: "free",
+  title: "Validate Storyboard",
+  annotations: { readOnly: true, openWorld: false },
   description: "Validate STORYBOARD.md beat ids and cue blocks.",
   schema: projectDirSchema,
   async execute(args, ctx) {
@@ -97,6 +101,8 @@ export const storyboardGetTool = defineTool({
   name: "storyboard_get",
   category: "storyboard",
   cost: "free",
+  title: "Get Storyboard Beat",
+  annotations: { readOnly: true, openWorld: false },
   description: "Return one STORYBOARD.md beat as structured data.",
   schema: z.object({
     projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
@@ -122,6 +128,8 @@ export const storyboardSetTool = defineTool({
   name: "storyboard_set",
   category: "storyboard",
   cost: "free",
+  title: "Set Storyboard Cue",
+  annotations: { readOnly: false, idempotent: true, openWorld: false },
   description: "Set or unset one cue on one beat in STORYBOARD.md.",
   schema: z.object({
     projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
@@ -162,6 +170,8 @@ export const storyboardMoveTool = defineTool({
   name: "storyboard_move",
   category: "storyboard",
   cost: "free",
+  title: "Reorder Storyboard Beat",
+  annotations: { readOnly: false, openWorld: false },
   description: "Move one beat after another beat in STORYBOARD.md.",
   schema: z.object({
     projectDir: z.string().optional().describe(PROJECT_DIR_DESCRIPTION),
@@ -195,6 +205,8 @@ export const storyboardReviseTool = defineTool({
   name: "storyboard_revise",
   category: "storyboard",
   cost: "low",
+  title: "Revise Storyboard with AI",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Revise an existing STORYBOARD.md from a natural-language request. Reads project context, validates the revised storyboard, and writes unless dryRun is true.",
   schema: z.object({
@@ -237,6 +249,8 @@ export const planTool = defineTool({
   name: "plan",
   category: "storyboard",
   cost: "free",
+  title: "Plan Build Cost and Stages",
+  annotations: { readOnly: true, openWorld: false },
   description:
     "Read STORYBOARD.md and return the build plan, missing artifacts, provider needs, and estimated cost.",
   schema: z.object({

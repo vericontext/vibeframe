@@ -323,6 +323,23 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 - Node.js 20+
 - FFmpeg on `PATH` (export, editing, pipelines)
 
+## Privacy Policy
+
+VibeFrame is local-first: no telemetry, no VibeFrame-operated servers in the
+data path. Projects and generated media stay in the workspace folder you
+choose; content is sent only to the AI providers you configure (Anthropic,
+OpenAI, Google, ElevenLabs, …) when you explicitly invoke them, and API keys
+live only on your machine. Tools that reach external services are marked with
+`openWorldHint` in their MCP annotations; everything else (timeline edits,
+ffmpeg operations, linting, rendering, local Kokoro TTS) runs fully locally.
+
+Full policy: <https://vibeframe.ai/privacy> (source:
+[PRIVACY.md](https://github.com/vericontext/vibeframe/blob/main/PRIVACY.md)).
+
+> Installing the `.mcpb` file directly shows a standard "not verified by
+> Anthropic" sideload notice in Claude Desktop — that is expected for
+> extensions distributed outside the official directory.
+
 ## License
 
 MIT

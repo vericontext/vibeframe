@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { buildServerBundle } from "./build.js";
@@ -28,6 +28,9 @@ mkdirSync(stage, { recursive: true });
 
 await buildServerBundle({ outDir: join(stage, "server"), bundleHostDeps: true });
 
+// Extension icon — the square web logo (400x400 PNG).
+copyFileSync(resolve("../../apps/web/public/logo-400.png"), join(stage, "icon.png"));
+
 const manifest = {
   manifest_version: "0.3",
   name: "vibeframe",
@@ -47,8 +50,14 @@ const manifest = {
     url: "https://github.com/vericontext/vibeframe",
   },
   homepage: "https://github.com/vericontext/vibeframe#mcp-integration",
+  documentation: "https://github.com/vericontext/vibeframe/blob/main/packages/mcp-server/README.md",
+  support: "https://github.com/vericontext/vibeframe/issues",
+  icon: "icon.png",
   license: "MIT",
   keywords: pkg.keywords,
+  // Directory requirement: URLs to policies covering external services that
+  // handle user data (narration/image/video providers the user opts into).
+  privacy_policies: ["https://vibeframe.ai/privacy"],
   server: {
     type: "node",
     entry_point: "server/index.js",

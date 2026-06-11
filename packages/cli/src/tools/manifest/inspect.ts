@@ -27,6 +27,8 @@ export const inspectProjectTool = defineTool({
   name: "inspect_project",
   category: "analyze",
   cost: "free",
+  title: "Inspect Project",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Local project inspection: checks STORYBOARD.md, DESIGN.md, config, build-report, scene lint, composition files, and referenced assets. Writes review-report.json by default.",
   schema: z.object({
@@ -65,6 +67,8 @@ export const inspectRenderTool = defineTool({
   name: "inspect_render",
   category: "analyze",
   cost: "low",
+  title: "Inspect Render",
+  annotations: { readOnly: false, openWorld: false },
   description:
     "Render inspection: runs cheap local video checks by default, optionally adds Gemini AI review with ai: true, and writes review-report.json by default.",
   schema: z.object({
@@ -133,6 +137,8 @@ export const analyzeMediaTool = defineTool({
   name: "inspect_media",
   category: "analyze",
   cost: "low",
+  title: "Inspect Media with AI",
+  annotations: { readOnly: true, openWorld: true },
   description:
     "Analyze media (image, video, or YouTube URL) using Gemini AI. Requires GOOGLE_API_KEY.",
   schema: z.object({
@@ -165,6 +171,8 @@ export const analyzeVideoTool = defineTool({
   name: "inspect_video",
   category: "analyze",
   cost: "low",
+  title: "Inspect Video with AI",
+  annotations: { readOnly: true, openWorld: true },
   description:
     "Analyze video content using Gemini AI with temporal understanding. Requires GOOGLE_API_KEY.",
   schema: z.object({
@@ -197,6 +205,8 @@ export const analyzeReviewTool = defineTool({
   name: "inspect_review",
   category: "analyze",
   cost: "low",
+  title: "Review Video with AI",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "AI video review: analyzes quality, suggests fixes, and optionally auto-applies them. Requires GOOGLE_API_KEY.",
   schema: z.object({
@@ -229,6 +239,8 @@ export const analyzeSuggestTool = defineTool({
   name: "inspect_suggest",
   category: "analyze",
   cost: "low",
+  title: "Suggest Edits with AI",
+  annotations: { readOnly: false, openWorld: true },
   description:
     "Get natural-language edit suggestions for a project from Gemini. Returns suggestions array with type/confidence/clipIds. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
   schema: z.object({

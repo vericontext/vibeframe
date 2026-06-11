@@ -14,6 +14,8 @@ export const projectCreateTool = defineTool({
   name: "project_create",
   category: "project",
   cost: "free",
+  title: "Create Project",
+  annotations: { readOnly: false, openWorld: false },
   description: "Deprecated alias for creating low-level timeline state. Prefer timeline_create.",
   schema: z.object({
     name: z.string().describe("Project name"),
@@ -39,6 +41,8 @@ export const projectInfoTool = defineTool({
   name: "project_info",
   category: "project",
   cost: "free",
+  title: "Get Project Info",
+  annotations: { readOnly: true, openWorld: false },
   description: "Deprecated alias for timeline_info. Legacy *.vibe.json files remain supported.",
   schema: z.object({
     projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),

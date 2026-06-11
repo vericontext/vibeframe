@@ -22,6 +22,8 @@ export const statusJobTool = defineTool({
   name: "status_job",
   category: "status",
   cost: "free",
+  title: "Check Job Status",
+  annotations: { readOnly: false, destructive: false, openWorld: true },
   description:
     "Read one local async job record and optionally refresh supported provider status. Supports Runway/Kling video and Replicate music live checks. Also tracks long-running MCP build/render jobs (jobType build/render, provider local): their records are updated in-process — on completion result.payload carries the full tool result; status 'unknown' means the MCP server restarted mid-job (check build-report.json / render-report.json on disk).",
   schema: z.object({
@@ -61,6 +63,8 @@ export const statusProjectTool = defineTool({
   name: "status_project",
   category: "status",
   cost: "free",
+  title: "Check Project Status",
+  annotations: { readOnly: false, destructive: false, openWorld: true },
   description:
     "Summarize build-report.json, review-report.json, and local async job records for a VibeFrame project.",
   schema: z.object({
