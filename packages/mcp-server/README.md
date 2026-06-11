@@ -45,8 +45,8 @@ enabled = true
 
 Install the prebuilt Desktop Extension — no Node, npx, or JSON editing needed:
 
-1. Download `vibeframe-<version>.mcpb` from the
-   [latest GitHub Release](https://github.com/vericontext/vibeframe/releases/latest).
+1. Download the extension: [vibeframe.mcpb (always latest)](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
+   — or pick a specific version from the [releases page](https://github.com/vericontext/vibeframe/releases).
 2. In Claude Desktop open **Settings → Extensions** and drag the `.mcpb` file in
    (or double-click the file).
 3. In the extension's settings pick your **Workspace folder** (projects are

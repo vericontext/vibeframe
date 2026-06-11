@@ -85,9 +85,13 @@ jobs:
 
       # Claude Desktop Extension bundle — attached to the GitHub Release
       # below so users can install via Settings → Extensions without
-      # touching claude_desktop_config.json.
+      # touching claude_desktop_config.json. The version-less `vibeframe.mcpb`
+      # copy gives the website a stable always-latest download URL:
+      # releases/latest/download/vibeframe.mcpb
       - name: Build MCPB extension bundle
-        run: pnpm -F @vibeframe/mcp-server build:mcpb
+        run: |
+          pnpm -F @vibeframe/mcp-server build:mcpb
+          cp packages/mcp-server/dist-mcpb/vibeframe-*.mcpb packages/mcp-server/dist-mcpb/vibeframe.mcpb
 
       # Dry-run both packages first to catch errors before any real publish
       - name: Validate publish (dry-run)

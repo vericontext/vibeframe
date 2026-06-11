@@ -14,6 +14,7 @@ import {
   Wand2,
   Film,
   Code2,
+  Download,
 } from "lucide-react";
 import { ThemeToggle } from "../components/theme-toggle";
 import { DemoShowcase } from "../components/demo-showcase";
@@ -184,7 +185,18 @@ export default function LandingPage() {
               <Terminal className="w-5 h-5" />
               See it in action
             </Link>
+            <Link
+              href="https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb"
+              className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary hover:border-primary/30 transition-all"
+            >
+              <Download className="w-5 h-5" />
+              Claude Desktop extension
+            </Link>
           </div>
+          <p className="mt-4 text-xs text-muted-foreground animate-fade-in-up delay-300">
+            Desktop extension: open the downloaded .mcpb, pick a workspace folder, done — no
+            terminal needed.
+          </p>
         </div>
       </section>
 
