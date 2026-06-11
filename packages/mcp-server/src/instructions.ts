@@ -66,5 +66,6 @@ export function buildServerInstructions(cwd = resolveServerWorkspaceRoot()): str
     "When creating projects with init, use a project name or workspace-relative path under the workspace root.",
     "Do not create projects in /tmp, /home/claude, /workspace, or other synthetic roots unless the user explicitly asks.",
     "Before high or very-high cost provider work, run a dry-run or plan when available and ask the user to confirm provider spend.",
+    "When the user's request leaves them unspecified, ask the user before building instead of silently picking defaults: narration provider (kokoro = free local, elevenlabs = cloud credits), backdrop image generation (paid; skipping is free), and visual style (list options via scene_list_styles). Present the choices and wait for the answer.",
   ].join("\n");
 }

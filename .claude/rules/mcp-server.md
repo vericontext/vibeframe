@@ -56,3 +56,15 @@ CI (`publish.yml`) builds the .mcpb on every release and attaches it to the
 GitHub Release. Why this exists: Claude Desktop builds can rewrite
 `claude_desktop_config.json` from memory and mangle hand-edited entries into
 `"command": "custom"`; the extension path bypasses that file entirely.
+
+**Human-in-the-loop (elicitation):** when the connected client advertises the
+`elicitation` capability, the `build` tool asks the user a pre-flight form
+(narration provider, backdrop images, max cost) for any choice the call left
+unspecified — `makeElicitFn` (src/elicit.ts) gates on
+`server.getClientCapabilities().elicitation` and `VIBE_MCP_ELICIT=off`
+disables it. Question planning/mapping is pure code in
+`packages/cli/src/tools/_shared/elicit.ts`. Claude Desktop 1.11847.x does NOT
+declare the capability yet (Claude Code 2.1.76+ does); non-supporting hosts
+fall back to the server instructions, which tell the agent to ask in chat.
+Decline/cancel aborts the build before spend; elicit errors/timeouts proceed
+with defaults plus a warning.

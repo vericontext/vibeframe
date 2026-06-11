@@ -27,6 +27,28 @@ export interface McpTool {
   inputSchema: McpInputSchema;
 }
 
+/**
+ * Structural mirror of the MCP elicitation form request/result (the CLI
+ * package deliberately has no dependency on @modelcontextprotocol/sdk).
+ * `requestedSchema.properties` values follow the spec's flat primitive
+ * schema: string (optionally with enum/enumNames), number, boolean.
+ */
+export interface ElicitForm {
+  message: string;
+  requestedSchema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
+export interface ElicitOutcome {
+  action: "accept" | "decline" | "cancel";
+  content?: Record<string, string | number | boolean | string[]>;
+}
+
+export type ElicitFn = (form: ElicitForm) => Promise<ElicitOutcome>;
+
 /** Per-call extras forwarded by the MCP server request handler. */
 export interface McpCallExtra {
   /**
@@ -35,6 +57,12 @@ export interface McpCallExtra {
    * monotonicity, and post-completion cutoff before exposing it to tools.
    */
   onProgress?: (update: { progress: number; total?: number; message?: string }) => void;
+  /**
+   * Sends an `elicitation/create` form to the client and resolves with the
+   * user's answer. Only present when the connected client advertises the
+   * elicitation capability.
+   */
+  elicit?: ElicitFn;
 }
 
 export type McpDispatcher = (
@@ -241,6 +269,7 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
           workingDirectory: process.cwd(),
           surface: "mcp",
           ...(extra?.onProgress ? { onProgress: sink.send } : {}),
+          ...(extra?.elicit ? { elicit: extra.elicit } : {}),
         })
       );
       const text = result.success

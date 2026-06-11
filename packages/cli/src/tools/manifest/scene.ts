@@ -7,6 +7,7 @@ import { z } from "zod";
 import { resolve, relative } from "node:path";
 import { defineTool, type AnyTool, type ToolExecuteResult } from "../define-tool.js";
 import { runWithMcpPromotion, type LocalJobUpdate } from "../_shared/long-poll.js";
+import { applyElicitationAnswers, planBuildElicitation } from "../_shared/elicit.js";
 import { listVisualStyles, getVisualStyle } from "../../commands/_shared/visual-styles.js";
 import { scaffoldSceneProject, type SceneAspect } from "../../commands/_shared/scene-project.js";
 import { executeSceneAdd } from "../../commands/scene.js";
@@ -668,9 +669,35 @@ export const sceneBuildTool = defineTool({
   category: "scene",
   cost: "high",
   description:
-    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking build. Emits MCP progress notifications when the client supplies a progressToken.",
+    "v0.60 one-shot orchestrator: read STORYBOARD.md per-beat YAML cues (narration / backdrop / duration), dispatch TTS + image generation per beat, compose scene HTML via the compose-scenes-with-skills pipeline, then render to MP4. Use this instead of chaining init + scene_add + render manually. Caches by SHA256 of (DESIGN.md + cue body) so re-runs are idempotent and cheap. Long runs: over MCP, calls exceeding ~45s return immediately with { promoted: true, jobId, status: 'running' } — poll status_job every 15-30s until completed/failed instead of re-invoking build. Emits MCP progress notifications when the client supplies a progressToken. When the MCP host supports elicitation, unspecified asset choices (narration provider, backdrop images, cost cap) are confirmed with the user via a form before the build starts.",
   schema: sceneBuildSchema,
   async execute(args, ctx) {
+    let warnings: string[] | undefined;
+    if (ctx.surface === "mcp" && ctx.elicit) {
+      const form = planBuildElicitation(args);
+      if (form) {
+        // Errors and timeouts fall back to today's defaults so a flaky or
+        // headless client can never brick a build; an explicit decline or
+        // cancel aborts before any provider spend.
+        const outcome = await ctx.elicit(form).catch(() => null);
+        if (outcome === null) {
+          warnings = ["Asset-choice elicitation failed or timed out; proceeding with defaults."];
+        } else if (outcome.action === "accept") {
+          args = applyElicitationAnswers(args, outcome.content);
+        } else {
+          return {
+            success: false,
+            error: "Build cancelled — the user declined the asset choices.",
+            data: {
+              cancelled: true,
+              retryWith: [
+                `build { projectDir: "${args.projectDir ?? "."}", ttsProvider: "kokoro", skipBackdrop: true }`,
+              ],
+            },
+          };
+        }
+      }
+    }
     const projectDir = args.projectDir
       ? resolve(ctx.workingDirectory, args.projectDir)
       : ctx.workingDirectory;
@@ -701,7 +728,13 @@ export const sceneBuildTool = defineTool({
           ctx.onProgress?.({ message: update.message ?? update.stage });
           report(update);
         },
-      }).then(mapBuildResultToToolResult);
+      })
+        .then(mapBuildResultToToolResult)
+        .then((result) =>
+          warnings === undefined
+            ? result
+            : { ...result, data: { ...result.data, elicitationWarnings: warnings } }
+        );
     if (ctx.surface !== "mcp") {
       return runBuild(() => undefined);
     }

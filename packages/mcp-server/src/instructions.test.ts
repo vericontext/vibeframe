@@ -20,6 +20,15 @@ describe("MCP server instructions", () => {
     expect(instructions).toContain("dry-run or plan");
   });
 
+  it("tells the host agent to surface unspecified build choices to the user", () => {
+    const instructions = buildServerInstructions("/Users/example/video-workspace");
+
+    expect(instructions).toContain("ask the user before building");
+    expect(instructions).toContain("kokoro = free local");
+    expect(instructions).toContain("backdrop image generation");
+    expect(instructions).toContain("scene_list_styles");
+  });
+
   it("uses INIT_CWD when npm or npx launched the server from a workspace", () => {
     expect(
       resolveServerWorkspaceRoot({ INIT_CWD: "/Users/example/mcp-workspace" }, "/private/tmp/npm-exec")

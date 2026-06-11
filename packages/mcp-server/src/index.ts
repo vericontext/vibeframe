@@ -17,6 +17,7 @@ import {
   buildServerInstructions,
   scrubUnresolvedUserConfigEnv,
 } from "./instructions.js";
+import { makeElicitFn, type ElicitCapableServer } from "./elicit.js";
 
 /**
  * VibeFrame MCP Server
@@ -69,28 +70,45 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const { name, arguments: args } = request.params;
   const progressToken = request.params._meta?.progressToken;
+  // The SDK types requestedSchema.properties as its exact primitive-schema
+  // union; our structural view uses Record<string, unknown> for the same
+  // wire shape, which strict variance rejects despite being compatible.
+  const elicit = makeElicitFn(server as unknown as ElicitCapableServer);
   return handleToolCall(
     name,
     args || {},
-    progressToken === undefined
+    progressToken === undefined && elicit === undefined
       ? undefined
       : {
-          onProgress: ({ progress, total, message }) => {
-            // Fire-and-forget: a dropped notification must never fail the
-            // tool call. Per MCP spec, clients reset their request timeout
-            // on each notifications/progress for the request's token.
-            void extra
-              .sendNotification({
-                method: "notifications/progress",
-                params: {
-                  progressToken,
-                  progress: progress ?? 0,
-                  ...(total !== undefined ? { total } : {}),
-                  ...(message ? { message } : {}),
+          ...(elicit ? { elicit } : {}),
+          ...(progressToken === undefined
+            ? {}
+            : {
+                onProgress: ({
+                  progress,
+                  total,
+                  message,
+                }: {
+                  progress: number;
+                  total?: number;
+                  message?: string;
+                }) => {
+                  // Fire-and-forget: a dropped notification must never fail the
+                  // tool call. Per MCP spec, clients reset their request timeout
+                  // on each notifications/progress for the request's token.
+                  void extra
+                    .sendNotification({
+                      method: "notifications/progress",
+                      params: {
+                        progressToken,
+                        progress: progress ?? 0,
+                        ...(total !== undefined ? { total } : {}),
+                        ...(message ? { message } : {}),
+                      },
+                    })
+                    .catch(() => undefined);
                 },
-              })
-              .catch(() => undefined);
-          },
+              }),
         }
   );
 });

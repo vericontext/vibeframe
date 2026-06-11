@@ -51,6 +51,19 @@ export interface ExecuteContext {
    * monotonicity defensively.
    */
   onProgress?: (update: { progress?: number; total?: number; message?: string }) => void;
+  /**
+   * Optional MCP elicitation channel. Present only when the connected MCP
+   * client advertises the elicitation capability; CLI/Agent surfaces leave
+   * it undefined, so CLI behavior never changes. See adapters/mcp.ts for
+   * the structural types.
+   */
+  elicit?: (form: {
+    message: string;
+    requestedSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
+  }) => Promise<{
+    action: "accept" | "decline" | "cancel";
+    content?: Record<string, string | number | boolean | string[]>;
+  }>;
 }
 
 export interface ToolExecuteResult {

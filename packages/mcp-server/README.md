@@ -125,6 +125,21 @@ Claude Code drives `vibe` natively via shell + the scaffolded `AGENTS.md` / `CLA
 claude mcp add vibeframe --scope project -- npx -y @vibeframe/mcp-server
 ```
 
+## Human-in-the-Loop Choices
+
+The server prefers asking over silently picking defaults:
+
+- On hosts that support **MCP elicitation** (Claude Code 2.1.76+), the `build`
+  tool opens a native form before the build starts for any choice the call
+  left unspecified: narration provider (Kokoro free/local vs ElevenLabs),
+  backdrop image generation (skip vs paid OpenAI), and a max cost cap.
+  Declining cancels the build before any provider spend. Set
+  `VIBE_MCP_ELICIT=off` in the server env to disable the form (headless and
+  automation setups).
+- On hosts without elicitation (Claude Desktop today), the server
+  instructions tell the agent to present the same choices in chat and wait
+  for your answer.
+
 ## What You Can Do
 
 Once connected, your MCP host can resolve prompts like these into typed tool calls:
