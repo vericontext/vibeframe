@@ -150,7 +150,17 @@ export interface CreateBuildPlanOptions {
   force?: boolean;
 }
 
-const BACKDROP_COST_USD = 3;
+/**
+ * Honest per-image estimate for backdrop generation at 1536x1024.
+ * OpenAI GPT Image 1.5/2 (mid-2026 pricing): "standard" maps to the API's
+ * medium tier (~$0.04/image) and "hd" to high (~$0.13–0.17/image); values
+ * below add ~20% headroom for retries. The previous flat $3/image
+ * overstated real spend 15–70x and scared users away from backdrops
+ * (e.g. 7 beats quoted as ~$21 when the real cost is ~$0.35–1.40).
+ */
+export function backdropCostUsd(quality: "standard" | "hd"): number {
+  return quality === "hd" ? 0.2 : 0.05;
+}
 const VIDEO_COST_USD = 5;
 const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
@@ -346,7 +356,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             reference: backdropReference,
             projectDir,
             force: opts.force,
-            cost: BACKDROP_COST_USD,
+            cost: backdropCostUsd(imageQuality),
             active: includeAssets,
           })
         : null;

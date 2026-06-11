@@ -46,7 +46,12 @@ import { getApiKeyFromConfig } from "../../config/index.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { scaffoldSceneProject } from "./scene-project.js";
-import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./build-plan.js";
+import {
+  backdropCostUsd,
+  createBuildPlan,
+  type BuildPlanResult,
+  type BuildStage,
+} from "./build-plan.js";
 import {
   isReadyAssetReference,
   resolveGenericAssetReference,
@@ -577,7 +582,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       : pendingJobs.length > 0
         ? "pending-jobs"
         : "done";
-    stageReports.assets.costUsd = estimateActualAssetCost(beatOutcomes);
+    stageReports.assets.costUsd = estimateActualAssetCost(
+      beatOutcomes,
+      opts.imageQuality ?? "hd"
+    );
     stageReports.assets.retryWith = pendingJobs.map(
       (job) => `vibe status job ${job.id} --project ${projectDir} --json`
     );
@@ -1961,11 +1969,14 @@ function shouldRunStage(selected: BuildStage, stage: Exclude<BuildStage, "all">)
   return selected === stage;
 }
 
-function estimateActualAssetCost(outcomes: BeatBuildOutcome[]): number {
+function estimateActualAssetCost(
+  outcomes: BeatBuildOutcome[],
+  imageQuality: "standard" | "hd"
+): number {
   let cost = 0;
   for (const outcome of outcomes) {
     if (outcome.narrationStatus === "generated") cost += 0.05;
-    if (outcome.backdropStatus === "generated") cost += 3;
+    if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") cost += 5;
     if (outcome.musicStatus === "generated" || outcome.musicStatus === "pending") cost += 0.5;
   }

@@ -77,10 +77,10 @@ describe("createBuildPlan", () => {
     expect(plan.missing).toContain("assets");
     expect(plan.providers).toContain("kokoro");
     expect(plan.providers).toContain("openai");
-    expect(plan.estimatedCostUsd).toBe(3);
+    expect(plan.estimatedCostUsd).toBe(0.2);
     expect(plan.summary).toMatchObject({
       beats: 1,
-      estimatedCostUsd: 3,
+      estimatedCostUsd: 0.2,
       validationErrors: 0,
       validationWarnings: 0,
     });
@@ -396,7 +396,7 @@ backdrop: "../outside.png"
       willGenerate: true,
       reason: "force",
     });
-    expect(plan.estimatedCostUsd).toBe(3);
+    expect(plan.estimatedCostUsd).toBe(0.2);
   });
 
   it("plans video and music cue assets with provider overrides", async () => {
