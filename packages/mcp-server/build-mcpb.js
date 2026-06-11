@@ -28,8 +28,8 @@ mkdirSync(stage, { recursive: true });
 
 await buildServerBundle({ outDir: join(stage, "server"), bundleHostDeps: true });
 
-// Extension icon — the square web logo (400x400 PNG).
-copyFileSync(resolve("../../apps/web/public/logo-400.png"), join(stage, "icon.png"));
+// Extension icon — the square web logo (512x512 PNG, Desktop-recommended size).
+copyFileSync(resolve("../../apps/web/public/logo-512.png"), join(stage, "icon.png"));
 
 const manifest = {
   manifest_version: "0.3",
