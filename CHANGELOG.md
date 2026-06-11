@@ -5,11 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.111.0] - 2026-06-11
+## [0.111.1] - 2026-06-11
 
 ### Added
 
 - directory-ready extension metadata and tool safety annotations *(mcp)*
+
+### Fixed
+
+- find ffmpeg under GUI-spawned PATH and decouple asset choices *(mcp)*
+
+## [0.110.0] - 2026-06-11
+
+### Added
+
 - confirm build choices with the user before spending *(mcp)*
 
 ## [0.109.2] - 2026-06-10
