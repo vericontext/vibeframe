@@ -15,6 +15,7 @@ import { prompts, getPrompt } from "./prompts/index.js";
 import {
   applyWorkspaceEnv,
   buildServerInstructions,
+  ensureSystemPath,
   scrubUnresolvedUserConfigEnv,
 } from "./instructions.js";
 import { makeElicitFn, type ElicitCapableServer } from "./elicit.js";
@@ -40,10 +41,11 @@ console.log = (...args: unknown[]) => console.error(...args);
 console.info = (...args: unknown[]) => console.error(...args);
 console.debug = (...args: unknown[]) => console.error(...args);
 
-// Both must run before buildServerInstructions() reads process.cwd() and
-// before any tool touches provider keys.
+// These must run before buildServerInstructions() reads process.cwd() and
+// before any tool touches provider keys or spawns ffmpeg.
 scrubUnresolvedUserConfigEnv();
 applyWorkspaceEnv();
+ensureSystemPath();
 
 const server = new Server(
   {

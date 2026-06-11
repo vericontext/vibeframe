@@ -1,5 +1,33 @@
-import { mkdirSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { delimiter, isAbsolute, resolve } from "node:path";
+
+const DEFAULT_EXTRA_PATH_DIRS =
+  process.platform === "darwin"
+    ? ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"]
+    : ["/usr/local/bin"];
+
+/**
+ * GUI-spawned processes on macOS don't inherit the login-shell PATH, so the
+ * MCPB extension launched by Claude Desktop misses Homebrew's bin dir and
+ * "which ffmpeg/ffprobe" fails even though they're installed. Append the
+ * well-known executable directories that exist but are missing from PATH.
+ * Returns the directories added (for tests/diagnostics).
+ */
+export function ensureSystemPath(
+  env: NodeJS.ProcessEnv = process.env,
+  extraDirs: readonly string[] = DEFAULT_EXTRA_PATH_DIRS
+): string[] {
+  const current = (env.PATH ?? "").split(delimiter).filter(Boolean);
+  const added: string[] = [];
+  for (const dir of extraDirs) {
+    if (!current.includes(dir) && existsSync(dir)) {
+      current.push(dir);
+      added.push(dir);
+    }
+  }
+  if (added.length > 0) env.PATH = current.join(delimiter);
+  return added;
+}
 
 /**
  * Claude Desktop substitutes "${user_config.key}" templates in the MCPB
@@ -67,5 +95,6 @@ export function buildServerInstructions(cwd = resolveServerWorkspaceRoot()): str
     "Do not create projects in /tmp, /home/claude, /workspace, or other synthetic roots unless the user explicitly asks.",
     "Before high or very-high cost provider work, run a dry-run or plan when available and ask the user to confirm provider spend.",
     "When the user's request leaves them unspecified, ask the user before building instead of silently picking defaults: narration provider (kokoro = free local, elevenlabs = cloud credits), backdrop image generation (paid; skipping is free), and visual style (list options via scene_list_styles). Present the choices and wait for the answer.",
+    "Narration and backdrop choices are independent — kokoro narration with OpenAI backdrops is a common combination. Pass each answer explicitly to build (ttsProvider plus skipBackdrop/imageProvider); never let one choice imply the other.",
   ].join("\n");
 }

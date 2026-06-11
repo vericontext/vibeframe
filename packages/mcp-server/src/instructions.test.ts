@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   applyWorkspaceEnv,
   buildServerInstructions,
+  ensureSystemPath,
   resolveServerWorkspaceRoot,
   scrubUnresolvedUserConfigEnv,
 } from "./instructions.js";
@@ -85,6 +86,38 @@ describe("applyWorkspaceEnv", () => {
     const result = applyWorkspaceEnv({ VIBE_MCP_WORKSPACE: "\0invalid" }, chdir);
     expect(result).toBeNull();
     expect(chdirCalls).toEqual([]);
+  });
+});
+
+describe("ensureSystemPath", () => {
+  let existingDir: string;
+
+  beforeEach(() => {
+    existingDir = mkdtempSync(join(tmpdir(), "vibe-path-"));
+  });
+
+  afterEach(() => {
+    rmSync(existingDir, { recursive: true, force: true });
+  });
+
+  it("appends missing well-known dirs that exist on disk", () => {
+    const env: NodeJS.ProcessEnv = { PATH: "/usr/bin:/bin" };
+    const added = ensureSystemPath(env, [existingDir, "/nonexistent-dir-xyz"]);
+    expect(added).toEqual([existingDir]);
+    expect(env.PATH).toBe(`/usr/bin:/bin:${existingDir}`);
+  });
+
+  it("is a no-op when the dir is already on PATH", () => {
+    const env: NodeJS.ProcessEnv = { PATH: `/usr/bin:${existingDir}` };
+    expect(ensureSystemPath(env, [existingDir])).toEqual([]);
+    expect(env.PATH).toBe(`/usr/bin:${existingDir}`);
+  });
+
+  it("handles an unset PATH", () => {
+    const env: NodeJS.ProcessEnv = {};
+    const added = ensureSystemPath(env, [existingDir]);
+    expect(added).toEqual([existingDir]);
+    expect(env.PATH).toBe(existingDir);
   });
 });
 
