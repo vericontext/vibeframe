@@ -5,11 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.111.2] - 2026-06-11
+## [0.111.3] - 2026-06-11
 
 ### Fixed
 
+- pin the ffmpeg gate open in scene-render validation tests *(test)*
 - stop truncating audio when durations were synced without ffprobe *(scene)*
+
+## [0.111.1] - 2026-06-11
+
+### Fixed
+
 - find ffmpeg under GUI-spawned PATH and decouple asset choices *(mcp)*
 
 ## [0.111.0] - 2026-06-11
