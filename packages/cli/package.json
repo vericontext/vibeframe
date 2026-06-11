@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.111.3",
+  "version": "0.112.0",
   "description": "VibeFrame CLI - agentic video workflow runtime",
   "private": false,
   "license": "MIT",
