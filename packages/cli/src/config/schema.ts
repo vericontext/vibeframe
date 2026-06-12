@@ -3,7 +3,7 @@
  * Stored at ~/.vibeframe/config.yaml by default.
  */
 
-export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai" | "openrouter";
+export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai" | "openrouter" | "evolink";
 
 export interface VibeConfig {
   /** Config file version */
@@ -28,6 +28,7 @@ export interface VibeConfig {
     replicate?: string;
     xai?: string;
     openrouter?: string;
+    evolink?: string;
   };
 
   /** Default settings for new projects */
@@ -72,6 +73,7 @@ export const PROVIDER_NAMES: Record<LLMProvider, string> = {
   ollama: "Ollama (Local)",
   xai: "Grok (xAI)",
   openrouter: "OpenRouter",
+  evolink: "Evolink",
 };
 
 /**

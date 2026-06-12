@@ -16,6 +16,7 @@ const PROVIDER_KEY_BY_ENV_VAR: Record<string, string> = {
   RUNWAY_API_SECRET: "runway",
   KLING_API_KEY: "kling",
   OPENROUTER_API_KEY: "openrouter",
+  EVOLINK_API_KEY: "evolink",
   IMGBB_API_KEY: "imgbb",
   REPLICATE_API_TOKEN: "replicate",
 };
@@ -213,6 +214,7 @@ const API_KEY_URLS: Record<string, string> = {
   KLING_API_KEY: "https://klingai.com/dev",
   REPLICATE_API_TOKEN: "https://replicate.com/account/api-tokens",
   IMGBB_API_KEY: "https://api.imgbb.com/",
+  EVOLINK_API_KEY: "https://evolink.ai/dashboard/keys",
 };
 
 export class ApiKeyError extends Error {

@@ -115,6 +115,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
     ollama: "ollama", // Ollama doesn't need API key
     xai: "xai",
     openrouter: "openrouter",
+    evolink: "evolink",
   };
 
   if (provider !== "ollama") {
@@ -362,7 +363,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
 
 export const agentCommand = new Command("agent")
   .description("Optional built-in natural-language agent (fallback when no external coding agent is driving vibe)")
-  .option("-p, --provider <provider>", "LLM provider (openai, claude, gemini, ollama, xai, openrouter)", "openai")
+  .option("-p, --provider <provider>", "LLM provider (openai, claude, gemini, ollama, xai, openrouter, evolink)", "openai")
   .option("-m, --model <model>", "Model to use (provider-specific)")
   .option("--project <path>", "Timeline file or directory to load")
   .option("-v, --verbose", "Show verbose output including tool calls")
@@ -383,6 +384,7 @@ function getEnvVar(provider: string): string {
     ollama: "(no API key needed)",
     xai: "XAI_API_KEY",
     openrouter: "OPENROUTER_API_KEY",
+    evolink: "EVOLINK_API_KEY",
   };
   return envVars[provider] || "API_KEY";
 }

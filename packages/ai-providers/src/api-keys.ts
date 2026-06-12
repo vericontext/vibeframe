@@ -141,6 +141,17 @@ defineApiKey({
 });
 
 defineApiKey({
+  configKey: "evolink",
+  envVar: "EVOLINK_API_KEY",
+  label: "Evolink",
+  showInSetup: true,
+  setupDescription: "GPT-5, Claude, Gemini, DeepSeek & more via one key — Agent only (pay per model)",
+  envExampleComment: "Evolink API Key (GPT-5, Claude, Gemini, DeepSeek & more via unified API, used by `vibe agent`)",
+  envExampleUrl: "https://evolink.ai/dashboard/keys",
+  keyFormat: { prefix: /^el-/, example: "el-..." },
+});
+
+defineApiKey({
   configKey: "imgbb",
   envVar: "IMGBB_API_KEY",
   label: "ImgBB",
@@ -169,5 +180,12 @@ defineProvider({
   id: "openrouter",
   label: "OpenRouter",
   apiKey: "openrouter",
+  kinds: ["llm"],
+});
+
+defineProvider({
+  id: "evolink",
+  label: "Evolink",
+  apiKey: "evolink",
   kinds: ["llm"],
 });
