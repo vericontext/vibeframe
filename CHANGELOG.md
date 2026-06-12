@@ -5,15 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.112.1] - 2026-06-11
+## [0.113.0] - 2026-06-12
 
 ### Added
 
-- project_list tool for workspace overview *(mcp)*
+- add OpenAI narration and bundle WASM kokoro in the Desktop extension *(tts)*
+
+### Maintenance
+
+- add Claude Desktop extension download to the landing page *(web)*
+- ship the Desktop-recommended 512x512 extension icon *(mcpb)*
+
+## [0.112.1] - 2026-06-11
 
 ### Fixed
 
 - stop overstating backdrop image costs ~15-70x *(build)*
+
+## [0.112.0] - 2026-06-11
+
+### Added
+
+- project_list tool for workspace overview *(mcp)*
 
 ## [0.111.3] - 2026-06-11
 
