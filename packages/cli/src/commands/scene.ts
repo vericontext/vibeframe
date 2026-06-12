@@ -484,10 +484,10 @@ sceneCommand
   .option("--image-provider <name>", "Image provider: gemini, openai", "gemini")
   .option(
     "--tts <provider>",
-    "TTS provider: auto, elevenlabs, kokoro (default auto — picks ElevenLabs when key set, else Kokoro local)",
+    "TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)",
     "auto"
   )
-  .option("--voice <id>", "Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)")
+  .option("--voice <id>", "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)")
   .option(
     "--no-audio",
     "Skip TTS even when --narration is provided (useful for tests/agent dry runs)"
@@ -868,8 +868,10 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     }
     opts.onProgress?.(
       resolution.provider === "kokoro"
-        ? "Generating narration with Kokoro (local — first run downloads ~330MB)..."
-        : "Generating narration with ElevenLabs..."
+        ? "Generating narration with Kokoro (local — first run downloads a ~90MB model)..."
+        : resolution.provider === "openai"
+          ? "Generating narration with OpenAI (gpt-4o-mini-tts)..."
+          : "Generating narration with ElevenLabs..."
     );
     const tts = await resolution.call(narrationText, {
       voice: opts.voice,

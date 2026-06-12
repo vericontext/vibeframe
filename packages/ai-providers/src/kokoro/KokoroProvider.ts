@@ -29,8 +29,8 @@ export interface KokoroTTSOptions {
   speed?: number;
   /**
    * Called with model-load progress events on the first call (cold start
-   * downloads ~330MB). Subsequent calls reuse the cached singleton and do
-   * not invoke this callback.
+   * downloads a ~90MB quantized model). Subsequent calls reuse the cached
+   * singleton and do not invoke this callback.
    */
   onProgress?: (event: KokoroLoadEvent) => void;
 }
@@ -92,6 +92,17 @@ interface KokoroFactory {
   ): Promise<KokoroModel>;
 }
 
+/**
+ * Where the kokoro-js import came from. The `device` is "cpu" for every
+ * source: npm/workspace installs execute on onnxruntime-node (native), and
+ * the extension-bundled runtime's patched transformers build maps the same
+ * "cpu" device onto onnxruntime-web's WASM engine.
+ */
+interface KokoroRuntime {
+  factory: KokoroFactory;
+  device: "cpu" | "wasm";
+}
+
 let modelPromise: Promise<KokoroModel> | null = null;
 let factoryOverride: KokoroFactory | null = null;
 
@@ -103,17 +114,19 @@ export function __setKokoroFactoryForTests(factory: KokoroFactory | null): void 
   modelPromise = null;
 }
 
-async function loadKokoroFactory(): Promise<KokoroFactory> {
-  if (factoryOverride) return factoryOverride;
+async function loadKokoroRuntime(): Promise<KokoroRuntime> {
+  if (factoryOverride) return { factory: factoryOverride, device: "cpu" };
   // Dynamic import keeps the heavy `kokoro-js` graph (transformers.js +
   // onnxruntime-node, ~150MB combined) out of cold-path requires. Anything
   // that doesn't actually call `textToSpeech` pays zero cost.
   try {
     const mod = (await import("kokoro-js")) as unknown as { KokoroTTS: KokoroFactory };
-    return mod.KokoroTTS;
+    return { factory: mod.KokoroTTS, device: "cpu" };
   } catch (err) {
-    const fallback = await loadKokoroFromWorkspace();
-    if (fallback) return fallback;
+    const workspace = await loadKokoroFromWorkspace();
+    if (workspace) return { factory: workspace, device: "cpu" };
+    const bundled = await loadBundledKokoroRuntime();
+    if (bundled) return bundled;
     throw mapKokoroImportError(err);
   }
 }
@@ -122,8 +135,8 @@ async function loadKokoroFactory(): Promise<KokoroFactory> {
  * The bare specifier resolves relative to the bundle file, which works for
  * npm installs (kokoro-js sits in the adjacent node_modules) but not for
  * self-contained installs like the Claude Desktop MCPB extension, where the
- * bundle lives alone in the extension directory. There the user installs
- * kokoro-js into their workspace folder instead, so retry from
+ * bundle lives alone in the extension directory. There a developer can still
+ * install kokoro-js into their workspace folder, so retry from
  * `<cwd>/node_modules/kokoro-js` using its package.json entry point.
  *
  * Exported for tests — the primary bare-specifier import always succeeds in
@@ -155,6 +168,90 @@ export async function loadKokoroFromWorkspace(
 }
 
 /**
+ * Self-contained runtime shipped inside the Claude Desktop extension:
+ * `VIBE_KOKORO_RUNTIME` (set by the MCPB manifest to a directory inside the
+ * extension install) contains a pruned `node_modules` tree where
+ * `@huggingface/transformers` resolves to its web build (patched at bundle
+ * time to back the "cpu" device with onnxruntime-web's WASM engine) — no
+ * onnxruntime-node, no sharp, so it loads on any machine with no npm step.
+ *
+ * Before importing kokoro-js we point the transformers runtime at:
+ *   - `wasmPaths`: the bundled onnxruntime-web `dist/` (the web build's
+ *     default is a CDN URL, which Node's ESM loader rejects)
+ *   - a filesystem `customCache` under `~/.cache/vibeframe/models` — the
+ *     web build has no FS cache, and the extension's own directory is
+ *     replaced on every update, so the model cache must live per-user.
+ *     Verified: first call downloads ~88MB once; later processes load in
+ *     under a second.
+ *
+ * Exported for tests and the build-time smoke check.
+ */
+export async function loadBundledKokoroRuntime(
+  runtimeDir = process.env.VIBE_KOKORO_RUNTIME
+): Promise<KokoroRuntime | null> {
+  const base = runtimeDir?.trim();
+  if (!base) return null;
+  try {
+    const { readFile, writeFile, mkdir } = await import("node:fs/promises");
+    const { join, resolve } = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const { homedir } = await import("node:os");
+
+    const transformersDir = resolve(base, "node_modules", "@huggingface", "transformers");
+    const ortDistDir = resolve(base, "node_modules", "onnxruntime-web", "dist");
+    // Same file URL kokoro-js's bare import resolves to (its package.json
+    // exports were rewritten at bundle time), so this is the same module
+    // instance — env settings here apply to kokoro's inference calls.
+    const transformers = (await import(
+      pathToFileURL(join(transformersDir, "dist", "transformers.web.js")).href
+    )) as {
+      env: {
+        allowLocalModels?: boolean;
+        useCustomCache?: boolean;
+        customCache?: {
+          match(key: unknown): Promise<Response | undefined>;
+          put(key: unknown, response: Response): Promise<void>;
+        } | null;
+        backends: { onnx: { wasm: { wasmPaths?: string } } };
+      };
+    };
+
+    const cacheRoot = join(homedir(), ".cache", "vibeframe", "models");
+    transformers.env.allowLocalModels = false;
+    transformers.env.useCustomCache = true;
+    transformers.env.customCache = {
+      async match(key: unknown): Promise<Response | undefined> {
+        try {
+          return new Response(await readFile(join(cacheRoot, encodeURIComponent(String(key)))));
+        } catch {
+          return undefined;
+        }
+      },
+      async put(key: unknown, response: Response): Promise<void> {
+        try {
+          const buf = Buffer.from(await response.arrayBuffer());
+          await mkdir(cacheRoot, { recursive: true });
+          await writeFile(join(cacheRoot, encodeURIComponent(String(key))), buf);
+        } catch {
+          // Cache writes are best-effort — synthesis still works, the next
+          // process just downloads again.
+        }
+      },
+    };
+    transformers.env.backends.onnx.wasm.wasmPaths = pathToFileURL(ortDistDir + "/").href;
+
+    const factory = await loadKokoroFromWorkspace(base);
+    if (!factory) return null;
+    // "cpu" is correct here: in the patched web build the cpu device maps
+    // to onnxruntime-web's node entry, which executes via WASM. The build
+    // rejects device:"wasm" under Node.
+    return { factory, device: "cpu" };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * kokoro-js ships as an optionalDependency (its native graph can fail to
  * install on some platforms). Translate the raw module-resolution error into
  * an actionable message instead of a bare ERR_MODULE_NOT_FOUND.
@@ -166,11 +263,11 @@ export function mapKokoroImportError(err: unknown): Error {
       : undefined;
   if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
     return new Error(
-      "Local Kokoro TTS is unavailable: optional dependency kokoro-js is not installed " +
-        "(its native dependencies may have failed to build on this platform). " +
-        "Install it with `npm i kokoro-js` — run it inside your workspace folder when " +
-        "using the Claude Desktop extension — or set ELEVENLABS_API_KEY to use the " +
-        "elevenlabs TTS provider instead."
+      "Local Kokoro TTS is unavailable: kokoro-js could not be loaded from the npm " +
+        "install, the workspace node_modules, or the bundled extension runtime. " +
+        "Set OPENAI_API_KEY or ELEVENLABS_API_KEY to use a cloud voice instead " +
+        "(ttsProvider: openai / elevenlabs), or install the engine locally with " +
+        "`npm i kokoro-js` in your workspace folder."
     );
   }
   return err instanceof Error ? err : new Error(String(err));
@@ -179,10 +276,12 @@ export function mapKokoroImportError(err: unknown): Error {
 function loadModel(progress?: (event: KokoroLoadEvent) => void): Promise<KokoroModel> {
   if (modelPromise) return modelPromise;
   modelPromise = (async () => {
-    const factory = await loadKokoroFactory();
-    return factory.from_pretrained(KOKORO_MODEL_ID, {
+    const runtime = await loadKokoroRuntime();
+    const override = process.env.VIBE_ONNX_DEVICE;
+    const device = override === "cpu" || override === "wasm" ? override : runtime.device;
+    return runtime.factory.from_pretrained(KOKORO_MODEL_ID, {
       dtype: "q8",
-      device: "cpu",
+      device,
       progress_callback: progress
         ? (raw: unknown) => progress(normaliseEvent(raw))
         : undefined,
@@ -208,12 +307,15 @@ function normaliseEvent(raw: unknown): KokoroLoadEvent {
 
 /**
  * Local TTS provider backed by Kokoro-82M (Apache 2.0). Runs the model via
- * `@huggingface/transformers` + `onnxruntime-node`, no API keys required.
+ * `@huggingface/transformers` — onnxruntime-node (native CPU) for npm and
+ * workspace installs, or the bundled WASM backend inside the Claude Desktop
+ * extension. No API keys required.
  *
- * Cold start downloads ~330MB to the standard Hugging Face cache
- * (`HF_HOME`, defaults to `~/.cache/huggingface/hub`) on the first call.
+ * Cold start downloads a ~90MB quantized model on the first call (cache
+ * location depends on the runtime — transformers' default for installs,
+ * `~/.cache/vibeframe/models` for the bundled extension runtime).
  * Subsequent calls reuse a module-scope singleton and add only ~1-2s of
- * inference per scene.
+ * inference per scene (longer on the WASM backend).
  *
  * The `textToSpeech()` shape matches `ElevenLabsProvider.textToSpeech` so a
  * future TTS router can pick between providers without per-callsite branches.

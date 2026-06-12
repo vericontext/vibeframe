@@ -575,9 +575,11 @@ const sceneBuildSchema = z.object({
     .optional()
     .describe("Stop after compose — produces compositions/*.html but no final MP4."),
   ttsProvider: z
-    .enum(["auto", "elevenlabs", "kokoro"])
+    .enum(["auto", "elevenlabs", "openai", "kokoro"])
     .optional()
-    .describe("TTS provider override. Default 'auto'."),
+    .describe(
+      "TTS provider override. Default 'auto' (elevenlabs key > openai key > local kokoro).",
+    ),
   voice: z.string().optional().describe("TTS voice id (provider-specific)."),
   imageProvider: z
     .enum(["openai"])

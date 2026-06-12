@@ -164,6 +164,8 @@ export function backdropCostUsd(quality: "standard" | "hd"): number {
 const VIDEO_COST_USD = 5;
 const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
+/** gpt-4o-mini-tts is ~$0.015/min of audio; a beat is ~10–20s. Includes retry headroom. */
+const OPENAI_NARRATION_COST_USD = 0.01;
 const COMPOSE_COST_USD = 0.06;
 const SUPPORTED_BUILD_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 
@@ -283,7 +285,11 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const videoCue = videoPrompt ?? videoReference?.raw;
     const musicCue = musicPrompt ?? musicReference?.raw;
     const narrationCost =
-      resolved.narration.resolved === "elevenlabs" ? ELEVENLABS_NARRATION_COST_USD : 0;
+      resolved.narration.resolved === "elevenlabs"
+        ? ELEVENLABS_NARRATION_COST_USD
+        : resolved.narration.resolved === "openai"
+          ? OPENAI_NARRATION_COST_USD
+          : 0;
     const narrationCache =
       narrationText && !narrationReference
         ? narrationCacheDescriptor({
@@ -291,7 +297,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             cue: narrationText,
             provider: resolved.narration.resolved,
             voice,
-            ext: resolved.narration.resolved === "elevenlabs" ? "mp3" : "wav",
+            ext: resolved.narration.resolved === "kokoro" ? "wav" : "mp3",
           })
         : null;
     const backdropCache =
@@ -831,26 +837,35 @@ async function resolveNarrationProvider(
 ): Promise<ProviderResolution> {
   const requested = input.value.toLowerCase();
   const hasElevenLabs = Boolean(await getApiKeyFromConfig("elevenlabs", { cwd: projectDir }));
+  const hasOpenAi = Boolean(await getApiKeyFromConfig("openai", { cwd: projectDir }));
+  // Mirrors resolveTtsProvider in tts-resolve.ts: explicit choice wins;
+  // auto prefers ElevenLabs (dedicated TTS key signals intent), then
+  // OpenAI (key usually present for backdrops), then local Kokoro.
   const resolved =
     requested === "elevenlabs"
       ? "elevenlabs"
-      : requested === "kokoro"
-        ? "kokoro"
-        : hasElevenLabs
-          ? "elevenlabs"
-          : "kokoro";
+      : requested === "openai"
+        ? "openai"
+        : requested === "kokoro"
+          ? "kokoro"
+          : hasElevenLabs
+            ? "elevenlabs"
+            : hasOpenAi
+              ? "openai"
+              : "kokoro";
+  const requiresKey = resolved !== "kokoro";
+  const hasKey =
+    resolved === "elevenlabs" ? hasElevenLabs : resolved === "openai" ? hasOpenAi : true;
   return {
     kind: "narration",
     requested: input.requested,
     resolved,
     source: input.source,
-    requiresKey: resolved === "elevenlabs",
-    configured: resolved !== "elevenlabs" || hasElevenLabs,
-    ...(resolved === "elevenlabs" ? { configKey: "elevenlabs" } : {}),
-    ...(resolved === "elevenlabs" && !hasElevenLabs
-      ? { missingKey: providerEnvVar("elevenlabs") }
-      : {}),
-    retryWith: resolved === "elevenlabs" && !hasElevenLabs ? ["vibe setup --full"] : [],
+    requiresKey,
+    configured: hasKey,
+    ...(requiresKey ? { configKey: resolved } : {}),
+    ...(requiresKey && !hasKey ? { missingKey: providerEnvVar(resolved) } : {}),
+    retryWith: requiresKey && !hasKey ? ["vibe setup --full"] : [],
   };
 }
 

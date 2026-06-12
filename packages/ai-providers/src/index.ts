@@ -56,10 +56,19 @@ export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment 
 export { OllamaProvider, ollamaProvider } from "./ollama/index.js";
 export { ElevenLabsProvider, elevenLabsProvider, KNOWN_VOICES, resolveVoiceId } from "./elevenlabs/index.js";
 export type { Voice, TTSOptions, TTSResult, MusicOptions, MusicResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
-export { KokoroProvider, kokoroProvider, KOKORO_DEFAULT_VOICE, KOKORO_MODEL_ID } from "./kokoro/index.js";
+export {
+  KokoroProvider,
+  kokoroProvider,
+  KOKORO_DEFAULT_VOICE,
+  KOKORO_MODEL_ID,
+  loadKokoroFromWorkspace,
+  loadBundledKokoroRuntime,
+} from "./kokoro/index.js";
 export type { KokoroTTSOptions, KokoroTTSResult, KokoroLoadEvent } from "./kokoro/index.js";
 export { OpenAIImageProvider, openaiImageProvider } from "./openai-image/index.js";
 export type { ImageOptions, ImageResult, ImageEditOptions } from "./openai-image/index.js";
+export { OpenAiTtsProvider, openaiTtsProvider, OPENAI_TTS_VOICES } from "./openai-tts/index.js";
+export type { OpenAiTtsModel, OpenAiTtsVoice, OpenAiTtsOptions, OpenAiTtsResult } from "./openai-tts/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";
 export { KlingProvider, klingProvider } from "./kling/index.js";
 export type { KlingVideoExtendOptions } from "./kling/index.js";

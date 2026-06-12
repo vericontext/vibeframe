@@ -18,6 +18,16 @@ describe("planBuildElicitation", () => {
     expect(Object.keys(form!.requestedSchema.properties)).toEqual(["narration"]);
   });
 
+  it("offers kokoro, openai, and elevenlabs narration choices", () => {
+    const form = planBuildElicitation({});
+    const narration = form!.requestedSchema.properties.narration as {
+      enum: string[];
+      enumNames: string[];
+    };
+    expect(narration.enum).toEqual(["kokoro", "openai", "elevenlabs"]);
+    expect(narration.enumNames).toHaveLength(3);
+  });
+
   it("skips the narration question when narration is skipped entirely", () => {
     const form = planBuildElicitation({ skipNarration: true, skipBackdrop: true, maxCostUsd: 5 });
     expect(form).toBeNull();
@@ -57,6 +67,13 @@ describe("applyElicitationAnswers", () => {
   it("maps 'skip' backdrops to skipBackdrop without touching imageProvider", () => {
     const next = applyElicitationAnswers(empty, { narration: "kokoro", backdrop_images: "skip" });
     expect(next.ttsProvider).toBe("kokoro");
+    expect(next.skipBackdrop).toBe(true);
+    expect(next.imageProvider).toBeUndefined();
+  });
+
+  it("maps openai narration independently of the backdrop choice", () => {
+    const next = applyElicitationAnswers(empty, { narration: "openai", backdrop_images: "skip" });
+    expect(next.ttsProvider).toBe("openai");
     expect(next.skipBackdrop).toBe(true);
     expect(next.imageProvider).toBeUndefined();
   });

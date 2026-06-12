@@ -607,7 +607,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "tts": {
-        "description": "TTS provider: auto|elevenlabs|kokoro",
+        "description": "TTS provider: auto|elevenlabs|openai|kokoro",
         "type": "string",
       },
       "videoProvider": {
@@ -3070,7 +3070,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "type": "string",
       },
       "tts": {
-        "description": "TTS provider: auto|elevenlabs|kokoro",
+        "description": "TTS provider: auto|elevenlabs|openai|kokoro",
         "type": "string",
       },
       "videoProvider": {
@@ -3616,10 +3616,11 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
       },
       "tts": {
         "default": "auto",
-        "description": "TTS provider: auto, elevenlabs, kokoro (default auto — picks ElevenLabs when key set, else Kokoro local)",
+        "description": "TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)",
         "enum": [
           "auto",
           "elevenlabs",
+          "openai",
           "kokoro",
         ],
         "type": "string",
@@ -3629,7 +3630,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "string",
       },
       "voice": {
-        "description": "Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)",
+        "description": "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)",
         "type": "string",
       },
     },

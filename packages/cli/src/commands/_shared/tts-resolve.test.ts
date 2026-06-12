@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => {
   return {
     elevenLabsTextToSpeech: vi.fn(),
     elevenLabsInitialize: vi.fn(),
+    openAiTextToSpeech: vi.fn(),
+    openAiInitialize: vi.fn(),
     kokoroTextToSpeech: vi.fn(),
     kokoroInitialize: vi.fn(),
     getConfiguredApiKey: vi.fn(),
@@ -22,6 +24,10 @@ vi.mock("@vibeframe/ai-providers", () => ({
   ElevenLabsProvider: class {
     initialize = mocks.elevenLabsInitialize;
     textToSpeech = mocks.elevenLabsTextToSpeech;
+  },
+  OpenAiTtsProvider: class {
+    initialize = mocks.openAiInitialize;
+    textToSpeech = mocks.openAiTextToSpeech;
   },
   KokoroProvider: class {
     initialize = mocks.kokoroInitialize;
@@ -37,6 +43,8 @@ vi.mock("../../utils/api-key.js", () => ({
 const {
   elevenLabsTextToSpeech,
   elevenLabsInitialize,
+  openAiTextToSpeech,
+  openAiInitialize,
   kokoroTextToSpeech,
   kokoroInitialize,
   getConfiguredApiKey,
@@ -55,14 +63,15 @@ describe("parseTtsProviderName", () => {
     expect(parseTtsProviderName("")).toBe("auto");
   });
 
-  it("accepts the three valid values", () => {
+  it("accepts the four valid values", () => {
     expect(parseTtsProviderName("auto")).toBe("auto");
     expect(parseTtsProviderName("elevenlabs")).toBe("elevenlabs");
+    expect(parseTtsProviderName("openai")).toBe("openai");
     expect(parseTtsProviderName("kokoro")).toBe("kokoro");
   });
 
   it("throws for unknown providers", () => {
-    expect(() => parseTtsProviderName("openai")).toThrow(/Invalid --tts/);
+    expect(() => parseTtsProviderName("azure")).toThrow(/Invalid --tts/);
     expect(() => parseTtsProviderName("KOKORO")).toThrow(/Invalid --tts/);
   });
 });
@@ -71,6 +80,8 @@ describe("resolveTtsProvider", () => {
   beforeEach(() => {
     elevenLabsTextToSpeech.mockReset();
     elevenLabsInitialize.mockReset();
+    openAiTextToSpeech.mockReset();
+    openAiInitialize.mockReset();
     kokoroTextToSpeech.mockReset();
     kokoroInitialize.mockReset();
     getConfiguredApiKey.mockReset();
@@ -94,7 +105,32 @@ describe("resolveTtsProvider", () => {
       expect(elevenLabsInitialize).toHaveBeenCalledWith({ apiKey: "sk-test" });
     });
 
-    it("falls back to Kokoro when ELEVENLABS_API_KEY is unset", async () => {
+    it("picks OpenAI when only OPENAI_API_KEY is set", async () => {
+      getConfiguredApiKey.mockImplementation(async (envVar: unknown) =>
+        envVar === "OPENAI_API_KEY" ? "sk-openai" : undefined,
+      );
+      getApiKey.mockResolvedValue("sk-openai");
+
+      const r = await resolveTtsProvider("auto");
+
+      expect(r.provider).toBe("openai");
+      expect(r.audioExtension).toBe("mp3");
+      expect(getConfiguredApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
+      expect(getConfiguredApiKey).toHaveBeenCalledWith("OPENAI_API_KEY");
+      expect(openAiInitialize).toHaveBeenCalledWith({ apiKey: "sk-openai" });
+    });
+
+    it("prefers ElevenLabs over OpenAI when both keys are set", async () => {
+      getConfiguredApiKey.mockResolvedValue("sk-both");
+      getApiKey.mockResolvedValue("sk-both");
+
+      const r = await resolveTtsProvider("auto");
+
+      expect(r.provider).toBe("elevenlabs");
+      expect(openAiInitialize).not.toHaveBeenCalled();
+    });
+
+    it("falls back to Kokoro when no key is set", async () => {
       getConfiguredApiKey.mockResolvedValue(undefined);
 
       const r = await resolveTtsProvider("auto");
@@ -111,6 +147,28 @@ describe("resolveTtsProvider", () => {
       const r = await resolveTtsProvider();
 
       expect(r.provider).toBe("kokoro");
+    });
+  });
+
+  describe("explicit openai", () => {
+    it("uses OpenAI when key is present", async () => {
+      getApiKey.mockResolvedValue("sk-real");
+
+      const r = await resolveTtsProvider("openai");
+
+      expect(r.provider).toBe("openai");
+      expect(r.audioExtension).toBe("mp3");
+      expect(openAiInitialize).toHaveBeenCalledWith({ apiKey: "sk-real" });
+      expect(getConfiguredApiKey).not.toHaveBeenCalled();
+    });
+
+    it("throws TtsKeyMissingError when key is absent", async () => {
+      getApiKey.mockResolvedValue(undefined);
+
+      await expect(resolveTtsProvider("openai")).rejects.toBeInstanceOf(
+        TtsKeyMissingError,
+      );
+      expect(kokoroInitialize).not.toHaveBeenCalled();
     });
   });
 
@@ -161,6 +219,19 @@ describe("resolveTtsProvider", () => {
       });
     });
 
+    it("forwards voice + speed to OpenAI", async () => {
+      getApiKey.mockResolvedValue("sk-test");
+      openAiTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("z") });
+
+      const r = await resolveTtsProvider("openai");
+      await r.call("Hello.", { voice: "marin", speed: 1.05 });
+
+      expect(openAiTextToSpeech).toHaveBeenCalledWith("Hello.", {
+        voice: "marin",
+        speed: 1.05,
+      });
+    });
+
     it("forwards voice + speed + onProgress to Kokoro", async () => {
       kokoroTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("y") });
 
@@ -183,6 +254,13 @@ describe("TtsKeyMissingError", () => {
     expect(err.message).toMatch(/ELEVENLABS_API_KEY/);
     expect(err.message).toMatch(/--tts kokoro/);
     expect(err.provider).toBe("elevenlabs");
+  });
+
+  it("provides actionable openai message", () => {
+    const err = new TtsKeyMissingError("openai");
+    expect(err.message).toMatch(/OPENAI_API_KEY/);
+    expect(err.message).toMatch(/--tts kokoro/);
+    expect(err.provider).toBe("openai");
   });
 
   it("is identifiable via instanceof", () => {

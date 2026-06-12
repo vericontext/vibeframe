@@ -53,8 +53,9 @@ Install the prebuilt Desktop Extension — no Node, npx, or JSON editing needed:
    created there; a `.env` file in that folder is loaded for API keys) and
    optionally paste provider keys.
 
-Rendering still needs Google Chrome and `ffmpeg` on the machine. For free local
-Kokoro TTS, run `npm i kokoro-js` once inside the workspace folder. To update,
+Rendering still needs Google Chrome and `ffmpeg` on the machine. Free local
+Kokoro narration is bundled inside the extension — no install step; the first
+use downloads a ~90 MB voice model to `~/.cache/vibeframe/models`. To update,
 download the new release's `.mcpb` and install it over the old one.
 
 To build the bundle from source: `pnpm -F @vibeframe/mcp-server build:mcpb`
@@ -131,8 +132,9 @@ The server prefers asking over silently picking defaults:
 
 - On hosts that support **MCP elicitation** (Claude Code 2.1.76+), the `build`
   tool opens a native form before the build starts for any choice the call
-  left unspecified: narration provider (Kokoro free/local vs ElevenLabs),
-  backdrop image generation (skip vs paid OpenAI), and a max cost cap.
+  left unspecified: narration provider (Kokoro free/local, OpenAI's
+  gpt-4o-mini-tts, or ElevenLabs), backdrop image generation (skip vs paid
+  OpenAI), and a max cost cap.
   Declining cancels the build before any provider spend. Set
   `VIBE_MCP_ELICIT=off` in the server env to disable the form (headless and
   automation setups).

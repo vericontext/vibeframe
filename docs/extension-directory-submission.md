@@ -27,9 +27,11 @@ to the Anthropic Connectors Directory.
 3. **Test credentials:** all provider keys are reviewer-supplied (extension
    settings fields or a `.env` in the workspace). No VibeFrame account exists.
    A large share of tools needs **no key at all** — the free end-to-end path:
-   - `init {"dir":"demo"}` → `storyboard_set` narration → run `npm i kokoro-js`
-     once in the workspace → `build {"projectDir":"demo","ttsProvider":"kokoro","skipBackdrop":true}`
+   - `init {"dir":"demo"}` → `storyboard_set` narration →
+     `build {"projectDir":"demo","ttsProvider":"kokoro","skipBackdrop":true}`
      → `render {"projectDir":"demo"}` produces an MP4 with zero paid calls.
+     Kokoro TTS ships inside the extension (WASM runtime); its first use
+     downloads a ~90 MB voice model to `~/.cache/vibeframe/models`.
    - Provider-backed tools (`generate_*`, `storyboard_revise`, AI edits) need
      the matching key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
      `GOOGLE_API_KEY`, or `ELEVENLABS_API_KEY`.

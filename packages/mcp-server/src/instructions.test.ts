@@ -25,7 +25,9 @@ describe("MCP server instructions", () => {
     const instructions = buildServerInstructions("/Users/example/video-workspace");
 
     expect(instructions).toContain("ask the user before building");
-    expect(instructions).toContain("kokoro = free local");
+    expect(instructions).toContain("kokoro = free, runs locally");
+    expect(instructions).toContain("openai = fast cloud voice");
+    expect(instructions).toContain("elevenlabs = premium cloud voices");
     expect(instructions).toContain("backdrop image generation");
     expect(instructions).toContain("scene_list_styles");
   });

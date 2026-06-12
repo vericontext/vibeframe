@@ -9,12 +9,14 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   KOKORO_DEFAULT_VOICE,
   KOKORO_MODEL_ID,
   KokoroProvider,
   __setKokoroFactoryForTests,
+  loadBundledKokoroRuntime,
   loadKokoroFromWorkspace,
   mapKokoroImportError,
 } from "./KokoroProvider.js";
@@ -219,8 +221,9 @@ describe("mapKokoroImportError", () => {
       code: "ERR_MODULE_NOT_FOUND",
     });
     const mapped = mapKokoroImportError(raw);
-    expect(mapped.message).toContain("kokoro-js is not installed");
+    expect(mapped.message).toContain("kokoro-js could not be loaded");
     expect(mapped.message).toContain("npm i kokoro-js");
+    expect(mapped.message).toContain("OPENAI_API_KEY");
     expect(mapped.message).toContain("ELEVENLABS_API_KEY");
   });
 
@@ -272,5 +275,73 @@ describe("loadKokoroFromWorkspace", () => {
 
   it("returns null when the workspace has no kokoro-js install", async () => {
     await expect(loadKokoroFromWorkspace(workspace)).resolves.toBeNull();
+  });
+});
+
+describe("loadBundledKokoroRuntime", () => {
+  let runtime: string;
+
+  beforeEach(() => {
+    runtime = mkdtempSync(join(tmpdir(), "vibe-kokoro-rt-"));
+  });
+
+  afterEach(() => {
+    rmSync(runtime, { recursive: true, force: true });
+  });
+
+  it("returns null when no runtime dir is configured", async () => {
+    await expect(loadBundledKokoroRuntime(undefined)).resolves.toBeNull();
+    await expect(loadBundledKokoroRuntime("")).resolves.toBeNull();
+  });
+
+  it("returns null when the runtime dir lacks the staged tree", async () => {
+    await expect(loadBundledKokoroRuntime(runtime)).resolves.toBeNull();
+  });
+
+  it("configures the staged transformers env and loads the kokoro factory", async () => {
+    const mods = join(runtime, "node_modules");
+    const tfDist = join(mods, "@huggingface", "transformers", "dist");
+    mkdirSync(tfDist, { recursive: true });
+    writeFileSync(
+      join(tfDist, "transformers.web.js"),
+      "export const env = { backends: { onnx: { wasm: {} } } };\n"
+    );
+    const kokoroDir = join(mods, "kokoro-js");
+    mkdirSync(join(kokoroDir, "dist"), { recursive: true });
+    writeFileSync(
+      join(kokoroDir, "package.json"),
+      JSON.stringify({
+        name: "kokoro-js",
+        type: "module",
+        exports: { node: { import: "./dist/kokoro.js" }, default: "./dist/kokoro.js" },
+      })
+    );
+    writeFileSync(
+      join(kokoroDir, "dist", "kokoro.js"),
+      "export const KokoroTTS = { from_pretrained: () => 'bundled-fake' };\n"
+    );
+
+    const result = await loadBundledKokoroRuntime(runtime);
+    expect(result).not.toBeNull();
+    // "cpu" maps onto onnxruntime-web's WASM engine in the patched web build.
+    expect(result!.device).toBe("cpu");
+    expect(
+      (result!.factory as unknown as { from_pretrained: () => string }).from_pretrained()
+    ).toBe("bundled-fake");
+
+    const tf = (await import(
+      pathToFileURL(join(tfDist, "transformers.web.js")).href
+    )) as unknown as {
+      env: {
+        allowLocalModels?: boolean;
+        useCustomCache?: boolean;
+        customCache?: { match: unknown; put: unknown } | null;
+        backends: { onnx: { wasm: { wasmPaths?: string } } };
+      };
+    };
+    expect(tf.env.allowLocalModels).toBe(false);
+    expect(tf.env.useCustomCache).toBe(true);
+    expect(tf.env.customCache?.match).toBeTypeOf("function");
+    expect(tf.env.backends.onnx.wasm.wasmPaths).toContain("onnxruntime-web/dist/");
   });
 });

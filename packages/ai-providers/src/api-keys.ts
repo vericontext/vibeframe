@@ -27,9 +27,10 @@ defineApiKey({
   envVar: "OPENAI_API_KEY",
   label: "OpenAI",
   showInSetup: true,
-  setupDescription: "gpt-image-2 image gen ($, default since v0.56), Whisper transcribe, Agent",
+  setupDescription:
+    "gpt-image-2 image gen ($, default since v0.56), gpt-4o-mini-tts narration, Whisper transcribe, Agent",
   envExampleComment:
-    "OpenAI API Key (Whisper transcription, gpt-image-2 — default text-to-image since v0.56)",
+    "OpenAI API Key (Whisper transcription, gpt-4o-mini-tts narration, gpt-image-2 — default text-to-image since v0.56)",
   envExampleUrl: "https://platform.openai.com/api-keys",
   keyFormat: { prefix: /^sk-/, example: "sk-..." },
 });
