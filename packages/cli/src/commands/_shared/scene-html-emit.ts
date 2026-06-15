@@ -76,7 +76,7 @@ export interface LottieOverlayInput {
 }
 
 export interface EmitSceneInput {
-  /** Kebab-case scene id; appears in `data-composition-id` and template id. */
+  /** Kebab-case beat id; emitted composition id is `scene-<id>` to match root-sync. */
   id: string;
   preset: ScenePreset;
   /** Canvas width in px (must match the root composition). */
@@ -135,6 +135,11 @@ function humanise(id: string): string {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/** Root-sync's canonical composition id for a storyboard beat id. */
+export function sceneCompositionId(beatId: string): string {
+  return `scene-${beatId}`;
 }
 
 /**
@@ -295,6 +300,14 @@ function kenBurnsTween(scope: string, dur: number, endScale = 1.08): string {
   return `tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: ${endScale}, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);`;
 }
 
+function backdropMotionTweens(scope: string, dur: number, hasImage: boolean, endScale = 1.08): string {
+  const sweep =
+    hasImage
+      ? ""
+      : `\n      tl.fromTo('${scope} .ambient-sweep', { xPercent: -75, opacity: 0.18 }, { xPercent: 75, opacity: 0.62, duration: ${dur.toFixed(2)}, ease: 'sine.inOut' }, 0);`;
+  return `${kenBurnsTween(scope, dur, endScale)}${sweep}`;
+}
+
 // ---------------------------------------------------------------------------
 // Per-preset content + animation
 // ---------------------------------------------------------------------------
@@ -308,10 +321,11 @@ interface PresetParts {
   timeline: string;
 }
 
-function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "duration">> & EmitSceneInput): PresetParts {
+function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "duration">> & EmitSceneInput & { beatId?: string }): PresetParts {
   const id = input.id;
   const scope = `[data-composition-id="${id}"]`;
-  const headline = clean(input.headline) || humanise(id);
+  const displayId = input.beatId ?? id;
+  const headline = clean(input.headline) || humanise(displayId);
   const subhead = clean(input.subhead);
   const kicker = clean(input.kicker);
   const dur = input.duration;
@@ -337,8 +351,19 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         position: absolute;
         inset: 0;
         background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%);
+        overflow: hidden;
+      }
+      ${scope} .ambient-sweep {
+        position: absolute;
+        inset: -22%;
+        display: block;
+        background: linear-gradient(115deg, rgba(255,255,255,0) 20%, rgba(0,201,255,0.34) 48%, rgba(142,45,226,0.26) 58%, rgba(255,255,255,0) 78%);
+        filter: blur(12px);
+        transform: rotate(8deg);
       }`;
-  const backdropMarkup = `<div class="backdrop"></div>`;
+  const backdropMarkup = hasImage
+    ? `<div class="backdrop"></div>`
+    : `<div class="backdrop"><div class="ambient-sweep"></div></div>`;
 
   switch (input.preset) {
     case "simple": {
@@ -381,7 +406,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         body: `${backdropMarkup}
     <div class="caption" id="caption">${captionInner}</div>`,
         timeline: `${crossfadeTweens(scope, dur)}
-      ${kenBurnsTween(scope, dur)}
+      ${backdropMotionTweens(scope, dur, hasImage)}
       ${captionTween}`,
       };
     }
@@ -420,12 +445,12 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         // scene's own fade-in handles the visual transition. Backdrop
         // Ken-Burns fills what used to be 80% dead static frame.
         timeline: `${crossfadeTweens(scope, dur)}
-      ${kenBurnsTween(scope, dur)}
+      ${backdropMotionTweens(scope, dur, hasImage)}
       tl.from('${scope} #headline', { opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' }, 0.05);`,
       };
     }
     case "explainer": {
-      const k = kicker || humanise(id).toUpperCase();
+      const k = kicker || humanise(displayId).toUpperCase();
       const sub = subhead || "";
       const transcript = input.transcript;
       const useWordSync = !!(transcript && transcript.length > 0 && sub);
@@ -472,7 +497,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
       <div class="subtitle" id="subtitle">${subtitleInner}</div>` : ""}
     </div>`,
         timeline: `${crossfadeTweens(scope, dur)}
-      ${kenBurnsTween(scope, dur)}
+      ${backdropMotionTweens(scope, dur, hasImage)}
       tl.from('${scope} #kicker', { opacity: 0, y: 16, duration: 0.4, ease: 'power2.out' }, 0.1);
       tl.from('${scope} #title', { opacity: 0, y: 60, duration: 0.7, ease: 'power3.out' }, 0.25);
       ${subtitleTween}`,
@@ -526,12 +551,12 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
         body: `${backdropMarkup}
     <div class="kinetic">${wordSpans}</div>`,
         timeline: `${crossfadeTweens(scope, dur)}
-      ${kenBurnsTween(scope, dur)}
+      ${backdropMotionTweens(scope, dur, hasImage)}
       ${tweens}`,
       };
     }
     case "product-shot": {
-      const label = kicker || humanise(id);
+      const label = kicker || humanise(displayId);
       const headlineFontPx = fitFontSize(headline, 72, 40, 50);
       return {
         css: `${scope} {
@@ -565,7 +590,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
     <div class="product-headline" id="headline">${esc(headline)}</div>${subhead ? `
     <div class="product-sub" id="subhead">${esc(subhead)}</div>` : ""}`,
         timeline: `${crossfadeTweens(scope, dur)}
-      tl.fromTo('${scope} .backdrop', { scale: 1.0 }, { scale: 1.12, duration: ${dur.toFixed(2)}, ease: 'none' }, 0);
+      ${backdropMotionTweens(scope, dur, hasImage, 1.12)}
       tl.from('${scope} #label', { opacity: 0, x: -30, duration: 0.5, ease: 'power3.out' }, 0.2);
       tl.from('${scope} #headline', { opacity: 0, y: 40, duration: 0.6, ease: 'power3.out' }, 0.4);${subhead ? `
       tl.from('${scope} #subhead', { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, 0.65);` : ""}`,
@@ -679,9 +704,10 @@ export function emitSceneHtml(input: EmitSceneInput): string {
     throw new Error(`Invalid canvas dims: ${input.width}x${input.height}`);
   }
 
-  const id = input.id;
+  const beatId = input.id;
+  const id = sceneCompositionId(beatId);
   const dur = Number(input.duration.toFixed(3));
-  const parts = buildPreset({ ...input, id, duration: dur });
+  const parts = buildPreset({ ...input, id, beatId, duration: dur });
 
   const audioBlock = input.audioPath
     ? `\n    <audio
@@ -698,7 +724,7 @@ export function emitSceneHtml(input: EmitSceneInput): string {
   const lottieMarkup = lottieLayer ? `\n    ${lottieLayer.markup}` : "";
   const lottieScript = lottieLayer ? `\n    ${lottieLayer.script}` : "";
 
-  return `<template id="scene-${id}-template">
+  return `<template id="${id}-template">
   <div data-composition-id="${id}" data-start="0" data-duration="${dur}" data-width="${input.width}" data-height="${input.height}">
     <style>
       ${parts.css}
@@ -746,7 +772,7 @@ export function nextSceneStart(rootHtml: string, overlap = 0): number {
 }
 
 export interface ClipReferenceInput {
-  /** Scene id — used to derive the composition src path. */
+  /** Beat id — used to derive `scene-<id>` composition id and src path. */
   id: string;
   start: number;
   duration: number;
@@ -761,6 +787,7 @@ export function buildClipReference(opts: ClipReferenceInput): string {
   const duration = Number(opts.duration.toFixed(3));
   const track = opts.trackIndex ?? 1;
   const src = opts.src ?? `compositions/scene-${opts.id}.html`;
+  const compositionId = sceneCompositionId(opts.id);
   // Inline z-index inverted from start time: earlier scenes paint on TOP
   // of later scenes during overlap windows. The fade-out scope tween on
   // the outgoing (earlier) scene then reveals the incoming (later) scene
@@ -771,7 +798,7 @@ export function buildClipReference(opts: ClipReferenceInput): string {
   // Scale factor 1000 keeps z-indices within sane integer ranges for
   // multi-minute compositions while preserving sort order.
   const zIndex = Math.max(1, 1000000 - Math.floor(start * 1000));
-  return `<div class="clip" data-composition-id="${esc(opts.id)}" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}" style="z-index: ${zIndex};"></div>`;
+  return `<div class="clip" data-composition-id="${esc(compositionId)}" data-composition-src="${esc(src)}" data-start="${start}" data-duration="${duration}" data-track-index="${track}" style="z-index: ${zIndex};"></div>`;
 }
 
 /**

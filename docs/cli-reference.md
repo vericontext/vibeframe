@@ -1373,6 +1373,7 @@ Cost tier: `free`
 - `kicker` _(string)_ — Small label above the headline (explainer / product-shot)
 - `insertInto` _(string)_ _(default: `"index.html"`)_ — Root composition file to update
 - `project` _(string)_ _(default: `"."`)_ — Project directory
+- `noStoryboard` _(boolean)_ — Do not sync STORYBOARD.md; insert this scene directly into the root composition only
 - `imageProvider` _(string)_ _(gemini \| openai)_ _(default: `"gemini"`)_ — Image provider: gemini, openai
 - `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ — TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)
 - `voice` _(string)_ — Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)

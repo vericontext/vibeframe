@@ -13,11 +13,13 @@ import {
   parseFreezedetectOutput,
   parseSilencedetectOutput,
   previewInspectRender,
+  renderExpectsAudio,
   resolveRenderVideoPath,
   scoreRenderReview,
   staticFrameIssueForRange,
 } from "./render-inspect.js";
 import type { VideoReviewFeedback } from "../ai-edit.js";
+import { commandExists, execSafe } from "../../utils/exec-safe.js";
 
 async function makeTmp(): Promise<string> {
   return mkdtemp(join(tmpdir(), "vibe-render-inspect-"));
@@ -304,4 +306,78 @@ describe("render inspect parsers", () => {
     expect(result.beat).toBe("hook");
     expect(result.params.beatId).toBe("hook");
   });
+});
+
+describe("render expected-audio detection", () => {
+  it("does not expect audio for a silent storyboard with no audio assets", async () => {
+    const dir = await makeTmp();
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Silent\n\n## Beat hook - Hook\n\n\`\`\`yaml\nduration: 3\n\`\`\`\n\nBody.\n`,
+      "utf-8"
+    );
+
+    await expect(renderExpectsAudio(dir)).resolves.toBe(false);
+  });
+
+  it("expects audio from root audio refs, build reports, or matching assets", async () => {
+    const dir = await makeTmp();
+    await mkdir(resolve(dir, "assets"), { recursive: true });
+    await writeFile(
+      resolve(dir, "index.html"),
+      `<div id="root"><audio id="narration-hook" src="assets/narration-hook.mp3"></audio></div>`,
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "build-report.json"),
+      JSON.stringify({ beats: [{ id: "close", narrationPath: "assets/narration-close.mp3" }] }),
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Audio\n\n## Beat music - Music\n\n\`\`\`yaml\nduration: 3\n\`\`\`\n\nBody.\n`,
+      "utf-8"
+    );
+    await writeFile(resolve(dir, "assets/music-music.wav"), Buffer.from([1, 2, 3]));
+
+    await expect(renderExpectsAudio(dir, "hook")).resolves.toBe(true);
+    await expect(renderExpectsAudio(dir, "close")).resolves.toBe(true);
+    await expect(renderExpectsAudio(dir, "music")).resolves.toBe(true);
+    await expect(renderExpectsAudio(dir, "silent")).resolves.toBe(false);
+  });
+});
+
+describe("render inspect no-audio warnings", () => {
+  const hasVideoTools = commandExists("ffmpeg") && commandExists("ffprobe");
+
+  it.skipIf(!hasVideoTools)(
+    "only warns about missing audio when project state expects audio",
+    async () => {
+      const dir = await makeTmp();
+      const videoPath = resolve(dir, "silent.mp4");
+      await execSafe("ffmpeg", [
+        "-hide_banner",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=red:s=64x64:d=1",
+        "-an",
+        "-pix_fmt",
+        "yuv420p",
+        videoPath,
+      ]);
+
+      const silent = await inspectRender({ projectDir: dir, videoPath, writeReport: false });
+      expect(silent.issues.map((issue) => issue.code)).not.toContain("NO_AUDIO_STREAM");
+
+      await writeFile(
+        resolve(dir, "index.html"),
+        `<div id="root"><audio id="narration-hook" src="assets/narration-hook.mp3"></audio></div>`,
+        "utf-8"
+      );
+      const expected = await inspectRender({ projectDir: dir, videoPath, writeReport: false });
+      expect(expected.issues.map((issue) => issue.code)).toContain("NO_AUDIO_STREAM");
+    }
+  );
 });

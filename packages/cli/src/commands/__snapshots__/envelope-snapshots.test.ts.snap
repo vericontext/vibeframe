@@ -3589,6 +3589,10 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "description": "Skip image generation even when --visuals is provided",
         "type": "boolean",
       },
+      "noStoryboard": {
+        "description": "Do not sync STORYBOARD.md; insert this scene directly into the root composition only",
+        "type": "boolean",
+      },
       "noTranscribe": {
         "description": "Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)",
         "type": "boolean",

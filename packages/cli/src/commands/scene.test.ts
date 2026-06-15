@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { scaffoldSceneProject } from "./_shared/scene-project.js";
 import { executeSceneAdd, resolveSceneRepairTarget } from "./scene.js";
+import { parseStoryboard } from "./_shared/storyboard-parse.js";
 
 async function pathExists(p: string): Promise<boolean> {
   try {
@@ -45,19 +46,28 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     const scenePath = resolve(projectDir, "compositions/scene-intro-scene.html");
     expect(await pathExists(scenePath)).toBe(true);
     const sceneHtml = await readFile(scenePath, "utf-8");
-    expect(sceneHtml).toContain('data-composition-id="intro-scene"');
+    expect(sceneHtml).toContain('data-composition-id="scene-intro-scene"');
     expect(sceneHtml).toContain("Welcome");
     expect(sceneHtml).not.toContain("<audio");
     expect(sceneHtml).not.toContain("background-image: url(");
 
     // Root updated with the clip ref
     const rootHtml = await readFile(resolve(projectDir, "index.html"), "utf-8");
+    expect(rootHtml).toContain('data-composition-id="scene-intro-scene"');
     expect(rootHtml).toContain('data-composition-src="compositions/scene-intro-scene.html"');
     expect(rootHtml).toContain('data-start="0"');
     expect(rootHtml).toContain('data-duration="4"');
+
+    const storyboard = parseStoryboard(
+      await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8")
+    );
+    expect(storyboard.beats.map((beat) => beat.id)).toEqual(["intro-scene"]);
+    expect(storyboard.beats[0].duration).toBe(4);
+    expect(result.storyboardSynced).toBe(true);
+    expect(result.storyboardAction).toBe("replaced-starter");
   });
 
-  it("appends multiple scenes sequentially with running start times", async () => {
+  it("appends multiple root-only scenes sequentially with running start times", async () => {
     const projectDir = await makeProject();
 
     const a = await executeSceneAdd({
@@ -67,6 +77,7 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
       projectDir,
       skipAudio: true,
       skipImage: true,
+      syncStoryboard: false,
     });
     expect(a.success).toBe(true);
     expect(a.start).toBe(0);
@@ -78,6 +89,7 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
       projectDir,
       skipAudio: true,
       skipImage: true,
+      syncStoryboard: false,
     });
     expect(b.success).toBe(true);
     // Crossfade architecture: second scene starts 0.4 s before the first
@@ -87,8 +99,65 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     expect(b.start).toBeCloseTo(2.6, 5);
 
     const root = await readFile(resolve(projectDir, "index.html"), "utf-8");
+    expect(root).toContain('data-composition-id="scene-intro"');
+    expect(root).toContain('data-composition-id="scene-outro"');
     expect(root).toContain('data-composition-src="compositions/scene-intro.html"');
     expect(root).toContain('data-composition-src="compositions/scene-outro.html"');
+  });
+
+  it("appends to a custom storyboard and syncs root refs from storyboard order", async () => {
+    const projectDir = await makeProject();
+    await writeFile(
+      resolve(projectDir, "STORYBOARD.md"),
+      `# Custom\n\n## Beat existing - Existing\n\n\`\`\`yaml\nduration: 2\n\`\`\`\n\nKeep this body.\n`,
+      "utf-8"
+    );
+
+    const result = await executeSceneAdd({
+      name: "new proof",
+      preset: "simple",
+      duration: 3,
+      projectDir,
+      skipAudio: true,
+      skipImage: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.storyboardAction).toBe("appended");
+    expect(result.start).toBe(2);
+    const storyboardMd = await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8");
+    expect(storyboardMd).toContain("Keep this body.");
+    expect(parseStoryboard(storyboardMd).beats.map((beat) => beat.id)).toEqual([
+      "existing",
+      "new-proof",
+    ]);
+    const root = await readFile(resolve(projectDir, "index.html"), "utf-8");
+    expect(root).toContain('data-composition-id="scene-existing"');
+    expect(root).toContain('data-composition-id="scene-new-proof"');
+  });
+
+  it("updates an existing storyboard beat without clobbering body text", async () => {
+    const projectDir = await makeProject();
+    await writeFile(
+      resolve(projectDir, "STORYBOARD.md"),
+      `# Custom\n\n## Beat intro - Old title\n\n\`\`\`yaml\nduration: 2\n\`\`\`\n\nCustom body stays.\n`,
+      "utf-8"
+    );
+
+    const result = await executeSceneAdd({
+      name: "intro",
+      preset: "simple",
+      duration: 6,
+      projectDir,
+      skipAudio: true,
+      skipImage: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.storyboardAction).toBe("updated");
+    const storyboardMd = await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8");
+    expect(storyboardMd).toContain("duration: 6");
+    expect(storyboardMd).toContain("Custom body stays.");
   });
 
   it("uses the narration text as the subhead even when --no-audio is set", async () => {
@@ -102,6 +171,7 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
       projectDir,
       skipAudio: true,
       skipImage: true,
+      syncStoryboard: false,
     });
 
     expect(result.success).toBe(true);
