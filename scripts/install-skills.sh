@@ -2,6 +2,9 @@
 set -euo pipefail
 
 # Install VibeFrame Claude Code skills into the current project (.claude/skills/).
+# In this repo, .claude/skills is generated from .agents/skills by
+# scripts/sync-agent-hosts.mts. Install the generated Claude target so external
+# Claude Code users receive the correct slash-command frontmatter.
 # Usage: curl -fsSL https://raw.githubusercontent.com/vericontext/vibeframe/main/scripts/install-skills.sh | bash
 
 REPO_RAW="https://raw.githubusercontent.com/vericontext/vibeframe/main"

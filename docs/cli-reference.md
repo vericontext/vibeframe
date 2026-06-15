@@ -17,12 +17,24 @@ and `DESIGN.md` are the source of truth; generated files under
 `compositions/` are artifacts. Use `vibe storyboard revise --dry-run`
 for project-aware STORYBOARD.md rewrites, `vibe storyboard *` for narrow
 cue edits, and direct Markdown edits for larger DESIGN.md rewrites.
+Native Codex Goal mode and Claude Code `/goal` are the outer loop for
+long-running work. VibeFrame provides the video-specific command surface,
+machine reports, cost gates, deterministic repair, render inspection, and
+`retryWith` hints those hosts use to decide the next step and when to stop.
 
 ```
 init --from → storyboard revise → storyboard validate → plan → build → inspect → render
 generate / edit / inspect / remix                          ← one-shot media tools
 scene / timeline                                            ← lower-level authoring
 run / agent / schema / context                              ← automation + agents
+```
+
+Canonical native-goal loop:
+
+```
+native host goal → vibe context/schema → plan dry-run → build with budget
+→ status polling → inspect project → render → inspect render
+→ repair/edit using retryWith/fixOwner → repeat until stop rules pass
 ```
 
 `vibe plan --json` emits `data.kind:"build-plan"`,
@@ -57,7 +69,11 @@ render code or `code:"RENDER_FAILED"`. Both include `currentStage`,
 `summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}`,
 `sourceReports`, and `retryWith`. Issue-level `fixOwner:"vibe"` means
 deterministic CLI recovery; `fixOwner:"host-agent"` means storyboard/design/
-composition edits should be handled by the host agent.
+composition edits should be handled by the host agent. A host-native goal
+should stop only after the final MP4 exists, duration and aspect ratio match
+the brief, render inspection has no errors, any AI review score meets the goal
+threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or
+reported as blocked.
 
 ## Global flags
 

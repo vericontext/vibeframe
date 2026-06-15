@@ -88,6 +88,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "codex-toml",
       notes: [
         "Codex reads AGENTS.md and can also load project-scoped .codex/config.toml after the project is trusted.",
+        "Use Codex /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, retryWith, and repair commands.",
         "Keep provider/auth keys in VibeFrame config or environment, not in project-local Codex config.",
       ],
     },
@@ -100,6 +101,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "mcp-json",
       notes: [
         "Claude Code can drive vibe directly through shell plus AGENTS.md/CLAUDE.md.",
+        "Use Claude Code /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, retryWith, and repair commands.",
         "The MCP entry is optional and gives Claude Code a typed tool surface.",
       ],
     },
@@ -187,7 +189,15 @@ export async function planHostSetup(
       status: opts.write ? "would-merge" : "would-write",
       reason: opts.write ? "dry run" : "snippet only; pass --write to modify",
     });
-    return { host, snippet, command: host.id === "claude-code" ? claudeCodeAddCommand() : undefined, configPath, files, warnings, nextSteps };
+    return {
+      host,
+      snippet,
+      command: host.id === "claude-code" ? claudeCodeAddCommand() : undefined,
+      configPath,
+      files,
+      warnings,
+      nextSteps,
+    };
   }
 
   try {
@@ -204,10 +214,21 @@ export async function planHostSetup(
     warnings.push(error instanceof Error ? error.message : String(error));
   }
 
-  return { host, snippet, command: host.id === "claude-code" ? claudeCodeAddCommand() : undefined, configPath, files, warnings, nextSteps };
+  return {
+    host,
+    snippet,
+    command: host.id === "claude-code" ? claudeCodeAddCommand() : undefined,
+    configPath,
+    files,
+    warnings,
+    nextSteps,
+  };
 }
 
-export async function inspectHost(host: HostDefinition, projectDir: string): Promise<HostDoctorResult> {
+export async function inspectHost(
+  host: HostDefinition,
+  projectDir: string
+): Promise<HostDoctorResult> {
   const configPath = host.configPath(projectDir);
   const warnings: string[] = [];
   const nextSteps = hostNextSteps(host);
@@ -257,12 +278,16 @@ async function mergeMcpJson(
     try {
       root = raw.trim() ? (JSON.parse(raw) as Record<string, unknown>) : {};
     } catch (error) {
-      throw new Error(`Invalid JSON in ${configPath}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Invalid JSON in ${configPath}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   const mcpServers =
-    typeof root.mcpServers === "object" && root.mcpServers !== null && !Array.isArray(root.mcpServers)
+    typeof root.mcpServers === "object" &&
+    root.mcpServers !== null &&
+    !Array.isArray(root.mcpServers)
       ? (root.mcpServers as Record<string, unknown>)
       : {};
 
@@ -275,10 +300,18 @@ async function mergeMcpJson(
       };
       await mkdir(dirname(configPath), { recursive: true });
       if (exists && opts.backup) {
-        await writeFile(`${configPath}.bak-${timestamp()}`, await readFile(configPath, "utf-8"), "utf-8");
+        await writeFile(
+          `${configPath}.bak-${timestamp()}`,
+          await readFile(configPath, "utf-8"),
+          "utf-8"
+        );
       }
       await writeFile(configPath, JSON.stringify(root, null, 2) + "\n", "utf-8");
-      return { path: configPath, status: "merged", reason: "anchored existing default vibeframe MCP server" };
+      return {
+        path: configPath,
+        status: "merged",
+        reason: "anchored existing default vibeframe MCP server",
+      };
     }
     return {
       path: configPath,
@@ -290,25 +323,38 @@ async function mergeMcpJson(
   root.mcpServers = { ...mcpServers, vibeframe: opts.server };
   await mkdir(dirname(configPath), { recursive: true });
   if (exists && opts.backup) {
-    await writeFile(`${configPath}.bak-${timestamp()}`, await readFile(configPath, "utf-8"), "utf-8");
+    await writeFile(
+      `${configPath}.bak-${timestamp()}`,
+      await readFile(configPath, "utf-8"),
+      "utf-8"
+    );
   }
   await writeFile(configPath, JSON.stringify(root, null, 2) + "\n", "utf-8");
   return { path: configPath, status: exists ? "merged" : "wrote" };
 }
 
-async function mergeCodexToml(configPath: string, opts: { force: boolean }): Promise<HostFileAction> {
+async function mergeCodexToml(
+  configPath: string,
+  opts: { force: boolean }
+): Promise<HostFileAction> {
   const exists = existsSync(configPath);
   const block = `${CODEX_MANAGED_START}\n${CODEX_MCP_BLOCK}${CODEX_MANAGED_END}`;
   if (!exists) {
     await mkdir(dirname(configPath), { recursive: true });
-    await writeFile(configPath, `#:schema https://developers.openai.com/codex/config-schema.json\n\n${block}\n`, "utf-8");
+    await writeFile(
+      configPath,
+      `#:schema https://developers.openai.com/codex/config-schema.json\n\n${block}\n`,
+      "utf-8"
+    );
     return { path: configPath, status: "wrote" };
   }
 
   const raw = await readFile(configPath, "utf-8");
   if (raw.includes(CODEX_MANAGED_START)) {
     const updated = raw.replace(
-      new RegExp(`${escapeRegExp(CODEX_MANAGED_START)}[\\s\\S]*?${escapeRegExp(CODEX_MANAGED_END)}`),
+      new RegExp(
+        `${escapeRegExp(CODEX_MANAGED_START)}[\\s\\S]*?${escapeRegExp(CODEX_MANAGED_END)}`
+      ),
       block
     );
     await writeFile(configPath, ensureTrailingNewline(updated), "utf-8");
@@ -342,19 +388,28 @@ function hasVibeframeMcpServer(value: unknown): boolean {
 function readVibeframeMcpServer(value: unknown): (McpServerJson & Record<string, unknown>) | null {
   if (!value || typeof value !== "object") return null;
   const root = value as { mcpServers?: unknown };
-  if (!root.mcpServers || typeof root.mcpServers !== "object" || Array.isArray(root.mcpServers)) return null;
+  if (!root.mcpServers || typeof root.mcpServers !== "object" || Array.isArray(root.mcpServers))
+    return null;
   const server = (root.mcpServers as Record<string, unknown>).vibeframe;
   if (!server || typeof server !== "object" || Array.isArray(server)) return null;
   return server as McpServerJson & Record<string, unknown>;
 }
 
-function isAnchoredClaudeDesktopServer(server: (McpServerJson & Record<string, unknown>) | null): boolean {
+function isAnchoredClaudeDesktopServer(
+  server: (McpServerJson & Record<string, unknown>) | null
+): boolean {
   if (!server) return false;
   if (server.command === "bash" && Array.isArray(server.args)) {
-    return server.args[0] === "-lc" && typeof server.args[1] === "string" && server.args[1].includes("exec npx -y @vibeframe/mcp-server");
+    return (
+      server.args[0] === "-lc" &&
+      typeof server.args[1] === "string" &&
+      server.args[1].includes("exec npx -y @vibeframe/mcp-server")
+    );
   }
   if (server.command === "cmd.exe" && Array.isArray(server.args)) {
-    return server.args.some((arg) => typeof arg === "string" && arg.includes("npx -y @vibeframe/mcp-server"));
+    return server.args.some(
+      (arg) => typeof arg === "string" && arg.includes("npx -y @vibeframe/mcp-server")
+    );
   }
   return false;
 }
@@ -363,10 +418,16 @@ function canUpgradeDefaultServer(existing: unknown, target: McpServerJson): bool
   if (!existing || typeof existing !== "object" || Array.isArray(existing)) return false;
   const current = existing as Record<string, unknown>;
   if (!Array.isArray(current.args)) return false;
-  if (current.command === target.command && JSON.stringify(current.args) === JSON.stringify(target.args)) {
+  if (
+    current.command === target.command &&
+    JSON.stringify(current.args) === JSON.stringify(target.args)
+  ) {
     return false;
   }
-  return current.command === VIBEFRAME_MCP_JSON.command && JSON.stringify(current.args) === JSON.stringify(VIBEFRAME_MCP_JSON.args);
+  return (
+    current.command === VIBEFRAME_MCP_JSON.command &&
+    JSON.stringify(current.args) === JSON.stringify(VIBEFRAME_MCP_JSON.args)
+  );
 }
 
 function hostNextSteps(host: HostDefinition): string[] {
@@ -374,12 +435,14 @@ function hostNextSteps(host: HostDefinition): string[] {
     return [
       "Trust the project in Codex so .codex/config.toml is loaded.",
       "Run /mcp in Codex to confirm the vibeframe server is connected.",
+      "Use /goal with the project AGENTS.md stop rules for long-running video builds.",
     ];
   }
   if (host.id === "claude-code") {
     return [
       "Restart Claude Code or run /mcp to approve the project-scoped server.",
       "Use AGENTS.md/CLAUDE.md for shell-driven vibe workflows.",
+      "Use /goal with the project AGENTS.md stop rules for long-running video builds.",
     ];
   }
   if (host.id === "claude-desktop") {
@@ -394,7 +457,11 @@ function claudeDesktopConfigPath(): string {
     return join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
   }
   if (process.platform === "win32") {
-    return join(process.env.APPDATA ?? join(home, "AppData", "Roaming"), "Claude", "claude_desktop_config.json");
+    return join(
+      process.env.APPDATA ?? join(home, "AppData", "Roaming"),
+      "Claude",
+      "claude_desktop_config.json"
+    );
   }
   return join(home, ".config", "Claude", "claude_desktop_config.json");
 }

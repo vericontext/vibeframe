@@ -25,6 +25,27 @@ vibe build my-video --max-cost 5
 vibe render my-video -o renders/final.mp4
 ```
 
+## Native Host Goal Loop
+
+Use Codex `/goal`, Claude Code `/goal`, Cursor, or another host-native goal
+feature as the outer loop for multi-step video builds. VibeFrame should not
+compete with that loop. It should expose machine-readable state and recovery
+paths:
+
+```text
+native host goal -> vibe context/schema -> plan dry-run -> build with budget
+-> status polling -> inspect project -> render -> inspect render
+-> repair/edit using retryWith/fixOwner -> repeat
+```
+
+The goal should stop only when the final MP4 path exists, duration and aspect
+ratio match the brief, render inspection has no errors, any AI review score
+meets the goal threshold when AI review is requested, and unresolved
+`fixOwner:"host-agent"` issues are fixed,
+accepted with rationale, or reported as blocked. Agents should read
+`build-report.json` and `review-report.json` before choosing the next action
+and run `retryWith` commands before inventing recovery steps.
+
 Claude Desktop uses global MCP config, so anchor it to the workspace you want
 relative project names to resolve under. VibeFrame writes a shell wrapper
 because Claude Desktop may not preserve a raw `cwd` field:

@@ -422,6 +422,39 @@ vibe host setup all --write # write project/app config
 vibe host doctor all --json # verify readiness
 \`\`\`
 
+## Native host goal loop
+
+For long-running work, use Codex Goal mode, Claude Code \`/goal\`, or the
+host's equivalent as the outer loop. VibeFrame should not run a competing
+project-level goal loop; it provides \`--json\` commands, dry runs, cost caps,
+\`build-report.json\`, \`review-report.json\`, \`retryWith\`, \`fixOwner\`,
+deterministic repair, and render inspection for the host agent to reason over.
+
+Copy-paste examples:
+
+\`\`\`text
+/goal Build this VibeFrame project into renders/final.mp4. Use --json for every
+vibe command, run --dry-run before paid operations, use --max-cost 5 for builds
+unless the user sets another budget, read build-report.json and
+review-report.json before deciding the next action, and run retryWith commands
+before custom recovery. Treat fixOwner:"vibe" as CLI repair work and
+fixOwner:"host-agent" as STORYBOARD.md, DESIGN.md, or composition edits.
+Stop only when renders/final.mp4 exists, duration and aspect ratio match the
+brief, inspect render --cheap has no errors, any AI review score is >= 90 when AI review is requested, and every
+remaining host-agent issue is fixed, accepted with rationale, or reported as
+blocked.
+\`\`\`
+
+\`\`\`text
+/goal Finish this VibeFrame render using Claude Code goal mode as the outer
+loop. Use vibe context/schema when unsure, --json everywhere, dry-run before
+paid operations, budget cap via --max-cost 5, retryWith before guessing,
+build-report.json/review-report.json as loop state, and fixOwner to decide
+between vibe scene repair and host-agent edits. Stop only after final MP4,
+target duration/aspect ratio, clean render inspection, any AI review score >= 90 when AI review is requested, and
+no unresolved unacknowledged host-agent issues.
+\`\`\`
+
 ## Skills — USE THESE FIRST
 
 @SKILL.md

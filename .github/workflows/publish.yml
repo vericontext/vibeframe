@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish (e.g. v0.96.4). Required when dispatched."
+        description: "Tag to publish (e.g. v0.113.1). Required when dispatched."
         type: string
         default: ""
       dry-run:
@@ -25,12 +25,9 @@ jobs:
       id-token: write
 
     steps:
-      # Resolve the release tag from either the push event ref or the
-      # workflow_dispatch input. auto-tag.yml dispatches this workflow
-      # via the gh CLI because GHA's anti-recursion rule blocks
-      # `push: tags` triggers from GITHUB_TOKEN-pushed tags. We accept
-      # the tag explicitly via input so the GitHub Release step can
-      # tag-name correctly even when github.ref is `refs/heads/main`.
+      # Resolve the release tag from either an explicit workflow_dispatch input
+      # or a human-created tag push. CI and the release-tag helper never
+      # dispatch this workflow automatically.
       - name: Resolve release tag
         id: resolve
         env:
@@ -44,12 +41,28 @@ jobs:
             echo "No tag provided and not a tag-push event" >&2
             exit 1
           fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $TAG" >&2
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Resolved release tag: $TAG"
 
       - uses: actions/checkout@v6
         with:
           ref: ${{ steps.resolve.outputs.tag }}
+
+      - name: Verify package version matches tag
+        env:
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          TAG_VERSION="${RELEASE_TAG#v}"
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "Tag $RELEASE_TAG does not match package.json version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+          echo "Publishing version $PACKAGE_VERSION from $RELEASE_TAG"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6

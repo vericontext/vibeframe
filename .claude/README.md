@@ -27,7 +27,7 @@ hooks, and rules here.
 │   ├── lint-fixer.md          # Fix ESLint errors (haiku)
 │   ├── e2e-tester.md          # Full E2E testing (sonnet, 60 turns)
 │   └── feature-tester.md      # Single-feature testing (haiku)
-└── skills/                    # Workflow skills (user-invocable)
+└── skills/                    # Generated workflow skills (user-invocable)
     ├── test/SKILL.md          # /test — run tests
     ├── release/SKILL.md       # /release — version bump workflow
     ├── sync-check/SKILL.md    # /sync-check — SSOT consistency
@@ -68,6 +68,9 @@ hooks, and rules here.
 ### Skills
 
 - 5 workflow skills: `/test`, `/release`, `/sync-check`, `/vibe-pipeline`, `/vibe-scene`
+- `.claude/skills` is generated from the canonical `.agents/skills` source.
+  Run `pnpm agent-sync` after editing shared skill content, and run
+  `pnpm agent-sync:check` before pushing.
 - Skill descriptions are always visible; full content loads on invocation
 - `/vibe-pipeline` and `/vibe-scene` mirror the public `vibe guide` topics — Claude Code users get slash-menu shortcuts, every other host can call `vibe guide <topic>`
 - Provider API references were removed (CLI source code is the SSOT)
@@ -96,14 +99,15 @@ hooks, and rules here.
   1. Version sync across `package.json` files
   2. Version bump required when `feat:`/`fix:` commits exist since last tag
   3. No hardcoded version fallbacks in `apps/web`
-  4. No stale model IDs in `.claude/skills/` (per `MODELS.md`)
+  4. No stale model IDs in canonical or generated agent skills (per `MODELS.md`)
   5. `scripts/sync-counts.sh --check` passes
-  6. `CHANGELOG.md` has entry for current root version
-  7. `pnpm lint` passes
-  8. `pnpm build` passes
-  9. `pnpm typecheck` passes
-  10. `pnpm gen:reference:check` passes (catches stale `docs/cli-reference.md`)
-  11. `pnpm package:check` passes (published package/export smoke)
+  6. `pnpm agent-sync:check` passes
+  7. `CHANGELOG.md` has entry for current root version
+  8. `pnpm lint` passes
+  9. `pnpm build` passes
+  10. `pnpm typecheck` passes
+  11. `pnpm gen:reference:check` passes (catches stale `docs/cli-reference.md`)
+  12. `pnpm package:check` passes (published package/export smoke)
 
   On failure, the last 5 lines of the failing command's output are
   attached to the error.
@@ -142,4 +146,5 @@ Create `.claude/agents/my-agent.md` with YAML frontmatter: `name`, `description`
 
 ### New Skill
 
-Create `.claude/skills/my-skill/SKILL.md` with YAML frontmatter: `name`, `description`.
+Create `.agents/skills/my-skill/SKILL.md` with YAML frontmatter: `name`,
+`description`, then run `pnpm agent-sync` to generate the Claude Code copy.

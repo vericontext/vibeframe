@@ -1,0 +1,255 @@
+import { existsSync } from "node:fs";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+
+type Mode = "check" | "write";
+
+type ManagedFile = {
+  relPath: string;
+  expected: string;
+};
+
+const args = new Set(process.argv.slice(2));
+const projectRoot = resolve(process.cwd());
+
+const mode: Mode | null =
+  args.has("--check") && !args.has("--write")
+    ? "check"
+    : args.has("--write") && !args.has("--check")
+      ? "write"
+      : null;
+
+if (!mode) {
+  console.error("Usage: pnpm agent-sync | pnpm agent-sync:check");
+  process.exit(2);
+}
+
+const CLAUDE_FRONTMATTER_EXTRAS: Record<string, Record<string, string>> = {
+  release: {
+    "argument-hint": '"<patch|minor|major>"',
+    "disable-model-invocation": "true",
+  },
+  "sync-check": {
+    "disable-model-invocation": "true",
+  },
+  test: {
+    "argument-hint": '"[package-name]"',
+    "disable-model-invocation": "true",
+  },
+};
+
+const CODEX_MCP_BLOCK = `# >>> VibeFrame MCP server >>>
+[mcp_servers.vibeframe]
+command = "npx"
+args = ["-y", "@vibeframe/mcp-server"]
+enabled = true
+# <<< VibeFrame MCP server <<<
+`;
+
+const DEFAULT_CODEX_CONFIG = `#:schema https://developers.openai.com/codex/config-schema.json
+
+# Project-scoped Codex settings for VibeFrame. Shared repository guidance lives
+# in AGENTS.md; keep this file focused on Codex runtime behavior.
+
+project_doc_max_bytes = 65536
+web_search = "cached"
+personality = "pragmatic"
+
+[features]
+hooks = true
+multi_agent = true
+
+[tools]
+view_image = true
+
+${CODEX_MCP_BLOCK}`;
+
+const CLAUDE_README_REQUIRED = [
+  ".agents/skills",
+  "pnpm agent-sync",
+  "pnpm agent-sync:check",
+  "generated from the canonical `.agents/skills`",
+];
+
+async function main(): Promise<void> {
+  const managedFiles = await collectManagedFiles();
+
+  if (mode === "write") {
+    const changed: string[] = [];
+    for (const file of managedFiles) {
+      if (await writeIfChanged(file.relPath, file.expected)) {
+        changed.push(file.relPath);
+      }
+    }
+    console.log(
+      changed.length > 0
+        ? `Updated ${changed.length} agent host file(s):\n${changed.map((file) => `  - ${file}`).join("\n")}`
+        : "Agent host files already in sync."
+    );
+    return;
+  }
+
+  const mismatches: string[] = [];
+  for (const file of managedFiles) {
+    const current = await readText(file.relPath);
+    if (current !== file.expected) {
+      mismatches.push(`${file.relPath} is stale`);
+    }
+  }
+
+  const claudeReadme = await readText(".claude/README.md");
+  for (const required of CLAUDE_README_REQUIRED) {
+    if (!claudeReadme.includes(required)) {
+      mismatches.push(`.claude/README.md missing required sync note: ${required}`);
+    }
+  }
+
+  if (mismatches.length > 0) {
+    console.error("Agent host sync check failed. Run `pnpm agent-sync`.");
+    for (const mismatch of mismatches) {
+      console.error(`  - ${mismatch}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("Agent host files are in sync.");
+}
+
+async function collectManagedFiles(): Promise<ManagedFile[]> {
+  const files: ManagedFile[] = [];
+
+  for (const skill of await listCanonicalSkills()) {
+    files.push({
+      relPath: `.claude/skills/${skill.name}/SKILL.md`,
+      expected: generateClaudeSkill(skill.name, skill.content),
+    });
+  }
+
+  files.push({
+    relPath: ".codex/config.toml",
+    expected: normalizeCodexConfig(await readText(".codex/config.toml")),
+  });
+  files.push({
+    relPath: ".cursor/mcp.json",
+    expected: normalizeCursorMcp(await readText(".cursor/mcp.json")),
+  });
+
+  return files;
+}
+
+async function listCanonicalSkills(): Promise<Array<{ name: string; content: string }>> {
+  const skillsDir = join(projectRoot, ".agents", "skills");
+  const entries = await readdir(skillsDir, { withFileTypes: true });
+  const skills: Array<{ name: string; content: string }> = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const name = entry.name;
+    const relPath = join(".agents", "skills", name, "SKILL.md");
+    if (!existsSync(join(projectRoot, relPath))) continue;
+    skills.push({ name, content: await readText(relPath) });
+  }
+
+  return skills.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function generateClaudeSkill(skillName: string, canonical: string): string {
+  const parsed = parseMarkdownFrontmatter(canonical);
+  const entries = new Map(parsed.frontmatter);
+  const extras = CLAUDE_FRONTMATTER_EXTRAS[skillName] ?? {};
+
+  for (const [key, value] of Object.entries(extras)) {
+    entries.set(key, value);
+  }
+
+  return ensureFinalNewline(
+    `---\n${stringifyFrontmatter(entries)}---\n\n${parsed.body.trimStart()}`
+  );
+}
+
+function parseMarkdownFrontmatter(content: string): {
+  frontmatter: Map<string, string>;
+  body: string;
+} {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) {
+    throw new Error("Expected markdown frontmatter in canonical skill.");
+  }
+
+  const frontmatter = new Map<string, string>();
+  for (const line of match[1].split("\n")) {
+    if (!line.trim()) continue;
+    const separator = line.indexOf(":");
+    if (separator === -1) {
+      throw new Error(`Unsupported frontmatter line: ${line}`);
+    }
+    frontmatter.set(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
+  }
+
+  return { frontmatter, body: match[2] };
+}
+
+function stringifyFrontmatter(entries: Map<string, string>): string {
+  return Array.from(entries.entries())
+    .map(([key, value]) => `${key}: ${value}\n`)
+    .join("");
+}
+
+function normalizeCodexConfig(current: string): string {
+  const source = current.trim().length > 0 ? current : DEFAULT_CODEX_CONFIG;
+  const pattern = /# >>> VibeFrame MCP server >>>[\s\S]*?# <<< VibeFrame MCP server <<<\n?/;
+
+  if (pattern.test(source)) {
+    return ensureFinalNewline(source.replace(pattern, CODEX_MCP_BLOCK));
+  }
+
+  return ensureFinalNewline(`${source.trimEnd()}\n\n${CODEX_MCP_BLOCK}`);
+}
+
+function normalizeCursorMcp(current: string): string {
+  const parsed = parseJsonObject(current.trim().length > 0 ? current : "{}");
+  const mcpServers = isRecord(parsed.mcpServers) ? parsed.mcpServers : {};
+
+  parsed.mcpServers = {
+    ...mcpServers,
+    vibeframe: {
+      command: "npx",
+      args: ["-y", "@vibeframe/mcp-server"],
+    },
+  };
+
+  return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
+function parseJsonObject(content: string): Record<string, unknown> {
+  const parsed = JSON.parse(content) as unknown;
+  if (!isRecord(parsed) || Array.isArray(parsed)) {
+    throw new Error("Expected JSON object.");
+  }
+  return parsed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function readText(relPath: string): Promise<string> {
+  const absPath = join(projectRoot, relPath);
+  if (!existsSync(absPath)) return "";
+  return readFile(absPath, "utf-8");
+}
+
+async function writeIfChanged(relPath: string, expected: string): Promise<boolean> {
+  const absPath = join(projectRoot, relPath);
+  const current = await readText(relPath);
+  if (current === expected) return false;
+  await mkdir(dirname(absPath), { recursive: true });
+  await writeFile(absPath, expected, "utf-8");
+  return true;
+}
+
+function ensureFinalNewline(value: string): string {
+  return value.endsWith("\n") ? value : `${value}\n`;
+}
+
+await main();

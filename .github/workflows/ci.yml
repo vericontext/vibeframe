@@ -82,6 +82,9 @@ jobs:
       - name: CLI reference is generated
         run: pnpm gen:reference:check
 
+      - name: Agent host configs are generated
+        run: pnpm agent-sync:check
+
       - name: Package smoke
         run: pnpm package:check
 

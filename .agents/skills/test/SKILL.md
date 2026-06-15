@@ -30,5 +30,13 @@ Use this skill when the user asks Codex to run or diagnose VibeFrame tests.
 ## Reporting
 
 Report the command run, pass/fail status, failed test file names, and the
-smallest useful diagnosis. If a test fails, read both the failing test and the
-source file it covers before proposing a fix.
+smallest useful diagnosis.
+
+| Metric     | Value               |
+| ---------- | ------------------- |
+| Test files | X passed, Y failed  |
+| Tests      | X passed, Y skipped |
+| Duration   | Xs                  |
+
+If any tests fail, read both the failing test and the source file it covers
+before proposing a fix.

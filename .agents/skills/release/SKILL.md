@@ -10,6 +10,19 @@ missing version bump after `feat:` / `fix:` commits.
 
 The requested bump must be one of: `patch`, `minor`, or `major`.
 
+## Version Policy
+
+VibeFrame is still in `0.x`, so default to `patch` unless the change clearly
+needs a larger release signal.
+
+- `patch`: bug fixes, docs/tooling, UX polish, internal refactors, and most
+  ordinary `feat:` / `fix:` commits.
+- `minor`: new public CLI command namespace, new MCP tool family, public API
+  contract additions, or a large product milestone.
+- `major`: breaking changes or an intentional 1.0 milestone.
+
+When unsure, use `patch`.
+
 ## Steps
 
 1. Read the current root version:
@@ -31,7 +44,7 @@ The requested bump must be one of: `patch`, `minor`, or `major`.
    ```
 
 4. Set every workspace package to that exact version. Do not use `pnpm -r exec
-   npm version` for this step because recursive pnpm includes the root package.
+npm version` for this step because recursive pnpm includes the root package.
 
    ```bash
    for dir in packages/cli packages/core packages/ai-providers packages/mcp-server packages/ui apps/web; do
@@ -73,16 +86,19 @@ The requested bump must be one of: `patch`, `minor`, or `major`.
 9. Stage the release files:
 
    ```bash
-   git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md docs/cli-reference.md scripts/pre-push-validate.sh
+   git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md docs/cli-reference.md
    ```
 
 10. Commit:
 
-   ```bash
-   git commit -m "chore: bump version to $NEW_VERSION"
-   ```
+```bash
+git commit -m "chore: bump version to $NEW_VERSION"
+```
 
 Do not create a local tag. Do not push unless the user explicitly asks.
 
-When the version commit lands on `main`, `.github/workflows/auto-tag.yml`
-creates the matching `vX.Y.Z` tag and dispatches `.github/workflows/publish.yml`.
+Publishing is manual. After the version commit lands on `main` and CI passes,
+run the `Create release tag` workflow to create `vX.Y.Z`, then run
+`Publish to npm` manually with that tag. A human-created `git push origin
+vX.Y.Z` tag also triggers `publish.yml`, but CI and the tag helper do not
+dispatch publishing automatically.

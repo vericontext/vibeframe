@@ -38,6 +38,8 @@
     "mcp": "tsx packages/mcp-server/src/index.ts",
     "scaffold:provider": "tsx scripts/scaffold-provider.mts",
     "scaffold:command": "tsx scripts/scaffold-command.mts",
+    "agent-sync": "tsx scripts/sync-agent-hosts.mts --write",
+    "agent-sync:check": "tsx scripts/sync-agent-hosts.mts --check",
     "gen:reference": "tsx scripts/gen-cli-reference.mts",
     "gen:reference:check": "tsx scripts/gen-cli-reference.mts --check",
     "hooks:install": "git config core.hooksPath .githooks",

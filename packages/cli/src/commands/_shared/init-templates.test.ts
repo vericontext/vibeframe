@@ -31,6 +31,20 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("--stdin");
   });
 
+  it("documents native host goal loops and strict stop rules", () => {
+    expect(AGENTS_MD).toContain("Native host goal loop");
+    expect(AGENTS_MD).toContain("Codex Goal mode");
+    expect(AGENTS_MD).toContain("Claude Code `/goal`");
+    expect(AGENTS_MD).toContain("build-report.json");
+    expect(AGENTS_MD).toContain("review-report.json");
+    expect(AGENTS_MD).toContain("retryWith");
+    expect(AGENTS_MD).toContain('fixOwner:"vibe"');
+    expect(AGENTS_MD).toContain('fixOwner:"host-agent"');
+    expect(AGENTS_MD).toContain("renders/final.mp4");
+    expect(AGENTS_MD).toContain("AI review score is >= 90 when AI review is requested");
+    expect(AGENTS_MD).toContain("accepted with rationale");
+  });
+
   it("declares ASSET, BUILD, and REMIX routing so agents route correctly", () => {
     expect(AGENTS_MD).toContain("ASSET");
     expect(AGENTS_MD).toContain("BUILD");
@@ -54,7 +68,9 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("vibe setup --scope project");
     expect(AGENTS_MD).toContain(".vibeframe/config.yaml");
     expect(AGENTS_MD).toContain("data.scope.project.configPath");
-    expect(AGENTS_MD).toContain("Do not switch to a host agent's built-in image/audio generation tool");
+    expect(AGENTS_MD).toContain(
+      "Do not switch to a host agent's built-in image/audio generation tool"
+    );
   });
 
   it("warns agents not to animate text-containing containers continuously", () => {
