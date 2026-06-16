@@ -218,11 +218,13 @@ Google has started surfacing Gemini Omni Flash in consumer/editorial video produ
 
 ---
 
-## Audio (3)
+## Audio (5)
 
 | Provider | Capability | Env Key | Notes |
 |----------|------------|---------|-------|
 | ElevenLabs | TTS, SFX, Music, Voice Clone | `ELEVENLABS_API_KEY` | Music: 3s-10min, model music_v1. TTS: eleven_v3 |
+| OpenAI TTS | TTS | `OPENAI_API_KEY` | gpt-4o-mini-tts (~$0.015/min of audio); voices incl. marin, alloy, nova |
+| Kokoro | TTS (local, free) | — | Kokoro-82M (Apache 2.0); ~90MB model on first use; bundled in the Desktop extension |
 | Whisper | Transcription | `OPENAI_API_KEY` | OpenAI API |
 | Replicate | Music generation | `REPLICATE_API_TOKEN` | MusicGen, max 30s |
 

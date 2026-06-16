@@ -103,6 +103,7 @@ export interface RenderInspectResult {
     height?: number;
     expectedAspect?: string;
     hasAudio?: boolean;
+    expectedAudio?: boolean;
     blackFrames: TimeRange[];
     staticFrames: TimeRange[];
     silences: TimeRange[];
@@ -464,6 +465,8 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       ? Number(beatTimings.reduce((sum, beat) => sum + beat.sceneDurationSec, 0).toFixed(3))
       : await expectedDurationFromBuildReport(projectDir, opts.beatId);
   if (expectedDurationSec !== undefined) checks.expectedDurationSec = expectedDurationSec;
+  const expectedAudio = await renderExpectsAudio(projectDir, opts.beatId);
+  checks.expectedAudio = expectedAudio;
 
   if (!commandExists("ffprobe")) {
     issues.push({
@@ -492,7 +495,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
         });
       }
 
-      if (!audioStream) {
+      if (!audioStream && expectedAudio) {
         issues.push({
           severity: "warning",
           code: "NO_AUDIO_STREAM",
@@ -725,6 +728,93 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     scoreRenderReview(issues, aiOverallScore)
   );
   return maybeWriteRenderReport(projectDir, opts, result);
+}
+
+export async function renderExpectsAudio(projectDir: string, beatId?: string): Promise<boolean> {
+  const root = resolve(projectDir);
+  const rootHtml = await readTextIfExists(join(root, "index.html"));
+  if (rootHtml && rootHtmlExpectsAudio(rootHtml, beatId)) return true;
+
+  const buildReport = await readJsonIfExists(join(root, "build-report.json"));
+  if (buildReportExpectsAudio(buildReport, beatId)) return true;
+
+  const storyboard = await readTextIfExists(join(root, "STORYBOARD.md"));
+  if (!storyboard) return false;
+  try {
+    const parsed = parseStoryboard(storyboard);
+    const beats = beatId ? parsed.beats.filter((beat) => beat.id === beatId) : parsed.beats;
+    return beats.some((beat) =>
+      [
+        `assets/narration-${beat.id}.mp3`,
+        `assets/narration-${beat.id}.wav`,
+        `assets/music-${beat.id}.mp3`,
+        `assets/music-${beat.id}.wav`,
+      ].some((asset) => existsSync(join(root, asset)))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function rootHtmlExpectsAudio(html: string, beatId?: string): boolean {
+  const audioTags = html.match(/<audio\b[^>]*>/gi) ?? [];
+  if (!beatId) return audioTags.length > 0;
+  const escaped = escapeRegExp(beatId);
+  const beatAudioRe = new RegExp(
+    `(id="(?:narration|music)-${escaped}"|src="[^"]*(?:narration|music)-${escaped}\\.(?:mp3|wav)")`,
+    "i"
+  );
+  return audioTags.some((tag) => beatAudioRe.test(tag));
+}
+
+function buildReportExpectsAudio(report: unknown, beatId?: string): boolean {
+  if (!report || typeof report !== "object") return false;
+  const beats = Array.isArray((report as { beats?: unknown }).beats)
+    ? ((report as { beats?: unknown[] }).beats ?? [])
+    : [];
+  const selected =
+    beatId === undefined
+      ? beats
+      : beats.filter((beat) => {
+          if (!beat || typeof beat !== "object") return false;
+          return (beat as { id?: unknown }).id === beatId;
+        });
+  return selected.some((beat) => beatReportExpectsAudio(beat));
+}
+
+function beatReportExpectsAudio(beat: unknown): boolean {
+  if (!beat || typeof beat !== "object") return false;
+  const record = beat as Record<string, unknown>;
+  if (typeof record.narrationPath === "string" && record.narrationPath.length > 0) return true;
+  if (typeof record.musicPath === "string" && record.musicPath.length > 0) return true;
+  if (parseOptionalNumber(record.narrationDurationSec) !== undefined) return true;
+  const narration = record.narration;
+  if (narration && typeof narration === "object") {
+    const n = narration as Record<string, unknown>;
+    if (typeof n.path === "string" && n.path.length > 0) return true;
+    if (parseOptionalNumber(n.durationSec) !== undefined) return true;
+  }
+  const music = record.music;
+  if (music && typeof music === "object") {
+    const m = music as Record<string, unknown>;
+    if (typeof m.path === "string" && m.path.length > 0) return true;
+    if (parseOptionalNumber(m.durationSec) !== undefined) return true;
+  }
+  return false;
+}
+
+async function readJsonIfExists(path: string): Promise<unknown> {
+  const text = await readTextIfExists(path);
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function makeRenderResult(

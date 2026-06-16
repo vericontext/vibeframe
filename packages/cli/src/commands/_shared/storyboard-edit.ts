@@ -33,6 +33,22 @@ export interface StoryboardValidationResult {
   issues: StoryboardValidationIssue[];
 }
 
+export type StoryboardBeatUpsertAction = "replaced-starter" | "appended" | "updated";
+
+export interface StoryboardBeatUpsertInput {
+  beatId: string;
+  title?: string;
+  duration?: number;
+  narration?: string;
+  backdrop?: string;
+  body?: string;
+}
+
+export interface StoryboardBeatUpsertResult {
+  markdown: string;
+  action: StoryboardBeatUpsertAction;
+}
+
 interface BeatSection {
   id: string;
   heading: string;
@@ -153,6 +169,39 @@ export function getStoryboardBeat(markdown: string, beatId: string): Beat | null
   return parseStoryboard(markdown).beats.find((beat) => beat.id === beatId) ?? null;
 }
 
+export function upsertStoryboardBeat(
+  markdown: string,
+  opts: StoryboardBeatUpsertInput
+): StoryboardBeatUpsertResult {
+  const beatId = normalizeBeatId(opts.beatId);
+  const sections = splitBeatSections(markdown);
+  const existing = sections.find((section) => section.id === beatId);
+  const cues = storyboardCuesFromInput(opts);
+
+  if (existing) {
+    let next = markdown;
+    for (const [key, value] of Object.entries(cues)) {
+      next = setStoryboardCue(next, { beatId, key, value });
+    }
+    return { markdown: next, action: "updated" };
+  }
+
+  const section = buildStoryboardBeatSection({ ...opts, beatId, cues });
+  if (sections.length > 0 && isStarterStoryboard(markdown)) {
+    const global = markdown.slice(0, sections[0].start).trimEnd();
+    return {
+      markdown: `${global}\n\n${section}`,
+      action: "replaced-starter",
+    };
+  }
+
+  const prefix = markdown.trimEnd();
+  return {
+    markdown: `${prefix}${prefix ? "\n\n" : ""}${section}`,
+    action: "appended",
+  };
+}
+
 export function setStoryboardCue(markdown: string, opts: {
   beatId: string;
   key: string;
@@ -215,6 +264,58 @@ function normalizeBeatChunks(chunks: string[]): string {
     .map((chunk) => chunk.trim())
     .filter(Boolean)
     .join("\n\n") + "\n";
+}
+
+function normalizeBeatId(id: string): string {
+  return deriveBeatId(id);
+}
+
+function storyboardCuesFromInput(
+  opts: StoryboardBeatUpsertInput
+): Record<StoryboardCueKey, unknown> {
+  const cues: Partial<Record<StoryboardCueKey, unknown>> = {};
+  if (opts.duration !== undefined) cues.duration = opts.duration;
+  if (opts.narration && opts.narration.trim()) cues.narration = opts.narration.trim();
+  if (opts.backdrop && opts.backdrop.trim()) cues.backdrop = opts.backdrop.trim();
+  return cues as Record<StoryboardCueKey, unknown>;
+}
+
+function buildStoryboardBeatSection(
+  opts: StoryboardBeatUpsertInput & { cues: Record<StoryboardCueKey, unknown> }
+): string {
+  const title = normalizeTitle(opts.title ?? humanizeBeatId(opts.beatId));
+  const cueBlock =
+    Object.keys(opts.cues).length > 0
+      ? "```yaml\n" + stringifyYaml(opts.cues, { lineWidth: 0 }).trimEnd() + "\n```\n\n"
+      : "";
+  const body =
+    opts.body?.trim() ||
+    "Scene created with `vibe scene add`. Edit this body if the build flow should recompose it.";
+  return `## Beat ${opts.beatId} - ${title}\n\n${cueBlock}${body.trimEnd()}\n`;
+}
+
+function normalizeTitle(value: string): string {
+  return value.replace(/\s+/g, " ").trim() || "Scene";
+}
+
+function humanizeBeatId(id: string): string {
+  return id
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "Scene";
+}
+
+function isStarterStoryboard(markdown: string): boolean {
+  const parsed = parseStoryboard(markdown);
+  if (parsed.beats.length !== 3) return false;
+  const ids = parsed.beats.map((beat) => beat.id);
+  if (ids.join(",") !== "hook,proof,close") return false;
+  return (
+    markdown.includes("Introduce the promise in one crisp sentence.") &&
+    markdown.includes("Show the mechanism or proof point that makes the promise believable.") &&
+    markdown.includes("Close with the action the viewer should remember.")
+  );
 }
 
 function normalizeCueValue(key: string, value: unknown): unknown {

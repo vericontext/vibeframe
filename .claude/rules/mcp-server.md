@@ -50,8 +50,15 @@ produces `dist-mcpb/vibeframe-<version>.mcpb` (zip: `manifest.json` at root +
 (`buildServerBundle({ bundleHostDeps: true })`) because the extension directory
 has no node_modules. The manifest maps the user's workspace folder to
 `VIBE_MCP_WORKSPACE` (server chdirs there via `applyWorkspaceEnv()`), and maps
-optional API-key fields to env vars. kokoro-js cannot ship inside (native
-binaries); `KokoroProvider` falls back to `<workspace>/node_modules/kokoro-js`.
+optional API-key fields to env vars. Local kokoro TTS ships INSIDE the .mcpb
+as a pruned WASM-only runtime (`server/kokoro-runtime`, staged by
+`stageKokoroRuntime` in build-mcpb.js): @huggingface/transformers is pinned to
+its web build with a one-line patch pointing its ONNX namespace at
+onnxruntime-web (no onnxruntime-node, no sharp), and the manifest exposes the
+tree via `VIBE_KOKORO_RUNTIME`. `KokoroProvider` load order: bare import (npm)
+→ `<workspace>/node_modules/kokoro-js` → bundled runtime; the bundled path
+caches the ~88MB model in `~/.cache/vibeframe/models` (the web build has no FS
+cache, and the extension dir is replaced on update).
 CI (`publish.yml`) builds the .mcpb on every release and attaches it to the
 GitHub Release. Why this exists: Claude Desktop builds can rewrite
 `claude_desktop_config.json` from memory and mangle hand-edited entries into

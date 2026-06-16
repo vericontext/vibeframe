@@ -12,7 +12,7 @@
  * Idempotent: assets that already exist on disk are reused unless `force`.
  *
  * Scope held tight for v0.60:
- *   - TTS via `resolveTtsProvider` (ElevenLabs / Kokoro auto-fallback)
+ *   - TTS via `resolveTtsProvider` (ElevenLabs / OpenAI / Kokoro auto-fallback)
  *   - T2I via OpenAI, Gemini, or Grok
  *   - No Whisper transcribe step (compose handles its own)
  *   - No root `index.html` synthesis — driver expects the project to

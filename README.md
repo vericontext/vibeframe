@@ -10,9 +10,12 @@ final MP4.
 VibeFrame is **CLI-first, not terminal-only**. The CLI is the stable runtime:
 JSON output, dry runs, cost gates, deterministic project files, and
 machine-readable reports that Codex, Claude Code, Cursor, and other host apps
-can act on. VibeFrame also includes FFmpeg-style editing commands, AI media
-primitives, YAML pipelines, and an optional MCP server, but the north-star path
-is the storyboard-driven project loop.
+can act on. Native Codex Goal mode and Claude Code `/goal` are the outer loop
+for long-running work; VibeFrame provides the video-specific tools and reports
+that let those hosts decide the next step and when to stop. VibeFrame also
+includes FFmpeg-style editing commands, AI media primitives, YAML pipelines,
+and an optional MCP server, but the north-star path is the storyboard-driven
+project loop.
 
 Most users do not need a new chat UI. Install the runtime once, then ask Codex,
 Claude Code, Cursor, Aider, Gemini CLI, OpenCode, or any other shell-capable
@@ -107,6 +110,49 @@ render, inspect, and share the MP4.
 - **Use escape hatches:** drop into `generate`, `edit`, `remix`, `audio`,
   YAML, timeline, or MCP workflows when the job is one asset, one media edit,
   or one repeatable pipeline instead of a full storyboard build.
+
+## Native Goal Mode
+
+Use your host agent's native goal mode for persistence, iteration, and stop
+conditions. VibeFrame should not own the primary long-running goal loop; it
+should give the host agent structured commands, reports, and recovery hints.
+
+Copy-paste for Codex:
+
+```text
+/goal Build launch/ into a reviewed VibeFrame MP4 from brief.md.
+Use vibe context/schema first when command details are unclear. Use --json for
+all vibe commands. Run --dry-run before paid operations and keep generated-asset
+spend under $5 with --max-cost 5 where supported. Read build-report.json and
+review-report.json before choosing the next action. Run retryWith commands
+before inventing recovery steps. Treat fixOwner:"vibe" issues as deterministic
+CLI repair work and fixOwner:"host-agent" issues as storyboard, DESIGN.md, or
+composition edits.
+
+Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
+less, the aspect ratio is 16:9 unless brief.md says otherwise,
+vibe inspect render launch --cheap --json reports no errors, any AI review score
+is at least 90 when AI review is requested, and every remaining host-agent issue is fixed, intentionally
+accepted with a written reason, or reported as blocked.
+```
+
+Copy-paste for Claude Code:
+
+```text
+/goal Create the final VibeFrame project render for launch/ using the native
+Claude Code goal loop as the outer loop. Use vibe commands with --json, run
+dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
+use build-report.json plus review-report.json as the loop state. Follow
+retryWith before guessing, and distinguish fixOwner:"vibe" from
+fixOwner:"host-agent" when deciding whether to run vibe scene repair or edit
+STORYBOARD.md, DESIGN.md, or compositions.
+
+Stop only when launch/renders/final.mp4 exists, duration is within the requested
+30s target, aspect ratio is 16:9 unless the brief overrides it, render
+inspection status has no errors, any AI review score is >= 90 when AI review is
+requested, and unresolved host-agent issues are either fixed, explicitly accepted with rationale, or
+reported as blocked.
+```
 
 ## Workflow Lanes
 

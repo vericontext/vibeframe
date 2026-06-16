@@ -39,6 +39,7 @@ import {
   insertClipIntoRoot,
   nextSceneStart,
   readRootDims,
+  sceneCompositionId,
   slugifySceneName,
   SCENE_PRESETS,
   SCENE_OVERLAP_SECONDS,
@@ -65,6 +66,14 @@ import {
 import { getComposePrompts } from "./_shared/compose-prompts.js";
 import { executeSceneSubmit } from "./_shared/scene-submit.js";
 import { executeSceneRepair } from "./_shared/scene-repair.js";
+import {
+  loadProjectRootSyncBeats,
+  syncRootComposition,
+} from "./_shared/root-sync.js";
+import {
+  upsertStoryboardBeat,
+  type StoryboardBeatUpsertAction,
+} from "./_shared/storyboard-edit.js";
 
 function validateDuration(value: string): number {
   const n = parseFloat(value);
@@ -481,13 +490,17 @@ sceneCommand
   .option("--kicker <text>", "Small label above the headline (explainer / product-shot)")
   .option("--insert-into <path>", "Root composition file to update", "index.html")
   .option("--project <dir>", "Project directory", ".")
+  .option(
+    "--no-storyboard",
+    "Do not sync STORYBOARD.md; insert this scene directly into the root composition only"
+  )
   .option("--image-provider <name>", "Image provider: gemini, openai", "gemini")
   .option(
     "--tts <provider>",
-    "TTS provider: auto, elevenlabs, kokoro (default auto — picks ElevenLabs when key set, else Kokoro local)",
+    "TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)",
     "auto"
   )
-  .option("--voice <id>", "Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)")
+  .option("--voice <id>", "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)")
   .option(
     "--no-audio",
     "Skip TTS even when --narration is provided (useful for tests/agent dry runs)"
@@ -565,6 +578,7 @@ sceneCommand
             kicker: options.kicker,
             project: options.project,
             insertInto: options.insertInto,
+            syncStoryboard: options.storyboard !== false,
             imageProvider: options.imageProvider,
             tts,
             audio: options.audio,
@@ -594,6 +608,7 @@ sceneCommand
         kicker: options.kicker,
         projectDir: options.project,
         insertInto: options.insertInto,
+        syncStoryboard: options.storyboard !== false,
         imageProvider: options.imageProvider,
         tts,
         voice: options.voice,
@@ -638,6 +653,13 @@ sceneCommand
       if (result.audioPath) console.log(chalk.green("  +"), result.audioPath);
       if (result.imagePath) console.log(chalk.green("  +"), result.imagePath);
       if (result.transcriptPath) console.log(chalk.green("  +"), result.transcriptPath);
+      if (result.storyboardPath && result.storyboardSynced) {
+        console.log(
+          result.storyboardAction === "updated" ? chalk.yellow("  ~") : chalk.green("  +"),
+          result.storyboardPath,
+          chalk.dim(`(${result.storyboardAction})`)
+        );
+      }
       console.log(chalk.yellow("  ~"), result.rootPath, chalk.dim("(updated)"));
       console.log();
       console.log(chalk.bold.cyan("Composition"));
@@ -685,6 +707,11 @@ export interface SceneAddOptions {
   projectDir?: string;
   /** Filename of the root composition (relative to projectDir). */
   insertInto?: string;
+  /**
+   * Sync STORYBOARD.md when present, then rebuild root refs via root-sync.
+   * Defaults to true; pass false for the legacy root-only quick-draft path.
+   */
+  syncStoryboard?: boolean;
   /** "gemini" | "openai". */
   imageProvider?: string;
   /** TTS provider preference. Defaults to `"auto"` (ElevenLabs if key set, else Kokoro). */
@@ -729,6 +756,12 @@ export interface SceneAddResult {
   /** Number of word entries emitted into the transcript JSON. */
   transcriptWordCount?: number;
   lottiePath?: string;
+  /** Project-relative path to STORYBOARD.md when the command synced it. */
+  storyboardPath?: string;
+  /** Whether STORYBOARD.md was used as the root-sync source of truth. */
+  storyboardSynced?: boolean;
+  /** How STORYBOARD.md was changed, or "skipped" when root-only behavior was used. */
+  storyboardAction?: "skipped" | StoryboardBeatUpsertAction;
   error?: string;
 }
 
@@ -759,6 +792,23 @@ async function loadVibeProjectConfig(projectDir: string): Promise<VibeProjectCon
       entry: loaded.config.composition.entry,
     },
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function readClipStart(rootHtml: string, beatId: string): number | undefined {
+  const compositionId = sceneCompositionId(beatId);
+  const match = rootHtml.match(
+    new RegExp(
+      `<div\\s+class="clip"[^>]*\\bdata-composition-id="${escapeRegExp(compositionId)}"[^>]*\\bdata-start="([\\d.]+)"`,
+      "i"
+    )
+  );
+  if (!match) return undefined;
+  const start = Number.parseFloat(match[1]);
+  return Number.isFinite(start) ? start : undefined;
 }
 
 /** Resolve narration text — value may be inline text or a path to a `.txt`/`.md` file. */
@@ -798,6 +848,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   const id = slugifySceneName(opts.name);
   const sceneRel = `compositions/scene-${id}.html`;
   const scenePath = resolve(projectDir, sceneRel);
+  const storyboardAbsPath = resolve(projectDir, "STORYBOARD.md");
 
   // -- Validate project ----------------------------------------------------
   const errResult = (error: string): SceneAddResult => ({
@@ -868,8 +919,10 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     }
     opts.onProgress?.(
       resolution.provider === "kokoro"
-        ? "Generating narration with Kokoro (local — first run downloads ~330MB)..."
-        : "Generating narration with ElevenLabs..."
+        ? "Generating narration with Kokoro (local — first run downloads a ~90MB model)..."
+        : resolution.provider === "openai"
+          ? "Generating narration with OpenAI (gpt-4o-mini-tts)..."
+          : "Generating narration with ElevenLabs..."
     );
     const tts = await resolution.call(narrationText, {
       voice: opts.voice,
@@ -1061,6 +1114,29 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   }
   duration = Number(duration.toFixed(2));
 
+  // -- Sync STORYBOARD.md when present -------------------------------------
+  let storyboardPath: string | undefined;
+  let storyboardSynced = false;
+  let storyboardAction: "skipped" | StoryboardBeatUpsertAction = "skipped";
+  const shouldSyncStoryboard = opts.syncStoryboard !== false && (await pathExists(storyboardAbsPath));
+  if (shouldSyncStoryboard) {
+    opts.onProgress?.("Syncing STORYBOARD.md...");
+    const before = await readFile(storyboardAbsPath, "utf-8");
+    const synced = upsertStoryboardBeat(before, {
+      beatId: id,
+      title: opts.headline,
+      duration,
+      narration: narrationText && !opts.skipAudio ? narrationText : undefined,
+      backdrop: opts.visuals && !opts.skipImage ? opts.visuals : undefined,
+    });
+    if (synced.markdown !== before) {
+      await writeFile(storyboardAbsPath, synced.markdown, "utf-8");
+    }
+    storyboardPath = relative(process.cwd(), storyboardAbsPath) || storyboardAbsPath;
+    storyboardSynced = true;
+    storyboardAction = synced.action;
+  }
+
   // -- Emit scene HTML -----------------------------------------------------
   opts.onProgress?.("Emitting scene HTML...");
   const sceneHtml = emitSceneHtml({
@@ -1082,18 +1158,27 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
 
   // -- Update root index.html ---------------------------------------------
   opts.onProgress?.("Updating root composition...");
-  // Each new scene starts SCENE_OVERLAP_SECONDS before the previous scene's
-  // end so the two clips overlap in the parent timeline. Inside each scene,
-  // the matching scope opacity tweens at boundaries produce a smooth
-  // crossfade instead of the hard cut the previous architecture had.
-  // Adjacent clips alternate track-index (1, 2, 1, 2, ...) so the
-  // Hyperframes `overlapping_clips_same_track` lint rule doesn't flag the
-  // deliberate crossfade overlap.
-  const start = nextSceneStart(rootHtmlBefore, SCENE_OVERLAP_SECONDS);
-  const existingClipCount = (rootHtmlBefore.match(/<div\s+class="clip"/g) || []).length;
-  const trackIndex = (existingClipCount % 2) + 1;
-  const updated = insertClipIntoRoot(rootHtmlBefore, { id, start, duration, trackIndex });
-  await writeFile(rootPath, updated, "utf-8");
+  let start = 0;
+  if (storyboardSynced) {
+    const syncPlan = await syncRootComposition({
+      projectDir,
+      rootRel,
+      beats: await loadProjectRootSyncBeats(projectDir),
+    });
+    const blockingIssue = syncPlan.issues.find((issue) => issue.severity === "error");
+    if (blockingIssue) return errResult(blockingIssue.message);
+    const rootHtmlAfterSync = await readFile(rootPath, "utf-8");
+    start = readClipStart(rootHtmlAfterSync, id) ?? 0;
+  } else {
+    // Legacy root-only quick-draft path. Each new scene starts
+    // SCENE_OVERLAP_SECONDS before the previous scene's end so adjacent clips
+    // overlap for the crossfade architecture.
+    start = nextSceneStart(rootHtmlBefore, SCENE_OVERLAP_SECONDS);
+    const existingClipCount = (rootHtmlBefore.match(/<div\s+class="clip"/g) || []).length;
+    const trackIndex = (existingClipCount % 2) + 1;
+    const updated = insertClipIntoRoot(rootHtmlBefore, { id, start, duration, trackIndex });
+    await writeFile(rootPath, updated, "utf-8");
+  }
 
   const transcriptAbsPath = transcriptRelPath ? resolve(projectDir, transcriptRelPath) : undefined;
 
@@ -1108,6 +1193,9 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     audioPath: audioAbsPath ? relative(process.cwd(), audioAbsPath) || audioAbsPath : undefined,
     imagePath: imageAbsPath ? relative(process.cwd(), imageAbsPath) || imageAbsPath : undefined,
     lottiePath: lottieAbsPath ? relative(process.cwd(), lottieAbsPath) || lottieAbsPath : undefined,
+    storyboardPath,
+    storyboardSynced,
+    storyboardAction,
     transcriptPath: transcriptAbsPath
       ? relative(process.cwd(), transcriptAbsPath) || transcriptAbsPath
       : undefined,

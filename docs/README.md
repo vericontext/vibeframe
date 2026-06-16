@@ -16,6 +16,12 @@ vibe host setup all
 vibe host doctor all --json
 ```
 
+For long-running project builds, use the host's native goal mode as the outer
+loop. Codex `/goal` and Claude Code `/goal` should track the objective and stop
+conditions; VibeFrame provides `--json` commands, dry runs, budget caps,
+`build-report.json`, `review-report.json`, `retryWith`, `fixOwner`, repair
+commands, and render inspection.
+
 For Claude Desktop, provide the workspace directory when writing config so
 relative project names resolve under that directory. VibeFrame writes a shell
 wrapper because Claude Desktop may not preserve a raw `cwd` field:

@@ -272,7 +272,7 @@ export const planTool = defineTool({
     skipVideo: z.boolean().optional().describe("Don't include video generation in the plan."),
     skipMusic: z.boolean().optional().describe("Don't include music generation in the plan."),
     ttsProvider: z
-      .enum(["auto", "elevenlabs", "kokoro"])
+      .enum(["auto", "elevenlabs", "openai", "kokoro"])
       .optional()
       .describe("TTS provider override."),
     voice: z.string().optional().describe("Voice id."),

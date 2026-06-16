@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   moveStoryboardBeat,
   setStoryboardCue,
+  upsertStoryboardBeat,
   validateStoryboardMarkdown,
 } from "./storyboard-edit.js";
+import { buildStoryboardMd } from "./scene-project.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 
 const STORYBOARD = `# Demo
@@ -52,6 +54,58 @@ describe("storyboard-edit", () => {
       afterBeatId: "proof",
     });
     expect(parseStoryboard(next).beats.map((beat) => beat.id)).toEqual(["proof", "hook"]);
+  });
+
+  it("replaces the untouched starter storyboard with the added beat", () => {
+    const result = upsertStoryboardBeat(buildStoryboardMd("Demo", 12), {
+      beatId: "intro-scene",
+      title: "Intro Scene",
+      duration: 4,
+    });
+    const parsed = parseStoryboard(result.markdown);
+    expect(result.action).toBe("replaced-starter");
+    expect(parsed.beats.map((beat) => beat.id)).toEqual(["intro-scene"]);
+    expect(parsed.beats[0].duration).toBe(4);
+    expect(result.markdown).not.toContain("## Beat hook");
+  });
+
+  it("appends a missing beat to a custom storyboard", () => {
+    const result = upsertStoryboardBeat(STORYBOARD, {
+      beatId: "close",
+      title: "Close",
+      duration: 5,
+      narration: "Finish the thought.",
+      backdrop: "Clean final plate.",
+    });
+    const parsed = parseStoryboard(result.markdown);
+    expect(result.action).toBe("appended");
+    expect(parsed.beats.map((beat) => beat.id)).toEqual(["hook", "proof", "close"]);
+    expect(parsed.beats[2].cues).toMatchObject({
+      duration: 5,
+      narration: "Finish the thought.",
+      backdrop: "Clean final plate.",
+    });
+  });
+
+  it("updates an existing beat cue block without clobbering body text", () => {
+    const result = upsertStoryboardBeat(STORYBOARD, {
+      beatId: "hook",
+      duration: 6,
+    });
+    const parsed = parseStoryboard(result.markdown);
+    expect(result.action).toBe("updated");
+    expect(parsed.beats[0].duration).toBe(6);
+    expect(parsed.beats[0].body).toContain("Body.");
+  });
+
+  it("throws when updating an existing beat with malformed cue YAML", () => {
+    const malformed = `# Demo\n\n## Beat hook - Hook\n\n\`\`\`yaml\nduration: [\n\`\`\`\n\nBody.\n`;
+    expect(() =>
+      upsertStoryboardBeat(malformed, {
+        beatId: "hook",
+        duration: 4,
+      })
+    ).toThrow(/malformed YAML cues/);
   });
 
   it("validates duplicate beat ids and invalid cue shapes", () => {

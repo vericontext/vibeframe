@@ -7,7 +7,7 @@ import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.j
 
 const VALID_STAGES: BuildStage[] = ["assets", "compose", "sync", "render", "all"];
 const VALID_MODES = ["agent", "batch", "auto"] as const;
-const VALID_TTS_PROVIDERS = ["auto", "elevenlabs", "kokoro"] as const;
+const VALID_TTS_PROVIDERS = ["auto", "elevenlabs", "openai", "kokoro"] as const;
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 const VALID_VIDEO_PROVIDERS = ["seedance", "grok", "kling", "runway", "veo"] as const;
 const VALID_MUSIC_PROVIDERS = ["elevenlabs", "replicate"] as const;
@@ -24,7 +24,7 @@ export const planCommand = new Command("plan")
   .option("--skip-backdrop", "Don't include backdrop image generation in the plan")
   .option("--skip-video", "Don't include video generation in the plan")
   .option("--skip-music", "Don't include music generation in the plan")
-  .option("--tts <provider>", "TTS provider: auto|elevenlabs|kokoro")
+  .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
   .option("--voice <id>", "Voice id")
   .option("--image-provider <name>", `Image provider: ${VALID_IMAGE_PROVIDERS.join("|")}`)
   .option("--video-provider <name>", `Video provider: ${VALID_VIDEO_PROVIDERS.join("|")}`)

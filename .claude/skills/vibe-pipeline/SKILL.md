@@ -1,13 +1,16 @@
 ---
 name: vibe-pipeline
-description: Author and run VibeFrame YAML pipelines with `vibe run`. Use when the user wants a reproducible multi-step video workflow, checkpoints, or budget ceilings.
+description: Author and run VibeFrame YAML pipelines with vibe run, checkpoints, and budget controls.
 ---
 
-# vibe-pipeline
+# Vibe Pipeline
 
 A VibeFrame pipeline is a YAML manifest executed by `vibe run`. Steps can
 reference earlier outputs with `$<step-id>.output`, and the executor writes a
 checkpoint under the output directory so failed runs can resume.
+
+Use this skill when the user wants a reproducible multi-step media workflow,
+checkpointed execution, or budget-limited provider calls.
 
 ## Minimal Skeleton
 

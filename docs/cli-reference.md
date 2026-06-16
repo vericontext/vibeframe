@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.112.1`
+> CLI version: `0.113.1`
 
 ## Mental model
 
@@ -17,12 +17,24 @@ and `DESIGN.md` are the source of truth; generated files under
 `compositions/` are artifacts. Use `vibe storyboard revise --dry-run`
 for project-aware STORYBOARD.md rewrites, `vibe storyboard *` for narrow
 cue edits, and direct Markdown edits for larger DESIGN.md rewrites.
+Native Codex Goal mode and Claude Code `/goal` are the outer loop for
+long-running work. VibeFrame provides the video-specific command surface,
+machine reports, cost gates, deterministic repair, render inspection, and
+`retryWith` hints those hosts use to decide the next step and when to stop.
 
 ```
 init --from → storyboard revise → storyboard validate → plan → build → inspect → render
 generate / edit / inspect / remix                          ← one-shot media tools
 scene / timeline                                            ← lower-level authoring
 run / agent / schema / context                              ← automation + agents
+```
+
+Canonical native-goal loop:
+
+```
+native host goal → vibe context/schema → plan dry-run → build with budget
+→ status polling → inspect project → render → inspect render
+→ repair/edit using retryWith/fixOwner → repeat until stop rules pass
 ```
 
 `vibe plan --json` emits `data.kind:"build-plan"`,
@@ -57,7 +69,11 @@ render code or `code:"RENDER_FAILED"`. Both include `currentStage`,
 `summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}`,
 `sourceReports`, and `retryWith`. Issue-level `fixOwner:"vibe"` means
 deterministic CLI recovery; `fixOwner:"host-agent"` means storyboard/design/
-composition edits should be handled by the host agent.
+composition edits should be handled by the host agent. A host-native goal
+should stop only after the final MP4 exists, duration and aspect ratio match
+the brief, render inspection has no errors, any AI review score meets the goal
+threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or
+reported as blocked.
 
 ## Global flags
 
@@ -223,7 +239,7 @@ Cost tier: _not tagged_
 - `skipVideo` _(boolean)_ — Don't dispatch video generation even when beats declare video cues
 - `skipMusic` _(boolean)_ — Don't dispatch music generation even when beats declare music cues
 - `skipRender` _(boolean)_ — Compose only — don't render to MP4
-- `tts` _(string)_ — TTS provider: auto|elevenlabs|kokoro
+- `tts` _(string)_ — TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ — Voice id
 - `imageProvider` _(string)_ — Image provider: openai|gemini|grok
 - `videoProvider` _(string)_ — Video provider: seedance|grok|kling|runway|veo
@@ -349,7 +365,7 @@ Cost tier: _not tagged_
 - `skipBackdrop` _(boolean)_ — Don't include backdrop image generation in the plan
 - `skipVideo` _(boolean)_ — Don't include video generation in the plan
 - `skipMusic` _(boolean)_ — Don't include music generation in the plan
-- `tts` _(string)_ — TTS provider: auto|elevenlabs|kokoro
+- `tts` _(string)_ — TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ — Voice id
 - `imageProvider` _(string)_ — Image provider: openai|gemini|grok
 - `videoProvider` _(string)_ — Video provider: seedance|grok|kling|runway|veo
@@ -1357,9 +1373,10 @@ Cost tier: `free`
 - `kicker` _(string)_ — Small label above the headline (explainer / product-shot)
 - `insertInto` _(string)_ _(default: `"index.html"`)_ — Root composition file to update
 - `project` _(string)_ _(default: `"."`)_ — Project directory
+- `noStoryboard` _(boolean)_ — Do not sync STORYBOARD.md; insert this scene directly into the root composition only
 - `imageProvider` _(string)_ _(gemini \| openai)_ _(default: `"gemini"`)_ — Image provider: gemini, openai
-- `tts` _(string)_ _(auto \| elevenlabs \| kokoro)_ _(default: `"auto"`)_ — TTS provider: auto, elevenlabs, kokoro (default auto — picks ElevenLabs when key set, else Kokoro local)
-- `voice` _(string)_ — Voice id (ElevenLabs name/id, or Kokoro id like af_heart, am_michael)
+- `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ — TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)
+- `voice` _(string)_ — Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)
 - `noAudio` _(boolean)_ — Skip TTS even when --narration is provided (useful for tests/agent dry runs)
 - `noImage` _(boolean)_ — Skip image generation even when --visuals is provided
 - `noTranscribe` _(boolean)_ — Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)

@@ -48,7 +48,7 @@ if [ -n "$LATEST_TAG" ]; then
   TAG_VERSION="${LATEST_TAG#v}"
   FEAT_FIX=$(cd "$PROJECT_DIR" && git log "$LATEST_TAG"..HEAD --oneline -E --grep="^(feat|fix)(\(.+\))?:" --format="%s" 2>/dev/null || true)
   if [ -n "$FEAT_FIX" ] && [ "$ROOT_VERSION" = "$TAG_VERSION" ]; then
-    ERRORS+=("feat:/fix: commits found since $LATEST_TAG but version is still $ROOT_VERSION. Fix: /release patch (for fix) or /release minor (for feat)")
+    ERRORS+=("feat:/fix: commits found since $LATEST_TAG but version is still $ROOT_VERSION. Fix: /release patch by default; use /release minor only for public command/API milestones")
   fi
 fi
 
@@ -58,11 +58,11 @@ if [ -n "$HARDCODED" ]; then
   ERRORS+=("Hardcoded version fallback in web app: $HARDCODED")
 fi
 
-# 4. MODELS.md SSOT — no stale model IDs in skills.
+# 4. MODELS.md SSOT — no stale model IDs in canonical or generated skills.
 STALE=$(grep -rn --exclude-dir=sync-check "claude-opus-4-5\|claude-sonnet-4-20\|claude-3-5-haiku\|kling-v1-5" \
-  "$PROJECT_DIR/.claude/skills/" 2>/dev/null || true)
+  "$PROJECT_DIR/.agents/skills/" "$PROJECT_DIR/.claude/skills/" 2>/dev/null || true)
 if [ -n "$STALE" ]; then
-  ERRORS+=("Stale model IDs in .claude/skills/. Update to match MODELS.md: $STALE")
+  ERRORS+=("Stale model IDs in agent skills. Update to match MODELS.md: $STALE")
 fi
 
 # 5. SSOT count sync — tool/provider counts in docs must match source.
@@ -71,7 +71,13 @@ if ! (cd "$PROJECT_DIR" && bash scripts/sync-counts.sh --check > /dev/null 2>&1)
   ERRORS+=("SSOT count mismatch. Run 'bash scripts/sync-counts.sh' for actual values. $SYNC_MSG")
 fi
 
-# 6. CHANGELOG sync — if version changed since last tag, CHANGELOG must contain it.
+# 6. Agent host sync — generated host files must match canonical .agents files.
+if ! (cd "$PROJECT_DIR" && pnpm agent-sync:check > /dev/null 2>&1); then
+  SYNC_MSG=$(cd "$PROJECT_DIR" && pnpm agent-sync:check 2>&1 || true)
+  ERRORS+=("Agent host config drift. Run 'pnpm agent-sync'. $SYNC_MSG")
+fi
+
+# 7. CHANGELOG sync — if version changed since last tag, CHANGELOG must contain it.
 if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
   if ! grep -q "\[$ROOT_VERSION\]" "$PROJECT_DIR/CHANGELOG.md" 2>/dev/null; then
     ERRORS+=("CHANGELOG.md missing entry for v$ROOT_VERSION. Fix: git-cliff --tag v$ROOT_VERSION -o CHANGELOG.md")
@@ -94,21 +100,21 @@ $tail_lines")
   fi
 }
 
-# 7. Lint check.
+# 8. Lint check.
 gated_check "Lint" "pnpm lint" pnpm lint
 
-# 8. Build check.
+# 9. Build check.
 gated_check "Build" "pnpm build" pnpm build
 
-# 9. Type check.
+# 10. Type check.
 gated_check "Type check" "pnpm typecheck" pnpm typecheck
 
-# 10. CLI reference sync.
+# 11. CLI reference sync.
 gated_check "docs/cli-reference.md is stale" \
   "pnpm -F @vibeframe/cli build && pnpm gen:reference" \
   pnpm gen:reference:check
 
-# 11. Package export/package smoke.
+# 12. Package export/package smoke.
 gated_check "Package smoke" "pnpm build && pnpm package:check" pnpm package:check
 
 if [ ${#ERRORS[@]} -gt 0 ]; then

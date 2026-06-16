@@ -7,22 +7,25 @@ paths:
 
 # Version Management
 
-All packages share the same version number. Update versions when making significant changes:
+All packages share the same version number. Update versions when making significant changes.
 
 **When to bump versions:**
 
-- `patch` (0.1.0 → 0.1.1): Bug fixes, minor improvements
-- `minor` (0.1.0 → 0.2.0): New features, new commands
-- `major` (0.1.0 → 1.0.0): Breaking changes, major milestones
+- `patch` (0.1.0 → 0.1.1): Default for bug fixes, docs/tooling, UX polish,
+  internal refactors, and most ordinary `feat:` / `fix:` commits
+- `minor` (0.1.0 → 0.2.0): New public CLI command namespaces, new MCP tool
+  families, public API contract additions, or large product milestones
+- `major` (0.1.0 → 1.0.0): Breaking changes or the intentional 1.0 milestone
 
 **Quick bump:** Use `/release patch`, `/release minor`, or `/release major` skill to automate the full workflow.
 
 **Auto-bump rule for Claude Code:**
 After committing `feat:` or `fix:` changes, bump the version before pushing:
 
-- `fix:` commits → bump `patch`
-- `feat:` commits → bump `minor`
-- Multiple commits in one session → bump once based on highest level (feat > fix)
+- Default to `patch`, including most ordinary `feat:` and `fix:` commits.
+- Use `minor` only when the change adds a new public command namespace, MCP
+  tool family, public API contract, or large release milestone.
+- Multiple commits in one session → bump once based on the highest justified level.
 
 **How to update:**
 
@@ -57,10 +60,13 @@ git commit -m "chore: bump version to X.Y.Z"
 ```
 
 Do not create a local release tag in normal development. After the version
-commit lands on `main`, `.github/workflows/auto-tag.yml` creates `vX.Y.Z` and
-dispatches `.github/workflows/publish.yml`.
+commit lands on `main` and CI passes, manually run the `Create release tag`
+workflow. Then manually run `Publish to npm` with that tag. A human-created
+`git push origin vX.Y.Z` tag also triggers publishing, but CI and the tag helper
+do not dispatch publishing automatically.
 
 **Common pitfalls:**
+
 - Running only `pnpm -r exec` will update workspace packages but NOT the root `package.json`, causing version mismatch. Always run both commands.
 - Regenerating `docs/cli-reference.md` BEFORE rebuilding produces a file pinned to the old version. CI rebuilds before checking, so `gen:reference:check` fails. Always: bump → rebuild → regen → check → commit.
 - Prefer the `/release` skill, which performs all version-commit steps in the
@@ -93,8 +99,9 @@ pnpm hooks:install
 Manual checks:
 
 1. **Version**: `for f in package.json packages/*/package.json apps/*/package.json; do jq -r '.version' "$f"; done | sort -u` → should show only 1 version
-2. **Landing page**: `apps/web/app/page.tsx` version badge, tool counts match actual
-3. **README.md**: test count, provider count, CLI command list are current
+2. **Counts**: `bash scripts/sync-counts.sh --check`
+3. **Agent host configs**: `pnpm agent-sync:check`
+4. **CLI reference**: `pnpm gen:reference:check`
 
 > Use `version-checker` agent for comprehensive automated report, or `/sync-check` for quick inline check.
 

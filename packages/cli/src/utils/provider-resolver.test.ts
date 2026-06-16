@@ -46,8 +46,11 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
   });
 
   it("getProvidersFor('speech') matches SPEECH_PROVIDERS", () => {
+    // v0.113: OpenAI TTS (gpt-4o-mini-tts) slots between ElevenLabs and the
+    // local Kokoro fallback, mirroring resolveTtsProvider's auto order.
     expect(getProvidersFor("speech")).toEqual([
       { name: "elevenlabs", envVar: "ELEVENLABS_API_KEY", label: "ElevenLabs" },
+      { name: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
       { name: "kokoro", envVar: null, label: "Kokoro (local)" },
     ]);
   });

@@ -58,7 +58,7 @@ describe("buildClipReference", () => {
   it("builds a Hyperframes-compatible clip div with data-composition-id", () => {
     const out = buildClipReference({ id: "intro", start: 0, duration: 4 });
     expect(out).toContain('class="clip"');
-    expect(out).toContain('data-composition-id="intro"');
+    expect(out).toContain('data-composition-id="scene-intro"');
     expect(out).toContain('data-composition-src="compositions/scene-intro.html"');
     expect(out).toContain('data-start="0"');
     expect(out).toContain('data-duration="4"');
@@ -67,7 +67,7 @@ describe("buildClipReference", () => {
 
   it("respects an explicit track and src override and still emits data-composition-id", () => {
     const out = buildClipReference({ id: "x", start: 1.234, duration: 2.345, trackIndex: 3, src: "custom/path.html" });
-    expect(out).toContain('data-composition-id="x"');
+    expect(out).toContain('data-composition-id="scene-x"');
     expect(out).toContain('data-composition-src="custom/path.html"');
     expect(out).toContain('data-track-index="3"');
     expect(out).toContain('data-start="1.234"');
@@ -81,7 +81,7 @@ describe("insertClipIntoRoot", () => {
   it("inserts a clip before the root closing div", () => {
     const root = buildEmptyRootHtml({ aspect: "16:9", duration: 10 });
     const updated = insertClipIntoRoot(root, { id: "intro", start: 0, duration: 4 });
-    expect(updated).toContain('<div class="clip" data-composition-id="intro" data-composition-src="compositions/scene-intro.html"');
+    expect(updated).toContain('<div class="clip" data-composition-id="scene-intro" data-composition-src="compositions/scene-intro.html"');
     // The new clip must appear *before* the root's closing </div>
     const clipIdx = updated.indexOf("compositions/scene-intro.html");
     const rootCloseIdx = updated.lastIndexOf("</div>\n\n    <script>");
@@ -144,7 +144,7 @@ describe.each(SCENE_PRESETS)("emitSceneHtml(%s)", (preset: ScenePreset) => {
   it("emits a Hyperframes-compatible composition", () => {
     const html = emitSceneHtml({ ...baseInput, preset });
     expect(html).toContain('<template id="scene-intro-template">');
-    expect(html).toContain('data-composition-id="intro"');
+    expect(html).toContain('data-composition-id="scene-intro"');
     expect(html).toContain('data-start="0"');
     expect(html).toContain('data-duration="4"');
     expect(html).toContain('data-width="1920"');
@@ -154,7 +154,7 @@ describe.each(SCENE_PRESETS)("emitSceneHtml(%s)", (preset: ScenePreset) => {
   it("registers a paused timeline keyed by the scene id", () => {
     const html = emitSceneHtml({ ...baseInput, preset });
     expect(html).toContain("gsap.timeline({ paused: true })");
-    expect(html).toContain('window.__timelines["intro"] = tl');
+    expect(html).toContain('window.__timelines["scene-intro"] = tl');
   });
 
   it("includes the audio element only when audioPath is given", () => {
@@ -492,7 +492,7 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
         kicker: "kick",
       });
       expect(html, `${preset} should include Ken-Burns backdrop tween`).toMatch(
-        /tl\.fromTo\('\[data-composition-id="x"\] \.backdrop'.*scale: 1\.0/,
+        /tl\.fromTo\('\[data-composition-id="scene-x"\] \.backdrop'.*scale: 1\.0/,
       );
     }
   });
@@ -563,10 +563,10 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
       // inversion in buildClipReference() (earlier scenes on top), the
       // outgoing fade-out reveals the incoming below cleanly.
       expect(html, `${preset} should fade-in scope at 0`).toMatch(
-        /tl\.from\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 0\)/,
+        /tl\.from\('\[data-composition-id="scene-x"\]', \{ opacity: 0, duration: 0\.4.*\}, 0\)/,
       );
       expect(html, `${preset} should fade-out scope before end`).toMatch(
-        /tl\.to\('\[data-composition-id="x"\]', \{ opacity: 0, duration: 0\.4.*\}, 4\.60\)/,
+        /tl\.to\('\[data-composition-id="scene-x"\]', \{ opacity: 0, duration: 0\.4.*\}, 4\.60\)/,
       );
     }
   });
@@ -679,8 +679,8 @@ describe("emitSceneHtml — Lottie overlay layer", () => {
   it("scopes the overlay id per scene to avoid collisions between scenes", () => {
     const a = emitSceneHtml({ ...lottieBase, id: "intro" });
     const b = emitSceneHtml({ ...lottieBase, id: "outro" });
-    expect(a).toContain('id="lottie-overlay-intro"');
-    expect(b).toContain('id="lottie-overlay-outro"');
+    expect(a).toContain('id="lottie-overlay-scene-intro"');
+    expect(b).toContain('id="lottie-overlay-scene-outro"');
     // No leftover unscoped id from the original implementation.
     expect(a).not.toContain('id="lottie-overlay"');
   });

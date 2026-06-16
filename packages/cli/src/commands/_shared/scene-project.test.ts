@@ -149,6 +149,21 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("host agent's built-in image/audio generation tool");
   });
 
+  it("documents native host goal loop stop rules for generated projects", () => {
+    const md = buildProjectAgentsMd("my-promo");
+    expect(md).toContain("Native host goal loop");
+    expect(md).toContain("Codex Goal mode");
+    expect(md).toContain("Claude Code `/goal`");
+    expect(md).toContain("build-report.json");
+    expect(md).toContain("review-report.json");
+    expect(md).toContain("retryWith");
+    expect(md).toContain('fixOwner:"vibe"');
+    expect(md).toContain('fixOwner:"host-agent"');
+    expect(md).toContain("renders/final.mp4");
+    expect(md).toContain("AI review score is >= 90 when AI review is requested");
+    expect(md).toContain("accepted with rationale");
+  });
+
   it("documents brief.md and media/ as local source inputs", () => {
     const md = buildProjectAgentsMd("my-promo");
     expect(md).toContain("brief.md");

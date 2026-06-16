@@ -50,6 +50,11 @@ namespaces such as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
 
 When invoking VibeFrame commands from an agent context:
 
+- Treat native Codex Goal mode, Claude Code `/goal`, Cursor agent loops, or
+  another host's equivalent as the outer loop for long-running video work.
+  VibeFrame should provide video-specific commands, JSON reports, cost gates,
+  deterministic repair, render inspection, and `retryWith`/`fixOwner` recovery
+  contracts, not a competing primary goal runner.
 - Prefer `--json` for structured output.
 - Run `--dry-run` before paid or mutating operations when the command supports it.
 - Use `vibe schema <command>` before constructing non-trivial arguments.
@@ -107,9 +112,16 @@ General expectation:
 ## Conventions
 
 - Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
+- Version bumps default to `patch` during `0.x`, including most ordinary
+  `feat:` and `fix:` commits. Use `minor` only for new public CLI command
+  namespaces, new MCP tool families, public API contract additions, or large
+  product milestones. Reserve `major` for breaking changes or the 1.0 milestone.
 - API keys belong in local config or `.env`-style files, never committed.
 - See `MODELS.md` for provider details.
 - `CHANGELOG.md` is generated with `git-cliff --tag vX.Y.Z -o CHANGELOG.md`.
+- CI never publishes npm packages. After a version commit lands on `main` and
+  CI passes, manually create the release tag and manually run the publish
+  workflow for that tag.
 
 ## Verification
 
@@ -133,8 +145,12 @@ Claude Code, and direct terminal pushes use the same version/SSOT checks.
 
 ## Host-Specific Notes
 
-- Claude Code-specific skills, agents, hooks, and path-scoped rules live in `.claude/`.
-- Codex repo-local skills live in `.agents/skills/<skill-name>/SKILL.md`.
+- Cross-host workflow skills are canonical in `.agents/skills/<skill-name>/SKILL.md`.
+- Claude Code-specific generated skill copies, agents, hooks, and path-scoped
+  rules live in `.claude/`.
 - Codex project-scope runtime configuration lives in `.codex/config.toml`.
+- Cursor project-scope MCP configuration lives in `.cursor/mcp.json`.
+- Keep host files in sync with `pnpm agent-sync`; CI and pre-push run
+  `pnpm agent-sync:check`.
 - Keep shared repository guidance in this file so Codex, Claude Code, Cursor,
   and other agents can consume the same baseline instructions.

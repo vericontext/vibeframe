@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 // Counts come from next.config.js (auto-derived from packages/ai-providers
 // directory listing + MCP tool name regex), so they stay in sync with the
 // source. Falls back to conservative static numbers if env var lookup fails.
-const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "14";
+const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "15";
 const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "84";
 const SHARE_DESCRIPTION = `Turn STORYBOARD.md and DESIGN.md into generated assets, review reports, and rendered video from the terminal with ${AI_PROVIDERS} AI providers and ${MCP_TOOLS} MCP tools.`;
 

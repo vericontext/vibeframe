@@ -48,6 +48,8 @@ pnpm-debug.log*
 *.tsbuildinfo
 
 samples/
+archive/
+
 # Generated outputs
 /demo/
 /demo-video/

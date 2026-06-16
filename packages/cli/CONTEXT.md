@@ -5,11 +5,54 @@
 VibeFrame CLI (`vibe`) is a CLI-first video toolkit. Every operation is
 a shell command. The same surface is exposed as MCP tools through
 [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
+For long-running video work, native Codex Goal mode and Claude Code `/goal`
+should own the outer loop: persistence, iteration, and stop decisions.
+VibeFrame owns the video-specific command surface, JSON reports, cost gates,
+deterministic repair, render inspection, and `retryWith` recovery hints.
 
 For the full reference (every flag, default, enum), read
 [`docs/cli-reference.md`](../../docs/cli-reference.md) — auto-generated
 from `vibe schema --list`. This file is the _agent quickstart_: rules,
 conventions, and discovery hooks.
+
+## Native host goal loop
+
+Use the host's native goal feature rather than inventing a VibeFrame-owned
+goal runner. The canonical loop is:
+
+```text
+native host goal -> vibe context/schema -> plan dry-run -> build with budget
+-> status polling -> inspect project -> render -> inspect render
+-> repair/edit using retryWith/fixOwner -> repeat until stop rules pass
+```
+
+Copy-paste Codex goal:
+
+```text
+/goal Build my-video/ into a reviewed VibeFrame MP4. Use --json for every vibe
+command, run --dry-run before paid operations, cap generated-asset spend with
+--max-cost 5 where supported, and read build-report.json plus
+review-report.json before deciding the next action. Run retryWith commands
+before guessing. Treat fixOwner:"vibe" as deterministic CLI repair work and
+fixOwner:"host-agent" as storyboard, DESIGN.md, or composition edits.
+Stop only when my-video/renders/final.mp4 exists, duration is within the target,
+aspect ratio matches the brief, inspect render --cheap has no errors, review
+AI review score is >= 90 when AI review is requested, and unresolved host-agent issues are fixed, intentionally
+accepted with a written reason, or reported as blocked.
+```
+
+Copy-paste Claude Code goal:
+
+```text
+/goal Finish the VibeFrame render for my-video/ using Claude Code goal mode as
+the outer loop. Use vibe context/schema when unsure, --json everywhere,
+dry-run before paid operations, --max-cost 5 for builds, retryWith before
+custom recovery, and build-report.json/review-report.json as loop state.
+Stop only when renders/final.mp4 exists, target duration and aspect ratio are
+met, render inspection has no errors, any AI review score is at least 90 when AI review is requested, and every
+remaining host-agent issue is fixed, accepted with rationale, or reported as
+blocked.
+```
 
 ## Discovery (use these first)
 
@@ -38,12 +81,12 @@ vibe guide <topic> --json              # Step-by-step guides (motion | scene | p
 
 ## Cost tiers
 
-| Tier      | Commands                                                                                                                        | Per-call cost |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Tier      | Commands                                                                                                                              | Per-call cost |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | Free      | `schema/context/doctor`, `detect *`, `status *`, `plan`, `storyboard validate`, `inspect project/render --cheap`, deterministic edits | $0            |
-| Low       | `generate narration/sound-effect/music`, `audio transcribe/list-voices`, `inspect media`, optional AI review                         | $0.01–0.10    |
-| High      | `generate image/motion`, `edit image/reframe/grade/speed-ramp`                                                                       | $1–5          |
-| Very High | `generate video`, `edit fill-gaps`, `remix highlights/auto-shorts`, `build` with generated assets                                      | $5–50+        |
+| Low       | `generate narration/sound-effect/music`, `audio transcribe/list-voices`, `inspect media`, optional AI review                          | $0.01–0.10    |
+| High      | `generate image/motion`, `edit image/reframe/grade/speed-ramp`                                                                        | $1–5          |
+| Very High | `generate video`, `edit fill-gaps`, `remix highlights/auto-shorts`, `build` with generated assets                                     | $5–50+        |
 
 > Rule: **confirm with the user before any High / Very-High call**.
 
@@ -176,7 +219,9 @@ Review report contract:
 `sourceReports`, and `retryWith`. Each issue has `fixOwner:"vibe"` for
 deterministic CLI recovery or `fixOwner:"host-agent"` for storyboard/design/
 composition edits the host agent should make. Use `retryWith` first, then
-hand remaining `host-agent` issues to the agent.
+hand remaining `host-agent` issues to the agent. A host-native goal should not
+stop while `host-agent` issues remain unless they are fixed, intentionally
+accepted with a written reason, or reported as blocked.
 
 Product surface contract:
 

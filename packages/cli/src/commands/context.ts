@@ -39,6 +39,8 @@ export const contextCommand = new Command("context")
       product: "vibeframe",
       sourceOfTruth: ["STORYBOARD.md", "DESIGN.md", "vibe.config.json"],
       preferredFlow: [
+        "native Codex Goal mode or Claude Code /goal owns persistence, iteration, and stop decisions",
+        "vibe context/schema for command discovery",
         "storyboard revise after init when the brief changes",
         "storyboard validate",
         "plan",
@@ -53,6 +55,22 @@ export const contextCommand = new Command("context")
         "inspect render --ai when needed",
         "status project when async jobs are involved",
       ],
+      nativeGoalContract: {
+        owner:
+          "host-native goal mode (Codex /goal, Claude Code /goal, Cursor or other host equivalent)",
+        vibeRole:
+          "video-specific commands, JSON reports, cost gates, deterministic repair, render inspection, and retryWith recovery hints",
+        canonicalLoop:
+          "native host goal -> vibe context/schema -> plan dry-run -> build with budget -> status polling -> inspect project -> render -> inspect render -> repair/edit using retryWith/fixOwner -> repeat",
+        stopRules: [
+          "final MP4 exists at the requested output path",
+          "duration and aspect ratio match the brief or explicitly accepted constraints",
+          "inspect render --cheap reports no errors",
+          "any AI review score meets the goal threshold, commonly >= 90, when AI review is requested",
+          "all fixOwner:vibe issues have been repaired or are blocked with evidence",
+          "all fixOwner:host-agent issues are fixed, intentionally accepted with a written reason, or reported as blocked",
+        ],
+      },
       mentalModel: {
         storyboard: "intent layer; edit or mutate beat cues here",
         scene: "generated artifact layer; lint/repair composition HTML here",
@@ -212,6 +230,8 @@ Use 'vibe schema --list --surface public' for the small product surface.
 Use 'vibe schema <command> --json' to get parameter schemas.
 Use 'vibe doctor --json' to check configured API keys.
 Use '--dry-run --json' before any mutating/costly operation.
+Use native Codex Goal mode or Claude Code /goal as the outer loop; VibeFrame provides JSON reports, retryWith, fixOwner, cost gates, and render inspection for that host loop.
+Stop only when the final MP4 exists, target duration/aspect ratio are met, inspect render has no errors, any AI review score meets the goal threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or reported blocked.
 
 Cost tiers: Free (schema/context/doctor/detect/status/plan/storyboard validate/inspect project/render --cheap, deterministic edits) | Low (generate narration/sound-effect/music, audio transcribe, inspect media, optional AI review) | High (generate image/motion, edit image/reframe/grade/speed-ramp) | Very High (generate video, edit fill-gaps, remix highlights/auto-shorts, build with generated assets)
 

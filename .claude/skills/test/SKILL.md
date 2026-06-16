@@ -1,26 +1,44 @@
 ---
 name: test
-description: Run tests for a specific package or all packages and report results
+description: Run VibeFrame tests for one package or the whole monorepo and summarize failures.
 argument-hint: "[package-name]"
 disable-model-invocation: true
 ---
 
-Run tests for the VibeFrame project.
+# Test
 
-If an argument is provided, test that specific package:
-- `cli` → `pnpm -F @vibeframe/cli exec vitest run`
-- `core` → `pnpm -F @vibeframe/core test`
-- `all` or no argument → `pnpm test`
+Use this skill when the user asks Codex to run or diagnose VibeFrame tests.
 
-Steps:
-1. Run the appropriate test command
-2. Count passed/failed/skipped tests from output
-3. Report results in a summary table:
+## Commands
 
-| Metric | Value |
-|--------|-------|
-| Test files | X passed, Y failed |
-| Tests | X passed, Y skipped |
-| Duration | Xs |
+- CLI package:
 
-If any tests fail, read the failing test file and the source file it tests to diagnose the root cause.
+  ```bash
+  pnpm -F @vibeframe/cli exec vitest run
+  ```
+
+- Core package:
+
+  ```bash
+  pnpm -F @vibeframe/core test
+  ```
+
+- All packages:
+
+  ```bash
+  pnpm test
+  ```
+
+## Reporting
+
+Report the command run, pass/fail status, failed test file names, and the
+smallest useful diagnosis.
+
+| Metric     | Value               |
+| ---------- | ------------------- |
+| Test files | X passed, Y failed  |
+| Tests      | X passed, Y skipped |
+| Duration   | Xs                  |
+
+If any tests fail, read both the failing test and the source file it covers
+before proposing a fix.

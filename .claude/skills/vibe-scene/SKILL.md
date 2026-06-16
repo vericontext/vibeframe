@@ -1,9 +1,9 @@
 ---
 name: vibe-scene
-description: Author and edit VibeFrame scene projects. Use when the user wants editable HTML-based video scenes, storyboard-to-MP4 composition, or a host-agent authoring loop.
+description: Author, repair, render, and inspect VibeFrame scene projects built from STORYBOARD.md and DESIGN.md.
 ---
 
-# vibe-scene
+# Vibe Scene
 
 VibeFrame scene projects are editable video projects built from:
 
@@ -13,6 +13,9 @@ VibeFrame scene projects are editable video projects built from:
 - `index.html` - root timeline that references scene compositions
 - `assets/` and `renders/` - generated inputs and final outputs
 
+Use this skill when the user wants editable HTML-based scene composition,
+storyboard-to-MP4 work, or a host-agent authoring loop.
+
 Use the top-level commands for the main project lifecycle:
 
 ```bash
@@ -21,7 +24,7 @@ vibe build my-video
 vibe render my-video -o renders/final.mp4
 ```
 
-The `vibe scene ...` namespace is now the lower-level authoring surface:
+The `vibe scene ...` namespace is the lower-level authoring surface:
 `install-skill`, `compose-prompts`, `list-styles`, `add`, and `lint`.
 
 ## Pick The Right Path
@@ -81,6 +84,8 @@ Hard rules for authored scene HTML:
 - GSAP timelines must be paused and registered on `window.__timelines`.
 - Do not use `Date.now()`, `Math.random()`, or network fetches in render paths.
 - Route final audio through root-level `<audio>` elements when possible.
+- For factual, typography-heavy videos, keep claims and layout in HTML/CSS/JS;
+  treat provider assets as inputs rather than the whole product.
 
 ## Low-Level Scene Commands
 

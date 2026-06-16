@@ -200,6 +200,42 @@ Default setup is snippet-only; use \`--write\` when you want VibeFrame to merge
 the generated config. Keep provider keys in \`.vibeframe/config.yaml\`, user
 config, or env files — not in app host config.
 
+## Native host goal loop
+
+For long-running work, use Codex Goal mode, Claude Code \`/goal\`, Cursor, or
+another host-native goal feature as the outer loop. VibeFrame should not own a
+competing project-level goal runner. It provides \`--json\` commands, dry runs,
+budget caps, \`build-report.json\`, \`review-report.json\`, \`retryWith\`,
+\`fixOwner\`, deterministic repair, and render inspection for the host agent
+to decide what to do next.
+
+Copy-paste Codex:
+
+\`\`\`text
+/goal Build this VibeFrame project into renders/final.mp4. Use --json for every
+vibe command, run --dry-run before paid operations, use --max-cost 5 for builds
+unless the user gives another budget, read build-report.json and
+review-report.json before deciding the next action, and run retryWith commands
+before custom recovery. Treat fixOwner:"vibe" as CLI repair work and
+fixOwner:"host-agent" as STORYBOARD.md, DESIGN.md, or composition edits.
+Stop only when renders/final.mp4 exists, target duration and aspect ratio are
+met, inspect render --cheap has no errors, any AI review score is >= 90 when AI review is requested, and every
+remaining host-agent issue is fixed, accepted with rationale, or reported as
+blocked.
+\`\`\`
+
+Copy-paste Claude Code:
+
+\`\`\`text
+/goal Finish this VibeFrame render using Claude Code goal mode as the outer
+loop. Use vibe context/schema when unsure, --json everywhere, dry-run before
+paid operations, budget cap via --max-cost 5, retryWith before guessing,
+build-report.json/review-report.json as loop state, and fixOwner to decide
+between vibe scene repair and host-agent edits. Stop only after final MP4,
+target duration/aspect ratio, clean render inspection, any AI review score >= 90 when AI review is requested, and
+no unresolved unacknowledged host-agent issues.
+\`\`\`
+
 ### Composition rules (scene HTML)
 
 \`vibe init\` installs local composition rules into your project. The

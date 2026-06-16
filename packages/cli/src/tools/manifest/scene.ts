@@ -203,6 +203,12 @@ const sceneAddSchema = z.object({
     .string()
     .optional()
     .describe("Root composition file (relative to projectDir). Default 'index.html'."),
+  syncStoryboard: z
+    .boolean()
+    .optional()
+    .describe(
+      "Sync STORYBOARD.md when present, then rebuild root refs from it. Default true; set false for root-only insertion."
+    ),
   imageProvider: z
     .enum(["gemini", "openai"])
     .optional()
@@ -220,7 +226,7 @@ export const sceneAddTool = defineTool({
   title: "Add Scene from Preset",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Add a single scene to an existing scene project. Optionally generates narration audio (ElevenLabs) and/or a backdrop image (Gemini/OpenAI), then emits compositions/scene-<id>.html with a paused GSAP timeline and splices a clip reference into the root index.html. Use skipAudio:true and skipImage:true for text-only scenes that need no API calls.",
+    "Add a single scene to an existing scene project. Optionally generates narration audio (ElevenLabs) and/or a backdrop image (Gemini/OpenAI), then emits compositions/scene-<id>.html with a paused GSAP timeline. By default, syncs STORYBOARD.md and rebuilds root refs from it; set syncStoryboard:false for root-only insertion. Use skipAudio:true and skipImage:true for text-only scenes that need no API calls.",
   schema: sceneAddSchema,
   async execute(args, ctx) {
     const projectDir = args.projectDir
@@ -236,6 +242,7 @@ export const sceneAddTool = defineTool({
       kicker: args.kicker,
       projectDir,
       insertInto: args.insertInto,
+      syncStoryboard: args.syncStoryboard,
       imageProvider: args.imageProvider,
       voice: args.voice,
       skipAudio: args.skipAudio,
@@ -254,6 +261,9 @@ export const sceneAddTool = defineTool({
     ];
     if (result.audioPath) lines.push(`   audio:    ${result.audioPath}`);
     if (result.imagePath) lines.push(`   image:    ${result.imagePath}`);
+    if (result.storyboardPath && result.storyboardSynced) {
+      lines.push(`   story:    ${result.storyboardPath} (${result.storyboardAction})`);
+    }
     return {
       success: true,
       data: {
@@ -265,6 +275,9 @@ export const sceneAddTool = defineTool({
         rootPath: result.rootPath,
         audioPath: result.audioPath,
         imagePath: result.imagePath,
+        storyboardPath: result.storyboardPath,
+        storyboardSynced: result.storyboardSynced,
+        storyboardAction: result.storyboardAction,
       },
       humanLines: lines,
     };
@@ -575,9 +588,11 @@ const sceneBuildSchema = z.object({
     .optional()
     .describe("Stop after compose — produces compositions/*.html but no final MP4."),
   ttsProvider: z
-    .enum(["auto", "elevenlabs", "kokoro"])
+    .enum(["auto", "elevenlabs", "openai", "kokoro"])
     .optional()
-    .describe("TTS provider override. Default 'auto'."),
+    .describe(
+      "TTS provider override. Default 'auto' (elevenlabs key > openai key > local kokoro).",
+    ),
   voice: z.string().optional().describe("TTS voice id (provider-specific)."),
   imageProvider: z
     .enum(["openai"])

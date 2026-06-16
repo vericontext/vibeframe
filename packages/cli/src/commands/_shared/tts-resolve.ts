@@ -8,23 +8,26 @@
  * Routes between:
  *   - **ElevenLabs** — cloud, API-key gated, paid (~$0.02/scene). Default
  *     when `ELEVENLABS_API_KEY` is set.
- *   - **Kokoro** — local Apache 2.0 model, free, ~330MB first-call download.
+ *   - **OpenAI** — cloud gpt-4o-mini-tts, cheap (~$0.015/min of audio).
+ *     Default when only `OPENAI_API_KEY` is set — the common Claude Desktop
+ *     case where one key already covers backdrop images.
+ *   - **Kokoro** — local Apache 2.0 model, free, ~90MB first-call download.
  *     The fallback for key-less users.
  *
  * The router exposes a uniform `TtsCallable` shape so call sites don't have
- * to branch on provider id. Both providers already return the same
+ * to branch on provider id. All providers already return the same
  * `{ success, audioBuffer, error?, characterCount? }` result.
  */
 
-import { ElevenLabsProvider, KokoroProvider } from "@vibeframe/ai-providers";
+import { ElevenLabsProvider, KokoroProvider, OpenAiTtsProvider } from "@vibeframe/ai-providers";
 import type { KokoroLoadEvent } from "@vibeframe/ai-providers";
 import { getApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 
 /** TTS providers VibeFrame can route to. `"auto"` picks based on key availability. */
-export type TtsProviderName = "auto" | "elevenlabs" | "kokoro";
+export type TtsProviderName = "auto" | "elevenlabs" | "openai" | "kokoro";
 
 /** Concrete provider id surfaced in result metadata. Never `"auto"`. */
-export type ResolvedTtsProvider = "elevenlabs" | "kokoro";
+export type ResolvedTtsProvider = "elevenlabs" | "openai" | "kokoro";
 
 /** Options accepted by every {@link TtsCallable}. Subset of provider-specific options. */
 export interface TtsCallOptions {
@@ -66,20 +69,31 @@ export interface TtsResolution {
  * Resolution policy:
  *   - `"elevenlabs"`: requires `ELEVENLABS_API_KEY`. Throws an `ApiKeyError`-style
  *     error via {@link getApiKey} (consumed by `requireApiKey`/`exitWithError`).
+ *   - `"openai"`: requires `OPENAI_API_KEY`.
  *   - `"kokoro"`: always available (local). No key check.
- *   - `"auto"` (or `undefined`): if an ElevenLabs key is configured in
- *     project/user config.yaml, .env, or process env, picks ElevenLabs;
- *     otherwise falls back to Kokoro.
+ *   - `"auto"` (or `undefined`): ElevenLabs key configured → ElevenLabs
+ *     (preserves pre-0.113 behavior — a dedicated TTS key signals intent);
+ *     else OpenAI key configured → OpenAI; else Kokoro.
  */
 export async function resolveTtsProvider(
   preferred: TtsProviderName = "auto",
 ): Promise<TtsResolution> {
-  const choice = preferred === "auto"
-    ? ((await getConfiguredApiKey("ELEVENLABS_API_KEY")) ? "elevenlabs" : "kokoro")
-    : preferred;
+  let choice = preferred;
+  if (choice === "auto") {
+    if (await getConfiguredApiKey("ELEVENLABS_API_KEY")) {
+      choice = "elevenlabs";
+    } else if (await getConfiguredApiKey("OPENAI_API_KEY")) {
+      choice = "openai";
+    } else {
+      choice = "kokoro";
+    }
+  }
 
   if (choice === "elevenlabs") {
     return buildElevenLabs();
+  }
+  if (choice === "openai") {
+    return buildOpenAi();
   }
   return buildKokoro();
 }
@@ -97,6 +111,21 @@ async function buildElevenLabs(): Promise<TtsResolution> {
       speed: opts?.speed,
     });
   return { provider: "elevenlabs", audioExtension: "mp3", call };
+}
+
+async function buildOpenAi(): Promise<TtsResolution> {
+  const key = await getApiKey("OPENAI_API_KEY", "OpenAI");
+  if (!key) {
+    throw new TtsKeyMissingError("openai");
+  }
+  const provider = new OpenAiTtsProvider();
+  await provider.initialize({ apiKey: key });
+  const call: TtsCallable = async (text, opts) =>
+    provider.textToSpeech(text, {
+      voice: opts?.voice,
+      speed: opts?.speed,
+    });
+  return { provider: "openai", audioExtension: "mp3", call };
 }
 
 async function buildKokoro(): Promise<TtsResolution> {
@@ -123,7 +152,9 @@ export class TtsKeyMissingError extends Error {
     super(
       provider === "elevenlabs"
         ? "ElevenLabs API key required (ELEVENLABS_API_KEY). Run 'vibe setup', set ELEVENLABS_API_KEY in .env, or pass --tts kokoro for local synthesis."
-        : `Provider ${provider} is unavailable.`,
+        : provider === "openai"
+          ? "OpenAI API key required (OPENAI_API_KEY). Run 'vibe setup', set OPENAI_API_KEY in .env, or pass --tts kokoro for local synthesis."
+          : `Provider ${provider} is unavailable.`,
     );
     this.name = "TtsKeyMissingError";
   }
@@ -132,10 +163,10 @@ export class TtsKeyMissingError extends Error {
 /** Validate a free-form `--tts <value>` against {@link TtsProviderName}. */
 export function parseTtsProviderName(value: string | undefined): TtsProviderName {
   if (!value) return "auto";
-  if (value === "auto" || value === "elevenlabs" || value === "kokoro") {
+  if (value === "auto" || value === "elevenlabs" || value === "openai" || value === "kokoro") {
     return value;
   }
   throw new Error(
-    `Invalid --tts: ${value}. Valid: auto, elevenlabs, kokoro.`,
+    `Invalid --tts: ${value}. Valid: auto, elevenlabs, openai, kokoro.`,
   );
 }
