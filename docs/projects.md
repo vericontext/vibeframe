@@ -35,7 +35,7 @@ paths:
 ```text
 native host goal -> vibe context/schema -> plan dry-run -> build with budget
 -> status polling -> inspect project -> render -> inspect render
--> repair/edit using retryWith/fixOwner -> repeat
+-> repair/edit using nextActions/fixOwner -> repeat
 ```
 
 The goal should stop only when the final MP4 path exists, duration and aspect
@@ -44,7 +44,9 @@ meets the goal threshold when AI review is requested, and unresolved
 `fixOwner:"host-agent"` issues are fixed,
 accepted with rationale, or reported as blocked. Agents should read
 `build-report.json` and `review-report.json` before choosing the next action
-and run `retryWith` commands before inventing recovery steps.
+and prefer `nextActions`: run only `safeToAutoRun:true` actions automatically,
+ask before `requiresConfirmation:true`, and use `retryWith` only as the
+compatibility fallback.
 
 Claude Desktop uses global MCP config, so anchor it to the workspace you want
 relative project names to resolve under. VibeFrame writes a shell wrapper

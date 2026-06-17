@@ -53,10 +53,14 @@ When invoking VibeFrame commands from an agent context:
 - Treat native Codex Goal mode, Claude Code `/goal`, Cursor agent loops, or
   another host's equivalent as the outer loop for long-running video work.
   VibeFrame should provide video-specific commands, JSON reports, cost gates,
-  deterministic repair, render inspection, and `retryWith`/`fixOwner` recovery
-  contracts, not a competing primary goal runner.
+  deterministic repair, render inspection, and `nextActions`/`fixOwner`
+  recovery contracts, not a competing primary goal runner.
 - Prefer `--json` for structured output.
 - Run `--dry-run` before paid or mutating operations when the command supports it.
+- When a review report includes `nextActions`, prefer it over inventing
+  commands: run only `safeToAutoRun:true` actions automatically, ask before
+  `requiresConfirmation:true`, and treat `retryWith` as the compatibility
+  fallback.
 - Use `vibe schema <command>` before constructing non-trivial arguments.
 - Confirm with the user before high/very-high cost operations such as
   `generate video`, `edit fill-gaps`, and provider-backed `remix` workflows.

@@ -59,9 +59,9 @@ export const contextCommand = new Command("context")
         owner:
           "host-native goal mode (Codex /goal, Claude Code /goal, Cursor or other host equivalent)",
         vibeRole:
-          "video-specific commands, JSON reports, cost gates, deterministic repair, render inspection, and retryWith recovery hints",
+          "video-specific commands, JSON reports, cost gates, deterministic repair, render inspection, nextActions, and retryWith compatibility hints",
         canonicalLoop:
-          "native host goal -> vibe context/schema -> plan dry-run -> build with budget -> status polling -> inspect project -> render -> inspect render -> repair/edit using retryWith/fixOwner -> repeat",
+          "native host goal -> vibe context/schema -> plan dry-run -> build with budget -> status polling -> inspect project -> render -> inspect render -> repair/edit using nextActions/fixOwner -> repeat",
         stopRules: [
           "final MP4 exists at the requested output path",
           "duration and aspect ratio match the brief or explicitly accepted constraints",
@@ -104,7 +104,9 @@ export const contextCommand = new Command("context")
       reviewReportContract: {
         kind: "review",
         modes: ["project", "render"],
-        fields: ["status", "score", "issues", "summary", "sourceReports", "retryWith"],
+        fields: ["status", "score", "issues", "summary", "sourceReports", "nextActions", "retryWith"],
+        recovery:
+          "prefer nextActions (classified by costTier/safeToAutoRun/requiresConfirmation/fixOwner); retryWith is the compatibility fallback",
         issueFixOwner: {
           vibe: "deterministic CLI recovery",
           "host-agent": "storyboard/design/composition edits the host agent should make",
@@ -113,7 +115,8 @@ export const contextCommand = new Command("context")
       machineStatusContract: {
         buildReport:
           "kind/status/currentStage/beatSummary/jobs/sceneRepair/stageReports/warnings/retryWith plus beat timing and nested per-beat asset metadata",
-        projectStatus: "kind/status/currentStage/beats/jobs.latest/build/review/warnings/retryWith",
+        projectStatus:
+          "kind/status/currentStage/beats/jobs.latest/build/review/warnings/nextActions/retryWith (nextActions is populated for every workflow state, not only when a review report exists)",
         reviewSummary:
           "review.mode/issueCount/errorCount/warningCount/infoCount/fixOwners/sourceReports/retryWith",
       },
@@ -202,12 +205,13 @@ render. Repair failures return \`code:"SCENE_REPAIR_FAILED"\` with
 render with \`currentStage:"assets"\` and \`code:"ASSET_REFERENCE_INVALID"\`,
 \`code:"MISSING_API_KEY"\`, or \`code:"ASSET_GENERATION_FAILED"\`.
 \`build-report.json\` includes \`sceneRepair\`, and \`status project\` carries
-review issue counts, \`fixOwners\`, \`sourceReports\`, and
-\`review.retryWith\`.
+review issue counts, \`fixOwners\`, \`sourceReports\`, top-level
+\`nextActions\` (populated for every workflow state), and \`retryWith\`.
+Prefer \`nextActions\` and treat \`retryWith\` as the compatibility fallback.
 
 \`review-report.json\` is written by \`inspect project\` and \`inspect render\`
 as \`kind:"review"\` with \`mode:"project"|"render"\`, \`summary\`,
-\`sourceReports\`, \`retryWith\`, and issue-level
+\`sourceReports\`, \`nextActions\`, \`retryWith\`, and issue-level
 \`fixOwner:"vibe"|"host-agent"\`.
 \`inspect render --cheap\` checks duration drift, audio presence, black frames,
 long silence, and static-frame holds. Static or semantic beat issues are

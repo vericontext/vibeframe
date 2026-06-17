@@ -124,10 +124,11 @@ Copy-paste for Codex:
 Use vibe context/schema first when command details are unclear. Use --json for
 all vibe commands. Run --dry-run before paid operations and keep generated-asset
 spend under $5 with --max-cost 5 where supported. Read build-report.json and
-review-report.json before choosing the next action. Run retryWith commands
-before inventing recovery steps. Treat fixOwner:"vibe" issues as deterministic
-CLI repair work and fixOwner:"host-agent" issues as storyboard, DESIGN.md, or
-composition edits.
+review-report.json before choosing the next action. Prefer nextActions:
+run only safeToAutoRun:true actions automatically, ask before
+requiresConfirmation:true actions, and use retryWith only as the compatibility
+fallback. Treat fixOwner:"vibe" issues as deterministic CLI repair work and
+fixOwner:"host-agent" issues as storyboard, DESIGN.md, or composition edits.
 
 Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
 less, the aspect ratio is 16:9 unless brief.md says otherwise,
@@ -143,9 +144,10 @@ Copy-paste for Claude Code:
 Claude Code goal loop as the outer loop. Use vibe commands with --json, run
 dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
 use build-report.json plus review-report.json as the loop state. Follow
-retryWith before guessing, and distinguish fixOwner:"vibe" from
-fixOwner:"host-agent" when deciding whether to run vibe scene repair or edit
-STORYBOARD.md, DESIGN.md, or compositions.
+nextActions first, run only safeToAutoRun:true actions automatically, ask
+before requiresConfirmation:true actions, and use retryWith only as a fallback.
+Distinguish fixOwner:"vibe" from fixOwner:"host-agent" when deciding whether
+to run vibe scene repair or edit STORYBOARD.md, DESIGN.md, or compositions.
 
 Stop only when launch/renders/final.mp4 exists, duration is within the requested
 30s target, aspect ratio is 16:9 unless the brief overrides it, render
@@ -295,7 +297,7 @@ vibe inspect project my-video --beat hook --json
 vibe render my-video --beat hook --json
 vibe inspect render my-video --beat hook --cheap --json
 
-# Let a host agent handle semantic issues from the report
+# Let a host agent handle semantic issues from nextActions/review-report.json
 codex "fix issues from my-video/review-report.json"
 ```
 
@@ -342,7 +344,11 @@ the intent layer, `DESIGN.md` is the visual system, `vibe.config.json` stores
 provider/model defaults, `media/` stores user-provided source media, and files
 under `assets/` and `compositions/` are generated or canonical build artifacts.
 `build-report.json` records build results and costs;
-`review-report.json` records inspection findings and suggested fixes.
+`review-report.json` records inspection findings, issue-level actions, and
+top-level nextActions. Agents should prefer nextActions, run only
+safeToAutoRun:true commands automatically, ask before
+requiresConfirmation:true actions, and keep retryWith as the compatibility
+fallback.
 When paid video or music providers return async jobs, `vibe status project
 --refresh` downloads completed outputs, updates `build-report.json`, and
 writes freshness metadata under `.vibeframe/assets/`. The sync stage wires

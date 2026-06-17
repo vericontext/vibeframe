@@ -246,6 +246,19 @@ describe("render inspect parsers", () => {
     expect(result.beat).toBe("hook");
     expect(result.summary.errorCount).toBe(1);
     expect(result.issues[0].fixOwner).toBe("vibe");
+    expect(result.issues[0].actions).toEqual([
+      expect.objectContaining({
+        command: `vibe render ${dir} --beat hook --json`,
+        safeToAutoRun: true,
+        requiresConfirmation: false,
+        sourceIssueCodes: ["RENDER_NOT_FOUND"],
+      }),
+    ]);
+    expect(result.nextActions).toEqual([
+      expect.objectContaining({
+        command: `vibe render ${dir} --beat hook --json`,
+      }),
+    ]);
     expect(result.retryWith).toEqual([`vibe render ${dir} --beat hook --json`]);
   });
 
@@ -263,6 +276,12 @@ describe("render inspect parsers", () => {
       project: resolve(dir),
       status: "fail",
       summary: { errorCount: 1, fixOwners: { vibe: 1, hostAgent: 0 } },
+      nextActions: expect.arrayContaining([
+        expect.objectContaining({
+          command: `vibe render ${dir} --json`,
+          safeToAutoRun: true,
+        }),
+      ]),
     });
   });
 

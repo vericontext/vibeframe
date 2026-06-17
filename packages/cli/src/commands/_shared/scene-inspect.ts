@@ -10,12 +10,14 @@ import { createProjectRootSyncPlan } from "./root-sync.js";
 import {
   buildReviewReport,
   defaultReviewReportPath,
+  deriveNextReviewActions,
   normalizeReviewIssues,
   scoreIssues,
   statusFromIssues,
   summarizeReviewIssues,
   uniqueRetryWith,
   writeReviewReport,
+  type ReviewAction,
   type ReviewIssue,
   type ReviewSummary,
   type ReviewStatus,
@@ -38,6 +40,7 @@ export interface ProjectInspectResult {
   score: number;
   issues: ReviewIssue[];
   summary: ReviewSummary;
+  nextActions: ReviewAction[];
   sourceReports: string[];
   checks: {
     files: Record<string, boolean>;
@@ -332,7 +335,11 @@ function makeProjectResult(
   retryWith: string[],
   beatId?: string
 ): ProjectInspectResult {
-  const normalizedIssues = normalizeReviewIssues(issues);
+  const normalizedRetryWith = uniqueRetryWith(retryWith);
+  const normalizedIssues = normalizeReviewIssues(issues, {
+    projectDir,
+    retryWith: normalizedRetryWith,
+  });
   const status = statusFromIssues(normalizedIssues);
   return {
     schemaVersion: "1",
@@ -344,9 +351,14 @@ function makeProjectResult(
     score: scoreIssues(normalizedIssues),
     issues: normalizedIssues,
     summary: summarizeReviewIssues(normalizedIssues),
+    nextActions: deriveNextReviewActions({
+      issues: normalizedIssues,
+      retryWith: normalizedRetryWith,
+      projectDir,
+    }),
     sourceReports: projectSourceReports(checks),
     checks,
-    retryWith: uniqueRetryWith(retryWith),
+    retryWith: normalizedRetryWith,
   };
 }
 

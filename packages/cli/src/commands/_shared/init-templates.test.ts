@@ -37,7 +37,11 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("Claude Code `/goal`");
     expect(AGENTS_MD).toContain("build-report.json");
     expect(AGENTS_MD).toContain("review-report.json");
+    expect(AGENTS_MD).toContain("nextActions");
+    expect(AGENTS_MD).toContain("safeToAutoRun");
+    expect(AGENTS_MD).toContain("requiresConfirmation");
     expect(AGENTS_MD).toContain("retryWith");
+    expect(AGENTS_MD).toMatch(/compatibility\s+fallback/);
     expect(AGENTS_MD).toContain('fixOwner:"vibe"');
     expect(AGENTS_MD).toContain('fixOwner:"host-agent"');
     expect(AGENTS_MD).toContain("renders/final.mp4");
