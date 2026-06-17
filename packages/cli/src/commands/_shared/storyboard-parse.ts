@@ -69,7 +69,57 @@ export interface ProjectFrontmatter {
   defaultDuration?: number;
   /** Visual identity preset hint (informational; e.g. "Swiss Pulse"). */
   style?: string;
+  /**
+   * Reusable character pool. Each entry is either a generation prompt
+   * (string → build renders a turnaround sheet at `assets/character-<name>.png`)
+   * or an object with `description` (same, explicit) and/or `image` (a
+   * bring-your-own reference path, which skips generation). Beats reference
+   * these by name via the `characters:` cue to drive reference-to-video.
+   */
+  characters?: Record<string, CharacterSpec>;
   [key: string]: unknown;
+}
+
+/** A character pool entry — a prompt string or a structured spec. */
+export type CharacterSpec = string | { description?: string; image?: string };
+
+/** Normalized character ready for build: generation prompt and/or supplied image. */
+export interface ResolvedCharacter {
+  name: string;
+  /** Generation prompt when the sheet should be rendered (absent if `image` given). */
+  prompt?: string;
+  /** Bring-your-own reference image path, relative to the project dir. */
+  imagePath?: string;
+}
+
+/**
+ * Flatten the frontmatter `characters` map into build-ready specs. A string or
+ * `{ description }` becomes a generation prompt; `{ image }` is used as-is
+ * (generation skipped). Entries with neither are dropped.
+ */
+export function resolveCharacters(
+  frontmatter: ProjectFrontmatter | undefined
+): ResolvedCharacter[] {
+  const pool = frontmatter?.characters;
+  if (!pool || typeof pool !== "object") return [];
+  const resolved: ResolvedCharacter[] = [];
+  for (const [name, spec] of Object.entries(pool)) {
+    if (typeof spec === "string") {
+      const prompt = spec.trim();
+      if (prompt) resolved.push({ name, prompt });
+      continue;
+    }
+    if (spec && typeof spec === "object") {
+      const image = typeof spec.image === "string" ? spec.image.trim() : "";
+      if (image) {
+        resolved.push({ name, imagePath: image });
+        continue;
+      }
+      const description = typeof spec.description === "string" ? spec.description.trim() : "";
+      if (description) resolved.push({ name, prompt: description });
+    }
+  }
+  return resolved;
 }
 
 /**
@@ -86,7 +136,27 @@ export interface BeatCues {
   duration?: number;
   /** Voice override for this beat (overrides project frontmatter `voice`). */
   voice?: string;
+  /**
+   * Character pool names whose reference sheets drive this beat's
+   * reference-to-video generation. A single name or a list.
+   */
+  characters?: string | string[];
   [key: string]: unknown;
+}
+
+/** Normalize a beat's `characters` cue to a clean string[] (single or list). */
+export function beatCharacterNames(cues: BeatCues | undefined): string[] {
+  const raw = cues?.characters;
+  if (typeof raw === "string") {
+    const name = raw.trim();
+    return name ? [name] : [];
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => v.trim());
+  }
+  return [];
 }
 
 export interface Beat {

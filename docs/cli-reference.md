@@ -1932,7 +1932,7 @@ Cost tier: `free`
 
 - `project-dir` _(string)_ **required** — Project directory
 - `beat` _(string)_ **required** — Beat id
-- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | motion | voice | music | asset
+- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | motion | voice | music | asset | characters
 - `value` _(array)_ — Cue value. Use --json-value to pass a JSON scalar/object.
 - `jsonValue` _(boolean)_ — Parse value as JSON instead of a string
 - `unset` _(boolean)_ — Remove the cue key from the beat

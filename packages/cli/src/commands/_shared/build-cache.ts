@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type BuildAssetKind = "narration" | "backdrop" | "video" | "music";
+export type BuildAssetKind = "narration" | "backdrop" | "character" | "video" | "music";
 
 export interface CacheAssetDescriptor {
   key: string;
@@ -58,6 +58,23 @@ export function backdropCacheDescriptor(opts: {
   });
 }
 
+export function characterCacheDescriptor(opts: {
+  name: string;
+  cue: string;
+  provider: string;
+  quality: "standard" | "hd";
+  size: string;
+}): CacheAssetDescriptor {
+  return cacheAssetDescriptor("character", {
+    name: opts.name,
+    cue: opts.cue,
+    provider: opts.provider,
+    quality: opts.quality,
+    size: opts.size,
+    ext: "png",
+  });
+}
+
 export function imageRatioForSize(size: string | undefined): string {
   switch (size) {
     case "1024x1024":
@@ -76,6 +93,8 @@ export function videoCacheDescriptor(opts: {
   cue: string;
   provider: string;
   duration: number | undefined;
+  /** Character reference image paths — changing them must invalidate the clip. */
+  characters?: string[];
 }): CacheAssetDescriptor {
   return cacheAssetDescriptor("video", {
     beatId: opts.beatId,
@@ -83,6 +102,8 @@ export function videoCacheDescriptor(opts: {
     provider: opts.provider,
     duration: normalizeVideoDuration(opts.duration),
     ratio: "16:9",
+    // Omit when empty so existing (character-less) clips keep their cache key.
+    characters: opts.characters && opts.characters.length > 0 ? opts.characters : undefined,
     ext: "mp4",
   });
 }

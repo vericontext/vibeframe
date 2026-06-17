@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  beatCharacterNames,
   deriveBeatId,
   extractBeatCues,
   extractProjectFrontmatter,
   parseBeatDuration,
   parseStoryboard,
+  resolveCharacters,
 } from "./storyboard-parse.js";
 
 describe("parseStoryboard", () => {
@@ -366,5 +368,46 @@ Cold open.
     expect(r.beats[0].cues).toBeUndefined();
     expect(r.beats[0].duration).toBe(3);
     expect(r.beats[0].body).toContain("### Concept");
+  });
+});
+
+describe("resolveCharacters", () => {
+  it("returns [] when no characters are declared", () => {
+    expect(resolveCharacters(undefined)).toEqual([]);
+    expect(resolveCharacters({})).toEqual([]);
+  });
+
+  it("treats a string entry as a generation prompt", () => {
+    expect(resolveCharacters({ characters: { nova: "teal jacket engineer" } })).toEqual([
+      { name: "nova", prompt: "teal jacket engineer" },
+    ]);
+  });
+
+  it("uses image path (skipping generation) and falls back to description", () => {
+    expect(
+      resolveCharacters({
+        characters: {
+          rival: { image: "assets/rival.png" },
+          ace: { description: "stoic veteran driver" },
+        },
+      })
+    ).toEqual([
+      { name: "rival", imagePath: "assets/rival.png" },
+      { name: "ace", prompt: "stoic veteran driver" },
+    ]);
+  });
+
+  it("drops empty entries", () => {
+    expect(resolveCharacters({ characters: { blank: "   ", empty: {} } })).toEqual([]);
+  });
+});
+
+describe("beatCharacterNames", () => {
+  it("normalizes a single name, a list, and absent cues", () => {
+    expect(beatCharacterNames({ characters: "nova" })).toEqual(["nova"]);
+    expect(beatCharacterNames({ characters: ["nova", " rival "] })).toEqual(["nova", "rival"]);
+    expect(beatCharacterNames({ characters: [1, "ace"] as unknown as string[] })).toEqual(["ace"]);
+    expect(beatCharacterNames(undefined)).toEqual([]);
+    expect(beatCharacterNames({})).toEqual([]);
   });
 });

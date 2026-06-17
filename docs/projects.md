@@ -82,6 +82,36 @@ narration: "media/voice.wav"
 asset: "media/logo.png"
 ```
 
+### Characters (consistent AI video)
+
+Declare a reusable character pool in the document frontmatter, then reference it
+from a beat's `characters` cue. During `vibe build`, each referenced character
+is rendered once as a turnaround sheet (`assets/character-<name>.png`) and used
+as a reference image for that beat's `video` generation (Seedance
+reference-to-video), so the same character stays consistent across beats. A
+character value is a generation prompt, or `{ image: <path> }` to bring your own
+reference (skips generation).
+
+```yaml
+---
+characters:
+  nova: "young female racing engineer, teal team jacket, low ponytail"
+  rival: { image: "media/rival-ref.png" }
+---
+
+## Beat hook — Hook
+
+```yaml
+duration: 5
+characters: [nova]
+video: "NOVA walks through the pit lane, handheld tracking shot, ambient garage sound"
+```
+```
+
+Character sheets add image-generation cost, and each character video beat is a
+provider video call — run `vibe build --dry-run` to see the estimate and gate
+with `--max-cost`.
+
 ## Profiles
 
 `vibe init` supports three profiles:

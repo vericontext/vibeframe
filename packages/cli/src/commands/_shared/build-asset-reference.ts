@@ -18,6 +18,7 @@ export interface AssetReferenceCandidate {
 const EXTENSIONS: Record<BuildAssetKind, readonly string[]> = {
   narration: [".mp3", ".wav", ".m4a"],
   backdrop: [".png", ".jpg", ".jpeg", ".webp"],
+  character: [".png", ".jpg", ".jpeg", ".webp"],
   video: [".mp4", ".mov", ".webm"],
   music: [".mp3", ".wav", ".m4a"],
 };

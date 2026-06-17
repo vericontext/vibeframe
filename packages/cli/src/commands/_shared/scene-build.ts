@@ -19,7 +19,7 @@
  *     already have one with sub-composition references.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
@@ -28,6 +28,7 @@ import {
   GeminiProvider,
   GrokProvider,
   OpenAIImageProvider,
+  estimateSeedanceVideoCostUsd,
   type ImageOptions,
 } from "@vibeframe/ai-providers";
 
@@ -44,7 +45,13 @@ import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
-import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import {
+  beatCharacterNames,
+  parseStoryboard,
+  resolveCharacters,
+  type Beat,
+  type ResolvedCharacter,
+} from "./storyboard-parse.js";
 import { scaffoldSceneProject } from "./scene-project.js";
 import {
   backdropCostUsd,
@@ -65,6 +72,7 @@ import {
 } from "./root-sync.js";
 import {
   backdropCacheDescriptor,
+  characterCacheDescriptor,
   type BuildAssetKind,
   imageRatioForSize,
   musicCacheDescriptor,
@@ -105,6 +113,9 @@ const BEAT_PRIMITIVES_CONCURRENCY = 4;
 
 export type SceneBuildProgressEvent =
   | { type: "phase-start"; phase: "primitives" | "compose" | "render" }
+  | { type: "character-cached"; name: string; path: string }
+  | { type: "character-generated"; name: string; path: string; provider: string }
+  | { type: "character-failed"; name: string; error: string }
   | { type: "narration-cached"; beatId: string; path: string }
   | { type: "narration-generated"; beatId: string; path: string; provider: string }
   | { type: "narration-failed"; beatId: string; error: string }
@@ -545,8 +556,36 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
 
   let beatOutcomes: BeatBuildOutcome[] = collectExistingBeatOutcomes(parsed.beats, projectDir);
   let pendingJobs: JobRecord[] = [];
+  let characterCostUsd = 0;
   if (shouldRunStage(selectedStage, "assets")) {
     onProgress({ type: "phase-start", phase: "primitives" });
+
+    // Generate the character sheets referenced by any video beat once, up front,
+    // so dispatchVideo can pass them as reference-to-video inputs.
+    const characterPaths = new Map<string, string>();
+    if (!(opts.skipVideo ?? false)) {
+      const referenced = new Set<string>();
+      for (const beat of activeBeats) {
+        for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
+      }
+      if (referenced.size > 0) {
+        const charResult = await buildCharacters(
+          resolveCharacters(parsed.frontmatter).filter((c) => referenced.has(c.name)),
+          {
+            projectDir,
+            imageProvider,
+            imageSize: opts.imageSize ?? "1536x1024",
+            imageQuality: opts.imageQuality ?? "hd",
+            force: opts.force ?? false,
+            onProgress,
+          }
+        );
+        for (const [name, path] of charResult.paths) characterPaths.set(name, path);
+        characterCostUsd = charResult.costUsd;
+        warnings.push(...charResult.failures);
+      }
+    }
+
     const primitiveResults = await mapWithConcurrency(
       activeBeats,
       BEAT_PRIMITIVES_CONCURRENCY,
@@ -566,6 +605,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           skipMusic: opts.skipMusic ?? false,
           force: opts.force ?? false,
           onProgress,
+          characterPaths,
         })
     );
     beatOutcomes = primitiveResults.map((result) => result.outcome);
@@ -582,10 +622,8 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       : pendingJobs.length > 0
         ? "pending-jobs"
         : "done";
-    stageReports.assets.costUsd = estimateActualAssetCost(
-      beatOutcomes,
-      opts.imageQuality ?? "hd"
-    );
+    stageReports.assets.costUsd =
+      estimateActualAssetCost(beatOutcomes, opts.imageQuality ?? "hd") + characterCostUsd;
     stageReports.assets.retryWith = pendingJobs.map(
       (job) => `vibe status job ${job.id} --project ${projectDir} --json`
     );
@@ -767,6 +805,21 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   }
 
   if (stageReports.compose.status === "done") {
+    // A beat with a generated clip whose composition never references it would
+    // silently drop the clip from the render. Warn (don't mutate the
+    // LLM-authored HTML) and offer a targeted recompose.
+    for (const beat of activeBeats) {
+      const videoRel = `assets/video-${beat.id}.mp4`;
+      const compositionAbs = join(projectDir, "compositions", `scene-${beat.id}.html`);
+      if (!existsSync(join(projectDir, videoRel)) || !existsSync(compositionAbs)) continue;
+      const html = readFileSync(compositionAbs, "utf-8");
+      if (!html.includes(videoRel)) {
+        warnings.push(
+          `Beat "${beat.id}" has a generated clip (${videoRel}) but its composition does not reference it, so the clip will not appear. Recompose the beat.`
+        );
+        retryWith.push(`vibe build ${projectDir} --beat ${beat.id} --stage compose --force --json`);
+      }
+    }
     const repair = await runBuildSceneRepair(projectDir, "compose", false);
     sceneRepair = mergeSceneRepairSummaries(sceneRepair, repair);
     applySceneRepairToStage(stageReports.compose, repair);
@@ -984,6 +1037,8 @@ interface BeatDispatchContext {
   skipMusic: boolean;
   force: boolean;
   onProgress: (e: SceneBuildProgressEvent) => void;
+  /** name → relative path of generated/supplied character reference images. */
+  characterPaths?: Map<string, string>;
 }
 
 interface BeatPrimitiveResult {
@@ -1281,6 +1336,149 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
   };
 }
 
+interface CharacterBuildResult {
+  /** name → relative path of the resolved reference image. */
+  paths: Map<string, string>;
+  costUsd: number;
+  failures: string[];
+}
+
+/** Turnaround character-sheet prompt — the layout validated to hold identity. */
+function characterSheetPrompt(name: string, description: string): string {
+  return [
+    `Character turnaround reference sheet of an original fictional character named ${name}: ${description}.`,
+    "Show three full-body views side by side on one clean canvas — front view, side profile, and back view —",
+    "with identical outfit, hairstyle, hair color, and body proportions across all three views.",
+    "Plain light-grey studio background, even neutral lighting, no props.",
+    "Photorealistic digital character, professional concept-art character sheet layout.",
+  ].join(" ");
+}
+
+/**
+ * Generate (or reuse) the project's referenced character sheets once per build,
+ * before per-beat assets. Each generated sheet lands at
+ * `assets/character-<name>.png` and is cached like a backdrop; `image:` entries
+ * are referenced in place. Returns name → path so `dispatchVideo` can pass them
+ * as Seedance references.
+ */
+async function buildCharacters(
+  characters: ResolvedCharacter[],
+  ctx: ImageGenContext & { force: boolean; onProgress: (e: SceneBuildProgressEvent) => void }
+): Promise<CharacterBuildResult> {
+  const paths = new Map<string, string>();
+  const failures: string[] = [];
+  let costUsd = 0;
+  const size = ctx.imageSize ?? "1536x1024";
+
+  for (const character of characters) {
+    // Bring-your-own image: reference it directly when present.
+    if (character.imagePath) {
+      if (existsSync(join(ctx.projectDir, character.imagePath))) {
+        paths.set(character.name, character.imagePath);
+        ctx.onProgress({ type: "character-cached", name: character.name, path: character.imagePath });
+      } else {
+        const error = `character "${character.name}" image not found: ${character.imagePath}`;
+        failures.push(error);
+        ctx.onProgress({ type: "character-failed", name: character.name, error });
+      }
+      continue;
+    }
+    if (!character.prompt) continue;
+
+    const prompt = characterSheetPrompt(character.name, character.prompt);
+    const rel = `assets/character-${character.name}.png`;
+    const abs = join(ctx.projectDir, rel);
+    const metadataOptions = { quality: ctx.imageQuality, size };
+    const cache = characterCacheDescriptor({
+      name: character.name,
+      cue: prompt,
+      provider: ctx.imageProvider,
+      quality: ctx.imageQuality,
+      size,
+    });
+
+    if (existsSync(abs) && !ctx.force) {
+      const metadata = readAssetMetadata(ctx.projectDir, "character", character.name);
+      if (
+        !metadata ||
+        isFreshCanonicalAsset({
+          projectDir: ctx.projectDir,
+          kind: "character",
+          beatId: character.name,
+          cue: prompt,
+          provider: ctx.imageProvider,
+          options: metadataOptions,
+          cacheKey: cache.key,
+        })
+      ) {
+        paths.set(character.name, rel);
+        ctx.onProgress({ type: "character-cached", name: character.name, path: rel });
+        continue;
+      }
+    }
+    const cacheAbs = join(ctx.projectDir, cache.path);
+    if (existsSync(cacheAbs) && !ctx.force) {
+      await mkdir(dirname(abs), { recursive: true });
+      await copyFile(cacheAbs, abs);
+      await writeAssetMetadata({
+        projectDir: ctx.projectDir,
+        kind: "character",
+        beatId: character.name,
+        cue: prompt,
+        provider: ctx.imageProvider,
+        options: metadataOptions,
+        cacheKey: cache.key,
+        canonicalPath: rel,
+        cachePath: cache.path,
+      });
+      paths.set(character.name, rel);
+      ctx.onProgress({ type: "character-cached", name: character.name, path: rel });
+      continue;
+    }
+
+    const generated = await generateBackdropImage(
+      prompt,
+      {
+        projectDir: ctx.projectDir,
+        imageProvider: ctx.imageProvider,
+        imageSize: size,
+        imageQuality: ctx.imageQuality,
+      },
+      imageRatioForSize(size)
+    );
+    if (!generated.success) {
+      failures.push(`character "${character.name}": ${generated.error}`);
+      ctx.onProgress({ type: "character-failed", name: character.name, error: generated.error });
+      continue;
+    }
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, generated.buffer);
+    await mkdir(dirname(cacheAbs), { recursive: true });
+    await writeFile(cacheAbs, generated.buffer);
+    await writeAssetMetadata({
+      projectDir: ctx.projectDir,
+      kind: "character",
+      beatId: character.name,
+      cue: prompt,
+      provider: ctx.imageProvider,
+      options: metadataOptions,
+      cacheKey: cache.key,
+      canonicalPath: rel,
+      cachePath: cache.path,
+    });
+    costUsd += backdropCostUsd(ctx.imageQuality);
+    paths.set(character.name, rel);
+    ctx.onProgress({
+      type: "character-generated",
+      name: character.name,
+      path: rel,
+      provider: ctx.imageProvider,
+    });
+  }
+
+  return { paths, costUsd: Number(costUsd.toFixed(2)), failures };
+}
+
 async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "backdrop", beat);
   if (reference) return referencePrimitiveOutcome("backdrop", beat, ctx, reference);
@@ -1405,9 +1603,17 @@ type GeneratedBackdropResult =
   | { success: true; buffer: Buffer }
   | { success: false; error: string };
 
+/** Minimal context for raw image generation — shared by backdrops and characters. */
+interface ImageGenContext {
+  projectDir: string;
+  imageProvider: BuildImageProvider;
+  imageSize: ImageOptions["size"];
+  imageQuality: "standard" | "hd";
+}
+
 async function generateBackdropImage(
   prompt: string,
-  ctx: BeatDispatchContext,
+  ctx: ImageGenContext,
   ratio: string
 ): Promise<GeneratedBackdropResult> {
   loadSceneBuildEnv(ctx.projectDir);
@@ -1486,6 +1692,14 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
   const prompt = stringOrUndefined(beat.cues?.video);
   if (!prompt) return { status: "no-cue" };
 
+  // Resolve this beat's character sheets (generated up front by buildCharacters)
+  // into Seedance reference-to-video inputs. Relative paths key the cache (stable
+  // across machines); absolute paths are handed to the generator.
+  const characterRefsRel = beatCharacterNames(beat.cues)
+    .map((name) => ctx.characterPaths?.get(name))
+    .filter((p): p is string => typeof p === "string");
+  const characterRefsAbs = characterRefsRel.map((p) => join(ctx.projectDir, p));
+
   const rel = `assets/video-${beat.id}.mp4`;
   const abs = join(ctx.projectDir, rel);
   const cache = videoCacheDescriptor({
@@ -1493,6 +1707,7 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cue: prompt,
     provider: ctx.videoProvider,
     duration: normalizeVideoDuration(beat.duration),
+    characters: characterRefsRel,
   });
   const metadataPath = assetMetadataPath("video", beat.id);
   if (existsSync(abs) && !ctx.force) {
@@ -1556,6 +1771,7 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     ratio: "16:9",
     output: abs,
     wait: false,
+    refImages: characterRefsAbs.length > 0 ? characterRefsAbs : undefined,
     apiKey: await apiKeyForVideoProvider(ctx.videoProvider, ctx.projectDir),
   });
   if (!result.success || !result.taskId) {
@@ -1977,7 +2193,16 @@ function estimateActualAssetCost(
   for (const outcome of outcomes) {
     if (outcome.narrationStatus === "generated") cost += 0.05;
     if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
-    if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") cost += 5;
+    if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") {
+      cost +=
+        outcome.videoProvider === "seedance" || outcome.videoProvider === "fal"
+          ? estimateSeedanceVideoCostUsd({
+              durationSec: normalizeVideoDuration(outcome.sceneDurationSec),
+              resolution: "720p",
+              aspectRatio: "16:9",
+            })
+          : 5;
+    }
     if (outcome.musicStatus === "generated" || outcome.musicStatus === "pending") cost += 0.5;
   }
   return Number(cost.toFixed(2));
