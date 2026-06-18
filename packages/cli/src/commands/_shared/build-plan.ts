@@ -19,8 +19,10 @@ import {
   imageRatioForSize,
   musicCacheDescriptor,
   narrationCacheDescriptor,
+  normalizeVideoDuration,
   videoCacheDescriptor,
 } from "./build-cache.js";
+import { estimateSeedanceVideoCostUsd } from "@vibeframe/ai-providers";
 import {
   assetFreshnessFromMetadata,
   assetMetadataPath,
@@ -28,7 +30,12 @@ import {
 } from "./build-asset-metadata.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { composerEnvVar, isComposerProvider, type ComposerProvider } from "./composer-resolve.js";
-import { parseStoryboard, type ParsedStoryboard } from "./storyboard-parse.js";
+import {
+  beatCharacterNames,
+  parseStoryboard,
+  resolveCharacters,
+  type ParsedStoryboard,
+} from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
 
@@ -378,7 +385,14 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             reference: videoReference,
             projectDir,
             force: opts.force,
-            cost: VIDEO_COST_USD,
+            cost:
+              resolved.video.resolved === "seedance" || resolved.video.resolved === "fal"
+                ? estimateSeedanceVideoCostUsd({
+                    durationSec: normalizeVideoDuration(beat.duration),
+                    resolution: "720p",
+                    aspectRatio: "16:9",
+                  })
+                : VIDEO_COST_USD,
             active: includeAssets,
           })
         : null;
@@ -505,6 +519,28 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
         `Backdrop image generation will run for ${generatedBackdrops.length} beat(s), estimated $${cost.toFixed(2)}. Use --skip-backdrop for HTML/CSS-derived visuals: ${skipCommand}`
       );
       retryWith.push(skipCommand);
+    }
+  }
+
+  // Character sheets are generated once per build (project-level), before
+  // per-beat video. Estimate cost for referenced, prompt-based characters that
+  // are not already on disk so `--max-cost` gates them.
+  if (validationOk && includeAssets && !opts.skipVideo) {
+    const referenced = new Set<string>();
+    for (const beat of sourceBeats) {
+      for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
+    }
+    if (referenced.size > 0) {
+      const toGenerate = resolveCharacters(parsed.frontmatter).filter(
+        (c) =>
+          referenced.has(c.name) &&
+          c.prompt &&
+          (opts.force || !existsSync(join(projectDir, `assets/character-${c.name}.png`)))
+      );
+      if (toGenerate.length > 0) {
+        estimatedCostUsd += toGenerate.length * backdropCostUsd(opts.imageQuality ?? "hd");
+        missing.add("assets");
+      }
     }
   }
 
@@ -687,7 +723,7 @@ function providerResolutionsForPlan(
   opts: CreateBuildPlanOptions,
   includeAssets: boolean
 ): ProviderResolution[] {
-  const needsProvider = (kind: BuildAssetKind) =>
+  const needsProvider = (kind: keyof BuildPlanBeat["assets"]) =>
     beats.some((beat) => {
       const asset = beat.assets[kind];
       return (

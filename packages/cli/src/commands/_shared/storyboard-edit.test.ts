@@ -149,3 +149,38 @@ Body.
     expect(result.issues.find((i) => i.code === "BEAT_DURATION_TOO_LONG")).toBeUndefined();
   });
 });
+
+describe("characters cue validation", () => {
+  const withPool = (cue: string) =>
+    `---\ncharacters:\n  nova: "teal jacket engineer"\n---\n\n## Beat hook - Hook\n\n\`\`\`yaml\n${cue}\n\`\`\`\n\nBody.\n`;
+
+  it("accepts a known single name and a known list", () => {
+    expect(validateStoryboardMarkdown(withPool(`characters: nova`)).ok).toBe(true);
+    expect(validateStoryboardMarkdown(withPool(`characters: [nova]`)).ok).toBe(true);
+  });
+
+  it("errors when characters is not a name or list of names", () => {
+    const result = validateStoryboardMarkdown(withPool(`characters: 42`));
+    expect(result.issues.map((i) => i.code)).toContain("INVALID_CHARACTERS_VALUE");
+  });
+
+  it("warns when a referenced character is absent from the pool", () => {
+    const result = validateStoryboardMarkdown(withPool(`characters: [nova, ghost]`));
+    const warning = result.issues.find((i) => i.code === "UNKNOWN_CHARACTER");
+    expect(warning?.message).toContain("ghost");
+    // Unknown character is a warning, not a hard error.
+    expect(result.ok).toBe(true);
+  });
+
+  it("round-trips a characters list cue through setStoryboardCue", () => {
+    const md = setStoryboardCue(buildStoryboardMd("demo"), {
+      beatId: "hook",
+      key: "characters",
+      value: ["nova", "rival"],
+    });
+    expect(parseStoryboard(md).beats.find((b) => b.id === "hook")?.cues?.characters).toEqual([
+      "nova",
+      "rival",
+    ]);
+  });
+});
