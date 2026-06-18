@@ -7,6 +7,8 @@ import { executeVideoStatus } from "../ai-video.js";
 import { executeMusicStatus } from "../generate/music-status.js";
 import type { BuildAssetKind } from "./build-cache.js";
 import { writeAssetMetadata } from "./build-asset-metadata.js";
+import type { ReviewAction, ReviewActionCostTier, ReviewFixOwner } from "./review-report.js";
+import { normalizeReviewActions, reviewActionsFromRetryWith } from "./review-report.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "unknown";
@@ -159,6 +161,7 @@ export interface ProjectStatusResult {
     latest: JobSummary[];
   };
   warnings: string[];
+  nextActions: ReviewAction[];
   retryWith: string[];
 }
 
@@ -195,6 +198,7 @@ export interface ReviewSummary {
   };
   sourceReports: string[];
   updatedAt?: string;
+  nextActions: ReviewAction[];
   retryWith: string[];
 }
 
@@ -529,6 +533,16 @@ export async function inspectProjectStatus(
     ...(review?.retryWith ?? []),
     ...workflow.retryWith,
   ];
+  // Prefer the rich, classified review actions; then convert the workflow/build
+  // state commands so non-review states (empty/failed/running/ready/needs-author)
+  // also surface a top-level nextActions instead of only retryWith. Review
+  // actions are listed first so they win the dedup in normalizeReviewActions.
+  // review.retryWith is intentionally excluded — review.nextActions already
+  // derives from it.
+  const nextActions = normalizeReviewActions([
+    ...(review?.nextActions ?? []),
+    ...reviewActionsFromRetryWith([...(build?.retryWith ?? []), ...workflow.retryWith]),
+  ]);
 
   return {
     schemaVersion: "1",
@@ -541,6 +555,7 @@ export async function inspectProjectStatus(
     review,
     jobs,
     warnings,
+    nextActions,
     retryWith: unique(retryWith),
   };
 }
@@ -940,7 +955,52 @@ async function readReviewSummary(projectDir: string): Promise<ReviewSummary | nu
     },
     sourceReports: stringArray(report.sourceReports),
     updatedAt: info?.mtime.toISOString(),
+    nextActions: reviewActionsFromUnknown(report.nextActions),
     retryWith: stringArray(report.retryWith),
+  });
+}
+
+function reviewActionsFromUnknown(value: unknown): ReviewAction[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): ReviewAction[] => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const kind = stringEnum(record.kind, ["command", "agent", "manual"] as const);
+    const fixOwner = stringEnum(record.fixOwner, ["vibe", "host-agent"] as const);
+    const costTier = stringEnum(record.costTier, [
+      "free",
+      "low",
+      "high",
+      "very-high",
+      "unknown",
+    ] as const);
+    if (
+      !kind ||
+      !fixOwner ||
+      !costTier ||
+      typeof record.id !== "string" ||
+      typeof record.label !== "string" ||
+      typeof record.safeToAutoRun !== "boolean" ||
+      typeof record.requiresConfirmation !== "boolean" ||
+      typeof record.reason !== "string"
+    ) {
+      return [];
+    }
+    return [
+      stripUndefined({
+        id: record.id,
+        kind,
+        label: record.label,
+        command: typeof record.command === "string" ? record.command : undefined,
+        agentPrompt: typeof record.agentPrompt === "string" ? record.agentPrompt : undefined,
+        fixOwner: fixOwner as ReviewFixOwner,
+        costTier: costTier as ReviewActionCostTier,
+        safeToAutoRun: record.safeToAutoRun,
+        requiresConfirmation: record.requiresConfirmation,
+        reason: record.reason,
+        sourceIssueCodes: stringArray(record.sourceIssueCodes),
+      }),
+    ];
   });
 }
 
@@ -1251,6 +1311,12 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
     : [];
+}
+
+function stringEnum<T extends readonly string[]>(value: unknown, allowed: T): T[number] | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T[number])
+    : undefined;
 }
 
 function isActiveStatus(status: JobStatus): boolean {

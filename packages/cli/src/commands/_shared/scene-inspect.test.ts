@@ -49,7 +49,22 @@ Body.
     expect(result.issues.find((issue) => issue.code === "MISSING_COMPOSITION")).toMatchObject({
       beatId: "hook",
       fixOwner: "vibe",
+      actions: [
+        expect.objectContaining({
+          command: `vibe build ${dir} --beat hook --stage compose --json`,
+          safeToAutoRun: false,
+          requiresConfirmation: true,
+        }),
+      ],
     });
+    expect(result.nextActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: `vibe build ${dir} --beat hook --stage compose --json`,
+          sourceIssueCodes: ["MISSING_COMPOSITION"],
+        }),
+      ])
+    );
     expect(result.reportPath).toBe(resolve(dir, "review-report.json"));
     const report = JSON.parse(await readFile(resolve(dir, "review-report.json"), "utf-8"));
     expect(report).toMatchObject({
@@ -59,6 +74,11 @@ Body.
       project: resolve(dir),
       status: "fail",
       summary: { issueCount: result.issues.length },
+      nextActions: expect.arrayContaining([
+        expect.objectContaining({
+          command: `vibe build ${dir} --beat hook --stage compose --json`,
+        }),
+      ]),
     });
     expect(report.sourceReports).toEqual(expect.arrayContaining(["STORYBOARD.md", "DESIGN.md"]));
   });

@@ -120,7 +120,7 @@ Canonical native-goal loop:
 \`\`\`
 native host goal → vibe context/schema → plan dry-run → build with budget
 → status polling → inspect project → render → inspect render
-→ repair/edit using retryWith/fixOwner → repeat until stop rules pass
+→ repair/edit using nextActions/fixOwner → repeat until stop rules pass
 \`\`\`
 
 \`vibe plan --json\` emits \`data.kind:"build-plan"\`,
@@ -153,13 +153,16 @@ render code or \`code:"RENDER_FAILED"\`. Both include \`currentStage\`,
 \`review-report.json\` by default. The file uses \`kind:"review"\`,
 \`mode:"project"|"render"\`, \`status\`, \`score\`, \`issues[]\`,
 \`summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}\`,
-\`sourceReports\`, and \`retryWith\`. Issue-level \`fixOwner:"vibe"\` means
-deterministic CLI recovery; \`fixOwner:"host-agent"\` means storyboard/design/
-composition edits should be handled by the host agent. A host-native goal
-should stop only after the final MP4 exists, duration and aspect ratio match
-the brief, render inspection has no errors, any AI review score meets the goal
-threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or
-reported as blocked.
+\`sourceReports\`, \`nextActions\`, and \`retryWith\`. \`nextActions\` is the
+preferred agent contract: run only \`safeToAutoRun:true\` actions automatically,
+ask before \`requiresConfirmation:true\`, and use \`retryWith\` only as the
+compatibility fallback. Issue-level \`fixOwner:"vibe"\` means deterministic CLI
+recovery; \`fixOwner:"host-agent"\` means storyboard/design/composition edits
+should be handled by the host agent. A host-native goal should stop only after
+the final MP4 exists, duration and aspect ratio match the brief, render
+inspection has no errors, any AI review score meets the goal threshold when AI
+review is requested, and every host-agent issue is fixed, accepted with
+rationale, or reported as blocked.
 `;
 
 const GLOBAL_FLAGS = `## Global flags
@@ -426,17 +429,17 @@ function leafNotes(pathDots: string): string[] {
   }
   if (pathDots === "status.project") {
     return [
-      'JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, and `retryWith`; top-level `retryWith` is the resume contract.',
+      'JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, `nextActions`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, `nextActions`, and `retryWith`; top-level `nextActions` is the preferred resume contract, while `retryWith` remains the compatibility fallback.',
     ];
   }
   if (pathDots === "inspect.project") {
     return [
-      '`review-report.json` payload uses `kind:"review"`, `mode:"project"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. Command output keeps `data.kind:"project"`.',
+      '`review-report.json` payload uses `kind:"review"`, `mode:"project"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. Command output keeps `data.kind:"project"`.',
     ];
   }
   if (pathDots === "inspect.render") {
     return [
-      '`review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.',
+      '`review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.',
     ];
   }
   if (pathDots === "storyboard.revise") {
