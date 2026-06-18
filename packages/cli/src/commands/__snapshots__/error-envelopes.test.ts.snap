@@ -1,0 +1,60 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`structured error envelope (exitWithError → stderr) > build — invalid --mode (USAGE_ERROR, suggestion + retryWith) 1`] = `
+{
+  "code": "USAGE_ERROR",
+  "error": "Invalid --mode: bogus",
+  "exitCode": 2,
+  "message": "Invalid --mode: bogus",
+  "recoverable": false,
+  "retryWith": [
+    "Must be one of: agent, batch, auto",
+  ],
+  "retryable": false,
+  "success": false,
+  "suggestion": "Must be one of: agent, batch, auto",
+}
+`;
+
+exports[`structured error envelope (exitWithError → stderr) > edit fade — missing input file (NOT_FOUND) 1`] = `
+{
+  "code": "NOT_FOUND",
+  "error": "File not found: /tmp/nonexistent.mp4",
+  "exitCode": 3,
+  "message": "File not found: /tmp/nonexistent.mp4",
+  "recoverable": false,
+  "retryWith": [],
+  "retryable": false,
+  "success": false,
+}
+`;
+
+exports[`structured error envelope (exitWithError → stderr) > edit translate-srt — missing required option (USAGE_ERROR, empty retryWith) 1`] = `
+{
+  "code": "USAGE_ERROR",
+  "error": "Target language required. Use -t or --target",
+  "exitCode": 2,
+  "message": "Target language required. Use -t or --target",
+  "recoverable": false,
+  "retryWith": [],
+  "retryable": false,
+  "success": false,
+}
+`;
+
+exports[`structured error envelope (exitWithError → stderr) > generate image — no API key, hermetic (API_ERROR) 1`] = `
+{
+  "code": "API_ERROR",
+  "error": "Image generation failed: OpenAI API key required.
+  Set OPENAI_API_KEY in .env, or run: vibe setup
+  Get key: https://platform.openai.com/api-keys",
+  "exitCode": 5,
+  "message": "Image generation failed: OpenAI API key required.
+  Set OPENAI_API_KEY in .env, or run: vibe setup
+  Get key: https://platform.openai.com/api-keys",
+  "recoverable": false,
+  "retryWith": [],
+  "retryable": false,
+  "success": false,
+}
+`;
