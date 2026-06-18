@@ -54,6 +54,7 @@ archive/
 /demo/
 /demo-video/
 demo-output/
+/nova-demo/
 test-results/
 
 # Test artifacts

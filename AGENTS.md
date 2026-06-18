@@ -112,10 +112,17 @@ General expectation:
 ## Conventions
 
 - Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
+- Git & PR workflow: branch off `main` as `feat/<topic>`, `fix/<topic>`, or
+  `chore/<topic>`. **One PR = one coherent scope** — do not stack unrelated
+  commits onto an open PR branch. Rebase/split when scope drifts.
 - Version bumps default to `patch` during `0.x`, including most ordinary
-  `feat:` and `fix:` commits. Use `minor` only for new public CLI command
-  namespaces, new MCP tool families, public API contract additions, or large
-  product milestones. Reserve `major` for breaking changes or the 1.0 milestone.
+  `feat:` and `fix:` commits. **`patch` is the default; `minor` is rare.** Use
+  `minor` only for new public CLI command namespaces, new MCP tool families,
+  public API contract additions, or large product milestones; reserve `major`
+  for breaking changes or the 1.0 milestone. The shared push gate
+  (`scripts/pre-push-validate.sh`) **blocks** a `minor`/`major` bump unless the
+  `chore: bump version` commit carries a `Release-Type: minor: <reason>` (or
+  `major`) trailer, or `VIBE_ALLOW_MINOR=1` is set.
 - API keys belong in local config or `.env`-style files, never committed.
 - See `MODELS.md` for provider details.
 - `CHANGELOG.md` is generated with `git-cliff --tag vX.Y.Z -o CHANGELOG.md`.
