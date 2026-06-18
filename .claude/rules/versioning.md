@@ -9,13 +9,21 @@ paths:
 
 All packages share the same version number. Update versions when making significant changes.
 
-**When to bump versions:**
+**When to bump versions:** `patch` is the default and by far the most common
+bump during `0.x`. `minor` is rare.
 
 - `patch` (0.1.0 → 0.1.1): Default for bug fixes, docs/tooling, UX polish,
-  internal refactors, and most ordinary `feat:` / `fix:` commits
+  internal refactors, and most ordinary `feat:` / `fix:` commits. **Use this
+  unless a `minor`/`major` rule clearly applies.**
 - `minor` (0.1.0 → 0.2.0): New public CLI command namespaces, new MCP tool
   families, public API contract additions, or large product milestones
 - `major` (0.1.0 → 1.0.0): Breaking changes or the intentional 1.0 milestone
+
+> **Enforced.** `scripts/pre-push-validate.sh` blocks a `minor`/`major` bump
+> unless the `chore: bump version` commit body carries a
+> `Release-Type: minor: <reason>` (or `major`) trailer, or `VIBE_ALLOW_MINOR=1`
+> is set. This keeps the minor `y` from drifting — non-patch is a deliberate,
+> justified choice.
 
 **Quick bump:** Use `/release patch`, `/release minor`, or `/release major` skill to automate the full workflow.
 
@@ -24,7 +32,9 @@ After committing `feat:` or `fix:` changes, bump the version before pushing:
 
 - Default to `patch`, including most ordinary `feat:` and `fix:` commits.
 - Use `minor` only when the change adds a new public command namespace, MCP
-  tool family, public API contract, or large release milestone.
+  tool family, public API contract, or large release milestone — and add a
+  `Release-Type: minor: <reason>` trailer to the bump commit so the push gate
+  accepts it.
 - Multiple commits in one session → bump once based on the highest justified level.
 
 **How to update:**

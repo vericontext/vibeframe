@@ -52,6 +52,21 @@ if [ -n "$LATEST_TAG" ]; then
   fi
 fi
 
+# 2b. Non-patch bump guard — during 0.x, patch is the default. A minor/major
+# bump must be explicitly justified, otherwise block. This keeps the minor `y`
+# from drifting: minor becomes a deliberate, friction-ful choice, not the path
+# of least resistance.
+if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
+  ROOT_MAJOR=${ROOT_VERSION%%.*}; ROOT_MINOR=${ROOT_VERSION#*.}; ROOT_MINOR=${ROOT_MINOR%%.*}
+  TAG_MAJOR=${TAG_VERSION%%.*}; TAG_MINOR=${TAG_VERSION#*.}; TAG_MINOR=${TAG_MINOR%%.*}
+  if [ "$ROOT_MAJOR" != "$TAG_MAJOR" ] || [ "$ROOT_MINOR" != "$TAG_MINOR" ]; then
+    BUMP_BODY=$(cd "$PROJECT_DIR" && git log "$LATEST_TAG"..HEAD -E --grep="^chore: bump version" --format="%b" 2>/dev/null || true)
+    if [ "${VIBE_ALLOW_MINOR:-}" != "1" ] && ! echo "$BUMP_BODY" | grep -qiE "^Release-Type:[[:space:]]*(minor|major)"; then
+      ERRORS+=("Non-patch bump $TAG_VERSION -> $ROOT_VERSION without justification. During 0.x, patch is the default. If this is intentional (new public command namespace, MCP tool family, public API contract, or 1.0 milestone), add a 'Release-Type: minor: <reason>' (or major) trailer to the 'chore: bump version' commit body, or set VIBE_ALLOW_MINOR=1. Otherwise re-bump as patch: /release patch")
+    fi
+  fi
+fi
+
 # 3. No hardcoded version fallbacks in web app.
 HARDCODED=$(grep -rn '|| "0\.[0-9]*\.[0-9]*"' "$PROJECT_DIR/apps/web/app/" 2>/dev/null || true)
 if [ -n "$HARDCODED" ]; then

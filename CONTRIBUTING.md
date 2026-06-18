@@ -52,7 +52,9 @@ pnpm test
 
 ## Development Workflow
 
-1. Make your changes in a feature branch
+1. Make your changes in a feature branch off `main`, named `feat/<topic>`,
+   `fix/<topic>`, or `chore/<topic>`. Keep **one PR to one coherent scope** —
+   don't stack unrelated commits onto an open PR branch.
 2. Write tests for new functionality
 3. Ensure all tests pass: `pnpm -F @vibeframe/cli exec vitest run`
 4. Ensure code is properly formatted: `pnpm format`
@@ -60,6 +62,9 @@ pnpm test
 6. Build to check TypeScript: `pnpm build`
 7. Commit your changes with a conventional commit message
 8. Push to your fork and submit a Pull Request
+
+Version bumps default to `patch`; `minor`/`major` are rare and gated (see the
+"Conventions" and versioning notes in `AGENTS.md`).
 
 ## Adding a New AI Provider
 
