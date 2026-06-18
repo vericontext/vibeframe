@@ -7,6 +7,10 @@ imports that file with `@AGENTS.md`, then adds only Claude Code-specific notes.
 Keep cross-agent guidance in `AGENTS.md`; keep Claude-only skills, agents,
 hooks, and rules here.
 
+For the full multi-host topology — what is canonical vs generated across
+`.claude/`, `.codex/`, `.cursor/`, and `.agents/`, and how `pnpm agent-sync`
+keeps them in sync — see `docs/agent-hosts.md`.
+
 ## Structure
 
 ```
