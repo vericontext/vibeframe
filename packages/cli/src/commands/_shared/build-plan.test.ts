@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
+import { estimateSeedanceVideoCostUsd } from "@vibeframe/ai-providers";
+
 import { createBuildPlan } from "./build-plan.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { backdropCacheDescriptor, narrationCacheDescriptor } from "./build-cache.js";
@@ -101,6 +103,36 @@ describe("createBuildPlan", () => {
       }),
     ]);
     expect(plan.nextCommands).toContain(`vibe build ${dir} --stage assets --json`);
+  });
+
+  it("plans a clip and adds keyframe image cost for a keyframe-only beat", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "vibe-build-plan-kf-"));
+    await mkdir(resolve(dir, "assets"), { recursive: true });
+    await mkdir(resolve(dir, ".vibeframe"), { recursive: true });
+    await writeFile(resolve(dir, ".vibeframe/config.yaml"), "providers: {}\n", "utf-8");
+    await writeFile(
+      resolve(dir, "vibe.config.json"),
+      projectConfigJson({ name: "promo", aspect: "16:9" }),
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Promo\n\n## Beat hook - Hook\n\n\`\`\`yaml\nduration: 5\nkeyframe: "nova walking the pit lane, cinematic"\n\`\`\`\n\nBody.\n`,
+      "utf-8"
+    );
+
+    const plan = await createBuildPlan({ projectDir: dir, stage: "assets" });
+    // A keyframe cue produces a clip even without a `video:` cue.
+    expect(plan.beats[0].assets.video?.willGenerate).toBe(true);
+    expect(plan.providers).toContain("seedance");
+    expect(plan.providers).toContain("openai"); // keyframe image generation
+    const videoCost = estimateSeedanceVideoCostUsd({
+      durationSec: 5,
+      resolution: "720p",
+      aspectRatio: "16:9",
+    });
+    // total = keyframe still (hd image, 0.2) + image-to-video clip
+    expect(plan.estimatedCostUsd).toBeCloseTo(0.2 + videoCost, 2);
   });
 
   it("does not estimate cost for cached assets", async () => {

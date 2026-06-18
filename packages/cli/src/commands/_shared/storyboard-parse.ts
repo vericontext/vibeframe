@@ -141,6 +141,13 @@ export interface BeatCues {
    * reference-to-video generation. A single name or a list.
    */
   characters?: string | string[];
+  /**
+   * Keyframe still prompt. When set, the build generates a keyframe image for
+   * this beat (using the character sheet as an edit reference when `characters`
+   * is also present) and runs Seedance image-to-video on it. The `video` cue,
+   * if present, supplies the motion prompt; otherwise this text is used.
+   */
+  keyframe?: string;
   [key: string]: unknown;
 }
 

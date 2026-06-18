@@ -4048,7 +4048,7 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard set --descri
         "type": "boolean",
       },
       "key": {
-        "description": "Cue key: duration | narration | backdrop | video | motion | voice | music | asset | characters",
+        "description": "Cue key: duration | narration | backdrop | video | keyframe | motion | voice | music | asset | characters",
         "type": "string",
       },
       "project-dir": {

@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
-export type BuildAssetKind = "narration" | "backdrop" | "character" | "video" | "music";
+export type BuildAssetKind =
+  | "narration"
+  | "backdrop"
+  | "character"
+  | "keyframe"
+  | "video"
+  | "music";
 
 export interface CacheAssetDescriptor {
   key: string;
@@ -75,6 +81,28 @@ export function characterCacheDescriptor(opts: {
   });
 }
 
+export function keyframeCacheDescriptor(opts: {
+  beatId: string;
+  cue: string;
+  provider: string;
+  quality: "standard" | "hd";
+  size: string;
+  ratio?: string;
+  /** Character sheet paths used as edit references — changing them re-keys the keyframe. */
+  characters?: string[];
+}): CacheAssetDescriptor {
+  return cacheAssetDescriptor("keyframe", {
+    beatId: opts.beatId,
+    cue: opts.cue,
+    provider: opts.provider,
+    quality: opts.quality,
+    size: opts.size,
+    ratio: opts.ratio,
+    characters: opts.characters && opts.characters.length > 0 ? opts.characters : undefined,
+    ext: "png",
+  });
+}
+
 export function imageRatioForSize(size: string | undefined): string {
   switch (size) {
     case "1024x1024":
@@ -95,6 +123,11 @@ export function videoCacheDescriptor(opts: {
   duration: number | undefined;
   /** Character reference image paths — changing them must invalidate the clip. */
   characters?: string[];
+  /**
+   * Keyframe still path for image-to-video mode — changing the keyframe must
+   * invalidate the clip. Omitted for text/reference-to-video clips.
+   */
+  keyframe?: string;
 }): CacheAssetDescriptor {
   return cacheAssetDescriptor("video", {
     beatId: opts.beatId,
@@ -104,6 +137,8 @@ export function videoCacheDescriptor(opts: {
     ratio: "16:9",
     // Omit when empty so existing (character-less) clips keep their cache key.
     characters: opts.characters && opts.characters.length > 0 ? opts.characters : undefined,
+    // Omit when absent so existing (non-keyframe) clips keep their cache key.
+    keyframe: opts.keyframe || undefined,
     ext: "mp4",
   });
 }
