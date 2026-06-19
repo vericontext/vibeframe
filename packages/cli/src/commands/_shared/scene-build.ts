@@ -20,7 +20,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { config as loadDotenv } from "dotenv";
@@ -382,13 +382,14 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const projectDir = resolve(opts.projectDir);
   const onProgress = opts.onProgress ?? (() => {});
   const mode = resolveSceneBuildMode(opts);
-  let selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
+  const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
   // --skip-video produces keyframe stills (an image storyboard) for review, not
   // a final video. The composition would reference <video> clips that were never
-  // generated, so capture can't run — stop at sync instead of failing render.
+  // generated, so capture can't run. Keep the full pipeline (assets → compose →
+  // sync) so the keyframes ARE generated, and skip ONLY the render stage.
   const skipVideoStopsRender =
     (opts.skipVideo ?? false) && (selectedStage === "all" || selectedStage === "render");
-  if (skipVideoStopsRender) selectedStage = "sync";
+  const effectiveSkipRender = (opts.skipRender ?? false) || skipVideoStopsRender;
   const stageReports = createEmptyStageReports();
   const warnings: string[] = [];
   const retryWith: string[] = [];
@@ -956,7 +957,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     }
   }
 
-  if (selectedStage === "sync" || opts.skipRender) {
+  if (selectedStage === "sync" || effectiveSkipRender) {
     return finishBuildResult({
       success: true,
       phase: "sync-only",
@@ -1341,6 +1342,13 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
 
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, result.audioBuffer);
+  // Remove stale narration of the OTHER extension so a TTS-provider switch
+  // (e.g. kokoro .wav → openai .mp3) doesn't leave a file that shadows this one
+  // in the root composition and keeps the old voice in the render.
+  for (const otherExt of ["mp3", "wav"]) {
+    const sibling = join(ctx.projectDir, `assets/narration-${beat.id}.${otherExt}`);
+    if (sibling !== abs && existsSync(sibling)) await rm(sibling, { force: true });
+  }
   await mkdir(dirname(cacheAbs), { recursive: true });
   await writeFile(cacheAbs, result.audioBuffer);
   await writeAssetMetadata({
@@ -1379,14 +1387,17 @@ interface CharacterBuildResult {
   failures: string[];
 }
 
-/** Turnaround character-sheet prompt — the layout validated to hold identity. */
+/** Turnaround character-sheet prompt — leads with a frontal face close-up so
+ * downstream scene edits have a strong identity anchor (faces in a pure
+ * turnaround are too small to hold identity across scenes). */
 function characterSheetPrompt(name: string, description: string): string {
   return [
-    `Character turnaround reference sheet of an original fictional character named ${name}: ${description}.`,
-    "Show three full-body views side by side on one clean canvas — front view, side profile, and back view —",
-    "with identical outfit, hairstyle, hair color, and body proportions across all three views.",
+    `Character reference sheet of an original fictional character named ${name}: ${description}.`,
+    "Top row: ONE large, sharp, evenly-lit frontal close-up of the FACE (head and shoulders) as the primary identity anchor — clear eyes, nose, jawline, and skin detail.",
+    "Bottom row: three full-body views side by side — front, side profile, and back.",
+    "The face, facial features, hairstyle, hair color, outfit, and body proportions must be IDENTICAL across the close-up and all three views.",
     "Plain light-grey studio background, even neutral lighting, no props.",
-    "Photorealistic digital character, professional concept-art character sheet layout.",
+    "Photorealistic, professional concept-art character sheet layout.",
   ].join(" ");
 }
 
@@ -1815,9 +1826,14 @@ async function ensureKeyframe(
     imageSize: size,
     imageQuality: ctx.imageQuality,
   };
+  // Identity-lock prefix: editing a scene from the character sheet drifts the
+  // face unless we explicitly pin the facial features. Only applies when we have
+  // a character reference to edit from.
+  const identityLock =
+    "Keep the EXACT same person and face as the reference image(s): identical facial features (eyes, nose shape, jawline), skin tone and complexion, hairstyle, hair color, and wardrobe. Do not restyle or change the face. Change only the scene, pose, framing, and lighting. ";
   const generated =
     sheetBuffers.length > 0
-      ? await editKeyframeImage(keyframeCue, sheetBuffers, imgCtx, ratio)
+      ? await editKeyframeImage(`${identityLock}${keyframeCue}`, sheetBuffers, imgCtx, ratio)
       : await generateBackdropImage(keyframeCue, imgCtx, ratio);
   if (!generated.success) return { status: "failed", error: generated.error };
 
