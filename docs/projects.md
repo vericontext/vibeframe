@@ -132,6 +132,19 @@ Keyframe mode costs one extra image generation per beat plus the clip
 (image-to-video uses standard Seedance pricing, with no reference discount) —
 check `vibe build --dry-run` and gate with `--max-cost`.
 
+**Review the image storyboard before paying for video.** Keyframe stills are a
+first-class asset, so you can generate and review them before the expensive
+image-to-video step:
+
+```bash
+vibe build my-film --skip-video        # generate assets/keyframe-*.png only (cheap)
+# review the stills; regenerate a weak one and accept it:
+vibe build my-film --beat grid --stage assets --force --skip-video
+vibe build my-film --max-cost 6        # animate the approved keyframes
+```
+
+Use `--skip-keyframe` to opt a run out of keyframe generation entirely.
+
 ## Profiles
 
 `vibe init` supports three profiles:

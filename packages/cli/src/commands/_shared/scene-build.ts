@@ -125,6 +125,10 @@ export type SceneBuildProgressEvent =
   | { type: "backdrop-generated"; beatId: string; path: string; provider: string }
   | { type: "backdrop-failed"; beatId: string; error: string }
   | { type: "backdrop-skipped"; beatId: string; reason: string }
+  | { type: "keyframe-cached"; beatId: string; path: string }
+  | { type: "keyframe-generated"; beatId: string; path: string; provider: string }
+  | { type: "keyframe-failed"; beatId: string; error: string }
+  | { type: "keyframe-skipped"; beatId: string; reason: string }
   | { type: "video-cached"; beatId: string; path: string }
   | { type: "video-generated"; beatId: string; path: string; provider: string }
   | { type: "video-pending"; beatId: string; jobId: string; provider: string }
@@ -251,6 +255,8 @@ export interface SceneBuildOptions {
   musicProvider?: BuildMusicProvider;
   /** Skip AI video generation even when beats declare video cues. */
   skipVideo?: boolean;
+  /** Skip keyframe-still generation even when beats declare keyframe cues. */
+  skipKeyframe?: boolean;
   /** Skip music generation even when beats declare music cues. */
   skipMusic?: boolean;
   /** OpenAI image quality — see `vibe generate image --quality`. */
@@ -391,6 +397,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     skipNarration: opts.skipNarration,
     skipBackdrop: opts.skipBackdrop,
     skipVideo: opts.skipVideo,
+    skipKeyframe: opts.skipKeyframe,
     skipMusic: opts.skipMusic,
     ttsProvider: opts.ttsProvider,
     voice: opts.voice,
@@ -606,6 +613,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           skipNarration: opts.skipNarration ?? false,
           skipBackdrop: opts.skipBackdrop ?? false,
           skipVideo: opts.skipVideo ?? false,
+          skipKeyframe: opts.skipKeyframe ?? false,
           skipMusic: opts.skipMusic ?? false,
           force: opts.force ?? false,
           onProgress,
@@ -1038,6 +1046,7 @@ interface BeatDispatchContext {
   skipNarration: boolean;
   skipBackdrop: boolean;
   skipVideo: boolean;
+  skipKeyframe: boolean;
   skipMusic: boolean;
   force: boolean;
   onProgress: (e: SceneBuildProgressEvent) => void;
@@ -1054,6 +1063,12 @@ async function buildBeatPrimitives(
   beat: Beat,
   ctx: BeatDispatchContext
 ): Promise<BeatPrimitiveResult> {
+  // Keyframe is generated first as a first-class asset: the video step animates
+  // it (image-to-video), and `--skip-video` lets the keyframe storyboard be
+  // reviewed before any paid video is dispatched.
+  const keyframe = ctx.skipKeyframe
+    ? await skipped("keyframe", beat.id, "--skip-keyframe", ctx)
+    : await dispatchKeyframe(beat, ctx);
   const [narration, backdrop, video, music] = await Promise.all([
     ctx.skipNarration
       ? skipped("narration", beat.id, "--skip-narration", ctx)
@@ -1061,7 +1076,9 @@ async function buildBeatPrimitives(
     ctx.skipBackdrop
       ? skipped("backdrop", beat.id, "--skip-backdrop", ctx)
       : dispatchBackdrop(beat, ctx),
-    ctx.skipVideo ? skipped("video", beat.id, "--skip-video", ctx) : dispatchVideo(beat, ctx),
+    ctx.skipVideo
+      ? skipped("video", beat.id, "--skip-video", ctx)
+      : dispatchVideo(beat, ctx, keyframe),
     ctx.skipMusic ? skipped("music", beat.id, "--skip-music", ctx) : dispatchMusic(beat, ctx),
   ]);
   return {
@@ -1107,8 +1124,8 @@ async function buildBeatPrimitives(
       videoMetadataPath: video.metadataPath,
       videoFreshness: video.freshness,
       videoSourcePath: video.sourcePath,
-      keyframeStatus: video.keyframeStatus,
-      keyframePath: video.keyframePath,
+      keyframeStatus: keyframe.status,
+      keyframePath: keyframe.path,
       musicStatus: music.status,
       musicPath: music.path,
       musicJobId: music.job?.id,
@@ -1138,9 +1155,6 @@ interface PrimitiveOutcome {
   metadataPath?: string;
   freshness?: AssetFreshness;
   sourcePath?: string;
-  /** Set by dispatchVideo in keyframe mode — the still that drove image-to-video. */
-  keyframeStatus?: PrimitiveStatus;
-  keyframePath?: string;
 }
 
 async function referencePrimitiveOutcome(
@@ -1838,7 +1852,37 @@ function imageProviderKeyInfo(provider: BuildImageProvider): { configKey: string
   return { configKey: "openai", envVar: "OPENAI_API_KEY" };
 }
 
-async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
+/**
+ * Generate (or reuse) this beat's keyframe still as a first-class asset, so it
+ * can be reviewed via `vibe build --skip-video` before any paid image-to-video.
+ * The video step consumes the result.
+ */
+async function dispatchKeyframe(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
+  const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
+  if (!keyframeCue) return { status: "no-cue" };
+
+  const characterRefsRel = beatCharacterNames(beat.cues)
+    .map((name) => ctx.characterPaths?.get(name))
+    .filter((p): p is string => typeof p === "string");
+
+  const kf = await ensureKeyframe(beat, ctx, keyframeCue, characterRefsRel);
+  if (kf.status === "failed") {
+    ctx.onProgress({ type: "keyframe-failed", beatId: beat.id, error: kf.error });
+    return { status: "failed", error: kf.error };
+  }
+  ctx.onProgress(
+    kf.status === "cached"
+      ? { type: "keyframe-cached", beatId: beat.id, path: kf.rel }
+      : { type: "keyframe-generated", beatId: beat.id, path: kf.rel, provider: ctx.imageProvider }
+  );
+  return { status: kf.status, path: kf.rel, provider: ctx.imageProvider };
+}
+
+async function dispatchVideo(
+  beat: Beat,
+  ctx: BeatDispatchContext,
+  keyframe: PrimitiveOutcome
+): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "video", beat);
   if (reference) return referencePrimitiveOutcome("video", beat, ctx, reference);
 
@@ -1921,23 +1965,24 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     };
   }
 
-  loadSceneBuildEnv(ctx.projectDir);
-
-  // Keyframe → image-to-video: generate the still first, then animate it.
-  let keyframeStatus: PrimitiveStatus | undefined;
-  let keyframeRel: string | undefined;
-  let keyframeImageAbs: string | undefined;
-  if (keyframeCue) {
-    const kf = await ensureKeyframe(beat, ctx, keyframeCue, characterRefsRel);
-    if (kf.status === "failed") {
-      ctx.onProgress({ type: "video-failed", beatId: beat.id, error: kf.error });
-      return { status: "failed", error: kf.error };
-    }
-    keyframeStatus = kf.status;
-    keyframeRel = kf.rel;
-    keyframeImageAbs = join(ctx.projectDir, kf.rel);
+  // Keyframe → image-to-video: the still is produced up front by
+  // dispatchKeyframe. It must be ready to animate; if it was skipped
+  // (--skip-keyframe) or failed, we can't run image-to-video for this beat.
+  const keyframeImageRel =
+    keyframeCue && (keyframe.status === "generated" || keyframe.status === "cached")
+      ? keyframe.path
+      : undefined;
+  if (keyframeCue && !keyframeImageRel) {
+    const reason =
+      keyframe.status === "failed"
+        ? `keyframe unavailable: ${keyframe.error ?? "generation failed"}`
+        : "keyframe not generated (build without --skip-keyframe first)";
+    ctx.onProgress({ type: "video-skipped", beatId: beat.id, reason });
+    return { status: "skipped" };
   }
+  const keyframeImageAbs = keyframeImageRel ? join(ctx.projectDir, keyframeImageRel) : undefined;
 
+  loadSceneBuildEnv(ctx.projectDir);
   const result = await executeVideoGenerate({
     prompt,
     provider: ctx.videoProvider,
@@ -1989,8 +2034,6 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
       cacheKey: cache.key,
       metadataPath,
       freshness: "fresh",
-      keyframeStatus,
-      keyframePath: keyframeRel,
     };
   }
 
@@ -2024,8 +2067,6 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cachePath: cache.path,
     cacheKey: cache.key,
     metadataPath,
-    keyframeStatus,
-    keyframePath: keyframeRel,
   };
 }
 
@@ -2205,7 +2246,7 @@ function loadSceneBuildEnv(projectDir: string): void {
 }
 
 async function skipped(
-  kind: "narration" | "backdrop" | "video" | "music",
+  kind: "narration" | "backdrop" | "keyframe" | "video" | "music",
   beatId: string,
   reason: string,
   ctx: BeatDispatchContext
