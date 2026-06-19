@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { characterCacheDescriptor, videoCacheDescriptor } from "./build-cache.js";
+import {
+  characterCacheDescriptor,
+  keyframeCacheDescriptor,
+  videoCacheDescriptor,
+} from "./build-cache.js";
 
 describe("characterCacheDescriptor", () => {
   const base = {
@@ -43,5 +47,47 @@ describe("videoCacheDescriptor character invalidation", () => {
     });
     expect(nova.key).not.toBe(none.key);
     expect(pair.key).not.toBe(nova.key);
+  });
+});
+
+describe("videoCacheDescriptor keyframe invalidation", () => {
+  const base = { beatId: "hook", cue: "walk the pit lane", provider: "seedance", duration: 5 };
+
+  it("keeps the legacy key when no keyframe is supplied", () => {
+    expect(videoCacheDescriptor({ ...base, keyframe: undefined }).key).toBe(
+      videoCacheDescriptor(base).key
+    );
+  });
+
+  it("changes the key when the keyframe prompt changes", () => {
+    const a = videoCacheDescriptor({ ...base, keyframe: "nova at the pit wall" });
+    const b = videoCacheDescriptor({ ...base, keyframe: "nova on the grid" });
+    expect(a.key).not.toBe(videoCacheDescriptor(base).key);
+    expect(b.key).not.toBe(a.key);
+  });
+});
+
+describe("keyframeCacheDescriptor", () => {
+  const base = {
+    beatId: "hook",
+    cue: "nova walking down the pit lane, cinematic",
+    provider: "openai",
+    quality: "hd" as const,
+    size: "1536x1024",
+    ratio: "3:2",
+  };
+
+  it("produces a deterministic, keyframe-scoped cache path", () => {
+    const a = keyframeCacheDescriptor(base);
+    expect(keyframeCacheDescriptor(base).key).toBe(a.key);
+    expect(a.path).toBe(`.vibeframe/cache/assets/keyframe-${a.key}.png`);
+  });
+
+  it("changes the key when the prompt or character sheets change", () => {
+    const a = keyframeCacheDescriptor(base);
+    expect(keyframeCacheDescriptor({ ...base, cue: "nova on the grid" }).key).not.toBe(a.key);
+    expect(
+      keyframeCacheDescriptor({ ...base, characters: ["assets/character-nova.png"] }).key
+    ).not.toBe(a.key);
   });
 });

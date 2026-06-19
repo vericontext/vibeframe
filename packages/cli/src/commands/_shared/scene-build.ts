@@ -73,6 +73,7 @@ import {
 import {
   backdropCacheDescriptor,
   characterCacheDescriptor,
+  keyframeCacheDescriptor,
   type BuildAssetKind,
   imageRatioForSize,
   musicCacheDescriptor,
@@ -183,6 +184,9 @@ export interface BeatBuildOutcome {
   videoMetadataPath?: string;
   videoFreshness?: AssetFreshness;
   videoSourcePath?: string;
+  /** Keyframe still status when the beat uses keyframe → image-to-video mode. */
+  keyframeStatus?: PrimitiveStatus;
+  keyframePath?: string;
   musicStatus: PrimitiveStatus;
   musicPath?: string;
   musicJobId?: string;
@@ -1103,6 +1107,8 @@ async function buildBeatPrimitives(
       videoMetadataPath: video.metadataPath,
       videoFreshness: video.freshness,
       videoSourcePath: video.sourcePath,
+      keyframeStatus: video.keyframeStatus,
+      keyframePath: video.keyframePath,
       musicStatus: music.status,
       musicPath: music.path,
       musicJobId: music.job?.id,
@@ -1132,6 +1138,9 @@ interface PrimitiveOutcome {
   metadataPath?: string;
   freshness?: AssetFreshness;
   sourcePath?: string;
+  /** Set by dispatchVideo in keyframe mode — the still that drove image-to-video. */
+  keyframeStatus?: PrimitiveStatus;
+  keyframePath?: string;
 }
 
 async function referencePrimitiveOutcome(
@@ -1659,6 +1668,150 @@ async function generateBackdropImage(
   return imageBufferFromResult(result);
 }
 
+/**
+ * Generate a keyframe still by editing the character sheet(s) with the
+ * keyframe prompt (so the character stays consistent). Mirrors
+ * `generateBackdropImage` but uses each provider's `editImage`.
+ */
+async function editKeyframeImage(
+  prompt: string,
+  sheetBuffers: Buffer[],
+  ctx: ImageGenContext,
+  ratio: string
+): Promise<GeneratedBackdropResult> {
+  loadSceneBuildEnv(ctx.projectDir);
+  const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
+  const apiKey =
+    (await getApiKeyFromConfig(keyInfo.configKey, { cwd: ctx.projectDir })) ??
+    process.env[keyInfo.envVar] ??
+    "";
+  if (!apiKey) {
+    return {
+      success: false,
+      error: `${keyInfo.envVar} not set — cannot generate keyframe with ${ctx.imageProvider}`,
+    };
+  }
+
+  if (ctx.imageProvider === "openai") {
+    const provider = new OpenAIImageProvider();
+    await provider.initialize({ apiKey });
+    const result = await provider.editImage(sheetBuffers, prompt);
+    return imageBufferFromResult(result);
+  }
+
+  if (ctx.imageProvider === "gemini") {
+    const provider = new GeminiProvider();
+    await provider.initialize({ apiKey });
+    const result = await provider.editImage(sheetBuffers, prompt, {
+      model: "flash",
+      aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
+    });
+    return imageBufferFromResult(result);
+  }
+
+  const provider = new GrokProvider();
+  await provider.initialize({ apiKey });
+  // Grok edits a single input image.
+  const result = await provider.editImage(sheetBuffers[0], prompt, { aspectRatio: ratio });
+  return imageBufferFromResult(result);
+}
+
+/**
+ * Ensure `assets/keyframe-<beatId>.png` exists for keyframe → image-to-video
+ * mode. Edits the character sheet(s) with the keyframe prompt when present,
+ * else text-to-image. Cached like a backdrop.
+ */
+async function ensureKeyframe(
+  beat: Beat,
+  ctx: BeatDispatchContext,
+  keyframeCue: string,
+  characterRefsRel: string[]
+): Promise<{ status: "generated" | "cached"; rel: string } | { status: "failed"; error: string }> {
+  const rel = `assets/keyframe-${beat.id}.png`;
+  const abs = join(ctx.projectDir, rel);
+  const size = ctx.imageSize ?? "1536x1024";
+  const ratio = imageRatioForSize(size);
+  const metadataOptions = { quality: ctx.imageQuality, size, ratio };
+  const cache = keyframeCacheDescriptor({
+    beatId: beat.id,
+    cue: keyframeCue,
+    provider: ctx.imageProvider,
+    quality: ctx.imageQuality,
+    size,
+    ratio,
+    characters: characterRefsRel,
+  });
+
+  if (existsSync(abs) && !ctx.force) {
+    const metadata = readAssetMetadata(ctx.projectDir, "keyframe", beat.id);
+    if (
+      !metadata ||
+      isFreshCanonicalAsset({
+        projectDir: ctx.projectDir,
+        kind: "keyframe",
+        beatId: beat.id,
+        cue: keyframeCue,
+        provider: ctx.imageProvider,
+        options: metadataOptions,
+        cacheKey: cache.key,
+      })
+    ) {
+      return { status: "cached", rel };
+    }
+  }
+  const cacheAbs = join(ctx.projectDir, cache.path);
+  if (existsSync(cacheAbs) && !ctx.force) {
+    await mkdir(dirname(abs), { recursive: true });
+    await copyFile(cacheAbs, abs);
+    await writeAssetMetadata({
+      projectDir: ctx.projectDir,
+      kind: "keyframe",
+      beatId: beat.id,
+      cue: keyframeCue,
+      provider: ctx.imageProvider,
+      options: metadataOptions,
+      cacheKey: cache.key,
+      canonicalPath: rel,
+      cachePath: cache.path,
+    });
+    return { status: "cached", rel };
+  }
+
+  const sheetBuffers: Buffer[] = [];
+  for (const relPath of characterRefsRel) {
+    const sheetAbs = join(ctx.projectDir, relPath);
+    if (existsSync(sheetAbs)) sheetBuffers.push(await readFile(sheetAbs));
+  }
+  const imgCtx: ImageGenContext = {
+    projectDir: ctx.projectDir,
+    imageProvider: ctx.imageProvider,
+    imageSize: size,
+    imageQuality: ctx.imageQuality,
+  };
+  const generated =
+    sheetBuffers.length > 0
+      ? await editKeyframeImage(keyframeCue, sheetBuffers, imgCtx, ratio)
+      : await generateBackdropImage(keyframeCue, imgCtx, ratio);
+  if (!generated.success) return { status: "failed", error: generated.error };
+
+  await mkdir(dirname(abs), { recursive: true });
+  await writeFile(abs, generated.buffer);
+  await mkdir(dirname(cacheAbs), { recursive: true });
+  await writeFile(cacheAbs, generated.buffer);
+  await writeAssetMetadata({
+    projectDir: ctx.projectDir,
+    kind: "keyframe",
+    beatId: beat.id,
+    cue: keyframeCue,
+    provider: ctx.imageProvider,
+    options: metadataOptions,
+    cacheKey: cache.key,
+    canonicalPath: rel,
+    cachePath: cache.path,
+  });
+  return { status: "generated", rel };
+}
+
 async function imageBufferFromResult(result: {
   success: boolean;
   error?: string;
@@ -1689,7 +1842,9 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
   const reference = assetReferenceForBeat(ctx.projectDir, "video", beat);
   if (reference) return referencePrimitiveOutcome("video", beat, ctx, reference);
 
-  const prompt = stringOrUndefined(beat.cues?.video);
+  const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
+  // Motion prompt: explicit `video:` cue, else fall back to the keyframe prompt.
+  const prompt = stringOrUndefined(beat.cues?.video) ?? keyframeCue;
   if (!prompt) return { status: "no-cue" };
 
   // Resolve this beat's character sheets (generated up front by buildCharacters)
@@ -1707,7 +1862,10 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cue: prompt,
     provider: ctx.videoProvider,
     duration: normalizeVideoDuration(beat.duration),
-    characters: characterRefsRel,
+    // Keyframe mode keys the clip to the keyframe prompt; refs feed the keyframe,
+    // not the clip directly.
+    characters: keyframeCue ? undefined : characterRefsRel,
+    keyframe: keyframeCue,
   });
   const metadataPath = assetMetadataPath("video", beat.id);
   if (existsSync(abs) && !ctx.force) {
@@ -1764,6 +1922,22 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
   }
 
   loadSceneBuildEnv(ctx.projectDir);
+
+  // Keyframe → image-to-video: generate the still first, then animate it.
+  let keyframeStatus: PrimitiveStatus | undefined;
+  let keyframeRel: string | undefined;
+  let keyframeImageAbs: string | undefined;
+  if (keyframeCue) {
+    const kf = await ensureKeyframe(beat, ctx, keyframeCue, characterRefsRel);
+    if (kf.status === "failed") {
+      ctx.onProgress({ type: "video-failed", beatId: beat.id, error: kf.error });
+      return { status: "failed", error: kf.error };
+    }
+    keyframeStatus = kf.status;
+    keyframeRel = kf.rel;
+    keyframeImageAbs = join(ctx.projectDir, kf.rel);
+  }
+
   const result = await executeVideoGenerate({
     prompt,
     provider: ctx.videoProvider,
@@ -1771,7 +1945,14 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     ratio: "16:9",
     output: abs,
     wait: false,
-    refImages: characterRefsAbs.length > 0 ? characterRefsAbs : undefined,
+    // Keyframe mode → single init frame (image-to-video); otherwise character
+    // reference-to-video.
+    image: keyframeImageAbs,
+    refImages: keyframeImageAbs
+      ? undefined
+      : characterRefsAbs.length > 0
+        ? characterRefsAbs
+        : undefined,
     apiKey: await apiKeyForVideoProvider(ctx.videoProvider, ctx.projectDir),
   });
   if (!result.success || !result.taskId) {
@@ -1808,6 +1989,8 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
       cacheKey: cache.key,
       metadataPath,
       freshness: "fresh",
+      keyframeStatus,
+      keyframePath: keyframeRel,
     };
   }
 
@@ -1815,7 +1998,7 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     jobType: "generate-video",
     provider: result.provider ?? ctx.videoProvider,
     providerTaskId: result.taskId,
-    providerTaskType: "text2video",
+    providerTaskType: keyframeImageAbs ? "image2video" : "text2video",
     status: "running",
     projectDir: ctx.projectDir,
     workingDirectory: ctx.projectDir,
@@ -1841,6 +2024,8 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cachePath: cache.path,
     cacheKey: cache.key,
     metadataPath,
+    keyframeStatus,
+    keyframePath: keyframeRel,
   };
 }
 
@@ -2193,6 +2378,7 @@ function estimateActualAssetCost(
   for (const outcome of outcomes) {
     if (outcome.narrationStatus === "generated") cost += 0.05;
     if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
+    if (outcome.keyframeStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") {
       cost +=
         outcome.videoProvider === "seedance" || outcome.videoProvider === "fal"

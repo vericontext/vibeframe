@@ -184,3 +184,23 @@ describe("characters cue validation", () => {
     ]);
   });
 });
+
+describe("keyframe cue validation", () => {
+  const withKeyframe = (cue: string) =>
+    `## Beat hook - Hook\n\n\`\`\`yaml\n${cue}\n\`\`\`\n\nBody.\n`;
+
+  it("accepts a string keyframe cue", () => {
+    const result = validateStoryboardMarkdown(
+      withKeyframe(`keyframe: "nova walking down the pit lane, cinematic"`)
+    );
+    expect(result.ok).toBe(true);
+    expect(result.issues.map((i) => i.code)).not.toContain("UNKNOWN_CUE");
+  });
+
+  it("parses the keyframe cue into BeatCues", () => {
+    const md = withKeyframe(`keyframe: "nova on the grid"`);
+    expect(parseStoryboard(md).beats.find((b) => b.id === "hook")?.cues?.keyframe).toBe(
+      "nova on the grid"
+    );
+  });
+});

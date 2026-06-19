@@ -112,6 +112,26 @@ Character sheets add image-generation cost, and each character video beat is a
 provider video call — run `vibe build --dry-run` to see the estimate and gate
 with `--max-cost`.
 
+### Keyframe → image-to-video
+
+For tighter art direction, a beat can declare a `keyframe` cue. During
+`vibe build`, the keyframe prompt first produces a still
+(`assets/keyframe-<beatId>.png`) — edited from the beat's `characters` sheet when
+present (for consistency), otherwise generated from text — and that exact frame
+is then animated with Seedance **image-to-video**. The `video` cue, if present,
+supplies the motion prompt; otherwise the keyframe prompt is reused.
+
+```yaml
+duration: 5
+characters: [nova]
+keyframe: "NOVA stands on the starting grid, low-angle hero shot, dramatic morning light"
+video: "slow push-in as engines spool up around her"
+```
+
+Keyframe mode costs one extra image generation per beat plus the clip
+(image-to-video uses standard Seedance pricing, with no reference discount) —
+check `vibe build --dry-run` and gate with `--max-cost`.
+
 ## Profiles
 
 `vibe init` supports three profiles:

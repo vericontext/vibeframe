@@ -275,6 +275,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const backdropPrompt = stringOrUndefined(cue.backdrop);
     const augmentedBackdropPrompt = backdropPrompt ? augmentBackdropPrompt(backdropPrompt) : null;
     const videoPrompt = stringOrUndefined(cue.video);
+    const keyframePrompt = stringOrUndefined(cue.keyframe);
     const musicPrompt = stringOrUndefined(cue.music);
     const genericReference = resolveGenericAssetReference(projectDir, cue.asset);
     const narrationReference = resolveTypedAssetReference(projectDir, "narration", cue.narration);
@@ -289,7 +290,9 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       (!musicPrompt && genericReference?.kind === "music" ? genericReference : null);
     const narrationCue = narrationText ?? narrationReference?.raw;
     const backdropCue = backdropPrompt ?? backdropReference?.raw;
-    const videoCue = videoPrompt ?? videoReference?.raw;
+    // A `keyframe:` cue produces a clip via image-to-video even without a
+    // `video:` cue (the keyframe prompt then supplies the motion prompt too).
+    const videoCue = videoPrompt ?? videoReference?.raw ?? keyframePrompt;
     const musicCue = musicPrompt ?? musicReference?.raw;
     const narrationCost =
       resolved.narration.resolved === "elevenlabs"
@@ -319,12 +322,13 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const videoCache =
-      videoPrompt && !videoReference
+      (videoPrompt || keyframePrompt) && !videoReference
         ? videoCacheDescriptor({
             beatId: beat.id,
-            cue: videoPrompt,
+            cue: videoPrompt ?? keyframePrompt!,
             provider: resolved.video.resolved,
             duration: beat.duration,
+            keyframe: keyframePrompt,
           })
         : null;
     const musicCache =
@@ -441,6 +445,14 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     if (backdrop?.willGenerate && isSupportedBuildImageProvider(resolved.image.resolved))
       noteProviderNeed(resolved.image, "Backdrop generation");
     if (video?.willGenerate) noteProviderNeed(resolved.video, "Video generation");
+    // Keyframe → image-to-video: when the clip will generate, a keyframe still
+    // is produced first (one image generation per beat).
+    if (keyframePrompt && video?.willGenerate) {
+      estimatedCostUsd += backdropCostUsd(imageQuality);
+      providers.add(resolved.image.resolved);
+      if (isSupportedBuildImageProvider(resolved.image.resolved))
+        noteProviderNeed(resolved.image, "Keyframe generation");
+    }
     if (music?.willGenerate) noteProviderNeed(resolved.music, "Music generation");
     if (!compositionExists) missing.add("compositions");
     if (includeCompose && !compositionExists && mode !== "agent") {
