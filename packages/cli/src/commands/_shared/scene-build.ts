@@ -2027,6 +2027,10 @@ async function dispatchVideo(
       : characterRefsAbs.length > 0
         ? characterRefsAbs
         : undefined,
+    // Build clips are always muted in the composition (a separate narration/music
+    // track carries audio), so the model's generated audio is never used. Disable
+    // it: it's wasted, and Seedance's audio moderation can spuriously fail a beat.
+    generateAudio: false,
     apiKey: await apiKeyForVideoProvider(ctx.videoProvider, ctx.projectDir),
   });
   if (!result.success || !result.taskId) {
