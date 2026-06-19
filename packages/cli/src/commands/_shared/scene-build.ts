@@ -382,10 +382,21 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const projectDir = resolve(opts.projectDir);
   const onProgress = opts.onProgress ?? (() => {});
   const mode = resolveSceneBuildMode(opts);
-  const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
+  let selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
+  // --skip-video produces keyframe stills (an image storyboard) for review, not
+  // a final video. The composition would reference <video> clips that were never
+  // generated, so capture can't run — stop at sync instead of failing render.
+  const skipVideoStopsRender =
+    (opts.skipVideo ?? false) && (selectedStage === "all" || selectedStage === "render");
+  if (skipVideoStopsRender) selectedStage = "sync";
   const stageReports = createEmptyStageReports();
   const warnings: string[] = [];
   const retryWith: string[] = [];
+  if (skipVideoStopsRender) {
+    warnings.push(
+      "--skip-video: skipped render (no clips to capture). Review assets/keyframe-*.png, then build without --skip-video to animate them."
+    );
+  }
   let sceneRepair = skippedSceneRepairSummary();
 
   const storyboardPath = join(projectDir, "STORYBOARD.md");
@@ -571,10 +582,12 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   if (shouldRunStage(selectedStage, "assets")) {
     onProgress({ type: "phase-start", phase: "primitives" });
 
-    // Generate the character sheets referenced by any video beat once, up front,
-    // so dispatchVideo can pass them as reference-to-video inputs.
+    // Generate the character sheets referenced by any beat once, up front, so
+    // both reference-to-video (dispatchVideo) and keyframe edits
+    // (dispatchKeyframe) can use them. Needed whenever video OR keyframe runs —
+    // only skip when both are skipped.
     const characterPaths = new Map<string, string>();
-    if (!(opts.skipVideo ?? false)) {
+    if (!((opts.skipVideo ?? false) && (opts.skipKeyframe ?? false))) {
       const referenced = new Set<string>();
       for (const beat of activeBeats) {
         for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
