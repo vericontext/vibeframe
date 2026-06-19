@@ -27,6 +27,34 @@ fallback when you do not already have an AI coding agent.
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
+## Directed AI video — one character, many scenes
+
+![Image storyboard: one consistent character across four directed scenes](docs/media/showcase.gif)
+
+The four scenes below are the **same character**, directed across a short film
+from one brief — **character sheet → image storyboard (one keyframe still per
+scene) → Seedance image-to-video → composed render**. Open source, MIT.
+
+![Character-consistent image storyboard — pit lane, pit wall, the grid, lights out](docs/media/showcase-storyboard.png)
+
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.4/vibeframe-showcase.mp4)** (1080p, generated end-to-end by `vibe build`).
+
+How it works (run it today):
+
+```bash
+# 1. one character sheet, reused everywhere (frontmatter: characters: { nova: "..." })
+# 2. per beat: a keyframe still (image storyboard) + the motion prompt
+#      keyframe: "NOVA on the starting grid, low-angle hero shot, golden light"
+#      video:    "slow push-in as she looks up"
+# 3. review the image storyboard cheaply, then animate only what you approve:
+vibe build my-film --skip-video        # generate the keyframe stills (cheap), review them
+vibe build my-film --max-cost 12       # animate the approved stills (Seedance image-to-video)
+```
+
+Prompt craft for both models is in the
+[AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
+(`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
+
 ```bash
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
@@ -102,6 +130,11 @@ render, inspect, and share the MP4.
 - **Build videos from briefs:** scaffold `STORYBOARD.md` and `DESIGN.md`, let
   an agent revise them, then run `vibe plan`, `vibe build`, `vibe inspect`,
   and `vibe render`.
+- **Direct character-consistent video:** a reusable character sheet plus a
+  per-beat `keyframe:` (an image storyboard) drive Seedance image-to-video, so
+  the same character holds across scenes. Review the stills with `--skip-video`
+  before paying for the clips. See the
+  [prompting playbook](docs/ai-video-prompting.md).
 - **Run the agent loop safely:** use JSON output, dry runs, cost caps,
   `build-report.json`, `review-report.json`, and deterministic repair commands.
 - **Route provider-heavy work:** generate images, video clips, narration,
