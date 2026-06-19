@@ -145,6 +145,21 @@ vibe build my-film --max-cost 6        # animate the approved keyframes
 
 Use `--skip-keyframe` to opt a run out of keyframe generation entirely.
 
+### Provider quality tiers
+
+Provider choice drives perceived polish, especially for character-consistent
+work:
+
+- **Faces / character identity** — `--image-provider gemini` (Nano Banana) holds
+  the same face across scenes noticeably better than `gpt-image-2`, whose
+  identity tends to drift after a few scenes. Use it for character/keyframe-heavy
+  pieces. Keyframe edits already pin facial features with an identity-lock
+  instruction, but the model still matters.
+- **Narration** — `--tts kokoro` is free and local (draft quality); for a final
+  or shared cut use `--tts openai` (fast, ~$0.02/video) or `--tts elevenlabs`
+  (premium voices). Switching providers regenerates narration and updates the
+  render automatically.
+
 ## Profiles
 
 `vibe init` supports three profiles:

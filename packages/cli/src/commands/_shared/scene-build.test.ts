@@ -605,6 +605,21 @@ backdrop: "../outside.png"
     expect(report.stageReports!.render.status).toBe("skipped");
   });
 
+  it("--skip-video runs the assets stage (keyframe stills) but skips only render", async () => {
+    // Regression: --skip-video must NOT cap the stage to sync (which would skip
+    // asset generation entirely). Keyframe stills are produced in the assets
+    // stage for review; only render is skipped (no clips to capture).
+    const r = await executeSceneBuild({ projectDir, skipVideo: true });
+    expect(r.success).toBe(true);
+    expect(r.outputPath).toBeUndefined();
+    expect(executeSceneRender).not.toHaveBeenCalled();
+
+    const report = readBuildReport();
+    expect(report.stageReports!.assets.status).toBe("done");
+    expect(report.stageReports!.render.status).toBe("skipped");
+    expect(report.warnings.some((w) => w.includes("skip-video"))).toBe(true);
+  });
+
   it("writes a stable beat-only assets build-report contract", async () => {
     const r = await executeSceneBuild({
       projectDir,
