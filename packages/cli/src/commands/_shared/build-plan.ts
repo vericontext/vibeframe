@@ -17,6 +17,7 @@ import {
   type BuildAssetKind,
   type CacheAssetDescriptor,
   imageRatioForSize,
+  keyframeCacheDescriptor,
   musicCacheDescriptor,
   narrationCacheDescriptor,
   normalizeVideoDuration,
@@ -62,6 +63,7 @@ export interface BuildPlanBeat {
   assets: {
     narration: AssetPlan | null;
     backdrop: AssetPlan | null;
+    keyframe: AssetPlan | null;
     video: AssetPlan | null;
     music: AssetPlan | null;
   };
@@ -145,6 +147,7 @@ export interface CreateBuildPlanOptions {
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   skipVideo?: boolean;
+  skipKeyframe?: boolean;
   skipMusic?: boolean;
   ttsProvider?: string;
   voice?: string;
@@ -331,6 +334,16 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             keyframe: keyframePrompt,
           })
         : null;
+    const keyframeCache = keyframePrompt
+      ? keyframeCacheDescriptor({
+          beatId: beat.id,
+          cue: keyframePrompt,
+          provider: resolved.image.resolved,
+          quality: imageQuality,
+          size: imageSize,
+          ratio: imageRatio,
+        })
+      : null;
     const musicCache =
       musicPrompt && !musicReference
         ? musicCacheDescriptor({
@@ -371,6 +384,22 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             path: `assets/backdrop-${beat.id}.png`,
             cache: backdropCache,
             reference: backdropReference,
+            projectDir,
+            force: opts.force,
+            cost: backdropCostUsd(imageQuality),
+            active: includeAssets,
+          })
+        : null;
+    const keyframe =
+      keyframePrompt && !opts.skipKeyframe
+        ? assetPlan({
+            kind: "keyframe",
+            beatId: beat.id,
+            cue: keyframePrompt,
+            provider: resolved.image.resolved,
+            path: `assets/keyframe-${beat.id}.png`,
+            cache: keyframeCache,
+            reference: null,
             projectDir,
             force: opts.force,
             cost: backdropCostUsd(imageQuality),
@@ -419,7 +448,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const compositionPath = `compositions/scene-${beat.id}.html`;
     const compositionExists = existsSync(join(projectDir, compositionPath));
 
-    for (const asset of [narration, backdrop, video, music]) {
+    for (const asset of [narration, backdrop, keyframe, video, music]) {
       if (!asset) continue;
       if (asset.referenceError) {
         missing.add("assets");
@@ -444,15 +473,9 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     if (narration?.willGenerate) noteProviderNeed(resolved.narration, "Narration");
     if (backdrop?.willGenerate && isSupportedBuildImageProvider(resolved.image.resolved))
       noteProviderNeed(resolved.image, "Backdrop generation");
+    if (keyframe?.willGenerate && isSupportedBuildImageProvider(resolved.image.resolved))
+      noteProviderNeed(resolved.image, "Keyframe generation");
     if (video?.willGenerate) noteProviderNeed(resolved.video, "Video generation");
-    // Keyframe → image-to-video: when the clip will generate, a keyframe still
-    // is produced first (one image generation per beat).
-    if (keyframePrompt && video?.willGenerate) {
-      estimatedCostUsd += backdropCostUsd(imageQuality);
-      providers.add(resolved.image.resolved);
-      if (isSupportedBuildImageProvider(resolved.image.resolved))
-        noteProviderNeed(resolved.image, "Keyframe generation");
-    }
     if (music?.willGenerate) noteProviderNeed(resolved.music, "Music generation");
     if (!compositionExists) missing.add("compositions");
     if (includeCompose && !compositionExists && mode !== "agent") {
@@ -466,7 +489,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       heading: beat.heading,
       durationSec: beat.duration ?? null,
       cues: cue,
-      assets: { narration, backdrop, video, music },
+      assets: { narration, backdrop, keyframe, video, music },
       composition: {
         path: compositionPath,
         exists: compositionExists,
@@ -748,6 +771,7 @@ function providerResolutionsForPlan(
   return [
     includeAssets && !opts.skipNarration && needsProvider("narration") ? resolved.narration : null,
     includeAssets && !opts.skipBackdrop && needsProvider("backdrop") ? resolved.image : null,
+    includeAssets && !opts.skipKeyframe && needsProvider("keyframe") ? resolved.image : null,
     includeAssets && !opts.skipVideo && needsProvider("video") ? resolved.video : null,
     includeAssets && !opts.skipMusic && needsProvider("music") ? resolved.music : null,
     resolved.composer ?? null,

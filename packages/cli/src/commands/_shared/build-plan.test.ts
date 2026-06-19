@@ -122,7 +122,10 @@ describe("createBuildPlan", () => {
     );
 
     const plan = await createBuildPlan({ projectDir: dir, stage: "assets" });
-    // A keyframe cue produces a clip even without a `video:` cue.
+    // The keyframe is now a first-class asset, and a keyframe cue still produces
+    // a clip even without a `video:` cue.
+    expect(plan.beats[0].assets.keyframe?.willGenerate).toBe(true);
+    expect(plan.beats[0].assets.keyframe?.path).toBe("assets/keyframe-hook.png");
     expect(plan.beats[0].assets.video?.willGenerate).toBe(true);
     expect(plan.providers).toContain("seedance");
     expect(plan.providers).toContain("openai"); // keyframe image generation
@@ -133,6 +136,12 @@ describe("createBuildPlan", () => {
     });
     // total = keyframe still (hd image, 0.2) + image-to-video clip
     expect(plan.estimatedCostUsd).toBeCloseTo(0.2 + videoCost, 2);
+
+    // Review-before-spend: --skip-video plans the keyframe still but no clip.
+    const stills = await createBuildPlan({ projectDir: dir, stage: "assets", skipVideo: true });
+    expect(stills.beats[0].assets.keyframe?.willGenerate).toBe(true);
+    expect(stills.beats[0].assets.video).toBeNull();
+    expect(stills.estimatedCostUsd).toBeCloseTo(0.2, 2); // image only, no paid video
   });
 
   it("does not estimate cost for cached assets", async () => {
