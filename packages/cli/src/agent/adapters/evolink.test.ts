@@ -7,29 +7,32 @@ import { EvolinkAdapter } from "./evolink.js";
 
 // Mock the OpenAI module
 vi.mock("openai", () => {
+  const create = vi.fn().mockResolvedValue({
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: "Hello from Evolink",
+          tool_calls: undefined,
+        },
+        finish_reason: "stop",
+      },
+    ],
+    usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+  });
+
   return {
     default: vi.fn().mockImplementation((config: { apiKey: string; baseURL: string; defaultHeaders: Record<string, string> }) => {
       return {
         _config: config,
         chat: {
           completions: {
-            create: vi.fn().mockResolvedValue({
-              choices: [
-                {
-                  message: {
-                    role: "assistant",
-                    content: "Hello from Evolink",
-                    tool_calls: undefined,
-                  },
-                  finish_reason: "stop",
-                },
-              ],
-              usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-            }),
+            create,
           },
         },
       };
     }),
+    __mockCreate: create,
   };
 });
 
@@ -60,6 +63,21 @@ describe("EvolinkAdapter", () => {
       adapter.setModel("gpt-5.2");
       // No error thrown
       expect(true).toBe(true);
+    });
+
+    it("should use the overridden model for chat completions", async () => {
+      const openai = await import("openai");
+      const mockCreate = vi.mocked((openai as unknown as { __mockCreate: ReturnType<typeof vi.fn> }).__mockCreate);
+
+      await adapter.initialize("test-key");
+      adapter.setModel("claude-sonnet-4-6");
+      await adapter.chat([{ role: "user", content: "hello" }], []);
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "claude-sonnet-4-6",
+        }),
+      );
     });
   });
 

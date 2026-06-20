@@ -17,6 +17,9 @@ export interface LLMAdapter {
   /** Check if adapter is initialized */
   isInitialized(): boolean;
 
+  /** Override the provider model for this session. */
+  setModel?(model: string): void;
+
   /** Send messages with tools and get response */
   chat(
     messages: AgentMessage[],

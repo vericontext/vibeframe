@@ -259,7 +259,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
 | `vibe -p xai` | `XAI_API_KEY` | Grok 4.1 Fast (Agent LLM) |
 | `vibe -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
-| `vibe -p evolink` | `EVOLINK_API_KEY` | Evolink Auto (Agent LLM) |
+| `vibe -p evolink` | `EVOLINK_API_KEY` | GPT-5.2 via Evolink (Agent LLM) |
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | OpenAI image generation |
 | `vibe generate image -p gemini` | `GOOGLE_API_KEY` | Gemini image generation |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |
