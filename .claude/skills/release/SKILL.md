@@ -112,8 +112,18 @@ git commit -m "chore: bump version to $NEW_VERSION" -m "Release-Type: minor: <wh
 
 Do not create a local tag. Do not push unless the user explicitly asks.
 
-Publishing is manual. After the version commit lands on `main` and CI passes,
-run the `Create release tag` workflow to create `vX.Y.Z`, then run
-`Publish to npm` manually with that tag. A human-created `git push origin
+11. The version commit reaches `main` **via a PR**, never a direct push (even
+    though `main` allows admin bypass). Put it on a `chore/release-$NEW_VERSION`
+    branch, open a PR, let CI go green, and merge:
+
+```bash
+git switch -c chore/release-$NEW_VERSION
+git push -u origin chore/release-$NEW_VERSION
+gh pr create --fill --base main
+```
+
+Publishing is manual. After the version commit lands on `main` (through the PR)
+and CI passes, run the `Create release tag` workflow to create `vX.Y.Z`, then
+run `Publish to npm` manually with that tag. A human-created `git push origin
 vX.Y.Z` tag also triggers `publish.yml`, but CI and the tag helper do not
 dispatch publishing automatically.

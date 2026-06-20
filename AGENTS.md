@@ -119,6 +119,11 @@ General expectation:
 - Git & PR workflow: branch off `main` as `feat/<topic>`, `fix/<topic>`, or
   `chore/<topic>`. **One PR = one coherent scope** — do not stack unrelated
   commits onto an open PR branch. Rebase/split when scope drifts.
+- **Every commit reaches `main` via a PR — including `chore: bump version`
+  release commits.** Branch → PR → CI green → merge. Do **not** push directly to
+  `main`, even as a maintainer with admin bypass (`main` allows it, but the
+  policy does not). Release bumps go on a `chore/release-<version>` (or the
+  feature) branch and merge through the same gate as any other change.
 - Version bumps default to `patch` during `0.x`, including most ordinary
   `feat:` and `fix:` commits. **`patch` is the default; `minor` is rare.** Use
   `minor` only for new public CLI command namespaces, new MCP tool families,

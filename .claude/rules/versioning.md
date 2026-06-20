@@ -67,11 +67,17 @@ pnpm gen:reference:check  # must pass before commit
 # Step 6: Commit (exclude test/temp files)
 git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md docs/cli-reference.md
 git commit -m "chore: bump version to X.Y.Z"
+
+# Step 7: Land it on main via a PR — NOT a direct push (main allows admin
+# bypass, but the policy is PR-only for every commit, releases included).
+git switch -c chore/release-X.Y.Z
+git push -u origin chore/release-X.Y.Z
+gh pr create --fill --base main   # then wait for CI green and merge
 ```
 
 Do not create a local release tag in normal development. After the version
-commit lands on `main` and CI passes, manually run the `Create release tag`
-workflow. Then manually run `Publish to npm` with that tag. A human-created
+commit lands on `main` (through the PR) and CI passes, manually run the
+`Create release tag` workflow. Then manually run `Publish to npm` with that tag. A human-created
 `git push origin vX.Y.Z` tag also triggers publishing, but CI and the tag helper
 do not dispatch publishing automatically.
 
