@@ -308,6 +308,13 @@ ${finalDurationBullet}
 - If the beat cues include \`narration\`, do not embed an \`<audio>\` tag in the
   scene fragment. The root timeline wires \`assets/narration-${ctx.beat.id}.wav\`
   or \`assets/narration-${ctx.beat.id}.mp3\` separately.
+- Do NOT invent sound effects. This scene fragment is visual-only: never add
+  an \`<audio>\` tag, and never imply ambient/foley SFX (keyboard clicks, whoosh,
+  applause, room tone) that the beat did not explicitly request. Audio comes
+  only from the beat's explicit \`narration\` and \`music\` cues, wired by the
+  root timeline. If the beat declares an explicit \`sfx\` cue, treat it as intent
+  for the storyboard author — still do not embed it here — and only when it is
+  clearly tied to the beat's narration/motion; ignore orphaned or generic SFX.
 - **\`.clip\` elements get visibility control from the framework but NO
   sizing.** Always give \`.clip\` explicit fill via CSS:
   \`{ position: absolute; inset: 0; }\` (or equivalent
