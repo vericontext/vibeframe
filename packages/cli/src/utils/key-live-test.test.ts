@@ -96,6 +96,14 @@ describe("testKey — per-provider URL + auth", () => {
     expect(headers.Authorization).toBe("Bearer sk-or-test");
   });
 
+  it("evolink uses Bearer authorization on /v1/models", async () => {
+    const { calls } = mockFetch(() => new Response("{}", { status: 200 }));
+    await testKey("evolink", "el-test");
+    expect(calls[0].url).toBe("https://direct.evolink.ai/v1/models");
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer el-test");
+  });
+
   it("runway uses Bearer + X-Runway-Version on /v1/organization", async () => {
     const { calls } = mockFetch(() => new Response("{}", { status: 200 }));
     await testKey("runway", "key_runway-test");
@@ -173,7 +181,7 @@ describe("isTestableProvider", () => {
   it("returns true for every registered provider", () => {
     for (const k of [
       "anthropic", "openai", "google", "xai", "elevenlabs", "replicate",
-      "openrouter", "fal", "kling", "runway", "imgbb",
+      "openrouter", "evolink", "fal", "kling", "runway", "imgbb",
     ]) {
       expect(isTestableProvider(k)).toBe(true);
     }

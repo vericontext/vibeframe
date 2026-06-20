@@ -132,6 +132,9 @@ export class AgentExecutor {
 
     // Create and initialize LLM adapter
     this.adapter = await createAdapter(this.config.provider);
+    if (this.config.model) {
+      this.adapter.setModel?.(this.config.model);
+    }
     await this.adapter.initialize(this.config.apiKey);
 
     // Register all tools

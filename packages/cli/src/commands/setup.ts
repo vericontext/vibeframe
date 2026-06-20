@@ -44,6 +44,7 @@ const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
   "ollama",
   "xai",
   "openrouter",
+  "evolink",
 ];
 
 const VALID_SCOPES: readonly Scope[] = ["user", "project"];
@@ -82,7 +83,7 @@ export const setupCommand = new Command("setup")
   .option("-y, --yes", "Non-interactive: write config without prompting (CI / devcontainer)")
   .option(
     "--provider <id>",
-    "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)"
+    "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)"
   )
   .option("--import-env", "Promote API keys from .env / shell env into config.yaml")
   .option("--test", "After save, live-test each configured key (exits 7 if any FAIL)")
@@ -1213,13 +1214,14 @@ async function runCustomSetup(
   );
   console.log();
 
-  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "ollama"];
+  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "evolink", "ollama"];
   const providerDescriptions: Record<LLMProvider, string> = {
     claude: "Best reasoning, most capable for complex tasks",
     openai: "GPT-5-mini, reliable and fast, good default",
     gemini: "Google AI, strong multimodal understanding",
     xai: "Grok 4.1 Fast, 2M context, great for tool calling",
     openrouter: "300+ models via one API key (Claude, GPT, Gemini, Llama, etc.)",
+    evolink: "GPT-5, Claude, Gemini, DeepSeek & more via one key",
     ollama: "Free, local, no API key — offline capable (default: llama3.2)",
   };
   const providerLabels = providers.map((p) => {
@@ -1229,7 +1231,7 @@ async function runCustomSetup(
 
   const currentIndex = providers.indexOf(config.llm.provider);
   const providerIndex = await promptSelect(
-    chalk.cyan("   Select [1-6]: "),
+    chalk.cyan("   Select [1-7]: "),
     providerLabels,
     currentIndex >= 0 ? currentIndex : 0
   );
@@ -1529,6 +1531,7 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     { key: "imgbb", name: "ImgBB", env: "IMGBB_API_KEY" },
     { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN" },
     { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY" },
+    { key: "evolink", name: "Evolink", env: "EVOLINK_API_KEY" },
   ];
 
   let unsetCount = 0;

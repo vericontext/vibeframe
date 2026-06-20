@@ -107,6 +107,15 @@ const TESTERS: Record<string, Tester> = {
         signal,
       ),
   },
+  evolink: {
+    name: "Evolink",
+    test: (key, signal) =>
+      getOk(
+        "https://direct.evolink.ai/v1/models",
+        { Authorization: `Bearer ${key}` },
+        signal,
+      ),
+  },
   // Runway: /v1/organization is a read-only GET that returns tier info
   // (free, doesn't consume credits). Requires the X-Runway-Version
   // header alongside the Bearer token — without it the request 401s.

@@ -209,7 +209,7 @@ Cost tier: _not tagged_
 
 **Parameters:**
 
-- `provider` _(string)_ _(openai \| claude \| gemini \| ollama \| xai \| openrouter)_ _(default: `"openai"`)_ — LLM provider (openai, claude, gemini, ollama, xai, openrouter)
+- `provider` _(string)_ _(openai \| claude \| gemini \| ollama \| xai \| openrouter \| evolink)_ _(default: `"openai"`)_ — LLM provider (openai, claude, gemini, ollama, xai, openrouter, evolink)
 - `model` _(string)_ — Model to use (provider-specific)
 - `project` _(string)_ — Timeline file or directory to load
 - `verbose` _(boolean)_ — Show verbose output including tool calls
@@ -445,7 +445,7 @@ Cost tier: _not tagged_
 - `verbose` _(boolean)_ — With --show: include unset providers + Resolution order + Defaults block
 - `claudeCode` _(boolean)_ — Show Claude Code integration guide
 - `yes` _(boolean)_ — Non-interactive: write config without prompting (CI / devcontainer)
-- `provider` _(string)_ — Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)
+- `provider` _(string)_ — Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)
 - `importEnv` _(boolean)_ — Promote API keys from .env / shell env into config.yaml
 - `test` _(boolean)_ — After save, live-test each configured key (exits 7 if any FAIL)
 - `scope` _(string)_ _(default: `"user"`)_ — Where to save: 'user' (~/.vibeframe/config.yaml, shared) or 'project' (./.vibeframe/config.yaml, gitignored, this project only)

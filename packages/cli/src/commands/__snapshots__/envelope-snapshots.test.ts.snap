@@ -38,7 +38,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
       },
       "provider": {
         "default": "openai",
-        "description": "LLM provider (openai, claude, gemini, ollama, xai, openrouter)",
+        "description": "LLM provider (openai, claude, gemini, ollama, xai, openrouter, evolink)",
         "enum": [
           "openai",
           "claude",
@@ -46,6 +46,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
           "ollama",
           "xai",
           "openrouter",
+          "evolink",
         ],
         "type": "string",
       },
@@ -3831,7 +3832,7 @@ exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = 
         "type": "boolean",
       },
       "provider": {
-        "description": "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | ollama)",
+        "description": "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)",
         "type": "string",
       },
       "reset": {
