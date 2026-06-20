@@ -81,7 +81,7 @@ To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonn
 |----------|----------|-------|
 | `gpt-5.2` | OpenAI | **Default**. GPT-5.2 via Evolink |
 | `evolink-auto` | Auto | Auto-routing (may have spotty availability) |
-| `claude` | Anthropic | Claude via Evolink (Messages API) |
+| `claude` | Anthropic | Claude via Evolink |
 | `gemini-2.5-pro` | Google | Gemini 2.5 Pro via Evolink |
 | `deepseek-chat` | DeepSeek | DeepSeek V3 via Evolink |
 | `doubao-seed-2.0-pro` | ByteDance | Doubao Seed 2.0 Pro via Evolink |

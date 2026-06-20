@@ -1,6 +1,6 @@
 {
   "name": "vibeframe",
-  "version": "0.113.7",
+  "version": "0.113.8",
   "description": "Agentic video workflow layer. CLI-first, MCP-ready.",
   "private": true,
   "license": "MIT",

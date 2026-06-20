@@ -12,10 +12,10 @@
  * `index.ts` adds a `defineProvider` — see `define-provider.ts` for the
  * shape.
  *
- * Virtual providers (no directory): declare `defineProvider` here too. As of
- * v0.68 only `openrouter` qualifies (LLM-only, no class — agent uses
- * OpenAI-compat HTTP). `veo` is virtual but lives in `gemini/index.ts` since
- * it shares that directory.
+ * Virtual providers (no directory): declare `defineProvider` here too.
+ * OpenRouter and Evolink are LLM-only virtual providers whose agent adapters
+ * use OpenAI-compatible HTTP. `veo` is virtual but lives in `gemini/index.ts`
+ * since it shares that directory.
  */
 
 import { defineApiKey, defineProvider } from "./define-provider.js";
