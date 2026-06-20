@@ -19,6 +19,14 @@ import {
   scrubUnresolvedUserConfigEnv,
 } from "./instructions.js";
 import { makeElicitFn, type ElicitCapableServer } from "./elicit.js";
+import { handleCliFlags } from "./cli-flags.js";
+
+// Human probing the package (`npx @vibeframe/mcp-server --help/--version`)?
+// Print and exit before redirecting stdout or touching the environment, so the
+// output lands on real stdout and no startup side effects run.
+if (handleCliFlags(process.argv.slice(2), process.env.VIBE_MCP_SERVER_VERSION ?? "0.0.0-dev")) {
+  process.exit(0);
+}
 
 /**
  * VibeFrame MCP Server
