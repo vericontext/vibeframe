@@ -256,6 +256,13 @@ The installer places the CLI checkout under the XDG data directory
 directory or an ancestor, VibeFrame uses that project config in isolation and
 does not merge in user-scope keys.
 
+> **npm package names:** the CLI is published as
+> [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) (binary
+> `vibe`) and the MCP server as
+> [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
+> There is no bare `vibeframe` npm package from this project — that name belongs
+> to an unrelated package, so `npx vibeframe` will not run this tool.
+
 For local development:
 
 ```bash
