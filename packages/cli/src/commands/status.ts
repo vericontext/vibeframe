@@ -130,6 +130,18 @@ function printProjectStatus(result: ProjectStatusResult): void {
   console.log(`  Build:     ${result.build ? formatBuild(result.build) : chalk.dim("no build-report.json")}`);
   console.log(`  Review:    ${result.review ? formatReview(result.review) : chalk.dim("no review-report.json")}`);
   console.log(`  Jobs:      ${result.jobs.total} total, ${result.jobs.active} active, ${result.jobs.failed} failed`);
+  if (result.nextActions.length > 0) {
+    console.log();
+    console.log(chalk.bold("Next actions"));
+    for (const action of result.nextActions.slice(0, 5)) {
+      console.log(formatNextAction(action));
+      if (action.command) console.log(chalk.dim(`      ${action.command}`));
+      if (action.agentPrompt) console.log(chalk.dim(`      ${action.agentPrompt}`));
+    }
+    if (result.nextActions.length > 5) {
+      console.log(chalk.dim(`  ... ${result.nextActions.length - 5} more`));
+    }
+  }
   if (result.jobs.latest.length > 0) {
     console.log();
     for (const job of result.jobs.latest.slice(0, 5)) {
@@ -151,6 +163,15 @@ function formatBuild(build: NonNullable<ProjectStatusResult["build"]>): string {
 function formatReview(review: NonNullable<ProjectStatusResult["review"]>): string {
   const status = review.status ?? "unknown";
   return `${formatStatus(status)} score ${review.score ?? "-"} (${review.issueCount} issue${review.issueCount === 1 ? "" : "s"})`;
+}
+
+function formatNextAction(action: ProjectStatusResult["nextActions"][number]): string {
+  const badge = action.safeToAutoRun
+    ? "auto"
+    : action.requiresConfirmation
+      ? "confirm"
+      : action.kind;
+  return `  ${chalk.dim(`[${badge}]`)} ${action.label}`;
 }
 
 function formatStatus(status: string): string {

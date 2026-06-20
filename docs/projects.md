@@ -35,7 +35,7 @@ paths:
 ```text
 native host goal -> vibe context/schema -> plan dry-run -> build with budget
 -> status polling -> inspect project -> render -> inspect render
--> repair/edit using retryWith/fixOwner -> repeat
+-> repair/edit using nextActions/fixOwner -> repeat
 ```
 
 The goal should stop only when the final MP4 path exists, duration and aspect
@@ -44,7 +44,9 @@ meets the goal threshold when AI review is requested, and unresolved
 `fixOwner:"host-agent"` issues are fixed,
 accepted with rationale, or reported as blocked. Agents should read
 `build-report.json` and `review-report.json` before choosing the next action
-and run `retryWith` commands before inventing recovery steps.
+and prefer `nextActions`: run only `safeToAutoRun:true` actions automatically,
+ask before `requiresConfirmation:true`, and use `retryWith` only as the
+compatibility fallback.
 
 Claude Desktop uses global MCP config, so anchor it to the workspace you want
 relative project names to resolve under. VibeFrame writes a shell wrapper
@@ -79,6 +81,84 @@ video: "media/broll.mp4"
 narration: "media/voice.wav"
 asset: "media/logo.png"
 ```
+
+### Characters (consistent AI video)
+
+Declare a reusable character pool in the document frontmatter, then reference it
+from a beat's `characters` cue. During `vibe build`, each referenced character
+is rendered once as a turnaround sheet (`assets/character-<name>.png`) and used
+as a reference image for that beat's `video` generation (Seedance
+reference-to-video), so the same character stays consistent across beats. A
+character value is a generation prompt, or `{ image: <path> }` to bring your own
+reference (skips generation).
+
+```yaml
+---
+characters:
+  nova: "young female racing engineer, teal team jacket, low ponytail"
+  rival: { image: "media/rival-ref.png" }
+---
+
+## Beat hook — Hook
+
+```yaml
+duration: 5
+characters: [nova]
+video: "NOVA walks through the pit lane, handheld tracking shot, ambient garage sound"
+```
+```
+
+Character sheets add image-generation cost, and each character video beat is a
+provider video call — run `vibe build --dry-run` to see the estimate and gate
+with `--max-cost`.
+
+### Keyframe → image-to-video
+
+For tighter art direction, a beat can declare a `keyframe` cue. During
+`vibe build`, the keyframe prompt first produces a still
+(`assets/keyframe-<beatId>.png`) — edited from the beat's `characters` sheet when
+present (for consistency), otherwise generated from text — and that exact frame
+is then animated with Seedance **image-to-video**. The `video` cue, if present,
+supplies the motion prompt; otherwise the keyframe prompt is reused.
+
+```yaml
+duration: 5
+characters: [nova]
+keyframe: "NOVA stands on the starting grid, low-angle hero shot, dramatic morning light"
+video: "slow push-in as engines spool up around her"
+```
+
+Keyframe mode costs one extra image generation per beat plus the clip
+(image-to-video uses standard Seedance pricing, with no reference discount) —
+check `vibe build --dry-run` and gate with `--max-cost`.
+
+**Review the image storyboard before paying for video.** Keyframe stills are a
+first-class asset, so you can generate and review them before the expensive
+image-to-video step:
+
+```bash
+vibe build my-film --skip-video        # generate assets/keyframe-*.png only (cheap)
+# review the stills; regenerate a weak one and accept it:
+vibe build my-film --beat grid --stage assets --force --skip-video
+vibe build my-film --max-cost 6        # animate the approved keyframes
+```
+
+Use `--skip-keyframe` to opt a run out of keyframe generation entirely.
+
+### Provider quality tiers
+
+Provider choice drives perceived polish, especially for character-consistent
+work:
+
+- **Faces / character identity** — `--image-provider gemini` (Nano Banana) holds
+  the same face across scenes noticeably better than `gpt-image-2`, whose
+  identity tends to drift after a few scenes. Use it for character/keyframe-heavy
+  pieces. Keyframe edits already pin facial features with an identity-lock
+  instruction, but the model still matters.
+- **Narration** — `--tts kokoro` is free and local (draft quality); for a final
+  or shared cut use `--tts openai` (fast, ~$0.02/video) or `--tts elevenlabs`
+  (premium voices). Switching providers regenerates narration and updates the
+  render automatically.
 
 ## Profiles
 

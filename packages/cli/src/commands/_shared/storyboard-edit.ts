@@ -1,6 +1,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 import {
+  beatCharacterNames,
   deriveBeatId,
   parseStoryboard,
   type Beat,
@@ -12,10 +13,12 @@ export const STORYBOARD_CUE_KEYS = [
   "narration",
   "backdrop",
   "video",
+  "keyframe",
   "motion",
   "voice",
   "music",
   "asset",
+  "characters",
 ] as const;
 
 export type StoryboardCueKey = (typeof STORYBOARD_CUE_KEYS)[number];
@@ -62,7 +65,7 @@ interface BeatSection {
 const HEADING_RE = /^##\s+(.+?)\s*$/gm;
 const LEADING_CUE_RE = /^(\s*)```ya?ml\s*\n([\s\S]*?)\n```\s*(?:\n|$)/;
 const ALLOWED_CUE_KEYS = new Set<string>(STORYBOARD_CUE_KEYS);
-const STRING_CUE_KEYS = new Set<string>(["narration", "backdrop", "video", "motion", "voice", "music", "asset"]);
+const STRING_CUE_KEYS = new Set<string>(["narration", "backdrop", "video", "keyframe", "motion", "voice", "music", "asset"]);
 
 /** Beats beyond this render as static, overstuffed scenes. */
 export const MAX_RECOMMENDED_BEAT_SEC = 15;
@@ -107,6 +110,11 @@ export function validateStoryboardMarkdown(markdown: string): StoryboardValidati
     }
   }
 
+  const characterPool = new Set<string>(
+    Object.keys(
+      (parsed.frontmatter?.characters as Record<string, unknown> | undefined) ?? {}
+    )
+  );
   for (const beat of parsed.beats) {
     const cues = beat.cues ?? {};
     for (const [key, value] of Object.entries(cues)) {
@@ -117,6 +125,31 @@ export function validateStoryboardMarkdown(markdown: string): StoryboardValidati
           beatId: beat.id,
           message: `Beat "${beat.id}" uses unknown cue "${key}". Supported cues: ${STORYBOARD_CUE_KEYS.join(", ")}.`,
         });
+        continue;
+      }
+      if (key === "characters") {
+        const validShape =
+          typeof value === "string" ||
+          (Array.isArray(value) && value.every((v) => typeof v === "string"));
+        if (!validShape) {
+          issues.push({
+            severity: "error",
+            code: "INVALID_CHARACTERS_VALUE",
+            beatId: beat.id,
+            message: `Beat "${beat.id}" cue "characters" must be a character name or a list of names.`,
+          });
+          continue;
+        }
+        for (const name of beatCharacterNames({ characters: value } as BeatCues)) {
+          if (!characterPool.has(name)) {
+            issues.push({
+              severity: "warning",
+              code: "UNKNOWN_CHARACTER",
+              beatId: beat.id,
+              message: `Beat "${beat.id}" references character "${name}" not defined in the frontmatter \`characters:\` pool.`,
+            });
+          }
+        }
         continue;
       }
       if (key === "duration") {

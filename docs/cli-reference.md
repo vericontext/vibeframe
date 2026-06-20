@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.1`
+> CLI version: `0.113.7`
 
 ## Mental model
 
@@ -34,7 +34,7 @@ Canonical native-goal loop:
 ```
 native host goal → vibe context/schema → plan dry-run → build with budget
 → status polling → inspect project → render → inspect render
-→ repair/edit using retryWith/fixOwner → repeat until stop rules pass
+→ repair/edit using nextActions/fixOwner → repeat until stop rules pass
 ```
 
 `vibe plan --json` emits `data.kind:"build-plan"`,
@@ -67,13 +67,16 @@ render code or `code:"RENDER_FAILED"`. Both include `currentStage`,
 `review-report.json` by default. The file uses `kind:"review"`,
 `mode:"project"|"render"`, `status`, `score`, `issues[]`,
 `summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}`,
-`sourceReports`, and `retryWith`. Issue-level `fixOwner:"vibe"` means
-deterministic CLI recovery; `fixOwner:"host-agent"` means storyboard/design/
-composition edits should be handled by the host agent. A host-native goal
-should stop only after the final MP4 exists, duration and aspect ratio match
-the brief, render inspection has no errors, any AI review score meets the goal
-threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or
-reported as blocked.
+`sourceReports`, `nextActions`, and `retryWith`. `nextActions` is the
+preferred agent contract: run only `safeToAutoRun:true` actions automatically,
+ask before `requiresConfirmation:true`, and use `retryWith` only as the
+compatibility fallback. Issue-level `fixOwner:"vibe"` means deterministic CLI
+recovery; `fixOwner:"host-agent"` means storyboard/design/composition edits
+should be handled by the host agent. A host-native goal should stop only after
+the final MP4 exists, duration and aspect ratio match the brief, render
+inspection has no errors, any AI review score meets the goal threshold when AI
+review is requested, and every host-agent issue is fixed, accepted with
+rationale, or reported as blocked.
 
 ## Global flags
 
@@ -237,6 +240,7 @@ Cost tier: _not tagged_
 - `skipNarration` _(boolean)_ — Don't dispatch TTS even when beats declare narration cues
 - `skipBackdrop` _(boolean)_ — Don't dispatch image-gen even when beats declare backdrop cues
 - `skipVideo` _(boolean)_ — Don't dispatch video generation even when beats declare video cues
+- `skipKeyframe` _(boolean)_ — Don't generate keyframe stills (review keyframes first with --skip-video, then build)
 - `skipMusic` _(boolean)_ — Don't dispatch music generation even when beats declare music cues
 - `skipRender` _(boolean)_ — Compose only — don't render to MP4
 - `tts` _(string)_ — TTS provider: auto|elevenlabs|openai|kokoro
@@ -1068,7 +1072,7 @@ Cost tier: `free`
 - `output` _(string)_ — Write review report to this path (default: <project>/review-report.json)
 - `noReport` _(boolean)_ — Do not write review-report.json
 
-`review-report.json` payload uses `kind:"review"`, `mode:"project"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. Command output keeps `data.kind:"project"`.
+`review-report.json` payload uses `kind:"review"`, `mode:"project"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. Command output keeps `data.kind:"project"`.
 
 #### `vibe inspect render`
 
@@ -1090,7 +1094,7 @@ Cost tier: `low`
 - `noReport` _(boolean)_ — Do not write review-report.json
 - `dryRun` _(boolean)_ — Preview parameters without probing video or calling Gemini
 
-`review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.
+`review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.
 
 #### `vibe inspect review`
 
@@ -1929,7 +1933,7 @@ Cost tier: `free`
 
 - `project-dir` _(string)_ **required** — Project directory
 - `beat` _(string)_ **required** — Beat id
-- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | motion | voice | music | asset
+- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | keyframe | motion | voice | music | asset | characters
 - `value` _(array)_ — Cue value. Use --json-value to pass a JSON scalar/object.
 - `jsonValue` _(boolean)_ — Parse value as JSON instead of a string
 - `unset` _(boolean)_ — Remove the cue key from the beat
@@ -1979,7 +1983,7 @@ Cost tier: `free`
 - `project-dir` _(string)_ — VibeFrame project directory
 - `refresh` _(boolean)_ — Refresh active supported jobs before summarizing
 
-JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, and `retryWith`; top-level `retryWith` is the resume contract.
+JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, `nextActions`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, `nextActions`, and `retryWith`; top-level `nextActions` is the preferred resume contract, while `retryWith` remains the compatibility fallback.
 
 ### `host`
 

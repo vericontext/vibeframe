@@ -116,6 +116,20 @@ describe("status job records", () => {
           fixOwners: { vibe: 0, hostAgent: 1 },
         },
         sourceReports: ["render-report.json", "ffprobe"],
+        nextActions: [
+          {
+            id: "command:vibe-scene-repair-project-json",
+            kind: "command",
+            label: "Repair deterministic scene issues",
+            command: `vibe scene repair --project ${dir} --json`,
+            fixOwner: "vibe",
+            costTier: "free",
+            safeToAutoRun: true,
+            requiresConfirmation: false,
+            reason: "Fixture action",
+            sourceIssueCodes: ["X"],
+          },
+        ],
         retryWith: [`vibe scene repair --project ${dir} --json`],
       }),
       "utf-8"
@@ -149,8 +163,19 @@ describe("status job records", () => {
       infoCount: 0,
       fixOwners: { vibe: 0, hostAgent: 1 },
       sourceReports: ["render-report.json", "ffprobe"],
+      nextActions: [
+        expect.objectContaining({
+          command: `vibe scene repair --project ${dir} --json`,
+          safeToAutoRun: true,
+        }),
+      ],
       retryWith: [`vibe scene repair --project ${dir} --json`],
     });
+    expect(status.nextActions).toEqual([
+      expect.objectContaining({
+        command: `vibe scene repair --project ${dir} --json`,
+      }),
+    ]);
     expect(status.retryWith).toContain(`vibe scene repair --project ${dir} --json`);
     expect(status.jobs).toMatchObject({ total: 1, completed: 1, active: 0 });
   });
@@ -203,6 +228,19 @@ describe("status job records", () => {
       needsAuthor: ["cta"],
     });
     expect(status.retryWith).toContain(`vibe build ${dir} --stage compose --json`);
+    // The needs-author state has no review-report.json, yet nextActions is still
+    // populated by converting the workflow-state retryWith command.
+    expect(status.nextActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "command",
+          command: `vibe build ${dir} --stage compose --json`,
+          costTier: "unknown",
+          safeToAutoRun: false,
+          requiresConfirmation: true,
+        }),
+      ])
+    );
   });
 
   it("uses completed job records to refresh asset readiness", async () => {
@@ -264,6 +302,62 @@ describe("status job records", () => {
     expect(status.status).toBe("ready");
     expect(status.currentStage).toBe("compose");
     expect(status.retryWith).toContain(`vibe build ${dir} --stage compose --json`);
+    expect(status.nextActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: `vibe build ${dir} --stage compose --json`,
+          safeToAutoRun: false,
+          requiresConfirmation: true,
+        }),
+      ])
+    );
+  });
+
+  it("emits nextActions for an empty project with no review report", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "vibe-status-jobs-empty-"));
+
+    const status = await inspectProjectStatus(dir);
+
+    expect(status.status).toBe("empty");
+    expect(status.review).toBeNull();
+    expect(status.nextActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "command",
+          command: `vibe init ${dir} --from "<brief>" --json`,
+          safeToAutoRun: false,
+        }),
+      ])
+    );
+  });
+
+  it("emits a safe refresh nextAction while jobs are running", async () => {
+    const dir = await tempProject();
+    await createAndWriteJobRecord({
+      id: "job_video",
+      jobType: "generate-video",
+      provider: "runway",
+      providerTaskId: "video_1",
+      projectDir: dir,
+      command: "build --stage assets",
+      beatId: "hook",
+      status: "running",
+    });
+
+    const status = await inspectProjectStatus(dir);
+
+    expect(status.status).toBe("running");
+    expect(status.review).toBeNull();
+    expect(status.nextActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: `vibe status project ${dir} --refresh --json`,
+          costTier: "free",
+          safeToAutoRun: true,
+          requiresConfirmation: false,
+        }),
+      ])
+    );
   });
 
   it("normalizes provider status strings", () => {

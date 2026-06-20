@@ -51,6 +51,44 @@ type SeedanceResolution = (typeof VALID_RESOLUTIONS)[number];
 const VALID_ASPECTS = ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16", "auto"] as const;
 type SeedanceAspect = (typeof VALID_ASPECTS)[number];
 
+/**
+ * Seedance 2.0 is billed per token on fal.ai, not per second:
+ *   cost = (tokens / 1000) × $0.014,  tokens/sec = (width × height × 24) / 1024
+ * The "p" in a resolution is the SHORT side (720p 16:9 → 1280×720). The `fast`
+ * tier bills ≈ 0.8× standard (and tops out at 720p), and supplying a reference
+ * video applies ≈ 0.6× (a 40% discount). Verified against fal's published rates
+ * (720p 16:9 = $0.3024/s, 1080p 16:9 = $0.682/s):
+ * https://fal.ai/models/bytedance/seedance-2.0/reference-to-video
+ */
+const SEEDANCE_USD_PER_1K_TOKENS = 0.014;
+const SEEDANCE_FAST_FACTOR = 0.8;
+const SEEDANCE_VIDEO_REF_FACTOR = 0.6;
+const SEEDANCE_SHORT_SIDE: Record<string, number> = { "480p": 480, "720p": 720, "1080p": 1080 };
+
+/**
+ * Estimate the fal.ai charge for a Seedance 2.0 generation from its token-based
+ * pricing. Used by `generate video --dry-run` so the previewed `costUsd` is
+ * accurate to resolution/ratio/duration/tier instead of a flat cost-tier upper
+ * bound. Audio is included at no extra charge, so it is not modelled.
+ */
+export function estimateSeedanceVideoCostUsd(opts: {
+  durationSec: number;
+  resolution?: string;
+  aspectRatio?: string;
+  fast?: boolean;
+  hasVideoReference?: boolean;
+}): number {
+  const shortSide = SEEDANCE_SHORT_SIDE[opts.resolution ?? "720p"] ?? 720;
+  const [a, b] = (opts.aspectRatio ?? "16:9").split(":").map(Number);
+  const ratioFactor = a > 0 && b > 0 ? Math.max(a, b) / Math.min(a, b) : 16 / 9;
+  const longSide = Math.round(shortSide * ratioFactor);
+  const tokensPerSecond = (shortSide * longSide * 24) / 1024;
+  let usdPerSecond = (tokensPerSecond / 1000) * SEEDANCE_USD_PER_1K_TOKENS;
+  if (opts.fast && shortSide <= 720) usdPerSecond *= SEEDANCE_FAST_FACTOR;
+  if (opts.hasVideoReference) usdPerSecond *= SEEDANCE_VIDEO_REF_FACTOR;
+  return Number((usdPerSecond * Math.max(0, opts.durationSec)).toFixed(2));
+}
+
 /** Shape of the video object Seedance returns. */
 interface SeedanceOutput {
   video?: { url?: string; content_type?: string; file_size?: number };

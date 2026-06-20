@@ -22,7 +22,7 @@ vi.mock("@fal-ai/client", () => ({
   },
 }));
 
-import { FalProvider } from "./FalProvider.js";
+import { FalProvider, estimateSeedanceVideoCostUsd } from "./FalProvider.js";
 
 describe("FalProvider", () => {
   let provider: FalProvider;
@@ -294,5 +294,42 @@ describe("FalProvider", () => {
       expect(result.status).toBe("failed");
       expect(result.error).toMatch(/FAL_API_KEY/);
     });
+  });
+});
+
+describe("estimateSeedanceVideoCostUsd", () => {
+  it("matches fal's published per-second rates for 16:9", () => {
+    // 720p 16:9 standard = $0.3024/s; 1080p 16:9 = $0.682/s.
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 5, resolution: "720p", aspectRatio: "16:9" })).toBe(1.51);
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 10, resolution: "1080p", aspectRatio: "16:9" })).toBe(6.8);
+  });
+
+  it("applies the fast-tier 0.8x factor (and only up to 720p)", () => {
+    expect(
+      estimateSeedanceVideoCostUsd({ durationSec: 5, resolution: "720p", aspectRatio: "16:9", fast: true })
+    ).toBe(1.21);
+    // 1080p has no fast tier — the factor must not apply.
+    expect(
+      estimateSeedanceVideoCostUsd({ durationSec: 10, resolution: "1080p", aspectRatio: "16:9", fast: true })
+    ).toBe(6.8);
+  });
+
+  it("costs less for square/portrait ratios (fewer pixels)", () => {
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 5, resolution: "720p", aspectRatio: "1:1" })).toBe(0.85);
+  });
+
+  it("applies the 0.6x reference-video discount", () => {
+    const base = estimateSeedanceVideoCostUsd({ durationSec: 5, resolution: "720p", aspectRatio: "16:9" });
+    const withVideo = estimateSeedanceVideoCostUsd({
+      durationSec: 5,
+      resolution: "720p",
+      aspectRatio: "16:9",
+      hasVideoReference: true,
+    });
+    expect(withVideo).toBeCloseTo(base * 0.6, 2);
+  });
+
+  it("defaults to 720p 16:9 when resolution/ratio are omitted", () => {
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 5 })).toBe(1.51);
   });
 });

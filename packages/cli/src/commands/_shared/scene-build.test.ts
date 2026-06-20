@@ -5,7 +5,7 @@
  * budget or starting Chrome.
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -246,6 +246,7 @@ afterEach(() => {
   delete process.env.OPENAI_API_KEY;
   delete process.env.GOOGLE_API_KEY;
   delete process.env.XAI_API_KEY;
+  delete process.env.FAL_API_KEY;
   delete process.env.VIBE_BUILD_MODE;
 });
 
@@ -373,6 +374,33 @@ describe("executeSceneBuild", () => {
       sync: expect.objectContaining({ status: "done", costUsd: expect.any(Number) }),
       render: expect.objectContaining({ status: "done", costUsd: expect.any(Number) }),
     });
+  });
+
+  it("generates character sheets and passes them as video reference images", async () => {
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      `---\nproviders:\n  video: seedance\ncharacters:\n  nova: "teal jacket racing engineer, low ponytail"\n---\n\n## Beat hook — Hook\n\n\`\`\`yaml\nduration: 5\ncharacters: [nova]\nvideo: "NOVA walks the pit lane, handheld tracking"\n\`\`\`\n\nBody.\n`
+    );
+    process.env.FAL_API_KEY = "test-fal-key";
+    vi.mocked(executeVideoGenerate).mockResolvedValue({
+      success: true,
+      taskId: "vid-1",
+      status: "completed",
+      provider: "seedance",
+      videoUrl: "https://example/clip.mp4",
+    });
+
+    await executeSceneBuild({ projectDir });
+
+    // The referenced character sheet is generated once, up front.
+    expect(existsSync(join(projectDir, "assets", "character-nova.png"))).toBe(true);
+    // dispatchVideo threads it into Seedance reference-to-video.
+    expect(executeVideoGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "seedance",
+        refImages: [join(projectDir, "assets", "character-nova.png")],
+      })
+    );
   });
 
   it("loads OPENAI_API_KEY from the current project's .env for backdrop dispatch", async () => {
@@ -575,6 +603,21 @@ backdrop: "../outside.png"
       success: true,
     });
     expect(report.stageReports!.render.status).toBe("skipped");
+  });
+
+  it("--skip-video runs the assets stage (keyframe stills) but skips only render", async () => {
+    // Regression: --skip-video must NOT cap the stage to sync (which would skip
+    // asset generation entirely). Keyframe stills are produced in the assets
+    // stage for review; only render is skipped (no clips to capture).
+    const r = await executeSceneBuild({ projectDir, skipVideo: true });
+    expect(r.success).toBe(true);
+    expect(r.outputPath).toBeUndefined();
+    expect(executeSceneRender).not.toHaveBeenCalled();
+
+    const report = readBuildReport();
+    expect(report.stageReports!.assets.status).toBe("done");
+    expect(report.stageReports!.render.status).toBe("skipped");
+    expect(report.warnings.some((w) => w.includes("skip-video"))).toBe(true);
   });
 
   it("writes a stable beat-only assets build-report contract", async () => {

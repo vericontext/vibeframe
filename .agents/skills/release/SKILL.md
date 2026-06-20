@@ -8,15 +8,19 @@ description: Bump VibeFrame versions, regenerate release artifacts, run verifica
 Use this skill when the user asks Codex to run a VibeFrame release bump or fix a
 missing version bump after `feat:` / `fix:` commits.
 
-The requested bump must be one of: `patch`, `minor`, or `major`.
+The bump is one of `patch`, `minor`, or `major`. **Default to `patch`** when
+no bump is specified or when there is any doubt.
 
 ## Version Policy
 
-VibeFrame is still in `0.x`, so default to `patch` unless the change clearly
-needs a larger release signal.
+VibeFrame is still in `0.x`. **`patch` is the default and by far the most
+common bump.** `minor` is rare and must be explicitly justified — the shared
+push gate (`scripts/pre-push-validate.sh`) blocks a non-patch bump that lacks a
+`Release-Type:` trailer (see step 10).
 
 - `patch`: bug fixes, docs/tooling, UX polish, internal refactors, and most
-  ordinary `feat:` / `fix:` commits.
+  ordinary `feat:` / `fix:` commits. **Use this unless a rule below clearly
+  applies.**
 - `minor`: new public CLI command namespace, new MCP tool family, public API
   contract additions, or a large product milestone.
 - `major`: breaking changes or an intentional 1.0 milestone.
@@ -89,10 +93,17 @@ npm version` for this step because recursive pnpm includes the root package.
    git add package.json packages/*/package.json apps/*/package.json CHANGELOG.md docs/cli-reference.md
    ```
 
-10. Commit:
+10. Commit. For a `patch` bump, a plain message:
 
 ```bash
 git commit -m "chore: bump version to $NEW_VERSION"
+```
+
+   For a `minor` or `major` bump, the push gate requires a justification
+   trailer in the commit body, or it blocks the push:
+
+```bash
+git commit -m "chore: bump version to $NEW_VERSION" -m "Release-Type: minor: <why this is not a patch>"
 ```
 
 Do not create a local tag. Do not push unless the user explicitly asks.

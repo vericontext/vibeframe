@@ -156,7 +156,11 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("Claude Code `/goal`");
     expect(md).toContain("build-report.json");
     expect(md).toContain("review-report.json");
+    expect(md).toContain("nextActions");
+    expect(md).toContain("safeToAutoRun");
+    expect(md).toContain("requiresConfirmation");
     expect(md).toContain("retryWith");
+    expect(md).toMatch(/compatibility\s+fallback/);
     expect(md).toContain('fixOwner:"vibe"');
     expect(md).toContain('fixOwner:"host-agent"');
     expect(md).toContain("renders/final.mp4");

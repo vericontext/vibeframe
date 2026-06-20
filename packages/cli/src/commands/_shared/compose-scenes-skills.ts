@@ -278,7 +278,15 @@ ${finalDurationBullet}
   itself. For multi-phase beats, drive phase changes with GSAP \`autoAlpha\`
   inside full-window clips: animate phase A out (\`autoAlpha: 0\`), then
   phase B in, on the same timeline.
-- If \`assets/backdrop-${ctx.beat.id}.png\` exists, use that local file as the
+- If \`assets/video-${ctx.beat.id}.mp4\` exists, it is an AI-generated clip for
+  this beat — use it as the FULL-FRAME visual and prefer it over any backdrop
+  image or CSS. Put one full-bleed \`<video>\` inside a full-window \`.clip\`:
+  \`<video src="assets/video-${ctx.beat.id}.mp4" data-start="0" data-duration="${BEAT_DURATION}" data-media-start="0" muted playsinline style="width:100%;height:100%;object-fit:cover"></video>\`
+  Use the exact path (no \`./\` or \`../\`). The framework seeks the clip to each
+  timeline frame, so do NOT add transform tweens to the \`<video>\` or its
+  ancestors; layer text/motion graphics on top instead.
+- If \`assets/backdrop-${ctx.beat.id}.png\` exists (and no video clip above),
+  use that local file as the
   full-frame visual backdrop. The exact path string is
   \`assets/backdrop-${ctx.beat.id}.png\`; do NOT prefix it with \`../\` or \`./\`
   because fragments are mounted from the project root.

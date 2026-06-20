@@ -27,6 +27,34 @@ fallback when you do not already have an AI coding agent.
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
+## Directed AI video — one character, many scenes
+
+![Image storyboard: one consistent character across four directed scenes](docs/media/showcase.gif)
+
+The four scenes below are the **same character**, directed across a short film
+from one brief — **character sheet → image storyboard (one keyframe still per
+scene) → Seedance image-to-video → composed render**. Open source, MIT.
+
+![Character-consistent image storyboard — pit lane, pit wall, the grid, lights out](docs/media/showcase-storyboard.png)
+
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.4/vibeframe-showcase.mp4)** (1080p, generated end-to-end by `vibe build`).
+
+How it works (run it today):
+
+```bash
+# 1. one character sheet, reused everywhere (frontmatter: characters: { nova: "..." })
+# 2. per beat: a keyframe still (image storyboard) + the motion prompt
+#      keyframe: "NOVA on the starting grid, low-angle hero shot, golden light"
+#      video:    "slow push-in as she looks up"
+# 3. review the image storyboard cheaply, then animate only what you approve:
+vibe build my-film --skip-video        # generate the keyframe stills (cheap), review them
+vibe build my-film --max-cost 12       # animate the approved stills (Seedance image-to-video)
+```
+
+Prompt craft for both models is in the
+[AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
+(`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
+
 ```bash
 curl -fsSL https://vibeframe.ai/install.sh | bash
 
@@ -102,6 +130,11 @@ render, inspect, and share the MP4.
 - **Build videos from briefs:** scaffold `STORYBOARD.md` and `DESIGN.md`, let
   an agent revise them, then run `vibe plan`, `vibe build`, `vibe inspect`,
   and `vibe render`.
+- **Direct character-consistent video:** a reusable character sheet plus a
+  per-beat `keyframe:` (an image storyboard) drive Seedance image-to-video, so
+  the same character holds across scenes. Review the stills with `--skip-video`
+  before paying for the clips. See the
+  [prompting playbook](docs/ai-video-prompting.md).
 - **Run the agent loop safely:** use JSON output, dry runs, cost caps,
   `build-report.json`, `review-report.json`, and deterministic repair commands.
 - **Route provider-heavy work:** generate images, video clips, narration,
@@ -124,10 +157,11 @@ Copy-paste for Codex:
 Use vibe context/schema first when command details are unclear. Use --json for
 all vibe commands. Run --dry-run before paid operations and keep generated-asset
 spend under $5 with --max-cost 5 where supported. Read build-report.json and
-review-report.json before choosing the next action. Run retryWith commands
-before inventing recovery steps. Treat fixOwner:"vibe" issues as deterministic
-CLI repair work and fixOwner:"host-agent" issues as storyboard, DESIGN.md, or
-composition edits.
+review-report.json before choosing the next action. Prefer nextActions:
+run only safeToAutoRun:true actions automatically, ask before
+requiresConfirmation:true actions, and use retryWith only as the compatibility
+fallback. Treat fixOwner:"vibe" issues as deterministic CLI repair work and
+fixOwner:"host-agent" issues as storyboard, DESIGN.md, or composition edits.
 
 Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
 less, the aspect ratio is 16:9 unless brief.md says otherwise,
@@ -143,9 +177,10 @@ Copy-paste for Claude Code:
 Claude Code goal loop as the outer loop. Use vibe commands with --json, run
 dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
 use build-report.json plus review-report.json as the loop state. Follow
-retryWith before guessing, and distinguish fixOwner:"vibe" from
-fixOwner:"host-agent" when deciding whether to run vibe scene repair or edit
-STORYBOARD.md, DESIGN.md, or compositions.
+nextActions first, run only safeToAutoRun:true actions automatically, ask
+before requiresConfirmation:true actions, and use retryWith only as a fallback.
+Distinguish fixOwner:"vibe" from fixOwner:"host-agent" when deciding whether
+to run vibe scene repair or edit STORYBOARD.md, DESIGN.md, or compositions.
 
 Stop only when launch/renders/final.mp4 exists, duration is within the requested
 30s target, aspect ratio is 16:9 unless the brief overrides it, render
@@ -295,7 +330,7 @@ vibe inspect project my-video --beat hook --json
 vibe render my-video --beat hook --json
 vibe inspect render my-video --beat hook --cheap --json
 
-# Let a host agent handle semantic issues from the report
+# Let a host agent handle semantic issues from nextActions/review-report.json
 codex "fix issues from my-video/review-report.json"
 ```
 
@@ -342,7 +377,11 @@ the intent layer, `DESIGN.md` is the visual system, `vibe.config.json` stores
 provider/model defaults, `media/` stores user-provided source media, and files
 under `assets/` and `compositions/` are generated or canonical build artifacts.
 `build-report.json` records build results and costs;
-`review-report.json` records inspection findings and suggested fixes.
+`review-report.json` records inspection findings, issue-level actions, and
+top-level nextActions. Agents should prefer nextActions, run only
+safeToAutoRun:true commands automatically, ask before
+requiresConfirmation:true actions, and keep retryWith as the compatibility
+fallback.
 When paid video or music providers return async jobs, `vibe status project
 --refresh` downloads completed outputs, updates `build-report.json`, and
 writes freshness metadata under `.vibeframe/assets/`. The sync stage wires

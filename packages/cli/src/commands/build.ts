@@ -46,6 +46,10 @@ export const buildCommand = new Command("build")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
   .option("--skip-backdrop", "Don't dispatch image-gen even when beats declare backdrop cues")
   .option("--skip-video", "Don't dispatch video generation even when beats declare video cues")
+  .option(
+    "--skip-keyframe",
+    "Don't generate keyframe stills (review keyframes first with --skip-video, then build)"
+  )
   .option("--skip-music", "Don't dispatch music generation even when beats declare music cues")
   .option("--skip-render", "Compose only — don't render to MP4")
   .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
@@ -119,6 +123,7 @@ Advanced equivalent: \`vibe scene build\`.`
       skipNarration: options.skipNarration ?? false,
       skipBackdrop: options.skipBackdrop ?? false,
       skipVideo: options.skipVideo ?? false,
+      skipKeyframe: options.skipKeyframe ?? false,
       skipMusic: options.skipMusic ?? false,
       skipRender: options.skipRender ?? false,
       ttsProvider: options.tts,
@@ -140,6 +145,7 @@ Advanced equivalent: \`vibe scene build\`.`
         skipNarration: options.skipNarration,
         skipBackdrop: options.skipBackdrop,
         skipVideo: options.skipVideo,
+        skipKeyframe: options.skipKeyframe,
         skipMusic: options.skipMusic,
         ttsProvider: options.tts,
         voice: options.voice,
@@ -231,6 +237,7 @@ Advanced equivalent: \`vibe scene build\`.`
       skipNarration: options.skipNarration,
       skipBackdrop: options.skipBackdrop,
       skipVideo: options.skipVideo,
+      skipKeyframe: options.skipKeyframe,
       skipMusic: options.skipMusic,
       skipRender: options.skipRender,
       ttsProvider: options.tts,
@@ -289,6 +296,7 @@ type BuildDryRunParams = {
   skipNarration: boolean;
   skipBackdrop: boolean;
   skipVideo: boolean;
+  skipKeyframe: boolean;
   skipMusic: boolean;
   skipRender: boolean;
   ttsProvider: unknown;

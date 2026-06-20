@@ -23,7 +23,7 @@ goal runner. The canonical loop is:
 ```text
 native host goal -> vibe context/schema -> plan dry-run -> build with budget
 -> status polling -> inspect project -> render -> inspect render
--> repair/edit using retryWith/fixOwner -> repeat until stop rules pass
+-> repair/edit using nextActions/fixOwner -> repeat until stop rules pass
 ```
 
 Copy-paste Codex goal:
@@ -32,8 +32,10 @@ Copy-paste Codex goal:
 /goal Build my-video/ into a reviewed VibeFrame MP4. Use --json for every vibe
 command, run --dry-run before paid operations, cap generated-asset spend with
 --max-cost 5 where supported, and read build-report.json plus
-review-report.json before deciding the next action. Run retryWith commands
-before guessing. Treat fixOwner:"vibe" as deterministic CLI repair work and
+review-report.json before deciding the next action. Prefer nextActions: run
+only safeToAutoRun:true actions automatically, ask before
+requiresConfirmation:true actions, and use retryWith only as the compatibility
+fallback. Treat fixOwner:"vibe" as deterministic CLI repair work and
 fixOwner:"host-agent" as storyboard, DESIGN.md, or composition edits.
 Stop only when my-video/renders/final.mp4 exists, duration is within the target,
 aspect ratio matches the brief, inspect render --cheap has no errors, review
@@ -46,7 +48,7 @@ Copy-paste Claude Code goal:
 ```text
 /goal Finish the VibeFrame render for my-video/ using Claude Code goal mode as
 the outer loop. Use vibe context/schema when unsure, --json everywhere,
-dry-run before paid operations, --max-cost 5 for builds, retryWith before
+dry-run before paid operations, --max-cost 5 for builds, nextActions before
 custom recovery, and build-report.json/review-report.json as loop state.
 Stop only when renders/final.mp4 exists, target duration and aspect ratio are
 met, render inspection has no errors, any AI review score is at least 90 when AI review is requested, and every
@@ -216,12 +218,14 @@ Review report contract:
 `review-report.json` by default. The file uses `kind:"review"`,
 `mode:"project"|"render"`, `status`, `score`, `issues[]`,
 `summary:{issueCount,errorCount,warningCount,infoCount,fixOwners}`,
-`sourceReports`, and `retryWith`. Each issue has `fixOwner:"vibe"` for
-deterministic CLI recovery or `fixOwner:"host-agent"` for storyboard/design/
-composition edits the host agent should make. Use `retryWith` first, then
-hand remaining `host-agent` issues to the agent. A host-native goal should not
-stop while `host-agent` issues remain unless they are fixed, intentionally
-accepted with a written reason, or reported as blocked.
+`sourceReports`, `nextActions`, and `retryWith`. Each issue has
+`fixOwner:"vibe"` for deterministic CLI recovery or `fixOwner:"host-agent"`
+for storyboard/design/composition edits the host agent should make. Prefer
+`nextActions` first: run only `safeToAutoRun:true` actions automatically, ask
+before `requiresConfirmation:true`, and use `retryWith` only as the fallback.
+A host-native goal should not stop while `host-agent` issues remain unless
+they are fixed, intentionally accepted with a written reason, or reported as
+blocked.
 
 Product surface contract:
 
@@ -287,7 +291,7 @@ vibe scene repair --project my-video --json
 
 `vibe status job --json` emits the normal success envelope with `data.kind:"job"`, flat job fields (`id`, `jobType`, `provider`, `status`, timestamps), `progress`, `result`, `retryWith`, and the raw `job` record for compatibility.
 
-`vibe status project --json` emits `data.kind:"project"`, `status`, `currentStage`, `beats:{total,assetsReady,compositionsReady,needsAuthor}`, `jobs.latest`, `build`, `review`, `warnings`, and `retryWith`. `review` includes `mode`, `issueCount`, `errorCount`, `warningCount`, `infoCount`, `fixOwners`, `sourceReports`, and its own `retryWith`; top-level `retryWith` carries the next resume command. Use `retryWith` rather than guessing the next command.
+`vibe status project --json` emits `data.kind:"project"`, `status`, `currentStage`, `beats:{total,assetsReady,compositionsReady,needsAuthor}`, `jobs.latest`, `build`, `review`, `warnings`, `nextActions`, and `retryWith`. `review` includes `mode`, `issueCount`, `errorCount`, `warningCount`, `infoCount`, `fixOwners`, `sourceReports`, `nextActions`, and its own `retryWith`; top-level `nextActions` carries the preferred resume contract while `retryWith` remains the compatibility fallback.
 
 ### Storyboard revision contract
 

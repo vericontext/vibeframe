@@ -5,15 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.113.1] - 2026-06-15
+## [0.113.7] - 2026-06-19
+
+### Documentation
+
+- lead README with the directed-video showcase
+
+### Fixed
+
+- disable Seedance audio generation for build clips *(scene)*
+- keyframe face consistency + --skip-video asset generation *(scene)*
+
+## [0.113.5] - 2026-06-19
+
+### Fixed
+
+- --skip-video produces a consistent keyframe storyboard *(scene)*
+
+### Maintenance
+
+- gitignore keyframe-demo/ (local demo media)
+
+## [0.113.4] - 2026-06-19
 
 ### Added
 
+- keyframe stills as a first-class asset (review before spend) *(scene)*
+
+### Documentation
+
+- add AI video prompting playbook (sheet → image storyboard → multi-scene i2v)
+
+## [0.113.3] - 2026-06-19
+
+### Added
+
+- keyframe → Seedance image-to-video build mode *(scene)*
+
+## [0.113.2] - 2026-06-18
+
+### Added
+
+- character pool → reference-to-video for consistent AI video *(scene)*
+- token-accurate Seedance cost in video dry-run *(generate)*
+- emit classified nextActions for every workflow state *(status)*
 - sync scene add with storyboards *(scene)*
 
 ### Maintenance
 
+- harden agent-host sync and document the topology
+- enforce patch-primary versioning and document git/PR strategy
 - align agent goals and manual release workflow
+
+### Testing
+
+- contract-test the structured error envelope *(cli)*
 
 ## [0.113.0] - 2026-06-12
 

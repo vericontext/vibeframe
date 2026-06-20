@@ -88,7 +88,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "codex-toml",
       notes: [
         "Codex reads AGENTS.md and can also load project-scoped .codex/config.toml after the project is trusted.",
-        "Use Codex /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, retryWith, and repair commands.",
+        "Use Codex /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
         "Keep provider/auth keys in VibeFrame config or environment, not in project-local Codex config.",
       ],
     },
@@ -101,7 +101,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "mcp-json",
       notes: [
         "Claude Code can drive vibe directly through shell plus AGENTS.md/CLAUDE.md.",
-        "Use Claude Code /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, retryWith, and repair commands.",
+        "Use Claude Code /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
         "The MCP entry is optional and gives Claude Code a typed tool surface.",
       ],
     },

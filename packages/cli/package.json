@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.113.1",
+  "version": "0.113.7",
   "description": "VibeFrame CLI - agentic video workflow runtime",
   "private": false,
   "license": "MIT",
@@ -65,7 +65,7 @@
     "lint": "eslint --ext .ts,.tsx src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pretest": "node build.js",
+    "pretest": "pnpm --dir ../core build && pnpm --dir ../ai-providers build && node build.js",
     "prepublishOnly": "node build.js"
   },
   "dependencies": {

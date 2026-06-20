@@ -586,6 +586,10 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "Don't dispatch image-gen even when beats declare backdrop cues",
         "type": "boolean",
       },
+      "skipKeyframe": {
+        "description": "Don't generate keyframe stills (review keyframes first with --skip-video, then build)",
+        "type": "boolean",
+      },
       "skipMusic": {
         "description": "Don't dispatch music generation even when beats declare music cues",
         "type": "boolean",
@@ -4049,7 +4053,7 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard set --descri
         "type": "boolean",
       },
       "key": {
-        "description": "Cue key: duration | narration | backdrop | video | motion | voice | music | asset",
+        "description": "Cue key: duration | narration | backdrop | video | keyframe | motion | voice | music | asset | characters",
         "type": "string",
       },
       "project-dir": {

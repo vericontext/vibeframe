@@ -17,6 +17,7 @@ import {
   KlingProvider,
   RunwayProvider,
   FalProvider,
+  estimateSeedanceVideoCostUsd,
   type MediaReference,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
@@ -245,10 +246,24 @@ Examples:
         }
 
         if (options.dryRun) {
+          // For Seedance, replace the flat cost-tier upper bound with a
+          // token-accurate estimate so agents can gate spend precisely. Other
+          // providers fall back to the tier bound (costUsd left undefined).
+          const costUsd =
+            provider === "seedance" || provider === "fal"
+              ? estimateSeedanceVideoCostUsd({
+                  durationSec: Number(options.duration) || 5,
+                  resolution: options.resolution,
+                  aspectRatio: options.ratio,
+                  fast: options.seedanceModel === "fast",
+                  hasVideoReference: Boolean(options.refVideos),
+                })
+              : undefined;
           outputSuccess({
             command: "generate video",
             startedAt,
             dryRun: true,
+            costUsd,
             data: {
               params: {
                 prompt,

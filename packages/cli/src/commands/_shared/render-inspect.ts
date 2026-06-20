@@ -10,12 +10,14 @@ import { parseStoryboard } from "./storyboard-parse.js";
 import {
   buildReviewReport,
   defaultReviewReportPath,
+  deriveNextReviewActions,
   normalizeReviewIssues,
   scoreIssues,
   statusFromIssues,
   summarizeReviewIssues,
   uniqueRetryWith,
   writeReviewReport,
+  type ReviewAction,
   type ReviewIssue,
   type ReviewSeverity,
   type ReviewSummary,
@@ -92,6 +94,7 @@ export interface RenderInspectResult {
   score: number;
   issues: ReviewIssue[];
   summary: ReviewSummary;
+  nextActions: ReviewAction[];
   sourceReports: string[];
   checks: {
     renderFound: boolean;
@@ -421,6 +424,8 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       message: opts.beatId
         ? `No rendered video was found for beat "${opts.beatId}". Pass --video or render the beat first.`
         : "No rendered video was found. Pass --video or render the project first.",
+      beatId: opts.beatId,
+      scene: opts.beatId,
       suggestedFix: opts.beatId
         ? "Run `vibe render <project> --beat <id> --json`."
         : "Run `vibe build --stage render --json` or `vibe render --json`.",
@@ -448,6 +453,8 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
       code: "EMPTY_RENDER",
       message: "Rendered video file is empty.",
       file: displayPath(videoPath),
+      beatId: opts.beatId,
+      scene: opts.beatId,
       suggestedFix: opts.beatId
         ? "Render again with `vibe render --beat <id> --json`."
         : "Render again with `vibe render --json`.",
@@ -826,7 +833,11 @@ function makeRenderResult(
   retryWith: string[],
   score: number
 ): RenderInspectResult {
-  const normalizedIssues = normalizeReviewIssues(issues);
+  const normalizedRetryWith = uniqueRetryWith(retryWith);
+  const normalizedIssues = normalizeReviewIssues(issues, {
+    projectDir,
+    retryWith: normalizedRetryWith,
+  });
   const status = statusFromIssues(normalizedIssues);
   return {
     schemaVersion: "1",
@@ -839,9 +850,14 @@ function makeRenderResult(
     score,
     issues: normalizedIssues,
     summary: summarizeReviewIssues(normalizedIssues),
+    nextActions: deriveNextReviewActions({
+      issues: normalizedIssues,
+      retryWith: normalizedRetryWith,
+      projectDir,
+    }),
     sourceReports: renderSourceReports(projectDir, videoPath, checks),
     checks,
-    retryWith: uniqueRetryWith(retryWith),
+    retryWith: normalizedRetryWith,
   };
 }
 

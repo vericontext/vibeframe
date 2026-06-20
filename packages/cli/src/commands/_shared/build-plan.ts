@@ -17,10 +17,13 @@ import {
   type BuildAssetKind,
   type CacheAssetDescriptor,
   imageRatioForSize,
+  keyframeCacheDescriptor,
   musicCacheDescriptor,
   narrationCacheDescriptor,
+  normalizeVideoDuration,
   videoCacheDescriptor,
 } from "./build-cache.js";
+import { estimateSeedanceVideoCostUsd } from "@vibeframe/ai-providers";
 import {
   assetFreshnessFromMetadata,
   assetMetadataPath,
@@ -28,7 +31,12 @@ import {
 } from "./build-asset-metadata.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { composerEnvVar, isComposerProvider, type ComposerProvider } from "./composer-resolve.js";
-import { parseStoryboard, type ParsedStoryboard } from "./storyboard-parse.js";
+import {
+  beatCharacterNames,
+  parseStoryboard,
+  resolveCharacters,
+  type ParsedStoryboard,
+} from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
 
@@ -55,6 +63,7 @@ export interface BuildPlanBeat {
   assets: {
     narration: AssetPlan | null;
     backdrop: AssetPlan | null;
+    keyframe: AssetPlan | null;
     video: AssetPlan | null;
     music: AssetPlan | null;
   };
@@ -138,6 +147,7 @@ export interface CreateBuildPlanOptions {
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   skipVideo?: boolean;
+  skipKeyframe?: boolean;
   skipMusic?: boolean;
   ttsProvider?: string;
   voice?: string;
@@ -268,6 +278,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const backdropPrompt = stringOrUndefined(cue.backdrop);
     const augmentedBackdropPrompt = backdropPrompt ? augmentBackdropPrompt(backdropPrompt) : null;
     const videoPrompt = stringOrUndefined(cue.video);
+    const keyframePrompt = stringOrUndefined(cue.keyframe);
     const musicPrompt = stringOrUndefined(cue.music);
     const genericReference = resolveGenericAssetReference(projectDir, cue.asset);
     const narrationReference = resolveTypedAssetReference(projectDir, "narration", cue.narration);
@@ -282,7 +293,9 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       (!musicPrompt && genericReference?.kind === "music" ? genericReference : null);
     const narrationCue = narrationText ?? narrationReference?.raw;
     const backdropCue = backdropPrompt ?? backdropReference?.raw;
-    const videoCue = videoPrompt ?? videoReference?.raw;
+    // A `keyframe:` cue produces a clip via image-to-video even without a
+    // `video:` cue (the keyframe prompt then supplies the motion prompt too).
+    const videoCue = videoPrompt ?? videoReference?.raw ?? keyframePrompt;
     const musicCue = musicPrompt ?? musicReference?.raw;
     const narrationCost =
       resolved.narration.resolved === "elevenlabs"
@@ -312,14 +325,25 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const videoCache =
-      videoPrompt && !videoReference
+      (videoPrompt || keyframePrompt) && !videoReference
         ? videoCacheDescriptor({
             beatId: beat.id,
-            cue: videoPrompt,
+            cue: videoPrompt ?? keyframePrompt!,
             provider: resolved.video.resolved,
             duration: beat.duration,
+            keyframe: keyframePrompt,
           })
         : null;
+    const keyframeCache = keyframePrompt
+      ? keyframeCacheDescriptor({
+          beatId: beat.id,
+          cue: keyframePrompt,
+          provider: resolved.image.resolved,
+          quality: imageQuality,
+          size: imageSize,
+          ratio: imageRatio,
+        })
+      : null;
     const musicCache =
       musicPrompt && !musicReference
         ? musicCacheDescriptor({
@@ -366,6 +390,22 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             active: includeAssets,
           })
         : null;
+    const keyframe =
+      keyframePrompt && !opts.skipKeyframe
+        ? assetPlan({
+            kind: "keyframe",
+            beatId: beat.id,
+            cue: keyframePrompt,
+            provider: resolved.image.resolved,
+            path: `assets/keyframe-${beat.id}.png`,
+            cache: keyframeCache,
+            reference: null,
+            projectDir,
+            force: opts.force,
+            cost: backdropCostUsd(imageQuality),
+            active: includeAssets,
+          })
+        : null;
     const video =
       videoCue && !opts.skipVideo
         ? assetPlan({
@@ -378,7 +418,14 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             reference: videoReference,
             projectDir,
             force: opts.force,
-            cost: VIDEO_COST_USD,
+            cost:
+              resolved.video.resolved === "seedance" || resolved.video.resolved === "fal"
+                ? estimateSeedanceVideoCostUsd({
+                    durationSec: normalizeVideoDuration(beat.duration),
+                    resolution: "720p",
+                    aspectRatio: "16:9",
+                  })
+                : VIDEO_COST_USD,
             active: includeAssets,
           })
         : null;
@@ -401,7 +448,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     const compositionPath = `compositions/scene-${beat.id}.html`;
     const compositionExists = existsSync(join(projectDir, compositionPath));
 
-    for (const asset of [narration, backdrop, video, music]) {
+    for (const asset of [narration, backdrop, keyframe, video, music]) {
       if (!asset) continue;
       if (asset.referenceError) {
         missing.add("assets");
@@ -426,6 +473,8 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     if (narration?.willGenerate) noteProviderNeed(resolved.narration, "Narration");
     if (backdrop?.willGenerate && isSupportedBuildImageProvider(resolved.image.resolved))
       noteProviderNeed(resolved.image, "Backdrop generation");
+    if (keyframe?.willGenerate && isSupportedBuildImageProvider(resolved.image.resolved))
+      noteProviderNeed(resolved.image, "Keyframe generation");
     if (video?.willGenerate) noteProviderNeed(resolved.video, "Video generation");
     if (music?.willGenerate) noteProviderNeed(resolved.music, "Music generation");
     if (!compositionExists) missing.add("compositions");
@@ -440,7 +489,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       heading: beat.heading,
       durationSec: beat.duration ?? null,
       cues: cue,
-      assets: { narration, backdrop, video, music },
+      assets: { narration, backdrop, keyframe, video, music },
       composition: {
         path: compositionPath,
         exists: compositionExists,
@@ -505,6 +554,28 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
         `Backdrop image generation will run for ${generatedBackdrops.length} beat(s), estimated $${cost.toFixed(2)}. Use --skip-backdrop for HTML/CSS-derived visuals: ${skipCommand}`
       );
       retryWith.push(skipCommand);
+    }
+  }
+
+  // Character sheets are generated once per build (project-level), before
+  // per-beat video. Estimate cost for referenced, prompt-based characters that
+  // are not already on disk so `--max-cost` gates them.
+  if (validationOk && includeAssets && !opts.skipVideo) {
+    const referenced = new Set<string>();
+    for (const beat of sourceBeats) {
+      for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
+    }
+    if (referenced.size > 0) {
+      const toGenerate = resolveCharacters(parsed.frontmatter).filter(
+        (c) =>
+          referenced.has(c.name) &&
+          c.prompt &&
+          (opts.force || !existsSync(join(projectDir, `assets/character-${c.name}.png`)))
+      );
+      if (toGenerate.length > 0) {
+        estimatedCostUsd += toGenerate.length * backdropCostUsd(opts.imageQuality ?? "hd");
+        missing.add("assets");
+      }
     }
   }
 
@@ -687,7 +758,7 @@ function providerResolutionsForPlan(
   opts: CreateBuildPlanOptions,
   includeAssets: boolean
 ): ProviderResolution[] {
-  const needsProvider = (kind: BuildAssetKind) =>
+  const needsProvider = (kind: keyof BuildPlanBeat["assets"]) =>
     beats.some((beat) => {
       const asset = beat.assets[kind];
       return (
@@ -700,6 +771,7 @@ function providerResolutionsForPlan(
   return [
     includeAssets && !opts.skipNarration && needsProvider("narration") ? resolved.narration : null,
     includeAssets && !opts.skipBackdrop && needsProvider("backdrop") ? resolved.image : null,
+    includeAssets && !opts.skipKeyframe && needsProvider("keyframe") ? resolved.image : null,
     includeAssets && !opts.skipVideo && needsProvider("video") ? resolved.video : null,
     includeAssets && !opts.skipMusic && needsProvider("music") ? resolved.music : null,
     resolved.composer ?? null,

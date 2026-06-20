@@ -19,8 +19,8 @@
  *     already have one with sub-composition references.
  */
 
-import { existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { config as loadDotenv } from "dotenv";
@@ -28,6 +28,7 @@ import {
   GeminiProvider,
   GrokProvider,
   OpenAIImageProvider,
+  estimateSeedanceVideoCostUsd,
   type ImageOptions,
 } from "@vibeframe/ai-providers";
 
@@ -44,7 +45,13 @@ import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
-import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import {
+  beatCharacterNames,
+  parseStoryboard,
+  resolveCharacters,
+  type Beat,
+  type ResolvedCharacter,
+} from "./storyboard-parse.js";
 import { scaffoldSceneProject } from "./scene-project.js";
 import {
   backdropCostUsd,
@@ -65,6 +72,8 @@ import {
 } from "./root-sync.js";
 import {
   backdropCacheDescriptor,
+  characterCacheDescriptor,
+  keyframeCacheDescriptor,
   type BuildAssetKind,
   imageRatioForSize,
   musicCacheDescriptor,
@@ -105,6 +114,9 @@ const BEAT_PRIMITIVES_CONCURRENCY = 4;
 
 export type SceneBuildProgressEvent =
   | { type: "phase-start"; phase: "primitives" | "compose" | "render" }
+  | { type: "character-cached"; name: string; path: string }
+  | { type: "character-generated"; name: string; path: string; provider: string }
+  | { type: "character-failed"; name: string; error: string }
   | { type: "narration-cached"; beatId: string; path: string }
   | { type: "narration-generated"; beatId: string; path: string; provider: string }
   | { type: "narration-failed"; beatId: string; error: string }
@@ -113,6 +125,10 @@ export type SceneBuildProgressEvent =
   | { type: "backdrop-generated"; beatId: string; path: string; provider: string }
   | { type: "backdrop-failed"; beatId: string; error: string }
   | { type: "backdrop-skipped"; beatId: string; reason: string }
+  | { type: "keyframe-cached"; beatId: string; path: string }
+  | { type: "keyframe-generated"; beatId: string; path: string; provider: string }
+  | { type: "keyframe-failed"; beatId: string; error: string }
+  | { type: "keyframe-skipped"; beatId: string; reason: string }
   | { type: "video-cached"; beatId: string; path: string }
   | { type: "video-generated"; beatId: string; path: string; provider: string }
   | { type: "video-pending"; beatId: string; jobId: string; provider: string }
@@ -172,6 +188,9 @@ export interface BeatBuildOutcome {
   videoMetadataPath?: string;
   videoFreshness?: AssetFreshness;
   videoSourcePath?: string;
+  /** Keyframe still status when the beat uses keyframe → image-to-video mode. */
+  keyframeStatus?: PrimitiveStatus;
+  keyframePath?: string;
   musicStatus: PrimitiveStatus;
   musicPath?: string;
   musicJobId?: string;
@@ -236,6 +255,8 @@ export interface SceneBuildOptions {
   musicProvider?: BuildMusicProvider;
   /** Skip AI video generation even when beats declare video cues. */
   skipVideo?: boolean;
+  /** Skip keyframe-still generation even when beats declare keyframe cues. */
+  skipKeyframe?: boolean;
   /** Skip music generation even when beats declare music cues. */
   skipMusic?: boolean;
   /** OpenAI image quality — see `vibe generate image --quality`. */
@@ -362,9 +383,21 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const onProgress = opts.onProgress ?? (() => {});
   const mode = resolveSceneBuildMode(opts);
   const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
+  // --skip-video produces keyframe stills (an image storyboard) for review, not
+  // a final video. The composition would reference <video> clips that were never
+  // generated, so capture can't run. Keep the full pipeline (assets → compose →
+  // sync) so the keyframes ARE generated, and skip ONLY the render stage.
+  const skipVideoStopsRender =
+    (opts.skipVideo ?? false) && (selectedStage === "all" || selectedStage === "render");
+  const effectiveSkipRender = (opts.skipRender ?? false) || skipVideoStopsRender;
   const stageReports = createEmptyStageReports();
   const warnings: string[] = [];
   const retryWith: string[] = [];
+  if (skipVideoStopsRender) {
+    warnings.push(
+      "--skip-video: skipped render (no clips to capture). Review assets/keyframe-*.png, then build without --skip-video to animate them."
+    );
+  }
   let sceneRepair = skippedSceneRepairSummary();
 
   const storyboardPath = join(projectDir, "STORYBOARD.md");
@@ -376,6 +409,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     skipNarration: opts.skipNarration,
     skipBackdrop: opts.skipBackdrop,
     skipVideo: opts.skipVideo,
+    skipKeyframe: opts.skipKeyframe,
     skipMusic: opts.skipMusic,
     ttsProvider: opts.ttsProvider,
     voice: opts.voice,
@@ -545,8 +579,38 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
 
   let beatOutcomes: BeatBuildOutcome[] = collectExistingBeatOutcomes(parsed.beats, projectDir);
   let pendingJobs: JobRecord[] = [];
+  let characterCostUsd = 0;
   if (shouldRunStage(selectedStage, "assets")) {
     onProgress({ type: "phase-start", phase: "primitives" });
+
+    // Generate the character sheets referenced by any beat once, up front, so
+    // both reference-to-video (dispatchVideo) and keyframe edits
+    // (dispatchKeyframe) can use them. Needed whenever video OR keyframe runs —
+    // only skip when both are skipped.
+    const characterPaths = new Map<string, string>();
+    if (!((opts.skipVideo ?? false) && (opts.skipKeyframe ?? false))) {
+      const referenced = new Set<string>();
+      for (const beat of activeBeats) {
+        for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
+      }
+      if (referenced.size > 0) {
+        const charResult = await buildCharacters(
+          resolveCharacters(parsed.frontmatter).filter((c) => referenced.has(c.name)),
+          {
+            projectDir,
+            imageProvider,
+            imageSize: opts.imageSize ?? "1536x1024",
+            imageQuality: opts.imageQuality ?? "hd",
+            force: opts.force ?? false,
+            onProgress,
+          }
+        );
+        for (const [name, path] of charResult.paths) characterPaths.set(name, path);
+        characterCostUsd = charResult.costUsd;
+        warnings.push(...charResult.failures);
+      }
+    }
+
     const primitiveResults = await mapWithConcurrency(
       activeBeats,
       BEAT_PRIMITIVES_CONCURRENCY,
@@ -563,9 +627,11 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           skipNarration: opts.skipNarration ?? false,
           skipBackdrop: opts.skipBackdrop ?? false,
           skipVideo: opts.skipVideo ?? false,
+          skipKeyframe: opts.skipKeyframe ?? false,
           skipMusic: opts.skipMusic ?? false,
           force: opts.force ?? false,
           onProgress,
+          characterPaths,
         })
     );
     beatOutcomes = primitiveResults.map((result) => result.outcome);
@@ -582,10 +648,8 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       : pendingJobs.length > 0
         ? "pending-jobs"
         : "done";
-    stageReports.assets.costUsd = estimateActualAssetCost(
-      beatOutcomes,
-      opts.imageQuality ?? "hd"
-    );
+    stageReports.assets.costUsd =
+      estimateActualAssetCost(beatOutcomes, opts.imageQuality ?? "hd") + characterCostUsd;
     stageReports.assets.retryWith = pendingJobs.map(
       (job) => `vibe status job ${job.id} --project ${projectDir} --json`
     );
@@ -767,6 +831,21 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   }
 
   if (stageReports.compose.status === "done") {
+    // A beat with a generated clip whose composition never references it would
+    // silently drop the clip from the render. Warn (don't mutate the
+    // LLM-authored HTML) and offer a targeted recompose.
+    for (const beat of activeBeats) {
+      const videoRel = `assets/video-${beat.id}.mp4`;
+      const compositionAbs = join(projectDir, "compositions", `scene-${beat.id}.html`);
+      if (!existsSync(join(projectDir, videoRel)) || !existsSync(compositionAbs)) continue;
+      const html = readFileSync(compositionAbs, "utf-8");
+      if (!html.includes(videoRel)) {
+        warnings.push(
+          `Beat "${beat.id}" has a generated clip (${videoRel}) but its composition does not reference it, so the clip will not appear. Recompose the beat.`
+        );
+        retryWith.push(`vibe build ${projectDir} --beat ${beat.id} --stage compose --force --json`);
+      }
+    }
     const repair = await runBuildSceneRepair(projectDir, "compose", false);
     sceneRepair = mergeSceneRepairSummaries(sceneRepair, repair);
     applySceneRepairToStage(stageReports.compose, repair);
@@ -878,7 +957,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     }
   }
 
-  if (selectedStage === "sync" || opts.skipRender) {
+  if (selectedStage === "sync" || effectiveSkipRender) {
     return finishBuildResult({
       success: true,
       phase: "sync-only",
@@ -981,9 +1060,12 @@ interface BeatDispatchContext {
   skipNarration: boolean;
   skipBackdrop: boolean;
   skipVideo: boolean;
+  skipKeyframe: boolean;
   skipMusic: boolean;
   force: boolean;
   onProgress: (e: SceneBuildProgressEvent) => void;
+  /** name → relative path of generated/supplied character reference images. */
+  characterPaths?: Map<string, string>;
 }
 
 interface BeatPrimitiveResult {
@@ -995,6 +1077,12 @@ async function buildBeatPrimitives(
   beat: Beat,
   ctx: BeatDispatchContext
 ): Promise<BeatPrimitiveResult> {
+  // Keyframe is generated first as a first-class asset: the video step animates
+  // it (image-to-video), and `--skip-video` lets the keyframe storyboard be
+  // reviewed before any paid video is dispatched.
+  const keyframe = ctx.skipKeyframe
+    ? await skipped("keyframe", beat.id, "--skip-keyframe", ctx)
+    : await dispatchKeyframe(beat, ctx);
   const [narration, backdrop, video, music] = await Promise.all([
     ctx.skipNarration
       ? skipped("narration", beat.id, "--skip-narration", ctx)
@@ -1002,7 +1090,9 @@ async function buildBeatPrimitives(
     ctx.skipBackdrop
       ? skipped("backdrop", beat.id, "--skip-backdrop", ctx)
       : dispatchBackdrop(beat, ctx),
-    ctx.skipVideo ? skipped("video", beat.id, "--skip-video", ctx) : dispatchVideo(beat, ctx),
+    ctx.skipVideo
+      ? skipped("video", beat.id, "--skip-video", ctx)
+      : dispatchVideo(beat, ctx, keyframe),
     ctx.skipMusic ? skipped("music", beat.id, "--skip-music", ctx) : dispatchMusic(beat, ctx),
   ]);
   return {
@@ -1048,6 +1138,8 @@ async function buildBeatPrimitives(
       videoMetadataPath: video.metadataPath,
       videoFreshness: video.freshness,
       videoSourcePath: video.sourcePath,
+      keyframeStatus: keyframe.status,
+      keyframePath: keyframe.path,
       musicStatus: music.status,
       musicPath: music.path,
       musicJobId: music.job?.id,
@@ -1250,6 +1342,13 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
 
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, result.audioBuffer);
+  // Remove stale narration of the OTHER extension so a TTS-provider switch
+  // (e.g. kokoro .wav → openai .mp3) doesn't leave a file that shadows this one
+  // in the root composition and keeps the old voice in the render.
+  for (const otherExt of ["mp3", "wav"]) {
+    const sibling = join(ctx.projectDir, `assets/narration-${beat.id}.${otherExt}`);
+    if (sibling !== abs && existsSync(sibling)) await rm(sibling, { force: true });
+  }
   await mkdir(dirname(cacheAbs), { recursive: true });
   await writeFile(cacheAbs, result.audioBuffer);
   await writeAssetMetadata({
@@ -1279,6 +1378,152 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
     metadataPath,
     freshness: "fresh",
   };
+}
+
+interface CharacterBuildResult {
+  /** name → relative path of the resolved reference image. */
+  paths: Map<string, string>;
+  costUsd: number;
+  failures: string[];
+}
+
+/** Turnaround character-sheet prompt — leads with a frontal face close-up so
+ * downstream scene edits have a strong identity anchor (faces in a pure
+ * turnaround are too small to hold identity across scenes). */
+function characterSheetPrompt(name: string, description: string): string {
+  return [
+    `Character reference sheet of an original fictional character named ${name}: ${description}.`,
+    "Top row: ONE large, sharp, evenly-lit frontal close-up of the FACE (head and shoulders) as the primary identity anchor — clear eyes, nose, jawline, and skin detail.",
+    "Bottom row: three full-body views side by side — front, side profile, and back.",
+    "The face, facial features, hairstyle, hair color, outfit, and body proportions must be IDENTICAL across the close-up and all three views.",
+    "Plain light-grey studio background, even neutral lighting, no props.",
+    "Photorealistic, professional concept-art character sheet layout.",
+  ].join(" ");
+}
+
+/**
+ * Generate (or reuse) the project's referenced character sheets once per build,
+ * before per-beat assets. Each generated sheet lands at
+ * `assets/character-<name>.png` and is cached like a backdrop; `image:` entries
+ * are referenced in place. Returns name → path so `dispatchVideo` can pass them
+ * as Seedance references.
+ */
+async function buildCharacters(
+  characters: ResolvedCharacter[],
+  ctx: ImageGenContext & { force: boolean; onProgress: (e: SceneBuildProgressEvent) => void }
+): Promise<CharacterBuildResult> {
+  const paths = new Map<string, string>();
+  const failures: string[] = [];
+  let costUsd = 0;
+  const size = ctx.imageSize ?? "1536x1024";
+
+  for (const character of characters) {
+    // Bring-your-own image: reference it directly when present.
+    if (character.imagePath) {
+      if (existsSync(join(ctx.projectDir, character.imagePath))) {
+        paths.set(character.name, character.imagePath);
+        ctx.onProgress({ type: "character-cached", name: character.name, path: character.imagePath });
+      } else {
+        const error = `character "${character.name}" image not found: ${character.imagePath}`;
+        failures.push(error);
+        ctx.onProgress({ type: "character-failed", name: character.name, error });
+      }
+      continue;
+    }
+    if (!character.prompt) continue;
+
+    const prompt = characterSheetPrompt(character.name, character.prompt);
+    const rel = `assets/character-${character.name}.png`;
+    const abs = join(ctx.projectDir, rel);
+    const metadataOptions = { quality: ctx.imageQuality, size };
+    const cache = characterCacheDescriptor({
+      name: character.name,
+      cue: prompt,
+      provider: ctx.imageProvider,
+      quality: ctx.imageQuality,
+      size,
+    });
+
+    if (existsSync(abs) && !ctx.force) {
+      const metadata = readAssetMetadata(ctx.projectDir, "character", character.name);
+      if (
+        !metadata ||
+        isFreshCanonicalAsset({
+          projectDir: ctx.projectDir,
+          kind: "character",
+          beatId: character.name,
+          cue: prompt,
+          provider: ctx.imageProvider,
+          options: metadataOptions,
+          cacheKey: cache.key,
+        })
+      ) {
+        paths.set(character.name, rel);
+        ctx.onProgress({ type: "character-cached", name: character.name, path: rel });
+        continue;
+      }
+    }
+    const cacheAbs = join(ctx.projectDir, cache.path);
+    if (existsSync(cacheAbs) && !ctx.force) {
+      await mkdir(dirname(abs), { recursive: true });
+      await copyFile(cacheAbs, abs);
+      await writeAssetMetadata({
+        projectDir: ctx.projectDir,
+        kind: "character",
+        beatId: character.name,
+        cue: prompt,
+        provider: ctx.imageProvider,
+        options: metadataOptions,
+        cacheKey: cache.key,
+        canonicalPath: rel,
+        cachePath: cache.path,
+      });
+      paths.set(character.name, rel);
+      ctx.onProgress({ type: "character-cached", name: character.name, path: rel });
+      continue;
+    }
+
+    const generated = await generateBackdropImage(
+      prompt,
+      {
+        projectDir: ctx.projectDir,
+        imageProvider: ctx.imageProvider,
+        imageSize: size,
+        imageQuality: ctx.imageQuality,
+      },
+      imageRatioForSize(size)
+    );
+    if (!generated.success) {
+      failures.push(`character "${character.name}": ${generated.error}`);
+      ctx.onProgress({ type: "character-failed", name: character.name, error: generated.error });
+      continue;
+    }
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, generated.buffer);
+    await mkdir(dirname(cacheAbs), { recursive: true });
+    await writeFile(cacheAbs, generated.buffer);
+    await writeAssetMetadata({
+      projectDir: ctx.projectDir,
+      kind: "character",
+      beatId: character.name,
+      cue: prompt,
+      provider: ctx.imageProvider,
+      options: metadataOptions,
+      cacheKey: cache.key,
+      canonicalPath: rel,
+      cachePath: cache.path,
+    });
+    costUsd += backdropCostUsd(ctx.imageQuality);
+    paths.set(character.name, rel);
+    ctx.onProgress({
+      type: "character-generated",
+      name: character.name,
+      path: rel,
+      provider: ctx.imageProvider,
+    });
+  }
+
+  return { paths, costUsd: Number(costUsd.toFixed(2)), failures };
 }
 
 async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
@@ -1405,9 +1650,17 @@ type GeneratedBackdropResult =
   | { success: true; buffer: Buffer }
   | { success: false; error: string };
 
+/** Minimal context for raw image generation — shared by backdrops and characters. */
+interface ImageGenContext {
+  projectDir: string;
+  imageProvider: BuildImageProvider;
+  imageSize: ImageOptions["size"];
+  imageQuality: "standard" | "hd";
+}
+
 async function generateBackdropImage(
   prompt: string,
-  ctx: BeatDispatchContext,
+  ctx: ImageGenContext,
   ratio: string
 ): Promise<GeneratedBackdropResult> {
   loadSceneBuildEnv(ctx.projectDir);
@@ -1453,6 +1706,155 @@ async function generateBackdropImage(
   return imageBufferFromResult(result);
 }
 
+/**
+ * Generate a keyframe still by editing the character sheet(s) with the
+ * keyframe prompt (so the character stays consistent). Mirrors
+ * `generateBackdropImage` but uses each provider's `editImage`.
+ */
+async function editKeyframeImage(
+  prompt: string,
+  sheetBuffers: Buffer[],
+  ctx: ImageGenContext,
+  ratio: string
+): Promise<GeneratedBackdropResult> {
+  loadSceneBuildEnv(ctx.projectDir);
+  const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
+  const apiKey =
+    (await getApiKeyFromConfig(keyInfo.configKey, { cwd: ctx.projectDir })) ??
+    process.env[keyInfo.envVar] ??
+    "";
+  if (!apiKey) {
+    return {
+      success: false,
+      error: `${keyInfo.envVar} not set — cannot generate keyframe with ${ctx.imageProvider}`,
+    };
+  }
+
+  if (ctx.imageProvider === "openai") {
+    const provider = new OpenAIImageProvider();
+    await provider.initialize({ apiKey });
+    const result = await provider.editImage(sheetBuffers, prompt);
+    return imageBufferFromResult(result);
+  }
+
+  if (ctx.imageProvider === "gemini") {
+    const provider = new GeminiProvider();
+    await provider.initialize({ apiKey });
+    const result = await provider.editImage(sheetBuffers, prompt, {
+      model: "flash",
+      aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
+    });
+    return imageBufferFromResult(result);
+  }
+
+  const provider = new GrokProvider();
+  await provider.initialize({ apiKey });
+  // Grok edits a single input image.
+  const result = await provider.editImage(sheetBuffers[0], prompt, { aspectRatio: ratio });
+  return imageBufferFromResult(result);
+}
+
+/**
+ * Ensure `assets/keyframe-<beatId>.png` exists for keyframe → image-to-video
+ * mode. Edits the character sheet(s) with the keyframe prompt when present,
+ * else text-to-image. Cached like a backdrop.
+ */
+async function ensureKeyframe(
+  beat: Beat,
+  ctx: BeatDispatchContext,
+  keyframeCue: string,
+  characterRefsRel: string[]
+): Promise<{ status: "generated" | "cached"; rel: string } | { status: "failed"; error: string }> {
+  const rel = `assets/keyframe-${beat.id}.png`;
+  const abs = join(ctx.projectDir, rel);
+  const size = ctx.imageSize ?? "1536x1024";
+  const ratio = imageRatioForSize(size);
+  const metadataOptions = { quality: ctx.imageQuality, size, ratio };
+  const cache = keyframeCacheDescriptor({
+    beatId: beat.id,
+    cue: keyframeCue,
+    provider: ctx.imageProvider,
+    quality: ctx.imageQuality,
+    size,
+    ratio,
+    characters: characterRefsRel,
+  });
+
+  if (existsSync(abs) && !ctx.force) {
+    const metadata = readAssetMetadata(ctx.projectDir, "keyframe", beat.id);
+    if (
+      !metadata ||
+      isFreshCanonicalAsset({
+        projectDir: ctx.projectDir,
+        kind: "keyframe",
+        beatId: beat.id,
+        cue: keyframeCue,
+        provider: ctx.imageProvider,
+        options: metadataOptions,
+        cacheKey: cache.key,
+      })
+    ) {
+      return { status: "cached", rel };
+    }
+  }
+  const cacheAbs = join(ctx.projectDir, cache.path);
+  if (existsSync(cacheAbs) && !ctx.force) {
+    await mkdir(dirname(abs), { recursive: true });
+    await copyFile(cacheAbs, abs);
+    await writeAssetMetadata({
+      projectDir: ctx.projectDir,
+      kind: "keyframe",
+      beatId: beat.id,
+      cue: keyframeCue,
+      provider: ctx.imageProvider,
+      options: metadataOptions,
+      cacheKey: cache.key,
+      canonicalPath: rel,
+      cachePath: cache.path,
+    });
+    return { status: "cached", rel };
+  }
+
+  const sheetBuffers: Buffer[] = [];
+  for (const relPath of characterRefsRel) {
+    const sheetAbs = join(ctx.projectDir, relPath);
+    if (existsSync(sheetAbs)) sheetBuffers.push(await readFile(sheetAbs));
+  }
+  const imgCtx: ImageGenContext = {
+    projectDir: ctx.projectDir,
+    imageProvider: ctx.imageProvider,
+    imageSize: size,
+    imageQuality: ctx.imageQuality,
+  };
+  // Identity-lock prefix: editing a scene from the character sheet drifts the
+  // face unless we explicitly pin the facial features. Only applies when we have
+  // a character reference to edit from.
+  const identityLock =
+    "Keep the EXACT same person and face as the reference image(s): identical facial features (eyes, nose shape, jawline), skin tone and complexion, hairstyle, hair color, and wardrobe. Do not restyle or change the face. Change only the scene, pose, framing, and lighting. ";
+  const generated =
+    sheetBuffers.length > 0
+      ? await editKeyframeImage(`${identityLock}${keyframeCue}`, sheetBuffers, imgCtx, ratio)
+      : await generateBackdropImage(keyframeCue, imgCtx, ratio);
+  if (!generated.success) return { status: "failed", error: generated.error };
+
+  await mkdir(dirname(abs), { recursive: true });
+  await writeFile(abs, generated.buffer);
+  await mkdir(dirname(cacheAbs), { recursive: true });
+  await writeFile(cacheAbs, generated.buffer);
+  await writeAssetMetadata({
+    projectDir: ctx.projectDir,
+    kind: "keyframe",
+    beatId: beat.id,
+    cue: keyframeCue,
+    provider: ctx.imageProvider,
+    options: metadataOptions,
+    cacheKey: cache.key,
+    canonicalPath: rel,
+    cachePath: cache.path,
+  });
+  return { status: "generated", rel };
+}
+
 async function imageBufferFromResult(result: {
   success: boolean;
   error?: string;
@@ -1479,12 +1881,52 @@ function imageProviderKeyInfo(provider: BuildImageProvider): { configKey: string
   return { configKey: "openai", envVar: "OPENAI_API_KEY" };
 }
 
-async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
+/**
+ * Generate (or reuse) this beat's keyframe still as a first-class asset, so it
+ * can be reviewed via `vibe build --skip-video` before any paid image-to-video.
+ * The video step consumes the result.
+ */
+async function dispatchKeyframe(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
+  const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
+  if (!keyframeCue) return { status: "no-cue" };
+
+  const characterRefsRel = beatCharacterNames(beat.cues)
+    .map((name) => ctx.characterPaths?.get(name))
+    .filter((p): p is string => typeof p === "string");
+
+  const kf = await ensureKeyframe(beat, ctx, keyframeCue, characterRefsRel);
+  if (kf.status === "failed") {
+    ctx.onProgress({ type: "keyframe-failed", beatId: beat.id, error: kf.error });
+    return { status: "failed", error: kf.error };
+  }
+  ctx.onProgress(
+    kf.status === "cached"
+      ? { type: "keyframe-cached", beatId: beat.id, path: kf.rel }
+      : { type: "keyframe-generated", beatId: beat.id, path: kf.rel, provider: ctx.imageProvider }
+  );
+  return { status: kf.status, path: kf.rel, provider: ctx.imageProvider };
+}
+
+async function dispatchVideo(
+  beat: Beat,
+  ctx: BeatDispatchContext,
+  keyframe: PrimitiveOutcome
+): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "video", beat);
   if (reference) return referencePrimitiveOutcome("video", beat, ctx, reference);
 
-  const prompt = stringOrUndefined(beat.cues?.video);
+  const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
+  // Motion prompt: explicit `video:` cue, else fall back to the keyframe prompt.
+  const prompt = stringOrUndefined(beat.cues?.video) ?? keyframeCue;
   if (!prompt) return { status: "no-cue" };
+
+  // Resolve this beat's character sheets (generated up front by buildCharacters)
+  // into Seedance reference-to-video inputs. Relative paths key the cache (stable
+  // across machines); absolute paths are handed to the generator.
+  const characterRefsRel = beatCharacterNames(beat.cues)
+    .map((name) => ctx.characterPaths?.get(name))
+    .filter((p): p is string => typeof p === "string");
+  const characterRefsAbs = characterRefsRel.map((p) => join(ctx.projectDir, p));
 
   const rel = `assets/video-${beat.id}.mp4`;
   const abs = join(ctx.projectDir, rel);
@@ -1493,6 +1935,10 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cue: prompt,
     provider: ctx.videoProvider,
     duration: normalizeVideoDuration(beat.duration),
+    // Keyframe mode keys the clip to the keyframe prompt; refs feed the keyframe,
+    // not the clip directly.
+    characters: keyframeCue ? undefined : characterRefsRel,
+    keyframe: keyframeCue,
   });
   const metadataPath = assetMetadataPath("video", beat.id);
   if (existsSync(abs) && !ctx.force) {
@@ -1548,6 +1994,23 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     };
   }
 
+  // Keyframe → image-to-video: the still is produced up front by
+  // dispatchKeyframe. It must be ready to animate; if it was skipped
+  // (--skip-keyframe) or failed, we can't run image-to-video for this beat.
+  const keyframeImageRel =
+    keyframeCue && (keyframe.status === "generated" || keyframe.status === "cached")
+      ? keyframe.path
+      : undefined;
+  if (keyframeCue && !keyframeImageRel) {
+    const reason =
+      keyframe.status === "failed"
+        ? `keyframe unavailable: ${keyframe.error ?? "generation failed"}`
+        : "keyframe not generated (build without --skip-keyframe first)";
+    ctx.onProgress({ type: "video-skipped", beatId: beat.id, reason });
+    return { status: "skipped" };
+  }
+  const keyframeImageAbs = keyframeImageRel ? join(ctx.projectDir, keyframeImageRel) : undefined;
+
   loadSceneBuildEnv(ctx.projectDir);
   const result = await executeVideoGenerate({
     prompt,
@@ -1556,6 +2019,18 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     ratio: "16:9",
     output: abs,
     wait: false,
+    // Keyframe mode → single init frame (image-to-video); otherwise character
+    // reference-to-video.
+    image: keyframeImageAbs,
+    refImages: keyframeImageAbs
+      ? undefined
+      : characterRefsAbs.length > 0
+        ? characterRefsAbs
+        : undefined,
+    // Build clips are always muted in the composition (a separate narration/music
+    // track carries audio), so the model's generated audio is never used. Disable
+    // it: it's wasted, and Seedance's audio moderation can spuriously fail a beat.
+    generateAudio: false,
     apiKey: await apiKeyForVideoProvider(ctx.videoProvider, ctx.projectDir),
   });
   if (!result.success || !result.taskId) {
@@ -1599,7 +2074,7 @@ async function dispatchVideo(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     jobType: "generate-video",
     provider: result.provider ?? ctx.videoProvider,
     providerTaskId: result.taskId,
-    providerTaskType: "text2video",
+    providerTaskType: keyframeImageAbs ? "image2video" : "text2video",
     status: "running",
     projectDir: ctx.projectDir,
     workingDirectory: ctx.projectDir,
@@ -1804,7 +2279,7 @@ function loadSceneBuildEnv(projectDir: string): void {
 }
 
 async function skipped(
-  kind: "narration" | "backdrop" | "video" | "music",
+  kind: "narration" | "backdrop" | "keyframe" | "video" | "music",
   beatId: string,
   reason: string,
   ctx: BeatDispatchContext
@@ -1977,7 +2452,17 @@ function estimateActualAssetCost(
   for (const outcome of outcomes) {
     if (outcome.narrationStatus === "generated") cost += 0.05;
     if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
-    if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") cost += 5;
+    if (outcome.keyframeStatus === "generated") cost += backdropCostUsd(imageQuality);
+    if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") {
+      cost +=
+        outcome.videoProvider === "seedance" || outcome.videoProvider === "fal"
+          ? estimateSeedanceVideoCostUsd({
+              durationSec: normalizeVideoDuration(outcome.sceneDurationSec),
+              resolution: "720p",
+              aspectRatio: "16:9",
+            })
+          : 5;
+    }
     if (outcome.musicStatus === "generated" || outcome.musicStatus === "pending") cost += 0.5;
   }
   return Number(cost.toFixed(2));
