@@ -48,6 +48,44 @@ and prefer `nextActions`: run only `safeToAutoRun:true` actions automatically,
 ask before `requiresConfirmation:true`, and use `retryWith` only as the
 compatibility fallback.
 
+Worked example — `vibe inspect project my-video --json` returns a review report
+whose `nextActions` are pre-classified so the host loop never has to guess:
+
+```jsonc
+{
+  "kind": "review", "status": "fail", "score": 17,
+  "nextActions": [
+    {
+      "kind": "command",
+      "command": "vibe build my-video --stage sync --json",
+      "fixOwner": "vibe",        // VibeFrame can fix this itself
+      "costTier": "free",
+      "safeToAutoRun": true,     // → run it without asking
+      "requiresConfirmation": false,
+      "reason": "The root composition is missing or could not be verified."
+    },
+    {
+      "kind": "command",
+      "command": "vibe generate video ... --json",
+      "fixOwner": "host-agent",  // the outer goal loop owns this
+      "costTier": "very-high",
+      "safeToAutoRun": false,
+      "requiresConfirmation": true,  // → ask the user before spending
+      "reason": "Regenerating the clip is a paid provider call."
+    }
+  ],
+  "retryWith": ["vibe build my-video --stage sync --json"]
+}
+```
+
+Host-loop logic: iterate `nextActions` → run every `safeToAutoRun:true` action
+as-is → for `requiresConfirmation:true` (or any `very-high`/`unknown` `costTier`)
+ask the user first → if a `command` is rejected by an older CLI, fall back to
+`retryWith`. Stop when a re-`inspect` returns `status:"pass"` and no
+`fixOwner:"host-agent"` issues remain. `fixOwner` tells you who acts:
+`"vibe"` actions are safe local repairs; `"host-agent"` actions are yours to run
+or escalate. Never invent commands when `nextActions` is present.
+
 Claude Desktop uses global MCP config, so anchor it to the workspace you want
 relative project names to resolve under. VibeFrame writes a shell wrapper
 because Claude Desktop may not preserve a raw `cwd` field:
@@ -65,7 +103,7 @@ Use the folders consistently:
 | Path            | Role                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `brief.md`      | Optional rough input before `vibe init`; can live outside or beside the project.     |
-| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues.                              |
+| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues. Scene audio comes only from explicit `narration`/`music` cues — composition never invents ambient/foley SFX. |
 | `DESIGN.md`     | Palette, typography, layout, motion, transitions, and visual anti-patterns.          |
 | `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings.    |
 | `assets/`       | Generated or canonical build assets such as narration, backdrops, music, and videos. |

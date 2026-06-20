@@ -157,6 +157,13 @@ describe("buildUserPrompt", () => {
     expect(u).toContain("never with inner clip windows");
   });
 
+  it("forbids inventing sound effects in the visual-only fragment", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "" });
+    expect(u).toContain("Do NOT invent sound effects");
+    expect(u).toContain("visual-only");
+    expect(u).toContain("narration");
+  });
+
   it("changes the cache key when finalDurationSec changes", () => {
     const a = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 6 });
     const b = buildUserPrompt({ beat, storyboardGlobal: "", finalDurationSec: 8.26 });
