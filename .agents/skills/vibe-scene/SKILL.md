@@ -94,10 +94,29 @@ vibe scene install-skill my-video --host auto
 vibe scene compose-prompts my-video --json
 vibe scene list-styles
 vibe scene add intro --project my-video --style announcement --headline "Hello"
+vibe scene add badge --project my-video --style simple --lottie assets/logo.lottie --lottie-position bottom-left
 vibe scene lint index.html --project my-video --json --fix
 ```
 
 Run `vibe schema scene.<subcommand>` before using less common flags.
+
+Overlay a Lottie animation (`.json`/`.lottie`) on a scene with `--lottie <path>`,
+tuned by `--lottie-position` (full|center|top-left|top-right|bottom-left|bottom-right),
+`--lottie-scale`, `--lottie-opacity`, and `--lottie-no-loop`. It renders as a
+`<dotlottie-wc>` overlay (no provider call — free).
+
+## Narration Word-Sync
+
+During `vibe build`, generated narration is transcribed at the word level
+(Whisper) to `assets/transcript-<beat>.json` whenever narration exists and an
+OpenAI key is configured. Those word timings are passed into each beat's compose
+prompt so captions / kinetic typography can be synced to speech.
+
+- On by default; pass `--skip-transcript` to opt out (no transcription cost).
+- No OpenAI key → silently skipped; narration still plays, just without
+  word-level animation timing.
+- Timings are advisory and visual-only — the composer never adds audio/SFX from
+  them. For long narration the prompt downgrades to coarse phrase-level anchors.
 
 ## STYLE And STORYBOARD Guidance
 

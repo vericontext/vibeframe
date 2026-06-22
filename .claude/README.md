@@ -30,7 +30,8 @@ keeps them in sync — see `docs/agent-hosts.md`.
 │   ├── version-checker.md     # SSOT sync validation (haiku)
 │   ├── lint-fixer.md          # Fix ESLint errors (haiku)
 │   ├── e2e-tester.md          # Full E2E testing (sonnet, 60 turns)
-│   └── feature-tester.md      # Single-feature testing (haiku)
+│   ├── feature-tester.md      # Single-feature testing (sonnet, 30 turns)
+│   └── readme-writer.md       # Write/clean developer-facing docs (sonnet)
 └── skills/                    # Generated workflow skills (user-invocable)
     ├── test/SKILL.md          # /test — run tests
     ├── release/SKILL.md       # /release — version bump workflow
@@ -123,12 +124,15 @@ keeps them in sync — see `docs/agent-hosts.md`.
 
 Enabled in `settings.json` under `enabledPlugins`:
 
-| Plugin              | Provides                                           |
-| ------------------- | -------------------------------------------------- |
-| `claude-code-setup` | `claude-automation-recommender` skill              |
-| `code-review`       | `/code-review` skill for PR review                 |
-| `code-simplifier`   | `simplify` skill for review-and-fix                |
-| `security-guidance` | `/security-review` skill for branch security audit |
+| Plugin                | Provides                                           |
+| --------------------- | -------------------------------------------------- |
+| `claude-code-setup`   | `claude-automation-recommender` skill              |
+| `code-review`         | `/code-review` skill for PR review                 |
+| `code-simplifier`     | `simplify` skill for review-and-fix                |
+| `security-guidance`   | `/security-review` skill for branch security audit |
+| `playwright`          | Browser automation tools (MCP)                     |
+| `claude-md-management`| `/revise-claude-md` + CLAUDE.md audit skills       |
+| `typescript-lsp`      | TypeScript language-server tools                   |
 
 ## Adding New Components
 
