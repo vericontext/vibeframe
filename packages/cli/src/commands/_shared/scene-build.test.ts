@@ -27,6 +27,13 @@ vi.mock("@vibeframe/ai-providers", async (importOriginal) => ({
   OpenAIImageProvider: vi.fn(),
 }));
 
+// Stub only the Whisper network call; keep the pure path/read helpers real so
+// dispatchTranscript's caching + file-write logic runs against the real fs.
+vi.mock("./transcribe-narration.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./transcribe-narration.js")>()),
+  transcribeNarrationWords: vi.fn(async () => []),
+}));
+
 vi.mock("./compose-scenes-skills.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./compose-scenes-skills.js")>();
   // Keep the real `buildUserPrompt` (and other pure helpers) so
@@ -52,6 +59,7 @@ vi.mock("../generate/music.js", () => ({
 
 import { resolveTtsProvider } from "./tts-resolve.js";
 import { GeminiProvider, GrokProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { transcribeNarrationWords } from "./transcribe-narration.js";
 import { executeComposeScenesWithSkills } from "./compose-scenes-skills.js";
 import { executeSceneRender } from "./scene-render.js";
 import { executeVideoGenerate } from "../ai-video.js";
@@ -476,6 +484,41 @@ describe("executeSceneBuild", () => {
     expect(r.beats[0].backdropStatus).toBe("skipped");
     expect(resolveTtsProvider).not.toHaveBeenCalled();
     expect(OpenAIImageProvider).not.toHaveBeenCalled();
+  });
+
+  it("transcribes narration into assets/transcript-<beat>.json when word timings exist", async () => {
+    vi.mocked(transcribeNarrationWords).mockClear();
+    vi.mocked(transcribeNarrationWords).mockResolvedValue([
+      { text: "Type", start: 0, end: 0.3 },
+      { text: "a", start: 0.3, end: 0.4 },
+      { text: "YAML", start: 0.4, end: 0.9 },
+    ]);
+    try {
+      const r = await executeSceneBuild({ projectDir, stage: "assets" });
+      expect(r.success).toBe(true);
+      const transcriptPath = join(projectDir, "assets", "transcript-hook.json");
+      expect(existsSync(transcriptPath)).toBe(true);
+      expect(JSON.parse(readFileSync(transcriptPath, "utf-8"))).toEqual([
+        { text: "Type", start: 0, end: 0.3 },
+        { text: "a", start: 0.3, end: 0.4 },
+        { text: "YAML", start: 0.4, end: 0.9 },
+      ]);
+      expect(transcribeNarrationWords).toHaveBeenCalled();
+    } finally {
+      vi.mocked(transcribeNarrationWords).mockResolvedValue([]);
+    }
+  });
+
+  it("does not transcribe when --skip-transcript is set", async () => {
+    vi.mocked(transcribeNarrationWords).mockClear();
+    vi.mocked(transcribeNarrationWords).mockResolvedValue([{ text: "x", start: 0, end: 1 }]);
+    try {
+      await executeSceneBuild({ projectDir, stage: "assets", skipTranscript: true });
+      expect(existsSync(join(projectDir, "assets", "transcript-hook.json"))).toBe(false);
+      expect(transcribeNarrationWords).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(transcribeNarrationWords).mockResolvedValue([]);
+    }
   });
 
   it("uses referenced narration and backdrop assets without provider calls", async () => {

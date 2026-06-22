@@ -40,6 +40,7 @@ import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { buildUserPrompt } from "./compose-scenes-skills.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
+import { readBeatTranscript, beatTranscriptRelPath } from "./transcribe-narration.js";
 
 export interface ComposePromptsBeat {
   /** Stable beat id from `parseStoryboard().deriveBeatId()`. */
@@ -67,6 +68,13 @@ export interface ComposePromptsBeat {
    * agentic and batch paths produce equivalent HTML.
    */
   userPrompt: string;
+  /**
+   * Project-relative path to the beat's Whisper word-level transcript
+   * (`assets/transcript-<id>.json`), present only when the asset stage
+   * transcribed this beat's narration. The host agent can read it for exact
+   * word timings; the same timings are already summarised in `userPrompt`.
+   */
+  transcriptPath?: string;
   /** True when `compositions/scene-<id>.html` already exists on disk. */
   exists: boolean;
 }
@@ -181,27 +189,35 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     // best-effort only
   }
 
-  const result: ComposePromptsBeat[] = beats.map((beat) => {
-    const outputPathAbs = join(compositionsDir, `scene-${beat.id}.html`);
-    const outputPathRel = relative(projectDir, outputPathAbs);
-    const finalDurationSec = finalDurations.get(beat.id);
-    const userPrompt = buildUserPrompt({
-      beat,
-      storyboardGlobal: parsed.global,
-      finalDurationSec,
-    });
-    return {
-      id: beat.id,
-      heading: beat.heading,
-      outputPath: outputPathRel,
-      duration: beat.duration,
-      finalDurationSec,
-      cues: beat.cues,
-      body: beat.body,
-      userPrompt,
-      exists: existsSync(outputPathAbs),
-    };
-  });
+  const result: ComposePromptsBeat[] = await Promise.all(
+    beats.map(async (beat) => {
+      const outputPathAbs = join(compositionsDir, `scene-${beat.id}.html`);
+      const outputPathRel = relative(projectDir, outputPathAbs);
+      const finalDurationSec = finalDurations.get(beat.id);
+      // Word-level timings, when the asset stage transcribed this beat's
+      // narration. Surfaced in the prompt AND exposed as a path for hosts
+      // that want the raw data. Missing → undefined → prompt omits timings.
+      const transcript = await readBeatTranscript(projectDir, beat.id);
+      const userPrompt = buildUserPrompt({
+        beat,
+        storyboardGlobal: parsed.global,
+        finalDurationSec,
+        transcript,
+      });
+      return {
+        id: beat.id,
+        heading: beat.heading,
+        outputPath: outputPathRel,
+        duration: beat.duration,
+        finalDurationSec,
+        cues: beat.cues,
+        body: beat.body,
+        userPrompt,
+        transcriptPath: transcript ? beatTranscriptRelPath(beat.id) : undefined,
+        exists: existsSync(outputPathAbs),
+      };
+    })
+  );
 
   const skillRef = existsSync(skillPath) ? "SKILL.md" : null;
   const instructions = buildInstructions({

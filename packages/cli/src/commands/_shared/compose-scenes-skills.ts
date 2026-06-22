@@ -43,6 +43,8 @@ import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import { type ComposerProvider, resolveComposer, composerEnvVar } from "./composer-resolve.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
+import { readBeatTranscript } from "./transcribe-narration.js";
+import type { SceneTranscriptWord } from "./scene-html-emit.js";
 
 /** Effort level → token caps. Model is per-provider (see MODEL_SETTINGS_BY_PROVIDER). */
 export type ComposeEffort = "low" | "medium" | "high";
@@ -124,6 +126,14 @@ export interface ComposeBeatContext {
    * duration is then only the minimum and is annotated as superseded.
    */
   finalDurationSec?: number;
+  /**
+   * Whisper word-level timings for this beat's narration audio, read from
+   * `assets/transcript-<id>.json` by the asset stage. When present,
+   * {@link buildUserPrompt} surfaces a compact timing table so the composer
+   * can sync caption / kinetic-type word reveals to speech. Folded into the
+   * user prompt, so the compose cache key invalidates when timings change.
+   */
+  transcript?: SceneTranscriptWord[];
 }
 
 export interface ComposeBeatResult {
@@ -203,11 +213,84 @@ function formatBeatCues(cues: Beat["cues"]): string {
   return lines.join("\n") + "\n";
 }
 
+/**
+ * Word-level timing entries above this count are downgraded to coarse,
+ * phrase-level anchors in the prompt. A token-budget guard: a 60s narration
+ * can exceed 150 words, and inlining every `[start, "word"]` pair bloats the
+ * prompt (and the cache key) for little composer benefit past a point.
+ */
+export const TRANSCRIPT_PROMPT_MAX_WORDS = 120;
+
+/**
+ * Render narration word timings as a compact, deterministic prompt section.
+ * Token-budget guard (the `oversized` case is the reason this is a function,
+ * not an inline template):
+ *   - no transcript → `""` (section omitted entirely; prompt unchanged).
+ *   - ≤ {@link TRANSCRIPT_PROMPT_MAX_WORDS} → full word-level `[start, "word"]`
+ *     table the composer can map 1:1 to GSAP reveals.
+ *   - more → group into ~`MAX/2` phrase anchors (start time of each phrase),
+ *     tagged "approximate" so the composer paces reveals across the beat
+ *     rather than over-trusting per-word truth.
+ * Pure and stable for a given input → the compose cache stays consistent.
+ */
+export function formatTranscriptSection(
+  transcript: SceneTranscriptWord[] | undefined,
+  maxWords = TRANSCRIPT_PROMPT_MAX_WORDS
+): string {
+  if (!transcript || transcript.length === 0) return "";
+  const round = (n: number): number => Number(Math.max(0, n).toFixed(2));
+  const noAudioRule =
+    "This is for VISUAL sync only — do NOT add an `<audio>` tag or invent SFX; " +
+    "the narration audio is wired separately by the root timeline. If this beat " +
+    "is visual-only (no on-screen text), you may ignore these timings.";
+
+  if (transcript.length <= maxWords) {
+    const pairs = transcript
+      .map((w) => `[${round(w.start)}, ${JSON.stringify(w.text)}]`)
+      .join(", ");
+    return `
+
+=== Narration word timings (seconds) ===
+
+Whisper word-level start times for this beat's narration. If you author captions
+or kinetic typography, reveal each word at its start time with absolute-time
+GSAP tweens, e.g.
+\`tl.fromTo('.caption .word[data-i="0"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18 }, ${round(
+      transcript[0]!.start
+    )});\`
+${noAudioRule}
+
+word starts (word-level): ${pairs}`;
+  }
+
+  // Oversized → phrase-level anchors. Chunk so the table stays ~maxWords/2
+  // entries regardless of narration length.
+  const phraseCount = Math.max(1, Math.floor(maxWords / 2));
+  const chunkSize = Math.ceil(transcript.length / phraseCount);
+  const anchors: string[] = [];
+  for (let i = 0; i < transcript.length; i += chunkSize) {
+    const chunk = transcript.slice(i, i + chunkSize);
+    const text = chunk.map((w) => w.text).join(" ");
+    anchors.push(`[${round(chunk[0]!.start)}, ${JSON.stringify(text)}]`);
+  }
+  return `
+
+=== Narration timings (approximate, phrase-level) ===
+
+This beat's narration is long (${transcript.length} words), so timings are
+grouped into phrase-level anchors (start time of each phrase). Use them to PACE
+caption / kinetic-type reveals across the beat — they are approximate, not
+per-word truth.
+${noAudioRule}
+
+phrase starts (approximate): ${anchors.join(", ")}`;
+}
+
 /** Build the user prompt — instructions + storyboard global + beat body. */
 export function buildUserPrompt(
   ctx: Pick<
     ComposeBeatContext,
-    "beat" | "storyboardGlobal" | "retryFeedback" | "finalDurationSec"
+    "beat" | "storyboardGlobal" | "retryFeedback" | "finalDurationSec" | "transcript"
   >
 ): string {
   const compositionId = `scene-${ctx.beat.id}`;
@@ -380,7 +463,7 @@ ${ctx.storyboardGlobal || "(no global direction)"}
 
 ## ${ctx.beat.heading}
 ${formatBeatCues(ctx.beat.cues)}${cueDurationNote}
-${ctx.beat.body}
+${ctx.beat.body}${formatTranscriptSection(ctx.transcript)}
 
 === Output format ===
 
@@ -973,6 +1056,10 @@ export async function executeComposeScenesWithSkills(
     async (beat, beatIndex): Promise<FanoutOutcome> => {
       onProgress({ type: "beat-start", beatId: beat.id, beatIndex, totalBeats });
       try {
+        // Word-level timings (if the asset stage transcribed narration) let
+        // the composer sync caption / kinetic-type reveals to speech. Missing
+        // or unreadable → undefined → prompt simply omits the timing section.
+        const transcript = await readBeatTranscript(projectRoot, beat.id);
         const result = await composeBeatWithRetry(
           {
             beat,
@@ -984,6 +1071,7 @@ export async function executeComposeScenesWithSkills(
             effort: params.effort,
             cacheDir: params.cacheDir,
             finalDurationSec: finalDurations.get(beat.id),
+            transcript,
           },
           overrides
         );

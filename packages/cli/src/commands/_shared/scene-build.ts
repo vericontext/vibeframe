@@ -44,6 +44,8 @@ import {
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
+import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { transcribeNarrationWords, beatTranscriptRelPath } from "./transcribe-narration.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import {
   beatCharacterNames,
@@ -121,6 +123,9 @@ export type SceneBuildProgressEvent =
   | { type: "narration-generated"; beatId: string; path: string; provider: string }
   | { type: "narration-failed"; beatId: string; error: string }
   | { type: "narration-skipped"; beatId: string; reason: string }
+  | { type: "transcript-generated"; beatId: string; path: string; wordCount: number }
+  | { type: "transcript-cached"; beatId: string; path: string }
+  | { type: "transcript-skipped"; beatId: string; reason: string }
   | { type: "backdrop-cached"; beatId: string; path: string }
   | { type: "backdrop-generated"; beatId: string; path: string; provider: string }
   | { type: "backdrop-failed"; beatId: string; error: string }
@@ -259,6 +264,13 @@ export interface SceneBuildOptions {
   skipKeyframe?: boolean;
   /** Skip music generation even when beats declare music cues. */
   skipMusic?: boolean;
+  /**
+   * Skip Whisper word-level transcription of generated narration. Default is
+   * to transcribe whenever narration exists and an OpenAI key is configured,
+   * writing `assets/transcript-<beat>.json` so the composer can sync caption /
+   * kinetic-type reveals to speech. Pass true to opt out (no transcribe cost).
+   */
+  skipTranscript?: boolean;
   /** OpenAI image quality — see `vibe generate image --quality`. */
   imageQuality?: "standard" | "hd";
   /** OpenAI image size. Default 1536x1024 for cinematic 16:9-ish framing. */
@@ -629,6 +641,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           skipVideo: opts.skipVideo ?? false,
           skipKeyframe: opts.skipKeyframe ?? false,
           skipMusic: opts.skipMusic ?? false,
+          skipTranscript: opts.skipTranscript ?? false,
           force: opts.force ?? false,
           onProgress,
           characterPaths,
@@ -1062,6 +1075,7 @@ interface BeatDispatchContext {
   skipVideo: boolean;
   skipKeyframe: boolean;
   skipMusic: boolean;
+  skipTranscript: boolean;
   force: boolean;
   onProgress: (e: SceneBuildProgressEvent) => void;
   /** name → relative path of generated/supplied character reference images. */
@@ -1095,6 +1109,12 @@ async function buildBeatPrimitives(
       : dispatchVideo(beat, ctx, keyframe),
     ctx.skipMusic ? skipped("music", beat.id, "--skip-music", ctx) : dispatchMusic(beat, ctx),
   ]);
+  // Word-level transcript depends on the narration audio, so it runs after the
+  // primitive fan-out (not inside it). Best-effort: a failure or missing key
+  // leaves the beat without word-sync timings but never fails the build.
+  if (!ctx.skipTranscript) {
+    await dispatchTranscript(beat, narration, ctx);
+  }
   return {
     outcome: {
       beatId: beat.id,
@@ -1378,6 +1398,62 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
     metadataPath,
     freshness: "fresh",
   };
+}
+
+/**
+ * Whisper word-level transcription of a beat's generated narration. Writes
+ * `assets/transcript-<beat>.json` (the same shape `vibe scene add` produces),
+ * which the compose stage reads to drive word-synced caption / kinetic-type
+ * animations. Entirely best-effort:
+ *   - no narration → nothing to transcribe.
+ *   - no OpenAI key → skip with a hint (narration still plays).
+ *   - transcript exists + narration not freshly regenerated + not forced →
+ *     reuse the cached file (no re-transcribe cost).
+ *   - API failure / no words → skip; the composer just omits word-sync.
+ */
+async function dispatchTranscript(
+  beat: Beat,
+  narration: PrimitiveOutcome,
+  ctx: BeatDispatchContext
+): Promise<void> {
+  if (!narration.path) return;
+
+  const relPath = beatTranscriptRelPath(beat.id);
+  const abs = join(ctx.projectDir, relPath);
+  const narrationFresh = narration.status === "generated";
+  if (existsSync(abs) && !ctx.force && !narrationFresh) {
+    ctx.onProgress({ type: "transcript-cached", beatId: beat.id, path: relPath });
+    return;
+  }
+
+  const apiKey = await getConfiguredApiKey("OPENAI_API_KEY", undefined, { cwd: ctx.projectDir });
+  if (!apiKey) {
+    ctx.onProgress({
+      type: "transcript-skipped",
+      beatId: beat.id,
+      reason: "OPENAI_API_KEY not set — narration plays but word-sync timings unavailable",
+    });
+    return;
+  }
+
+  const words = await transcribeNarrationWords(join(ctx.projectDir, narration.path), { apiKey });
+  if (words.length === 0) {
+    ctx.onProgress({
+      type: "transcript-skipped",
+      beatId: beat.id,
+      reason: "transcription returned no word timings",
+    });
+    return;
+  }
+
+  await mkdir(dirname(abs), { recursive: true });
+  await writeFile(abs, JSON.stringify(words, null, 2), "utf-8");
+  ctx.onProgress({
+    type: "transcript-generated",
+    beatId: beat.id,
+    path: relPath,
+    wordCount: words.length,
+  });
 }
 
 interface CharacterBuildResult {
