@@ -23,7 +23,7 @@ import { mkdir, readFile, writeFile, access, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider, OpenAIImageProvider, WhisperProvider } from "@vibeframe/ai-providers";
+import { GeminiProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
 import {
   resolveTtsProvider,
   TtsKeyMissingError,
@@ -64,6 +64,10 @@ import {
   type InstallSkillHost,
 } from "./_shared/install-skill.js";
 import { getComposePrompts } from "./_shared/compose-prompts.js";
+import {
+  transcribeNarrationWords,
+  beatTranscriptRelPath,
+} from "./_shared/transcribe-narration.js";
 import { executeSceneSubmit } from "./_shared/scene-submit.js";
 import { executeSceneRepair } from "./_shared/scene-repair.js";
 import {
@@ -963,31 +967,20 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
       );
     } else {
       opts.onProgress?.("Transcribing narration (Whisper word-level)...");
-      try {
-        const whisper = new WhisperProvider();
-        await whisper.initialize({ apiKey: whisperKey });
-        const audioBytes = await readFile(audioAbsPath);
-        const audioBlob = new Blob([new Uint8Array(audioBytes)]);
-        const transcript = await whisper.transcribe(audioBlob, undefined, {
-          granularity: "word",
-          language: opts.transcribeLanguage,
-        });
-        if (transcript.status === "completed" && transcript.words?.length) {
-          transcriptRelPath = `assets/transcript-${id}.json`;
-          const transcriptAbs = resolve(projectDir, transcriptRelPath);
-          await writeFile(transcriptAbs, JSON.stringify(transcript.words, null, 2), "utf-8");
-          transcriptWordCount = transcript.words.length;
-          transcriptWords = transcript.words.map((w) => ({
-            text: w.text,
-            start: w.start,
-            end: w.end,
-          }));
-        } else if (transcript.status === "failed") {
-          opts.onProgress?.(`Transcribe failed: ${transcript.error ?? "unknown error"}`);
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        opts.onProgress?.(`Transcribe failed: ${msg}`);
+      const words = await transcribeNarrationWords(audioAbsPath, {
+        apiKey: whisperKey,
+        language: opts.transcribeLanguage,
+      });
+      if (words.length > 0) {
+        transcriptRelPath = beatTranscriptRelPath(id);
+        const transcriptAbs = resolve(projectDir, transcriptRelPath);
+        await writeFile(transcriptAbs, JSON.stringify(words, null, 2), "utf-8");
+        transcriptWordCount = words.length;
+        transcriptWords = words;
+      } else {
+        opts.onProgress?.(
+          "Transcribe produced no word timings — narration plays without word-sync"
+        );
       }
     }
   }

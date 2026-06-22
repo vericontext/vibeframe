@@ -51,6 +51,10 @@ export const buildCommand = new Command("build")
     "Don't generate keyframe stills (review keyframes first with --skip-video, then build)"
   )
   .option("--skip-music", "Don't dispatch music generation even when beats declare music cues")
+  .option(
+    "--skip-transcript",
+    "Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)"
+  )
   .option("--skip-render", "Compose only — don't render to MP4")
   .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
   .option("--voice <id>", "Voice id")
@@ -125,6 +129,7 @@ Advanced equivalent: \`vibe scene build\`.`
       skipVideo: options.skipVideo ?? false,
       skipKeyframe: options.skipKeyframe ?? false,
       skipMusic: options.skipMusic ?? false,
+      skipTranscript: options.skipTranscript ?? false,
       skipRender: options.skipRender ?? false,
       ttsProvider: options.tts,
       voice: options.voice,
@@ -147,6 +152,7 @@ Advanced equivalent: \`vibe scene build\`.`
         skipVideo: options.skipVideo,
         skipKeyframe: options.skipKeyframe,
         skipMusic: options.skipMusic,
+        skipTranscript: options.skipTranscript,
         ttsProvider: options.tts,
         voice: options.voice,
         imageProvider,
@@ -239,6 +245,7 @@ Advanced equivalent: \`vibe scene build\`.`
       skipVideo: options.skipVideo,
       skipKeyframe: options.skipKeyframe,
       skipMusic: options.skipMusic,
+      skipTranscript: options.skipTranscript,
       skipRender: options.skipRender,
       ttsProvider: options.tts,
       voice: options.voice,
@@ -251,6 +258,8 @@ Advanced equivalent: \`vibe scene build\`.`
       onProgress: (e: SceneBuildProgressEvent) => {
         if (!spinner) return;
         if (e.type === "phase-start") spinner.text = `Phase: ${e.phase}...`;
+        else if (e.type === "transcript-generated")
+          spinner.text = `Transcribed narration: ${e.beatId} (${e.wordCount} words)`;
         else if (e.type === "render-done") spinner.text = `Rendered: ${e.outputPath}`;
       },
     });
@@ -298,6 +307,7 @@ type BuildDryRunParams = {
   skipVideo: boolean;
   skipKeyframe: boolean;
   skipMusic: boolean;
+  skipTranscript: boolean;
   skipRender: boolean;
   ttsProvider: unknown;
   voice: unknown;

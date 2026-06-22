@@ -149,6 +149,13 @@ export interface CreateBuildPlanOptions {
   skipVideo?: boolean;
   skipKeyframe?: boolean;
   skipMusic?: boolean;
+  /**
+   * Skip Whisper word-level transcription of narration. Recorded for plan
+   * fidelity; transcription is a negligible-cost step (~$0.002/beat) that only
+   * runs when a beat has narration and an OpenAI key is configured, so it is
+   * not itemised as a separate cost line.
+   */
+  skipTranscript?: boolean;
   ttsProvider?: string;
   voice?: string;
   imageProvider?: string;

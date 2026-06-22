@@ -13,7 +13,9 @@ import {
   executeComposeScenesWithSkills,
   extractHtml,
   formatLintFeedback,
+  formatTranscriptSection,
   lintBeatHtml,
+  TRANSCRIPT_PROMPT_MAX_WORDS,
   ComposeBeatError,
 } from "./compose-scenes-skills.js";
 
@@ -172,6 +174,86 @@ describe("buildUserPrompt", () => {
     ).not.toBe(
       computeCacheKey({ provider: "claude", systemPrompt: "S", userPrompt: b, model: "M" })
     );
+  });
+
+  it("omits the timing section when no transcript is supplied", () => {
+    const u = buildUserPrompt({ beat, storyboardGlobal: "" });
+    expect(u).not.toContain("Narration word timings");
+    expect(u).not.toContain("phrase-level");
+  });
+
+  it("injects word-level timings for a short transcript", () => {
+    const u = buildUserPrompt({
+      beat,
+      storyboardGlobal: "",
+      transcript: [
+        { text: "Ship", start: 0, end: 0.4 },
+        { text: "faster", start: 0.45, end: 0.9 },
+      ],
+    });
+    expect(u).toContain("Narration word timings (seconds)");
+    expect(u).toContain('[0, "Ship"]');
+    expect(u).toContain('[0.45, "faster"]');
+    // Visual-sync-only guard travels with the timings.
+    expect(u).toContain("VISUAL sync only");
+  });
+
+  it("changes the cache key when the transcript changes", () => {
+    const without = buildUserPrompt({ beat, storyboardGlobal: "" });
+    const withT = buildUserPrompt({
+      beat,
+      storyboardGlobal: "",
+      transcript: [{ text: "Hi", start: 0, end: 0.3 }],
+    });
+    expect(
+      computeCacheKey({ provider: "claude", systemPrompt: "S", userPrompt: without, model: "M" })
+    ).not.toBe(
+      computeCacheKey({ provider: "claude", systemPrompt: "S", userPrompt: withT, model: "M" })
+    );
+  });
+});
+
+describe("formatTranscriptSection", () => {
+  it("returns empty string for undefined / empty transcript", () => {
+    expect(formatTranscriptSection(undefined)).toBe("");
+    expect(formatTranscriptSection([])).toBe("");
+  });
+
+  it("emits a word-level table at or below the budget", () => {
+    const words = Array.from({ length: 10 }, (_, i) => ({
+      text: `w${i}`,
+      start: i * 0.5,
+      end: i * 0.5 + 0.4,
+    }));
+    const section = formatTranscriptSection(words);
+    expect(section).toContain("word-level");
+    expect(section).toContain('[0, "w0"]');
+    expect(section).not.toContain("approximate");
+  });
+
+  it("downgrades to approximate phrase-level anchors above the budget", () => {
+    const n = TRANSCRIPT_PROMPT_MAX_WORDS + 50;
+    const words = Array.from({ length: n }, (_, i) => ({
+      text: `w${i}`,
+      start: i * 0.3,
+      end: i * 0.3 + 0.25,
+    }));
+    const section = formatTranscriptSection(words);
+    expect(section).toContain("approximate, phrase-level");
+    expect(section).toContain(`${n} words`);
+    // Phrase anchors are far fewer than the raw word count.
+    const anchorCount = (section.match(/\], \[/g) ?? []).length + 1;
+    expect(anchorCount).toBeLessThanOrEqual(TRANSCRIPT_PROMPT_MAX_WORDS);
+    expect(anchorCount).toBeLessThan(n);
+  });
+
+  it("clamps negative start times to zero and rounds to 2dp", () => {
+    const section = formatTranscriptSection([
+      { text: "x", start: -0.2, end: 0.1 },
+      { text: "y", start: 1.23456, end: 1.5 },
+    ]);
+    expect(section).toContain('[0, "x"]');
+    expect(section).toContain('[1.23, "y"]');
   });
 });
 

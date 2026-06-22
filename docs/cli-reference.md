@@ -242,6 +242,7 @@ Cost tier: _not tagged_
 - `skipVideo` _(boolean)_ — Don't dispatch video generation even when beats declare video cues
 - `skipKeyframe` _(boolean)_ — Don't generate keyframe stills (review keyframes first with --skip-video, then build)
 - `skipMusic` _(boolean)_ — Don't dispatch music generation even when beats declare music cues
+- `skipTranscript` _(boolean)_ — Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)
 - `skipRender` _(boolean)_ — Compose only — don't render to MP4
 - `tts` _(string)_ — TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ — Voice id

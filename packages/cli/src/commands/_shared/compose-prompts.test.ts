@@ -163,4 +163,28 @@ describe("getComposePrompts", () => {
     const r = await getComposePrompts({ projectDir });
     expect(r.bundleVersion).toMatch(/^[0-9a-f]+-\d{4}-\d{2}-\d{2}$/);
   });
+
+  it("exposes transcriptPath + injects word timings when a beat transcript exists", async () => {
+    seed({ withSkill: true });
+    mkdirSync(join(projectDir, "assets"), { recursive: true });
+    writeFileSync(
+      join(projectDir, "assets/transcript-hook.json"),
+      JSON.stringify([
+        { text: "Ship", start: 0, end: 0.4 },
+        { text: "faster", start: 0.45, end: 0.9 },
+      ]),
+      "utf-8"
+    );
+
+    const r = await getComposePrompts({ projectDir });
+    const hook = r.beats.find((b) => b.id === "hook")!;
+    const outro = r.beats.find((b) => b.id === "outro")!;
+
+    expect(hook.transcriptPath).toBe("assets/transcript-hook.json");
+    expect(hook.userPrompt).toContain("Narration word timings");
+    expect(hook.userPrompt).toContain('[0, "Ship"]');
+    // Beat without a transcript file gets no path and no timing section.
+    expect(outro.transcriptPath).toBeUndefined();
+    expect(outro.userPrompt).not.toContain("Narration word timings");
+  });
 });

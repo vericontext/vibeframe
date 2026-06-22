@@ -602,6 +602,10 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "Compose only — don't render to MP4",
         "type": "boolean",
       },
+      "skipTranscript": {
+        "description": "Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)",
+        "type": "boolean",
+      },
       "skipVideo": {
         "description": "Don't dispatch video generation even when beats declare video cues",
         "type": "boolean",
