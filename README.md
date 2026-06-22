@@ -1,27 +1,16 @@
 # VibeFrame
 
-**Brief to MP4 with your coding agent.**
+Turn a written brief into a rendered MP4 using a coding agent.
 
-VibeFrame is an agentic video workflow layer around composition engines. It
-helps humans and AI coding agents turn a written brief into `STORYBOARD.md`,
-`DESIGN.md`, generated assets, timed scene compositions, review reports, and a
-final MP4.
+VibeFrame is a CLI tool and MCP server for agentic video workflows. It takes a
+brief, scaffolds a structured storyboard project, routes generation calls to AI
+providers, and produces a reviewed MP4. The CLI is the stable runtime — JSON
+output, dry runs, cost gates, and machine-readable reports that Codex, Claude
+Code, Cursor, and other host agents can act on.
 
-VibeFrame is **CLI-first, not terminal-only**. The CLI is the stable runtime:
-JSON output, dry runs, cost gates, deterministic project files, and
-machine-readable reports that Codex, Claude Code, Cursor, and other host apps
-can act on. Native Codex Goal mode and Claude Code `/goal` are the outer loop
-for long-running work; VibeFrame provides the video-specific tools and reports
-that let those hosts decide the next step and when to stop. VibeFrame also
-includes FFmpeg-style editing commands, AI media primitives, YAML pipelines,
-and an optional MCP server, but the north-star path is the storyboard-driven
-project loop.
-
-Most users do not need a new chat UI. Install the runtime once, then ask Codex,
-Claude Code, Cursor, Aider, Gemini CLI, OpenCode, or any other shell-capable
-agent to operate the video project. For app hosts that prefer typed tools, use
-`vibe host setup` to configure MCP. `vibe agent` exists as an optional built-in
-fallback when you do not already have an AI coding agent.
+Your existing coding agent is the outer loop. VibeFrame provides the
+video-specific commands and reports. `vibe agent` exists as a fallback when you
+do not have another agent available.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
@@ -55,192 +44,16 @@ Prompt craft for both models is in the
 [AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
 (`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
 
-```bash
-curl -fsSL https://vibeframe.ai/install.sh | bash
-
-mkdir launch-demo && cd launch-demo
-mkdir -p launch/media
-
-# brief.md can be rough notes, pasted research, links, or a one-line idea.
-cat > brief.md <<'EOF'
-Make a 30-second launch video for VibeFrame.
-
-Audience: developers using Codex, Claude Code, or Cursor.
-Message: a coding agent can turn a brief into a rendered MP4.
-Tone: technical, concise, credible.
-
-If media/product-shot.png exists, use it as the hero product reference.
-EOF
-
-# Optional: put your own photos, logos, screenshots, or B-roll in launch/media/.
-# cp ~/Desktop/product-shot.png launch/media/
-
-vibe setup --scope project
-vibe init launch --from brief.md --json
-vibe host setup all launch # optional: print Codex/Claude/Cursor app config
-
-# Ask Codex, Claude Code, Cursor, or another host agent:
-# "Research this topic and update launch/STORYBOARD.md and launch/DESIGN.md.
-#  Tighten the image-generation cues, then build and inspect the video."
-
-vibe storyboard validate launch --json
-vibe build launch --dry-run --json
-vibe build launch --json
-vibe render launch -o renders/final.mp4 --json
-vibe inspect render launch --cheap --json
-```
-
-## Demo
-
-This demo shows the intended first-run shape: start with rough intent, add any
-optional source media, let a coding agent update the project files, then build,
-render, inspect, and share the MP4.
-
-1. Install `vibe`.
-2. Run `vibe setup --scope project`.
-3. Write `brief.md` as messy notes, research, links, or a one-line idea.
-4. Optional: place photos, screenshots, logos, clips, or voice files in
-   `launch/media/`.
-5. Run `vibe init launch --from brief.md`.
-6. Ask a coding agent to research a topic and update `STORYBOARD.md` and
-   `DESIGN.md`.
-7. Let the storyboard include explicit image-generation cues or local
-   `media/...` references.
-8. Build, render, inspect, and share the final MP4.
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <video src="https://github.com/user-attachments/assets/f080f5e4-02a9-4625-977f-8f16e7c434bb" controls muted width="100%"></video>
-      <br />
-      <strong>Process highlight</strong><br />
-      <sub>Agent-driven setup, research, storyboard/design edits, image cues, build, render, and review.</sub>
-    </td>
-    <td width="50%" valign="top">
-      <video src="https://github.com/user-attachments/assets/10c85f2b-d07c-4d82-9922-fbc114fcf8be" controls muted width="100%"></video>
-      <br />
-      <strong>Rendered result</strong><br />
-      <sub>The final MP4 produced from the storyboard composition workflow.</sub>
-    </td>
-  </tr>
-</table>
-
-## What It Does
-
-- **Build videos from briefs:** scaffold `STORYBOARD.md` and `DESIGN.md`, let
-  an agent revise them, then run `vibe plan`, `vibe build`, `vibe inspect`,
-  and `vibe render`.
-- **Direct character-consistent video:** a reusable character sheet plus a
-  per-beat `keyframe:` (an image storyboard) drive Seedance image-to-video, so
-  the same character holds across scenes. Review the stills with `--skip-video`
-  before paying for the clips. See the
-  [prompting playbook](docs/ai-video-prompting.md).
-- **Run the agent loop safely:** use JSON output, dry runs, cost caps,
-  `build-report.json`, `review-report.json`, and deterministic repair commands.
-- **Route provider-heavy work:** generate images, video clips, narration,
-  music, sound effects, motion graphics, and thumbnails through pluggable AI
-  providers only when the storyboard or command asks for them.
-- **Use escape hatches:** drop into `generate`, `edit`, `remix`, `audio`,
-  YAML, timeline, or MCP workflows when the job is one asset, one media edit,
-  or one repeatable pipeline instead of a full storyboard build.
-
-## Native Goal Mode
-
-Use your host agent's native goal mode for persistence, iteration, and stop
-conditions. VibeFrame should not own the primary long-running goal loop; it
-should give the host agent structured commands, reports, and recovery hints.
-
-Copy-paste for Codex:
-
-```text
-/goal Build launch/ into a reviewed VibeFrame MP4 from brief.md.
-Use vibe context/schema first when command details are unclear. Use --json for
-all vibe commands. Run --dry-run before paid operations and keep generated-asset
-spend under $5 with --max-cost 5 where supported. Read build-report.json and
-review-report.json before choosing the next action. Prefer nextActions:
-run only safeToAutoRun:true actions automatically, ask before
-requiresConfirmation:true actions, and use retryWith only as the compatibility
-fallback. Treat fixOwner:"vibe" issues as deterministic CLI repair work and
-fixOwner:"host-agent" issues as storyboard, DESIGN.md, or composition edits.
-
-Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
-less, the aspect ratio is 16:9 unless brief.md says otherwise,
-vibe inspect render launch --cheap --json reports no errors, any AI review score
-is at least 90 when AI review is requested, and every remaining host-agent issue is fixed, intentionally
-accepted with a written reason, or reported as blocked.
-```
-
-Copy-paste for Claude Code:
-
-```text
-/goal Create the final VibeFrame project render for launch/ using the native
-Claude Code goal loop as the outer loop. Use vibe commands with --json, run
-dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
-use build-report.json plus review-report.json as the loop state. Follow
-nextActions first, run only safeToAutoRun:true actions automatically, ask
-before requiresConfirmation:true actions, and use retryWith only as a fallback.
-Distinguish fixOwner:"vibe" from fixOwner:"host-agent" when deciding whether
-to run vibe scene repair or edit STORYBOARD.md, DESIGN.md, or compositions.
-
-Stop only when launch/renders/final.mp4 exists, duration is within the requested
-30s target, aspect ratio is 16:9 unless the brief overrides it, render
-inspection status has no errors, any AI review score is >= 90 when AI review is
-requested, and unresolved host-agent issues are either fixed, explicitly accepted with rationale, or
-reported as blocked.
-```
-
-## Workflow Lanes
-
-Use the highest-level lane that matches the job:
-
-| Lane                 | Use it when...                                        | Source of truth               | Commands                                                        |
-| -------------------- | ----------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
-| **BUILD**            | You want a complete video from a written brief        | `STORYBOARD.md` + `DESIGN.md` | `vibe init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
-| **GENERATE / ASSET** | You need one standalone image, clip, voice, or music  | The prompt and provider flags | `vibe generate image`, `video`, `narration`, `music`, `motion`  |
-| **EDIT / REMIX**     | You already have media and want to change or reuse it | The existing media file       | `vibe edit`, `vibe remix`, `vibe audio`, `vibe detect`          |
-
-This is the same routing model scaffolded into project `AGENTS.md`. It keeps
-agents from treating every natural-language request as a full scene project:
-
-- **BUILD:** create or revise a multi-scene video. Edit `STORYBOARD.md` for
-  narration, beat timing, and image/video/music cues. Edit `DESIGN.md` for
-  palette, typography, composition, and motion language. Then run `vibe build`
-  and `vibe render`.
-- **GENERATE / ASSET:** create one asset directly. Do not edit
-  `STORYBOARD.md` or `DESIGN.md` unless the user explicitly asks for a
-  storyboard project.
-- **EDIT / REMIX:** start from an existing media file. Use `vibe edit`,
-  `vibe remix`, or `vibe audio` for captions, overlays, highlights, BGM,
-  dubbing, reframing, silence cuts, and similar transformations.
-
-The README focuses on the first-run product path. For a concise command-routing
-reference, see [FUNCTIONS.md](FUNCTIONS.md).
-
-## 30-Second Map
-
-| You want to...                                                        | Use                                                               |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Start a storyboard-driven video project                               | `vibe init --from ...`, then edit `STORYBOARD.md` and `DESIGN.md` |
-| Validate, cost, and explain the project plan                          | `vibe storyboard validate`, `vibe plan`, `vibe build --dry-run`   |
-| Generate assets, compose scenes, and sync timing                      | `vibe build`, `vibe status project`                               |
-| Review quality and produce the final MP4                              | `vibe inspect project`, `vibe render`, `vibe inspect render`      |
-| Apply deterministic scene fixes after review                          | `vibe scene repair`                                               |
-| Generate a standalone image, video, narration, music, or motion asset | `vibe generate ...`                                               |
-| Change an existing media file                                         | `vibe edit ...`, `vibe remix ...`, `vibe audio ...`               |
-| Run a repeatable multi-step workflow                                  | `vibe run pipeline.yaml`                                          |
-| Script low-level timeline edits or bulk imports                       | `vibe timeline ...`, `vibe batch ...`                             |
-| Decide which path fits                                                | `vibe guide motion`, `vibe guide scene`, `vibe guide pipeline`    |
-
 ## Requirements
 
 - Node.js 20+
 - FFmpeg
-- Chrome or Chromium for HTML scene rendering
-- API keys only for the providers you use
+- Chrome or Chromium (for HTML scene rendering)
+- API keys only for the providers you use (BYO-key)
 
-Local/free paths are available for many editing tasks and for Kokoro TTS. AI
-image/video generation requires provider keys such as `OPENAI_API_KEY`,
-`FAL_API_KEY`, `GOOGLE_API_KEY`, or others listed in [MODELS.md](MODELS.md).
+Free/local paths are available for many editing tasks and for Kokoro TTS. AI
+image and video generation requires provider keys such as `OPENAI_API_KEY`,
+`FAL_API_KEY`, `GOOGLE_API_KEY`, and others listed in [MODELS.md](MODELS.md).
 
 ## Install
 
@@ -249,12 +62,11 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 vibe doctor
 ```
 
-The installer places the CLI checkout under the XDG data directory
-(`~/.local/share/vibeframe` by default). User-scope API keys stay in a clean
-`~/.vibeframe/config.yaml`; project-scope setup still writes
-`./.vibeframe/config.yaml`. When a project config exists at your current
-directory or an ancestor, VibeFrame uses that project config in isolation and
-does not merge in user-scope keys.
+The installer places the CLI under the XDG data directory
+(`~/.local/share/vibeframe` by default). User-scope API keys live in
+`~/.vibeframe/config.yaml`; project-scope setup writes `./.vibeframe/config.yaml`.
+When a project config exists at or above your current directory, VibeFrame uses
+that project config in isolation and does not merge user-scope keys.
 
 > **npm package names:** the CLI is published as
 > [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) (binary
@@ -273,86 +85,97 @@ pnpm build
 pnpm vibe --help
 ```
 
-## Quick Start
+## How The Pieces Fit Together
 
-First run:
+VibeFrame has two main flows:
+
+- **Project flow:** scaffold a storyboard, let an agent revise it, build assets,
+  render, and inspect. This is the primary path.
+- **One-shot flow:** edit or transform existing media directly with `generate`,
+  `edit`, `remix`, `audio`, or a YAML pipeline. No storyboard needed.
+
+The architecture is:
+
+```text
+CLI (Commander.js + Agent) -> Engine (Project state) -> Core (Zustand + FFmpeg) -> AI Providers
+```
+
+Within a project, the files have defined roles:
+
+| Path            | Role                                                                              |
+| --------------- | --------------------------------------------------------------------------------- |
+| `brief.md`      | Optional rough input before `vibe init`; can be messy notes, links, or one line. |
+| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues. The intent layer.         |
+| `DESIGN.md`     | Palette, typography, layout, motion, and transitions. The visual system.          |
+| `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings. |
+| `assets/`       | Generated or canonical build artifacts: narration, backdrops, music, video clips. |
+| `renders/`      | Final and intermediate MP4 outputs.                                               |
+| `references/`   | Composition rule docs installed by VibeFrame skills; not for user media.          |
+
+`vibe.config.json` owns the project contract (provider, model, quality, and
+build defaults). The composition engine today is Hyperframes (HTML/CSS/JS scene
+rendering in a headless browser).
+
+## Quick Start
 
 ```bash
 vibe setup
-vibe setup --scope project  # optional: store provider keys in this repo only
 vibe doctor
 vibe guide
 ```
 
-`brief.md` is not a strict template. It is raw intent: rough notes, pasted
-research, links, a product brief, or a one-line idea. `vibe init --from` uses
-it only to seed `STORYBOARD.md` and `DESIGN.md`; after init, those two files
-become the working source of truth.
-
-`--from` accepts either a file path or a short inline brief:
+Scaffold a project from a brief:
 
 ```bash
+mkdir -p launch/media
+# optional: add your own photos, logos, screenshots, or B-roll
+# cp ~/Desktop/product-shot.png launch/media/
+
+cat > brief.md <<'EOF'
+Make a 30-second launch video for VibeFrame.
+
+Audience: developers using Codex, Claude Code, or Cursor.
+Message: a coding agent can turn a brief into a rendered MP4.
+Tone: technical, concise, credible.
+EOF
+
+vibe setup --scope project
 vibe init launch --from brief.md --json
+```
+
+`--from` also accepts an inline string:
+
+```bash
 vibe init launch --from "30-second launch video for VibeFrame" --json
 ```
 
-If you already have source media, put it inside the scene project under
-`media/` before or after init:
+After init, `STORYBOARD.md` and `DESIGN.md` are the working source of truth.
+Edit them directly or ask a coding agent to research and revise them.
+
+## Project Flow
 
 ```bash
-mkdir -p my-video/media
-cp ~/Desktop/product-shot.png my-video/media/
-cp ~/Desktop/logo.png my-video/media/
-```
-
-Use `media/` for user-provided inputs, `assets/` for generated or canonical
-build assets, `renders/` for outputs, and `references/` for local composition
-rules installed by VibeFrame.
-
-### Build A Storyboard Video
-
-```bash
-vibe init my-video \
-  --from "45-second launch video for an AI-native editor" \
-  --profile agent \
-  --visual-style "Swiss Pulse" \
-  -r 16:9 \
-  -d 45 \
-  --json
-
-# Edit my-video/STORYBOARD.md and my-video/DESIGN.md
 vibe storyboard validate my-video --json
 vibe plan my-video --json
 vibe build my-video --dry-run --max-cost 5 --json
 vibe build my-video --max-cost 5 --json
 vibe status project my-video --refresh --json
 vibe inspect project my-video --json
-vibe render my-video -o renders/final.mp4 --quality standard --json
+vibe render my-video -o renders/final.mp4 --json
 vibe inspect render my-video --cheap --json
 vibe scene repair my-video --json
+```
 
-# Focus a single beat during iteration
+To iterate on a single beat without rebuilding everything:
+
+```bash
 vibe build my-video --beat hook --stage sync --json
 vibe inspect project my-video --beat hook --json
 vibe render my-video --beat hook --json
 vibe inspect render my-video --beat hook --cheap --json
-
-# Let a host agent handle semantic issues from nextActions/review-report.json
-codex "fix issues from my-video/review-report.json"
 ```
 
-Use direct media commands when you do not need a full project:
-
-```bash
-vibe generate image "cinematic product demo frame" -p openai -o frame.png
-vibe generate video "interface animates into a polished demo" -p seedance -i frame.png -o motion.mp4
-vibe edit caption demo.mp4 -o captioned.mp4
-vibe remix highlights demo-process.mp4 -d 60 -o highlight.mp4
-vibe generate music "minimal instrumental tech pulse" --instrumental -d 60 -o bgm.mp3
-vibe audio duck bgm.mp3 --voice highlight.mp4 -o bgm-ducked.mp3
-```
-
-Each storyboard beat can include YAML cues:
+Each storyboard beat carries YAML cues:
 
 ````markdown
 ## Beat hook — Open
@@ -368,75 +191,97 @@ duration: 5
 ```
 ````
 
-Use text cues when you want VibeFrame to generate an asset. Use project-relative
-paths when you want to reuse a local file:
+When a beat should reuse a local file instead of generating one, use a
+project-relative path:
 
 ```yaml
-backdrop: "media/product-shot.png" # existing still image
-video: "media/broll.mp4" # existing video/B-roll
-narration: "media/voice.wav" # existing recorded narration
-asset: "media/logo.png" # generic local asset reference
+backdrop: "media/product-shot.png"
+video: "media/broll.mp4"
+narration: "media/voice.wav"
+asset: "media/logo.png"
 ```
 
-Agents should use `vibe storyboard set/get/move/list` for narrow cue edits
-and direct Markdown edits for larger creative rewrites. `STORYBOARD.md` is
-the intent layer, `DESIGN.md` is the visual system, `vibe.config.json` stores
-provider/model defaults, `media/` stores user-provided source media, and files
-under `assets/` and `compositions/` are generated or canonical build artifacts.
-`build-report.json` records build results and costs;
-`review-report.json` records inspection findings, issue-level actions, and
-top-level nextActions. Agents should prefer nextActions, run only
-safeToAutoRun:true commands automatically, ask before
-requiresConfirmation:true actions, and keep retryWith as the compatibility
-fallback.
-When paid video or music providers return async jobs, `vibe status project
---refresh` downloads completed outputs, updates `build-report.json`, and
-writes freshness metadata under `.vibeframe/assets/`. The sync stage wires
-ready narration and music into the root timeline, so render inspection can map
-audio/visual issues back to the affected beat.
+### `vibe init` profiles
 
-### Edit Existing Media
+| Profile   | Use when                                              | What it creates                               |
+| --------- | ----------------------------------------------------- | --------------------------------------------- |
+| `minimal` | You only want the authoring docs at first             | `STORYBOARD.md`, `DESIGN.md`, project config  |
+| `agent`   | Recommended for Codex, Claude Code, Cursor, and Aider | authoring docs plus local agent guidance      |
+| `full`    | You want all render/backend files up front            | authoring docs, agent guidance, render scaffold |
+
+The default is `agent`. Pass `--mcp` to also create project-scoped MCP config
+during init.
+
+### Character-consistent video
+
+Declare a character pool in the storyboard frontmatter, then reference it from
+individual beats. VibeFrame generates a character sheet once and uses it as a
+reference image for Seedance image-to-video, keeping the character consistent
+across scenes.
+
+```yaml
+---
+characters:
+  nova: "young female racing engineer, teal team jacket, low ponytail"
+  rival: { image: "media/rival-ref.png" }
+---
+
+## Beat hook — Hook
+
+```yaml
+duration: 5
+characters: [nova]
+keyframe: "NOVA stands on the starting grid, low-angle hero shot, morning light"
+video: "slow push-in as engines spool up around her"
+```
+```
+
+Review keyframe stills before paying for video generation:
 
 ```bash
-# Remove silence
+vibe build my-film --skip-video        # generate keyframe stills only (cheap)
+vibe build my-film --beat grid --stage assets --force --skip-video  # regenerate one beat
+vibe build my-film --max-cost 6        # animate the approved keyframes
+```
+
+## One-Shot Media Commands
+
+Use these when the job is a single asset or media transformation, not a
+full storyboard project:
+
+```bash
+# Generate standalone assets
+vibe generate image "cinematic product demo frame" -p openai -o frame.png
+vibe generate video "interface animates into a polished demo" -p seedance -i frame.png -o motion.mp4
+vibe generate narration "Start with a storyboard." -o narration.mp3
+vibe generate music "minimal instrumental tech pulse" --instrumental -d 60 -o bgm.mp3
+
+# Edit existing media
 vibe edit silence-cut interview.mp4 -o clean.mp4
-
-# Add captions
 vibe edit caption video.mp4 -o captioned.mp4
-
-# Detect scene changes
+vibe edit noise-reduce noisy.mp4 -o clean.mp4
 vibe detect scenes video.mp4
 
-# Reduce background noise
-vibe edit noise-reduce noisy.mp4 -o clean.mp4
+# Remix and audio
+vibe remix highlights demo-process.mp4 -d 60 -o highlight.mp4
+vibe audio duck bgm.mp3 --voice highlight.mp4 -o bgm-ducked.mp3
 ```
 
-### Generate Media Primitives
+## Workflow Lanes
 
-Use primitives directly when you need a standalone asset or when an agent is
-debugging one stage of a storyboard build.
+Use the highest-level lane that fits the job:
 
-```bash
-vibe generate image \
-  "A cinematic product demo frame, clean terminal UI, blue highlights" \
-  -p openai \
-  -o frame.png
+| Lane             | Use it when...                                       | Commands                                               |
+| ---------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| **BUILD**        | You want a complete video from a written brief       | `init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
+| **GENERATE/ASSET** | You need one standalone image, clip, voice, or music | `generate image/video/narration/music/motion`          |
+| **EDIT/REMIX**   | You already have media and want to change or reuse it | `edit`, `remix`, `audio`, `detect`                     |
 
-vibe generate video \
-  "The interface animates into a polished product demo" \
-  -p seedance \
-  -i frame.png \
-  -d 8 \
-  -o motion.mp4
+For a command-routing reference, see [FUNCTIONS.md](FUNCTIONS.md).
 
-vibe generate narration \
-  "Start with a storyboard. VibeFrame turns each beat into a render plan." \
-  -o narration.mp3
-```
+## YAML Pipelines
 
-## Video As YAML
-
-Use `vibe run` when you want a reproducible multi-step workflow:
+Use `vibe run` for reproducible multi-step workflows:
 
 ```yaml
 name: promo
@@ -465,12 +310,12 @@ vibe run promo.yaml --resume
 
 ## Agent Workflows
 
-VibeFrame is designed to be easy for AI coding agents to drive because the CLI
-is the UI. The primary agent path is still plain shell commands plus project
-guidance files, not a separate VibeFrame chat surface.
+The intended agent path: use the host's native goal mode as the outer loop,
+drive VibeFrame CLI commands with `--json`, and use `build-report.json` and
+`review-report.json` as loop state.
 
 ```text
-"Build a 45-second launch video from this brief"
+ask coding agent to: "build a 45-second launch video from this brief"
 -> vibe init launch --from brief.md --json
 -> edit launch/STORYBOARD.md and launch/DESIGN.md
 -> vibe plan launch --json
@@ -481,7 +326,7 @@ guidance files, not a separate VibeFrame chat surface.
 -> vibe render launch --json
 -> vibe inspect render launch --cheap --json
 
-"Fix quality issues from the render review"
+"fix quality issues from the render review"
 -> read review-report.json
 -> vibe scene repair launch --json
 -> edit STORYBOARD.md or composition artifacts only where needed
@@ -489,68 +334,113 @@ guidance files, not a separate VibeFrame chat surface.
 -> vibe inspect render launch --cheap --json
 ```
 
-`vibe init` creates project guidance files for common hosts, including Claude
-Code, Codex, Cursor, Aider, Gemini CLI, OpenCode, and a universal `AGENTS.md`
-fallback.
+`inspect` returns a `review-report.json` with pre-classified `nextActions`:
+run `safeToAutoRun:true` actions automatically, ask before
+`requiresConfirmation:true` actions, and use `retryWith` only as a fallback.
+`fixOwner:"vibe"` means the CLI can repair it deterministically;
+`fixOwner:"host-agent"` means the outer loop (or a human) must edit
+`STORYBOARD.md`, `DESIGN.md`, or compositions.
 
-`vibe host` turns that guidance into app-ready configuration for Codex, Claude,
-and Cursor:
+### Goal mode prompts
+
+For Codex:
+
+```text
+/goal Build launch/ into a reviewed VibeFrame MP4 from brief.md.
+Use vibe context/schema first when command details are unclear. Use --json for
+all vibe commands. Run --dry-run before paid operations and keep generated-asset
+spend under $5 with --max-cost 5 where supported. Read build-report.json and
+review-report.json before choosing the next action. Prefer nextActions:
+run only safeToAutoRun:true actions automatically, ask before
+requiresConfirmation:true actions, and use retryWith only as the compatibility
+fallback. Treat fixOwner:"vibe" issues as deterministic CLI repair work and
+fixOwner:"host-agent" issues as storyboard, DESIGN.md, or composition edits.
+
+Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
+less, the aspect ratio is 16:9 unless brief.md says otherwise,
+vibe inspect render launch --cheap --json reports no errors, any AI review score
+is at least 90 when AI review is requested, and every remaining host-agent issue is fixed,
+intentionally accepted with a written reason, or reported as blocked.
+```
+
+For Claude Code:
+
+```text
+/goal Create the final VibeFrame project render for launch/ using the native
+Claude Code goal loop as the outer loop. Use vibe commands with --json, run
+dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
+use build-report.json plus review-report.json as the loop state. Follow
+nextActions first, run only safeToAutoRun:true actions automatically, ask
+before requiresConfirmation:true actions, and use retryWith only as a fallback.
+Distinguish fixOwner:"vibe" from fixOwner:"host-agent" when deciding whether
+to run vibe scene repair or edit STORYBOARD.md, DESIGN.md, or compositions.
+
+Stop only when launch/renders/final.mp4 exists, duration is within the requested
+30s target, aspect ratio is 16:9 unless the brief overrides it, render
+inspection status has no errors, any AI review score is >= 90 when AI review is
+requested, and unresolved host-agent issues are either fixed, explicitly accepted
+with rationale, or reported as blocked.
+```
+
+### Configuring hosts
+
+`vibe init` creates agent guidance files for Codex, Claude Code, Cursor, Aider,
+Gemini CLI, OpenCode, and a universal `AGENTS.md` fallback.
+
+`vibe host` turns that guidance into app-ready configuration:
 
 ```bash
 vibe host list --json
 vibe host setup all              # print snippets only
 vibe host setup cursor --write   # write .cursor/mcp.json
-vibe host doctor all --json      # verify guidance + MCP config
+vibe host doctor all --json
 ```
 
-By default, `vibe host setup` does **not** modify files; pass `--write` to
-apply the printed config. Claude Desktop global config is also opt-in and is
-backed up before merge. For Claude Desktop, pass the workspace directory you
-want relative project names to resolve under; VibeFrame writes a shell wrapper
-so Claude Desktop preserves that workspace anchor:
+By default, `--write` is required to apply config; `vibe host setup` prints
+only. For Claude Desktop, pass the workspace directory so relative project
+names resolve correctly:
 
 ```bash
 vibe host setup claude-desktop ~/dev/videos --write
 ```
 
-How agents discover the right command:
-
-- Claude Code reads `CLAUDE.md`, which imports `AGENTS.md`.
-- Codex reads `AGENTS.md` directly, and can load `.codex/config.toml` for MCP.
-- Cursor can use `AGENTS.md`, `.cursor/rules`, and `.cursor/mcp.json`.
-- Every host can fall back to `vibe schema`, `vibe context`, `vibe doctor`,
-  and `vibe guide`.
-
-Built-in workflow guides are the first stop when intent is ambiguous:
+### Schema and introspection
 
 ```bash
-vibe guide
+vibe schema --list                  # full command catalog
+vibe schema --list --surface public # first-run / product surface only
+vibe schema --list --filter free    # narrow to cost tier
+vibe schema <command> --json        # JSON Schema for one command
+vibe context                        # agent quickstart: rules, envelope, conventions
+vibe guide                          # workflow guides
 vibe guide motion
 vibe guide scene
 vibe guide pipeline
 ```
 
-`vibe agent` is available for environments without Claude Code, Codex, Cursor,
-or another coding agent. Treat it as optional/advanced; external agents driving
-the CLI through `AGENTS.md`, `--json`, `--dry-run`, `vibe context`, and
-`vibe schema --list --surface public` are the primary workflow.
+`vibe schema` is the source of truth for command availability and parameters.
+The `surface` field on each entry signals intent: `public` = first-run product
+path; `agent` = host-agent automation; `advanced`/`legacy` = compatible power
+primitives.
 
 ## MCP Server
 
 The CLI is the primary runtime. For hosts that prefer MCP, VibeFrame also
-ships `@vibeframe/mcp-server`.
+ships `@vibeframe/mcp-server` (binary `vibeframe-mcp`).
 
 **Claude Desktop users:** install the prebuilt extension instead of editing
 JSON — download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
 and drop it into **Settings → Extensions**, then pick a workspace folder.
 
-For other hosts, generate host-specific snippets with:
+For other hosts, generate snippets with:
 
 ```bash
 vibe host setup codex
 vibe host setup claude
 vibe host setup cursor
 ```
+
+Or configure directly:
 
 ```json
 {
@@ -585,44 +475,39 @@ OPENROUTER_API_KEY
 IMGBB_API_KEY
 ```
 
-The canonical list is `vibe doctor --json | jq '.data.providers'` — that
-shape derives from `packages/ai-providers/src/api-keys.ts` and stays in
-sync with new providers automatically.
-
-Use:
+The canonical list is `vibe doctor --json | jq '.data.providers'`, which stays
+in sync with new providers automatically.
 
 ```bash
-vibe setup --show
-vibe doctor
+vibe setup --show   # list configured keys
+vibe doctor         # verify keys and dependencies
 ```
 
 For model and provider details, see [MODELS.md](MODELS.md).
 
+Cost tiers are stamped on commands. General expectations:
+
+- **Free/local:** schema, setup/doctor, timeline/batch/detect/media, many FFmpeg edits
+- **Low:** speech, transcription, inspection, simple AI-assisted edits
+- **High:** image generation, storyboard/motion generation
+- **Very high:** video generation and expensive provider-backed transforms
+
+Use `vibe schema --list --filter <tier>` to check before running.
+
 ## Relationship To Composition Engines
 
-VibeFrame is not trying to replace lower-level composition engines. It wraps
-them in a workflow that agents can drive from brief to MP4:
+VibeFrame wraps lower-level composition engines rather than replacing them:
 
-| Layer                                                    | Owns                                                                                                                                               |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.                                                                               |
-| [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture for agents.                                                                        |
-| VibeFrame                                                | `STORYBOARD.md` / `DESIGN.md`, provider routing, generated assets, build reports, render inspection, edit/remix commands, and host-agent guidance. |
+| Layer                                                    | Owns                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.             |
+| [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                 |
+| VibeFrame                                                | Storyboard/design files, provider routing, build reports, render inspection, edit/remix commands, and host-agent guidance. |
 
-Scene projects use `vibe.config.json` for provider, model, quality, and build
-defaults. Legacy projects may still carry `vibe.project.yaml`, where the
-composition engine can be declared like this:
-
-```yaml
-composition:
-  engine: hyperframes
-  entry: index.html
-```
-
-In practice, use Hyperframes directly when the job is only focused HTML scene
-authoring and rendering. Use VibeFrame when the job includes storyboard
-planning, image/video/audio generation, narration, build reports, render
-inspection, or editing/remix steps around the composition layer.
+Use Hyperframes directly when the job is only HTML scene authoring and
+rendering. Use VibeFrame when the job includes storyboard planning,
+image/video/audio generation, narration, build reports, or editing steps around
+the composition layer.
 
 VibeFrame is not affiliated with HeyGen. See [CREDITS.md](CREDITS.md) for
 dependency and provenance notes.
@@ -640,29 +525,6 @@ docs/                    Compact public docs
 scripts/                 Install, docs generation, demos, and maintainer helpers
 tests/                   Manual smoke checks outside CI
 ```
-
-## Reference
-
-- [MODELS.md](MODELS.md): provider and model reference.
-- [CHANGELOG.md](CHANGELOG.md): versioned release notes.
-- [FUNCTIONS.md](FUNCTIONS.md): workflow lanes, command routing, and agent
-  usage rules.
-- [ROADMAP.md](ROADMAP.md): short public roadmap.
-
-For machine-readable access (agents, scripts) use the live introspection
-hooks instead of this README:
-
-```bash
-vibe schema --list --surface public  # small first-run/product surface
-vibe schema --list --json     # full command catalog (current count via `length`)
-vibe schema --list --filter very-high  # narrow to a cost tier
-vibe schema <command> --json  # JSON Schema for one command
-vibe context                  # agent quickstart (rules, envelope shape, conventions)
-```
-
-Schema entries include a `surface` field. Treat `public` as the first-run
-product path, `agent` as host-agent automation, and `advanced`/`legacy` as
-compatible power primitives with replacements where applicable.
 
 ## Development
 
@@ -687,14 +549,19 @@ Contributions are welcome: bug fixes, provider integrations, CLI UX
 improvements, docs, and tests.
 
 ```bash
-# Scaffold a provider declaration
 pnpm scaffold:provider <name>
-
-# Scaffold a command under generate or edit
 pnpm scaffold:command <generate|edit> <name>
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+
+## Reference
+
+- [MODELS.md](MODELS.md): provider and model reference.
+- [CHANGELOG.md](CHANGELOG.md): versioned release notes.
+- [FUNCTIONS.md](FUNCTIONS.md): workflow lanes, command routing, and agent usage rules.
+- [ROADMAP.md](ROADMAP.md): short public roadmap.
+- [docs/projects.md](docs/projects.md): project file roles, profiles, characters, and dry runs.
 
 ## License
 
