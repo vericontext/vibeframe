@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.15`
+> CLI version: `0.113.16`
 
 ## Mental model
 
@@ -112,7 +112,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 
 | Surface      | Count | Examples                                                                                                                                                                                                                  |
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Public**   |    36 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +26 more   |
+| **Public**   |    37 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +27 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
 | **Advanced** |    44 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +34 more |
 | **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
@@ -126,7 +126,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    49 | `audio.duck` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · `scene.list-styles` · +41 more        | FFmpeg only, no API call                                                                          |
+| **Free**       |    50 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +42 more          | FFmpeg only, no API call                                                                          |
 | **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
@@ -1945,6 +1945,21 @@ Cost tier: `free`
 Validate cue blocks and beat ids
 
 Product surface: `public`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `project-dir` _(string)_ — Project directory
+
+### `design`
+
+#### `vibe design validate`
+
+Validate DESIGN.md front-matter tokens and sections
+
+Product surface: `public`
+Note: Validate the DESIGN.md visual contract.
 
 Cost tier: `free`
 

@@ -27,6 +27,8 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
     note: "Optional fallback REPL; external coding agents are the primary workflow.",
   },
 
+  "design.validate": { surface: "public", note: "Validate the DESIGN.md visual contract." },
+
   "generate.image": { surface: "public" },
   "generate.video": { surface: "public" },
   "generate.narration": { surface: "public", note: "Product-facing TTS command." },

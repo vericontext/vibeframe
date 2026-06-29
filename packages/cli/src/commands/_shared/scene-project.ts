@@ -183,8 +183,39 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
  * The agent-driven craft path expects this file as input — see
  * `.claude/skills/vibe-scene/SKILL.md`.
  */
+/**
+ * Derive google-labs `colors:` role tokens (primary/ground/accent) from a named
+ * style's palette by luminance (darkest→ground, lightest→primary, most-saturated
+ * remaining→accent), falling back to the default video token palette.
+ */
+function designColorRoles(style?: VisualStyle): { primary: string; ground: string; accent: string } {
+  const fallback = { primary: "#EAF2F7", ground: "#0E1A24", accent: "#E2683C" };
+  const uniq = Array.from(
+    new Set((style?.palette ?? []).filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).map((c) => c.toUpperCase()))
+  );
+  if (uniq.length < 3) return fallback;
+  const rgb = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const lum = (h: string) => { const [r, g, b] = rgb(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const sat = (h: string) => { const [r, g, b] = rgb(h).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx === 0 ? 0 : (mx - mn) / mx; };
+  const sorted = [...uniq].sort((a, b) => lum(a) - lum(b));
+  const ground = sorted[0];
+  const primary = sorted[sorted.length - 1];
+  const accent = uniq.filter((h) => h !== ground && h !== primary).sort((a, b) => sat(b) - sat(a))[0] ?? fallback.accent;
+  return { primary, ground, accent };
+}
+
 export function buildDesignMd(opts: { name: string; style?: VisualStyle }): string {
   const { name, style } = opts;
+  const roles = designColorRoles(style);
+  const frontmatter = `---
+name: ${name}
+colors:
+  primary: "${roles.primary}"
+  ground: "${roles.ground}"
+  accent: "${roles.accent}"
+---
+
+`;
 
   const intro = style
     ? `Visual identity for **${name}**, scaffolded from the **${style.name}** style (after ${style.designer}). Customise freely — this file is the single source of truth for every scene's palette, typography, and motion.`
@@ -218,7 +249,7 @@ export function buildDesignMd(opts: { name: string; style?: VisualStyle }): stri
     ? style.avoid.map((a) => `- ${a}`).join("\n")
     : `- _anti-pattern 1_\n- _anti-pattern 2_\n- _anti-pattern 3_`;
 
-  return `# ${name} — Design
+  return `${frontmatter}# ${name} — Design
 
 > **Hard-gate (BUILD flow only).** This file is the visual contract for
 > the scene-project flow (\`vibe build\`, \`vibe scene ...\`, composition
