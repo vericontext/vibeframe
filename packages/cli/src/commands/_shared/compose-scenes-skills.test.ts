@@ -9,6 +9,7 @@ import {
   composeBeatHtml,
   composeBeatWithRetry,
   computeCacheKey,
+  composeConcurrency,
   defaultCacheDir,
   executeComposeScenesWithSkills,
   extractHtml,
@@ -21,6 +22,28 @@ import {
 
 import type { Beat } from "./storyboard-parse.js";
 import type { LintFinding } from "./scene-lint.js";
+
+describe("composeConcurrency", () => {
+  const saved = process.env.VIBE_COMPOSE_CONCURRENCY;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.VIBE_COMPOSE_CONCURRENCY;
+    else process.env.VIBE_COMPOSE_CONCURRENCY = saved;
+  });
+
+  it("defaults to 4, clamped to the beat count", () => {
+    delete process.env.VIBE_COMPOSE_CONCURRENCY;
+    expect(composeConcurrency(10)).toBe(4);
+    expect(composeConcurrency(2)).toBe(2); // fewer beats than the cap
+    expect(composeConcurrency(0)).toBe(1); // never zero
+  });
+
+  it("honors a valid VIBE_COMPOSE_CONCURRENCY override", () => {
+    process.env.VIBE_COMPOSE_CONCURRENCY = "8";
+    expect(composeConcurrency(20)).toBe(8);
+    process.env.VIBE_COMPOSE_CONCURRENCY = "garbage";
+    expect(composeConcurrency(20)).toBe(4); // falls back to default
+  });
+});
 
 import { mkdirSync, writeFileSync, readFileSync as fsReadFileSync } from "node:fs";
 
