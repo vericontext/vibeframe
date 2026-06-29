@@ -133,4 +133,12 @@ describe("extractDesignTokens", () => {
   it("falls back to defaults when fewer than 3 hexes are present", () => {
     expect(extractDesignTokens("no colors here")).toEqual(DEFAULT_AIVIDEO_TOKENS);
   });
+
+  it("maps named front-matter color tokens by role", () => {
+    const md = '---\ncolors:\n  ground: "#101418"\n  primary: "#F4E9D8"\n  accent: "#E8A23C"\n---\n# Design\n';
+    const t = extractDesignTokens(md);
+    expect(t.ground).toBe("#101418");
+    expect(t.primary).toBe("#F4E9D8");
+    expect(t.accent).toBe("#E8A23C");
+  });
 });
