@@ -14,12 +14,43 @@ import {
   buildProjectClaudeMd,
   buildStoryboardMd,
   buildSceneGitignore,
+  composerDefaultForKind,
   defaultVibeProjectConfig,
+  isSceneKind,
+  kindAssetPolicy,
   mergeHyperframesConfig,
   scaffoldSceneProject,
+  VALID_SCENE_KINDS,
   type HyperframesConfig,
 } from "./scene-project.js";
 import { getVisualStyle } from "./visual-styles.js";
+
+describe("SceneKind", () => {
+  it("recognizes the five kinds and rejects others", () => {
+    for (const k of VALID_SCENE_KINDS) expect(isSceneKind(k)).toBe(true);
+    expect(isSceneKind("nonsense")).toBe(false);
+    expect(VALID_SCENE_KINDS).toEqual(["cinema", "product", "aivideo", "story", "motion"]);
+  });
+
+  it("kindAssetPolicy: product skips i2v, motion skips all AI assets, others add none", () => {
+    expect(kindAssetPolicy("product")).toEqual({ skipKeyframe: true, skipVideo: true });
+    expect(kindAssetPolicy("motion")).toEqual({
+      skipKeyframe: true,
+      skipVideo: true,
+      skipBackdrop: true,
+    });
+    expect(kindAssetPolicy("cinema")).toEqual({});
+    expect(kindAssetPolicy("story")).toEqual({});
+    expect(kindAssetPolicy("aivideo")).toEqual({});
+  });
+
+  it("composerDefaultForKind: only aivideo defaults to the template composer", () => {
+    expect(composerDefaultForKind("aivideo")).toBe("template");
+    for (const k of ["cinema", "product", "story", "motion"] as const) {
+      expect(composerDefaultForKind(k)).toBeUndefined();
+    }
+  });
+});
 
 async function makeTmp(label = "vibe-scene-test-"): Promise<string> {
   return mkdtemp(join(tmpdir(), label));

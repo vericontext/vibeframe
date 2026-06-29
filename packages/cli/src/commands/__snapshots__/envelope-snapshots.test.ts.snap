@@ -696,6 +696,25 @@ exports[`CLI --describe schemas (drift detection) > vibe demo --describe 1`] = `
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe design validate --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Validate DESIGN.md front-matter tokens and sections",
+  "name": "design.validate",
+  "note": "Validate the DESIGN.md visual contract.",
+  "parameters": {
+    "properties": {
+      "project-dir": {
+        "description": "Project directory",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "public",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe detect beats --describe 1`] = `
 {
   "cost": "free",
@@ -2622,6 +2641,11 @@ exports[`CLI --describe schemas (drift detection) > vibe init --describe 1`] = `
       },
       "from": {
         "description": "Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file",
+        "type": "string",
+      },
+      "kind": {
+        "default": "cinema",
+        "description": "Project kind: cinema | story | aivideo | product | motion (drives pipeline stages + default composer)",
         "type": "string",
       },
       "mcp": {

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 
-import type { SceneAspect, VibeProjectConfig as LegacyVibeProjectConfig } from "./scene-project.js";
+import type { SceneAspect, SceneKind, VibeProjectConfig as LegacyVibeProjectConfig } from "./scene-project.js";
 
 export const VIBE_CONFIG_FILENAME = "vibe.config.json";
 export const LEGACY_VIBE_PROJECT_FILENAME = "vibe.project.yaml";
@@ -19,6 +19,8 @@ export interface VibeProjectConfigV1 {
   schemaVersion: "1";
   name: string;
   aspect: SceneAspect;
+  /** Project kind — drives which pipeline stages run + the default composer. */
+  kind: SceneKind;
   defaults: {
     sceneDurationSec: number;
     narrationPaddingSec: number;
@@ -59,12 +61,14 @@ export interface LoadedProjectConfig {
 export function defaultProjectConfig(opts: {
   name: string;
   aspect?: SceneAspect;
+  kind?: SceneKind;
   sceneDurationSec?: number;
 }): VibeProjectConfigV1 {
   return {
     schemaVersion: "1",
     name: opts.name,
     aspect: opts.aspect ?? "16:9",
+    kind: opts.kind ?? "cinema", // DEFAULT_SCENE_KIND (literal to avoid an import cycle)
     defaults: {
       sceneDurationSec: opts.sceneDurationSec ?? 5,
       narrationPaddingSec: 0.5,
@@ -114,6 +118,7 @@ export function mergeProjectConfig(
 export function projectConfigJson(opts: {
   name: string;
   aspect?: SceneAspect;
+  kind?: SceneKind;
   sceneDurationSec?: number;
 }): string {
   return JSON.stringify(defaultProjectConfig(opts), null, 2) + "\n";
@@ -132,6 +137,7 @@ export async function readProjectConfig(projectDir: string): Promise<LoadedProje
       const fallback = defaultProjectConfig({
         name,
         aspect: parsed.aspect,
+        kind: parsed.kind,
         sceneDurationSec: parsed.defaults?.sceneDurationSec,
       });
       return {
