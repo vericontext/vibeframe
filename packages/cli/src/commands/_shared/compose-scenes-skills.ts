@@ -34,11 +34,22 @@ import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { USER_CACHE_DIR } from "../../config/index.js";
+import { mapWithConcurrency } from "../../utils/concurrency.js";
 
 import { runHyperframeLint, type PreparedHyperframeLintInput } from "@hyperframes/producer";
 
 import { loadHyperframesSkillBundle } from "./hf-skill-bundle/bundle.js";
 import { filterSubCompFalsePositives, withVibeframeSubCompFindings, type LintFinding } from "./scene-lint.js";
+
+/** Default cap on concurrent per-beat LLM compose calls. */
+const DEFAULT_COMPOSE_CONCURRENCY = 4;
+
+/** Resolve the compose fan-out limit (env override, clamped to the beat count). */
+export function composeConcurrency(beatCount: number): number {
+  const env = Number.parseInt(process.env.VIBE_COMPOSE_CONCURRENCY ?? "", 10);
+  const limit = Number.isInteger(env) && env > 0 ? env : DEFAULT_COMPOSE_CONCURRENCY;
+  return Math.max(1, Math.min(limit, Math.max(1, beatCount)));
+}
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import { type ComposerProvider, resolveComposer, composerEnvVar } from "./composer-resolve.js";
@@ -1052,7 +1063,13 @@ export async function executeComposeScenesWithSkills(
         error: string;
       };
 
-  const tasks: Array<Promise<FanoutOutcome>> = beats.map(
+  // Bound concurrent LLM compose calls so a many-beat video does not fire N
+  // provider requests at once and hit rate limits. The per-beat callback
+  // catches its own errors (returns a FanoutOutcome, never rejects), so the
+  // limiter only throttles — it never short-circuits the batch.
+  const outcomes = await mapWithConcurrency(
+    beats,
+    composeConcurrency(beats.length),
     async (beat, beatIndex): Promise<FanoutOutcome> => {
       onProgress({ type: "beat-start", beatId: beat.id, beatIndex, totalBeats });
       try {
@@ -1109,10 +1126,8 @@ export async function executeComposeScenesWithSkills(
     }
   );
 
-  const outcomes = await Promise.all(tasks);
-
   // Aggregate metadata in beat order. `outcomes` is already ordered by
-  // input position (Promise.all preserves order).
+  // input position (mapWithConcurrency preserves order).
   const written: ComposeScenesActionResult["data"] extends infer D
     ? D extends { written: infer W }
       ? W
