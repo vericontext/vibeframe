@@ -31,10 +31,13 @@ describe("AGENTS_MD template", () => {
     expect(AGENTS_MD).toContain("--stdin");
   });
 
-  it("documents native host goal loops and strict stop rules", () => {
-    expect(AGENTS_MD).toContain("Native host goal loop");
-    expect(AGENTS_MD).toContain("Codex Goal mode");
-    expect(AGENTS_MD).toContain("Claude Code `/goal`");
+  it("documents the host agent loop and strict stop rules", () => {
+    expect(AGENTS_MD).toContain("Host agent loop");
+    expect(AGENTS_MD).toContain("your host's agent loop");
+    expect(AGENTS_MD).toContain("as the outer loop");
+    // No invented host-specific feature names (Claude Code has no `/goal`).
+    expect(AGENTS_MD).not.toContain("/goal");
+    expect(AGENTS_MD).not.toContain("Goal mode");
     expect(AGENTS_MD).toContain("build-report.json");
     expect(AGENTS_MD).toContain("review-report.json");
     expect(AGENTS_MD).toContain("nextActions");

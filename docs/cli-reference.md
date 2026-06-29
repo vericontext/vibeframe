@@ -17,7 +17,8 @@ and `DESIGN.md` are the source of truth; generated files under
 `compositions/` are artifacts. Use `vibe storyboard revise --dry-run`
 for project-aware STORYBOARD.md rewrites, `vibe storyboard *` for narrow
 cue edits, and direct Markdown edits for larger DESIGN.md rewrites.
-Native Codex Goal mode and Claude Code `/goal` are the outer loop for
+Your host's agent loop (Claude Code, Codex, Cursor, or another coding-agent
+host) is the outer loop for
 long-running work. VibeFrame provides the video-specific command surface,
 machine reports, cost gates, deterministic repair, render inspection, and
 `retryWith` hints those hosts use to decide the next step and when to stop.
@@ -29,10 +30,10 @@ scene / timeline                                            ← lower-level auth
 run / agent / schema / context                              ← automation + agents
 ```
 
-Canonical native-goal loop:
+Canonical outer-loop:
 
 ```
-native host goal → vibe context/schema → plan dry-run → build with budget
+host agent loop → vibe context/schema → plan dry-run → build with budget
 → status polling → inspect project → render → inspect render
 → repair/edit using nextActions/fixOwner → repeat until stop rules pass
 ```
@@ -72,9 +73,9 @@ preferred agent contract: run only `safeToAutoRun:true` actions automatically,
 ask before `requiresConfirmation:true`, and use `retryWith` only as the
 compatibility fallback. Issue-level `fixOwner:"vibe"` means deterministic CLI
 recovery; `fixOwner:"host-agent"` means storyboard/design/composition edits
-should be handled by the host agent. A host-native goal should stop only after
+should be handled by the host agent. The outer loop should stop only after
 the final MP4 exists, duration and aspect ratio match the brief, render
-inspection has no errors, any AI review score meets the goal threshold when AI
+inspection has no errors, any AI review score meets the review threshold when AI
 review is requested, and every host-agent issue is fixed, accepted with
 rationale, or reported as blocked.
 

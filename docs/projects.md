@@ -25,22 +25,22 @@ vibe build my-video --max-cost 5
 vibe render my-video -o renders/final.mp4
 ```
 
-## Native Host Goal Loop
+## Host Agent Loop
 
-Use Codex `/goal`, Claude Code `/goal`, Cursor, or another host-native goal
-feature as the outer loop for multi-step video builds. VibeFrame should not
+Use your host's agent loop (Claude Code, Codex, Cursor, or another coding-agent
+host) as the outer loop for multi-step video builds. VibeFrame should not
 compete with that loop. It should expose machine-readable state and recovery
 paths:
 
 ```text
-native host goal -> vibe context/schema -> plan dry-run -> build with budget
+host agent loop -> vibe context/schema -> plan dry-run -> build with budget
 -> status polling -> inspect project -> render -> inspect render
 -> repair/edit using nextActions/fixOwner -> repeat
 ```
 
-The goal should stop only when the final MP4 path exists, duration and aspect
+The outer loop should stop only when the final MP4 path exists, duration and aspect
 ratio match the brief, render inspection has no errors, any AI review score
-meets the goal threshold when AI review is requested, and unresolved
+meets the review threshold when AI review is requested, and unresolved
 `fixOwner:"host-agent"` issues are fixed,
 accepted with rationale, or reported as blocked. Agents should read
 `build-report.json` and `review-report.json` before choosing the next action
@@ -67,7 +67,7 @@ whose `nextActions` are pre-classified so the host loop never has to guess:
     {
       "kind": "command",
       "command": "vibe generate video ... --json",
-      "fixOwner": "host-agent",  // the outer goal loop owns this
+      "fixOwner": "host-agent",  // the outer agent loop owns this
       "costTier": "very-high",
       "safeToAutoRun": false,
       "requiresConfirmation": true,  // → ask the user before spending
