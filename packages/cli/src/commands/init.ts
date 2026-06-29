@@ -31,7 +31,9 @@ import { detectedAgentHosts, type AgentHostId } from "../utils/agent-host-detect
 import {
   describeSceneScaffold,
   isSceneScaffoldProfile,
+  isSceneKind,
   scaffoldSceneProject,
+  VALID_SCENE_KINDS,
   type SceneAspect,
 } from "./_shared/scene-project.js";
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
@@ -89,6 +91,11 @@ export const initCommand = new Command("init")
   .option("-r, --ratio <ratio>", "Scene aspect ratio: 16:9, 9:16, 1:1, 4:5", "16:9")
   .option("-d, --duration <sec>", "Default scene/root duration in seconds", "10")
   .option("--visual-style <name>", "Seed scene DESIGN.md from a named style")
+  .option(
+    "--kind <kind>",
+    "Project kind: cinema | story | aivideo | product | motion (drives pipeline stages + default composer)",
+    "cinema"
+  )
   .option("--agent <id>", `Agent target: ${VALID_AGENTS.join(" | ")}`, "auto")
   .option("--mcp", "Also write project-scoped MCP config for Codex/Claude Code/Cursor")
   .option("--force", "Overwrite existing files instead of skipping")
@@ -304,6 +311,14 @@ async function runSceneInit(
     );
   }
 
+  const kind = String(options.kind ?? "cinema");
+  if (!isSceneKind(kind)) {
+    exitWithError(
+      usageError(`Invalid --kind: ${kind}`, `Must be one of: ${VALID_SCENE_KINDS.join(", ")}`)
+    );
+    return;
+  }
+
   const duration = Number.parseFloat(String(options.duration ?? "10"));
   if (!Number.isFinite(duration) || duration <= 0 || duration > 3600) {
     exitWithError(
@@ -355,6 +370,7 @@ async function runSceneInit(
         projectDir,
         name: projectName,
         profile,
+        kind,
         aspect,
         duration,
         visualStyle: visualStyle?.name ?? null,
@@ -372,6 +388,7 @@ async function runSceneInit(
     duration,
     visualStyle,
     profile,
+    kind,
   });
   const draftWarnings: string[] = [];
   if (fromBrief) {
@@ -419,6 +436,7 @@ async function runSceneInit(
         projectDir,
         name: projectName,
         profile,
+        kind,
         aspect,
         duration,
         visualStyle: visualStyle?.name ?? null,

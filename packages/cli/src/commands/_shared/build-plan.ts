@@ -38,6 +38,7 @@ import {
   type ParsedStoryboard,
 } from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
+import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
 
 export type BuildStage = "assets" | "compose" | "sync" | "render" | "all";
@@ -191,6 +192,13 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   loadPlanEnv(projectDir);
   const stage = opts.stage ?? "all";
   const config = await readProjectConfig(projectDir);
+  // Project kind forces per-kind asset skips (e.g. product/motion have no i2v),
+  // OR'd with the explicit `--skip-*` flags. Applied here so the dry-run plan +
+  // cost estimate match what the build actually runs.
+  const kindPolicy = kindAssetPolicy(config.config.kind);
+  const skipBackdrop = opts.skipBackdrop ?? kindPolicy.skipBackdrop ?? false;
+  const skipKeyframe = opts.skipKeyframe ?? kindPolicy.skipKeyframe ?? false;
+  const skipVideo = opts.skipVideo ?? kindPolicy.skipVideo ?? false;
   const storyboardPath = join(projectDir, "STORYBOARD.md");
   const warnings: string[] = [];
   const retryWith: string[] = [];
@@ -382,7 +390,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const backdrop =
-      backdropCue && !opts.skipBackdrop
+      backdropCue && !skipBackdrop
         ? assetPlan({
             kind: "backdrop",
             beatId: beat.id,
@@ -398,7 +406,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const keyframe =
-      keyframePrompt && !opts.skipKeyframe
+      keyframePrompt && !skipKeyframe
         ? assetPlan({
             kind: "keyframe",
             beatId: beat.id,
@@ -414,7 +422,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           })
         : null;
     const video =
-      videoCue && !opts.skipVideo
+      videoCue && !skipVideo
         ? assetPlan({
             kind: "video",
             beatId: beat.id,
@@ -507,7 +515,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
 
   if (
     includeAssets &&
-    !opts.skipBackdrop &&
+    !skipBackdrop &&
     !isSupportedBuildImageProvider(resolved.image.resolved)
   ) {
     const unsupportedBackdropBeats = beats.filter((beat) =>
@@ -549,7 +557,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     );
   }
 
-  if (validationOk && includeAssets && !opts.skipBackdrop) {
+  if (validationOk && includeAssets && !skipBackdrop) {
     const generatedBackdrops = beats
       .map((beat) => beat.assets.backdrop)
       .filter((asset): asset is AssetPlan => Boolean(asset?.willGenerate));
@@ -567,7 +575,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   // Character sheets are generated once per build (project-level), before
   // per-beat video. Estimate cost for referenced, prompt-based characters that
   // are not already on disk so `--max-cost` gates them.
-  if (validationOk && includeAssets && !opts.skipVideo) {
+  if (validationOk && includeAssets && !skipVideo) {
     const referenced = new Set<string>();
     for (const beat of sourceBeats) {
       for (const name of beatCharacterNames(beat.cues)) referenced.add(name);

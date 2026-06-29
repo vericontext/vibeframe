@@ -22,6 +22,55 @@ import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./project-config.js";
 export type SceneAspect = "16:9" | "9:16" | "1:1" | "4:5";
 export type SceneScaffoldProfile = "minimal" | "agent" | "full";
 
+/**
+ * Project KIND — orthogonal to {@link SceneScaffoldProfile} (which decides which
+ * files exist). Kind decides which pipeline STAGES run and which composer is the
+ * default:
+ * - `cinema` / `story` — directed, character-driven; keyframe→i2v, LLM composer.
+ * - `aivideo` — character + i2v, the deterministic `template` composer.
+ * - `product` — backdrop/asset-centric (no i2v keyframes).
+ * - `motion` — pure HTML/CSS/GSAP graphics (no AI image/video assets).
+ */
+export type SceneKind = "cinema" | "product" | "aivideo" | "story" | "motion";
+
+export const VALID_SCENE_KINDS: readonly SceneKind[] = [
+  "cinema",
+  "product",
+  "aivideo",
+  "story",
+  "motion",
+];
+
+/** Default kind preserves today's behavior (LLM composer, cue-driven assets). */
+export const DEFAULT_SCENE_KIND: SceneKind = "cinema";
+
+export function isSceneKind(value: string): value is SceneKind {
+  return (VALID_SCENE_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * Per-kind default asset skips, OR'd with the explicit `--skip-*` flags. Returns
+ * only the skips a kind forces; `cinema`/`story`/`aivideo` add none (assets run
+ * from their cues).
+ */
+export function kindAssetPolicy(
+  kind: SceneKind
+): { skipKeyframe?: boolean; skipVideo?: boolean; skipBackdrop?: boolean } {
+  switch (kind) {
+    case "product":
+      return { skipKeyframe: true, skipVideo: true }; // backdrop-centric, no i2v
+    case "motion":
+      return { skipKeyframe: true, skipVideo: true, skipBackdrop: true }; // pure graphics
+    default:
+      return {};
+  }
+}
+
+/** The composer a kind defaults to when `--composer` is not given. */
+export function composerDefaultForKind(kind: SceneKind): "template" | undefined {
+  return kind === "aivideo" ? "template" : undefined;
+}
+
 const ASPECT_DIMS: Record<SceneAspect, { width: number; height: number }> = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
@@ -615,6 +664,8 @@ export interface ScaffoldOptions {
   visualStyle?: VisualStyle;
   /** Scaffold shape. Defaults to "full" for backward-compatible programmatic use. */
   profile?: SceneScaffoldProfile;
+  /** Project kind — drives which pipeline stages run + the default composer. */
+  kind?: SceneKind;
 }
 
 export interface ScaffoldResult {
@@ -700,6 +751,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   const duration = opts.duration ?? 10;
   const now = opts.now ?? new Date();
   const profile = opts.profile ?? "full";
+  const kind = opts.kind ?? DEFAULT_SCENE_KIND;
 
   await mkdir(dir, { recursive: true });
   if (profile === "full") {
@@ -755,7 +807,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   if (await pathExists(vibeConfigJsonPath)) {
     skipped.push(vibeConfigJsonPath);
   } else {
-    await writeFile(vibeConfigJsonPath, projectConfigJson({ name, aspect }), "utf-8");
+    await writeFile(vibeConfigJsonPath, projectConfigJson({ name, aspect, kind }), "utf-8");
     created.push(vibeConfigJsonPath);
   }
 

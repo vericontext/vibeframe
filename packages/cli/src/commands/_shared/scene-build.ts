@@ -42,6 +42,12 @@ import {
   type ComposeScenesActionResult,
 } from "./compose-scenes-skills.js";
 import { composeAiVideo } from "./compose-aivideo.js";
+import {
+  composerDefaultForKind,
+  isSceneKind,
+  kindAssetPolicy,
+  type SceneKind,
+} from "./scene-project.js";
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
@@ -390,13 +396,38 @@ export interface SceneBuildResult {
 
 // ── Driver ───────────────────────────────────────────────────────────────
 
+/** Read the persisted project kind from vibe.config.json (default `cinema`). */
+function readProjectKindSync(projectDir: string): SceneKind {
+  try {
+    const raw = readFileSync(join(projectDir, "vibe.config.json"), "utf-8");
+    const k = (JSON.parse(raw) as { kind?: unknown }).kind;
+    return typeof k === "string" && isSceneKind(k) ? k : "cinema";
+  } catch {
+    return "cinema";
+  }
+}
+
 export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneBuildResult> {
   const startedAt = Date.now();
   const projectDir = resolve(opts.projectDir);
   const onProgress = opts.onProgress ?? (() => {});
+
+  // Project kind drives the default composer and per-kind asset skips. Explicit
+  // `--composer`/`--skip-*` flags always win over the kind defaults.
+  const projectKind = readProjectKindSync(projectDir);
+  const kindPolicy = kindAssetPolicy(projectKind);
+  const composer = opts.composer ?? composerDefaultForKind(projectKind);
+  const skipBackdrop = opts.skipBackdrop ?? kindPolicy.skipBackdrop ?? false;
+  const skipKeyframe = opts.skipKeyframe ?? kindPolicy.skipKeyframe ?? false;
+  // Asset-stage video skip (don't generate i2v clips). Distinct from the
+  // explicit `--skip-video` render-stop below: a `product`/`motion` kind has no
+  // i2v but still RENDERS (backdrops / graphics), so only the explicit flag
+  // stops the render.
+  const skipVideoAssets = opts.skipVideo ?? kindPolicy.skipVideo ?? false;
+
   // The deterministic template composer is a batch (CLI-authored) path — it must
   // not route to agent/needs-author even when an agent host is detected.
-  const mode = opts.composer === "template" ? "batch" : resolveSceneBuildMode(opts);
+  const mode = composer === "template" ? "batch" : resolveSceneBuildMode(opts);
   const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
   // --skip-video produces keyframe stills (an image storyboard) for review, not
   // a final video. The composition would reference <video> clips that were never
@@ -422,9 +453,9 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     beat: opts.beatId,
     mode,
     skipNarration: opts.skipNarration,
-    skipBackdrop: opts.skipBackdrop,
-    skipVideo: opts.skipVideo,
-    skipKeyframe: opts.skipKeyframe,
+    skipBackdrop,
+    skipVideo: skipVideoAssets,
+    skipKeyframe,
     skipMusic: opts.skipMusic,
     ttsProvider: opts.ttsProvider,
     voice: opts.voice,
@@ -433,7 +464,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     imageSize: opts.imageSize,
     videoProvider: opts.videoProvider,
     musicProvider: opts.musicProvider,
-    composer: opts.composer,
+    composer,
     force: opts.force,
   });
   warnings.push(...buildPlan.warnings);
@@ -603,7 +634,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     // (dispatchKeyframe) can use them. Needed whenever video OR keyframe runs —
     // only skip when both are skipped.
     const characterPaths = new Map<string, string>();
-    if (!((opts.skipVideo ?? false) && (opts.skipKeyframe ?? false))) {
+    if (!(skipVideoAssets && skipKeyframe)) {
       const referenced = new Set<string>();
       for (const beat of activeBeats) {
         for (const name of beatCharacterNames(beat.cues)) referenced.add(name);
@@ -640,9 +671,9 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           imageQuality: opts.imageQuality ?? "hd",
           imageSize: opts.imageSize ?? "1536x1024",
           skipNarration: opts.skipNarration ?? false,
-          skipBackdrop: opts.skipBackdrop ?? false,
-          skipVideo: opts.skipVideo ?? false,
-          skipKeyframe: opts.skipKeyframe ?? false,
+          skipBackdrop,
+          skipVideo: skipVideoAssets,
+          skipKeyframe,
           skipMusic: opts.skipMusic ?? false,
           skipTranscript: opts.skipTranscript ?? false,
           force: opts.force ?? false,
@@ -791,7 +822,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       // All compositions present — fall through to render (no compose call).
       onProgress({ type: "phase-start", phase: "compose" });
       stageReports.compose.status = "done";
-    } else if (opts.composer === "template") {
+    } else if (composer === "template") {
       // Deterministic AI-video composer: concat clips → one bg video +
       // transparent lower-third overlays. No LLM, no multi-video render race.
       onProgress({ type: "phase-start", phase: "compose" });
@@ -832,7 +863,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
         {
           project: ".",
           effort: opts.effort,
-          composer: opts.composer,
+          composer,
           cacheDir: opts.cacheDir,
           onProgress: (e) => onProgress(e),
         },
@@ -886,7 +917,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     // LLM-authored HTML) and offer a targeted recompose. The deterministic
     // template composer intentionally references one concatenated bg video
     // (not per-beat clips), so this check does not apply there.
-    for (const beat of opts.composer === "template" ? [] : activeBeats) {
+    for (const beat of composer === "template" ? [] : activeBeats) {
       const videoRel = `assets/video-${beat.id}.mp4`;
       const compositionAbs = join(projectDir, "compositions", `scene-${beat.id}.html`);
       if (!existsSync(join(projectDir, videoRel)) || !existsSync(compositionAbs)) continue;
