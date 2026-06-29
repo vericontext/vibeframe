@@ -535,7 +535,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "composer": {
-        "description": "Batch composer: claude|openai|gemini",
+        "description": "Batch composer: template (deterministic AI-video — concat bg + lower-thirds, no LLM) | claude | openai | gemini",
         "type": "string",
       },
       "dryRun": {

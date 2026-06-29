@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.12`
+> CLI version: `0.113.13`
 
 ## Mental model
 
@@ -236,7 +236,7 @@ Cost tier: _not tagged_
 - `beat` _(string)_ — Restrict asset/compose work to one beat id
 - `mode` _(string)_ _(default: `"auto"`)_ — Build mode: agent|batch|auto
 - `effort` _(string)_ _(default: `"medium"`)_ — Compose effort tier (batch mode only): low|medium|high
-- `composer` _(string)_ — Batch composer: claude|openai|gemini
+- `composer` _(string)_ — Batch composer: template (deterministic AI-video — concat bg + lower-thirds, no LLM) | claude | openai | gemini
 - `maxCost` _(number)_ — Fail before provider spend when estimated cost exceeds this USD cap
 - `skipNarration` _(boolean)_ — Don't dispatch TTS even when beats declare narration cues
 - `skipBackdrop` _(boolean)_ — Don't dispatch image-gen even when beats declare backdrop cues
