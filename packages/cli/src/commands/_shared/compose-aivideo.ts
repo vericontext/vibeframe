@@ -23,6 +23,7 @@ import { join, resolve } from "node:path";
 
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import { parseDesign } from "./design-parse.js";
 
 /**
  * Dedicated root track for the single background video. The managed root-sync
@@ -427,18 +428,41 @@ async function loadProjectTokens(projectDir: string): Promise<AiVideoDesignToken
   }
 }
 
+/**
+ * Map a DESIGN.md to background-video tokens. Named color tokens (front-matter
+ * `colors: { primary, ground, accent }` or descriptive keys) win; otherwise the
+ * palette is read by luminance (darkest → ground, lightest → primary) and the
+ * most-saturated remaining color becomes the accent.
+ */
 export function extractDesignTokens(designMd: string): AiVideoDesignTokens {
-  const hexes = Array.from(designMd.matchAll(/#[0-9a-fA-F]{6}\b/g)).map((m) => m[0]);
-  const unique = Array.from(new Set(hexes.map((h) => h.toUpperCase())));
-  if (unique.length < 3) return DEFAULT_AIVIDEO_TOKENS;
+  const colors = Object.values(parseDesign(designMd).colors)
+    .map((c) => c.toUpperCase())
+    .filter((c) => /^#[0-9A-F]{6}$/.test(c));
+  const named = parseDesign(designMd).colors;
+  const byName = (needles: string[]): string | undefined => {
+    const hit = Object.entries(named).find(([k]) =>
+      needles.some((n) => k.toLowerCase().includes(n))
+    )?.[1];
+    return hit && /^#[0-9a-fA-F]{6}$/.test(hit) ? hit.toUpperCase() : undefined;
+  };
+
+  const unique = Array.from(new Set(colors));
+  if (unique.length < 3 && Object.keys(named).length === 0) return DEFAULT_AIVIDEO_TOKENS;
+  if (unique.length < 3) {
+    return {
+      ...DEFAULT_AIVIDEO_TOKENS,
+      ground: byName(["ground", "background", "bg", "surface", "base"]) ?? DEFAULT_AIVIDEO_TOKENS.ground,
+      primary: byName(["primary", "text", "foreground", "ink"]) ?? DEFAULT_AIVIDEO_TOKENS.primary,
+      accent: byName(["accent", "brand", "highlight"]) ?? DEFAULT_AIVIDEO_TOKENS.accent,
+    };
+  }
   const sorted = [...unique].sort((a, b) => luminance(a) - luminance(b));
-  const ground = sorted[0]; // darkest
-  const primary = sorted[sorted.length - 1]; // lightest
-  // accent = most saturated of the remaining
+  const ground = byName(["ground", "background", "bg", "surface", "base"]) ?? sorted[0];
+  const primary = byName(["primary", "text", "foreground", "ink"]) ?? sorted[sorted.length - 1];
   const accent =
-    unique
-      .filter((h) => h !== ground && h !== primary)
-      .sort((a, b) => saturation(b) - saturation(a))[0] ?? DEFAULT_AIVIDEO_TOKENS.accent;
+    byName(["accent", "brand", "highlight"]) ??
+    unique.filter((h) => h !== ground && h !== primary).sort((a, b) => saturation(b) - saturation(a))[0] ??
+    DEFAULT_AIVIDEO_TOKENS.accent;
   return { ...DEFAULT_AIVIDEO_TOKENS, primary, ground, accent };
 }
 
