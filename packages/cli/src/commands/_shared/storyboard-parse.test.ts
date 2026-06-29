@@ -267,6 +267,23 @@ Cold open.
     expect(r.body).not.toContain("narration:");
   });
 
+  it("preserves lower-third overlay cues (eyebrow/title/caption)", () => {
+    const body = `\`\`\`yaml
+eyebrow: "CHAPTER ONE"
+title: "The Summit"
+caption: "4,300m"
+\`\`\`
+
+### Concept
+`;
+    const r = extractBeatCues(body);
+    expect(r.cues).toMatchObject({
+      eyebrow: "CHAPTER ONE",
+      title: "The Summit",
+      caption: "4,300m",
+    });
+  });
+
   it("does NOT strip a yaml block deeper in the body (only leading block is metadata)", () => {
     const body = `### Concept
 

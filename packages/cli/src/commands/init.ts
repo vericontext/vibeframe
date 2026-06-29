@@ -341,7 +341,7 @@ async function runSceneInit(
 
   const projectDir = resolve(projectDirArg);
   const projectName = basename(projectDir);
-  const groups = describeSceneScaffold({ dir: projectDir, profile });
+  const groups = describeSceneScaffold({ dir: projectDir, profile, kind });
   const fromBrief =
     typeof options.from === "string" && options.from.trim()
       ? await readBriefOrLiteral(String(options.from), process.cwd())
