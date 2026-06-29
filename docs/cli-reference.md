@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.16`
+> CLI version: `0.113.17`
 
 ## Mental model
 
@@ -347,6 +347,7 @@ Cost tier: _not tagged_
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1 \| 4:5)_ _(default: `"16:9"`)_ — Scene aspect ratio: 16:9, 9:16, 1:1, 4:5
 - `duration` _(number)_ _(default: `10`)_ — Default scene/root duration in seconds
 - `visualStyle` _(string)_ — Seed scene DESIGN.md from a named style
+- `kind` _(string)_ _(default: `"cinema"`)_ — Project kind: cinema | story | aivideo | product | motion (drives pipeline stages + default composer)
 - `agent` _(string)_ _(default: `"auto"`)_ — Agent target: claude-code | codex | cursor | aider | gemini-cli | opencode | all | auto
 - `mcp` _(boolean)_ — Also write project-scoped MCP config for Codex/Claude Code/Cursor
 - `force` _(boolean)_ — Overwrite existing files instead of skipping
