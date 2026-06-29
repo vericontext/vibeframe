@@ -11,6 +11,7 @@ import { editTools } from "./edit.js";
 import { inspectTools } from "./inspect.js";
 import { generateTools } from "./generate.js";
 import { storyboardTools } from "./storyboard.js";
+import { designTools } from "./design.js";
 import { remixTools } from "./remix.js";
 import { detectTools } from "./detect.js";
 import { timelineTools } from "./timeline.js";
@@ -27,6 +28,7 @@ export const manifest: readonly AnyTool[] = [
   ...inspectTools,
   ...generateTools,
   ...storyboardTools,
+  ...designTools,
   ...remixTools,
   ...detectTools,
   ...timelineTools,
@@ -44,6 +46,7 @@ export {
   inspectTools,
   generateTools,
   storyboardTools,
+  designTools,
   remixTools,
   detectTools,
   timelineTools,

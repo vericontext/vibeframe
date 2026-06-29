@@ -58,6 +58,7 @@ const CLI_TREE: Record<string, string[]> = {
   // v0.97: storyboard mutation API for the intent layer.
   // v0.100: `revise` is also exposed as an MCP tool (LLM-driven).
   storyboard: ["list", "get", "set", "move", "validate", "revise"],
+  design: ["validate"],
   status: ["job", "project"],
 };
 
@@ -166,6 +167,7 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "storyboard set":      "storyboard_set",
   "storyboard move":     "storyboard_move",
   "storyboard validate": "storyboard_validate",
+  "design validate": "design_validate",
   "storyboard revise":   "storyboard_revise",
   // status
   "status job":     "status_job",
