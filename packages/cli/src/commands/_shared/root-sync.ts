@@ -32,7 +32,7 @@ export interface RootSyncPlan {
   totalDurationSec?: number;
 }
 
-interface ExpectedRootSync {
+export interface ExpectedRootSync {
   block: string;
   totalDurationSec: number;
   audioRefs: Array<{
@@ -362,18 +362,62 @@ function rootSyncIssue(code: string, rootRel: string): ReviewIssue {
   };
 }
 
-function applyRootSyncHtml(html: string, expected: ExpectedRootSync): string {
+/** Stray managed-namespace refs (scene clip refs + narration/music audio) that
+ * live OUTSIDE a managed block — the source of the doubled-narration /
+ * duplicate-scene-ref bug class when index.html is hand-edited or a prior block
+ * was reformatted so its marker no longer matches. */
+const LOOSE_MANAGED_REF_RE =
+  /<audio\b[^>]*\bid="(?:narration|music)-|<div\b[^>]*\bdata-composition-id="scene-/i;
+
+function countManagedBlocks(html: string): number {
+  return (html.match(/<!-- vibe-scene-build: clip refs/g) ?? []).length;
+}
+
+function stripManagedBlocks(html: string): string {
+  // Global + dotall so EVERY block is removed (a non-greedy `.replace` left
+  // accidental duplicates behind).
+  return html.replace(/\n? *<!-- vibe-scene-build: clip refs[\s\S]*?<!-- \/vibe-scene-build -->/g, "");
+}
+
+function stripLooseManagedRefs(html: string): string {
+  let out = html.replace(
+    /[ \t]*<audio\b[^>]*\bid="(?:narration|music)-[^"]*"[^>]*>\s*<\/audio>[ \t]*\n?/gi,
+    ""
+  );
+  out = out.replace(
+    /[ \t]*<div\b[^>]*\bdata-composition-id="scene-[^"]*"[^>]*>\s*<\/div>[ \t]*\n?/gi,
+    ""
+  );
+  return out;
+}
+
+function insertManagedBlock(html: string, block: string): string {
+  const rootCloseRe = /(\n\s*<\/div>\s*\n\s*<script[^>]*>[\s\S]*window\.__timelines)/;
+  if (rootCloseRe.test(html)) return html.replace(rootCloseRe, `\n${block}\n    $1`);
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${block}\n  </body>`);
+  return `${html}\n${block}`;
+}
+
+/**
+ * The managed `<!-- vibe-scene-build -->` block is the SINGLE source of scene
+ * clip refs + narration/music audio. Custom elements (e.g. a `bg-video`,
+ * overlay decorations) are left untouched.
+ *
+ * Fast path: one clean block and no stray managed refs → in-place replace (no
+ * churn). Otherwise (zero/duplicate blocks, or stray `scene-*`/`narration-*`/
+ * `music-*` refs from a hand-edited root) → strip every managed block AND every
+ * stray managed ref, then insert exactly one block. This makes the sync
+ * idempotent and structurally unable to double-wire narration audio.
+ */
+export function applyRootSyncHtml(html: string, expected: ExpectedRootSync): string {
+  const withoutBlocks = stripManagedBlocks(html);
+  const hasStray = LOOSE_MANAGED_REF_RE.test(withoutBlocks);
+
   let next: string;
-  const markerRe = rootSyncMarkerRe();
-  if (markerRe.test(html)) {
-    next = html.replace(markerRe, "\n" + expected.block);
+  if (countManagedBlocks(html) === 1 && !hasStray) {
+    next = html.replace(rootSyncMarkerRe(), "\n" + expected.block);
   } else {
-    const rootCloseRe = /(\n\s*<\/div>\s*\n\s*<script[^>]*>[\s\S]*window\.__timelines)/;
-    if (rootCloseRe.test(html)) {
-      next = html.replace(rootCloseRe, `\n${expected.block}\n    $1`);
-    } else {
-      next = html.replace(/<\/body>/i, `${expected.block}\n  </body>`);
-    }
+    next = insertManagedBlock(stripLooseManagedRefs(withoutBlocks), expected.block);
   }
   return setRootDuration(next, expected.totalDurationSec);
 }
