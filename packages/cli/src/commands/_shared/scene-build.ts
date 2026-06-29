@@ -41,6 +41,7 @@ import {
   type ComposeProgressEvent,
   type ComposeScenesActionResult,
 } from "./compose-scenes-skills.js";
+import { composeAiVideo } from "./compose-aivideo.js";
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
@@ -244,7 +245,7 @@ export interface SceneBuildOptions {
    * based on env keys (claude > gemini > openai). Pass an explicit value
    * to require that provider's key.
    */
-  composer?: ComposerProvider;
+  composer?: ComposerProvider | "template";
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   skipRender?: boolean;
@@ -393,7 +394,9 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const startedAt = Date.now();
   const projectDir = resolve(opts.projectDir);
   const onProgress = opts.onProgress ?? (() => {});
-  const mode = resolveSceneBuildMode(opts);
+  // The deterministic template composer is a batch (CLI-authored) path — it must
+  // not route to agent/needs-author even when an agent host is detected.
+  const mode = opts.composer === "template" ? "batch" : resolveSceneBuildMode(opts);
   const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
   // --skip-video produces keyframe stills (an image storyboard) for review, not
   // a final video. The composition would reference <video> clips that were never
@@ -788,6 +791,40 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       // All compositions present — fall through to render (no compose call).
       onProgress({ type: "phase-start", phase: "compose" });
       stageReports.compose.status = "done";
+    } else if (opts.composer === "template") {
+      // Deterministic AI-video composer: concat clips → one bg video +
+      // transparent lower-third overlays. No LLM, no multi-video render race.
+      onProgress({ type: "phase-start", phase: "compose" });
+      try {
+        await composeAiVideo({ projectDir });
+        stageReports.compose.status = "done";
+      } catch (err) {
+        stageReports.compose.status = "failed";
+        const reason = err instanceof Error ? err.message : String(err);
+        return finishBuildResult({
+          success: false,
+          phase: "failed",
+          mode,
+          selectedStage,
+          code: "COMPOSE_FAILED",
+          error: `template compose failed: ${reason}`,
+          message: `template compose failed: ${reason}`,
+          suggestion: "Ensure every beat has a generated clip (run --stage assets) and ffmpeg is installed.",
+          recoverable: true,
+          beats: beatOutcomes,
+          estimatedCostUsd: buildPlan.estimatedCostUsd,
+          costUsd: stageReports.assets.costUsd,
+          stageReports,
+          warnings,
+          retryWith: unique([
+            ...retryWith,
+            `vibe build ${projectDir} --stage assets --json`,
+          ]),
+          status: "failed",
+          currentStage: "compose",
+          totalLatencyMs: Date.now() - startedAt,
+        });
+      }
     } else {
       // batch — current internal-LLM compose path (PR #176, multi-provider).
       onProgress({ type: "phase-start", phase: "compose" });
@@ -846,8 +883,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   if (stageReports.compose.status === "done") {
     // A beat with a generated clip whose composition never references it would
     // silently drop the clip from the render. Warn (don't mutate the
-    // LLM-authored HTML) and offer a targeted recompose.
-    for (const beat of activeBeats) {
+    // LLM-authored HTML) and offer a targeted recompose. The deterministic
+    // template composer intentionally references one concatenated bg video
+    // (not per-beat clips), so this check does not apply there.
+    for (const beat of opts.composer === "template" ? [] : activeBeats) {
       const videoRel = `assets/video-${beat.id}.mp4`;
       const compositionAbs = join(projectDir, "compositions", `scene-${beat.id}.html`);
       if (!existsSync(join(projectDir, videoRel)) || !existsSync(compositionAbs)) continue;

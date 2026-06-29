@@ -41,7 +41,10 @@ export const buildCommand = new Command("build")
   .option("--beat <id>", "Restrict asset/compose work to one beat id")
   .option("--mode <mode>", "Build mode: agent|batch|auto", "auto")
   .option("--effort <level>", "Compose effort tier (batch mode only): low|medium|high", "medium")
-  .option("--composer <provider>", "Batch composer: claude|openai|gemini")
+  .option(
+    "--composer <provider>",
+    "Batch composer: template (deterministic AI-video — concat bg + lower-thirds, no LLM) | claude | openai | gemini"
+  )
   .option("--max-cost <usd>", "Fail before provider spend when estimated cost exceeds this USD cap")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
   .option("--skip-backdrop", "Don't dispatch image-gen even when beats declare backdrop cues")
