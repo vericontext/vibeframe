@@ -1,6 +1,54 @@
 import { describe, expect, it } from "vitest";
-import { resolveSyncedBeatDuration } from "./root-sync.js";
+import { applyRootSyncHtml, resolveSyncedBeatDuration } from "./root-sync.js";
+import type { ExpectedRootSync } from "./root-sync.js";
 import { __setFfmpegToolsForTests, ffmpegToolsAvailable } from "./ffmpeg-gate.js";
+
+describe("applyRootSyncHtml — single managed source (no doubled narration)", () => {
+  const block = [
+    "      <!-- vibe-scene-build: clip refs (auto-generated; safe to re-run) -->",
+    '      <div class="clip" data-composition-id="scene-a" data-composition-src="compositions/scene-a.html" data-start="0" data-duration="6" data-track-index="0"></div>',
+    '      <audio id="narration-a" src="assets/narration-a.wav" data-start="0" data-duration="6" data-track-index="2"></audio>',
+    "      <!-- /vibe-scene-build -->",
+  ].join("\n");
+  const expected: ExpectedRootSync = { block, totalDurationSec: 6, audioRefs: [] };
+
+  const shell = (body: string) =>
+    `<!doctype html>\n<html>\n  <body>\n` +
+    `    <div id="root" data-composition-id="main" data-start="0" data-duration="6">\n` +
+    `${body}\n` +
+    `    </div>\n` +
+    `    <script>\n      window.__timelines = {};\n    </script>\n  </body>\n</html>\n`;
+
+  const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
+
+  it("does not double when the root already has stray narration/scene refs (the bug)", () => {
+    const html = shell(
+      [
+        '      <video id="bg-video" src="assets/bg.mp4" data-start="0" data-duration="6" data-track-index="0"></video>',
+        '      <div class="clip" data-composition-id="scene-a" data-composition-src="compositions/scene-a.html" data-start="0" data-duration="6" data-track-index="1"></div>',
+        '      <audio id="narration-a" src="assets/narration-a.wav" data-start="0" data-duration="6" data-track-index="2"></audio>',
+      ].join("\n")
+    );
+    const out = applyRootSyncHtml(html, expected);
+    expect(count(out, /id="narration-a"/g)).toBe(1);
+    expect(count(out, /data-composition-id="scene-a"/g)).toBe(1);
+    expect(count(out, /vibe-scene-build: clip refs/g)).toBe(1);
+    expect(out).toContain('id="bg-video"'); // custom (non-managed) element preserved
+  });
+
+  it("collapses an accidental second managed block", () => {
+    const out = applyRootSyncHtml(shell(`${block}\n${block}`), expected);
+    expect(count(out, /vibe-scene-build: clip refs/g)).toBe(1);
+    expect(count(out, /id="narration-a"/g)).toBe(1);
+  });
+
+  it("is idempotent for a clean single block", () => {
+    const once = applyRootSyncHtml(shell(block), expected);
+    const twice = applyRootSyncHtml(once, expected);
+    expect(twice).toBe(once);
+    expect(count(once, /id="narration-a"/g)).toBe(1);
+  });
+});
 
 describe("resolveSyncedBeatDuration", () => {
   const probe = (sec: number) => async () => sec;
