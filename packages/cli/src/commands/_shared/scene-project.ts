@@ -422,19 +422,19 @@ vibe host setup all --write # write project/app config
 vibe host doctor all --json # verify readiness
 \`\`\`
 
-## Native host goal loop
+## Host agent loop
 
-For long-running work, use Codex Goal mode, Claude Code \`/goal\`, or the
-host's equivalent as the outer loop. VibeFrame should not run a competing
-project-level goal loop; it provides \`--json\` commands, dry runs, cost caps,
+For long-running work, use your host's agent loop (Claude Code, Codex, Cursor,
+or another coding-agent host) as the outer loop. VibeFrame should not run a competing
+project-level agent loop; it provides \`--json\` commands, dry runs, cost caps,
 \`build-report.json\`, \`review-report.json\`, \`nextActions\`, \`safeToAutoRun\`,
 \`requiresConfirmation\`, \`fixOwner\`, deterministic repair, and render
 inspection for the host agent to reason over.
 
-Copy-paste examples:
+Copy-paste agent prompts — plain prompts, not a built-in command:
 
 \`\`\`text
-/goal Build this VibeFrame project into renders/final.mp4. Use --json for every
+Build this VibeFrame project into renders/final.mp4. Use --json for every
 vibe command, run --dry-run before paid operations, use --max-cost 5 for builds
 unless the user sets another budget, read build-report.json and
 review-report.json before deciding the next action, prefer nextActions before
@@ -449,7 +449,7 @@ blocked.
 \`\`\`
 
 \`\`\`text
-/goal Finish this VibeFrame render using Claude Code goal mode as the outer
+Finish this VibeFrame render using your host's agent loop as the outer
 loop. Use vibe context/schema when unsure, --json everywhere, dry-run before
 paid operations, budget cap via --max-cost 5, nextActions before guessing,
 build-report.json/review-report.json as loop state, and safeToAutoRun,

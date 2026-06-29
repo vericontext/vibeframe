@@ -149,11 +149,14 @@ describe("buildProjectAgentsMd", () => {
     expect(md).toContain("host agent's built-in image/audio generation tool");
   });
 
-  it("documents native host goal loop stop rules for generated projects", () => {
+  it("documents host agent loop stop rules for generated projects", () => {
     const md = buildProjectAgentsMd("my-promo");
-    expect(md).toContain("Native host goal loop");
-    expect(md).toContain("Codex Goal mode");
-    expect(md).toContain("Claude Code `/goal`");
+    expect(md).toContain("Host agent loop");
+    expect(md).toContain("your host's agent loop");
+    expect(md).toContain("as the outer loop");
+    // No invented host-specific feature names (Claude Code has no `/goal`).
+    expect(md).not.toContain("/goal");
+    expect(md).not.toContain("Goal mode");
     expect(md).toContain("build-report.json");
     expect(md).toContain("review-report.json");
     expect(md).toContain("nextActions");

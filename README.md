@@ -310,7 +310,7 @@ vibe run promo.yaml --resume
 
 ## Agent Workflows
 
-The intended agent path: use the host's native goal mode as the outer loop,
+The intended agent path: use your host's agent loop as the outer loop,
 drive VibeFrame CLI commands with `--json`, and use `build-report.json` and
 `review-report.json` as loop state.
 
@@ -341,12 +341,13 @@ run `safeToAutoRun:true` actions automatically, ask before
 `fixOwner:"host-agent"` means the outer loop (or a human) must edit
 `STORYBOARD.md`, `DESIGN.md`, or compositions.
 
-### Goal mode prompts
+### Outer-loop agent prompts
 
-For Codex:
+Hand your coding agent a prompt like the following — these are plain prompts,
+not a built-in command. For Codex:
 
 ```text
-/goal Build launch/ into a reviewed VibeFrame MP4 from brief.md.
+Build launch/ into a reviewed VibeFrame MP4 from brief.md.
 Use vibe context/schema first when command details are unclear. Use --json for
 all vibe commands. Run --dry-run before paid operations and keep generated-asset
 spend under $5 with --max-cost 5 where supported. Read build-report.json and
@@ -366,8 +367,8 @@ intentionally accepted with a written reason, or reported as blocked.
 For Claude Code:
 
 ```text
-/goal Create the final VibeFrame project render for launch/ using the native
-Claude Code goal loop as the outer loop. Use vibe commands with --json, run
+Create the final VibeFrame project render for launch/ using your host's agent
+loop as the outer loop. Use vibe commands with --json, run
 dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
 use build-report.json plus review-report.json as the loop state. Follow
 nextActions first, run only safeToAutoRun:true actions automatically, ask

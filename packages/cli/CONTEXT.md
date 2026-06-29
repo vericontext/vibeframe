@@ -5,8 +5,9 @@
 VibeFrame CLI (`vibe`) is a CLI-first video toolkit. Every operation is
 a shell command. The same surface is exposed as MCP tools through
 [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
-For long-running video work, native Codex Goal mode and Claude Code `/goal`
-should own the outer loop: persistence, iteration, and stop decisions.
+For long-running video work, your host's agent loop (Claude Code, Codex,
+Cursor, or another coding-agent host) should own the outer loop: persistence,
+iteration, and stop decisions.
 VibeFrame owns the video-specific command surface, JSON reports, cost gates,
 deterministic repair, render inspection, and `retryWith` recovery hints.
 
@@ -15,21 +16,21 @@ For the full reference (every flag, default, enum), read
 from `vibe schema --list`. This file is the _agent quickstart_: rules,
 conventions, and discovery hooks.
 
-## Native host goal loop
+## Host agent loop
 
-Use the host's native goal feature rather than inventing a VibeFrame-owned
-goal runner. The canonical loop is:
+Use your host's agent loop as the outer loop rather than inventing a
+VibeFrame-owned loop. The canonical loop is:
 
 ```text
-native host goal -> vibe context/schema -> plan dry-run -> build with budget
+host agent loop -> vibe context/schema -> plan dry-run -> build with budget
 -> status polling -> inspect project -> render -> inspect render
 -> repair/edit using nextActions/fixOwner -> repeat until stop rules pass
 ```
 
-Copy-paste Codex goal:
+Copy-paste agent prompt (Codex) — a plain prompt, not a built-in command:
 
 ```text
-/goal Build my-video/ into a reviewed VibeFrame MP4. Use --json for every vibe
+Build my-video/ into a reviewed VibeFrame MP4. Use --json for every vibe
 command, run --dry-run before paid operations, cap generated-asset spend with
 --max-cost 5 where supported, and read build-report.json plus
 review-report.json before deciding the next action. Prefer nextActions: run
@@ -43,10 +44,10 @@ AI review score is >= 90 when AI review is requested, and unresolved host-agent 
 accepted with a written reason, or reported as blocked.
 ```
 
-Copy-paste Claude Code goal:
+Copy-paste agent prompt (Claude Code) — a plain prompt, not a built-in command:
 
 ```text
-/goal Finish the VibeFrame render for my-video/ using Claude Code goal mode as
+Finish the VibeFrame render for my-video/ using your host's agent loop as
 the outer loop. Use vibe context/schema when unsure, --json everywhere,
 dry-run before paid operations, --max-cost 5 for builds, nextActions before
 custom recovery, and build-report.json/review-report.json as loop state.
@@ -223,7 +224,7 @@ Review report contract:
 for storyboard/design/composition edits the host agent should make. Prefer
 `nextActions` first: run only `safeToAutoRun:true` actions automatically, ask
 before `requiresConfirmation:true`, and use `retryWith` only as the fallback.
-A host-native goal should not stop while `host-agent` issues remain unless
+The outer loop should not stop while `host-agent` issues remain unless
 they are fixed, intentionally accepted with a written reason, or reported as
 blocked.
 

@@ -6,9 +6,9 @@ VibeFrame is CLI-first, not terminal-only. The CLI is the stable runtime; MCP is
 
 Confirmed MCP hosts today: **Claude Desktop**, **Cursor**, and **Claude Code**. Codex can drive `vibe` natively via shell + `AGENTS.md`, and can also load a project-scoped MCP server through `.codex/config.toml`. For other shell-capable hosts, use [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) directly — same operations.
 
-For long-running video builds, use the host's native goal mode as the outer
-loop: Codex `/goal`, Claude Code `/goal`, Cursor's agent loop, or the host
-equivalent. VibeFrame's MCP tools provide the inner video runtime: JSON-style
+For long-running video builds, use your host's agent loop as the outer
+loop: Claude Code, Codex, Cursor, or another coding-agent host. VibeFrame's MCP
+tools provide the inner video runtime: JSON-style
 results, dry-run/cost gates, `build-report.json`, `review-report.json`,
 `retryWith`, `fixOwner`, deterministic repair, and render inspection.
 
@@ -20,9 +20,9 @@ results, dry-run/cost gates, `build-report.json`, `review-report.json`,
 | Shell / scripts (any agent host: Codex / Aider / Gemini CLI / etc.) | `@vibeframe/cli`                 | `vibe init my-video && vibe build my-video && vibe render my-video`                     |
 | Optional standalone agent REPL                                      | `@vibeframe/cli` (`vibe agent`)  | natural language -> CLI calls when you do not already use Claude Code/Codex/Cursor/etc. |
 
-Native goal stop rules should be explicit: final MP4 path exists, duration and
+Outer-loop stop rules should be explicit: final MP4 path exists, duration and
 aspect ratio match the brief, render inspection has no errors, any AI review score
-meets the goal threshold when AI review is requested, and every `fixOwner:"host-agent"` issue is fixed,
+meets the review threshold when AI review is requested, and every `fixOwner:"host-agent"` issue is fixed,
 accepted with rationale, or reported as blocked.
 
 The tool list below is what the MCP host sees. The same operations exist as `vibe <verb> <noun>` subcommands in the CLI — see `vibe --help`.

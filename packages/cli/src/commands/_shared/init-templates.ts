@@ -200,19 +200,19 @@ Default setup is snippet-only; use \`--write\` when you want VibeFrame to merge
 the generated config. Keep provider keys in \`.vibeframe/config.yaml\`, user
 config, or env files — not in app host config.
 
-## Native host goal loop
+## Host agent loop
 
-For long-running work, use Codex Goal mode, Claude Code \`/goal\`, Cursor, or
-another host-native goal feature as the outer loop. VibeFrame should not own a
-competing project-level goal runner. It provides \`--json\` commands, dry runs,
+For long-running work, use your host's agent loop (Claude Code, Codex, Cursor,
+or another coding-agent host) as the outer loop. VibeFrame should not own a
+competing project-level agent loop. It provides \`--json\` commands, dry runs,
 budget caps, \`build-report.json\`, \`review-report.json\`, \`nextActions\`,
 \`safeToAutoRun\`, \`requiresConfirmation\`, \`fixOwner\`, deterministic repair,
 and render inspection for the host agent to decide what to do next.
 
-Copy-paste Codex:
+Copy-paste agent prompt (Codex) — a plain prompt, not a built-in command:
 
 \`\`\`text
-/goal Build this VibeFrame project into renders/final.mp4. Use --json for every
+Build this VibeFrame project into renders/final.mp4. Use --json for every
 vibe command, run --dry-run before paid operations, use --max-cost 5 for builds
 unless the user gives another budget, read build-report.json and
 review-report.json before deciding the next action, prefer nextActions before
@@ -226,10 +226,10 @@ remaining host-agent issue is fixed, accepted with rationale, or reported as
 blocked.
 \`\`\`
 
-Copy-paste Claude Code:
+Copy-paste agent prompt (Claude Code) — a plain prompt, not a built-in command:
 
 \`\`\`text
-/goal Finish this VibeFrame render using Claude Code goal mode as the outer
+Finish this VibeFrame render using your host's agent loop as the outer
 loop. Use vibe context/schema when unsure, --json everywhere, dry-run before
 paid operations, budget cap via --max-cost 5, nextActions before guessing,
 build-report.json/review-report.json as loop state, and safeToAutoRun,

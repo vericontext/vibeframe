@@ -16,9 +16,9 @@ vibe host setup all
 vibe host doctor all --json
 ```
 
-For long-running project builds, use the host's native goal mode as the outer
-loop. Codex `/goal` and Claude Code `/goal` should track the objective and stop
-conditions; VibeFrame provides `--json` commands, dry runs, budget caps,
+For long-running project builds, use your host's agent loop as the outer
+loop. The host agent (Claude Code, Codex, Cursor, or another coding-agent host)
+tracks the objective and stop conditions; VibeFrame provides `--json` commands, dry runs, budget caps,
 `build-report.json`, `review-report.json`, `retryWith`, `fixOwner`, repair
 commands, and render inspection.
 

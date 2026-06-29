@@ -88,7 +88,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "codex-toml",
       notes: [
         "Codex reads AGENTS.md and can also load project-scoped .codex/config.toml after the project is trusted.",
-        "Use Codex /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
+        "Use Codex's agent loop as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
         "Keep provider/auth keys in VibeFrame config or environment, not in project-local Codex config.",
       ],
     },
@@ -101,7 +101,7 @@ export function hostDefinitions(_projectDir = process.cwd()): HostDefinition[] {
       configKind: "mcp-json",
       notes: [
         "Claude Code can drive vibe directly through shell plus AGENTS.md/CLAUDE.md.",
-        "Use Claude Code /goal as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
+        "Use Claude Code's agent loop as the outer loop for long-running VibeFrame projects; vibe supplies JSON reports, nextActions classified by cost/safety (prefer these), retryWith as a compatibility fallback, and repair commands.",
         "The MCP entry is optional and gives Claude Code a typed tool surface.",
       ],
     },
@@ -435,14 +435,14 @@ function hostNextSteps(host: HostDefinition): string[] {
     return [
       "Trust the project in Codex so .codex/config.toml is loaded.",
       "Run /mcp in Codex to confirm the vibeframe server is connected.",
-      "Use /goal with the project AGENTS.md stop rules for long-running video builds.",
+      "Use Codex's agent loop with the project AGENTS.md stop rules for long-running video builds.",
     ];
   }
   if (host.id === "claude-code") {
     return [
       "Restart Claude Code or run /mcp to approve the project-scoped server.",
       "Use AGENTS.md/CLAUDE.md for shell-driven vibe workflows.",
-      "Use /goal with the project AGENTS.md stop rules for long-running video builds.",
+      "Use Claude Code's agent loop with the project AGENTS.md stop rules for long-running video builds.",
     ];
   }
   if (host.id === "claude-desktop") {

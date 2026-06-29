@@ -52,11 +52,11 @@ namespaces such as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
 
 When invoking VibeFrame commands from an agent context:
 
-- Treat native Codex Goal mode, Claude Code `/goal`, Cursor agent loops, or
-  another host's equivalent as the outer loop for long-running video work.
+- Treat your host's agent loop (Claude Code, Codex, Cursor, or another
+  coding-agent host) as the outer loop for long-running video work.
   VibeFrame should provide video-specific commands, JSON reports, cost gates,
   deterministic repair, render inspection, and `nextActions`/`fixOwner`
-  recovery contracts, not a competing primary goal runner.
+  recovery contracts, not a competing primary agent loop.
 - Prefer `--json` for structured output.
 - Run `--dry-run` before paid or mutating operations when the command supports it.
 - When a review report includes `nextActions`, prefer it over inventing
