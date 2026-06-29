@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.17`
+> CLI version: `0.113.18`
 
 ## Mental model
 
@@ -1936,7 +1936,7 @@ Cost tier: `free`
 
 - `project-dir` _(string)_ **required** — Project directory
 - `beat` _(string)_ **required** — Beat id
-- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | keyframe | motion | voice | music | asset | characters
+- `key` _(string)_ **required** — Cue key: duration | narration | backdrop | video | keyframe | motion | voice | music | asset | characters | eyebrow | title | caption | kicker | sub
 - `value` _(array)_ — Cue value. Use --json-value to pass a JSON scalar/object.
 - `jsonValue` _(boolean)_ — Parse value as JSON instead of a string
 - `unset` _(boolean)_ — Remove the cue key from the beat

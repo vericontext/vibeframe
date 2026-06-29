@@ -13,11 +13,15 @@ import {
   buildProjectAgentsMd,
   buildProjectClaudeMd,
   buildStoryboardMd,
+  buildCharactersMd,
   buildSceneGitignore,
+  buildScriptMd,
   composerDefaultForKind,
   defaultVibeProjectConfig,
+  describeSceneScaffold,
   isSceneKind,
   kindAssetPolicy,
+  kindHasCast,
   mergeHyperframesConfig,
   scaffoldSceneProject,
   VALID_SCENE_KINDS,
@@ -49,6 +53,54 @@ describe("SceneKind", () => {
     for (const k of ["cinema", "product", "story", "motion"] as const) {
       expect(composerDefaultForKind(k)).toBeUndefined();
     }
+  });
+
+  it("kindHasCast: only character-driven kinds have a cast", () => {
+    expect(kindHasCast("cinema")).toBe(true);
+    expect(kindHasCast("story")).toBe(true);
+    expect(kindHasCast("aivideo")).toBe(true);
+    expect(kindHasCast("product")).toBe(false);
+    expect(kindHasCast("motion")).toBe(false);
+  });
+
+  it("buildScriptMd is always emittable and names the project", () => {
+    expect(buildScriptMd("my-film", "cinema")).toContain("# my-film — Script");
+    expect(buildScriptMd("promo", "product")).toContain("Product walkthrough");
+    expect(buildScriptMd("loop", "motion")).toContain("Motion piece");
+  });
+
+  it("buildCharactersMd seeds a cast block with a reference sheet", () => {
+    const md = buildCharactersMd("my-film");
+    expect(md).toContain("# my-film — Characters");
+    expect(md).toContain("assets/characters/hero.png");
+  });
+
+  it("describeSceneScaffold lists SCRIPT.md always; CHARACTERS.md only for cast kinds", () => {
+    const cinema = describeSceneScaffold({ dir: "/x", kind: "cinema" }).authoring.join("|");
+    expect(cinema).toContain("SCRIPT.md");
+    expect(cinema).toContain("CHARACTERS.md");
+    const product = describeSceneScaffold({ dir: "/x", kind: "product" }).authoring.join("|");
+    expect(product).toContain("SCRIPT.md");
+    expect(product).not.toContain("CHARACTERS.md");
+  });
+});
+
+describe("scaffoldSceneProject kind-gated artifacts", () => {
+  it("writes SCRIPT.md always but CHARACTERS.md only for cast kinds", async () => {
+    const castDir = await makeTmp();
+    await scaffoldSceneProject({ dir: castDir, name: "cast", kind: "aivideo", profile: "minimal" });
+    expect(await pathExists(resolve(castDir, "SCRIPT.md"))).toBe(true);
+    expect(await pathExists(resolve(castDir, "CHARACTERS.md"))).toBe(true);
+
+    const castlessDir = await makeTmp();
+    await scaffoldSceneProject({
+      dir: castlessDir,
+      name: "promo",
+      kind: "product",
+      profile: "minimal",
+    });
+    expect(await pathExists(resolve(castlessDir, "SCRIPT.md"))).toBe(true);
+    expect(await pathExists(resolve(castlessDir, "CHARACTERS.md"))).toBe(false);
   });
 });
 
@@ -337,6 +389,8 @@ describe("scaffoldSceneProject", () => {
       "CLAUDE.md",
       "DESIGN.md",
       "STORYBOARD.md",
+      "SCRIPT.md",
+      "CHARACTERS.md",
       ".gitignore",
     ];
     for (const f of expected) {

@@ -71,6 +71,14 @@ export function composerDefaultForKind(kind: SceneKind): "template" | undefined 
   return kind === "aivideo" ? "template" : undefined;
 }
 
+/**
+ * Whether a kind has a recurring cast worth a `CHARACTERS.md` bible. Character-
+ * driven kinds (cinema/story/aivideo) do; product/motion do not.
+ */
+export function kindHasCast(kind: SceneKind): boolean {
+  return kind === "cinema" || kind === "story" || kind === "aivideo";
+}
+
 const ASPECT_DIMS: Record<SceneAspect, { width: number; height: number }> = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
@@ -343,6 +351,75 @@ ${avoid}
 
 _Browse other named styles: \`vibe scene list-styles\`_
 ${style ? `_This file was seeded by \`vibe scene init --visual-style "${style.name}"\`._` : `_Seed this file from a named style: \`vibe scene init <dir> --visual-style "<name>"\`._`}
+`;
+}
+
+/**
+ * Always-on `SCRIPT.md` — the narrative spine authored before the beat-level
+ * STORYBOARD.md. Kind tailors the guidance (a `motion`/`product` script is a
+ * shot/asset list; a `story`/`cinema` script is a scene-by-scene narrative).
+ */
+export function buildScriptMd(name: string, kind: SceneKind = DEFAULT_SCENE_KIND): string {
+  const intent =
+    kind === "product"
+      ? "Product walkthrough — what each section demonstrates, in order."
+      : kind === "motion"
+        ? "Motion piece — the message and the beats of on-screen text/graphics."
+        : kind === "aivideo"
+          ? "AI-video script — the spoken/voiced narrative the generated shots illustrate."
+          : "Narrative script — scene-by-scene story, dialogue, and voiceover.";
+  return `# ${name} — Script
+
+> **Authoring order:** SCRIPT.md (this file) → STORYBOARD.md (beats + cues)${
+    kindHasCast(kind) ? " → CHARACTERS.md (cast bible)" : ""
+  }.
+> ${intent}
+
+## Logline
+
+One or two sentences: who/what this is for and the single takeaway.
+
+## Script
+
+Write the spoken/voiceover line and the on-screen intent for each moment. Each
+\`##\`-level section below maps to one STORYBOARD beat.
+
+### 1. Open
+
+Voiceover / on-screen: …
+
+### 2. Develop
+
+Voiceover / on-screen: …
+
+### 3. Close
+
+Voiceover / on-screen: …
+`;
+}
+
+/**
+ * Kind-gated `CHARACTERS.md` — the cast bible. Promotes today's STORYBOARD
+ * \`characters:\` frontmatter into first-class identity blocks (reference sheet
+ * path + an identity-lock description used to keep keyframes/i2v on-model).
+ */
+export function buildCharactersMd(name: string): string {
+  return `# ${name} — Characters
+
+> Each character is referenced from STORYBOARD beats via the \`characters:\` cue.
+> The reference sheet + identity block keep keyframes and image-to-video on-model
+> across scenes (the Director continuity contract).
+
+## hero
+
+- **Reference sheet:** \`assets/characters/hero.png\` (a clean, front-lit full-body
+  or portrait sheet — the identity anchor for keyframe edits).
+- **Identity:** one paragraph of fixed, on-model traits — age, build, hair,
+  wardrobe, palette. Keep this stable across every beat.
+- **Range:** expressions / poses this character should hit.
+
+<!-- Add one ## block per recurring character. Delete this file for kinds with
+     no recurring cast. -->
 `;
 }
 
@@ -692,13 +769,17 @@ export function isSceneScaffoldProfile(value: string): value is SceneScaffoldPro
 export function describeSceneScaffold(opts: {
   dir: string;
   profile?: SceneScaffoldProfile;
+  kind?: SceneKind;
 }): SceneScaffoldGroups {
   const dir = resolve(opts.dir);
   const profile = opts.profile ?? "full";
+  const kind = opts.kind ?? DEFAULT_SCENE_KIND;
   const groups: SceneScaffoldGroups = {
     authoring: [
+      resolve(dir, "SCRIPT.md"),
       resolve(dir, "STORYBOARD.md"),
       resolve(dir, "DESIGN.md"),
+      ...(kindHasCast(kind) ? [resolve(dir, "CHARACTERS.md")] : []),
       resolve(dir, VIBE_CONFIG_FILENAME),
       resolve(dir, "vibe.project.yaml"),
       resolve(dir, ".gitignore"),
@@ -867,6 +948,26 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   } else {
     await writeFile(storyboardPath, buildStoryboardMd(name, duration), "utf-8");
     created.push(storyboardPath);
+  }
+
+  // SCRIPT.md — always-on narrative spine (authored before STORYBOARD beats).
+  const scriptPath = resolve(dir, "SCRIPT.md");
+  if (await pathExists(scriptPath)) {
+    skipped.push(scriptPath);
+  } else {
+    await writeFile(scriptPath, buildScriptMd(name, kind), "utf-8");
+    created.push(scriptPath);
+  }
+
+  // CHARACTERS.md — only for kinds with a recurring cast (cinema/story/aivideo).
+  if (kindHasCast(kind)) {
+    const charactersPath = resolve(dir, "CHARACTERS.md");
+    if (await pathExists(charactersPath)) {
+      skipped.push(charactersPath);
+    } else {
+      await writeFile(charactersPath, buildCharactersMd(name), "utf-8");
+      created.push(charactersPath);
+    }
   }
 
   // .gitignore — preserve existing.

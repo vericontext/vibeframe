@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.113.17] - 2026-06-29
+## [0.113.18] - 2026-06-29
 
 ### Added
 
+- SCRIPT.md (always) + CHARACTERS.md (kind-gated) + overlay cues
 - project --kind drives pipeline stages + default composer
 - vibe design validate + DESIGN.md google-labs token front-matter
 - structured DESIGN.md parser (google-labs design.md standard)

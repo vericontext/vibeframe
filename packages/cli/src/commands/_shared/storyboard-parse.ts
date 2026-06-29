@@ -148,6 +148,12 @@ export interface BeatCues {
    * if present, supplies the motion prompt; otherwise this text is used.
    */
   keyframe?: string;
+  /** Lower-third overlay eyebrow/kicker (read by the deterministic composer). */
+  eyebrow?: string;
+  /** Lower-third headline; falls back to the beat heading when absent. */
+  title?: string;
+  /** Lower-third sub-line / caption. */
+  caption?: string;
   [key: string]: unknown;
 }
 
