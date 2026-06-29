@@ -2,6 +2,10 @@
 .mcp.json
 .claude/scheduled_tasks.lock
 
+# Local-only Claude agents and notes (not shared / not committed)
+.claude/agents/*.local.md
+.claude/**/*.local.md
+
 # Dependencies
 node_modules
 .pnpm-store

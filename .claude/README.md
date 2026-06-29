@@ -31,7 +31,9 @@ keeps them in sync — see `docs/agent-hosts.md`.
 │   ├── lint-fixer.md          # Fix ESLint errors (haiku)
 │   ├── e2e-tester.md          # Full E2E testing (sonnet, 60 turns)
 │   ├── feature-tester.md      # Single-feature testing (sonnet, 30 turns)
-│   └── readme-writer.md       # Write/clean developer-facing docs (sonnet)
+│   ├── readme-writer.md       # Write/clean developer-facing docs (sonnet)
+│   ├── project-auditor.md     # Read-only monorepo health audit (sonnet, 40 turns)
+│   └── *.local.md             # Local-only agents (gitignored — see below)
 └── skills/                    # Generated workflow skills (user-invocable)
     ├── test/SKILL.md          # /test — run tests
     ├── release/SKILL.md       # /release — version bump workflow
@@ -86,6 +88,11 @@ keeps them in sync — see `docs/agent-hosts.md`.
 - Each has specific tools, model, and max turns
 - No PostToolUse hook auto-invokes any agent. Use `/code-review` (plugin)
   or @-mention `code-reviewer` manually after substantial changes.
+- **Local-only agents** live in `.claude/agents/*.local.md` and are gitignored.
+  Claude Code discovers them the same way (by frontmatter `name`), but they are
+  never committed — use this for maintainer-private tooling whose **outputs**
+  belong in the private memory store, not the public repo. Keep their
+  conclusions out of tracked files.
 
 ### Hooks
 
