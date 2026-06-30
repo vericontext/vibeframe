@@ -6,7 +6,7 @@
 #   - vhs       — `brew install vhs` (macOS) or download from
 #                 https://github.com/charmbracelet/vhs/releases (Linux)
 #   - claude    — `claude` on PATH; Claude Code drives both recordings
-#   - API keys required by DEMO-quickstart.md / DEMO-dogfood.md in env
+#   - API keys for the providers exercised by the recorded flows in env
 #
 # What it produces:
 #   assets/demos/quickstart-claude-code.mp4 — public quickstart recording
