@@ -894,6 +894,7 @@ export const sceneComposePromptsTool = defineTool({
       data: {
         projectDir: relative(ctx.workingDirectory, result.projectDir) || ".",
         designReference: result.designReference,
+        compositionReference: result.compositionReference,
         storyboardReference: result.storyboardReference,
         skillReference: result.skillReference,
         compositionsDir: result.compositionsDir,

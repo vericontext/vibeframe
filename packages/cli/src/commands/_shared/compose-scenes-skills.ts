@@ -103,6 +103,13 @@ export interface ComposeBeatContext {
   beat: Beat;
   /** Project's `DESIGN.md` content (visual identity hard-gate). */
   designMd: string;
+  /**
+   * Optional `COMPOSITION.md` content — the per-project STRUCTURAL contract
+   * (layout system, GSAP timeline conventions, element/track rules), parallel
+   * to DESIGN.md's visual contract. Injected into the system prompt as a
+   * hard-gate when present.
+   */
+  compositionMd?: string;
   /** Storyboard's global direction (everything before the first `## Beat`). */
   storyboardGlobal: string;
   /** Hyperframes skill bundle content + hash, from `loadHyperframesSkillBundle()`. */
@@ -170,10 +177,17 @@ export interface ComposeBeatResult {
 
 // ── Prompt construction (pure) ──────────────────────────────────────────
 
-/** Build the system prompt — skill bundle + DESIGN.md hard-gate. */
+/** Build the system prompt — skill bundle + DESIGN.md hard-gate (+ optional COMPOSITION.md). */
 export function buildSystemPrompt(
-  ctx: Pick<ComposeBeatContext, "skillBundle" | "designMd">
+  ctx: Pick<ComposeBeatContext, "skillBundle" | "designMd" | "compositionMd">
 ): string {
+  const composition = ctx.compositionMd?.trim()
+    ? `
+
+=== COMPOSITION.md (project-specific STRUCTURAL contract — HARD-GATE, layout/timeline/element rules) ===
+
+${ctx.compositionMd.trim()}`
+    : "";
   return `You are a Hyperframes composition author. The skill content below
 defines the framework rules, motion principles, and quality standards.
 Read it thoroughly before writing any HTML.
@@ -182,7 +196,7 @@ ${ctx.skillBundle.content}
 
 === DESIGN.md (project-specific visual identity — HARD-GATE, every decision must trace back) ===
 
-${ctx.designMd}`;
+${ctx.designMd}${composition}`;
 }
 
 /**
@@ -906,6 +920,11 @@ export type ComposeProgressEvent =
 export interface ComposeScenesParams {
   /** Path to DESIGN.md, relative to project root. */
   design?: string;
+  /**
+   * Path to the optional COMPOSITION.md structural contract, relative to project
+   * root. Defaults to `COMPOSITION.md`; silently ignored when absent.
+   */
+  composition?: string;
   /** Path to STORYBOARD.md, relative to project root. */
   storyboard?: string;
   /** Scene project root, relative to outputDir. Defaults to outputDir. */
@@ -986,6 +1005,7 @@ export async function executeComposeScenesWithSkills(
 ): Promise<ComposeScenesActionResult> {
   const projectRoot = params.project ? resolve(outputDir, params.project) : resolve(outputDir);
   const designPath = resolve(projectRoot, params.design ?? "DESIGN.md");
+  const compositionPath = resolve(projectRoot, params.composition ?? "COMPOSITION.md");
   const storyboardPath = resolve(projectRoot, params.storyboard ?? "STORYBOARD.md");
 
   if (!existsSync(designPath)) {
@@ -996,6 +1016,10 @@ export async function executeComposeScenesWithSkills(
   }
 
   const designMd = await readFile(designPath, "utf-8");
+  // COMPOSITION.md is the OPTIONAL structural contract — read it when present.
+  const compositionMd = existsSync(compositionPath)
+    ? await readFile(compositionPath, "utf-8")
+    : undefined;
   const storyboardMd = await readFile(storyboardPath, "utf-8");
 
   const { global: storyboardGlobal, beats } = parseStoryboard(storyboardMd);
@@ -1081,6 +1105,7 @@ export async function executeComposeScenesWithSkills(
           {
             beat,
             designMd,
+            compositionMd,
             storyboardGlobal,
             skillBundle,
             provider,

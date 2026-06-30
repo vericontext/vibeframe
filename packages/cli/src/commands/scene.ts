@@ -273,6 +273,9 @@ sceneCommand
     console.log(chalk.dim(`Project:    ${projectDir}`));
     console.log(chalk.dim(`Skill ref:  ${result.skillReference ?? chalk.yellow("not installed")}`));
     console.log(chalk.dim(`Design ref: ${result.designReference}`));
+    if (result.compositionReference) {
+      console.log(chalk.dim(`Compose ref: ${result.compositionReference}`));
+    }
     console.log(
       chalk.dim(`Beats:      ${result.beats.length}${options.beat ? " (filtered)" : ""}`)
     );
