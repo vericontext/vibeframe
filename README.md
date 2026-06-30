@@ -277,8 +277,6 @@ Use the highest-level lane that fits the job:
 | **GENERATE/ASSET** | You need one standalone image, clip, voice, or music | `generate image/video/narration/music/motion`          |
 | **EDIT/REMIX**   | You already have media and want to change or reuse it | `edit`, `remix`, `audio`, `detect`                     |
 
-For a command-routing reference, see [FUNCTIONS.md](FUNCTIONS.md).
-
 ## YAML Pipelines
 
 Use `vibe run` for reproducible multi-step workflows:
@@ -560,7 +558,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 - [MODELS.md](MODELS.md): provider and model reference.
 - [CHANGELOG.md](CHANGELOG.md): versioned release notes.
-- [FUNCTIONS.md](FUNCTIONS.md): workflow lanes, command routing, and agent usage rules.
 - [ROADMAP.md](ROADMAP.md): short public roadmap.
 - [docs/projects.md](docs/projects.md): project file roles, profiles, characters, and dry runs.
 
