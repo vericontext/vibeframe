@@ -112,7 +112,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 
 | Surface      | Count | Examples                                                                                                                                                                                                                  |
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Public**   |    37 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +27 more   |
+| **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
 | **Advanced** |    44 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +34 more |
 | **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
@@ -130,7 +130,7 @@ listed in their command sections for compatibility.
 | **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
-| **Not tagged** |    13 | `build` · `doctor` · `guide` · `init` · `plan` · `render` · `setup` · `context` · +5 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
+| **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first — the response
 > includes a `costUsd` estimate when the command supports dry-run.
@@ -384,6 +384,29 @@ Cost tier: _not tagged_
 - `maxCost` _(number)_ — Fail if estimated cost exceeds this USD cap
 
 JSON payload: `data.kind` is `"build-plan"` and includes `schemaVersion:"1"`, `status:"ready"|"invalid"`, `summary`, `providerResolution`, cache-aware asset plans, asset reference metadata, `validation`, `retryWith`, and `nextCommands`. Invalid storyboards exit non-zero with `code:"STORYBOARD_VALIDATION_FAILED"`.
+
+#### `vibe preview`
+
+Cheap draft render for a quick visual check before the full `vibe render`
+
+Product surface: `public`
+Note: Cheap draft pre-render check.
+
+Cost tier: _not tagged_
+
+**Parameters:**
+
+- `project-dir` _(string)_ — Video project directory
+- `output` _(string)_ — Output file (default: preview.mp4 in the project dir)
+- `root` _(string)_ _(default: `"index.html"`)_ — Root composition file
+- `beat` _(string)_ — Preview only one storyboard beat using a temporary root
+- `fps` _(number)_ _(default: `24`)_ — Frames per second: 24|30|60
+- `quality` _(string)_ _(default: `"draft"`)_ — Quality preset: draft|standard|high
+- `format` _(string)_ _(default: `"mp4"`)_ — Output container: mp4|webm|mov
+- `workers` _(number)_ _(default: `1`)_ — Capture workers (1-16, default 1)
+- `open` _(boolean)_ — Open the preview in the OS default app after render
+- `reveal` _(boolean)_ — Reveal the preview in Finder/file manager after render
+- `dryRun` _(boolean)_ — Preview parameters without rendering
 
 #### `vibe render`
 

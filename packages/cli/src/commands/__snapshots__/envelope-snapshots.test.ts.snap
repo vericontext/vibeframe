@@ -3121,6 +3121,69 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe preview --describe 1`] = `
+{
+  "description": "Cheap draft render for a quick visual check before the full \`vibe render\`",
+  "name": "preview",
+  "note": "Cheap draft pre-render check.",
+  "parameters": {
+    "properties": {
+      "beat": {
+        "description": "Preview only one storyboard beat using a temporary root",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Preview parameters without rendering",
+        "type": "boolean",
+      },
+      "format": {
+        "default": "mp4",
+        "description": "Output container: mp4|webm|mov",
+        "type": "string",
+      },
+      "fps": {
+        "default": 24,
+        "description": "Frames per second: 24|30|60",
+        "type": "number",
+      },
+      "open": {
+        "description": "Open the preview in the OS default app after render",
+        "type": "boolean",
+      },
+      "output": {
+        "description": "Output file (default: preview.mp4 in the project dir)",
+        "type": "string",
+      },
+      "project-dir": {
+        "description": "Video project directory",
+        "type": "string",
+      },
+      "quality": {
+        "default": "draft",
+        "description": "Quality preset: draft|standard|high",
+        "type": "string",
+      },
+      "reveal": {
+        "description": "Reveal the preview in Finder/file manager after render",
+        "type": "boolean",
+      },
+      "root": {
+        "default": "index.html",
+        "description": "Root composition file",
+        "type": "string",
+      },
+      "workers": {
+        "default": 1,
+        "description": "Capture workers (1-16, default 1)",
+        "type": "number",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "public",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption --describe 1`] = `
 {
   "cost": "low",

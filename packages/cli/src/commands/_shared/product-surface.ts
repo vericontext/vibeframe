@@ -14,6 +14,7 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   plan: { surface: "public", note: "Storyboard-to-video planning contract." },
   build: { surface: "public", note: "Primary storyboard-to-video build engine." },
   render: { surface: "public", note: "Project render entrypoint." },
+  preview: { surface: "public", note: "Cheap draft pre-render check." },
   doctor: { surface: "public", note: "System and provider health check." },
   host: { surface: "public", note: "Codex, Claude, and Cursor app integration setup." },
   guide: { surface: "public", note: "Workflow chooser and first-run guidance." },
