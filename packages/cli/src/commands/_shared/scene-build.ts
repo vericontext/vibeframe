@@ -371,6 +371,7 @@ export interface SceneBuildResult {
   composePrompts?: {
     skillReference: string | null;
     designReference: string;
+    compositionReference: string | null;
     storyboardReference: string;
     compositionsDir: string;
     instructions: string[];
@@ -800,6 +801,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
             ? {
                 skillReference: plan.skillReference,
                 designReference: plan.designReference,
+                compositionReference: plan.compositionReference,
                 storyboardReference: plan.storyboardReference,
                 compositionsDir: plan.compositionsDir,
                 instructions: plan.instructions,

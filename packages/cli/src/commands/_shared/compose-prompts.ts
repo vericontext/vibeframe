@@ -85,6 +85,14 @@ export interface ComposePromptsResult {
   projectDir: string;
   /** Project-root-relative path to DESIGN.md (always "DESIGN.md"). */
   designReference: string;
+  /**
+   * Project-root-relative path to the optional COMPOSITION.md structural
+   * contract (`"COMPOSITION.md"`), or `null` when the project doesn't have one.
+   * Parallel to {@link designReference}: DESIGN.md is the visual hard-gate,
+   * COMPOSITION.md is the structural hard-gate (layout system, GSAP timeline
+   * conventions, element/track rules). The host agent must honor it when present.
+   */
+  compositionReference: string | null;
   /** Project-root-relative path to STORYBOARD.md (always "STORYBOARD.md"). */
   storyboardReference: string;
   /**
@@ -125,15 +133,21 @@ export interface ComposePromptsOptions {
 export async function getComposePrompts(opts: ComposePromptsOptions): Promise<ComposePromptsResult> {
   const projectDir = resolve(opts.projectDir);
   const designPath = join(projectDir, "DESIGN.md");
+  const compositionPath = join(projectDir, "COMPOSITION.md");
   const storyboardPath = join(projectDir, "STORYBOARD.md");
   const skillPath = join(projectDir, "SKILL.md");
   const compositionsDir = join(projectDir, "compositions");
+
+  // The optional structural contract — surfaced as a hard-gate reference only
+  // when the project actually carries one (COMPOSITION.md is bespoke, never scaffolded).
+  const compositionReference = existsSync(compositionPath) ? "COMPOSITION.md" : null;
 
   const warnings: string[] = [];
   const baseError = (msg: string): ComposePromptsResult => ({
     success: false,
     projectDir,
     designReference: "DESIGN.md",
+    compositionReference,
     storyboardReference: "STORYBOARD.md",
     skillReference: existsSync(skillPath) ? "SKILL.md" : null,
     compositionsDir: "compositions",
@@ -222,6 +236,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
   const skillRef = existsSync(skillPath) ? "SKILL.md" : null;
   const instructions = buildInstructions({
     skillRef,
+    compositionRef: compositionReference,
     beatCount: result.length,
     filtered: opts.beatId !== undefined,
   });
@@ -230,6 +245,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     success: true,
     projectDir,
     designReference: "DESIGN.md",
+    compositionReference,
     storyboardReference: "STORYBOARD.md",
     skillReference: skillRef,
     compositionsDir: "compositions",
@@ -242,6 +258,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
 
 function buildInstructions(args: {
   skillRef: string | null;
+  compositionRef: string | null;
   beatCount: number;
   filtered: boolean;
 }): string[] {
@@ -252,6 +269,9 @@ function buildInstructions(args: {
     lines.push(`1. Run \`vibe scene install-skill\` to install \`SKILL.md\` (Hyperframes rules) into this project, then re-read it.`);
   }
   lines.push(`2. Read \`DESIGN.md\` for project-specific palette, typography, motion signature.`);
+  if (args.compositionRef) {
+    lines.push(`2b. Read \`${args.compositionRef}\` for the project STRUCTURAL contract (layout system, GSAP timeline conventions, element/track rules) — a HARD-GATE parallel to DESIGN.md; every composition must satisfy it.`);
+  }
   lines.push(`3. For each beat in the \`beats\` array below, author HTML at \`outputPath\` matching the \`userPrompt\`. The beat \`body\` carries the narrative + visual + animation intent; \`cues\` carries machine-readable per-beat overrides (narration, duration, backdrop, voice).`);
   lines.push(`3b. Use each beat's \`finalDurationSec\` (narration-synced) for \`data-duration\` and timeline anchors when present — NOT the storyboard \`duration\`, which is only the minimum. Scenes composed at the storyboard duration end early and render black tails.`);
   lines.push(`3c. Never give inner \`.clip\` elements a non-zero \`data-start\` — the renderer does not toggle internal clip visibility inside sub-compositions, so phased clips render all phases at once (overlapping text). Use full-window clips and GSAP autoAlpha phase transitions instead. Also keep beats 6-15s; split anything longer in the storyboard first.`);

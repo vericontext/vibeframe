@@ -16,7 +16,9 @@ describe("getComposePrompts", () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  function seed(opts: { storyboard?: string; design?: string; withSkill?: boolean } = {}): void {
+  function seed(
+    opts: { storyboard?: string; design?: string; withSkill?: boolean; composition?: string } = {},
+  ): void {
     writeFileSync(
       join(projectDir, "DESIGN.md"),
       opts.design ?? "# Design\n\n## Palette\n- `#000000`\n",
@@ -34,6 +36,9 @@ describe("getComposePrompts", () => {
         "---\nname: hyperframes\n---\nFRAMEWORK RULES",
         "utf-8",
       );
+    }
+    if (opts.composition !== undefined) {
+      writeFileSync(join(projectDir, "COMPOSITION.md"), opts.composition, "utf-8");
     }
   }
 
@@ -112,6 +117,32 @@ describe("getComposePrompts", () => {
     expect(r.instructions[0]).toContain("SKILL.md");
     expect(r.instructions.some((l) => l.includes("scene lint"))).toBe(true);
     expect(r.instructions.some((l) => l.includes("vibe render"))).toBe(true);
+  });
+
+  it("compositionReference is null + no 2b instruction when COMPOSITION.md is absent", async () => {
+    seed({ withSkill: true });
+    const r = await getComposePrompts({ projectDir });
+    expect(r.success).toBe(true);
+    expect(r.compositionReference).toBeNull();
+    expect(r.instructions.some((l) => l.includes("COMPOSITION.md"))).toBe(false);
+  });
+
+  it("surfaces COMPOSITION.md as a hard-gate reference + 2b instruction when present", async () => {
+    seed({ withSkill: true, composition: "# Composition\n\n## Layout\n- 12-col grid\n" });
+    const r = await getComposePrompts({ projectDir });
+    expect(r.success).toBe(true);
+    expect(r.compositionReference).toBe("COMPOSITION.md");
+    const step = r.instructions.find((l) => l.includes("COMPOSITION.md"));
+    expect(step).toBeDefined();
+    expect(step).toContain("STRUCTURAL");
+    expect(step).toContain("HARD-GATE");
+  });
+
+  it("carries compositionReference through the failure (baseError) path", async () => {
+    seed({ withSkill: true, composition: "# Composition\n" });
+    const r = await getComposePrompts({ projectDir, beatId: "nope" });
+    expect(r.success).toBe(false);
+    expect(r.compositionReference).toBe("COMPOSITION.md");
   });
 
   it("returns failure when DESIGN.md is missing", async () => {

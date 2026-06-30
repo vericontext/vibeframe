@@ -98,6 +98,26 @@ describe("buildSystemPrompt", () => {
     expect(sys).toContain("Palette");
     expect(sys).toContain("HARD-GATE");
   });
+
+  it("omits the COMPOSITION.md block when no compositionMd is provided", () => {
+    const sys = buildSystemPrompt({ skillBundle, designMd });
+    expect(sys).not.toContain("COMPOSITION.md");
+  });
+
+  it("omits the COMPOSITION.md block when compositionMd is blank/whitespace", () => {
+    const sys = buildSystemPrompt({ skillBundle, designMd, compositionMd: "   \n  " });
+    expect(sys).not.toContain("COMPOSITION.md");
+  });
+
+  it("injects COMPOSITION.md as a parallel structural hard-gate after DESIGN.md when present", () => {
+    const compositionMd = "# Composition\n\n## Layout\n- 12-col grid\n";
+    const sys = buildSystemPrompt({ skillBundle, designMd, compositionMd });
+    expect(sys).toContain("COMPOSITION.md");
+    expect(sys).toContain("STRUCTURAL");
+    expect(sys).toContain("12-col grid");
+    // Structural gate must come AFTER the visual DESIGN.md gate.
+    expect(sys.indexOf("COMPOSITION.md")).toBeGreaterThan(sys.indexOf("DESIGN.md"));
+  });
 });
 
 describe("buildUserPrompt", () => {
