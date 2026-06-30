@@ -6,17 +6,17 @@ import {
 } from "./bundle.js";
 
 describe("loadHyperframesSkillBundle", () => {
-  it("returns a non-empty bundle from one of the two sources", () => {
-    const r = loadHyperframesSkillBundle();
+  it("returns a non-empty bundle from one of the two sources", async () => {
+    const r = await loadHyperframesSkillBundle();
     expect(["installed", "vendored"]).toContain(r.source);
     expect(r.content.length).toBeGreaterThan(10_000); // 5 markdown files concatenated
     expect(r.hash).toMatch(/^[0-9a-f]{64}$/); // sha256 hex
   });
 
-  it("bundle includes all 5 files in fixed order", () => {
+  it("bundle includes all 5 files in fixed order", async () => {
     // Order is baked into bundle.ts so we just check the section markers
     // appear in the right sequence — applies to installed and vendored.
-    const r = loadHyperframesSkillBundle();
+    const r = await loadHyperframesSkillBundle();
     const indices = [
       "hyperframes/SKILL.md",
       "hyperframes/house-style.md",
@@ -30,9 +30,9 @@ describe("loadHyperframesSkillBundle", () => {
     }
   });
 
-  it("hash is stable within a session (cache-key contract)", () => {
-    const a = loadHyperframesSkillBundle();
-    const b = loadHyperframesSkillBundle();
+  it("hash is stable within a session (cache-key contract)", async () => {
+    const a = await loadHyperframesSkillBundle();
+    const b = await loadHyperframesSkillBundle();
     expect(a.hash).toBe(b.hash);
     expect(a.content).toBe(b.content);
   });
@@ -41,8 +41,8 @@ describe("loadHyperframesSkillBundle", () => {
     expect(BUNDLE_VERSION).toMatch(/^[0-9a-f]{7,40}-\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("hint string surfaces source clearly", () => {
-    const r = loadHyperframesSkillBundle();
+  it("hint string surfaces source clearly", async () => {
+    const r = await loadHyperframesSkillBundle();
     if (r.source === "vendored") {
       expect(r.hint).toContain("vendored");
       expect(r.hint).toContain(BUNDLE_VERSION);
