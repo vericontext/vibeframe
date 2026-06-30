@@ -61,6 +61,43 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe assemble --describe 1`] = `
+{
+  "description": "Mux a scene project's audio onto an already-rendered (silent) video",
+  "name": "assemble",
+  "note": "Standalone audio-mux stage; \`render\` does this automatically.",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Preview parameters without muxing",
+        "type": "boolean",
+      },
+      "format": {
+        "default": "mp4",
+        "description": "Output container: mp4|webm|mov",
+        "type": "string",
+      },
+      "project-dir": {
+        "description": "Video project directory",
+        "type": "string",
+      },
+      "root": {
+        "default": "index.html",
+        "description": "Root composition file",
+        "type": "string",
+      },
+      "video": {
+        "default": "preview.mp4",
+        "description": "Rendered video to add audio to (default: preview.mp4)",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe audio clone-voice --describe 1`] = `
 {
   "cost": "low",
@@ -3524,6 +3561,10 @@ exports[`CLI --describe schemas (drift detection) > vibe render --describe 1`] =
         "default": "index.html",
         "description": "Root composition file",
         "type": "string",
+      },
+      "silent": {
+        "description": "Emit silent video (skip audio mux); add audio later with \`vibe assemble\`",
+        "type": "boolean",
       },
       "workers": {
         "default": 1,

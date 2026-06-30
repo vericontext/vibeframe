@@ -29,6 +29,7 @@ export const renderCommand = new Command("render")
   .option("--workers <n>", "Capture workers (1-16, default 1)", "1")
   .option("--open", "Open the rendered video in the OS default app after render")
   .option("--reveal", "Reveal the rendered video in Finder/file manager after render")
+  .option("--silent", "Emit silent video (skip audio mux); add audio later with `vibe assemble`")
   .option("--dry-run", "Preview parameters without rendering")
   .addHelpText("after", `
 Examples:
@@ -59,6 +60,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
       workers,
       openAfterRender: Boolean(options.open),
       revealInFinder: Boolean(options.reveal),
+      silent: Boolean(options.silent),
     };
 
     if (options.dryRun) {
@@ -87,6 +89,7 @@ Alias note: this is the project-level entrypoint for \`vibe scene render\`.`)
       workers,
       openAfterRender: Boolean(options.open),
       revealInFinder: Boolean(options.reveal),
+      silent: Boolean(options.silent),
       onProgress: (pct, stage) => {
         if (spinner) spinner.text = `Rendering [${Math.round(pct * 100)}%] ${stage}`;
       },
@@ -121,6 +124,7 @@ type RenderDryRunParams = {
   workers: number;
   openAfterRender: boolean;
   revealInFinder: boolean;
+  silent: boolean;
 };
 
 function printRenderDryRun(projectDirArg: string, params: RenderDryRunParams): void {
@@ -134,6 +138,7 @@ function printRenderDryRun(projectDirArg: string, params: RenderDryRunParams): v
   console.log(`  Format:        ${chalk.bold(params.format)}`);
   console.log(`  Quality/FPS:   ${chalk.bold(`${params.quality} / ${params.fps}`)}`);
   console.log(`  Workers:       ${chalk.bold(String(params.workers))}`);
+  if (params.silent) console.log(`  Audio:         ${chalk.bold("silent (skip mux)")}`);
   if (params.openAfterRender) console.log(`  Open:          ${chalk.bold("yes")}`);
   if (params.revealInFinder) console.log(`  Reveal:        ${chalk.bold("yes")}`);
   console.log();

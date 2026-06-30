@@ -29,8 +29,7 @@ import { createProjectRootSyncPlan, loadProjectRootSyncBeats } from "./root-sync
 import { createSubCompDurationSyncPlans } from "./sub-comp-duration-sync.js";
 import { executeSceneRepair } from "./scene-repair.js";
 import { rootExists } from "./scene-lint.js";
-import { scanSceneAudio } from "./scene-audio-scan.js";
-import { muxAudioIntoVideo } from "./scene-audio-mux.js";
+import { executeSceneAssemble } from "./scene-assemble.js";
 import { readProjectConfig } from "./project-config.js";
 import { aspectToDims, type SceneAspect } from "./scene-project.js";
 
@@ -61,6 +60,12 @@ export interface SceneRenderOptions {
   openAfterRender?: boolean;
   /** Reveal the rendered media in Finder/file manager after a successful render. */
   revealInFinder?: boolean;
+  /**
+   * Skip the audio-mux pass and emit silent video. The audio is added later by
+   * the `assemble` stage (`executeSceneAssemble` / `vibe assemble`). Default
+   * `vibe render` keeps the render+assemble single-shot behavior.
+   */
+  silent?: boolean;
   signal?: AbortSignal;
   onProgress?: (pct: number, stage: string) => void;
 }
@@ -349,38 +354,29 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
     };
   }
 
-  // -- Audio mux pass (post-producer) ------------------------------------
-  // The producer emits silent video — sub-composition <audio> elements are
-  // not picked up. We scan the project ourselves and lay them onto the
-  // video in one ffmpeg pass with -c:v copy (no re-encode).
+  // -- Audio assemble pass (post-producer) -------------------------------
+  // The producer emits silent video — sub-composition <audio> elements are not
+  // captured. The assemble stage scans the project and lays them onto the video
+  // in one ffmpeg pass (-c:v copy, no re-encode). `--silent` defers this to a
+  // standalone `vibe assemble` run.
   let audioCount = 0;
   let audioMuxApplied = false;
   let audioMuxWarning: string | undefined;
-  try {
-    opts.onProgress?.(0.95, "Mixing audio");
-    const rootHtml = await readFile(resolve(projectDir, root), "utf-8");
-    const audios = await scanSceneAudio({ projectDir, rootHtml });
-    audioCount = audios.length;
-    if (audios.length > 0) {
-      const videoDuration =
-        job.totalFrames && config.fps ? job.totalFrames / config.fps : undefined;
-      const mux = await muxAudioIntoVideo({
-        videoPath: outputPath,
-        audios,
-        format: config.format ?? "mp4",
-        videoDuration,
-        onProgress: (line) => {
-          if (line) opts.onProgress?.(0.97, line);
-        },
-      });
-      if (mux.success) {
-        audioMuxApplied = true;
-      } else {
-        audioMuxWarning = mux.error;
-      }
-    }
-  } catch (err) {
-    audioMuxWarning = err instanceof Error ? err.message : String(err);
+  if (!opts.silent) {
+    const videoDuration =
+      job.totalFrames && config.fps ? job.totalFrames / config.fps : undefined;
+    const assembled = await executeSceneAssemble({
+      projectDir,
+      root,
+      videoPath: outputPath,
+      format: config.format ?? "mp4",
+      videoDuration,
+      // Map the assemble's internal 0..1 onto the render's 0.95..0.99 tail.
+      onProgress: (pct, stage) => opts.onProgress?.(0.95 + pct * 0.04, stage),
+    });
+    audioCount = assembled.audioCount;
+    audioMuxApplied = assembled.audioMuxApplied;
+    audioMuxWarning = assembled.audioMuxWarning;
   }
 
   const result: SceneRenderResult = {
