@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.21`
+> CLI version: `0.113.22`
 
 ## Mental model
 
@@ -114,7 +114,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    44 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +34 more |
+| **Advanced** |    45 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +35 more |
 | **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
@@ -130,7 +130,7 @@ listed in their command sections for compatibility.
 | **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
 | **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
-| **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
+| **Not tagged** |    15 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +7 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first — the response
 > includes a `costUsd` estimate when the command supports dry-run.
@@ -219,6 +219,23 @@ Cost tier: _not tagged_
 - `confirm` _(boolean)_ — Confirm before every tool — broadens the default cost gate (paid only) to all calls
 - `noConfirm` _(boolean)_ — Disable all confirm prompts including the high/very-high cost gate (CI / automation)
 - `budgetUsd` _(number)_ — Reject tool calls past this cumulative USD ceiling using conservative tier estimates
+
+#### `vibe assemble`
+
+Mux a scene project's audio onto an already-rendered (silent) video
+
+Product surface: `advanced`
+Note: Standalone audio-mux stage; `render` does this automatically.
+
+Cost tier: _not tagged_
+
+**Parameters:**
+
+- `project-dir` _(string)_ — Video project directory
+- `video` _(string)_ _(default: `"preview.mp4"`)_ — Rendered video to add audio to (default: preview.mp4)
+- `root` _(string)_ _(default: `"index.html"`)_ — Root composition file
+- `format` _(string)_ _(default: `"mp4"`)_ — Output container: mp4|webm|mov
+- `dryRun` _(boolean)_ — Preview parameters without muxing
 
 #### `vibe build`
 
@@ -430,6 +447,7 @@ Cost tier: _not tagged_
 - `workers` _(number)_ _(default: `1`)_ — Capture workers (1-16, default 1)
 - `open` _(boolean)_ — Open the rendered video in the OS default app after render
 - `reveal` _(boolean)_ — Reveal the rendered video in Finder/file manager after render
+- `silent` _(boolean)_ — Emit silent video (skip audio mux); add audio later with `vibe assemble`
 - `dryRun` _(boolean)_ — Preview parameters without rendering
 
 #### `vibe run`

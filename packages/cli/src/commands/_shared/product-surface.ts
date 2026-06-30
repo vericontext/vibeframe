@@ -15,6 +15,7 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   build: { surface: "public", note: "Primary storyboard-to-video build engine." },
   render: { surface: "public", note: "Project render entrypoint." },
   preview: { surface: "public", note: "Cheap draft pre-render check." },
+  assemble: { surface: "advanced", note: "Standalone audio-mux stage; `render` does this automatically." },
   doctor: { surface: "public", note: "System and provider health check." },
   host: { surface: "public", note: "Codex, Claude, and Cursor app integration setup." },
   guide: { surface: "public", note: "Workflow chooser and first-run guidance." },
