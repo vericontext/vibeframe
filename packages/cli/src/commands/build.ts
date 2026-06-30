@@ -29,7 +29,7 @@ import {
 } from "./output.js";
 
 const VALID_MODES: SceneBuildMode[] = ["agent", "batch", "auto"];
-const VALID_STAGES: BuildStage[] = ["assets", "compose", "sync", "render", "all"];
+const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 const VALID_VIDEO_PROVIDERS: BuildVideoProvider[] = ["seedance", "grok", "kling", "runway", "veo"];
 const VALID_MUSIC_PROVIDERS: BuildMusicProvider[] = ["elevenlabs", "replicate"];

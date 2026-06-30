@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
 import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
-const VALID_STAGES: BuildStage[] = ["assets", "compose", "sync", "render", "all"];
+const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_MODES = ["agent", "batch", "auto"] as const;
 const VALID_TTS_PROVIDERS = ["auto", "elevenlabs", "openai", "kokoro"] as const;
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;

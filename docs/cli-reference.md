@@ -8,7 +8,7 @@ lists every command, its arguments, and its options. For agentic /
 machine-readable access use `vibe schema --list` and
 `vibe schema <command>` directly; both return JSON.
 
-> CLI version: `0.113.19`
+> CLI version: `0.113.20`
 
 ## Mental model
 
@@ -232,7 +232,7 @@ Cost tier: _not tagged_
 **Parameters:**
 
 - `project-dir` _(string)_ — Video project directory
-- `stage` _(string)_ _(default: `"all"`)_ — Build stage: assets|compose|sync|render|all
+- `stage` _(string)_ _(default: `"all"`)_ — Build stage: assets|transcript|compose|sync|render|all
 - `beat` _(string)_ — Restrict asset/compose work to one beat id
 - `mode` _(string)_ _(default: `"auto"`)_ — Build mode: agent|batch|auto
 - `effort` _(string)_ _(default: `"medium"`)_ — Compose effort tier (batch mode only): low|medium|high
@@ -365,7 +365,7 @@ Cost tier: _not tagged_
 **Parameters:**
 
 - `project-dir` _(string)_ — Video project directory
-- `stage` _(string)_ _(default: `"all"`)_ — Stage to plan: assets|compose|sync|render|all
+- `stage` _(string)_ _(default: `"all"`)_ — Stage to plan: assets|transcript|compose|sync|render|all
 - `beat` _(string)_ — Restrict the plan to one beat
 - `mode` _(string)_ _(default: `"auto"`)_ — Build mode: agent|batch|auto
 - `skipNarration` _(boolean)_ — Don't include narration generation in the plan

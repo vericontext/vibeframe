@@ -612,7 +612,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
       },
       "stage": {
         "default": "all",
-        "description": "Build stage: assets|compose|sync|render|all",
+        "description": "Build stage: assets|transcript|compose|sync|render|all",
         "type": "string",
       },
       "tts": {
@@ -3099,7 +3099,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
       },
       "stage": {
         "default": "all",
-        "description": "Stage to plan: assets|compose|sync|render|all",
+        "description": "Stage to plan: assets|transcript|compose|sync|render|all",
         "type": "string",
       },
       "tts": {
