@@ -486,7 +486,10 @@ describe("executeSceneBuild", () => {
     expect(OpenAIImageProvider).not.toHaveBeenCalled();
   });
 
-  it("transcribes narration into assets/transcript-<beat>.json when word timings exist", async () => {
+  it("runs `--stage transcript` standalone over on-disk narration and reports `transcript-only`", async () => {
+    // Standalone stage: narration already exists on disk, assets stage does NOT run.
+    mkdirSync(join(projectDir, "assets"), { recursive: true });
+    writeFileSync(join(projectDir, "assets", "narration-hook.wav"), Buffer.from([1]));
     vi.mocked(transcribeNarrationWords).mockClear();
     vi.mocked(transcribeNarrationWords).mockResolvedValue([
       { text: "Type", start: 0, end: 0.3 },
@@ -494,8 +497,11 @@ describe("executeSceneBuild", () => {
       { text: "YAML", start: 0.4, end: 0.9 },
     ]);
     try {
-      const r = await executeSceneBuild({ projectDir, stage: "assets" });
+      const r = await executeSceneBuild({ projectDir, stage: "transcript" });
       expect(r.success).toBe(true);
+      expect(r.phase).toBe("transcript-only");
+      expect(r.stageReports?.transcript.status).toBe("done");
+      expect(r.stageReports?.assets.status).toBe("skipped");
       const transcriptPath = join(projectDir, "assets", "transcript-hook.json");
       expect(existsSync(transcriptPath)).toBe(true);
       expect(JSON.parse(readFileSync(transcriptPath, "utf-8"))).toEqual([
@@ -510,16 +516,34 @@ describe("executeSceneBuild", () => {
   });
 
   it("does not transcribe when --skip-transcript is set", async () => {
+    mkdirSync(join(projectDir, "assets"), { recursive: true });
+    writeFileSync(join(projectDir, "assets", "narration-hook.wav"), Buffer.from([1]));
     vi.mocked(transcribeNarrationWords).mockClear();
     vi.mocked(transcribeNarrationWords).mockResolvedValue([{ text: "x", start: 0, end: 1 }]);
     try {
-      await executeSceneBuild({ projectDir, stage: "assets", skipTranscript: true });
+      const r = await executeSceneBuild({ projectDir, stage: "transcript", skipTranscript: true });
       expect(existsSync(join(projectDir, "assets", "transcript-hook.json"))).toBe(false);
       expect(transcribeNarrationWords).not.toHaveBeenCalled();
+      expect(r.stageReports?.transcript.status).toBe("skipped");
     } finally {
       vi.mocked(transcribeNarrationWords).mockResolvedValue([]);
     }
   });
+
+  it("`--stage all` (default build) still transcribes after generating narration", async () => {
+    vi.mocked(transcribeNarrationWords).mockClear();
+    vi.mocked(transcribeNarrationWords).mockResolvedValue([{ text: "Hi", start: 0, end: 0.5 }]);
+    try {
+      const r = await executeSceneBuild({ projectDir, stage: "all" });
+      expect(r.success).toBe(true);
+      expect(r.stageReports?.transcript.status).toBe("done");
+      expect(existsSync(join(projectDir, "assets", "transcript-hook.json"))).toBe(true);
+      expect(transcribeNarrationWords).toHaveBeenCalled();
+    } finally {
+      vi.mocked(transcribeNarrationWords).mockResolvedValue([]);
+    }
+  });
+
 
   it("uses referenced narration and backdrop assets without provider calls", async () => {
     mkdirSync(join(projectDir, "assets"), { recursive: true });

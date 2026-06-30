@@ -41,7 +41,7 @@ import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js
 import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
 
-export type BuildStage = "assets" | "compose" | "sync" | "render" | "all";
+export type BuildStage = "assets" | "transcript" | "compose" | "sync" | "render" | "all";
 export type BuildPlanStatus = "ready" | "invalid";
 export type AssetPlanReason =
   | "canonical-exists"
@@ -184,6 +184,8 @@ const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
 /** gpt-4o-mini-tts is ~$0.015/min of audio; a beat is ~10–20s. Includes retry headroom. */
 const OPENAI_NARRATION_COST_USD = 0.01;
+/** Whisper word-level transcription is ~$0.006/min; a beat is ~10–20s. */
+const TRANSCRIPT_COST_USD = 0.002;
 const COMPOSE_COST_USD = 0.06;
 const SUPPORTED_BUILD_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 
@@ -256,6 +258,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   const missing = new Set<string>();
   let estimatedCostUsd = 0;
   const includeAssets = stage === "all" || stage === "assets";
+  const includeTranscript = stage === "all" || stage === "transcript";
   const includeCompose = stage === "all" || stage === "compose";
   const mode = opts.mode ?? config.config.build.mode;
   const imageQuality = opts.imageQuality ?? config.config.build.imageQuality ?? "hd";
@@ -511,6 +514,13 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       },
     };
   });
+  // Transcript stage: Whisper word-timings for each narrated beat. Nearly free
+  // but modeled so `--stage transcript` reports a non-zero, faithful estimate.
+  if (includeTranscript && !opts.skipNarration) {
+    const narratedBeats = beats.filter((beat) => beat.assets.narration != null).length;
+    estimatedCostUsd += narratedBeats * TRANSCRIPT_COST_USD;
+  }
+
   providerResolution.push(...providerResolutionsForPlan(resolved, beats, opts, includeAssets));
 
   if (

@@ -310,6 +310,7 @@ export interface SceneBuildOptions {
 export type SceneBuildPhase =
   | "done"
   | "assets-only"
+  | "transcript-only"
   | "pending-jobs"
   | "compose-only"
   | "sync-only"
@@ -317,7 +318,7 @@ export type SceneBuildPhase =
   | "needs-author"
   | "failed";
 export type BuildWorkflowStatus = "done" | "running" | "needs-author" | "failed" | "ready";
-export type BuildCurrentStage = "assets" | "compose" | "sync" | "render" | "done";
+export type BuildCurrentStage = "assets" | "transcript" | "compose" | "sync" | "render" | "done";
 
 export interface BuildBeatSummary {
   total: number;
@@ -385,7 +386,7 @@ export interface SceneBuildResult {
   beatSummary?: BuildBeatSummary;
   estimatedCostUsd?: number;
   costUsd?: number;
-  stageReports?: Record<"assets" | "compose" | "sync" | "render", StageReport>;
+  stageReports?: Record<"assets" | "transcript" | "compose" | "sync" | "render", StageReport>;
   sceneRepair?: BuildSceneRepairSummary;
   jobs?: JobRecord[];
   warnings?: string[];
@@ -676,7 +677,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           skipVideo: skipVideoAssets,
           skipKeyframe,
           skipMusic: opts.skipMusic ?? false,
-          skipTranscript: opts.skipTranscript ?? false,
           force: opts.force ?? false,
           onProgress,
           characterPaths,
@@ -766,6 +766,41 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       beats: beatOutcomes,
       estimatedCostUsd: buildPlan.estimatedCostUsd,
       costUsd: stageReports.assets.costUsd,
+      stageReports,
+      jobs: pendingJobs,
+      warnings,
+      retryWith,
+      totalLatencyMs: Date.now() - startedAt,
+    });
+  }
+
+  // ── Phase 1.5: transcript ─────────────────────────────────────────────
+  // Word-level narration timings feed caption / kinetic-type sync in compose.
+  // Best-effort: a missing key or no words leaves a beat without timings but
+  // never fails the build. Narration paths/freshness come from `beatOutcomes`
+  // (fresh asset run OR `collectExistingBeatOutcomes` on disk), so this works
+  // standalone via `--stage transcript`.
+  if (shouldRunStage(selectedStage, "transcript") && !(opts.skipTranscript ?? false)) {
+    const { statuses } = await runTranscriptStage(activeBeats, beatOutcomes, {
+      projectDir,
+      force: opts.force ?? false,
+      onProgress,
+    });
+    const produced = statuses.some((s) => s === "generated" || s === "cached");
+    stageReports.transcript.status = produced ? "done" : "skipped";
+  } else {
+    stageReports.transcript.status = "skipped";
+  }
+
+  if (selectedStage === "transcript") {
+    return finishBuildResult({
+      success: true,
+      phase: "transcript-only",
+      mode,
+      selectedStage,
+      beats: beatOutcomes,
+      estimatedCostUsd: buildPlan.estimatedCostUsd,
+      costUsd: stageReports.assets.costUsd + stageReports.transcript.costUsd,
       stageReports,
       jobs: pendingJobs,
       warnings,
@@ -1147,7 +1182,6 @@ interface BeatDispatchContext {
   skipVideo: boolean;
   skipKeyframe: boolean;
   skipMusic: boolean;
-  skipTranscript: boolean;
   force: boolean;
   onProgress: (e: SceneBuildProgressEvent) => void;
   /** name → relative path of generated/supplied character reference images. */
@@ -1181,12 +1215,8 @@ async function buildBeatPrimitives(
       : dispatchVideo(beat, ctx, keyframe),
     ctx.skipMusic ? skipped("music", beat.id, "--skip-music", ctx) : dispatchMusic(beat, ctx),
   ]);
-  // Word-level transcript depends on the narration audio, so it runs after the
-  // primitive fan-out (not inside it). Best-effort: a failure or missing key
-  // leaves the beat without word-sync timings but never fails the build.
-  if (!ctx.skipTranscript) {
-    await dispatchTranscript(beat, narration, ctx);
-  }
+  // Word-level transcript runs as its own stage (`--stage transcript`) after
+  // the asset fan-out — see `runTranscriptStage` in `executeSceneBuild`.
   return {
     outcome: {
       beatId: beat.id,
@@ -1472,30 +1502,45 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
   };
 }
 
+/** Per-beat outcome of {@link dispatchTranscript}. */
+type TranscriptStatus = "generated" | "cached" | "skipped" | "failed";
+
+/** Minimal context the transcript stage needs (a slice of {@link BeatDispatchContext}). */
+interface TranscriptDispatchContext {
+  projectDir: string;
+  force: boolean;
+  onProgress: (e: SceneBuildProgressEvent) => void;
+}
+
 /**
- * Whisper word-level transcription of a beat's generated narration. Writes
+ * Whisper word-level transcription of a beat's narration. Writes
  * `assets/transcript-<beat>.json` (the same shape `vibe scene add` produces),
  * which the compose stage reads to drive word-synced caption / kinetic-type
- * animations. Entirely best-effort:
- *   - no narration → nothing to transcribe.
- *   - no OpenAI key → skip with a hint (narration still plays).
+ * animations. Entirely best-effort — it never fails the build:
+ *   - no narration audio → nothing to transcribe (`skipped`).
+ *   - no OpenAI key → skip with a hint (`skipped`); narration still plays.
  *   - transcript exists + narration not freshly regenerated + not forced →
- *     reuse the cached file (no re-transcribe cost).
- *   - API failure / no words → skip; the composer just omits word-sync.
+ *     reuse the cached file (`cached`, no re-transcribe cost).
+ *   - API failure / no words → `skipped`; the composer just omits word-sync.
+ *   - write error → `failed` (surfaced as a warning, still non-fatal).
+ *
+ * Takes the narration audio path + a freshness hint rather than the in-memory
+ * `PrimitiveOutcome`, so it works both inline after the asset fan-out AND as a
+ * standalone `--stage transcript` pass that re-resolves narration from disk.
  */
 async function dispatchTranscript(
   beat: Beat,
-  narration: PrimitiveOutcome,
-  ctx: BeatDispatchContext
-): Promise<void> {
-  if (!narration.path) return;
+  narrationPath: string | undefined,
+  narrationFresh: boolean,
+  ctx: TranscriptDispatchContext
+): Promise<TranscriptStatus> {
+  if (!narrationPath) return "skipped";
 
   const relPath = beatTranscriptRelPath(beat.id);
   const abs = join(ctx.projectDir, relPath);
-  const narrationFresh = narration.status === "generated";
   if (existsSync(abs) && !ctx.force && !narrationFresh) {
     ctx.onProgress({ type: "transcript-cached", beatId: beat.id, path: relPath });
-    return;
+    return "cached";
   }
 
   const apiKey = await getConfiguredApiKey("OPENAI_API_KEY", undefined, { cwd: ctx.projectDir });
@@ -1505,27 +1550,62 @@ async function dispatchTranscript(
       beatId: beat.id,
       reason: "OPENAI_API_KEY not set — narration plays but word-sync timings unavailable",
     });
-    return;
+    return "skipped";
   }
 
-  const words = await transcribeNarrationWords(join(ctx.projectDir, narration.path), { apiKey });
+  const words = await transcribeNarrationWords(join(ctx.projectDir, narrationPath), { apiKey });
   if (words.length === 0) {
     ctx.onProgress({
       type: "transcript-skipped",
       beatId: beat.id,
       reason: "transcription returned no word timings",
     });
-    return;
+    return "skipped";
   }
 
-  await mkdir(dirname(abs), { recursive: true });
-  await writeFile(abs, JSON.stringify(words, null, 2), "utf-8");
+  try {
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, JSON.stringify(words, null, 2), "utf-8");
+  } catch (err) {
+    ctx.onProgress({
+      type: "transcript-skipped",
+      beatId: beat.id,
+      reason: `failed to write transcript: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return "failed";
+  }
   ctx.onProgress({
     type: "transcript-generated",
     beatId: beat.id,
     path: relPath,
     wordCount: words.length,
   });
+  return "generated";
+}
+
+/**
+ * Run the transcript stage across all active beats. Resolves each beat's
+ * narration audio path + freshness from its build outcome (which is populated
+ * either by a fresh asset run or {@link collectExistingBeatOutcomes} on disk),
+ * then transcribes concurrently. Best-effort: aggregates statuses for the stage
+ * report but never throws.
+ */
+async function runTranscriptStage(
+  beats: Beat[],
+  outcomes: BeatBuildOutcome[],
+  ctx: TranscriptDispatchContext
+): Promise<{ statuses: TranscriptStatus[] }> {
+  const byId = new Map(outcomes.map((o) => [o.beatId, o]));
+  const statuses = await mapWithConcurrency(beats, BEAT_PRIMITIVES_CONCURRENCY, (beat) => {
+    const outcome = byId.get(beat.id);
+    return dispatchTranscript(
+      beat,
+      outcome?.narrationPath,
+      outcome?.narrationStatus === "generated",
+      ctx
+    );
+  });
+  return { statuses };
 }
 
 interface CharacterBuildResult {
@@ -2436,9 +2516,13 @@ async function skipped(
   return { status: "skipped" };
 }
 
-function createEmptyStageReports(): Record<"assets" | "compose" | "sync" | "render", StageReport> {
+function createEmptyStageReports(): Record<
+  "assets" | "transcript" | "compose" | "sync" | "render",
+  StageReport
+> {
   return {
     assets: { status: "pending", costUsd: 0, warnings: [], retryWith: [] },
+    transcript: { status: "pending", costUsd: 0, warnings: [], retryWith: [] },
     compose: { status: "pending", costUsd: 0, warnings: [], retryWith: [] },
     sync: { status: "pending", costUsd: 0, warnings: [], retryWith: [] },
     render: { status: "pending", costUsd: 0, warnings: [], retryWith: [] },
@@ -3008,6 +3092,8 @@ function buildCurrentStage(result: SceneBuildResult): BuildCurrentStage {
     case "pending-jobs":
       return "assets";
     case "assets-only":
+      return "transcript";
+    case "transcript-only":
     case "needs-author":
       return "compose";
     case "compose-only":
