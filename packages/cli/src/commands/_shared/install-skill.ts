@@ -36,15 +36,23 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-import {
-  HOUSE_STYLE_MD,
-  MOTION_PRINCIPLES_MD,
-  SKILL_MD,
-  TRANSITIONS_MD,
-  TYPOGRAPHY_MD,
-} from "./hf-skill-bundle/bundle-content.js";
 import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
 import type { AgentHostId } from "../../utils/agent-host-detect.js";
+
+/**
+ * The vendored skill content. Loaded via a lazy `await import` in
+ * {@link installHyperframesSkill} (not a top-level import) so loading this
+ * module at CLI startup — it's reachable from the `scene` command group —
+ * doesn't eagerly evaluate the ~52KB content. `BUNDLE_VERSION` stays a cheap
+ * static import.
+ */
+interface HfBundleContent {
+  SKILL_MD: string;
+  HOUSE_STYLE_MD: string;
+  MOTION_PRINCIPLES_MD: string;
+  TYPOGRAPHY_MD: string;
+  TRANSITIONS_MD: string;
+}
 
 /** Hosts the install-skill command knows file layouts for. */
 export type InstallSkillHost = "claude-code" | "cursor" | "all";
@@ -93,13 +101,13 @@ interface SkillFile {
  * AGENTS.md `@SKILL.md` references and what Codex / Aider / generic
  * agents discover by walking the project tree.
  */
-function universalFiles(): SkillFile[] {
+function universalFiles(c: HfBundleContent): SkillFile[] {
   return [
-    { relPath: "SKILL.md", content: SKILL_MD },
-    { relPath: "references/house-style.md", content: HOUSE_STYLE_MD },
-    { relPath: "references/motion-principles.md", content: MOTION_PRINCIPLES_MD },
-    { relPath: "references/typography.md", content: TYPOGRAPHY_MD },
-    { relPath: "references/transitions.md", content: TRANSITIONS_MD },
+    { relPath: "SKILL.md", content: c.SKILL_MD },
+    { relPath: "references/house-style.md", content: c.HOUSE_STYLE_MD },
+    { relPath: "references/motion-principles.md", content: c.MOTION_PRINCIPLES_MD },
+    { relPath: "references/typography.md", content: c.TYPOGRAPHY_MD },
+    { relPath: "references/transitions.md", content: c.TRANSITIONS_MD },
   ];
 }
 
@@ -108,14 +116,14 @@ function universalFiles(): SkillFile[] {
  * under `.claude/skills/hyperframes/` so Claude Code's skill loader
  * picks it up automatically.
  */
-function claudeCodeFiles(): SkillFile[] {
+function claudeCodeFiles(c: HfBundleContent): SkillFile[] {
   const base = ".claude/skills/hyperframes";
   return [
-    { relPath: `${base}/SKILL.md`, content: SKILL_MD },
-    { relPath: `${base}/references/house-style.md`, content: HOUSE_STYLE_MD },
-    { relPath: `${base}/references/motion-principles.md`, content: MOTION_PRINCIPLES_MD },
-    { relPath: `${base}/references/typography.md`, content: TYPOGRAPHY_MD },
-    { relPath: `${base}/references/transitions.md`, content: TRANSITIONS_MD },
+    { relPath: `${base}/SKILL.md`, content: c.SKILL_MD },
+    { relPath: `${base}/references/house-style.md`, content: c.HOUSE_STYLE_MD },
+    { relPath: `${base}/references/motion-principles.md`, content: c.MOTION_PRINCIPLES_MD },
+    { relPath: `${base}/references/typography.md`, content: c.TYPOGRAPHY_MD },
+    { relPath: `${base}/references/transitions.md`, content: c.TRANSITIONS_MD },
   ];
 }
 
@@ -125,13 +133,13 @@ function claudeCodeFiles(): SkillFile[] {
  * The body concatenates SKILL.md + references so a single file is enough
  * (Cursor doesn't traverse a directory the way Claude Code does).
  */
-function cursorFiles(): SkillFile[] {
+function cursorFiles(c: HfBundleContent): SkillFile[] {
   const body = [
-    SKILL_MD,
-    "\n\n## Reference: house-style.md\n\n" + HOUSE_STYLE_MD,
-    "\n\n## Reference: motion-principles.md\n\n" + MOTION_PRINCIPLES_MD,
-    "\n\n## Reference: typography.md\n\n" + TYPOGRAPHY_MD,
-    "\n\n## Reference: transitions.md\n\n" + TRANSITIONS_MD,
+    c.SKILL_MD,
+    "\n\n## Reference: house-style.md\n\n" + c.HOUSE_STYLE_MD,
+    "\n\n## Reference: motion-principles.md\n\n" + c.MOTION_PRINCIPLES_MD,
+    "\n\n## Reference: typography.md\n\n" + c.TYPOGRAPHY_MD,
+    "\n\n## Reference: transitions.md\n\n" + c.TRANSITIONS_MD,
   ].join("");
 
   // Strip upstream Hyperframes frontmatter (Cursor uses its own shape) and
@@ -153,13 +161,13 @@ alwaysApply: false
 }
 
 /** Resolve which host-specific layouts to install based on `hosts`. */
-function selectHostFiles(hosts: InstallSkillHost[]): SkillFile[] {
+function selectHostFiles(hosts: InstallSkillHost[], c: HfBundleContent): SkillFile[] {
   const wantsAll = hosts.includes("all");
   const wantsClaude = wantsAll || hosts.includes("claude-code");
   const wantsCursor = wantsAll || hosts.includes("cursor");
   const out: SkillFile[] = [];
-  if (wantsClaude) out.push(...claudeCodeFiles());
-  if (wantsCursor) out.push(...cursorFiles());
+  if (wantsClaude) out.push(...claudeCodeFiles(c));
+  if (wantsCursor) out.push(...cursorFiles(c));
   return out;
 }
 
@@ -175,7 +183,9 @@ export async function installHyperframesSkill(opts: InstallSkillOptions): Promis
   const force = opts.force ?? false;
   const dryRun = opts.dryRun ?? false;
 
-  const files = [...universalFiles(), ...selectHostFiles(opts.hosts)];
+  // Lazily pull the ~52KB vendored content only when actually installing.
+  const content: HfBundleContent = await import("./hf-skill-bundle/bundle-content.js");
+  const files = [...universalFiles(content), ...selectHostFiles(opts.hosts, content)];
   const actions: InstallSkillFileAction[] = [];
 
   if (!dryRun && !existsSync(projectDir)) {

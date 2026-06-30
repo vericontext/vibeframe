@@ -33,18 +33,15 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 
-// Vendored skill content as TS template-literal constants, auto-generated
-// from the sibling .md files by `scripts/refresh-hf-bundle.sh`. Kept as a
-// regular TS module (not bundler-magic .md imports) so any package whose
-// tsc traverses this file (mcp-server via workspace dep) compiles without
-// needing extra ambient declarations or sibling .d.ts files.
-import {
-  SKILL_MD,
-  HOUSE_STYLE_MD,
-  MOTION_PRINCIPLES_MD,
-  TYPOGRAPHY_MD,
-  TRANSITIONS_MD,
-} from "./bundle-content.js";
+// The vendored skill content (~52KB of TS template-literal constants in
+// `./bundle-content.ts`, auto-generated from the sibling .md files by
+// `scripts/refresh-hf-bundle.sh`) is loaded via a LAZY `await import` inside
+// `buildVendored()` — NOT a top-level import. That keeps `BUNDLE_VERSION` (and
+// any path that only needs it, e.g. the agent-mode `getComposePrompts`) free of
+// the heavy content: only the batch LLM composer that actually calls
+// `loadHyperframesSkillBundle()` pays to evaluate it. (esbuild bundles it inline
+// but wraps a dynamically-imported local module in a lazy initializer, so the
+// string allocation defers until first await.)
 
 /**
  * Snapshot identifier. Bump on every refresh of the vendored MD files.
@@ -56,17 +53,6 @@ import {
  * bump this constant. `scripts/refresh-hf-bundle.sh` does this automatically.
  */
 export const BUNDLE_VERSION = "970367f-2026-04-25";
-
-/**
- * Files included in the bundle, in concatenation order.
- */
-const VENDORED_SECTIONS: ReadonlyArray<{ label: string; content: string }> = [
-  { label: "hyperframes/SKILL.md",             content: SKILL_MD             },
-  { label: "hyperframes/house-style.md",       content: HOUSE_STYLE_MD       },
-  { label: "hyperframes/motion-principles.md", content: MOTION_PRINCIPLES_MD },
-  { label: "hyperframes/typography.md",        content: TYPOGRAPHY_MD        },
-  { label: "hyperframes/transitions.md",       content: TRANSITIONS_MD       },
-];
 
 /** Path to the user-installed Hyperframes skill, if present. */
 function installedSkillPath(): string | null {
@@ -82,9 +68,20 @@ function joinSections(sections: ReadonlyArray<{ label: string; content: string }
     .join("\n");
 }
 
-function buildVendored(): { content: string; hint: string } {
+async function buildVendored(): Promise<{ content: string; hint: string }> {
+  // Lazily pull the heavy ~52KB content only when the vendored snapshot is
+  // actually needed (no installed skill, batch composer running).
+  const { SKILL_MD, HOUSE_STYLE_MD, MOTION_PRINCIPLES_MD, TYPOGRAPHY_MD, TRANSITIONS_MD } =
+    await import("./bundle-content.js");
+  const sections: ReadonlyArray<{ label: string; content: string }> = [
+    { label: "hyperframes/SKILL.md",             content: SKILL_MD             },
+    { label: "hyperframes/house-style.md",       content: HOUSE_STYLE_MD       },
+    { label: "hyperframes/motion-principles.md", content: MOTION_PRINCIPLES_MD },
+    { label: "hyperframes/typography.md",        content: TYPOGRAPHY_MD        },
+    { label: "hyperframes/transitions.md",       content: TRANSITIONS_MD       },
+  ];
   return {
-    content: joinSections(VENDORED_SECTIONS),
+    content: joinSections(sections),
     hint:
       `[skill] using vendored Hyperframes snapshot ${BUNDLE_VERSION}. ` +
       `For latest, run \`npx skills add heygen-com/hyperframes\`.`,
@@ -120,8 +117,14 @@ function buildInstalled(skillRoot: string): { content: string; hint: string } | 
  *
  * Side-effect free except for the optional `~/.claude/skills/hyperframes/`
  * filesystem read.
+ *
+ * Async because the vendored snapshot content is loaded via a lazy
+ * `await import("./bundle-content.js")` (see {@link buildVendored}) so paths
+ * that never need it (agent-mode, template composer) don't pay to evaluate the
+ * ~52KB string. When an installed skill is present, the vendored content module
+ * is never imported at all.
  */
-export function loadHyperframesSkillBundle(): {
+export async function loadHyperframesSkillBundle(): Promise<{
   content: string;
   /** "installed" (user has ~/.claude/skills/hyperframes/) or "vendored" (esbuild-inlined snapshot). */
   source: "installed" | "vendored";
@@ -129,7 +132,7 @@ export function loadHyperframesSkillBundle(): {
   hint: string;
   /** Stable hash of (BUNDLE_VERSION + content). Used as cache-key input. */
   hash: string;
-} {
+}> {
   const installedRoot = installedSkillPath();
   if (installedRoot) {
     const r = buildInstalled(installedRoot);
@@ -142,7 +145,7 @@ export function loadHyperframesSkillBundle(): {
       };
     }
   }
-  const v = buildVendored();
+  const v = await buildVendored();
   return {
     content: v.content,
     source: "vendored",

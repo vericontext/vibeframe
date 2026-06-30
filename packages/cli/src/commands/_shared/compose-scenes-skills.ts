@@ -1030,7 +1030,7 @@ export async function executeComposeScenesWithSkills(
     };
   }
 
-  const skillBundleLoaded = loadHyperframesSkillBundle();
+  const skillBundleLoaded = await loadHyperframesSkillBundle();
   const skillBundle = { content: skillBundleLoaded.content, hash: skillBundleLoaded.hash };
 
   // Resolve the composer provider + key. Cache hits are still allowed when
