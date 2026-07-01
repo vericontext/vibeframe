@@ -38,12 +38,13 @@ CLI command availability and parameters.
 
 Canonical user-facing workflows:
 
-- Project video flow: `init`, `plan`, `build`, `render` (edit beats with
-  `storyboard`, poll async work with `status`)
+- Project video flow: `init`, `plan`, `build`, `preview`, `render` (edit beats
+  with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
 - Automation: `run`, `agent`, `schema`, `context`, `guide`
 - Setup & hosts: `setup`, `doctor`, `host`
-- Lower-level operations: `scene`, `timeline`, `detect`, `batch`, `media`
+- Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
+  `media`, `assemble`
 
 Do not introduce docs, examples, or agent instructions that use removed
 namespaces such as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
