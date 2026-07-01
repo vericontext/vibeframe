@@ -150,14 +150,13 @@ export default function DemoPage() {
         </div>
       </section>
 
-      {/* Reproducible surfaces — VHS tape recipes, run locally with
-          `vhs assets/demos/<name>.tape`. */}
+      {/* Reproducible surfaces — copy-paste command sequences for each entry point. */}
       <section className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-1.5 text-sm text-cyan-400 mb-8 animate-fade-in">
               <Terminal className="w-4 h-4" />
-              <span>Reproducible surfaces · run any tape locally</span>
+              <span>Reproducible surfaces · copy-paste to run locally</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
               Reproduce the flows
