@@ -35,10 +35,10 @@ vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 ```
 
 ▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
-— one photographer across four directed scenes (arctic trek → first aurora →
-the whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
+— one photographer across a single arctic night (trek → first aurora → the
+whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
 
-![One consistent character across four directed scenes: an arctic trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase.gif)
+![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase.gif)
 
 Prompt craft for both models lives in the
 [AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
