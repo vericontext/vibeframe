@@ -18,29 +18,29 @@ do not have another agent available.
 
 ## Directed AI video — one character, many scenes
 
-![Image storyboard: one consistent character across four directed scenes](docs/media/showcase.gif)
-
-The four scenes below are the **same character**, directed across a short film
-from one brief — **character sheet → image storyboard (one keyframe still per
-scene) → Seedance image-to-video → composed render**. Open source, MIT.
-
-![Character-consistent image storyboard — pit lane, pit wall, the grid, lights out](docs/media/showcase-storyboard.png)
-
-▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.4/vibeframe-showcase.mp4)** (1080p, generated end-to-end by `vibe build`).
-
-How it works (run it today):
+One brief in, a directed short film out. VibeFrame reuses a single character
+sheet across every scene, generates a cheap image storyboard you review first,
+then animates only the stills you approve with image-to-video and composes the
+final render — all driven by `vibe build`.
 
 ```bash
-# 1. one character sheet, reused everywhere (frontmatter: characters: { nova: "..." })
-# 2. per beat: a keyframe still (image storyboard) + the motion prompt
-#      keyframe: "NOVA on the starting grid, low-angle hero shot, golden light"
-#      video:    "slow push-in as she looks up"
-# 3. review the image storyboard cheaply, then animate only what you approve:
-vibe build my-film --skip-video        # generate the keyframe stills (cheap), review them
-vibe build my-film --max-cost 12       # animate the approved stills (Seedance image-to-video)
+# frontmatter declares the character once, reused everywhere:
+#   characters: { mira: "arctic photographer, deep-red fur-lined parka" }
+# each beat pairs a keyframe still with a motion prompt:
+#   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
+#   video:    "slow tilt up as the aurora ripples and pulses overhead"
+
+vibe build my-film --skip-video   # keyframe stills only (cheap) — review them first
+vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 ```
 
-Prompt craft for both models is in the
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
+— one photographer across a single arctic night (trek → first aurora → the
+whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
+
+![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase.gif)
+
+Prompt craft for both models lives in the
 [AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
 (`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
 
