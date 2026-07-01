@@ -39,7 +39,7 @@ import {
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
-import { deriveInstallHosts, installHyperframesSkill } from "./_shared/install-skill.js";
+import { deriveInstallHosts, deriveRootReaderPresent, installHyperframesSkill } from "./_shared/install-skill.js";
 import { hostDefinitions, planHostSetup, type HostSetupId } from "./_shared/host-integration.js";
 import {
   AGENTS_MD,
@@ -417,6 +417,10 @@ async function runSceneInit(
       ? await installHyperframesSkill({
           projectDir,
           hosts: deriveInstallHosts(detectedIds),
+          // Automatic path stays lean: skip copies the global skill already
+          // provides, but keep root files if a root-reading host needs them.
+          lean: true,
+          rootReaderHostPresent: deriveRootReaderPresent(detectedIds),
         })
       : { success: true, files: [], bundleVersion: "not-installed" };
   const mcpActions =

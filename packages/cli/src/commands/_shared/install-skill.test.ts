@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
   deriveInstallHosts,
+  deriveRootReaderPresent,
   installHyperframesSkill,
 } from "./install-skill.js";
 
@@ -138,6 +139,104 @@ describe("installHyperframesSkill", () => {
     const r = await installHyperframesSkill({ projectDir, hosts: [] });
     // Format is `<sha>-<YYYY-MM-DD>` per BUNDLE_VERSION docstring.
     expect(r.bundleVersion).toMatch(/^[0-9a-f]+-\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("installHyperframesSkill — lean redundancy gating", () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = mkdtempSync(join(tmpdir(), "install-skill-lean-"));
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("lean + global skill present: writes nothing for a Claude-only project", async () => {
+    const r = await installHyperframesSkill({
+      projectDir,
+      hosts: ["claude-code"],
+      lean: true,
+      hasGlobalSkill: true,
+    });
+
+    expect(r.files).toHaveLength(0);
+    expect(existsSync(join(projectDir, "SKILL.md"))).toBe(false);
+    expect(existsSync(join(projectDir, "references"))).toBe(false);
+    expect(existsSync(join(projectDir, ".claude/skills/hyperframes"))).toBe(false);
+  });
+
+  it("lean + global skill present: still writes Cursor rules (no global mechanism)", async () => {
+    const r = await installHyperframesSkill({
+      projectDir,
+      hosts: ["cursor"],
+      lean: true,
+      hasGlobalSkill: true,
+    });
+
+    // Cursor rule only — no root universal, no claude copy.
+    expect(existsSync(join(projectDir, ".cursor/rules/hyperframes.mdc"))).toBe(true);
+    expect(existsSync(join(projectDir, "SKILL.md"))).toBe(false);
+    expect(r.files.map((f) => f.path)).toEqual([".cursor/rules/hyperframes.mdc"]);
+  });
+
+  it("lean + global skill present + root-reading host: writes root SKILL.md, skips claude copy", async () => {
+    const r = await installHyperframesSkill({
+      projectDir,
+      hosts: ["claude-code"],
+      lean: true,
+      hasGlobalSkill: true,
+      rootReaderHostPresent: true,
+    });
+
+    // Root files for codex/aider present; the redundant claude copy is skipped.
+    expect(existsSync(join(projectDir, "SKILL.md"))).toBe(true);
+    expect(existsSync(join(projectDir, "references/house-style.md"))).toBe(true);
+    expect(existsSync(join(projectDir, ".claude/skills/hyperframes"))).toBe(false);
+    expect(r.files.some((f) => f.path.startsWith(".claude/"))).toBe(false);
+  });
+
+  it("lean + no global skill: writes everything (fallback so nothing is lost)", async () => {
+    await installHyperframesSkill({
+      projectDir,
+      hosts: ["claude-code"],
+      lean: true,
+      hasGlobalSkill: false,
+    });
+
+    expect(existsSync(join(projectDir, "SKILL.md"))).toBe(true);
+    expect(existsSync(join(projectDir, ".claude/skills/hyperframes/SKILL.md"))).toBe(true);
+  });
+
+  it("not lean (eject): writes everything even when a global skill exists", async () => {
+    const r = await installHyperframesSkill({
+      projectDir,
+      hosts: ["all"],
+      // no `lean` — the explicit install path; hasGlobalSkill is ignored
+      hasGlobalSkill: true,
+    });
+
+    expect(r.files).toHaveLength(11);
+    expect(existsSync(join(projectDir, "SKILL.md"))).toBe(true);
+    expect(existsSync(join(projectDir, ".claude/skills/hyperframes/SKILL.md"))).toBe(true);
+    expect(existsSync(join(projectDir, ".cursor/rules/hyperframes.mdc"))).toBe(true);
+  });
+});
+
+describe("deriveRootReaderPresent", () => {
+  it("true when a non-Claude/non-Cursor host is present", () => {
+    expect(deriveRootReaderPresent(["codex"])).toBe(true);
+    expect(deriveRootReaderPresent(["aider"])).toBe(true);
+    expect(deriveRootReaderPresent(["gemini-cli"])).toBe(true);
+    expect(deriveRootReaderPresent(["claude-code", "codex"])).toBe(true);
+  });
+
+  it("false for Claude/Cursor-only or empty", () => {
+    expect(deriveRootReaderPresent(["claude-code"])).toBe(false);
+    expect(deriveRootReaderPresent(["cursor"])).toBe(false);
+    expect(deriveRootReaderPresent(["claude-code", "cursor"])).toBe(false);
+    expect(deriveRootReaderPresent([])).toBe(false);
   });
 });
 

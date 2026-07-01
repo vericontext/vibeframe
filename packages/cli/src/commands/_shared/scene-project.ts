@@ -618,7 +618,11 @@ no unresolved unacknowledged host-agent issues.
 
 ## Skills — USE THESE FIRST
 
-@SKILL.md
+**Load the \`hyperframes\` skill before authoring scenes** — it encodes the
+composition rules, motion principles, type system, and visual-identity gate.
+If your agent has it installed globally it is already available; otherwise run
+\`vibe scene install-skill\` to eject a local, editable copy (\`SKILL.md\` +
+\`references/\`, gitignored by default) and read \`SKILL.md\`.
 
 **Always invoke the relevant skill before authoring scenes.** Skills encode
 framework-specific patterns (GSAP timeline registration, data-attribute
@@ -648,7 +652,7 @@ the framework-level minimum, not the cinematic craft layer.
 - \`index.html\` — root composition (timeline)
 - \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
 - \`assets/\` — generated/canonical build media (narration audio, images, video)
-- \`references/\` — composition rule docs installed by VibeFrame, not user media
+- \`references/\` — composition rule docs, only when ejected via \`vibe scene install-skill\` (not user media)
 - \`transcript.json\` — Whisper word-level transcript (if narration exists)
 - \`hyperframes.json\` — HF registry config (speak to both toolchains)
 - \`vibe.config.json\` — canonical VibeFrame config (providers, budget)
@@ -716,6 +720,13 @@ export function buildSceneGitignore(): string {
 # Render outputs
 renders/*.mp4
 tmp/
+
+# Vendored Hyperframes skill copies — regenerable via 'vibe scene install-skill'.
+# Delete these lines if you eject and want to commit per-project customizations.
+/SKILL.md
+/references/
+/.claude/skills/hyperframes/
+/.cursor/rules/hyperframes.mdc
 
 # OS / editor
 .DS_Store

@@ -3810,7 +3810,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
 exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --describe 1`] = `
 {
   "cost": "free",
-  "description": "Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)",
+  "description": "Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project.",
   "name": "scene.install-skill",
   "note": "Build/init installs the host-agent composition skill when needed.",
   "parameters": {

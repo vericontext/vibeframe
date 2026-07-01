@@ -22,22 +22,42 @@
  *       references/{house-style,...}.md
  *     .cursor/rules/hyperframes.mdc         # if hosts includes "cursor"
  *
- * Codex + Aider are AGENTS.md-driven hosts; they read the project root
- * SKILL.md via an `@SKILL.md` reference in AGENTS.md (handled by the
- * init-templates AGENTS_MD section, not here).
+ * Codex + Aider are AGENTS.md-driven hosts; they discover the project-root
+ * SKILL.md because AGENTS.md points at it in prose (the init-templates
+ * AGENTS_MD "Composition rules" section, not an `@`-import).
  *
  * The content is byte-identical to what `loadHyperframesSkillBundle()`
- * uses — same vendored files, same `BUNDLE_VERSION`. After install, the
- * agentic compose path (Phase H2) reads these files instead of the
- * vendored TS string constants, so users can edit them per project.
+ * uses — same vendored files, same `BUNDLE_VERSION`. Build/render never read
+ * these project files (they use the vendored bundle); they exist only so host
+ * agents can read the rules and so users can edit them per project.
+ *
+ * Lean scaffolds: the automatic `vibe init` path passes `lean: true`, so when
+ * the Hyperframes skill is already installed globally
+ * (`hasGlobalHyperframesSkill()`) it skips the redundant copies — the
+ * `.claude/skills/hyperframes/` copy always, and the root `SKILL.md` +
+ * `references/` unless a root-reading host (codex/aider/gemini/opencode) needs
+ * them. Explicit `vibe scene install-skill` omits `lean`, fully materializing
+ * editable copies regardless (the "eject").
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
 import type { AgentHostId } from "../../utils/agent-host-detect.js";
+
+/**
+ * True when the Hyperframes skill is installed at the user's global Claude
+ * skills dir (`~/.claude/skills/hyperframes/`). When present, materializing the
+ * skill into a project is redundant — the host agent already loads it globally —
+ * so `vibe init` keeps the scaffold lean and skips the copies. Explicit
+ * `vibe scene install-skill` ignores this (it's the opt-in "eject" path).
+ */
+export function hasGlobalHyperframesSkill(): boolean {
+  return existsSync(join(homedir(), ".claude", "skills", "hyperframes", "SKILL.md"));
+}
 
 /**
  * The vendored skill content. Loaded via a lazy `await import` in
@@ -70,6 +90,24 @@ export interface InstallSkillOptions {
   force?: boolean;
   /** Don't write — just describe what would happen. */
   dryRun?: boolean;
+  /**
+   * Opt into redundancy gating: skip copies the globally-installed Hyperframes
+   * skill already provides. The automatic `vibe init` path sets this so the
+   * scaffold stays lean; the explicit `vibe scene install-skill` path leaves it
+   * false to fully materialize editable copies (the "eject"). Default false.
+   */
+  lean?: boolean;
+  /**
+   * Caller signals a root-reading host (codex / aider / gemini / opencode) is
+   * present, so the root `SKILL.md` + `references/` must be written even when
+   * the global Claude skill exists. Default false. Only consulted when `lean`.
+   */
+  rootReaderHostPresent?: boolean;
+  /**
+   * Override the global-skill probe (testing seam). Defaults to
+   * {@link hasGlobalHyperframesSkill}. Only consulted when `lean`.
+   */
+  hasGlobalSkill?: boolean;
 }
 
 export type InstallSkillFileStatus =
@@ -160,15 +198,49 @@ alwaysApply: false
   ];
 }
 
-/** Resolve which host-specific layouts to install based on `hosts`. */
-function selectHostFiles(hosts: InstallSkillHost[], c: HfBundleContent): SkillFile[] {
+/**
+ * Resolve which files to write given the requested hosts and redundancy state.
+ *
+ * - Root universal files (`SKILL.md` + `references/`) serve root-reading hosts
+ *   (codex / aider / gemini / opencode) and per-project editing. Skipped only
+ *   when the global skill covers them and no root-reader needs them.
+ * - The Claude host copy pure-duplicates the global skill — skipped when the
+ *   global skill is present.
+ * - Cursor's rule file has no global mechanism — always written when requested.
+ *
+ * `globalPresent` is only true under lean gating; otherwise everything the
+ * hosts request is written (the explicit install / eject path).
+ */
+function selectFiles(
+  hosts: InstallSkillHost[],
+  c: HfBundleContent,
+  opts: { globalPresent: boolean; rootReaderPresent: boolean },
+): SkillFile[] {
   const wantsAll = hosts.includes("all");
   const wantsClaude = wantsAll || hosts.includes("claude-code");
   const wantsCursor = wantsAll || hosts.includes("cursor");
+
   const out: SkillFile[] = [];
-  if (wantsClaude) out.push(...claudeCodeFiles(c));
-  if (wantsCursor) out.push(...cursorFiles(c));
+  if (!opts.globalPresent || opts.rootReaderPresent) {
+    out.push(...universalFiles(c));
+  }
+  if (wantsClaude && !opts.globalPresent) {
+    out.push(...claudeCodeFiles(c));
+  }
+  if (wantsCursor) {
+    out.push(...cursorFiles(c));
+  }
   return out;
+}
+
+/**
+ * Map an `AgentHostId[]` to whether a root-reading host is present. Codex,
+ * Aider, Gemini, and OpenCode read the project-root `SKILL.md` via AGENTS.md
+ * prose — they have no global-skill mechanism, so the root files must be
+ * written for them even when the global Claude skill exists.
+ */
+export function deriveRootReaderPresent(detected: AgentHostId[]): boolean {
+  return detected.some((id) => id !== "claude-code" && id !== "cursor");
 }
 
 /**
@@ -185,7 +257,15 @@ export async function installHyperframesSkill(opts: InstallSkillOptions): Promis
 
   // Lazily pull the ~52KB vendored content only when actually installing.
   const content: HfBundleContent = await import("./hf-skill-bundle/bundle-content.js");
-  const files = [...universalFiles(content), ...selectHostFiles(opts.hosts, content)];
+  const lean = opts.lean ?? false;
+  const globalPresent = lean
+    ? (opts.hasGlobalSkill ?? hasGlobalHyperframesSkill())
+    : false;
+  const rootReaderPresent = opts.rootReaderHostPresent ?? false;
+  const files = selectFiles(opts.hosts, content, {
+    globalPresent,
+    rootReaderPresent,
+  });
   const actions: InstallSkillFileAction[] = [];
 
   if (!dryRun && !existsSync(projectDir)) {
