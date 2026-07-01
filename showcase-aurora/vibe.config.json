@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1",
+  "name": "showcase-aurora",
+  "aspect": "16:9",
+  "kind": "cinema",
+  "defaults": {
+    "sceneDurationSec": 5,
+    "narrationPaddingSec": 0.5,
+    "fps": 30,
+    "quality": "standard"
+  },
+  "providers": {
+    "image": null,
+    "video": null,
+    "narration": null,
+    "music": null,
+    "composer": null
+  },
+  "build": {
+    "mode": "auto",
+    "stage": "all",
+    "maxCostUsd": null,
+    "imageQuality": "hd",
+    "imageSize": "1536x1024"
+  },
+  "composition": {
+    "engine": "hyperframes",
+    "entry": "index.html",
+    "compositionsDir": "compositions",
+    "assetsDir": "assets",
+    "rendersDir": "renders"
+  }
+}

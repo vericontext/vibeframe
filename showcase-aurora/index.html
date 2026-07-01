@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="24"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Scenes added via `vibe scene add` are inserted here. -->
+      <!-- Each scene reference: data-composition-id, data-composition-src, data-start, data-duration, data-track-index. -->
+      <!-- See compositions/*.html for sub-composition contents. -->
+      <!-- vibe-scene-build: clip refs (auto-generated; safe to re-run) -->
+      <div class="clip" data-composition-id="scene-trek" data-composition-src="compositions/scene-trek.html" data-start="0" data-duration="6" data-track-index="0"></div>
+      <div class="clip" data-composition-id="scene-ignite" data-composition-src="compositions/scene-ignite.html" data-start="6" data-duration="6" data-track-index="0"></div>
+      <div class="clip" data-composition-id="scene-wonder" data-composition-src="compositions/scene-wonder.html" data-start="12" data-duration="6" data-track-index="0"></div>
+      <div class="clip" data-composition-id="scene-dawn" data-composition-src="compositions/scene-dawn.html" data-start="18" data-duration="6" data-track-index="0"></div>
+      <audio id="music-trek" src="assets/music-trek.mp3" data-start="0" data-duration="6" data-track-index="1" data-volume="0.22"></audio>
+      <audio id="music-dawn" src="assets/music-dawn.mp3" data-start="18" data-duration="6" data-track-index="1" data-volume="0.22"></audio>
+      <!-- /vibe-scene-build -->
+    
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>
