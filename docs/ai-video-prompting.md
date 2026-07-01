@@ -20,8 +20,8 @@ These map directly onto VibeFrame primitives:
 
 | Step | Hand-run command | Storyboard build |
 | --- | --- | --- |
-| Character sheet | `vibe generate image "<sheet>" -p openai -o assets/character-nova.png` | `characters:` frontmatter (auto-generated once) |
-| Scene keyframe | `vibe edit image assets/character-nova.png "<scene>" -o assets/keyframe-s1.png` | per-beat `keyframe:` cue (+ `characters:`) |
+| Character sheet | `vibe generate image "<sheet>" -p openai -o assets/character-mira.png` | `characters:` frontmatter (auto-generated once) |
+| Scene keyframe | `vibe edit image assets/character-mira.png "<scene>" -o assets/keyframe-s1.png` | per-beat `keyframe:` cue (+ `characters:`) |
 | Animate | `vibe generate video "<motion>" -i assets/keyframe-s1.png -p seedance` | `keyframe:` + `video:` cues, run by `vibe build` |
 | Assemble | compose + `vibe render` | `vibe build` |
 
@@ -47,7 +47,7 @@ pick for hero keyframes when quality matters most.
 ### Template A — character sheet (do this once)
 
 ```
-Character turnaround reference sheet of an original fictional character named NOVA:
+Character turnaround reference sheet of an original fictional character named MIRA:
 <age, build, face, hair color + style, wardrobe head-to-toe, demeanor>.
 Show front view, side profile, and back view side by side on one clean canvas,
 plus four facial-expression thumbnails and a small color-palette swatch row.
@@ -64,7 +64,7 @@ does not carry character design forward on its own; say it every time.
 [laozhang.ai](https://blog.laozhang.ai/ai-tools/mastering-character-consistency-chatgpt-image-generator/))
 
 ```
-Image 1 is the NOVA character sheet. Place NOVA — same face, same hair, same
+Image 1 is the MIRA character sheet. Place MIRA — same face, same hair, same
 <wardrobe> — into this scene: <location, time of day, what she is doing>.
 Framing: <e.g. low-angle hero shot, waist-up three-quarter>.
 Lighting: <one strong lighting idea>. Mood: <…>. Cinematic, photorealistic.
@@ -171,8 +171,9 @@ Face, hair, wardrobe rules, expression style, movement style, and explicit
 **do-not-change** rules. This text becomes your reusable **identity block**:
 
 ```
-NOVA — the same woman from the reference: late-20s racing engineer, low ponytail,
-teal team jacket over a dark shirt, dark trousers, calm focused expression.
+MIRA — the same woman from the reference: late-20s arctic photographer, dark hair
+under a charcoal beanie, deep crimson-red fur-lined parka, vintage 35mm camera on a
+leather strap, calm focused expression.
 ```
 
 ### 2. Plan the full shot list before generating
@@ -205,14 +206,14 @@ close-ups, silhouettes, backlight, and fast motion until the look is established
 
 ```bash
 # 1. character sheet (once)
-vibe generate image "<Template A>" -p openai -o assets/character-nova.png
+vibe generate image "<Template A>" -p openai -o assets/character-mira.png
 
 # per scene: 2. keyframe still   3. animate it
-vibe edit image assets/character-nova.png "<Template B for scene 1>" -o assets/keyframe-s1.png
+vibe edit image assets/character-mira.png "<Template B for scene 1>" -o assets/keyframe-s1.png
 vibe generate video "<Template C motion>" -i assets/keyframe-s1.png -p seedance -o assets/video-s1.mp4
 # …repeat for s2, s3, … reusing the same identity block …
 
-# Or drive it from a storyboard: each beat gets `characters: [nova]` + a
+# Or drive it from a storyboard: each beat gets `characters: [mira]` + a
 # `keyframe:` cue (the still) + a `video:` cue (the motion), then:
 vibe build my-film --dry-run            # review per-scene keyframe + clip cost
 vibe build my-film --max-cost <budget>  # generate + compose + render
