@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "VibeFrame - AI-Native Video Editing";
+export const alt = "VibeFrame — Storyboard-first video CLI for coding agents";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -190,7 +190,7 @@ export default async function Image() {
         >
           <span>Open source video CLI</span>
           <span>•</span>
-          <span>Open Source</span>
+          <span>MIT</span>
           <span>•</span>
           <span>vibeframe.ai</span>
         </div>
