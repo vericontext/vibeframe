@@ -20,25 +20,25 @@ do not have another agent available.
 
 One brief in, a directed short film out. VibeFrame reuses a single character
 sheet across every scene, generates a cheap image storyboard you review first,
-then animates only the stills you approve with Seedance and composes the final
-render — all driven by `vibe build`.
+then animates only the stills you approve with image-to-video and composes the
+final render — all driven by `vibe build`.
 
 ```bash
 # frontmatter declares the character once, reused everywhere:
-#   characters: { nova: "young racing engineer, teal team jacket" }
+#   characters: { mira: "arctic photographer, deep-red fur-lined parka" }
 # each beat pairs a keyframe still with a motion prompt:
-#   keyframe: "NOVA on the starting grid, low-angle hero shot, golden light"
-#   video:    "slow push-in as she looks up"
+#   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
+#   video:    "slow tilt up as the aurora ripples and pulses overhead"
 
 vibe build my-film --skip-video   # keyframe stills only (cheap) — review them first
 vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 ```
 
-▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.4/vibeframe-showcase.mp4)**
-— the same character across four directed scenes, 1080p, generated end-to-end.
-Open source, MIT.
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
+— one photographer across four directed scenes (arctic trek → first aurora →
+the whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
 
-![The image storyboard: one consistent character across four directed scenes](docs/media/showcase.gif)
+![One consistent character across four directed scenes: an arctic trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase.gif)
 
 Prompt craft for both models lives in the
 [AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
