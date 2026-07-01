@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "Agent Hosts & Sync"
+description: "How VibeFrame configures Claude Code, Codex, and Cursor from one canonical source."
+tags: [agents, hosts, sync]
+---
+
 # Agent Hosts & Sync
 
 VibeFrame ships agent configuration for three hosts — Claude Code, OpenAI

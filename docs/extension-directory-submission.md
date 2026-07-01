@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "Claude Extension Directory Submission"
+description: "Submission notes for the VibeFrame MCP desktop extension."
+tags: [mcp, extension]
+---
+
 # Claude Extension Directory Submission — VibeFrame
 
 Working notes + reviewer guide for submitting the VibeFrame Desktop Extension

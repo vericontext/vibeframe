@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "Composition Engine Boundary"
+description: "Where VibeFrame ends and the Hyperframes composition engine begins."
+tags: [architecture, hyperframes]
+---
+
 # Composition Engine Boundary
 
 VibeFrame is the workflow layer around composition engines. It does not try to

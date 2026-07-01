@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "Project Files And Flow"
+description: "VibeFrame project file roles (STORYBOARD, DESIGN, characters) and the init to build to render flow."
+tags: [projects, workflow]
+---
+
 # Project Files And Flow
 
 VibeFrame has two main flows:

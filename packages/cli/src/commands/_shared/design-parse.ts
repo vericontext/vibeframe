@@ -11,6 +11,7 @@
  * parser only READS; it never rewrites the file.
  */
 import { parse as parseYaml } from "yaml";
+import { extractFrontmatter } from "./frontmatter.js";
 
 export interface ParsedDesign {
   /** `name:` from front-matter, if present. */
@@ -46,22 +47,8 @@ function colorTokens(value: unknown): Record<string, string> {
 }
 
 export function parseDesign(md: string): ParsedDesign {
-  const raw = md.replace(/\r\n/g, "\n");
-
-  let frontmatter: Record<string, unknown> = {};
-  let body = raw;
-  const fm = raw.match(DESIGN_FRONTMATTER_RE);
-  if (fm) {
-    try {
-      const parsed = parseYaml(fm[1]);
-      if (isPlainObject(parsed)) {
-        frontmatter = parsed;
-        body = raw.slice(fm[0].length);
-      }
-    } catch {
-      // Invalid YAML → treat as freeform; leave body intact.
-    }
-  }
+  const { data, body, raw } = extractFrontmatter(md);
+  const frontmatter: Record<string, unknown> = data ?? {};
 
   // Sections: split the body on `## ` headings.
   const sections: Record<string, string> = {};

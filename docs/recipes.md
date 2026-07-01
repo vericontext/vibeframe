@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "VibeFrame Recipes"
+description: "Copy-paste command recipes for common VibeFrame video tasks."
+tags: [recipes, cli]
+---
+
 # VibeFrame Recipes
 
 Verified recipes for common VibeFrame workflows.
