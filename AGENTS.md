@@ -164,8 +164,10 @@ Claude Code, and direct terminal pushes use the same version/SSOT checks.
 
 ## Agent Hosts & Sync
 
-VibeFrame configures three hosts (Claude Code, Codex, Cursor) from one canonical
-source. Full map + workflows: `docs/agent-hosts.md`.
+`vibe init` writes guidance files for six hosts (Claude Code, Codex, Cursor,
+Aider, Gemini CLI, OpenCode). Separately, `pnpm agent-sync` keeps three hosts'
+generated config (Claude Code, Codex, Cursor) in sync from one canonical source.
+Full map + workflows: `docs/agent-hosts.md`.
 
 - **Canonical (edit these):** `AGENTS.md` (this file — Codex/Cursor read it
   natively; Claude imports it via `CLAUDE.md` = `@AGENTS.md`) and cross-host
