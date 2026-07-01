@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.113.23] - 2026-06-30
+## [0.113.24] - 2026-07-01
 
 ### Added
 
@@ -22,11 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- remove orphaned exportCommand and dead helpers
+- keep scene scaffolds lean by skipping redundant skill copies
+- stop scaffolding legacy vibe.project.yaml; fix budget salvage
 - lazy-load vendored Hyperframes skill content (HF-lean)
 - replace invented host goal-mode names with host-agnostic agent-loop language
 
 ### Documentation
 
+- document vibe preview and assemble in CLI surface
+- retire stale FUNCTIONS.md, FUNCTIONS-TOBE.md, and DEMO-*.md
 - sync agent docs with current CLI/MCP surface
 
 ### Fixed
@@ -35,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Maintenance
 
+- ignore flagship-nightshift output and commit attribution config
 - add project-auditor agent and local-only agent convention
 
 ## [0.113.11] - 2026-06-22
