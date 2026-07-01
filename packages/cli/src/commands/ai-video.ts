@@ -20,6 +20,7 @@ import {
   GeminiProvider,
   GrokProvider,
   KlingProvider,
+  OmniProvider,
   RunwayProvider,
   type MediaReference,
 } from "@vibeframe/ai-providers";
@@ -33,7 +34,7 @@ import { getConfiguredApiKey } from "../utils/api-key.js";
 
 export interface VideoGenerateOptions {
   prompt: string;
-  provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal";
+  provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal" | "omni";
   image?: string;
   refImages?: string[];
   refVideos?: string[];
@@ -94,6 +95,7 @@ export async function executeVideoGenerate(
       runway: "RUNWAY_API_SECRET",
       kling: "KLING_API_KEY",
       veo: "GOOGLE_API_KEY",
+      omni: "GOOGLE_API_KEY",
       seedance: "FAL_API_KEY",
       fal: "FAL_API_KEY",
     };
@@ -345,6 +347,32 @@ export async function executeVideoGenerate(
         duration: finalResult.duration,
         outputPath,
         provider: "grok",
+      };
+    } else if (provider === "omni") {
+      // EXPERIMENTAL — Gemini Omni preview (interactions endpoint), same GOOGLE_API_KEY.
+      const omni = new OmniProvider();
+      await omni.initialize({ apiKey: key });
+      const result = await omni.generateVideo(prompt, {
+        prompt,
+        referenceImage,
+        aspectRatio: ratio as "16:9" | "9:16" | "1:1",
+      });
+      if (result.status !== "completed" || !result.videoUrl) {
+        return { success: false, error: result.error || "Gemini Omni generation failed" };
+      }
+      let outputPath: string | undefined;
+      if (output) {
+        const buffer = await downloadVideo(result.videoUrl, key);
+        outputPath = resolve(process.cwd(), output);
+        await writeFile(outputPath, buffer);
+      }
+      return {
+        success: true,
+        taskId: result.id,
+        status: "completed",
+        videoUrl: result.videoUrl,
+        outputPath,
+        provider: "omni",
       };
     }
 

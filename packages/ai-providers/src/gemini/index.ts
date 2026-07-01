@@ -1,6 +1,7 @@
 export * from "./GeminiProvider.js";
 export * from "./gemini-motion.js";
 export * from "./gemini-models.js";
+export * from "./gemini-omni.js";
 
 import { defineProvider } from "../define-provider.js";
 
@@ -29,4 +30,14 @@ defineProvider({
   kinds: ["video"],
   resolverPriority: { video: 3 },
   commandsUnlocked: ["generate video -p veo"],
+});
+
+// Gemini Omni — experimental preview video model on the same GOOGLE_API_KEY.
+// No resolverPriority: opt-in only (`-p omni`), never auto-selected as default.
+defineProvider({
+  id: "omni",
+  label: "Gemini Omni (experimental)",
+  apiKey: "google",
+  kinds: ["video"],
+  commandsUnlocked: ["generate video -p omni"],
 });

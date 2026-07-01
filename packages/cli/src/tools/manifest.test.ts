@@ -113,7 +113,7 @@ describe("tool manifest invariants", () => {
     expect(tool.description).toContain("FAL_API_KEY");
 
     const provider = tool.inputSchema.properties?.provider as { enum?: string[] } | undefined;
-    expect(provider?.enum).toEqual(["seedance", "grok", "kling", "runway", "veo"]);
+    expect(provider?.enum).toEqual(["seedance", "grok", "kling", "runway", "veo", "omni"]);
     expect(tool.inputSchema.properties).toHaveProperty("seedanceModel");
   });
 

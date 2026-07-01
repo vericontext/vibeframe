@@ -45,6 +45,8 @@ export {
   GEMINI_TEXT_MODEL_HELP,
   GeminiProvider,
   geminiProvider,
+  OmniProvider,
+  omniProvider,
   isGeminiTextModelAlias,
   resolveGeminiTextModel,
   type GeminiTextModel,
