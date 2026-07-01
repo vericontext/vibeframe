@@ -166,31 +166,22 @@ export default function DemoPage() {
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
               Plain CLI, optional built-in agent, or a host agent — same project files and command
-              contracts. Each surface below ships a VHS tape; install{" "}
-              <a
-                href="https://github.com/charmbracelet/vhs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-foreground"
-              >
-                vhs
-              </a>{" "}
-              and run it to see the recording.
+              contracts. Each surface below is the exact command sequence you run.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 animate-fade-in-up delay-200">
             <TapeCard
               badge="1 · Media primitives"
-              title="DEMO-quickstart"
+              title="One-shot media"
               note="Host agent drives image generation, video generation, inspection, and overlay editing"
-              command="vhs assets/demos/quickstart-claude-code.tape"
+              command="vibe generate image '...' -o frame.png && vibe generate video '...' -i frame.png -o clip.mp4 && vibe inspect media clip.mp4"
             />
             <TapeCard
               badge="2 · Storyboard dogfood"
-              title="DEMO-dogfood"
+              title="Storyboard build"
               note="Host agent runs the fuller storyboard build, report, render, and YAML workflow"
-              command="vhs assets/demos/dogfood-claude-code.tape"
+              command="vibe init launch --from brief.md && vibe build launch --max-cost 5 && vibe render launch && vibe run workflow.yaml"
             />
           </div>
 
