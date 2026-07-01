@@ -133,7 +133,7 @@ reference (skips generation).
 ```yaml
 ---
 characters:
-  nova: "young female racing engineer, teal team jacket, low ponytail"
+  mira: "arctic aurora photographer, deep-red fur-lined parka, dark hair under a charcoal beanie, vintage 35mm camera"
   rival: { image: "media/rival-ref.png" }
 ---
 
@@ -141,8 +141,8 @@ characters:
 
 ```yaml
 duration: 5
-characters: [nova]
-video: "NOVA walks through the pit lane, handheld tracking shot, ambient garage sound"
+characters: [mira]
+video: "MIRA treks across the moonlit snowfield, handheld tracking shot, wind and crunching snow"
 ```
 ```
 
@@ -161,9 +161,9 @@ supplies the motion prompt; otherwise the keyframe prompt is reused.
 
 ```yaml
 duration: 5
-characters: [nova]
-keyframe: "NOVA stands on the starting grid, low-angle hero shot, dramatic morning light"
-video: "slow push-in as engines spool up around her"
+characters: [mira]
+keyframe: "MIRA stands on the frozen ice, low-angle hero shot, dramatic aurora light"
+video: "slow tilt up as the aurora ripples and pulses overhead"
 ```
 
 Keyframe mode costs one extra image generation per beat plus the clip

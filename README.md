@@ -223,7 +223,7 @@ across scenes.
 ```yaml
 ---
 characters:
-  nova: "young female racing engineer, teal team jacket, low ponytail"
+  mira: "arctic aurora photographer, deep-red fur-lined parka, dark hair under a charcoal beanie, vintage 35mm camera"
   rival: { image: "media/rival-ref.png" }
 ---
 
@@ -231,9 +231,9 @@ characters:
 
 ```yaml
 duration: 5
-characters: [nova]
-keyframe: "NOVA stands on the starting grid, low-angle hero shot, morning light"
-video: "slow push-in as engines spool up around her"
+characters: [mira]
+keyframe: "MIRA stands on the frozen ice, camera lowered, looking up as the aurora fills the sky"
+video: "slow tilt up as the aurora ripples and pulses overhead"
 ```
 ```
 
@@ -241,7 +241,7 @@ Review keyframe stills before paying for video generation:
 
 ```bash
 vibe build my-film --skip-video        # generate keyframe stills only (cheap)
-vibe build my-film --beat grid --stage assets --force --skip-video  # regenerate one beat
+vibe build my-film --beat wonder --stage assets --force --skip-video  # regenerate one beat
 vibe build my-film --max-cost 6        # animate the approved keyframes
 ```
 
