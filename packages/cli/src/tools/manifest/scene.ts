@@ -815,7 +815,7 @@ export const sceneInstallSkillTool = defineTool({
   title: "Install Hyperframes Skill",
   annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
-    "Install the vendored Hyperframes skill bundle into a scene project so the host agent (Claude Code, Cursor, Codex, Aider) can read framework rules + house style directly. Writes a universal SKILL.md + references/ at the project root, plus per-host layouts (.claude/skills/hyperframes/ for Claude Code, .cursor/rules/hyperframes.mdc for Cursor) when those hosts are detected. Phase H1 of the agentic-native composer plan — once installed, the host agent itself can author scene HTML using the rules instead of relying on vibe's internal LLM call.",
+    "Eject editable copies of the vendored Hyperframes skill bundle into a scene project so you can customize the framework rules + house style per project. Writes a universal SKILL.md + references/ at the project root, plus per-host layouts (.claude/skills/hyperframes/ for Claude Code, .cursor/rules/hyperframes.mdc for Cursor) when those hosts are detected. Note: vibe init already skips these copies when the Hyperframes skill is installed globally (the host agent loads it from there); run this only to get editable per-project copies. Build/render read the vendored bundle, not these files.",
   schema: sceneInstallSkillSchema,
   async execute(args, ctx) {
     const projectDir = resolve(ctx.workingDirectory, args.projectDir);
@@ -834,6 +834,8 @@ export const sceneInstallSkillTool = defineTool({
       hosts,
       force: args.force ?? false,
       dryRun: args.dryRun ?? false,
+      // Explicit install is the opt-in "eject": omit `lean` so copies are
+      // materialized in full even when a global skill exists.
     });
 
     return {
