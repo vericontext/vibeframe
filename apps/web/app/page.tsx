@@ -88,10 +88,8 @@ export default function LandingPage() {
               DESIGN.md
             </code>{" "}
             and then routes asset generation, scene composition, build reports, render inspection,
-            and final MP4 export through commands any bash-capable coding agent can run. Codex Goal
-            mode and Claude Code{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">/goal</code>{" "}
-            stay the outer loop; VibeFrame supplies the video runtime.
+            and the final rendered MP4 through commands any bash-capable coding agent can run. Your
+            coding agent&apos;s own loop stays the outer loop; VibeFrame supplies the video runtime.
           </p>
 
           <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4 max-w-5xl mx-auto mb-10 text-left animate-fade-in-up delay-150">
@@ -654,12 +652,9 @@ export default function LandingPage() {
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Claude Code, Codex, Cursor, and other coding agents can drive{" "}
               <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe</code> directly
-              through shell commands and project guidance files. Use native goal modes such as Codex{" "}
-              <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">/goal</code> and
-              Claude Code{" "}
-              <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">/goal</code> for
-              long-running loops, then let VibeFrame provide reports, retry hints, and repair
-              commands. Run{" "}
+              through shell commands and project guidance files. Use your host&apos;s own
+              long-running agent loop for multi-step builds, then let VibeFrame provide reports,
+              retry hints, and repair commands. Run{" "}
               <code className="text-primary bg-primary/10 px-2 py-0.5 rounded">vibe agent</code>{" "}
               only when you want a standalone natural-language session inside the CLI.
             </p>
@@ -688,13 +683,13 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
                 title={`${process.env.NEXT_PUBLIC_LLM_PROVIDERS} LLM Providers`}
-                description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama — swap with -p flag"
+                description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama, Evolink — swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
               <FeatureItem
                 icon={<Sparkles className="w-5 h-5" />}
                 title={`${process.env.NEXT_PUBLIC_AGENT_TOOLS} Tools`}
-                description="Project files, build reports, generation, media, export, filesystem"
+                description="Project files, build reports, generation, media, render, filesystem"
                 gradient="from-purple-500 to-pink-500"
               />
               <FeatureItem

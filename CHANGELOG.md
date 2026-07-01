@@ -5,10 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.25] - 2026-07-01
+
+### Fixed
+
+- drop fictional /goal 'goal mode'; sync stale hero/provider copy *(web)*
+
 ## [0.113.24] - 2026-07-01
 
 ### Added
 
+- feature the aurora flagship on the site; fix dead .tape demo refs *(web)*
 - extract audio mux into a standalone assemble stage (vibe assemble, render --silent)
 - add `vibe preview` cheap draft render command
 - promote transcript to a first-class build stage (--stage transcript)
@@ -30,16 +37,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- migrate character-consistency examples from Nova to the aurora showcase
+- rename showcase GIF to bust GitHub camo image cache
+- upgrade showcase to the research-driven v3 render
+- replace README showcase with the new aurora render
+- declutter README hero; clarify host-sync scope in AGENTS.md
 - document vibe preview and assemble in CLI surface
 - retire stale FUNCTIONS.md, FUNCTIONS-TOBE.md, and DEMO-*.md
 - sync agent docs with current CLI/MCP surface
 
 ### Fixed
 
+- remove remaining VHS-tape wording from the demo page *(web)*
 - make root-sync the single source of clip/narration refs (no doubled audio)
 
 ### Maintenance
 
+- untrack showcase-aurora render project (committed by mistake)
 - ignore flagship-nightshift output and commit attribution config
 - add project-auditor agent and local-only agent convention
 
