@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "VibeFrame CLI Reference"
+description: "Auto-generated reference for every VibeFrame CLI command, argument, and option."
+tags: [cli, reference, generated]
+---
+
 # VibeFrame CLI Reference
 
 > **Auto-generated** from `vibe schema --list`. Do not edit by hand —

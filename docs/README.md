@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "VibeFrame Docs"
+description: "Index of VibeFrame documentation — project flow, CLI reference, AI-video prompting, and agent hosts."
+tags: [docs, index]
+---
+
 # VibeFrame Docs
 
 This directory is intentionally small. Exact CLI behavior should come from the

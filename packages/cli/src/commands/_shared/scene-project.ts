@@ -264,6 +264,7 @@ export function buildDesignMd(opts: { name: string; style?: VisualStyle }): stri
   const { name, style } = opts;
   const roles = designColorRoles(style);
   const frontmatter = `---
+type: Design
 name: ${name}
 colors:
   primary: "${roles.primary}"
@@ -425,6 +426,7 @@ export function buildCharactersMd(name: string): string {
 /** Starter `STORYBOARD.md` for the one-shot `vibe build` flow. */
 export function buildStoryboardMd(name: string, duration = 12): string {
   return `---
+type: Storyboard
 title: ${name}
 duration: ${duration}
 aspect: 16:9

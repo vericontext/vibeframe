@@ -1,3 +1,10 @@
+---
+type: Reference
+title: "AI Video Prompting Playbook"
+description: "Character sheet to image storyboard to multi-scene image-to-video prompting for consistent, directed AI video."
+tags: [video, prompting, characters]
+---
+
 # AI video prompting playbook — character sheet → image storyboard → multi-scene video
 
 A practical, copy-paste guide for the workflow that produces consistent,

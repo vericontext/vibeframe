@@ -24,6 +24,7 @@
  */
 
 import { parse as parseYaml } from "yaml";
+import { extractFrontmatter } from "./frontmatter.js";
 
 export interface ParsedStoryboard {
   /**
@@ -211,9 +212,6 @@ const BEAT_PREFIX_RE = /^Beat\s+(.+?)\s+(?:—|:|-)\s+(.+)$/i;
 const DURATION_SUBSECTION_RE = /###\s+Beat\s+duration\s*\n([\s\S]*?)(?=\n###\s|\n##\s|$)/i;
 // Capture optional minus so a "-3" body doesn't sneak in as 3.
 const DURATION_VALUE_RE = /(-?\d+(?:\.\d+)?)\s*(?:s|sec|seconds?)?/i;
-// Top-of-file YAML frontmatter, standard markdown convention. Closing fence
-// must start at column 0 to avoid eating fenced ```yaml inside a beat.
-const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/;
 // First ```yaml fenced block inside a beat body. Anchored to the start of the
 // body so we only treat a leading cue block as machine metadata; ```yaml
 // blocks deeper in the body are left as illustrative content.
@@ -295,21 +293,11 @@ export function extractProjectFrontmatter(md: string): {
   frontmatter: ProjectFrontmatter | undefined;
   remaining: string;
 } {
-  const match = md.match(FRONTMATTER_RE);
-  if (!match) return { frontmatter: undefined, remaining: md };
-  let parsed: unknown;
-  try {
-    parsed = parseYaml(match[1]);
-  } catch {
-    return { frontmatter: undefined, remaining: md };
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { frontmatter: undefined, remaining: md };
-  }
-  return {
-    frontmatter: parsed as ProjectFrontmatter,
-    remaining: md.slice(match[0].length),
-  };
+  const { data, body } = extractFrontmatter(md);
+  // Preserve prior semantics: no/invalid frontmatter → undefined + the original
+  // (already-normalized) doc; valid → the parsed map + the post-block body.
+  if (!data) return { frontmatter: undefined, remaining: md };
+  return { frontmatter: data as ProjectFrontmatter, remaining: body };
 }
 
 /**

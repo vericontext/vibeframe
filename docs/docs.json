@@ -1,0 +1,36 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "VibeFrame",
+  "description": "Storyboard-first, agent-friendly video CLI.",
+  "colors": {
+    "primary": "#2563eb",
+    "light": "#60a5fa",
+    "dark": "#1d4ed8"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["README"]
+      },
+      {
+        "group": "Guides",
+        "pages": ["projects", "recipes", "ai-video-prompting"]
+      },
+      {
+        "group": "Reference",
+        "pages": ["cli-reference", "agent-hosts", "hyperframes"]
+      },
+      {
+        "group": "Meta",
+        "pages": ["okf", "extension-directory-submission"]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/vericontext/vibeframe"
+    }
+  }
+}

@@ -27,6 +27,7 @@ export function draftStoryboardFromBrief(opts: {
     : threeBeatDraft({ product, brief, theme, durations: beatDurations });
 
   const storyboardMd = `---
+type: Storyboard
 title: ${JSON.stringify(product)}
 duration: ${total}
 aspect: ${opts.aspect ?? "16:9"}
