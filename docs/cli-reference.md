@@ -1453,7 +1453,7 @@ Cost tier: `free`
 
 #### `vibe scene install-skill`
 
-Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)
+Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project.
 
 Product surface: `internal`
 Note: Build/init installs the host-agent composition skill when needed.

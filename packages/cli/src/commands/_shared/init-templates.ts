@@ -241,24 +241,29 @@ no unresolved unacknowledged host-agent issues.
 
 ### Composition rules (scene HTML)
 
-\`vibe init\` installs local composition rules into your project. The
-universal copy lives at \`SKILL.md\` (with \`references/*.md\`), and
-host-specific copies are placed where each agent expects them
-(\`.claude/skills/hyperframes/\` for Claude Code, \`.cursor/rules/hyperframes.mdc\`
-for Cursor). **Read \`SKILL.md\` before authoring any scene composition HTML
-under \`compositions/\`** — it defines the framework rules, motion
-principles, type system, and visual-identity hard-gate. The same skill
-governs \`vibe scene lint\` so your authored HTML and the linter stay in
+Composition rules live in the **Hyperframes skill** — framework rules, motion
+principles, type system, and visual-identity hard-gate. **Load that skill
+before authoring any scene composition HTML under \`compositions/\`.** The same
+rules govern \`vibe scene lint\`, so your authored HTML and the linter stay in
 agreement.
+
+Where the skill comes from depends on your setup:
+
+- If the \`hyperframes\` skill is installed globally (e.g. Claude Code), your
+  agent already has it — \`vibe init\` does **not** copy it into the project.
+- Otherwise \`vibe init\` writes a local copy: universal \`SKILL.md\` (with
+  \`references/*.md\`) at the project root, plus host layouts
+  (\`.claude/skills/hyperframes/\`, \`.cursor/rules/hyperframes.mdc\`).
+
+To get editable per-project copies on demand, run
+\`vibe scene install-skill [--host all]\` (these copies are gitignored by
+default — see \`.gitignore\`).
 
 For render-stable text, do not apply continuous \`scale\`, \`x\`, \`y\`,
 \`filter\`, or other transform tweens to \`.scene-content\` or any ancestor
 containing live text/cards. Put ambient zoom/parallax on background or media
 layers only; text should enter briefly and then hold still at its final CSS
 position.
-
-To retro-install on a project scaffolded before this command existed, run
-\`vibe scene install-skill [--host all]\`.
 
 ### Scene composer (batch / non-agent fallback)
 
@@ -418,6 +423,13 @@ renders/
 .pipeline-state.yaml
 *.vibe.json
 .vibeframe/
+
+# Vendored Hyperframes skill copies — regenerable via 'vibe scene install-skill'.
+# Delete these lines if you eject and want to commit per-project customizations.
+/SKILL.md
+/references/
+/.claude/skills/hyperframes/
+/.cursor/rules/hyperframes.mdc
 `;
 
 /**

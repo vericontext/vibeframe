@@ -137,7 +137,7 @@ type InstallSkillHostFlag = (typeof VALID_INSTALL_SKILL_HOSTS)[number];
 sceneCommand
   .command("install-skill")
   .description(
-    "Install the Hyperframes skill into a scene project so the host agent can read it (Phase H1)"
+    "Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project."
   )
   .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
   .option("--host <id>", `Host layout target: ${VALID_INSTALL_SKILL_HOSTS.join(" | ")}`, "auto")
@@ -166,6 +166,8 @@ sceneCommand
       hosts,
       force: options.force ?? false,
       dryRun: options.dryRun ?? false,
+      // Explicit install is the opt-in "eject": omit `lean` so the editable
+      // copies are materialized in full, even when a global skill exists.
     });
 
     if (isJsonMode()) {
