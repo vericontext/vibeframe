@@ -702,7 +702,7 @@ Cost tier: `free`
 
 #### `vibe generate video`
 
-Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)
+Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)
 
 Product surface: `public`
 
@@ -711,7 +711,7 @@ Cost tier: `very-high`
 **Parameters:**
 
 - `prompt` _(string)_ — Text prompt describing the video (interactive if omitted)
-- `provider` _(string)_ — Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
+- `provider` _(string)_ — Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
 - `apiKey` _(string)_ — API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `output` _(string)_ — Output file path (downloads video)
 - `image` _(string)_ — Reference image for image-to-video

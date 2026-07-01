@@ -2296,7 +2296,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
 exports[`CLI --describe schemas (drift detection) > vibe generate video --describe 1`] = `
 {
   "cost": "very-high",
-  "description": "Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)",
+  "description": "Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)",
   "name": "generate.video",
   "parameters": {
     "properties": {
@@ -2355,7 +2355,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "provider": {
-        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
+        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
         "type": "string",
       },
       "ratio": {

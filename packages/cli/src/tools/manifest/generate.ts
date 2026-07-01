@@ -407,10 +407,10 @@ export const generateVideoTool = defineTool({
   schema: z.object({
     prompt: z.string().describe("Text prompt describing the video"),
     provider: z
-      .enum(["seedance", "grok", "kling", "runway", "veo"])
+      .enum(["seedance", "grok", "kling", "runway", "veo", "omni"])
       .optional()
       .describe(
-        "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider)"
+        "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider). `omni` = Gemini Omni, experimental/opt-in, uses GOOGLE_API_KEY."
       ),
     image: z.string().optional().describe("Reference image path for image-to-video"),
     endImage: z.string().optional().describe("Ending frame image path for Seedance image-to-video"),

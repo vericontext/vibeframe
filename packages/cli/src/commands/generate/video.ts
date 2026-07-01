@@ -1,7 +1,8 @@
 /**
  * @module generate/video
  * @description `vibe generate video` (alias `vid`) — multi-provider video
- * generation. fal.ai (Seedance 2.0), Grok, Veo (Gemini), Kling, Runway.
+ * generation. fal.ai (Seedance 2.0), Grok, Veo (Gemini), Kling, Runway,
+ * plus experimental Gemini Omni (`-p omni`).
  * Split out of `generate.ts` in v0.69 (Plan G Phase 2).
  */
 
@@ -17,6 +18,7 @@ import {
   KlingProvider,
   RunwayProvider,
   FalProvider,
+  OmniProvider,
   estimateSeedanceVideoCostUsd,
   type MediaReference,
 } from "@vibeframe/ai-providers";
@@ -41,11 +43,11 @@ export function registerVideoCommand(parent: Command): void {
   parent
     .command("video")
     .alias("vid")
-    .description("Generate video using AI (Seedance, Grok, Kling, Runway, or Veo)")
+    .description("Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)")
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
     .option(
       "-p, --provider <provider>",
-      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo. `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
+      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
     )
     .option(
       "-k, --api-key <key>",
@@ -147,10 +149,11 @@ Examples:
         // get the deprecation warning (below) instead of "Invalid provider".
         // It is NOT in videoEnvMap because the warning translates to seedance
         // before any map lookup runs.
-        const validProviders = ["runway", "kling", "veo", "grok", "seedance", "fal"];
+        const validProviders = ["runway", "kling", "veo", "grok", "seedance", "fal", "omni"];
         const videoEnvMap: Record<string, string> = {
           grok: "XAI_API_KEY",
           veo: "GOOGLE_API_KEY",
+          omni: "GOOGLE_API_KEY",
           kling: "KLING_API_KEY",
           runway: "RUNWAY_API_SECRET",
           seedance: "FAL_API_KEY",
@@ -162,7 +165,7 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-                "Available providers: seedance, grok, kling, runway, veo. `fal` is a deprecated alias for seedance."
+                "Available providers: seedance, grok, kling, runway, veo, omni (experimental). `fal` is a deprecated alias for seedance."
               )
             );
           }
@@ -290,6 +293,7 @@ Examples:
           runway: "RUNWAY_API_SECRET",
           kling: "KLING_API_KEY",
           veo: "GOOGLE_API_KEY",
+          omni: "GOOGLE_API_KEY",
           grok: "XAI_API_KEY",
           seedance: "FAL_API_KEY",
         };
@@ -297,6 +301,7 @@ Examples:
           runway: "Runway",
           kling: "Kling",
           veo: "Veo",
+          omni: "Gemini Omni (experimental)",
           grok: "Grok",
           seedance: "Seedance 2.0 via fal.ai",
         };
@@ -684,6 +689,20 @@ Examples:
             resolution: options.resolution,
             generateAudio: options.generateAudio,
             lastFrame: seedanceEndImage,
+          });
+          finalResult = result;
+        } else if (provider === "omni") {
+          // Gemini Omni (experimental) — preview `/v1beta/interactions`
+          // endpoint. Opt-in only (`-p omni`), never auto-resolved. The
+          // interactions call returns a final video URL synchronously, so
+          // there is no separate poll/wait loop.
+          const omni = new OmniProvider();
+          await omni.initialize({ apiKey });
+          spinner.text = "Generating video with Gemini Omni (experimental)...";
+          result = await omni.generateVideo(prompt, {
+            prompt,
+            referenceImage,
+            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
           });
           finalResult = result;
         }

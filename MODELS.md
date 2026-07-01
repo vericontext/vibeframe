@@ -167,7 +167,7 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 ---
 
-## Text-to-Video (5)
+## Text-to-Video (5 stable + 1 experimental)
 
 > Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate speech` / `vibe generate sound-effect`.
 
@@ -185,8 +185,11 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 | Veo | `veo-3.0-generate-preview` | 5-8 sec | Yes | `GOOGLE_API_KEY` | `-p veo --veo-model 3.0` | Native audio |
 | Runway | `gen4.5` | 2-10 sec | No | `RUNWAY_API_SECRET` | `-p runway` | Flagship, text+image-to-video (12 credits/sec) |
 | Runway | `gen4_turbo` | 5-10 sec | No | `RUNWAY_API_SECRET` | `-p runway --runway-model gen4_turbo` | Legacy, **image-to-video only** |
+| Gemini Omni ⚠️ | `gemini-omni-flash-preview` | preview | Yes | `GOOGLE_API_KEY` | `-p omni` | **Experimental**, opt-in only. New `/v1beta/interactions` endpoint. Never auto-selected. See below. |
 
 > `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed at the 1.0 cut. Use `-p seedance` in new scripts.
+
+> ⚠️ **Gemini Omni is experimental.** It is not wired into default provider resolution — you must pass `-p omni` explicitly. The preview interactions schema may change; treat it as unstable.
 
 ### Veo Advanced Options
 
@@ -211,10 +214,38 @@ All text-to-video providers also support image-to-video. Key differences per pro
 | Veo | all models | Yes | base64 (first frame) | Supports `--last-frame` for frame interpolation |
 | Runway | `gen4.5` | Yes | URL or data URI | Text+image-to-video |
 | Runway | `gen4_turbo` | **I2V only** | URL or data URI | Cannot do text-only generation |
+| Gemini Omni ⚠️ | `gemini-omni-flash-preview` | Yes (experimental) | base64 (first frame) | Sends `video_config.task: image_to_video`; opt-in `-p omni` only |
 
-### Gemini Omni Watchlist
+### Gemini Omni (experimental)
 
-Google has started surfacing Gemini Omni Flash in consumer/editorial video products, but the Gemini API model docs do not currently list a stable API model ID for Omni video generation. Do not add `-p omni` or an Omni setup provider until Google publishes a Gemini API or Vertex AI endpoint with model ID, pricing, input/output schema, and region/safety constraints.
+Google Gemini Omni (`gemini-omni-flash-preview`) is a **preview** video
+generation/editing model on the Generative Language API. VibeFrame ships an
+opt-in, experimental client for it — `vibe generate video -p omni`. It is **not**
+part of default provider resolution (Seedance / Veo / Kling / Runway / Grok
+remain the stable path), and the preview request/response schema may change.
+
+Reference: <https://ai.google.dev/gemini-api/docs/omni>
+
+| Property | Value |
+|----------|-------|
+| Model ID | `gemini-omni-flash-preview` |
+| Endpoint | `POST /v1beta/interactions` (new stateful endpoint — **not** Veo's `:predictLongRunning`) |
+| Auth | `GOOGLE_API_KEY` (same key as Gemini / Veo — no new credential) |
+| Tasks | `text_to_video`, `image_to_video`, `reference_to_video`, `edit` via `generation_config.video_config.task` |
+| Aspect ratios | `16:9`, `9:16` |
+| Watermark | SynthID |
+
+**Preview limits** (per Google's docs, subject to change):
+
+- Audio-reference upload is **not** supported.
+- Video references are limited to ≤3 seconds.
+- Editing uploaded video is restricted in the EEA, Switzerland, and the UK.
+- English-tested only; no system-instruction or temperature controls.
+- Large (>4MB) videos may be returned via an async `delivery: uri` reference.
+
+VibeFrame's Omni client (`packages/ai-providers/src/gemini/gemini-omni.ts`)
+parses the interactions response defensively for the video URL, since the
+preview schema is not yet stable.
 
 ---
 
@@ -271,6 +302,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe generate video -p kling` | `KLING_API_KEY` | Kling v2.5-turbo |
 | `vibe generate image -p grok` | `XAI_API_KEY` | Grok Imagine |
 | `vibe generate video -p veo` | `GOOGLE_API_KEY` | Veo 3.1 |
+| `vibe generate video -p omni` | `GOOGLE_API_KEY` | Gemini Omni (experimental) |
 
 ---
 

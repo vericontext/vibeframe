@@ -42,6 +42,10 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
       { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
       { name: "runway", envVar: "RUNWAY_API_SECRET", label: "Runway" },
+      // Gemini Omni (experimental) registers as a video provider but declares
+      // no resolverPriority, so it sorts last and is never auto-selected —
+      // opt-in via `-p omni` only. veo always wins GOOGLE_API_KEY resolution.
+      { name: "omni", envVar: "GOOGLE_API_KEY", label: "Gemini Omni (experimental)" },
     ]);
   });
 
@@ -85,6 +89,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       GOOGLE_API_KEY: [
         "generate image",
         "generate video -p veo",
+        "generate video -p omni",
         "edit image",
         "analyze media",
         "analyze video",
