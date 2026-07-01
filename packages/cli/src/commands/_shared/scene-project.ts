@@ -2,7 +2,7 @@
  * @module _shared/scene-project
  *
  * Helpers for scaffolding a "scene project" — a directory that works as both
- * a VibeFrame project (via `vibe.project.yaml`) AND a HeyGen Hyperframes
+ * a VibeFrame project (via `vibe.config.json`) AND a HeyGen Hyperframes
  * project (via `hyperframes.json` + `meta.json` + `index.html`). Either
  * toolchain can be run inside the directory.
  *
@@ -13,7 +13,6 @@
 
 import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 import { resolve, basename } from "node:path";
-import { stringify as yamlStringify } from "yaml";
 
 import type { VisualStyle } from "./visual-styles.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./project-config.js";
@@ -656,7 +655,6 @@ the framework-level minimum, not the cinematic craft layer.
 - \`transcript.json\` — Whisper word-level transcript (if narration exists)
 - \`hyperframes.json\` — HF registry config (speak to both toolchains)
 - \`vibe.config.json\` — canonical VibeFrame config (providers, budget)
-- \`vibe.project.yaml\` — legacy compatibility config
 - \`renders/\` — output MP4s
 
 ## Commands
@@ -792,7 +790,6 @@ export function describeSceneScaffold(opts: {
       resolve(dir, "DESIGN.md"),
       ...(kindHasCast(kind) ? [resolve(dir, "CHARACTERS.md")] : []),
       resolve(dir, VIBE_CONFIG_FILENAME),
-      resolve(dir, "vibe.project.yaml"),
       resolve(dir, ".gitignore"),
     ],
     render: [],
@@ -901,18 +898,6 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   } else {
     await writeFile(vibeConfigJsonPath, projectConfigJson({ name, aspect, kind }), "utf-8");
     created.push(vibeConfigJsonPath);
-  }
-
-  // vibe.project.yaml — legacy compatibility. New code reads
-  // vibe.config.json first, but we still write the legacy file during the
-  // transition so older render/build paths and external scripts keep working.
-  const vibePath = resolve(dir, "vibe.project.yaml");
-  if (await pathExists(vibePath)) {
-    skipped.push(vibePath);
-  } else {
-    const cfg = { ...defaultVibeProjectConfig(name), aspect };
-    await writeFile(vibePath, yamlStringify(cfg), "utf-8");
-    created.push(vibePath);
   }
 
   if (profile === "agent" || profile === "full") {

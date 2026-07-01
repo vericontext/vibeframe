@@ -81,7 +81,7 @@ describe("init handler", () => {
     expect(result.success).toBe(true);
     expect(result.output).toContain("Scene project scaffolded at promo");
     expect(await pathExists(resolve(cwd, "promo/index.html"))).toBe(true);
-    expect(await pathExists(resolve(cwd, "promo/vibe.project.yaml"))).toBe(true);
+    expect(await pathExists(resolve(cwd, "promo/vibe.config.json"))).toBe(true);
     expect(await pathExists(resolve(cwd, "promo/compositions"))).toBe(true);
   });
 });

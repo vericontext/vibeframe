@@ -166,6 +166,12 @@ export async function readProjectConfig(projectDir: string): Promise<LoadedProje
       config.providers.narration = legacy?.providers?.tts ?? null;
       config.composition.engine = legacy?.composition?.engine ?? "hyperframes";
       config.composition.entry = legacy?.composition?.entry ?? "index.html";
+      // Salvage a real budget cap the user set in the legacy file (previously
+      // dropped on load). Ignore the scaffold's `maxUsd: 0` default so we don't
+      // turn "no cap" (V1 null) into "cap everything at $0".
+      if (typeof legacy?.budget?.maxUsd === "number" && legacy.budget.maxUsd > 0) {
+        config.build.maxCostUsd = legacy.budget.maxUsd;
+      }
       return {
         config,
         source: LEGACY_VIBE_PROJECT_FILENAME,
