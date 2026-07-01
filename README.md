@@ -161,6 +161,7 @@ vibe build my-video --dry-run --max-cost 5 --json
 vibe build my-video --max-cost 5 --json
 vibe status project my-video --refresh --json
 vibe inspect project my-video --json
+vibe preview my-video --json
 vibe render my-video -o renders/final.mp4 --json
 vibe inspect render my-video --cheap --json
 vibe scene repair my-video --json
@@ -273,7 +274,7 @@ Use the highest-level lane that fits the job:
 
 | Lane             | Use it when...                                       | Commands                                               |
 | ---------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| **BUILD**        | You want a complete video from a written brief       | `init`, `storyboard`, `plan`, `build`, `render`, `inspect` |
+| **BUILD**        | You want a complete video from a written brief       | `init`, `storyboard`, `plan`, `build`, `preview`, `render`, `inspect` |
 | **GENERATE/ASSET** | You need one standalone image, clip, voice, or music | `generate image/video/narration/music/motion`          |
 | **EDIT/REMIX**   | You already have media and want to change or reuse it | `edit`, `remix`, `audio`, `detect`                     |
 
