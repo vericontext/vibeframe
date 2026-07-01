@@ -38,7 +38,7 @@ vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 — one photographer across a single arctic night (trek → first aurora → the
 whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
 
-![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase.gif)
+![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
 
 Prompt craft for both models lives in the
 [AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues

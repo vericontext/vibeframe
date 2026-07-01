@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "kind": "render",
+  "project": "/Users/kiyeonjeon/dev/vericontext/vibeframe/showcase-aurora",
+  "beat": null,
+  "root": "index.html",
+  "outputPath": "/Users/kiyeonjeon/dev/vericontext/vibeframe/showcase-aurora/renders/showcase-aurora-2026-07-01-04-31-12.mp4",
+  "absoluteOutputPath": "/Users/kiyeonjeon/dev/vericontext/vibeframe/showcase-aurora/renders/showcase-aurora-2026-07-01-04-31-12.mp4",
+  "openCommand": "open /Users/kiyeonjeon/dev/vericontext/vibeframe/showcase-aurora/renders/showcase-aurora-2026-07-01-04-31-12.mp4",
+  "revealCommand": "open -R /Users/kiyeonjeon/dev/vericontext/vibeframe/showcase-aurora/renders/showcase-aurora-2026-07-01-04-31-12.mp4",
+  "fps": 30,
+  "quality": "standard",
+  "format": "mp4",
+  "durationMs": 102319,
+  "framesRendered": 720,
+  "totalFrames": 720,
+  "audioCount": 2,
+  "audioMuxApplied": true,
+  "updatedAt": "2026-07-01T04:32:54.396Z"
+}
