@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { parse as yamlParse } from "yaml";
 
 import {
   aspectToDims,
@@ -384,7 +383,6 @@ describe("scaffoldSceneProject", () => {
       "meta.json",
       "index.html",
       "vibe.config.json",
-      "vibe.project.yaml",
       "AGENTS.md",
       "CLAUDE.md",
       "DESIGN.md",
@@ -448,19 +446,6 @@ describe("scaffoldSceneProject", () => {
     const after = await readFile(storyboardPath, "utf-8");
     expect(after).toBe("# Custom storyboard\n\n## Beat x — X\n");
     expect(second.skipped.some((p) => p.endsWith("STORYBOARD.md"))).toBe(true);
-  });
-
-  it("vibe.project.yaml parses as valid YAML and carries the chosen aspect", async () => {
-    const dir = await makeTmp();
-    await scaffoldSceneProject({ dir, name: "fixture", aspect: "9:16", duration: 10 });
-    const raw = await readFile(resolve(dir, "vibe.project.yaml"), "utf-8");
-    const parsed = yamlParse(raw);
-    expect(parsed).toMatchObject({
-      name: "fixture",
-      aspect: "9:16",
-      defaultSceneDuration: 5,
-      providers: { image: null, tts: null, transcribe: null },
-    });
   });
 
   it("vibe.config.json parses as the canonical project contract", async () => {
@@ -563,7 +548,8 @@ describe("scaffoldSceneProject", () => {
     expect(await pathExists(resolve(dir, "STORYBOARD.md"))).toBe(true);
     expect(await pathExists(resolve(dir, "DESIGN.md"))).toBe(true);
     expect(await pathExists(resolve(dir, "vibe.config.json"))).toBe(true);
-    expect(await pathExists(resolve(dir, "vibe.project.yaml"))).toBe(true);
+    // Legacy YAML is no longer scaffolded.
+    expect(await pathExists(resolve(dir, "vibe.project.yaml"))).toBe(false);
     expect(await pathExists(resolve(dir, "index.html"))).toBe(false);
     expect(await pathExists(resolve(dir, "hyperframes.json"))).toBe(false);
     expect(await pathExists(resolve(dir, "CLAUDE.md"))).toBe(false);

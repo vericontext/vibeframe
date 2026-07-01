@@ -62,7 +62,7 @@ narration / backdrop intent.
 
 1. \`vibe init my-promo --visual-style "Swiss Pulse"\` — seeds
    \`DESIGN.md\` (palette, typography, motion, transitions) plus the
-   \`vibe.project.yaml\` / \`hyperframes.json\` / \`index.html\` scaffold.
+   \`vibe.config.json\` / \`hyperframes.json\` / \`index.html\` scaffold.
    In Plan H this **also installs local composition rules** at the
    right place for your host (\`.claude/skills/hyperframes/\` for Claude
    Code, \`.cursor/rules/hyperframes.mdc\` for Cursor, universal
@@ -169,7 +169,7 @@ integration on top of Hyperframes' rendering primitives.
 - [ ] \`vibe scene lint\` exits 0 (or only warnings)
 - [ ] \`vibe doctor\` confirms a usable Chrome (required for render)
 - [ ] Root \`data-duration\` matches the sum of clip durations
-- [ ] Aspect ratio in \`vibe.project.yaml\` matches the destination platform
+- [ ] Aspect ratio in \`vibe.config.json\` matches the destination platform
 `;
 
 const PIPELINE_WALKTHROUGH = `# YAML pipelines (Video as Code)

@@ -69,14 +69,16 @@ describe("vibe init (black-box)", () => {
     expect(existsSync(join(projectDir, ".env.example"))).toBe(true);
     expect(existsSync(join(projectDir, ".gitignore"))).toBe(true);
     expect(existsSync(join(projectDir, "vibe.config.json"))).toBe(true);
-    expect(existsSync(join(projectDir, "vibe.project.yaml"))).toBe(true);
+    // The legacy vibe.project.yaml is no longer scaffolded (config.json is the
+    // canonical contract; the YAML is only read for back-compat).
+    expect(existsSync(join(projectDir, "vibe.project.yaml"))).toBe(false);
 
     // CLAUDE.md imports AGENTS.md so they stay single-sourced.
     expect(readFileSync(join(projectDir, "CLAUDE.md"), "utf-8")).toContain("@AGENTS.md");
 
-    // vibe.project.yaml uses the directory basename as the project name.
-    const yaml = readFileSync(join(projectDir, "vibe.project.yaml"), "utf-8");
-    expect(yaml).toMatch(/^name: vibe-init-test-/m);
+    // vibe.config.json uses the directory basename as the project name.
+    const config = JSON.parse(readFileSync(join(projectDir, "vibe.config.json"), "utf-8"));
+    expect(config.name).toMatch(/^vibe-init-test-/);
   });
 
   it("is idempotent — second run skips existing files (--force overwrites)", () => {

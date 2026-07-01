@@ -7,7 +7,7 @@
  * machine-wide config (`~/.vibeframe/config.yaml`), init writes
  * project-local files: `AGENTS.md` (cross-tool), `CLAUDE.md` (Claude
  * Code, imports `@AGENTS.md`), `.env.example`, `.gitignore` additions,
- * and an optional `vibe.project.yaml`.
+ * and `vibe.config.json` (the canonical project contract).
  *
  * Scaffolding decision tree:
  *   - Always: `.gitignore` additions, `.env.example`
@@ -47,7 +47,6 @@ import {
   GEMINI_MD,
   GITIGNORE_ADDITIONS,
   renderEnvExample,
-  renderProjectYaml,
 } from "./_shared/init-templates.js";
 import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
@@ -206,16 +205,6 @@ export const initCommand = new Command("init")
       await writeIfMissing(
         resolve(projectDir, VIBE_CONFIG_FILENAME),
         projectConfigJson({ name: projectName }),
-        options.force,
-        options.dryRun
-      )
-    );
-
-    // ── vibe.project.yaml (legacy, only when missing) ──────────────────
-    actions.push(
-      await writeIfMissing(
-        resolve(projectDir, "vibe.project.yaml"),
-        renderProjectYaml({ name: projectName }),
         options.force,
         options.dryRun
       )
