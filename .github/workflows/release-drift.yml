@@ -1,0 +1,124 @@
+name: Release drift check
+
+# Backstop for the one manual step left in the release flow.
+#
+# release-tag.yml now tags automatically, so bump -> tag cannot be forgotten.
+# tag -> npm publish is still deliberately manual (AGENTS.md: "CI never
+# publishes npm packages"), and a manual step with no detector is exactly how
+# v0.113.25 sat unpublished for three weeks. This job watches that gap.
+#
+# It reports; it never publishes.
+
+on:
+  schedule:
+    # Daily at 09:00 UTC.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # Ignore drift younger than this. A release is tagged and published minutes
+  # apart by a human, so a fresh tag awaiting publish is normal, not drift.
+  GRACE_HOURS: 6
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compare main, latest tag, and npm
+        id: check
+        run: |
+          ROOT_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git tag --list 'v*' --sort=v:refname | tail -1)
+          TAG_VERSION="${LATEST_TAG#v}"
+          CLI_NPM=$(npm view @vibeframe/cli version 2>/dev/null || echo "unknown")
+          MCP_NPM=$(npm view @vibeframe/mcp-server version 2>/dev/null || echo "unknown")
+
+          echo "main package.json:      $ROOT_VERSION"
+          echo "latest tag:             $LATEST_TAG"
+          echo "npm @vibeframe/cli:         $CLI_NPM"
+          echo "npm @vibeframe/mcp-server:  $MCP_NPM"
+
+          TAG_EPOCH=$(git log -1 --format=%ct "$LATEST_TAG" 2>/dev/null || echo 0)
+          NOW_EPOCH=$(date -u +%s)
+          AGE_HOURS=$(( (NOW_EPOCH - TAG_EPOCH) / 3600 ))
+          echo "tag age: ${AGE_HOURS}h (grace ${GRACE_HOURS}h)"
+
+          REASONS=""
+          if [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
+            REASONS="${REASONS}- main is at \`$ROOT_VERSION\` but the latest tag is \`$LATEST_TAG\`. Auto-tagging should have handled this - check the **Create release tag** workflow for a failure.\n"
+          fi
+          if [ "$CLI_NPM" != "$TAG_VERSION" ]; then
+            REASONS="${REASONS}- npm \`@vibeframe/cli\` is at \`$CLI_NPM\`, tag is \`$TAG_VERSION\`. Run **Publish to npm** with \`$LATEST_TAG\`.\n"
+          fi
+          if [ "$MCP_NPM" != "$TAG_VERSION" ]; then
+            REASONS="${REASONS}- npm \`@vibeframe/mcp-server\` is at \`$MCP_NPM\`, tag is \`$TAG_VERSION\`. Run **Publish to npm** with \`$LATEST_TAG\`.\n"
+          fi
+
+          if [ -z "$REASONS" ]; then
+            echo "In sync."
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$AGE_HOURS" -lt "$GRACE_HOURS" ]; then
+            echo "Drift detected but tag is only ${AGE_HOURS}h old - within grace, not reporting."
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "drifted=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "The published state has drifted from the repository state for over ${AGE_HOURS}h."
+            echo ""
+            printf '%b' "$REASONS"
+            echo ""
+            echo "| where | version |"
+            echo "| --- | --- |"
+            echo "| \`main\` package.json | \`$ROOT_VERSION\` |"
+            echo "| latest git tag | \`$LATEST_TAG\` |"
+            echo "| npm \`@vibeframe/cli\` | \`$CLI_NPM\` |"
+            echo "| npm \`@vibeframe/mcp-server\` | \`$MCP_NPM\` |"
+            echo ""
+            echo "This issue closes itself once the versions line up again."
+          } > /tmp/drift-body.md
+
+          cat /tmp/drift-body.md
+
+      - name: Open or update the drift issue
+        if: steps.check.outputs.drifted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: "Release drift: published version is behind the repository"
+        run: |
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file /tmp/drift-body.md
+            echo "Updated issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body-file /tmp/drift-body.md
+          fi
+
+      - name: Close the drift issue once back in sync
+        if: steps.check.outputs.drifted == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: "Release drift: published version is behind the repository"
+        run: |
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "Versions are back in sync."
+            echo "Closed issue #$EXISTING"
+          fi

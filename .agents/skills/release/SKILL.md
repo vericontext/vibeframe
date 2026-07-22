@@ -5,11 +5,27 @@ description: Bump VibeFrame versions, regenerate release artifacts, run verifica
 
 # Release
 
-Use this skill when the user asks Codex to run a VibeFrame release bump or fix a
-missing version bump after `feat:` / `fix:` commits.
+Use this skill when the user asks Codex to cut a VibeFrame release.
 
 The bump is one of `patch`, `minor`, or `major`. **Default to `patch`** when
 no bump is specified or when there is any doubt.
+
+## When Bumps Happen
+
+**Once per release, not once per PR.** Ordinary `feat:` / `fix:` PRs merge to
+`main` without a version bump. This skill runs when you decide to release, and
+the single bump it produces must cover *every* commit since the last tag -
+`git-cliff` handles that automatically in step 7.
+
+Check what the release will cover before starting:
+
+```bash
+bash scripts/release-status.sh
+```
+
+That script is the single source of truth for release state. The push gate, the
+tag workflow, and the daily drift check all call it, so its answer is the same
+one CI will give.
 
 ## Version Policy
 
@@ -118,8 +134,18 @@ git push -u origin chore/release-$NEW_VERSION
 gh pr create --fill --base main
 ```
 
-Publishing is manual. After the version commit lands on `main` (through the PR)
-and CI passes, run the `Create release tag` workflow to create `vX.Y.Z`, then
-run `Publish to npm` manually with that tag. A human-created `git push origin
-vX.Y.Z` tag also triggers `publish.yml`, but CI and the tag helper do not
-dispatch publishing automatically.
+12. Tagging is automatic. Once the version commit lands on `main` and CI passes,
+    the `Create release tag` workflow creates `vX.Y.Z` on its own. Before
+    tagging it re-runs `scripts/release-status.sh` and **refuses** if `feat:` /
+    `fix:` commits landed after the bump, or if `CHANGELOG.md` has no
+    `## [X.Y.Z]` entry. Do not create the tag by hand.
+
+13. Publishing stays manual. Run the `Publish to npm` workflow with the new tag.
+
+    Tags pushed by a workflow cannot trigger another workflow, so the automatic
+    tag never dispatches `publish.yml` - that is what keeps the "CI never
+    publishes" policy intact. A human-created `git push origin vX.Y.Z` *does*
+    trigger `publish.yml`, so do not push release tags manually.
+
+If publishing is forgotten, the daily `Release drift check` workflow opens an
+issue comparing `main`, the latest tag, and the published npm versions.

@@ -127,20 +127,30 @@ General expectation:
   `main`, even as a maintainer with admin bypass (`main` allows it, but the
   policy does not). Release bumps go on a `chore/release-<version>` (or the
   feature) branch and merge through the same gate as any other change.
-- Version bumps default to `patch` during `0.x`, including most ordinary
-  `feat:` and `fix:` commits. **`patch` is the default; `minor` is rare.** Use
-  `minor` only for new public CLI command namespaces, new MCP tool families,
-  public API contract additions, or large product milestones; reserve `major`
-  for breaking changes or the 1.0 milestone. The shared push gate
+- **Bump at release time, not per PR.** `feat:`/`fix:` PRs merge without a
+  version bump. When you decide to release, `/release` bumps once and
+  regenerates `CHANGELOG.md` so the new version covers every commit since the
+  last tag. The push gate **warns** about unreleased work but never blocks on
+  it; the blocking check lives in `.github/workflows/release-tag.yml`, which
+  refuses to tag a version that does not describe `HEAD`.
+- Version bumps default to `patch` during `0.x`. **`patch` is the default;
+  `minor` is rare.** Use `minor` only for new public CLI command namespaces, new
+  MCP tool families, public API contract additions, or large product milestones;
+  reserve `major` for breaking changes or the 1.0 milestone. The shared push gate
   (`scripts/pre-push-validate.sh`) **blocks** a `minor`/`major` bump unless the
   `chore: bump version` commit carries a `Release-Type: minor: <reason>` (or
   `major`) trailer, or `VIBE_ALLOW_MINOR=1` is set.
 - API keys belong in local config or `.env`-style files, never committed.
 - See `MODELS.md` for provider details.
 - `CHANGELOG.md` is generated with `git-cliff --tag vX.Y.Z -o CHANGELOG.md`.
-- CI never publishes npm packages. After a version commit lands on `main` and
-  CI passes, manually create the release tag and manually run the publish
-  workflow for that tag.
+- CI never publishes npm packages. Once the version commit lands on `main` and
+  CI passes, the release tag is created **automatically** by the `Create release
+  tag` workflow. Publishing stays manual: run the `Publish to npm` workflow with
+  that tag. (Tags pushed by a workflow cannot trigger another workflow, so
+  auto-tagging never reaches `publish.yml`.)
+- Release state is computed in one place - `scripts/release-status.sh`. The push
+  gate, the tag workflow, and the daily drift check all call it. Do not
+  reimplement version/tag comparisons anywhere else.
 
 ## Verification
 
