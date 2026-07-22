@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, resolve } from "node:path";
 
 import { executeVideoStatus } from "../ai-video.js";
@@ -331,11 +331,16 @@ export async function createAndWriteJobRecord(opts: CreateJobRecordOptions): Pro
 export async function writeJobRecord(record: JobRecord): Promise<void> {
   const dir = jobsDir(record.projectDir);
   await mkdir(dir, { recursive: true });
-  await writeFile(
-    jobRecordPath(record.id, record.projectDir),
-    JSON.stringify(stripUndefined(record), null, 2) + "\n",
-    "utf-8"
-  );
+  // Write-then-rename so the record appears atomically. Job files are read
+  // concurrently by `vibe status job`, the MCP status_job tool, and heartbeat
+  // pollers; a plain writeFile lets a reader catch the file mid-write and die
+  // on truncated JSON ("Unexpected end of JSON input").
+  const path = jobRecordPath(record.id, record.projectDir);
+  // Unique tmp name: overlapping writes for the same job (e.g. heartbeat vs
+  // completion) must not steal each other's tmp file between write and rename.
+  const tmp = `${path}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(stripUndefined(record), null, 2) + "\n", "utf-8");
+  await rename(tmp, path);
 }
 
 export async function readJobRecord(jobId: string, projectDir?: string): Promise<JobRecord | null> {
