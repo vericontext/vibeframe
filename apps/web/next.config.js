@@ -78,10 +78,6 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@vibeframe/core", "@vibeframe/ui"],
-  experimental: {
-    optimizePackageImports: ["@radix-ui/react-icons"],
-  },
   env: {
     NEXT_PUBLIC_VERSION: pkg.version,
     NEXT_PUBLIC_AGENT_TOOLS: String(agentTools),
