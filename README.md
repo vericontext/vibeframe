@@ -16,44 +16,39 @@ do not have another agent available.
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
-## Directed AI video — one character, many scenes
+## Start with zero API keys
 
-One brief in, a directed short film out. VibeFrame reuses a single character
-sheet across every scene, generates a cheap image storyboard you review first,
-then animates only the stills you approve with image-to-video and composes the
-final render — all driven by `vibe build`.
+The first render costs $0 and needs no provider accounts.
+Narration runs on local Kokoro TTS, scenes are HTML/CSS composed by your coding agent, and the render is headless Chrome plus FFmpeg.
 
 ```bash
-# frontmatter declares the character once, reused everywhere:
-#   characters: { mira: "arctic photographer, deep-red fur-lined parka" }
-# each beat pairs a keyframe still with a motion prompt:
-#   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
-#   video:    "slow tilt up as the aurora ripples and pulses overhead"
-
-vibe build my-film --skip-video   # keyframe stills only (cheap) — review them first
-vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
+npm install -g @vibeframe/cli
+vibe init demo --from "30-second video introducing my project"
 ```
 
-▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
-— one photographer across a single arctic night (trek → first aurora → the
-whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
+Then ask your coding agent (Claude Code, Codex, Cursor, ...) to finish it:
 
-![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
+> Build demo/ into a rendered MP4 with zero API keys.
+> Use `vibe build demo --tts kokoro --skip-backdrop --json`, author the scene
+> HTML from `vibe scene compose-prompts demo --json`, then run
+> `vibe build demo --stage sync --json` and `vibe render demo --json`.
 
-Prompt craft for both models lives in the
-[AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
-(`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
+The agent authors each scene against the project's design contract, and every other step is a deterministic CLI command.
+Measured cold-start on this exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~530 MB local voice model download.
+Repeat runs skip the downloads.
+
+No coding agent available? The same commands work by hand - `vibe scene compose-prompts` prints the full per-scene authoring brief for you.
+
+API keys only enter the picture when you want provider-generated images, video, or premium voices - and each key unlocks exactly the commands listed by `vibe doctor`.
 
 ## Requirements
 
 - Node.js 20+
 - FFmpeg
 - Chrome or Chromium (for HTML scene rendering)
-- API keys only for the providers you use (BYO-key)
 
-Free/local paths are available for many editing tasks and for Kokoro TTS. AI
-image and video generation requires provider keys such as `OPENAI_API_KEY`,
-`FAL_API_KEY`, `GOOGLE_API_KEY`, and others listed in [MODELS.md](MODELS.md).
+That is the whole zero-key stack: FFmpeg edits, Kokoro TTS narration, HTML scene composition, detection, timeline work, and rendering all run locally.
+AI image and video generation is BYO-key: add provider keys such as `OPENAI_API_KEY`, `FAL_API_KEY`, or `GOOGLE_API_KEY` only for the providers you actually use (full list in [MODELS.md](MODELS.md)).
 
 ## Install
 
@@ -119,7 +114,7 @@ rendering in a headless browser).
 ## Quick Start
 
 ```bash
-vibe setup
+vibe setup    # optional for the zero-key path — this is where provider keys go
 vibe doctor
 vibe guide
 ```
@@ -244,6 +239,32 @@ vibe build my-film --skip-video        # generate keyframe stills only (cheap)
 vibe build my-film --beat wonder --stage assets --force --skip-video  # regenerate one beat
 vibe build my-film --max-cost 6        # animate the approved keyframes
 ```
+
+## Directed AI video — one character, many scenes
+
+This is the paid, provider-backed end of the same pipeline.
+One brief in, a directed short film out: VibeFrame reuses a single character sheet across every scene, generates a cheap image storyboard you review first, then animates only the stills you approve with image-to-video and composes the final render - all driven by `vibe build`.
+
+```bash
+# frontmatter declares the character once, reused everywhere:
+#   characters: { mira: "arctic photographer, deep-red fur-lined parka" }
+# each beat pairs a keyframe still with a motion prompt:
+#   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
+#   video:    "slow tilt up as the aurora ripples and pulses overhead"
+
+vibe build my-film --skip-video   # keyframe stills only (cheap) — review them first
+vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
+```
+
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
+— one photographer across a single arctic night (trek → first aurora → the
+whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
+
+![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
+
+Prompt craft for both models lives in the
+[AI video prompting playbook](docs/ai-video-prompting.md); the storyboard cues
+(`characters:`, `keyframe:`) are documented in [docs/projects.md](docs/projects.md).
 
 ## One-Shot Media Commands
 
