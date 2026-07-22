@@ -1,11 +1,23 @@
 name: Create release tag
 
-# Manual helper for creating the release tag that matches the root
-# package.json version. CI remains validation-only; this workflow never
-# dispatches npm publishing.
+# Creates the release tag matching the root package.json version.
+#
+# Runs automatically once CI passes on `main`, and is idempotent: when the
+# version is already tagged (the normal state for every non-release push) it
+# skips immediately. A version bump merging into main is therefore tagged
+# without a human remembering to do it - that forgotten manual step is what
+# stranded v0.113.25 untagged and unpublished for three weeks.
+#
+# npm publishing stays manual. Tags pushed with GITHUB_TOKEN cannot trigger
+# other workflows, so publish.yml is NOT dispatched by the tag created here.
+# That preserves the "CI never publishes npm packages" policy in AGENTS.md.
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
@@ -13,9 +25,15 @@ permissions:
 jobs:
   tag:
     runs-on: ubuntu-latest
+    # Never tag off a red CI run. workflow_dispatch is trusted to the operator.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v6
         with:
+          # Tag the exact commit CI validated, not whatever main has drifted to.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -36,15 +54,60 @@ jobs:
             echo "Tag $TAG already exists; nothing to do."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Tag $TAG missing; will create."
+            echo "Tag $TAG missing; will validate then create."
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # The enforcement point. The push gate only warns about unreleased work,
+      # so this is where a version that does not describe HEAD gets stopped.
+      # Every release passes through here, and unlike a local hook it cannot be
+      # skipped with --no-verify or bypassed by pushing from another host.
+      - name: Verify the version covers HEAD
+        if: steps.check.outputs.skip == 'false'
+        env:
+          TAG: ${{ steps.check.outputs.tag }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          set +e
+          bash scripts/release-status.sh
+          STATUS=$?
+          set -e
+
+          case "$STATUS" in
+            0)
+              echo "Version $VERSION covers HEAD."
+              ;;
+            1)
+              echo "::error::Refusing to tag $TAG: feat/fix commits landed after the last version bump, so this version does not describe them. Run /release patch to bump and regenerate CHANGELOG.md, then let this workflow tag the result."
+              exit 1
+              ;;
+            2)
+              echo "::error::Refusing to tag $TAG: CHANGELOG.md has no '## [$VERSION]' entry. publish.yml extracts the GitHub Release body from that section, so tagging now would ship an empty release. Fix: git-cliff --tag $TAG -o CHANGELOG.md"
+              exit 1
+              ;;
+            *)
+              echo "::error::release-status.sh failed with exit $STATUS"
+              exit 1
+              ;;
+          esac
+
       - name: Create and push tag
         if: steps.check.outputs.skip == 'false'
+        env:
+          TAG: ${{ steps.check.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.check.outputs.tag }}" \
-            -m "Release ${{ steps.check.outputs.tag }}"
-          git push origin "${{ steps.check.outputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Summary
+        if: steps.check.outputs.skip == 'false'
+        env:
+          TAG: ${{ steps.check.outputs.tag }}
+        run: |
+          {
+            echo "Created tag \`$TAG\`."
+            echo ""
+            echo "Next step is manual: run **Publish to npm** with tag \`$TAG\`."
+          } >> "$GITHUB_STEP_SUMMARY"

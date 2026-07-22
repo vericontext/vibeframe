@@ -18,6 +18,18 @@ demos, packaging, or contributor maintenance.
 - `print-env-example.mts` - regenerates `.env.example` from provider metadata.
 - `sync-counts.sh` - drift checker for provider/count-related metadata.
 
+## Release
+
+- `release-status.sh` - single source of truth for release state: whether the
+  current version covers every `feat:`/`fix:` commit on `HEAD`, whether it is
+  tagged, and whether `CHANGELOG.md` documents it. Called by
+  `pre-push-validate.sh`, `.github/workflows/release-tag.yml`, and
+  `.github/workflows/release-drift.yml`. **Do not reimplement version/tag
+  comparisons elsewhere** - divergent copies of this logic are what let
+  v0.113.25 ship untagged.
+- `pre-push-validate.sh` - shared push gate for Claude Code, Codex, and plain
+  Git (`.claude/hooks/` and `.githooks/` both delegate here).
+
 ## Contributor Helpers
 
 - `dev-setup-wizard.mts` - runs setup against an isolated debug home.

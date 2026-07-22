@@ -8,6 +8,7 @@ if [ -z "$PROJECT_DIR" ]; then
 fi
 
 ERRORS=()
+WARNINGS=()
 
 # 1. Version sync — all package.json files must have the same version.
 ROOT_VERSION=$(jq -r '.version' "$PROJECT_DIR/package.json")
@@ -18,38 +19,35 @@ for pkg in packages/cli packages/core packages/ai-providers packages/mcp-server 
   fi
 done
 
-# 2. Version bump check — feat:/fix: commits since last tag should have a bump commit.
-# Prefer the newest remote v* tag when available. GitHub Actions creates
-# release tags after version commits land on main, so a developer clone can
-# otherwise have stale local tags and miss a required bump on the next push.
-remote_latest_tag() {
-  cd "$PROJECT_DIR" || return 1
-  git ls-remote --tags origin 'refs/tags/v*' 2>/dev/null \
-    | awk '{print $2}' \
-    | sed 's#refs/tags/##; s#\^{}##' \
-    | sort -Vu \
-    | tail -1
-}
+# 2. Release coverage - delegated to scripts/release-status.sh so this gate, the
+# tag workflow, and the drift detector all judge release state identically. Two
+# copies of this logic drifting apart is the bug class that stranded v0.113.25.
+#
+# Under the release-time-bump policy, unreleased feat:/fix: work on main is
+# NORMAL and does not block a push. It is surfaced as a warning so it never goes
+# unnoticed. The blocking enforcement lives in release-tag.yml, which refuses to
+# tag a version that does not cover HEAD.
+LATEST_TAG=""
+TAG_VERSION=""
+CHANGELOG_HAS_VERSION="true"
+RELEASE_JSON=$(cd "$PROJECT_DIR" && bash scripts/release-status.sh --json 2>/dev/null || true)
 
-local_latest_tag() {
-  cd "$PROJECT_DIR" || return 1
-  git tag --list 'v*' --sort=v:refname 2>/dev/null | tail -1
-}
+if [ -n "$RELEASE_JSON" ]; then
+  LATEST_TAG=$(echo "$RELEASE_JSON" | jq -r '.latestTag')
+  TAG_VERSION=$(echo "$RELEASE_JSON" | jq -r '.tagVersion')
+  CHANGELOG_HAS_VERSION=$(echo "$RELEASE_JSON" | jq -r '.changelogHasVersion')
+  UNCOVERED_COUNT=$(echo "$RELEASE_JSON" | jq -r '.uncoveredCount')
 
-LATEST_TAG=$(remote_latest_tag)
-if [ -z "$LATEST_TAG" ]; then
-  LATEST_TAG=$(local_latest_tag)
-fi
-
-if [ -n "$LATEST_TAG" ]; then
-  if ! (cd "$PROJECT_DIR" && git rev-parse -q --verify "refs/tags/$LATEST_TAG" >/dev/null); then
-    (cd "$PROJECT_DIR" && git fetch --quiet origin "refs/tags/$LATEST_TAG:refs/tags/$LATEST_TAG" 2>/dev/null) || true
+  if [ "$UNCOVERED_COUNT" -gt 0 ]; then
+    UNCOVERED_LIST=$(echo "$RELEASE_JSON" | jq -r '.uncovered[]' | sed 's/^/      /')
+    WARNINGS+=("$UNCOVERED_COUNT unreleased feat:/fix: commit(s) since ${LATEST_TAG}. Release with /release patch when ready.
+$UNCOVERED_LIST")
   fi
-  TAG_VERSION="${LATEST_TAG#v}"
-  FEAT_FIX=$(cd "$PROJECT_DIR" && git log "$LATEST_TAG"..HEAD --oneline -E --grep="^(feat|fix)(\(.+\))?:" --format="%s" 2>/dev/null || true)
-  if [ -n "$FEAT_FIX" ] && [ "$ROOT_VERSION" = "$TAG_VERSION" ]; then
-    ERRORS+=("feat:/fix: commits found since $LATEST_TAG but version is still $ROOT_VERSION. Fix: /release patch by default; use /release minor only for public command/API milestones")
-  fi
+else
+  # Checks 2b and 7 below key off LATEST_TAG. If release state could not be
+  # computed they would silently pass - a blocking guard vanishing without a
+  # sound is the failure mode this whole change exists to remove. Fail loudly.
+  ERRORS+=("Could not compute release state. Fix: bash scripts/release-status.sh --json")
 fi
 
 # 2b. Non-patch bump guard — during 0.x, patch is the default. A minor/major
@@ -92,11 +90,11 @@ if ! (cd "$PROJECT_DIR" && pnpm agent-sync:check > /dev/null 2>&1); then
   ERRORS+=("Agent host config drift. Run 'pnpm agent-sync'. $SYNC_MSG")
 fi
 
-# 7. CHANGELOG sync — if version changed since last tag, CHANGELOG must contain it.
-if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
-  if ! grep -q "\[$ROOT_VERSION\]" "$PROJECT_DIR/CHANGELOG.md" 2>/dev/null; then
-    ERRORS+=("CHANGELOG.md missing entry for v$ROOT_VERSION. Fix: git-cliff --tag v$ROOT_VERSION -o CHANGELOG.md")
-  fi
+# 7. CHANGELOG sync - if version changed since last tag, CHANGELOG must contain
+# it. release-status.sh anchors the match the same way publish.yml extracts
+# release notes, so passing here guarantees a non-empty GitHub Release body.
+if [ -n "$LATEST_TAG" ] && [ "$ROOT_VERSION" != "$TAG_VERSION" ] && [ "$CHANGELOG_HAS_VERSION" != "true" ]; then
+  ERRORS+=("CHANGELOG.md missing entry for v$ROOT_VERSION. Fix: git-cliff --tag v$ROOT_VERSION -o CHANGELOG.md")
 fi
 
 # Run a checked command, capturing combined output. On failure, attach the
@@ -131,6 +129,14 @@ gated_check "docs/cli-reference.md is stale" \
 
 # 12. Package export/package smoke.
 gated_check "Package smoke" "pnpm build && pnpm package:check" pnpm package:check
+
+if [ ${#WARNINGS[@]} -gt 0 ]; then
+  echo "Pre-push warnings (not blocking):" >&2
+  for warn in "${WARNINGS[@]}"; do
+    echo "  - $warn" >&2
+  done
+  echo "" >&2
+fi
 
 if [ ${#ERRORS[@]} -gt 0 ]; then
   echo "Pre-push validation failed:" >&2
