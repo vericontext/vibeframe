@@ -25,7 +25,8 @@
  * Pairs with H1 (`vibe scene install-skill`) — the host agent reads
  * `SKILL.md` for framework rules, `DESIGN.md` for visual identity, then
  * writes each `compositions/scene-<id>.html`. After authoring, runs
- * `vibe scene lint --fix` to verify and `vibe render` to produce MP4.
+ * `vibe build <project> --stage sync` to assemble the root composition,
+ * `vibe scene lint <project> --fix` to verify, and `vibe render` for MP4.
  *
  * The internal-LLM path (`vibe scene build`, PR #176) still works — it's
  * the batch / non-agent fallback. H3 will add mode dispatch so a single
@@ -277,12 +278,13 @@ function buildInstructions(args: {
   lines.push(`3c. Never give inner \`.clip\` elements a non-zero \`data-start\` — the renderer does not toggle internal clip visibility inside sub-compositions, so phased clips render all phases at once (overlapping text). Use full-window clips and GSAP autoAlpha phase transitions instead. Also keep beats 6-15s; split anything longer in the storyboard first.`);
   lines.push(`3d. If your environment cannot write files (e.g. Claude Desktop / MCP-only hosts), author each beat's HTML and submit it with the \`scene_submit\` tool (beat id + html). It validates with the same Hyperframes lint and writes the file for you; on lint errors it returns the findings without writing — fix and resubmit.`);
   if (args.beatCount > 1) {
-    lines.push(`4. After authoring all ${args.beatCount} beat(s), run \`vibe scene lint --fix\` to validate. Fix any remaining errors by editing the HTML directly.`);
+    lines.push(`4. After authoring all ${args.beatCount} beat(s), run \`vibe build <project> --stage sync --json\` to assemble the root composition (index.html) from the fragments. Lint needs that root, so sync comes first.`);
   } else if (args.filtered) {
-    lines.push(`4. After authoring this beat, run \`vibe scene lint --fix\` to validate. Author the remaining beats with the same flow (re-call this command without \`--beat\`).`);
+    lines.push(`4. After authoring this beat, author the remaining beats with the same flow (re-call this command without \`--beat\`), then run \`vibe build <project> --stage sync --json\` to assemble the root composition.`);
   } else {
-    lines.push(`4. After authoring, run \`vibe scene lint --fix\` to validate.`);
+    lines.push(`4. After authoring, run \`vibe build <project> --stage sync --json\` to assemble the root composition (index.html). Lint needs that root, so sync comes first.`);
   }
-  lines.push(`5. Run \`vibe render\` to produce the final MP4.`);
+  lines.push(`5. Run \`vibe scene lint <project> --fix\` to validate. Fix any remaining errors by editing the HTML directly.`);
+  lines.push(`6. Run \`vibe render <project>\` to produce the final MP4.`);
   return lines;
 }

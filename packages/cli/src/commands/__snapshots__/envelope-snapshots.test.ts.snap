@@ -3856,7 +3856,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene lint --describe 1
         "type": "string",
       },
       "root": {
-        "description": "Root composition file relative to --project",
+        "description": "Project directory, or root composition file relative to --project",
         "type": "string",
       },
     },

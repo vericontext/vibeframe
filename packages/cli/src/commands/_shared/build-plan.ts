@@ -184,6 +184,18 @@ const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
 /** gpt-4o-mini-tts is ~$0.015/min of audio; a beat is ~10–20s. Includes retry headroom. */
 const OPENAI_NARRATION_COST_USD = 0.01;
+
+/**
+ * Per-beat narration cost by resolved TTS provider. Kokoro runs locally and
+ * costs $0 — a flat per-narration charge here is what made zero-key builds
+ * report phantom spend. Shared by the dry-run estimate and the post-build
+ * actuals so the two can never disagree.
+ */
+export function narrationCostUsd(provider: string | undefined): number {
+  if (provider === "elevenlabs") return ELEVENLABS_NARRATION_COST_USD;
+  if (provider === "openai") return OPENAI_NARRATION_COST_USD;
+  return 0;
+}
 /** Whisper word-level transcription is ~$0.006/min; a beat is ~10–20s. */
 const TRANSCRIPT_COST_USD = 0.002;
 const COMPOSE_COST_USD = 0.06;
@@ -315,12 +327,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     // `video:` cue (the keyframe prompt then supplies the motion prompt too).
     const videoCue = videoPrompt ?? videoReference?.raw ?? keyframePrompt;
     const musicCue = musicPrompt ?? musicReference?.raw;
-    const narrationCost =
-      resolved.narration.resolved === "elevenlabs"
-        ? ELEVENLABS_NARRATION_COST_USD
-        : resolved.narration.resolved === "openai"
-          ? OPENAI_NARRATION_COST_USD
-          : 0;
+    const narrationCost = narrationCostUsd(resolved.narration.resolved);
     const narrationCache =
       narrationText && !narrationReference
         ? narrationCacheDescriptor({
