@@ -5,10 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.113.25] - 2026-07-01
+## [0.113.26] - 2026-07-22
+
+### Added
+
+- add experimental Gemini Omni video provider (-p omni)
+- OKF-aligned frontmatter standard for docs + workflow files
 
 ### Fixed
 
+- detect version bumps that do not cover HEAD *(release)*
 - drop fictional /goal 'goal mode'; sync stale hero/provider copy *(web)*
 
 ## [0.113.24] - 2026-07-01
