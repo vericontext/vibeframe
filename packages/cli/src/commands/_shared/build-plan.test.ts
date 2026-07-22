@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { estimateSeedanceVideoCostUsd } from "@vibeframe/ai-providers";
 
-import { createBuildPlan } from "./build-plan.js";
+import { createBuildPlan, narrationCostUsd } from "./build-plan.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { backdropCacheDescriptor, narrationCacheDescriptor } from "./build-cache.js";
 import { writeAssetMetadata } from "./build-asset-metadata.js";
@@ -502,5 +502,23 @@ Body.
       `vibe storyboard revise ${dir} --from "<request>" --dry-run --json`,
     ]);
     expect(plan.nextCommands).toEqual(plan.retryWith);
+  });
+});
+
+describe("narrationCostUsd", () => {
+  it("charges $0 for local kokoro narration", () => {
+    // Regression: a flat per-narration charge made zero-key kokoro builds
+    // report phantom spend ($0.05/beat) in build-report costUsd.
+    expect(narrationCostUsd("kokoro")).toBe(0);
+  });
+
+  it("charges $0 for local/referenced and unknown providers", () => {
+    expect(narrationCostUsd("local")).toBe(0);
+    expect(narrationCostUsd(undefined)).toBe(0);
+  });
+
+  it("charges paid providers their per-beat rate", () => {
+    expect(narrationCostUsd("elevenlabs")).toBe(0.05);
+    expect(narrationCostUsd("openai")).toBe(0.01);
   });
 });

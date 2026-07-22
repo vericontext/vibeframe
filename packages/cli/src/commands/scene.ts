@@ -1208,17 +1208,25 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
 sceneCommand
   .command("lint")
   .description("Validate scene HTML against composition rules (in-process, no Chrome required)")
-  .argument("[root]", "Root composition file relative to --project", "index.html")
+  .argument(
+    "[root]",
+    "Project directory, or root composition file relative to --project",
+    "index.html"
+  )
   .option("--project <dir>", "Project directory", ".")
   .option("--fix", 'Apply mechanical auto-fixes (currently: missing class="clip")')
   .action(async (root: string, options) => {
     const startedAt = Date.now();
-    const projectDir = resolve(options.project as string);
-    if (!(await rootExists(projectDir, root))) {
+    // Same DWIM as `scene repair`: every other project command takes the
+    // project directory as its positional argument, so `vibe scene lint demo`
+    // must work too — not fail with "Root composition not found: .../demo".
+    const target = await resolveSceneRepairTarget(root, options.project as string);
+    const projectDir = target.projectDir;
+    if (!(await rootExists(projectDir, target.rootRel))) {
       exitWithError(
         generalError(
-          `Root composition not found: ${resolve(projectDir, root)}`,
-          "Run `vibe scene init` first, or pass --project <dir>."
+          `Root composition not found: ${resolve(projectDir, target.rootRel)}`,
+          "Run `vibe build <project> --stage sync` to assemble index.html first, pass a project directory, or pass --project <dir> with a root HTML path."
         )
       );
     }
@@ -1226,7 +1234,7 @@ sceneCommand
     const spinner = isJsonMode() ? null : ora("Linting scenes...").start();
     let result: ProjectLintResult;
     try {
-      result = await runProjectLint({ projectDir, rootRel: root, fix: !!options.fix });
+      result = await runProjectLint({ projectDir, rootRel: target.rootRel, fix: !!options.fix });
     } catch (error) {
       spinner?.fail("Lint failed");
       const msg = error instanceof Error ? error.message : String(error);

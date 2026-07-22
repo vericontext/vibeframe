@@ -65,6 +65,7 @@ import { scaffoldSceneProject } from "./scene-project.js";
 import {
   backdropCostUsd,
   createBuildPlan,
+  narrationCostUsd,
   type BuildPlanResult,
   type BuildStage,
 } from "./build-plan.js";
@@ -2682,7 +2683,7 @@ function estimateActualAssetCost(
 ): number {
   let cost = 0;
   for (const outcome of outcomes) {
-    if (outcome.narrationStatus === "generated") cost += 0.05;
+    if (outcome.narrationStatus === "generated") cost += narrationCostUsd(outcome.narrationProvider);
     if (outcome.backdropStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.keyframeStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") {

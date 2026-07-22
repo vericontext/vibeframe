@@ -1484,7 +1484,7 @@ Cost tier: `free`
 
 **Parameters:**
 
-- `root` _(string)_ — Root composition file relative to --project
+- `root` _(string)_ — Project directory, or root composition file relative to --project
 - `project` _(string)_ _(default: `"."`)_ — Project directory
 - `fix` _(boolean)_ — Apply mechanical auto-fixes (currently: missing class="clip")
 

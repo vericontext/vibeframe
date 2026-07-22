@@ -405,7 +405,7 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
       "Edit `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration).",
       "Read `SKILL.md` for the framework rules and `DESIGN.md` for the visual-identity hard-gate.",
       "Run `vibe build <dir>`. With an agent host detected, the CLI emits a `needs-author` plan; the host agent authors each `compositions/scene-<id>.html` and re-invokes to render.",
-      "Run `vibe scene lint --fix` to validate, then `vibe render <dir>` to produce the MP4.",
+      "Run `vibe build <dir> --stage sync` to assemble index.html, `vibe scene lint <dir> --fix` to validate, then `vibe render <dir>` to produce the MP4.",
     ],
     relatedCommands: [
       "vibe init",
