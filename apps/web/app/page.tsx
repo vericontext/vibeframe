@@ -102,39 +102,30 @@ export default function LandingPage() {
               </div>
               <pre className="p-4 sm:p-5 text-xs sm:text-sm overflow-x-auto">
                 <code className="text-muted-foreground">
-                  # Brief → project files → generated assets → MP4{"\n"}
+                  # Brief → local narration → agent-authored scenes → MP4{"\n"}
                 </code>
                 <code className="text-muted-foreground">
-                  # brief.md can be messy notes; media/ can hold your files{"\n"}
+                  # $0 · zero API keys · local Kokoro TTS + Chrome/FFmpeg render{"\n"}
                 </code>
-                <code className="text-foreground">mkdir -p launch/media{"\n"}</code>
-                <code className="text-foreground">vibe setup --scope project{"\n"}</code>
                 <code className="text-foreground">
-                  vibe init launch --from brief.md --json{"\n"}
+                  vibe init demo --from brief.md --json{"\n"}
+                </code>
+                <code className="text-foreground">
+                  vibe build demo --tts kokoro --skip-backdrop --json{"\n"}
                 </code>
                 <code className="text-muted-foreground">
-                  # Agent researches the topic, then edits STORYBOARD.md + DESIGN.md{"\n"}
+                  # your coding agent authors each scene from the compose plan{"\n"}
                 </code>
                 <code className="text-foreground">
-                  vibe storyboard validate launch --json{"\n"}
+                  vibe scene compose-prompts demo --json{"\n"}
                 </code>
-                <code className="text-foreground">vibe plan launch --json{"\n"}</code>
+                <code className="text-foreground">vibe build demo --stage sync --json{"\n"}</code>
+                <code className="text-foreground">vibe render demo --json{"\n"}</code>
                 <code className="text-foreground">
-                  vibe build launch --dry-run --max-cost 5 --json{"\n"}
-                </code>
-                <code className="text-foreground">vibe build launch --max-cost 5 --json{"\n"}</code>
-                <code className="text-foreground">
-                  vibe status project launch --refresh --json{"\n"}
-                </code>
-                <code className="text-foreground">vibe inspect project launch --json{"\n"}</code>
-                <code className="text-foreground">
-                  vibe render launch -o renders/final.mp4 --json{"\n"}
-                </code>
-                <code className="text-foreground">
-                  vibe inspect render launch --cheap --json{"\n"}
+                  vibe inspect render demo --cheap --json{"\n"}
                 </code>
                 <code className="text-green-400">
-                  {"✓ review-report.json ready for the next agent pass"}
+                  {"✓ renders/demo.mp4 — reviewed 1080p render, $0 spent"}
                 </code>
               </pre>
             </div>
@@ -168,6 +159,10 @@ export default function LandingPage() {
               <CopyButton text="curl -fsSL https://vibeframe.ai/install.sh | bash" />
             </div>
           </div>
+          <p className="text-sm text-muted-foreground -mt-4 mb-8 animate-fade-in-up delay-200">
+            The first render costs $0 and needs no API keys — local TTS, HTML scenes, Chrome +
+            FFmpeg.
+          </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
             <Link
@@ -273,21 +268,11 @@ export default function LandingPage() {
                 curl -fsSL https://vibeframe.ai/install.sh | bash
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Adds the <code className="text-primary">vibe</code> CLI.
+                Adds the <code className="text-primary">vibe</code> CLI. No API keys needed yet.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">2. Configure · project keys</div>
-              <code className="font-mono text-xs text-foreground block break-all">
-                vibe setup --scope project
-              </code>
-              <p className="text-xs text-muted-foreground mt-3">
-                Writes <code className="text-primary">./.vibeframe/config.yaml</code> for this
-                workspace.
-              </p>
-            </div>
-            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Draft · project files</div>
+              <div className="text-xs text-muted-foreground mb-2">2. Draft · project files</div>
               <code className="font-mono text-xs text-foreground block break-all">
                 vibe init launch --from brief.md --json
               </code>
@@ -297,22 +282,33 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Plan · cost gate</div>
+              <div className="text-xs text-muted-foreground mb-2">3. Build · free assets</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe build launch --dry-run --max-cost 5 --json
+                vibe build launch --tts kokoro --skip-backdrop --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Shows missing cues, provider needs, estimated cost, and planned assets.
+                Local Kokoro narration, $0. Your agent then authors scene HTML from the compose
+                plan.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">5. Build · review · render</div>
+              <div className="text-xs text-muted-foreground mb-2">4. Render · review</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe build launch --json && vibe render launch --json && vibe inspect render launch
-                --cheap --json
+                vibe render launch --json && vibe inspect render launch --cheap --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Writes reports agents can inspect, repair, and re-render.
+                Chrome + FFmpeg render, still $0. Writes reports agents can inspect, repair, and
+                re-render.
+              </p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">5. Add keys · only if needed</div>
+              <code className="font-mono text-xs text-foreground block break-all">
+                vibe setup --scope project && vibe build launch --dry-run --max-cost 5 --json
+              </code>
+              <p className="text-xs text-muted-foreground mt-3">
+                BYO-key unlocks provider image/video generation — always behind dry runs and cost
+                gates.
               </p>
             </div>
           </div>
