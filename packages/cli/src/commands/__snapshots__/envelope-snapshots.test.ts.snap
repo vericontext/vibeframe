@@ -572,17 +572,12 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "composer": {
-        "description": "Batch composer: template (deterministic AI-video — concat bg + lower-thirds, no LLM) | claude | openai | gemini",
+        "description": "Set to \`template\` for the deterministic AI-video composer (concat bg + lower-thirds, no model). Omit to let the host agent author each scene.",
         "type": "string",
       },
       "dryRun": {
         "description": "Preview parameters without dispatching",
         "type": "boolean",
-      },
-      "effort": {
-        "default": "medium",
-        "description": "Compose effort tier (batch mode only): low|medium|high",
-        "type": "string",
       },
       "force": {
         "description": "Re-dispatch primitives even when assets already exist",
@@ -603,7 +598,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
       },
       "mode": {
         "default": "auto",
-        "description": "Build mode: agent|batch|auto",
+        "description": "Retained for compatibility; scene HTML is always authored by your host agent unless --composer template is set",
         "type": "string",
       },
       "musicProvider": {

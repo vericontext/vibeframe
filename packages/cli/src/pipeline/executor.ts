@@ -55,7 +55,6 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   "analyze-media": { id: "analyze-media", title: "Analyze media", category: "analyze", command: "analyze media", outputs: ["json"] },
   "analyze-video": { id: "analyze-video", title: "Analyze video", category: "analyze", command: "analyze video", outputs: ["json"] },
   "review-video": { id: "review-video", title: "Review video", category: "analyze", command: "analyze review", outputs: ["json"] },
-  "compose-scenes-with-skills": { id: "compose-scenes-with-skills", title: "Compose scenes with skills", category: "scene", command: "compose scenes with skills", outputs: ["html"] },
   "scene-build": { id: "scene-build", title: "Build scene project", category: "scene", outputs: ["video", "html", "assets"] },
   "scene-render": { id: "scene-render", title: "Render scene project", category: "scene", outputs: ["video"] },
   export: { id: "export", title: "Export project", category: "export", outputs: ["video"] },
@@ -355,29 +354,6 @@ async function ensureActionsRegistered(): Promise<void> {
     return { id: "", action: "review-video", success: r.success, output: r.outputPath, data: { feedback: r.feedback }, error: r.error };
   });
 
-  // Scene composition (v0.59+)
-  registerAction("compose-scenes-with-skills", async (params, outputDir) => {
-    const { executeComposeScenesWithSkills } = await import("../commands/_shared/compose-scenes-skills.js");
-    const r = await executeComposeScenesWithSkills(
-      {
-        design: params.design as string | undefined,
-        storyboard: params.storyboard as string | undefined,
-        project: params.project as string | undefined,
-        effort: params.effort as "low" | "medium" | "high" | undefined,
-        composer: params.composer as "claude" | "openai" | "gemini" | undefined,
-      },
-      outputDir,
-    );
-    return {
-      id: "",
-      action: "compose-scenes-with-skills",
-      success: r.success,
-      output: r.outputPath,
-      data: r.data as Record<string, unknown> | undefined,
-      error: r.error,
-    };
-  });
-
   // v0.62: STORYBOARD → MP4 in one action. Reads frontmatter + per-beat
   // cues, dispatches TTS + image-gen per beat, runs compose-scenes-with-
   // skills, then renders. Idempotent — existing assets are reused.
@@ -387,7 +363,6 @@ async function ensureActionsRegistered(): Promise<void> {
     const r = await executeSceneBuild({
       projectDir: resolve(outputDir, projectRel),
       mode: params.mode as "agent" | "batch" | "auto" | undefined,
-      effort: params.effort as "low" | "medium" | "high" | undefined,
       composer: params.composer as "claude" | "openai" | "gemini" | undefined,
       skipNarration: params.skipNarration as boolean | undefined,
       skipBackdrop: params.skipBackdrop as boolean | undefined,
@@ -403,7 +378,7 @@ async function ensureActionsRegistered(): Promise<void> {
       action: "scene-build",
       success: r.success,
       output: r.outputPath,
-      data: { beats: r.beats, totalLatencyMs: r.totalLatencyMs, composeData: r.composeData ?? null } as Record<string, unknown>,
+      data: { beats: r.beats, totalLatencyMs: r.totalLatencyMs } as Record<string, unknown>,
       error: r.error,
     };
   });

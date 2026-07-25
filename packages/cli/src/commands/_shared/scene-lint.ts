@@ -360,3 +360,60 @@ export async function rootExists(projectDir: string, rootRel = "index.html"): Pr
     return false;
   }
 }
+
+// ── Single-beat helpers (agent-authored HTML) ──────────────────────────────
+
+export interface BeatLintResult {
+  errorCount: number;
+  warningCount: number;
+  findings: LintFinding[];
+}
+
+/**
+ * Lint one beat's HTML in memory, with no temp project shell and no
+ * subprocess. Sub-composition false positives are filtered the same way
+ * `vibe scene lint` filters them, so an agent submitting a beat sees the
+ * findings it would see after the file landed in the project.
+ */
+export async function lintBeatHtml(html: string, beatId: string): Promise<BeatLintResult> {
+  const prepared: PreparedHyperframeLintInput = {
+    html,
+    entryFile: `compositions/scene-${beatId}.html`,
+    source: "projectDir",
+  };
+  const raw = await runHyperframeLint(prepared);
+  const findings = withVibeframeSubCompFindings(
+    filterSubCompFalsePositives(raw.findings as LintFinding[], true),
+    html,
+    true
+  );
+  return {
+    errorCount: findings.filter((f) => f.severity === "error").length,
+    warningCount: findings.filter((f) => f.severity === "warning").length,
+    findings,
+  };
+}
+
+/** Thrown when a submission carries no recoverable HTML. */
+export class BeatHtmlError extends Error {
+  constructor(readonly code: "no-html-in-response", message: string) {
+    super(message);
+    this.name = "BeatHtmlError";
+  }
+}
+
+/**
+ * Pull the HTML fragment out of an agent's reply. Prefers a fenced ```html
+ * block and accepts a bare fragment, since hosts often skip the fence when
+ * the whole reply is the document.
+ */
+export function extractHtml(responseText: string): string {
+  const fenced = responseText.match(/```html\s*\n([\s\S]*?)\n```/);
+  if (fenced) return fenced[1].trim();
+  const trimmed = responseText.trim();
+  if (trimmed.startsWith("<")) return trimmed;
+  throw new BeatHtmlError(
+    "no-html-in-response",
+    `Could not extract HTML from response. First 200 chars: ${trimmed.slice(0, 200)}`
+  );
+}

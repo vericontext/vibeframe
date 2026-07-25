@@ -17,8 +17,12 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { extractHtml, lintBeatHtml } from "./compose-scenes-skills.js";
-import { applyMechanicalFixes, type LintFinding } from "./scene-lint.js";
+import {
+  applyMechanicalFixes,
+  extractHtml,
+  lintBeatHtml,
+  type LintFinding,
+} from "./scene-lint.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 import { resolveSyncedBeatDuration, loadProjectRootSyncBeats } from "./root-sync.js";
 

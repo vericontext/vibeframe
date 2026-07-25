@@ -151,30 +151,18 @@ describe("vibe doctor — scope diagnostics", () => {
   });
 });
 
-describe("vibe doctor — Plan H scene composer readiness", () => {
-  it("reports recommendedMode=batch when no agent host is detected", () => {
+describe("vibe doctor — scene authoring readiness", () => {
+  it("reports a plain cwd as neither a scene project nor skill-installed", () => {
     const { json } = runDoctor();
     const sc = json.data.scope.sceneComposer;
-    expect(sc.recommendedMode).toBe("batch");
     expect(sc.sceneProjectInCwd).toBe(false);
     expect(sc.skillInstalled).toBe(false);
   });
 
-  it("flips recommendedMode=agent when ~/.claude is present", () => {
+  it("no longer reports a build mode — authoring is always agent-side", () => {
     mkdirSync(join(fakeHome, ".claude"));
     const { json } = runDoctor();
-    expect(json.data.scope.sceneComposer.recommendedMode).toBe("agent");
-  });
-
-  it("VIBE_BUILD_MODE env override beats host auto-detection", () => {
-    mkdirSync(join(fakeHome, ".claude"));
-    const out = execFileSync(process.execPath, [CLI, "doctor", "--json"], {
-      cwd: projectDir,
-      env: testEnv({ PATH: "/usr/bin:/bin", VIBE_BUILD_MODE: "batch" }),
-      encoding: "utf-8",
-    });
-    const json = JSON.parse(out);
-    expect(json.data.scope.sceneComposer.recommendedMode).toBe("batch");
+    expect(json.data.scope.sceneComposer).not.toHaveProperty("recommendedMode");
   });
 
   it("composer=null when no API keys are present", () => {

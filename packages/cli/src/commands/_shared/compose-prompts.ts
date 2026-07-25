@@ -38,7 +38,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
-import { buildUserPrompt } from "./compose-scenes-skills.js";
+import { buildUserPrompt } from "./compose-beat-prompt.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
 import { readBeatTranscript, beatTranscriptRelPath } from "./transcribe-narration.js";
