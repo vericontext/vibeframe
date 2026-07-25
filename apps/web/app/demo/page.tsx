@@ -51,7 +51,7 @@ export default function DemoPage() {
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-6 animate-fade-in">
               <Video className="w-4 h-4" />
-              <span>Agentic storyboard demo</span>
+              <span>Agent demo · brief to MP4</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
               From setup
@@ -61,13 +61,17 @@ export default function DemoPage() {
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in-up delay-100">
               The demo starts with{" "}
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
-                vibe setup --scope project
-              </code>
-              , runs{" "}
-              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
                 vibe init launch
-              </code>
-              , then a host agent researches a topic and edits{" "}
+              </code>{" "}
+              and a free{" "}
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
+                --dry-run
+              </code>{" "}
+              price check (keys come in at{" "}
+              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
+                vibe setup --scope project
+              </code>{" "}
+              once a step generates), then a host agent researches a topic and edits{" "}
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
                 STORYBOARD.md
               </code>{" "}
@@ -126,7 +130,7 @@ export default function DemoPage() {
               Build, generate, edit, and remix are separate lanes.
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Use the storyboard project loop for full videos. Use primitives for one asset. Use
+              Use the project loop for full videos. Use primitives for one asset. Use
               edit/remix/audio when the input is already a media file.
             </p>
           </div>
@@ -150,7 +154,7 @@ export default function DemoPage() {
         </div>
       </section>
 
-      {/* Reproducible surfaces — copy-paste command sequences for each entry point. */}
+      {/* Reproducible surfaces - copy-paste command sequences for each entry point. */}
       <section className="py-20 px-4 border-t border-border/50">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
@@ -164,7 +168,7 @@ export default function DemoPage() {
               <span className="text-primary">from your terminal.</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-              Plain CLI, optional built-in agent, or a host agent — same project files and command
+              Plain CLI, optional built-in agent, or a host agent - same project files and command
               contracts. Each surface below is the exact command sequence you run.
             </p>
           </div>
@@ -177,9 +181,9 @@ export default function DemoPage() {
               command="vibe generate image '...' -o frame.png && vibe generate video '...' -i frame.png -o clip.mp4 && vibe inspect media clip.mp4"
             />
             <TapeCard
-              badge="2 · Storyboard dogfood"
-              title="Storyboard build"
-              note="Host agent runs the fuller storyboard build, report, render, and YAML workflow"
+              badge="2 · Project dogfood"
+              title="Priced project build"
+              note="Host agent runs the full build under a cost cap, reports, render, and YAML workflow"
               command="vibe init launch --from brief.md && vibe build launch --max-cost 5 && vibe render launch && vibe run workflow.yaml"
             />
           </div>

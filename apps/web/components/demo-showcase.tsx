@@ -18,14 +18,14 @@ export function DemoShowcase() {
         <DemoVideoCard
           eyebrow="Process highlight"
           title="Agent loop in under a minute"
-          description="From rough brief and optional media inputs through setup, research, storyboard/design updates, image cues, build, render, and review."
+          description="From rough brief and optional media inputs through dry-run pricing, research, storyboard/design updates, capped generation, render, and review."
           src={PROCESS_HIGHLIGHT_VIDEO}
           icon={<Terminal className="w-4 h-4" />}
         />
         <DemoVideoCard
           eyebrow="Final result"
           title="The rendered MP4"
-          description="The shareable MP4 from the storyboard-driven build path, without exposing the whole process."
+          description="The shareable MP4 from the generation build path, without exposing the whole process."
           src={RESULT_VIDEO}
           icon={<Film className="w-4 h-4" />}
         />
@@ -55,13 +55,13 @@ function FlagshipCard() {
       <div className="p-5">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <PlayCircle className="w-4 h-4" />
-          Flagship render — one character, many scenes
+          Flagship render - one character, many scenes
         </div>
         <h3 className="text-xl font-semibold text-foreground">
-          Chasing Light — one photographer across a single arctic night
+          Chasing Light - one photographer across a single arctic night
         </h3>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Trek, first aurora, the whole sky, dawn — the same character throughout. Character sheet →
+          Trek, first aurora, the whole sky, dawn - the same character throughout. Character sheet →
           image storyboard → image-to-video → composed render, generated end-to-end by{" "}
           <code>vibe build</code>.
         </p>

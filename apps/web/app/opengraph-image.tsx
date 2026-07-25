@@ -188,7 +188,7 @@ export default async function Image() {
             color: "#71717a",
           }}
         >
-          <span>Open source video CLI</span>
+          <span>Frontier video generation for coding agents</span>
           <span>•</span>
           <span>MIT</span>
           <span>•</span>
