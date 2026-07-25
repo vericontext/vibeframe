@@ -43,7 +43,7 @@ aiCommand
   .option("--noise <dB>", "Silence threshold in dB (default: -30)", "-30")
   .option("-d, --min-duration <seconds>", "Minimum silence duration to cut (default: 0.5)", "0.5")
   .option("--padding <seconds>", "Padding around non-silent segments (default: 0.1)", "0.1")
-  .option("--analyze-only", "(deprecated — use `vibe detect silence`) Only detect silence, don't cut")
+  .option("--analyze-only", "(deprecated - use `vibe detect silence`) Only detect silence, don't cut")
   .option("--use-gemini", "Use Gemini Video Understanding for context-aware silence detection")
   .option("-m, --model <model>", "Gemini model (default: flash)")
   .option("--low-res", "Low resolution mode for longer videos (Gemini only)")

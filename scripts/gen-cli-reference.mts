@@ -94,7 +94,7 @@ tags: [cli, reference, generated]
 
 # VibeFrame CLI Reference
 
-> **Auto-generated** from \`vibe schema --list\`. Do not edit by hand —
+> **Auto-generated** from \`vibe schema --list\`. Do not edit by hand -
 > run \`pnpm gen:reference\` after any flag/command change.
 
 VibeFrame is CLI-first: every operation is a shell command. This file
@@ -265,7 +265,7 @@ function renderCostTiers(leaves: SchemaListEntry[]): string {
 
   lines.push(
     "",
-    "> **Tip:** Run `<paid command> --dry-run --json` first — the response",
+    "> **Tip:** Run `<paid command> --dry-run --json` first - the response",
     "> includes a `costUsd` estimate when the command supports dry-run.",
     ""
   );
@@ -395,7 +395,7 @@ function renderArg(name: string, schema: ParameterSchema, isRequired: boolean): 
   const def =
     schema.default !== undefined ? ` *(default: \`${JSON.stringify(schema.default)}\`)*` : "";
   const requiredMark = isRequired ? " **required**" : "";
-  return `- \`${name}\` *(${schema.type ?? "any"})*${requiredMark}${enums}${def} — ${desc}`;
+  return `- \`${name}\` *(${schema.type ?? "any"})*${requiredMark}${enums}${def} - ${desc}`;
 }
 
 function renderLeaf(leaf: RenderedLeaf): string {
@@ -512,7 +512,7 @@ function buildReference(): string {
 
   const sections: string[] = [
     HEADER,
-    // Version pins the CLI surface; no timestamp on purpose — a daily
+    // Version pins the CLI surface; no timestamp on purpose - a daily
     // regeneration would otherwise diff on `Generated: <date>` alone
     // and turn `gen:reference:check` into a false-positive.
     `> CLI version: \`${version}\``,
@@ -598,7 +598,7 @@ if (checkMode) {
       shown++;
     }
   }
-  console.error(`Sizes — committed: ${existing.length} chars, fresh: ${fresh.length} chars.`);
+  console.error(`Sizes - committed: ${existing.length} chars, fresh: ${fresh.length} chars.`);
   process.exit(1);
 }
 

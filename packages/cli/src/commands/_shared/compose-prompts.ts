@@ -1,7 +1,7 @@
 /**
  * @module _shared/compose-prompts
  *
- * Phase H2 — agentic compose primitive. Reads `STORYBOARD.md` + `DESIGN.md`
+ * Agentic compose primitive. Reads `STORYBOARD.md` + `DESIGN.md`
  * from a scene project and emits a structured plan for the host agent
  * (Claude Code, Cursor, Codex, Aider) to author per-beat HTML files
  * itself. **No LLM call from inside the CLI** — that's the point. The

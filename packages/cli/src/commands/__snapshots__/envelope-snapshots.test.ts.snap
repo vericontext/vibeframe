@@ -12,7 +12,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
         "type": "number",
       },
       "confirm": {
-        "description": "Confirm before every tool — broadens the default cost gate (paid only) to all calls",
+        "description": "Confirm before every tool - broadens the default cost gate (paid only) to all calls",
         "type": "boolean",
       },
       "input": {
@@ -631,7 +631,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "boolean",
       },
       "skipRender": {
-        "description": "Compose only — don't render to MP4",
+        "description": "Compose only - don't render to MP4",
         "type": "boolean",
       },
       "skipTranscript": {
@@ -1461,7 +1461,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit silence-cut --desc
   "parameters": {
     "properties": {
       "analyzeOnly": {
-        "description": "(deprecated — use \`vibe detect silence\`) Only detect silence, don't cut",
+        "description": "(deprecated - use \`vibe detect silence\`) Only detect silence, don't cut",
         "type": "boolean",
       },
       "apiKey": {
@@ -1912,7 +1912,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate motion --descr
         "type": "number",
       },
       "image": {
-        "description": "Image to analyze with Gemini — color/mood fed into Claude prompt",
+        "description": "Image to analyze with Gemini - color/mood fed into Claude prompt",
         "type": "string",
       },
       "model": {
@@ -3710,7 +3710,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "string",
       },
       "narrationFile": {
-        "description": "Existing narration audio file (.wav/.mp3). Skips TTS — useful with hyperframes tts, Mac say, or other external tools.",
+        "description": "Existing narration audio file (.wav/.mp3). Skips TTS - useful with hyperframes tts, Mac say, or other external tools.",
         "type": "string",
       },
       "noAudio": {
@@ -3752,7 +3752,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
       },
       "tts": {
         "default": "auto",
-        "description": "TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)",
+        "description": "TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)",
         "enum": [
           "auto",
           "elevenlabs",
@@ -3762,7 +3762,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "string",
       },
       "visuals": {
-        "description": "Image prompt — generates assets/scene-<id>.png via the configured image provider",
+        "description": "Image prompt - generates assets/scene-<id>.png via the configured image provider",
         "type": "string",
       },
       "voice": {
@@ -3782,7 +3782,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
 exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts --describe 1`] = `
 {
   "cost": "free",
-  "description": "Emit the per-beat compose plan for the host agent to author HTML itself (Phase H2 — no LLM call)",
+  "description": "Emit the per-beat compose plan for the host agent to author HTML itself (no LLM call)",
   "name": "scene.compose-prompts",
   "note": "Agent-mode build primitive; prefer vibe build --mode agent.",
   "parameters": {

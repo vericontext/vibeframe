@@ -41,11 +41,11 @@ export const remixCommand = new Command("remix")
   .addHelpText(
     "after",
     `
-Two flows — pick by intent:
-  BUILD     — text → MP4 (intent → AI generation → new video)
+Two flows - pick by intent:
+  BUILD     - text → MP4 (intent → AI generation → new video)
               Use \`vibe build\` with a STORYBOARD.md + DESIGN.md.
               Idempotent, agent-editable, skills-driven (v0.60+).
-  REMIX     — existing video/audio → transformed media
+  REMIX     - existing video/audio → transformed media
               Use \`vibe remix\` (this group) or \`vibe edit\` / \`vibe audio\`.
               One-shot, batch-oriented, no storyboard required.
 

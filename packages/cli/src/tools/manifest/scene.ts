@@ -186,7 +186,7 @@ const sceneAddSchema = z.object({
   visuals: z
     .string()
     .optional()
-    .describe("Image prompt — generates assets/scene-<id>.png via the configured image provider."),
+    .describe("Image prompt - generates assets/scene-<id>.png via the configured image provider."),
   headline: z
     .string()
     .optional()
@@ -843,7 +843,7 @@ export const sceneInstallSkillTool = defineTool({
 });
 
 // ---------------------------------------------------------------------------
-// scene_compose_prompts — Phase H2 agentic primitive
+// scene_compose_prompts - agentic compose primitive
 // ---------------------------------------------------------------------------
 
 const sceneComposePromptsSchema = z.object({
