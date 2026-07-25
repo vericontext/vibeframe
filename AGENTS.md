@@ -178,8 +178,11 @@ Claude Code, and direct terminal pushes use the same version/SSOT checks.
 
 ## Agent Hosts & Sync
 
-`vibe init` writes guidance files for six hosts (Claude Code, Codex, Cursor,
-Aider, Gemini CLI, OpenCode). Separately, `pnpm agent-sync` keeps three hosts'
+`vibe init` writes one `AGENTS.md` (plus a `CLAUDE.md` that imports it) that
+serves every bash-capable host; `--mcp` adds MCP config for Claude Code,
+Codex, and Cursor. It does not emit per-host files - `projectFiles` in
+`agent-host-detect.ts` is a detection list, not a scaffold list. Separately,
+`pnpm agent-sync` keeps three hosts'
 generated config (Claude Code, Codex, Cursor) in sync from one canonical source.
 Full map + workflows: `docs/agent-hosts.md`.
 

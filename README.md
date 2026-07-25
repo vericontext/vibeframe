@@ -362,9 +362,11 @@ The `surface` field signals intent: `public` = first-run product path;
 
 ## Connect your host
 
-`vibe init` writes agent guidance for Codex, Claude Code, Cursor, Aider,
-Gemini CLI, and OpenCode, with a universal `AGENTS.md` fallback. `vibe host`
-turns that into app-ready config - it prints by default, `--write` applies:
+`vibe init` writes one `AGENTS.md` (plus a `CLAUDE.md` that imports it). That
+is the whole contract: Codex, Cursor, Aider, Gemini CLI, OpenCode, and any
+other bash-capable agent read the same file - there is no per-host scaffold.
+`vibe host` adds typed MCP config for the three hosts that support it, and
+prints by default; `--write` applies:
 
 ```bash
 vibe host setup all                              # print snippets for every host

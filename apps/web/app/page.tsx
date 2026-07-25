@@ -367,61 +367,41 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Six-host grid - equal cards, same example, different scaffold target */}
-          <div className="text-center mb-6">
-            <p className="text-sm text-muted-foreground">
-              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
-                vibe doctor
-              </code>{" "}
-              auto-detects host families and{" "}
-              <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
-                vibe host setup
-              </code>{" "}
-              prints or writes Codex, Claude, and Cursor integration config.
-            </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
-            {[
-              {
-                name: "OpenAI Codex",
-                scaffold: "AGENTS.md + .codex/config.toml",
-                note: "shell + MCP",
-              },
-              {
-                name: "Claude Code",
-                scaffold: "CLAUDE.md + .mcp.json",
-                note: "shell + optional MCP",
-              },
-              {
-                name: "Cursor",
-                scaffold: ".cursor/rules + .cursor/mcp.json",
-                note: "rules + MCP",
-              },
-              { name: "Aider", scaffold: "AGENTS.md + .aider.conf.yml", note: "binary-detected" },
-              { name: "Gemini CLI", scaffold: "GEMINI.md + AGENTS.md", note: "universal fallback" },
-              { name: "OpenCode", scaffold: "AGENTS.md + .opencode/", note: "MCP-ready" },
-            ].map((host) => (
-              <div
-                key={host.name}
-                className="bg-secondary/40 border border-border/50 rounded-xl px-4 py-3"
-              >
-                <div className="font-mono text-sm font-semibold text-foreground">{host.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">{host.scaffold}</div>
-                <div className="text-xs text-muted-foreground/70 mt-0.5">{host.note}</div>
+          <div className="grid md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
+              <div className="font-mono text-sm font-semibold text-foreground mb-2">
+                vibe init
               </div>
-            ))}
+              <p className="text-sm text-muted-foreground">
+                Writes one <code className="text-primary">AGENTS.md</code> (plus{" "}
+                <code className="text-primary">CLAUDE.md</code>, which just imports it). That is the
+                whole contract - Codex, Cursor, Aider, Gemini CLI, OpenCode and any other
+                bash-capable agent read the same file.
+              </p>
+            </div>
+            <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
+              <div className="font-mono text-sm font-semibold text-foreground mb-2">
+                vibe host setup --write
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Adds typed MCP tools for the three hosts that support them:{" "}
+                <code className="text-primary">.mcp.json</code>,{" "}
+                <code className="text-primary">.codex/config.toml</code>,{" "}
+                <code className="text-primary">.cursor/mcp.json</code>. Optional - the CLI works
+                without it.
+              </p>
+            </div>
           </div>
 
           <p className="text-center text-muted-foreground text-sm mt-8">
-            Anyone running another bash-capable agent gets the universal
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs mx-1">
-              AGENTS.md
-            </code>
-            fallback; app hosts can add typed tools with
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs mx-1">
-              vibe host setup
-            </code>
-            .
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
+              vibe doctor
+            </code>{" "}
+            reports which hosts it detects, and{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
+              vibe host doctor all --json
+            </code>{" "}
+            verifies what landed.
           </p>
         </div>
       </section>
