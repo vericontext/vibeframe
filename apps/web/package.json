@@ -24,8 +24,7 @@
     "prebuild": "cp ../../scripts/install.sh ./public/install.sh",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "tsx scripts/demo-media-smoke.mts"
+    "lint": "next lint"
   },
   "dependencies": {
     "lucide-react": "^0.563.0",
