@@ -30,6 +30,12 @@ export interface StructuredError {
   retryWith?: string[];
   recoverable?: boolean;
   retryable: boolean;
+  /**
+   * Structured context carried alongside the failure, so a refusal can hand
+   * back the evidence it refused on instead of forcing a second call. Used by
+   * the `--max-cost` gate to return the priced build plan with the refusal.
+   */
+  data?: Record<string, unknown>;
 }
 
 export function usageError(msg: string, suggestion?: string): StructuredError {
@@ -103,6 +109,34 @@ export function generalError(msg: string, suggestion?: string): StructuredError 
   return { success: false, error: msg, code: "ERROR", exitCode: ExitCode.GENERAL, suggestion, retryable: false };
 }
 
+/**
+ * The `--max-cost` refusal. A command that declines to spend is a failure, so
+ * it takes the structured error path like every other refusal: `success:false`
+ * on stderr, exit 1. `data` carries the priced plan the refusal was based on,
+ * so an agent gets the estimate and the reason from one call.
+ *
+ * `recoverable: true` because the caller has two real ways forward (raise the
+ * ceiling, or narrow the scope), both spelled out in `retryWith`.
+ */
+export function costCapError(opts: {
+  estimatedCostUsd: number;
+  maxCostUsd: number;
+  retryWith: string[];
+  data?: Record<string, unknown>;
+}): StructuredError {
+  return {
+    success: false,
+    error: `Estimated cost $${opts.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${opts.maxCostUsd.toFixed(2)}.`,
+    code: "COST_CAP_EXCEEDED",
+    exitCode: ExitCode.GENERAL,
+    suggestion: "Raise --max-cost or reduce the stage/provider scope.",
+    retryWith: opts.retryWith,
+    recoverable: true,
+    retryable: false,
+    data: opts.data,
+  };
+}
+
 /** Output structured error then exit */
 export function exitWithError(err: StructuredError): never {
   if (isJsonMode()) {
@@ -116,6 +150,11 @@ export function exitWithError(err: StructuredError): never {
     console.error(chalk.red(`\n  ${err.error}`));
     if (err.suggestion) {
       console.error(chalk.dim(`  ${err.suggestion}`));
+    }
+    // Show one concrete way forward. The JSON branch already carries the full
+    // list; a terminal user only needs the first one to keep moving.
+    if (err.retryWith && err.retryWith.length > 0) {
+      console.error(chalk.dim(`  Retry: ${err.retryWith[0]}`));
     }
     console.error();
   }

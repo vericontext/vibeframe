@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { resolve } from "node:path";
 
 import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
-import { exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
+import { costCapError, exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 
 const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_MODES = ["agent", "batch", "auto"] as const;
@@ -114,35 +114,21 @@ export const planCommand = new Command("plan")
     }
 
     if (maxCost !== undefined && plan.estimatedCostUsd > maxCost) {
-      const warning = `Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCost.toFixed(2)}.`;
-      const data = {
-        ...plan,
-        costCapUsd: maxCost,
-        code: "COST_CAP_EXCEEDED",
-        message: warning,
-        suggestion: "Raise --max-cost or reduce the stage/provider scope.",
-        recoverable: true,
-        retryWith: [
-          ...plan.retryWith,
-          `vibe plan ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
-          `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
-        ].filter((value, index, all) => value.length > 0 && all.indexOf(value) === index),
-      };
-      if (isJsonMode()) {
-        outputSuccess({
-          command: "plan",
-          startedAt,
-          data,
-          warnings: [warning],
-        });
-        process.exitCode = 1;
-        return;
-      }
+      // One refusal contract regardless of output mode. This used to emit a
+      // success envelope with exit 1 under --json but a USAGE_ERROR with exit
+      // 2 without it, so the same condition reported two different codes and
+      // two different exit codes depending on a formatting flag.
       exitWithError(
-        usageError(
-          `Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCost.toFixed(2)}.`,
-          `Raise --max-cost or reduce the stage/provider scope.`
-        )
+        costCapError({
+          estimatedCostUsd: plan.estimatedCostUsd,
+          maxCostUsd: maxCost,
+          retryWith: [
+            ...plan.retryWith,
+            `vibe plan ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
+            `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
+          ].filter((value, index, all) => value.length > 0 && all.indexOf(value) === index),
+          data: { ...plan, costCapUsd: maxCost },
+        })
       );
     }
 

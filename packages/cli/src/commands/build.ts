@@ -20,6 +20,7 @@ import {
 } from "./_shared/build-plan.js";
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import {
+  costCapError,
   exitWithError,
   generalError,
   isJsonMode,
@@ -186,38 +187,22 @@ Advanced equivalent: \`vibe scene build\`.`
         return;
       }
       if (maxCostUsd !== undefined && plan.estimatedCostUsd > maxCostUsd) {
-        const warning = `Estimated cost $${plan.estimatedCostUsd.toFixed(2)} exceeds --max-cost $${maxCostUsd.toFixed(2)}.`;
-        const retryWith = unique([
-          ...plan.retryWith,
-          `vibe build ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
-          `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
-        ]);
-        if (isJsonMode() || isQuietMode()) {
-          outputSuccess({
-            command: "build",
-            startedAt,
-            dryRun: true,
-            warnings: [warning],
-            data: {
-              params,
-              plan,
-              costCapUsd: maxCostUsd,
-              code: "COST_CAP_EXCEEDED",
-              message: warning,
-              suggestion: "Raise --max-cost or reduce the stage/provider scope.",
-              retryWith,
-              recoverable: true,
-            },
-          });
-          process.exitCode = 1;
-          return;
-        }
-        console.log(chalk.red(warning));
-        if (retryWith.length > 0) {
-          console.log(chalk.dim(`Retry: ${retryWith[0]}`));
-        }
-        process.exitCode = 1;
-        return;
+        // A refused build is a failure, not a success carrying a warning, so
+        // it takes the same structured-error path as every other refusal:
+        // `success:false` on stderr, exit 1. The priced plan rides along in
+        // `data` so the caller still gets the estimate it was refused on.
+        exitWithError(
+          costCapError({
+            estimatedCostUsd: plan.estimatedCostUsd,
+            maxCostUsd,
+            retryWith: unique([
+              ...plan.retryWith,
+              `vibe build ${projectDirArg} --stage ${stage} --skip-backdrop --json`,
+              `vibe build ${projectDirArg} --stage ${stage} --max-cost ${plan.estimatedCostUsd} --json`,
+            ]),
+            data: { params, plan, costCapUsd: maxCostUsd },
+          })
+        );
       }
       if (!isJsonMode() && !isQuietMode()) {
         printBuildDryRun(projectDirArg, params, plan);
