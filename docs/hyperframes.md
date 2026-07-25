@@ -7,16 +7,17 @@ tags: [architecture, hyperframes]
 
 # Composition Engine Boundary
 
-VibeFrame is the workflow layer around composition engines. It does not try to
-replace Remotion or Hyperframes.
+VibeFrame is the generation, cost, and review layer around composition
+engines. It does not try to replace Remotion or Hyperframes.
 
 - Remotion owns React-based programmatic video and component-driven motion
   graphics.
 - Hyperframes owns HTML/CSS/JS scene composition and deterministic browser
   capture for agents.
-- VibeFrame owns the agentic path around those engines: `STORYBOARD.md`,
-  `DESIGN.md`, provider routing, generated assets, build reports, render
-  inspection, edit/remix commands, and host-agent guidance.
+- VibeFrame owns everything around composition: frontier-model asset
+  generation on the user's own keys (Seedance, Runway, Veo, Kling), dry runs
+  and the hard `--max-cost` ceiling, `STORYBOARD.md`/`DESIGN.md`, build
+  reports, render inspection, edit/remix commands, and host-agent guidance.
 
 ## Current Mental Model
 
@@ -77,9 +78,12 @@ STORYBOARD.md
 DESIGN.md
 media/ (optional user-provided inputs)
 AGENTS.md / CLAUDE.md
-SKILL.md
 vibe.config.json
 ```
+
+The Hyperframes composition rules are not part of the scaffold; upstream's own
+installer puts them under `.agents/skills/hyperframes/` via
+`vibe scene install-skill`.
 
 Composition/backend files are created when the selected profile or later build
 step needs them.
@@ -92,9 +96,9 @@ practical boundary is:
 - choose Remotion for React-first programmatic video;
 - choose Hyperframes for focused HTML scene authoring and deterministic
   browser rendering;
-- choose VibeFrame for agent-driven video workflows that combine briefs,
-  storyboards, AI media generation, build reports, inspection, editing,
-  narration, and export.
+- choose VibeFrame for agent-driven video generation on your own provider
+  keys, with dry-run pricing and a hard `--max-cost` ceiling around briefs,
+  storyboards, build reports, inspection, editing, narration, and export.
 
 This boundary keeps VibeFrame's CLI clear while still benefiting from dedicated
 composition engines.

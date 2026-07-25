@@ -1,6 +1,6 @@
 # @vibeframe/mcp-server
 
-The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe). This package is _only_ the MCP adapter — it exposes VibeFrame's operations as typed MCP tools so an MCP-capable host can call them by natural language.
+The MCP (Model Context Protocol) **server** for [VibeFrame](https://github.com/vericontext/vibeframe), the frontier-video-generation layer for coding agents: generate video assets on your own provider keys (Seedance, Runway, Veo, Kling), behind dry runs and a hard `--max-cost` ceiling. This package is _only_ the MCP adapter - it exposes VibeFrame's operations as typed MCP tools so an MCP-capable host can call them by natural language.
 
 VibeFrame is CLI-first, not terminal-only. The CLI is the stable runtime; MCP is the app-host surface for clients that prefer typed tools over shell commands.
 

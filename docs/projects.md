@@ -55,7 +55,7 @@ and prefer `nextActions`: run only `safeToAutoRun:true` actions automatically,
 ask before `requiresConfirmation:true`, and use `retryWith` only as the
 compatibility fallback.
 
-Worked example — `vibe inspect project my-video --json` returns a review report
+Worked example - `vibe inspect project my-video --json` returns a review report
 whose `nextActions` are pre-classified so the host loop never has to guess:
 
 ```jsonc
@@ -110,11 +110,11 @@ Use the folders consistently:
 | Path            | Role                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `brief.md`      | Optional rough input before `vibe init`; can live outside or beside the project.     |
-| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues. Scene audio comes only from explicit `narration`/`music` cues — composition never invents ambient/foley SFX. |
+| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues. Scene audio comes only from explicit `narration`/`music` cues - composition never invents ambient/foley SFX. |
 | `DESIGN.md`     | Palette, typography, layout, motion, transitions, and visual anti-patterns.          |
 | `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings.    |
 | `assets/`       | Generated or canonical build assets such as narration, backdrops, music, and videos. |
-| `references/`   | Composition rule docs installed by VibeFrame skills; do not use for user media.      |
+| `references/`   | Legacy only: older projects kept vendored composition rules here. New installs put them under `.agents/skills/hyperframes/` via `vibe scene install-skill`. |
 | `renders/`      | Final and intermediate MP4 outputs.                                                  |
 
 When a beat should reuse a local file, use a project-relative path in
@@ -154,15 +154,15 @@ video: "MIRA treks across the moonlit snowfield, handheld tracking shot, wind an
 ```
 
 Character sheets add image-generation cost, and each character video beat is a
-provider video call — run `vibe build --dry-run` to see the estimate and gate
+provider video call - run `vibe build --dry-run` to see the estimate and gate
 with `--max-cost`.
 
 ### Keyframe → image-to-video
 
 For tighter art direction, a beat can declare a `keyframe` cue. During
 `vibe build`, the keyframe prompt first produces a still
-(`assets/keyframe-<beatId>.png`) — edited from the beat's `characters` sheet when
-present (for consistency), otherwise generated from text — and that exact frame
+(`assets/keyframe-<beatId>.png`) - edited from the beat's `characters` sheet when
+present (for consistency), otherwise generated from text - and that exact frame
 is then animated with Seedance **image-to-video**. The `video` cue, if present,
 supplies the motion prompt; otherwise the keyframe prompt is reused.
 
@@ -174,7 +174,7 @@ video: "slow tilt up as the aurora ripples and pulses overhead"
 ```
 
 Keyframe mode costs one extra image generation per beat plus the clip
-(image-to-video uses standard Seedance pricing, with no reference discount) —
+(image-to-video uses standard Seedance pricing, with no reference discount) -
 check `vibe build --dry-run` and gate with `--max-cost`.
 
 **Review the image storyboard before paying for video.** Keyframe stills are a
@@ -195,12 +195,12 @@ Use `--skip-keyframe` to opt a run out of keyframe generation entirely.
 Provider choice drives perceived polish, especially for character-consistent
 work:
 
-- **Faces / character identity** — `--image-provider gemini` (Nano Banana) holds
+- **Faces / character identity** - `--image-provider gemini` (Nano Banana) holds
   the same face across scenes noticeably better than `gpt-image-2`, whose
   identity tends to drift after a few scenes. Use it for character/keyframe-heavy
   pieces. Keyframe edits already pin facial features with an identity-lock
   instruction, but the model still matters.
-- **Narration** — `--tts kokoro` is free and local (draft quality); for a final
+- **Narration** - `--tts kokoro` is free and local (draft quality); for a final
   or shared cut use `--tts openai` (fast, ~$0.02/video) or `--tts elevenlabs`
   (premium voices). Switching providers regenerates narration and updates the
   render automatically.

@@ -1,7 +1,7 @@
 {
   "name": "@vibeframe/mcp-server",
   "version": "0.113.28",
-  "description": "VibeFrame MCP Server - AI-native video editing via Model Context Protocol",
+  "description": "VibeFrame MCP Server - frontier AI video generation for agents (Seedance, Runway, Veo, Kling) on your own keys, behind a hard cost cap",
   "type": "module",
   "bin": {
     "vibeframe-mcp": "./dist/index.js"
@@ -26,8 +26,14 @@
     "mcp",
     "model-context-protocol",
     "vibeframe",
-    "video-editing",
-    "ai",
+    "ai-video",
+    "video-generation",
+    "text-to-video",
+    "image-to-video",
+    "seedance",
+    "runway",
+    "veo",
+    "kling",
     "claude-desktop",
     "cursor"
   ],
@@ -41,7 +47,7 @@
   "bugs": {
     "url": "https://github.com/vericontext/vibeframe/issues"
   },
-  "homepage": "https://github.com/vericontext/vibeframe#mcp-integration",
+  "homepage": "https://vibeframe.ai",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.4"

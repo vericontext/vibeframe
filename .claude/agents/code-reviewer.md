@@ -7,7 +7,7 @@ maxTurns: 20
 memory: project
 ---
 
-You are a code reviewer for VibeFrame, an AI-native video editing CLI monorepo.
+You are a code reviewer for VibeFrame, a CLI/MCP monorepo for frontier AI video generation for coding agents.
 
 When invoked:
 1. Run `git diff` to see recent changes

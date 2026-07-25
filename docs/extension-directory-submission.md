@@ -5,7 +5,7 @@ description: "Submission notes for the VibeFrame MCP desktop extension."
 tags: [mcp, extension]
 ---
 
-# Claude Extension Directory Submission — VibeFrame
+# Claude Extension Directory Submission - VibeFrame
 
 Working notes + reviewer guide for submitting the VibeFrame Desktop Extension
 to the Anthropic Connectors Directory.
@@ -20,7 +20,7 @@ to the Anthropic Connectors Directory.
 | Field | Value |
 |---|---|
 | Extension name | VibeFrame |
-| Description | AI-native video editing for Claude Desktop: storyboard → narration/backdrops → HTML/GSAP scenes → rendered MP4, all inside a local workspace folder. |
+| Description | AI video generation for Claude Desktop on your own provider keys (Seedance, Runway, Veo, Kling), behind dry runs and a hard cost cap: storyboard → generated assets → rendered MP4, all inside a local workspace folder. |
 | Icon | `icon.png` inside the bundle (400×400, also `apps/web/public/logo-400.png`) |
 | Documentation | <https://github.com/vericontext/vibeframe/blob/main/packages/mcp-server/README.md> |
 | Privacy policy | <https://vibeframe.ai/privacy> (source: repo `PRIVACY.md`) |
@@ -33,7 +33,7 @@ to the Anthropic Connectors Directory.
 2. Machine requirements for the full flow: Google Chrome + `ffmpeg` on PATH.
 3. **Test credentials:** all provider keys are reviewer-supplied (extension
    settings fields or a `.env` in the workspace). No VibeFrame account exists.
-   A large share of tools needs **no key at all** — the free end-to-end path:
+   A large share of tools needs no key at all - the free end-to-end path:
    - `init {"dir":"demo"}` → `storyboard_set` narration →
      `build {"projectDir":"demo","ttsProvider":"kokoro","skipBackdrop":true}`
      → `render {"projectDir":"demo"}` produces an MP4 with zero paid calls.
@@ -42,7 +42,7 @@ to the Anthropic Connectors Directory.
    - Provider-backed tools (`generate_*`, `storyboard_revise`, AI edits) need
      the matching key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
      `GOOGLE_API_KEY`, or `ELEVENLABS_API_KEY`.
-4. Long `build`/`render` calls return `{promoted: true, jobId}` after ~45s —
+4. Long `build`/`render` calls return `{promoted: true, jobId}` after ~45s -
    poll `status_job` until completed (by design, not a hang).
 5. On hosts with the elicitation capability, `build` asks the user a form
    (narration provider / backdrop images / cost cap) before spending.
@@ -95,7 +95,7 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | generate_storyboard | W, OW | `{"content":"A 30s video about tea"}` |
 | generate_thumbnail | W, OW | `{"videoPath":"sample.mp4","outputPath":"thumb.png"}` |
 | generate_motion | W, OW | `{"description":"counter counting to 100"}` |
-| generate_video | W, OW | `{"prompt":"waves at sunset","duration":5}` (high cost — confirm spend) |
+| generate_video | W, OW | `{"prompt":"waves at sunset","duration":5}` (high cost - confirm spend) |
 | generate_video_status | W (downloads on completion), OW | `{"taskId":"<id>"}` |
 | generate_video_cancel | W, OW | `{"taskId":"<id>"}` |
 | generate_video_extend | W, OW | `{"videoId":"<id>","prompt":"keep panning"}` |

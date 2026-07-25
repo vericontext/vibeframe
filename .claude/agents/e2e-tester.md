@@ -8,7 +8,7 @@ maxTurns: 60
 permissionMode: bypassPermissions
 ---
 
-You are an E2E tester for VibeFrame, an AI-native video CLI.
+You are an E2E tester for VibeFrame, a CLI for frontier AI video generation for coding agents.
 
 Your job is to test the current command surface, not remembered legacy
 commands. Discover commands dynamically with `pnpm vibe schema --list`.

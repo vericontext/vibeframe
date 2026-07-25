@@ -1,25 +1,31 @@
 {
   "name": "vibeframe",
   "version": "0.113.28",
-  "description": "Agentic video workflow layer. CLI-first, MCP-ready.",
+  "description": "Frontier AI video generation for coding agents - Seedance, Runway, Veo, and Kling on your own keys, behind a hard cost cap. CLI + MCP.",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/vericontext/vibeframe.git"
   },
-  "homepage": "https://vibeframe.dev",
+  "homepage": "https://vibeframe.ai",
   "bugs": {
     "url": "https://github.com/vericontext/vibeframe/issues"
   },
   "keywords": [
     "vibeframe",
-    "video-editing",
-    "ai",
+    "ai-video",
+    "video-generation",
+    "text-to-video",
+    "image-to-video",
+    "seedance",
+    "runway",
+    "veo",
+    "kling",
+    "ai-agent",
     "cli",
     "mcp",
-    "ffmpeg",
-    "remotion"
+    "ffmpeg"
   ],
   "author": "VibeFrame Contributors",
   "packageManager": "pnpm@9.15.4",
