@@ -21,7 +21,7 @@ import { promisify } from "node:util";
 import {
   createRenderJob,
   executeRenderJob,
-  type RenderConfig,
+  type RenderConfigInput,
 } from "@hyperframes/producer";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
 import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
@@ -144,8 +144,14 @@ export function defaultOutputPath(opts: {
 }
 
 /**
- * Build the producer's `RenderConfig` from caller options. Pure — useful for
+ * Build the producer's render config from caller options. Pure - useful for
  * unit tests that want to assert defaults without touching Chrome.
+ *
+ * Returns `RenderConfigInput` (not `RenderConfig`) so `fps` stays an integer:
+ * the producer models fps as a rational `{num, den}` internally but accepts a
+ * plain number on the way in. The intersection pins `fps`/`format` to our
+ * narrower unions so callers keep arithmetic on fps and never see the
+ * producer-only formats (`gif`, `png-sequence`) VibeFrame does not expose.
  */
 export function buildRenderConfig(opts: {
   fps?: RenderFps;
@@ -153,7 +159,7 @@ export function buildRenderConfig(opts: {
   format?: RenderFormat;
   workers?: number;
   entryFile?: string;
-}): RenderConfig {
+}): RenderConfigInput & { fps: RenderFps; format: RenderFormat } {
   const quality = opts.quality ?? "standard";
   return {
     fps: opts.fps ?? 30,

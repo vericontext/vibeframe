@@ -298,7 +298,7 @@ export async function runProjectLint(opts: RunProjectLintOptions): Promise<Proje
       entryFile: rel,
       source: "projectDir",
     };
-    const raw = runHyperframeLint(prepared);
+    const raw = await runHyperframeLint(prepared);
     const findings = withVibeframeSubCompFindings(
       filterSubCompFalsePositives(raw.findings as LintFinding[], isSub),
       html,
@@ -311,7 +311,7 @@ export async function runProjectLint(opts: RunProjectLintOptions): Promise<Proje
         await writeFile(abs, nextHtml, "utf-8");
         fixed.push({ file: rel, codes: fixedCodes });
         // Re-lint after fix so the result reflects what's left.
-        const reLinted = runHyperframeLint({ ...prepared, html: nextHtml });
+        const reLinted = await runHyperframeLint({ ...prepared, html: nextHtml });
         files.push({
           file: rel,
           isSubComposition: isSub,

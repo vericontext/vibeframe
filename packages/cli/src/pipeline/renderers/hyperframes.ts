@@ -1,4 +1,4 @@
-import type { RenderConfig } from "@hyperframes/producer";
+import type { RenderConfigInput } from "@hyperframes/producer";
 import type { RenderBackend, RenderOptions, RenderResult } from "./types.js";
 import { preflightChrome } from "./chrome.js";
 
@@ -29,7 +29,7 @@ export function createHyperframesBackend(): RenderBackend {
         };
       }
 
-      const config: RenderConfig = {
+      const config: RenderConfigInput = {
         fps: options.fps ?? 30,
         quality: options.quality ?? "standard",
         format: options.format ?? "mp4",

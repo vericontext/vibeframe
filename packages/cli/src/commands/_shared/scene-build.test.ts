@@ -240,10 +240,14 @@ function repairableCompositionHtml(id: string, duration: number): string {
   return validCompositionHtml(id, duration).replace('class="clip" ', "");
 }
 
+/**
+ * Root element with no `data-composition-id` - `root_missing_composition_id`,
+ * a structural lint error `applyMechanicalFixes` cannot repair.
+ */
 function nonRepairableCompositionHtml(id: string, duration: number): string {
   return `<template id="scene-${id}-template">
-  <div data-composition-id="scene-${id}" data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
-    <div class="clip" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
+  <div data-start="0" data-duration="${duration}" data-width="1920" data-height="1080">
+    <div class="clip" id="${id}-c1" data-start="0" data-duration="${duration}" data-track-index="0">${id}</div>
   </div>
 </template>`;
 }

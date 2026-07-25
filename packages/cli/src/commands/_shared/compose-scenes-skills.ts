@@ -767,13 +767,13 @@ export interface BeatLintResult {
  * findings the user would see if they ran `vibe scene lint` after
  * the beat HTML landed in a project.
  */
-export function lintBeatHtml(html: string, beatId: string): BeatLintResult {
+export async function lintBeatHtml(html: string, beatId: string): Promise<BeatLintResult> {
   const prepared: PreparedHyperframeLintInput = {
     html,
     entryFile: `compositions/scene-${beatId}.html`,
     source: "projectDir",
   };
-  const raw = runHyperframeLint(prepared);
+  const raw = await runHyperframeLint(prepared);
   const findings = withVibeframeSubCompFindings(
     filterSubCompFalsePositives(raw.findings as LintFinding[], true),
     html,
@@ -834,7 +834,7 @@ export async function composeBeatWithRetry(
     if (!isRetryableFirstAttemptError(err)) throw err;
     const feedback = formatComposeAttemptFeedback(err);
     const second = await composeBeatHtml({ ...ctx, retryFeedback: feedback }, overrides);
-    const lint2 = lintBeatHtml(second.html, ctx.beat.id);
+    const lint2 = await lintBeatHtml(second.html, ctx.beat.id);
     if (lint2.errorCount === 0) {
       return { ...second, lintAttempts: 2, lint: lint2 };
     }
@@ -843,7 +843,7 @@ export async function composeBeatWithRetry(
       `Beat "${ctx.beat.id}" failed lint after retry. Final findings:\n${formatLintFeedback(lint2.findings)}`
     );
   }
-  const lint1 = lintBeatHtml(first.html, ctx.beat.id);
+  const lint1 = await lintBeatHtml(first.html, ctx.beat.id);
   if (lint1.errorCount === 0) {
     return { ...first, lintAttempts: 1, lint: lint1 };
   }
@@ -851,7 +851,7 @@ export async function composeBeatWithRetry(
   // Attempt 2 — feed lint findings back into the prompt.
   const feedback = formatLintFeedback(lint1.findings);
   const second = await composeBeatHtml({ ...ctx, retryFeedback: feedback }, overrides);
-  const lint2 = lintBeatHtml(second.html, ctx.beat.id);
+  const lint2 = await lintBeatHtml(second.html, ctx.beat.id);
   if (lint2.errorCount === 0) {
     return { ...second, lintAttempts: 2, lint: lint2 };
   }

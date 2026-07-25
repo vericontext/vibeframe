@@ -28,15 +28,22 @@ export function generateCompositionHtml(state: TimelineState): string {
 `
     : "";
 
+  // The clips live inside a root `[data-composition-id]` carrying `data-duration`.
+  // The producer's browser probe reads that attribute to learn the composition
+  // length; without it the render aborts with "Composition has zero duration"
+  // because this runtime drives seeks itself and registers no GSAP timeline.
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <style>
   html, body { margin: 0; width: ${width}px; height: ${height}px; overflow: hidden; background: #000; }
+  #root { position: relative; width: ${width}px; height: ${height}px; }
   .clip { position: absolute; inset: 0; display: none; }
 </style>
 ${lottieRuntime}</head><body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="${duration}" data-width="${width}" data-height="${height}">
   ${clipMarkup}
+</div>
 <script>
 ${script}
 </script>
