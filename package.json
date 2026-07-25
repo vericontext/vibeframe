@@ -1,6 +1,6 @@
 {
   "name": "vibeframe",
-  "version": "0.113.28",
+  "version": "0.113.29",
   "description": "Frontier AI video generation for coding agents - Seedance, Runway, Veo, and Kling on your own keys, behind a hard cost cap. CLI + MCP.",
   "private": true,
   "license": "MIT",

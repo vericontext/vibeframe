@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.29] - 2026-07-25
+
+### Documentation
+
+- carry the generation positioning through the site body and installer (#285)
+- converge every self-description on the generation-layer identity (#283)
+
+### Fixed
+
+- correct the Kokoro download size and cut duplicated README sections (#287)
+- make runtime strings and generated templates match the shipped product (#284)
+
+### Maintenance
+
+- replace em dashes with plain dashes in remaining docs (#286)
+
 ## [0.113.28] - 2026-07-25
 
 ### Documentation
