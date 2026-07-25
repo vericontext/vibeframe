@@ -35,7 +35,7 @@ export interface MotionCommandOptions {
   render?: boolean;
   /** Base video to composite the motion graphic onto */
   video?: string;
-  /** Image to analyze with Gemini — color/mood/composition fed into Claude prompt */
+  /** Image to analyze with Gemini - color/mood/composition fed into Claude prompt */
   image?: string;
   /** Analyze base video before generating motion: auto | off | required */
   understand?: "auto" | "off" | "required";
@@ -407,7 +407,7 @@ export function registerMotionCommand(aiCommand: Command): void {
     .option("--style <style>", "Style preset: minimal, corporate, playful, cinematic")
     .option("--render", "Render the generated code with Remotion (output .webm)")
     .option("--video <path>", "Base video to composite the motion graphic onto")
-    .option("--image <path>", "Image to analyze with Gemini — color/mood fed into Claude prompt")
+    .option("--image <path>", "Image to analyze with Gemini - color/mood fed into Claude prompt")
     .option(
       "--understand <mode>",
       "Analyze --video with Gemini before generating motion: auto, off, required",

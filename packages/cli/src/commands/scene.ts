@@ -117,7 +117,7 @@ Examples:
 
 For the project flow (init / build / render), use the top-level commands.
 The \`scene init\`, \`scene build\`, and \`scene render\` legacy aliases
-are still callable but hidden from this help — they will be removed in v1.0.
+are still callable but hidden from this help - they will be removed in v1.0.
 Run 'vibe schema scene.<command>' for structured parameter info.`
   );
 
@@ -193,7 +193,7 @@ sceneCommand
   });
 
 // ---------------------------------------------------------------------------
-// `vibe scene compose-prompts` — Phase H2 agentic primitive
+// `vibe scene compose-prompts` - agentic compose primitive
 // ---------------------------------------------------------------------------
 // Emit the prompt + skill-bundle reference plan for the host agent to
 // author per-beat HTML files itself. No LLM call from the CLI. Pairs
@@ -203,7 +203,7 @@ sceneCommand
 sceneCommand
   .command("compose-prompts")
   .description(
-    "Emit the per-beat compose plan for the host agent to author HTML itself (Phase H2 — no LLM call)"
+    "Emit the per-beat compose plan for the host agent to author HTML itself (no LLM call)"
   )
   .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
   .option("--beat <id>", "Restrict the plan to a single beat by id (e.g. 'hook', '1')")
@@ -455,12 +455,12 @@ sceneCommand
   )
   .option(
     "--narration-file <path>",
-    "Existing narration audio file (.wav/.mp3). Skips TTS — useful with hyperframes tts, Mac say, or other external tools."
+    "Existing narration audio file (.wav/.mp3). Skips TTS - useful with hyperframes tts, Mac say, or other external tools."
   )
   .option("-d, --duration <sec>", "Explicit scene duration in seconds (overrides narration audio)")
   .option(
     "--visuals <prompt>",
-    "Image prompt — generates assets/scene-<id>.png via the configured image provider"
+    "Image prompt - generates assets/scene-<id>.png via the configured image provider"
   )
   .option("--headline <text>", "Visible headline (defaults to the humanised scene name)")
   .option("--kicker <text>", "Small label above the headline (explainer / product-shot)")
@@ -473,7 +473,7 @@ sceneCommand
   .option("--image-provider <name>", "Image provider: gemini, openai", "gemini")
   .option(
     "--tts <provider>",
-    "TTS provider: auto, elevenlabs, openai, kokoro (default auto — ElevenLabs key > OpenAI key > Kokoro local)",
+    "TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)",
     "auto"
   )
   .option("--voice <id>", "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)")

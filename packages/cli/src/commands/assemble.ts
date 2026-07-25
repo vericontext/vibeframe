@@ -24,7 +24,7 @@ one FFmpeg pass (-c:v copy, no re-encode). Pair it with \`vibe render --silent\`
   $ vibe render my-video --silent -o draft.mp4
   $ vibe assemble my-video --video draft.mp4
 
-Plain \`vibe render\` already renders + assembles in one shot — use this only when
+Plain \`vibe render\` already renders + assembles in one shot - use this only when
 you want the two steps separated (e.g. swap the audio bed without re-rendering).`)
   .action(async (projectDirArg: string, options) => {
     const startedAt = Date.now();

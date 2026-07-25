@@ -58,7 +58,7 @@ export const buildCommand = new Command("build")
     "--skip-transcript",
     "Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)"
   )
-  .option("--skip-render", "Compose only — don't render to MP4")
+  .option("--skip-render", "Compose only - don't render to MP4")
   .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
   .option("--voice <id>", "Voice id")
   .option("--image-provider <name>", `Image provider: ${VALID_IMAGE_PROVIDERS.join("|")}`)

@@ -369,7 +369,7 @@ export const agentCommand = new Command("agent")
   .option("-v, --verbose", "Show verbose output including tool calls")
   .option("--max-turns <n>", "Maximum turns per request", "10")
   .option("-i, --input <query>", "Run a single query and exit (non-interactive)")
-  .option("-c, --confirm", "Confirm before every tool — broadens the default cost gate (paid only) to all calls")
+  .option("-c, --confirm", "Confirm before every tool - broadens the default cost gate (paid only) to all calls")
   .option("--no-confirm", "Disable all confirm prompts including the high/very-high cost gate (CI / automation)")
   .option("--budget-usd <usd>", "Reject tool calls past this cumulative USD ceiling using conservative tier estimates", parseFloat)
   .action(async (options) => {

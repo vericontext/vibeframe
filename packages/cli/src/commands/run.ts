@@ -1,5 +1,5 @@
 /**
- * `vibe run` command — Execute declarative YAML video pipelines.
+ * `vibe run` command - Execute declarative YAML video pipelines.
  *
  * Video as Code: define reproducible, shareable video workflows in YAML.
  * Each step maps to an existing CLI command's execute function.
@@ -42,10 +42,10 @@ Examples:
 
 Pipeline YAML format:
   name: my-video
-  budget:              # optional — executor aborts when exceeded
+  budget:              # optional - executor aborts when exceeded
     costUsd: 5.00
     maxToolErrors: 3
-  effort: xhigh        # optional — Opus 4.7 Task Budgets
+  effort: xhigh        # optional - Opus 4.7 Task Budgets
   steps:
     - id: image
       action: generate-image
@@ -125,7 +125,7 @@ Run 'vibe schema run' for structured parameter info.
           // Sum per-step estimates for the human-readable rollup. The
           // strings come back as `≤$X.XX` from the executor; parse the
           // numeric part to total. Steps with `UNKNOWN ACTION` or no
-          // estimate contribute 0 — the rollup undercounts when actions
+          // estimate contribute 0 - the rollup undercounts when actions
           // lack metadata, which is the safe direction.
           let totalMax = 0;
           for (let i = 0; i < result.steps.length; i++) {
@@ -145,7 +145,7 @@ Run 'vibe schema run' for structured parameter info.
           if (result.budget) {
             // Budget came from manifest or --budget-usd; show ceiling + status.
             if (result.budget.abortedBy) {
-              console.log(chalk.yellow(`  ⚠ Budget ceiling exceeded (${result.budget.abortedBy}) — execution will abort.`));
+              console.log(chalk.yellow(`  ⚠ Budget ceiling exceeded (${result.budget.abortedBy}) - execution will abort.`));
             }
           } else if (totalMax > 0) {
             console.log(chalk.dim(`  Tip: cap with --budget-usd ${Math.ceil(totalMax)} to abort if cost exceeds the estimate.`));
