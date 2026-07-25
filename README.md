@@ -23,21 +23,25 @@ vibe build film --dry-run --max-cost 3 --json
 
 ```json
 {
-  "error": {
-    "code": "COST_CAP_EXCEEDED",
-    "message": "Estimated cost $10.93 exceeds --max-cost $3.00.",
-    "suggestion": "Raise --max-cost or reduce the stage/provider scope.",
-    "retryWith": [
-      "vibe build . --stage all --skip-backdrop --json",
-      "vibe build . --stage all --max-cost 10.93 --json"
-    ],
-    "recoverable": true
-  }
+  "success": false,
+  "error": "Estimated cost $10.93 exceeds --max-cost $3.00.",
+  "code": "COST_CAP_EXCEEDED",
+  "exitCode": 1,
+  "suggestion": "Raise --max-cost or reduce the stage/provider scope.",
+  "retryWith": [
+    "vibe build . --stage all --skip-backdrop --json",
+    "vibe build . --stage all --max-cost 10.93 --json"
+  ],
+  "recoverable": true,
+  "retryable": false,
+  "data": { "plan": { "estimatedCostUsd": 10.93, "...": "the full priced plan" } }
 }
 ```
 
-It exits non-zero, so an agent loop stops instead of guessing.
-`retryWith` gives it the two cheaper ways forward it can take without asking you.
+The envelope goes to stderr and the command exits 1, so an agent loop stops
+instead of guessing. `retryWith` gives it the two cheaper ways forward it can
+take without asking you, and `data.plan` carries the priced plan the refusal
+was based on, so it never has to re-run just to learn the estimate.
 The same dry run also names the keys each stage would need, so you find out what a video costs before you own an account:
 
 ```text

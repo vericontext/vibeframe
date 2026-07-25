@@ -108,23 +108,28 @@ export default function LandingPage() {
                 <code className="text-foreground">
                   vibe build film --dry-run --max-cost 3 --json{"\n"}
                 </code>
-                <code className="text-muted-foreground">{'{ "error": {\n'}</code>
-                <code className="text-red-400">{'    "code": "COST_CAP_EXCEEDED",\n'}</code>
+                <code className="text-muted-foreground">{"{\n"}</code>
+                <code className="text-muted-foreground">{'  "success": false,\n'}</code>
                 <code className="text-red-400">
-                  {'    "message": "Estimated cost $10.93 exceeds --max-cost $3.00.",\n'}
+                  {'  "error": "Estimated cost $10.93 exceeds --max-cost $3.00.",\n'}
                 </code>
-                <code className="text-muted-foreground">{'    "retryWith": [\n'}</code>
+                <code className="text-red-400">{'  "code": "COST_CAP_EXCEEDED",\n'}</code>
+                <code className="text-muted-foreground">{'  "exitCode": 1,\n'}</code>
+                <code className="text-muted-foreground">{'  "retryWith": [\n'}</code>
                 <code className="text-muted-foreground">
-                  {'      "vibe build . --stage all --skip-backdrop --json",\n'}
+                  {'    "vibe build . --stage all --skip-backdrop --json",\n'}
                 </code>
                 <code className="text-muted-foreground">
-                  {'      "vibe build . --stage all --max-cost 10.93 --json"\n'}
+                  {'    "vibe build . --stage all --max-cost 10.93 --json"\n'}
                 </code>
-                <code className="text-muted-foreground">{"    ],\n"}</code>
-                <code className="text-muted-foreground">{'    "recoverable": true\n'}</code>
-                <code className="text-muted-foreground">{"} }\n"}</code>
+                <code className="text-muted-foreground">{"  ],\n"}</code>
+                <code className="text-muted-foreground">{'  "recoverable": true,\n'}</code>
+                <code className="text-muted-foreground">
+                  {'  "data": { "plan": { "estimatedCostUsd": 10.93 } }\n'}
+                </code>
+                <code className="text-muted-foreground">{"}\n"}</code>
                 <code className="text-green-400">
-                  {"# exit 1 - the agent stops instead of guessing"}
+                  {"# stderr, exit 1 - the agent stops instead of guessing"}
                 </code>
               </pre>
             </div>

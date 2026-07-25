@@ -125,13 +125,17 @@ vibe guide <topic> --json              # Step-by-step guides (motion | scene | p
 }
 ```
 
-| Code            | Exit | Meaning             | Recovery                   |
-| --------------- | ---- | ------------------- | -------------------------- |
-| `USAGE_ERROR`   | 2    | bad arg             | check `vibe schema <cmd>`  |
-| `NOT_FOUND`     | 3    | file missing        | verify path                |
-| `AUTH_ERROR`    | 4    | key missing/invalid | `vibe doctor`              |
-| `API_ERROR`     | 5    | provider failed     | retry if `retryable: true` |
-| `NETWORK_ERROR` | 6    | connection          | retry with backoff         |
+| Code                 | Exit | Meaning                     | Recovery                          |
+| -------------------- | ---- | --------------------------- | --------------------------------- |
+| `COST_CAP_EXCEEDED`  | 1    | estimate over `--max-cost`  | follow `retryWith`; do not re-run as-is |
+| `USAGE_ERROR`        | 2    | bad arg                     | check `vibe schema <cmd>`         |
+| `NOT_FOUND`          | 3    | file missing                | verify path                       |
+| `AUTH_ERROR`         | 4    | key missing/invalid         | `vibe doctor`                     |
+| `API_ERROR`          | 5    | provider failed             | retry if `retryable: true`        |
+| `NETWORK_ERROR`      | 6    | connection                  | retry with backoff                |
+
+`COST_CAP_EXCEEDED` also carries `data.plan` - the priced plan the refusal was
+based on - so a refused call still tells you what the build would have cost.
 
 ## Authentication
 

@@ -24,8 +24,9 @@
  *   vitest run -u` and review the diff.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync } from "child_process";
+import { rmSync } from "node:fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -137,6 +138,81 @@ describe("structured error envelope (exitWithError → stderr)", () => {
       expect(env).toMatchSnapshot();
     });
   }
+});
+
+describe("--max-cost refusal (COST_CAP_EXCEEDED)", () => {
+  // This contract had no test, which is why it drifted: the gate used to emit
+  // a *success* envelope carrying a warning (exit 1, fields buried under
+  // `data`), while README and vibeframe.ai documented an error envelope. On
+  // top of that, `plan` reported COST_CAP_EXCEEDED/exit 1 under --json but
+  // USAGE_ERROR/exit 2 without it - two contracts for one condition,
+  // switched by a formatting flag.
+  //
+  // Build a throwaway project so the estimate is non-zero, then cap below it.
+  const projectDir = "/tmp/vibeframe-costcap-fixture";
+
+  function run(cmd: string): CliErrorResult {
+    return runCliExpectError(cmd);
+  }
+
+  beforeAll(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+    execSync(`${CLI} init ${projectDir} --from "a 30 second test video" --json`, {
+      encoding: "utf-8",
+      stdio: "ignore",
+      env: HERMETIC_ENV,
+      cwd: HERMETIC_CWD,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  for (const cmd of [
+    `build ${projectDir} --dry-run --max-cost 0.01 --json`,
+    `plan ${projectDir} --max-cost 0.01 --json`,
+  ]) {
+    it(`${cmd.split(" ")[0]} refuses on stderr with the standard error envelope`, () => {
+      const res = run(cmd);
+
+      // Refusal is a failure: exit 1, nothing on stdout, envelope on stderr.
+      expect(res.status).toBe(1);
+      expect(res.stdout.trim()).toBe("");
+
+      const env = JSON.parse(res.stderr) as Record<string, unknown>;
+      expect(env.success).toBe(false);
+      expect(env.code).toBe("COST_CAP_EXCEEDED");
+      expect(env.exitCode).toBe(1);
+      expect(env.recoverable).toBe(true);
+      expect(typeof env.error).toBe("string");
+      expect(env.suggestion).toBe("Raise --max-cost or reduce the stage/provider scope.");
+
+      // retryWith must offer a real way forward, including raising the cap to
+      // the actual estimate.
+      const retryWith = env.retryWith as string[];
+      expect(Array.isArray(retryWith)).toBe(true);
+      expect(retryWith.some((r) => r.includes("--max-cost"))).toBe(true);
+
+      // The priced plan rides along, so a refused caller does not have to make
+      // a second call to learn what it would have cost.
+      const data = env.data as Record<string, unknown>;
+      expect(data).toBeDefined();
+      expect(typeof data.costCapUsd).toBe("number");
+
+      // The old shape must not come back.
+      expect(env).not.toHaveProperty("warnings");
+    });
+  }
+
+  it("plan reports the same code and exit status with and without --json", () => {
+    const json = run(`plan ${projectDir} --max-cost 0.01 --json`);
+    const plain = run(`plan ${projectDir} --max-cost 0.01`);
+    expect(plain.status).toBe(json.status);
+    // Non-TTY stdout auto-enables JSON, so both emit the envelope; the point
+    // is that neither downgrades to USAGE_ERROR/exit 2.
+    expect(JSON.parse(plain.stderr).code).toBe("COST_CAP_EXCEEDED");
+  });
 });
 
 describe("structured error envelope — catch-all code", () => {
