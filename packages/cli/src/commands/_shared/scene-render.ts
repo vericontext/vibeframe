@@ -24,6 +24,7 @@ import {
   type RenderConfigInput,
 } from "@hyperframes/producer";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
+import { withStdoutOnStderr } from "../../utils/stdout-guard.js";
 import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
 import { createProjectRootSyncPlan, loadProjectRootSyncBeats } from "./root-sync.js";
 import { createSubCompDurationSyncPlans } from "./sub-comp-duration-sync.js";
@@ -339,16 +340,18 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
   const start = Date.now();
 
   try {
-    await executeRenderJob(
-      job,
-      projectDir,
-      outputPath,
-      // Producer reports progress on a 0-100 scale while this callback's
-      // contract (and the audio-mux phase below) is 0..1 — normalise here so
-      // every consumer (CLI spinner, MCP progress, job records) sees 0..1.
-      (j, msg) =>
-        opts.onProgress?.(j.progress > 1 ? j.progress / 100 : j.progress, j.currentStage ?? msg),
-      opts.signal,
+    await withStdoutOnStderr(() =>
+      executeRenderJob(
+        job,
+        projectDir,
+        outputPath,
+        // Producer reports progress on a 0-100 scale while this callback's
+        // contract (and the audio-mux phase below) is 0..1 — normalise here so
+        // every consumer (CLI spinner, MCP progress, job records) sees 0..1.
+        (j, msg) =>
+          opts.onProgress?.(j.progress > 1 ? j.progress / 100 : j.progress, j.currentStage ?? msg),
+        opts.signal,
+      )
     );
   } catch (err) {
     return {

@@ -1,6 +1,7 @@
 import type { RenderConfigInput } from "@hyperframes/producer";
 import type { RenderBackend, RenderOptions, RenderResult } from "./types.js";
 import { preflightChrome } from "./chrome.js";
+import { withStdoutOnStderr } from "../../utils/stdout-guard.js";
 
 export function createHyperframesBackend(): RenderBackend {
   return {
@@ -40,12 +41,14 @@ export function createHyperframesBackend(): RenderBackend {
       const job = createRenderJob(config);
 
       try {
-        await executeRenderJob(
-          job,
-          project.dir,
-          options.outputPath,
-          (j, msg) => { options.onProgress?.(j.progress, j.currentStage ?? msg); },
-          options.signal
+        await withStdoutOnStderr(() =>
+          executeRenderJob(
+            job,
+            project.dir,
+            options.outputPath,
+            (j, msg) => { options.onProgress?.(j.progress, j.currentStage ?? msg); },
+            options.signal
+          )
         );
         await project.cleanup();
         return {
