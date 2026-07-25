@@ -12,7 +12,7 @@
  * a terminal) gets the same step-by-step authoring guide that the
  * slash commands deliver in Claude Code. The content is vendored as
  * TS template-literal strings so the CLI binary ships with zero
- * filesystem dependencies — same approach as `hf-skill-bundle`.
+ * filesystem dependencies.
  *
  * Source of truth lives here. The Claude Code slash command files
  * under `.claude/skills/vibe-{scene,pipeline}/SKILL.md` mirror this

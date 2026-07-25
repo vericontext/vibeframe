@@ -13,7 +13,7 @@
  *     "projectDir": "<abs>",
  *     "designReference":     "DESIGN.md",
  *     "storyboardReference": "STORYBOARD.md",
- *     "skillReference":      "SKILL.md",        // present after `scene install-skill`
+ *     "skillReference":      ".agents/skills/hyperframes/SKILL.md",
  *     "compositionsDir":     "compositions",
  *     "beats": [
  *       { "id": "hook", "outputPath": "compositions/scene-hook.html",
@@ -22,15 +22,14 @@
  *     "instructions": [...]
  *   }
  *
- * Pairs with H1 (`vibe scene install-skill`) — the host agent reads
- * `SKILL.md` for framework rules, `DESIGN.md` for visual identity, then
+ * Pairs with `vibe scene install-skill` — the host agent reads the
+ * Hyperframes rules, `DESIGN.md` for visual identity, then
  * writes each `compositions/scene-<id>.html`. After authoring, runs
  * `vibe build <project> --stage sync` to assemble the root composition,
  * `vibe scene lint <project> --fix` to verify, and `vibe render` for MP4.
  *
- * The internal-LLM path (`vibe scene build`, PR #176) still works — it's
- * the batch / non-agent fallback. H3 will add mode dispatch so a single
- * entry point picks between agentic and batch depending on context.
+ * This is the only model-authored compose path: the host agent writes each
+ * file. `--composer template` is the deterministic alternative.
  */
 
 import { existsSync } from "node:fs";
@@ -40,7 +39,11 @@ import { join, relative, resolve } from "node:path";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
 import { buildUserPrompt } from "./compose-beat-prompt.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
-import { BUNDLE_VERSION } from "./hf-skill-bundle/bundle.js";
+import {
+  HYPERFRAMES_SKILL_INSTALL_COMMAND,
+  hyperframesSkillAvailable,
+  resolveSkillReference,
+} from "./install-skill.js";
 import { readBeatTranscript, beatTranscriptRelPath } from "./transcribe-narration.js";
 
 export interface ComposePromptsBeat {
@@ -66,7 +69,7 @@ export interface ComposePromptsBeat {
   /**
    * Pre-built user prompt — the same shape `composeBeatHtml` would send to
    * Claude / OpenAI / Gemini. The host agent consumes this directly so the
-   * agentic and batch paths produce equivalent HTML.
+   * the host agent and the template composer produce equivalent structure.
    */
   userPrompt: string;
   /**
@@ -108,8 +111,6 @@ export interface ComposePromptsResult {
   beats: ComposePromptsBeat[];
   /** Step-by-step instructions for the host agent. */
   instructions: string[];
-  /** Hyperframes bundle version — informational; ties cache keys back to the internal-LLM path. */
-  bundleVersion: string;
   /** Non-fatal hints surfaced to the agent (e.g. missing SKILL.md). */
   warnings: string[];
   /** Set when {@link success} is false. */
@@ -136,7 +137,6 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
   const designPath = join(projectDir, "DESIGN.md");
   const compositionPath = join(projectDir, "COMPOSITION.md");
   const storyboardPath = join(projectDir, "STORYBOARD.md");
-  const skillPath = join(projectDir, "SKILL.md");
   const compositionsDir = join(projectDir, "compositions");
 
   // The optional structural contract — surfaced as a hard-gate reference only
@@ -150,11 +150,10 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     designReference: "DESIGN.md",
     compositionReference,
     storyboardReference: "STORYBOARD.md",
-    skillReference: existsSync(skillPath) ? "SKILL.md" : null,
+    skillReference: resolveSkillReference(projectDir),
     compositionsDir: "compositions",
     beats: [],
     instructions: [],
-    bundleVersion: BUNDLE_VERSION,
     warnings,
     error: msg,
   });
@@ -166,10 +165,10 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     return baseError(`STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`);
   }
 
-  if (!existsSync(skillPath)) {
+  if (!hyperframesSkillAvailable(projectDir)) {
     warnings.push(
-      "SKILL.md not installed — host agent won't have Hyperframes rules in context. " +
-      "Run `vibe scene install-skill` to install it.",
+      "Hyperframes composition rules are not installed — you will be authoring without them in context. " +
+        `Run \`vibe scene install-skill\` (or \`${HYPERFRAMES_SKILL_INSTALL_COMMAND}\`) first.`,
     );
   }
 
@@ -234,7 +233,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     })
   );
 
-  const skillRef = existsSync(skillPath) ? "SKILL.md" : null;
+  const skillRef = resolveSkillReference(projectDir);
   const instructions = buildInstructions({
     skillRef,
     compositionRef: compositionReference,
@@ -252,7 +251,6 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     compositionsDir: "compositions",
     beats: result,
     instructions,
-    bundleVersion: BUNDLE_VERSION,
     warnings,
   };
 }
@@ -267,7 +265,7 @@ function buildInstructions(args: {
   if (args.skillRef) {
     lines.push(`1. Read \`${args.skillRef}\` for the Hyperframes framework rules + house style. This is the visual-identity hard-gate.`);
   } else {
-    lines.push(`1. Run \`vibe scene install-skill\` to install \`SKILL.md\` (Hyperframes rules) into this project, then re-read it.`);
+    lines.push(`1. Run \`vibe scene install-skill\` to install the Hyperframes composition rules, then read them.`);
   }
   lines.push(`2. Read \`DESIGN.md\` for project-specific palette, typography, motion signature.`);
   if (args.compositionRef) {

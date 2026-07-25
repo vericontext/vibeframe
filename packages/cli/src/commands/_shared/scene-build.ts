@@ -368,7 +368,6 @@ export interface SceneBuildResult {
     compositionsDir: string;
     instructions: string[];
     beats: ComposePromptsBeat[];
-    bundleVersion: string;
     warnings: string[];
   };
   selectedStage?: BuildStage;
@@ -831,7 +830,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
                 compositionsDir: plan.compositionsDir,
                 instructions: plan.instructions,
                 beats: plan.beats,
-                bundleVersion: plan.bundleVersion,
                 warnings: plan.warnings,
               }
             : undefined,

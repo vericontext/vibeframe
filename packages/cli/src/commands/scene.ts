@@ -57,11 +57,8 @@ import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/sc
 import { exitWithError, generalError, usageError, outputSuccess, isJsonMode } from "./output.js";
 import { getApiKey } from "../utils/api-key.js";
 import { getAudioDuration } from "../utils/audio.js";
-import { detectedAgentHosts } from "../utils/agent-host-detect.js";
 import {
   installHyperframesSkill,
-  deriveInstallHosts,
-  type InstallSkillHost,
 } from "./_shared/install-skill.js";
 import { getComposePrompts } from "./_shared/compose-prompts.js";
 import {
@@ -125,50 +122,42 @@ Run 'vibe schema scene.<command>' for structured parameter info.`
   );
 
 // ---------------------------------------------------------------------------
-// `vibe scene install-skill` — drop the Hyperframes skill into a project
+// `vibe scene install-skill` — get the Hyperframes composition rules
 // ---------------------------------------------------------------------------
-// Phase H1 — exposed as a separate subcommand for retroactive install on
-// existing scene projects (i.e. projects scaffolded before this command
-// existed). `vibe scene init` calls the same library function eagerly.
-
-const VALID_INSTALL_SKILL_HOSTS = ["claude-code", "cursor", "auto", "all"] as const;
-type InstallSkillHostFlag = (typeof VALID_INSTALL_SKILL_HOSTS)[number];
+// Delegates to upstream's own installer rather than writing a VibeFrame copy,
+// so the rules a host agent reads are the current ones.
 
 sceneCommand
   .command("install-skill")
   .description(
-    "Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project."
+    "Install the Hyperframes composition rules into a scene project by running upstream's installer (npx skills add heygen-com/hyperframes)"
   )
   .argument("[project-dir]", "Project directory containing STORYBOARD.md / DESIGN.md", ".")
-  .option("--host <id>", `Host layout target: ${VALID_INSTALL_SKILL_HOSTS.join(" | ")}`, "auto")
-  .option("--force", "Overwrite existing skill files (default: skip-on-exist)")
-  .option("--dry-run", "Preview which files would be written without changing anything")
+  .option("--global", "Install at user level (~/.claude/skills) instead of into the project")
+  .option("--force", "Reinstall even when the skill is already available")
+  .option("--dry-run", "Print the command that would run without running it")
   .action(async (projectDirArg: string, options) => {
     const startedAt = Date.now();
-    const hostFlag = (options.host as InstallSkillHostFlag) ?? "auto";
-    if (!VALID_INSTALL_SKILL_HOSTS.includes(hostFlag)) {
-      exitWithError(
-        usageError(`Invalid --host: ${hostFlag}`, `Valid: ${VALID_INSTALL_SKILL_HOSTS.join(", ")}`)
-      );
-    }
-
     const projectDir = resolve(projectDirArg);
-    const hosts: InstallSkillHost[] = (() => {
-      if (hostFlag === "all") return ["all"];
-      if (hostFlag === "auto") {
-        return deriveInstallHosts(detectedAgentHosts().map((h) => h.id));
-      }
-      return [hostFlag];
-    })();
 
     const result = await installHyperframesSkill({
       projectDir,
-      hosts,
+      global: options.global ?? false,
       force: options.force ?? false,
       dryRun: options.dryRun ?? false,
-      // Explicit install is the opt-in "eject": omit `lean` so the editable
-      // copies are materialized in full, even when a global skill exists.
     });
+
+    if (!result.success) {
+      exitWithError({
+        success: false,
+        code: "SKILL_INSTALL_FAILED",
+        error: result.error ?? "Skill install failed.",
+        exitCode: 1,
+        retryable: true,
+        recoverable: true,
+        retryWith: result.retryWith,
+      });
+    }
 
     if (isJsonMode()) {
       outputSuccess({
@@ -177,51 +166,30 @@ sceneCommand
         dryRun: options.dryRun ?? false,
         data: {
           projectDir,
-          host: hostFlag,
-          resolvedHosts: hosts,
-          bundleVersion: result.bundleVersion,
-          files: result.files,
+          status: result.status,
+          command: result.command,
+          skillReference: result.skillPath,
         },
       });
       return;
     }
 
     console.log();
-    console.log(chalk.bold.cyan("Hyperframes skill install"));
+    console.log(chalk.bold.cyan("Hyperframes skill"));
     console.log(chalk.dim("─".repeat(60)));
-    console.log(chalk.dim(`Project:   ${projectDir}`));
-    console.log(
-      chalk.dim(
-        `Host:      ${hostFlag}${hostFlag === "auto" ? ` (resolved → ${hosts.join(", ") || "universal-only"})` : ""}`
-      )
-    );
-    console.log(chalk.dim(`Bundle:    ${result.bundleVersion}`));
+    console.log(chalk.dim(`Project:  ${projectDir}`));
+    console.log(chalk.dim(`Command:  ${result.command}`));
     console.log();
 
-    for (const f of result.files) {
-      const icon =
-        f.status === "wrote"
-          ? chalk.green("+")
-          : f.status === "skipped-exists"
-            ? chalk.dim("·")
-            : f.status === "would-write"
-              ? chalk.cyan("~")
-              : chalk.dim("·");
-      const note =
-        f.status === "skipped-exists"
-          ? chalk.dim(" (kept existing — pass --force to overwrite)")
-          : f.status === "would-write"
-            ? chalk.dim(" (would write)")
-            : f.status === "would-skip-exists"
-              ? chalk.dim(" (would skip — exists)")
-              : "";
-      console.log(`  ${icon} ${f.path}${note}`);
+    if (result.status === "already-installed") {
+      console.log(chalk.green("✓") + ` Already available${result.skillPath ? ` at ${result.skillPath}` : " globally"}.`);
+      console.log(chalk.dim("  Pass --force to reinstall."));
+    } else if (result.status === "would-install") {
+      console.log(chalk.cyan("~") + " Would run the command above.");
+    } else {
+      console.log(chalk.green("✓") + ` Installed${result.skillPath ? ` at ${result.skillPath}` : ""}.`);
     }
-
-    if (options.dryRun) {
-      console.log();
-      console.log(chalk.dim("Dry run — no files written. Re-run without --dry-run to apply."));
-    }
+    console.log();
   });
 
 // ---------------------------------------------------------------------------
@@ -281,7 +249,6 @@ sceneCommand
     console.log(
       chalk.dim(`Beats:      ${result.beats.length}${options.beat ? " (filtered)" : ""}`)
     );
-    console.log(chalk.dim(`Bundle:     ${result.bundleVersion}`));
     console.log();
 
     if (result.warnings.length > 0) {

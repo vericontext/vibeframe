@@ -35,7 +35,6 @@ demos, packaging, or contributor maintenance.
 - `dev-setup-wizard.mts` - runs setup against an isolated debug home.
 - `scaffold-command.mts` - creates a new CLI command skeleton.
 - `scaffold-provider.mts` - creates a new provider skeleton.
-- `refresh-hf-bundle.sh` - refreshes the vendored Hyperframes skill bundle.
 
 ## Demos
 

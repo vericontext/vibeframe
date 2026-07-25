@@ -17,20 +17,14 @@ VibeFrame uses as its scene rendering backend. Two distinct dependencies:
   scene projects (Chrome BeginFrame deterministic capture + FFmpeg encode).
   Documented since v0.47 as the "experimental Hyperframes backend"; the
   default backend for `vibe scene render` since v0.53.
-- **Hyperframes' agent skill ecosystem** — VibeFrame's
-  `compose-scenes-with-skills` YAML pipeline action (v0.59+) loads
-  Hyperframes' published skill content as the system prompt for
-  Claude-driven scene HTML generation. Vendored snapshot lives at
-  [`packages/cli/src/commands/_shared/hf-skill-bundle/`](packages/cli/src/commands/_shared/hf-skill-bundle/),
-  with the upstream sha + date in
-  [its NOTICE](packages/cli/src/commands/_shared/hf-skill-bundle/NOTICE).
-  When the user has installed the skill via
+- **Hyperframes' agent skill ecosystem** — the composition rules a host
+  agent reads while authoring scene HTML come from upstream, installed by
+  upstream's own tool. `vibe scene install-skill` runs
   `npx skills add heygen-com/hyperframes` (Hyperframes' documented agent
-  install path), VibeFrame uses the installed copy and the vendored
-  snapshot is the offline / CI fallback.
+  install path); VibeFrame ships no copy of that content. Earlier versions
+  vendored a snapshot of it, which is how this section used to read.
 
-The vendored skill content is byte-identical to upstream — no semantic
-edits. We mirror Hyperframes' own treatment of prior art (see their
+We mirror Hyperframes' own treatment of prior art (see their
 [CREDITS.md](https://github.com/heygen-com/hyperframes/blob/main/CREDITS.md)
 "Prior art" section about Remotion).
 

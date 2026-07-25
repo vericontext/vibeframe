@@ -1,7 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+// A developer machine often has the Hyperframes skill installed globally,
+// which would suppress the "rules missing" warning. Pin the probe so the
+// suite asserts project state, not the machine it runs on.
+vi.mock("./install-skill.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./install-skill.js")>();
+  return {
+    ...actual,
+    // Real project detection, global install pinned off.
+    hyperframesSkillAvailable: (dir: string) => actual.resolveSkillReference(dir) !== null,
+  };
+});
 
 import { getComposePrompts } from "./compose-prompts.js";
 
@@ -187,12 +199,6 @@ describe("getComposePrompts", () => {
     const r = await getComposePrompts({ projectDir });
     expect(r.beats[0].duration).toBe(3);
     expect(r.beats[0].cues).toMatchObject({ narration: "Type a YAML.", duration: 3 });
-  });
-
-  it("returns the bundle version (matches loadHyperframesSkillBundle / install-skill)", async () => {
-    seed({ withSkill: true });
-    const r = await getComposePrompts({ projectDir });
-    expect(r.bundleVersion).toMatch(/^[0-9a-f]+-\d{4}-\d{2}-\d{2}$/);
   });
 
   it("exposes transcriptPath + injects word timings when a beat transcript exists", async () => {

@@ -1459,7 +1459,7 @@ Cost tier: `free`
 
 #### `vibe scene install-skill`
 
-Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project.
+Install the Hyperframes composition rules into a scene project by running upstream's installer (npx skills add heygen-com/hyperframes)
 
 Product surface: `internal`
 Note: Build/init installs the host-agent composition skill when needed.
@@ -1469,9 +1469,9 @@ Cost tier: `free`
 **Parameters:**
 
 - `project-dir` _(string)_ — Project directory containing STORYBOARD.md / DESIGN.md
-- `host` _(string)_ _(default: `"auto"`)_ — Host layout target: claude-code | cursor | auto | all
-- `force` _(boolean)_ — Overwrite existing skill files (default: skip-on-exist)
-- `dryRun` _(boolean)_ — Preview which files would be written without changing anything
+- `global` _(boolean)_ — Install at user level (~/.claude/skills) instead of into the project
+- `force` _(boolean)_ — Reinstall even when the skill is already available
+- `dryRun` _(boolean)_ — Print the command that would run without running it
 
 #### `vibe scene lint`
 
