@@ -35,8 +35,13 @@ export interface AgentHostInfo {
   /** Signals that fired (empty array when `detected` is false). */
   signals: AgentHostSignal[];
   /**
-   * Files this host expects in a project. Used by `vibe init` to know
-   * what to scaffold; informational here.
+   * Files that indicate this host is set up in a project - a DETECTION
+   * signal, not a scaffold list. `vibe init` does not write these: it writes
+   * one `AGENTS.md` (plus `CLAUDE.md` importing it) for every host, and
+   * `--mcp` / `vibe host setup` adds MCP config for the three hosts that
+   * support it. Reading this list as "what init creates" produced a
+   * landing-page grid that promised `GEMINI.md`, `.aider.conf.yml`,
+   * `.opencode/` and `.cursor/rules`, none of which anything writes.
    */
   projectFiles: string[];
 }
