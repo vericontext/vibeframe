@@ -5,7 +5,7 @@
 # Default (CLI-only, fastest):
 #   curl -fsSL https://vibeframe.ai/install.sh | bash
 #
-# Full installation (includes web UI):
+# Full installation (builds every workspace package, including the website):
 #   curl -fsSL https://vibeframe.ai/install.sh | bash -s -- --full
 #
 
@@ -68,9 +68,9 @@ banner() {
   echo -e "${MAGENTA} ╚████╔╝ ██║██████╔╝███████╗${NC}  ${MAGENTA}██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗${NC}"
   echo -e "${MAGENTA}  ╚═══╝  ╚═╝╚═════╝ ╚══════╝${NC}  ${MAGENTA}╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝${NC}"
   echo ""
-  echo -e "${DIM}AI-First Video Editor${NC}"
+  echo -e "${DIM}Frontier video generation for your coding agent. Your keys, your ceiling.${NC}"
   if [ "$FULL_INSTALL" = true ]; then
-    echo -e "${DIM}Full installation (CLI + Web UI)${NC}"
+    echo -e "${DIM}Full installation (all workspace packages)${NC}"
   else
     echo -e "${DIM}CLI installation${NC}"
   fi
@@ -292,24 +292,13 @@ echo ""
 echo -e "${DIM}─────────────────────────────────────────${NC}"
 echo ""
 
-if [ "$FULL_INSTALL" = true ]; then
-  echo "Quick start:"
-  echo ""
-  echo -e "  ${CYAN}vibe setup${NC}                # Configure API keys"
-  echo -e "  ${CYAN}vibe doctor${NC}               # Check what's ready"
-  echo -e "  ${CYAN}vibe guide${NC}                # Choose the right workflow"
-  echo -e "  ${CYAN}vibe --help${NC}               # Show all commands"
-  echo -e "  ${CYAN}pnpm dev${NC}                  # Start web UI (http://localhost:3000)"
-else
-  echo "Quick start:"
-  echo ""
-  echo -e "  ${CYAN}vibe setup${NC}                # Configure API keys"
-  echo -e "  ${CYAN}vibe doctor${NC}               # Check what's ready"
-  echo -e "  ${CYAN}vibe guide${NC}                # Choose the right workflow"
-  echo -e "  ${CYAN}vibe --help${NC}               # Show all commands"
-  echo ""
-  echo -e "${DIM}Want web UI? Reinstall with: curl ... | bash -s -- --full${NC}"
-fi
+echo "Quick start:"
+echo ""
+echo -e "  ${CYAN}vibe init demo --from \"30s video\"${NC}   # Scaffold a project (no key needed)"
+echo -e "  ${CYAN}vibe build demo --dry-run${NC}           # Price it before any spend"
+echo -e "  ${CYAN}vibe setup${NC}                          # Add provider keys when a step generates"
+echo -e "  ${CYAN}vibe doctor${NC}                         # Check what's ready"
+echo -e "  ${CYAN}vibe --help${NC}                         # Show all commands"
 echo ""
 
 # Ask to run setup (unless skipped)

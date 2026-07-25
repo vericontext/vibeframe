@@ -189,7 +189,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-muted-foreground animate-fade-in-up delay-300">
-            Desktop extension: open the downloaded .mcpb, pick a workspace folder, done — no
+            Desktop extension: open the downloaded .mcpb, pick a workspace folder, done - no
             terminal needed.
           </p>
         </div>
@@ -220,8 +220,8 @@ export default function LandingPage() {
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
               <div className="font-mono font-semibold text-foreground">BUILD</div>
               <p className="mt-2 text-muted-foreground">
-                Primary path: rough brief, optional media, setup, init, storyboard/design, generated
-                assets, composition, render.
+                Primary path: rough brief, optional media, dry-run price, generated assets on your
+                keys, Hyperframes composition, render.
               </p>
             </div>
             <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
@@ -322,7 +322,7 @@ export default function LandingPage() {
           </p>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
-            Primary path: <span className="text-foreground font-medium">BUILD</span> from storyboard
+            Primary path: <span className="text-foreground font-medium">price, then generate</span>{" "}
             via{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
               vibe build
@@ -404,7 +404,7 @@ export default function LandingPage() {
             {[
               ["Storyboard", "list, get, set, move, validate, revise"],
               ["Plan", "costs, missing cues, provider needs"],
-              ["Build", "assets, scene composition, timing sync"],
+              ["Build", "generated assets under --max-cost, composition, timing sync"],
               ["Review", "inspect project, inspect render, reports"],
               ["Repair", "deterministic scene fixes after review"],
               ["Primitives", "generate, edit, remix, audio, YAML"],
@@ -421,7 +421,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ② Use with your AI agent — host-agnostic showcase + Tier 2 callout */}
+      {/* ② Use with your AI agent - host-agnostic showcase + Tier 2 callout */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
@@ -457,7 +457,7 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Six-host grid — equal cards, same example, different scaffold target */}
+          {/* Six-host grid - equal cards, same example, different scaffold target */}
           <div className="text-center mb-6">
             <p className="text-sm text-muted-foreground">
               <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
@@ -516,7 +516,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ②.5 — Step-by-step workflow guides */}
+      {/* ②.5 - Step-by-step workflow guides */}
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-10">
@@ -546,7 +546,14 @@ export default function LandingPage() {
                 vibe guide scene
               </div>
               <p className="text-sm text-muted-foreground">
-                Scene authoring — STORYBOARD.md → composed video via{" "}
+                Scene authoring - STORYBOARD.md → video composed on{" "}
+                <a
+                  href="https://github.com/heygen-com/hyperframes"
+                  className="text-primary hover:underline"
+                >
+                  Hyperframes
+                </a>{" "}
+                rules via{" "}
                 <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
                   vibe build
                 </code>{" "}
@@ -612,7 +619,7 @@ export default function LandingPage() {
               <div className="bg-background/50 backdrop-blur-sm rounded-xl p-4 mb-6 border border-border/50">
                 <p className="text-sm text-muted-foreground mb-2">In Claude Desktop:</p>
                 <p className="text-foreground italic">
-                  "Load the scene guide, build the storyboard project in demo-video, then render the
+                  "Dry-run the build in demo-video, then generate under a $10 cap and render the
                   final MP4"
                 </p>
               </div>
@@ -681,13 +688,13 @@ export default function LandingPage() {
               <FeatureItem
                 icon={<Wand2 className="w-5 h-5" />}
                 title="Natural Language"
-                description="'Build this storyboard into a launch video' — when no host agent is available"
+                description="'Build this storyboard into a launch video' - when no host agent is available"
                 gradient="from-blue-500 to-cyan-500"
               />
               <FeatureItem
                 icon={<Zap className="w-5 h-5" />}
                 title={`${process.env.NEXT_PUBLIC_LLM_PROVIDERS} LLM Providers`}
-                description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama, Evolink — swap with -p flag"
+                description="OpenAI, Claude, Gemini, xAI Grok, OpenRouter, Ollama, Evolink - swap with -p flag"
                 gradient="from-yellow-500 to-orange-500"
               />
               <FeatureItem
@@ -719,7 +726,7 @@ export default function LandingPage() {
               Declarative YAML pipelines when you need them
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              The storyboard project loop is the default. Use YAML when you need a reproducible
+              The project loop is the default. Use YAML when you need a reproducible
               multi-step workflow with budget guards, checkpoints, and step references.
             </p>
           </div>
@@ -753,7 +760,7 @@ export default function LandingPage() {
               <code className="text-purple-400">{"    action: "}</code>
               <code className="text-blue-400">{"generate-tts\n"}</code>
               <code className="text-purple-400">{"    text: "}</code>
-              <code className="text-green-400">{'"Start with a storyboard."\n'}</code>
+              <code className="text-green-400">{'"Generated on your own keys."\n'}</code>
               <code className="text-purple-400">{"    output: "}</code>
               <code className="text-yellow-400">{"assets/narration.mp3"}</code>
             </pre>
@@ -776,18 +783,26 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">Primary path and escape hatches</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Start with the storyboard build. Drop into primitives only when an agent needs one
-              asset, one edit, or one reproducible pipeline.
+              Start with the priced build: dry-run first, generate under the cap. Drop into
+              primitives only when an agent needs one asset, one edit, or one reproducible
+              pipeline.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <PipelineCard
               icon={<Film className="w-6 h-6" />}
-              title="Storyboard Build"
-              command="vibe build my-video --json"
-              description="STORYBOARD.md + DESIGN.md to assets, scenes, reports"
+              title="Build Under a Cap"
+              command="vibe build my-video --max-cost 12 --json"
+              description="STORYBOARD.md + DESIGN.md to generated assets, scenes, reports - refuses over the ceiling"
               gradient="from-blue-500 to-purple-500"
+            />
+            <PipelineCard
+              icon={<Sparkles className="w-6 h-6" />}
+              title="Frontier Generation"
+              command="vibe generate video"
+              description="One clip on Seedance, Runway, Veo, or Kling - your keys, dry-run priced"
+              gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard
               icon={<Layers className="w-6 h-6" />}
@@ -797,11 +812,11 @@ export default function LandingPage() {
               gradient="from-green-500 to-teal-500"
             />
             <PipelineCard
-              icon={<Sparkles className="w-6 h-6" />}
-              title="Auto Highlights"
+              icon={<Zap className="w-6 h-6" />}
+              title="Auto Highlights + Shorts"
               command="vibe remix highlights"
-              description="Long video → AI analysis → best moments"
-              gradient="from-purple-500 to-pink-500"
+              description="Long video → best moments, or vertical shorts with captions"
+              gradient="from-orange-500 to-yellow-500"
             />
             <PipelineCard
               icon={<MessageSquare className="w-6 h-6" />}
@@ -809,13 +824,6 @@ export default function LandingPage() {
               command="vibe remix animated-caption"
               description="Word-by-word TikTok/Reels-style captions"
               gradient="from-pink-500 to-red-500"
-            />
-            <PipelineCard
-              icon={<Zap className="w-6 h-6" />}
-              title="Auto Shorts"
-              command="vibe remix auto-shorts"
-              description="Long video → vertical shorts with captions"
-              gradient="from-orange-500 to-yellow-500"
             />
             <PipelineCard
               icon={<Wand2 className="w-6 h-6" />}
@@ -832,11 +840,11 @@ export default function LandingPage() {
       <section className="py-20 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Open source storyboard workflows for agents.
+            Open source frontier video generation for coding agents.
           </h2>
           <p className="text-muted-foreground text-lg mb-8">
-            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · project files, JSON reports,
-            terminal commands, YAML, and MCP workflows.
+            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · your keys, your bill, your ceiling
+            - CLI, MCP tools, JSON reports, and recovery contracts.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
