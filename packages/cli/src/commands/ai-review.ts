@@ -11,18 +11,13 @@
  * @dependencies Gemini (Google), FFmpeg (auto-fix filters)
  */
 
-import { Command } from "commander";
 import { readFile, rename } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-import chalk from "chalk";
-import ora from "ora";
-import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, resolveGeminiTextModel } from "@vibeframe/ai-providers";
-import { getApiKey, loadEnv } from "../utils/api-key.js";
+import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
+import { getApiKey } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
-import { exitWithError, outputSuccess, apiError, generalError } from "./output.js";
-import { validateOutputPath } from "./validate.js";
 
 /** Options for {@link executeReview}. */
 export interface ReviewOptions {
@@ -248,122 +243,4 @@ Score each category 1-10. Prefer beatIssues when you can map a problem to a stor
   }
 
   return result;
-}
-
-export function registerReviewCommand(aiCommand: Command): void {
-  aiCommand
-    .command("review", { hidden: true })
-    .description("Review video quality using Gemini AI and optionally auto-fix issues")
-    .argument("<source>", "Video file path")
-    .option("--storyboard <path>", "Storyboard JSON file for context")
-    .option("--auto-apply", "Automatically apply fixable corrections")
-    .option("--verify", "Run verification pass after applying fixes")
-    .option("-m, --model <model>", `Gemini model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
-    .option("-o, --output <path>", "Output video file path (for auto-apply)")
-    .option("--dry-run", "Preview parameters without executing")
-    .action(async (videoPath: string, options) => {
-      const startedAt = Date.now();
-      try {
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
-
-        if (options.dryRun) {
-          outputSuccess({
-            command: "inspect review",
-            startedAt,
-            dryRun: true,
-            data: {
-              params: {
-                videoPath,
-                storyboard: options.storyboard,
-                autoApply: options.autoApply ?? false,
-                verify: options.verify ?? false,
-                model: options.model,
-                output: options.output,
-              },
-            },
-          });
-          return;
-        }
-
-        loadEnv();
-
-        const spinner = ora("Reviewing video with Gemini...").start();
-
-        const result = await executeReview({
-          videoPath,
-          storyboardPath: options.storyboard,
-          autoApply: options.autoApply,
-          verify: options.verify,
-          model: options.model,
-          outputPath: options.output,
-        });
-
-        if (!result.success) {
-          spinner.fail(result.error || "Video review failed");
-          exitWithError(apiError(result.error || "Video review failed", true));
-        }
-
-        spinner.succeed(chalk.green("Video review complete"));
-        console.log();
-
-        const fb = result.feedback!;
-        console.log(chalk.bold.cyan("Video Review"));
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(
-          `Overall Score: ${chalk.bold(fb.overallScore >= 7 ? chalk.green(String(fb.overallScore)) : fb.overallScore >= 5 ? chalk.yellow(String(fb.overallScore)) : chalk.red(String(fb.overallScore)))}/10`
-        );
-        console.log();
-
-        const categories = [
-          ["Pacing", fb.categories.pacing],
-          ["Color", fb.categories.color],
-          ["Text Readability", fb.categories.textReadability],
-          ["Audio-Visual Sync", fb.categories.audioVisualSync],
-          ["Composition", fb.categories.composition],
-        ] as const;
-
-        for (const [name, cat] of categories) {
-          const scoreColor =
-            cat.score >= 7 ? chalk.green : cat.score >= 5 ? chalk.yellow : chalk.red;
-          const fixable = cat.fixable ? chalk.dim(" [fixable]") : "";
-          console.log(
-            `  ${name.padEnd(20)} ${scoreColor(String(cat.score).padStart(2))}/10${fixable}`
-          );
-          if (cat.issues.length > 0) {
-            for (const issue of cat.issues) {
-              console.log(chalk.dim(`    - ${issue}`));
-            }
-          }
-        }
-
-        if (result.appliedFixes && result.appliedFixes.length > 0) {
-          console.log();
-          console.log(chalk.bold.green("Applied Fixes:"));
-          for (const fix of result.appliedFixes) {
-            console.log(chalk.green(`  + ${fix}`));
-          }
-          if (result.outputPath) {
-            console.log(chalk.green(`  Output: ${result.outputPath}`));
-          }
-        }
-
-        if (result.verificationScore !== undefined) {
-          console.log();
-          console.log(chalk.bold(`Verification Score: ${result.verificationScore}/10`));
-        }
-
-        if (fb.recommendations.length > 0) {
-          console.log();
-          console.log(chalk.bold("Recommendations:"));
-          for (const rec of fb.recommendations) {
-            console.log(chalk.dim(`  * ${rec}`));
-          }
-        }
-        console.log();
-      } catch (error) {
-        exitWithError(generalError(error instanceof Error ? error.message : "Video review failed"));
-      }
-    });
 }

@@ -18,7 +18,7 @@ function countCliCommands() {
   } catch {
     // Fallback below covers Vercel/source-only builds where dist is absent.
   }
-  return 81;
+  return 93;
 }
 
 function countManifestTools() {
@@ -38,9 +38,9 @@ function countManifestTools() {
       mcpOnly += lines.filter((line) => line === 'surfaces: ["mcp"],').length;
     }
   } catch {
-    return { mcp: 85, agent: 101 };
+    return { mcp: 77, agent: 93 };
   }
-  if (total === 0) return { mcp: 85, agent: 101 };
+  if (total === 0) return { mcp: 77, agent: 93 };
   return {
     mcp: total - agentOnly,
     agent: total - mcpOnly,

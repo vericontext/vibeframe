@@ -122,7 +122,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
 | **Advanced** |    45 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +35 more |
-| **Legacy**   |     8 | `generate.speech` · `generate.music-status` · `generate.storyboard` · `generate.background` · `generate.video-status` · `inspect.video` · `inspect.review` · `remix.regenerate-scene`                                     |
+| **Legacy**   |     0 | -                                                                                                                                                                                                                         |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
 ## Cost tiers
@@ -133,10 +133,10 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    50 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +42 more          | FFmpeg only, no API call                                                                          |
-| **Low**        |    22 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +14 more | $0.01–$0.10 per call                                                                              |
-| **High**       |    10 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion` · +2 more                    | $1–$5 per call                                                                                    |
-| **Very High**  |     4 | `generate.video` · `edit.fill-gaps` · `generate.video-extend` · `remix.regenerate-scene`                                                                                    | $5–$50+ per call                                                                                  |
+| **Free**       |    48 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +40 more          | FFmpeg only, no API call                                                                          |
+| **Low**        |    19 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +11 more | $0.01–$0.10 per call                                                                              |
+| **High**       |     8 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                              | $1–$5 per call                                                                                    |
+| **Very High**  |     3 | `generate.video` · `edit.fill-gaps` · `generate.video-extend`                                                                                                               | $5–$50+ per call                                                                                  |
 | **Not tagged** |    15 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +7 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first - the response
@@ -502,24 +502,6 @@ Cost tier: _not tagged_
 
 ### `generate`
 
-#### `vibe generate background`
-
-Generate video background using DALL-E
-
-Product surface: `legacy`
-Replacement: `vibe generate image or vibe build --stage assets`
-Note: Backdrops are generated through image generation or the project build.
-
-Cost tier: `high`
-
-**Parameters:**
-
-- `description` _(string)_ **required** - Background description
-- `apiKey` _(string)_ - OpenAI API key (or set OPENAI_API_KEY env)
-- `output` _(string)_ - Output file path (downloads image)
-- `aspect` _(string)_ _(16:9 \| 9:16 \| 1:1)_ _(default: `"16:9"`)_ - Aspect ratio: 16:9, 9:16, 1:1
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
 #### `vibe generate image`
 
 Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)
@@ -592,21 +574,6 @@ Cost tier: `low`
 - `noWait` _(boolean)_ - Don't wait for generation to complete (Replicate async mode)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
-#### `vibe generate music-status`
-
-Check music generation status
-
-Product surface: `legacy`
-Replacement: `vibe status job <job-id> --json`
-Note: Provider-task polling primitive retained for compatibility.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `task-id` _(string)_ **required** - Task ID from music generation
-- `apiKey` _(string)_ - Replicate API token (or set REPLICATE_API_TOKEN env)
-
 #### `vibe generate narration`
 
 Generate narration from text (product-facing TTS)
@@ -639,46 +606,6 @@ Cost tier: `low`
 - `output` _(string)_ _(default: `"sound-effect.mp3"`)_ - Output audio file path
 - `duration` _(number)_ - Duration in seconds (0.5-22, default: auto)
 - `promptInfluence` _(string)_ - Prompt influence (0-1, default: 0.3)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe generate speech`
-
-Generate speech from text using ElevenLabs
-
-Product surface: `legacy`
-Replacement: `vibe generate narration`
-Note: Compatibility alias for product-facing narration generation.
-
-Cost tier: `low`
-
-**Parameters:**
-
-- `text` _(string)_ - Text to convert to speech (interactive if omitted)
-- `apiKey` _(string)_ - ElevenLabs API key (or set ELEVENLABS_API_KEY env)
-- `output` _(string)_ _(default: `"output.mp3"`)_ - Output audio file path
-- `voice` _(string)_ _(default: `"21m00Tcm4TlvDq8ikWAM"`)_ - Voice ID (default: Rachel)
-- `listVoices` _(boolean)_ - List available voices
-- `fitDuration` _(number)_ - Speed up audio to fit target duration (via FFmpeg atempo)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe generate storyboard`
-
-Generate video storyboard from content using Claude
-
-Product surface: `legacy`
-Replacement: `vibe init --from <brief> or vibe storyboard revise`
-Note: Project-ready storyboard drafting belongs in init/revise.
-
-Cost tier: `high`
-
-**Parameters:**
-
-- `content` _(string)_ **required** - Content to analyze (text or file path)
-- `apiKey` _(string)_ - Anthropic API key (or set ANTHROPIC_API_KEY env)
-- `output` _(string)_ - Output JSON file path
-- `duration` _(number)_ - Target total duration in seconds
-- `file` _(boolean)_ - Treat content argument as file path
-- `creativity` _(string)_ _(default: `"low"`)_ - Creativity level: low (default, consistent) or high (varied, unexpected)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe generate thumbnail`
@@ -769,25 +696,6 @@ Cost tier: `very-high`
 - `veoModel` _(string)_ _(default: `"3.1"`)_ - Veo model: 3.0, 3.1, 3.1-fast
 - `noWait` _(boolean)_ - Start extension and return task ID without waiting
 - `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe generate video-status`
-
-Check video generation status (Grok, Runway, Kling, or Veo)
-
-Product surface: `legacy`
-Replacement: `vibe status job <job-id> --json`
-Note: Provider-task polling primitive retained for compatibility.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `task-id` _(string)_ **required** - Task ID from video generation
-- `provider` _(string)_ _(grok \| runway \| kling \| veo)_ _(default: `"grok"`)_ - Provider: grok, runway, kling, veo
-- `apiKey` _(string)_ - API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
-- `type` _(string)_ _(default: `"text2video"`)_ - Task type: text2video or image2video (Kling only)
-- `wait` _(boolean)_ - Wait for completion
-- `output` _(string)_ - Download video when complete
 
 ### `edit`
 
@@ -1146,26 +1054,6 @@ Cost tier: `low`
 
 `review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.
 
-#### `vibe inspect review`
-
-Review video quality using Gemini AI and optionally auto-fix issues
-
-Product surface: `legacy`
-Replacement: `vibe inspect render --ai`
-Note: Project render review now lives under inspect render.
-
-Cost tier: `low`
-
-**Parameters:**
-
-- `source` _(string)_ **required** - Video file path
-- `storyboard` _(string)_ - Storyboard JSON file for context
-- `autoApply` _(boolean)_ - Automatically apply fixable corrections
-- `verify` _(boolean)_ - Run verification pass after applying fixes
-- `model` _(string)_ _(default: `"flash"`)_ - Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
-- `output` _(string)_ - Output video file path (for auto-apply)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
 #### `vibe inspect suggest`
 
 Get AI edit suggestions using Gemini
@@ -1181,30 +1069,6 @@ Cost tier: `low`
 - `instruction` _(string)_ **required** - Natural language instruction
 - `apiKey` _(string)_ - Google API key (or set GOOGLE_API_KEY env)
 - `apply` _(boolean)_ - Apply the first suggestion automatically
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe inspect video`
-
-Analyze video using Gemini (summarize, Q&A, extract info)
-
-Product surface: `legacy`
-Replacement: `vibe inspect media`
-Note: Compatibility alias for media understanding.
-
-Cost tier: `low`
-
-**Parameters:**
-
-- `source` _(string)_ **required** - Video file path or YouTube URL
-- `prompt` _(string)_ **required** - Analysis prompt (e.g., 'Summarize this video')
-- `apiKey` _(string)_ - Google API key (or set GOOGLE_API_KEY env)
-- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
-- `fps` _(number)_ - Frames per second (default: 1, higher for action)
-- `start` _(number)_ - Start offset in seconds (for clipping)
-- `end` _(number)_ - End offset in seconds (for clipping)
-- `lowRes` _(boolean)_ - Use low resolution mode (fewer tokens, longer videos)
-- `verbose` _(boolean)_ - Show token usage
-- `fields` _(string)_ - Comma-separated fields to include in output (e.g., response,model)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 ### `audio`
@@ -1378,31 +1242,6 @@ Cost tier: `high`
 - `language` _(string)_ - Language code for transcription (e.g., en, ko)
 - `useGemini` _(boolean)_ - Use Gemini Video Understanding for enhanced visual+audio analysis
 - `lowRes` _(boolean)_ - Use low resolution mode for longer videos (Gemini only)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe remix regenerate-scene`
-
-Regenerate a specific scene in a script-to-video output directory
-
-Product surface: `legacy`
-Replacement: `vibe build <project> --beat <id> --force --json`
-Note: Scene regeneration belongs in the project build flow.
-
-Cost tier: `very-high`
-
-**Parameters:**
-
-- `project-dir` _(string)_ **required** - Path to the script-to-video output directory
-- `scene` _(string)_ - Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5
-- `videoOnly` _(boolean)_ - Only regenerate video
-- `narrationOnly` _(boolean)_ - Only regenerate narration
-- `imageOnly` _(boolean)_ - Only regenerate image
-- `generator` _(string)_ _(default: `"grok"`)_ - Video generator: grok | kling | runway | veo
-- `imageProvider` _(string)_ _(default: `"gemini"`)_ - Image provider: gemini | openai | grok
-- `voice` _(string)_ - ElevenLabs voice ID for narration
-- `aspectRatio` _(string)_ _(default: `"16:9"`)_ - Aspect ratio: 16:9 | 9:16 | 1:1
-- `retries` _(number)_ _(default: `2`)_ - Number of retries for video generation failures
-- `referenceScene` _(string)_ - Use another scene's image as reference for character consistency
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 ### `scene`

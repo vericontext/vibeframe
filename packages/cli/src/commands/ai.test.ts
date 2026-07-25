@@ -233,34 +233,6 @@ describe("CLI command groups", () => {
     });
   });
 
-  describe("generate music-status", () => {
-    it("shows help", () => {
-      const output = execSync(`${CLI} generate music-status --help`, {
-        cwd: process.cwd(),
-        encoding: "utf-8",
-      });
-
-      expect(output).toContain("Check music generation status");
-      expect(output).toContain("task-id");
-    });
-
-    it("requires API key or shows error", () => {
-      try {
-        const output = execSync(`${CLI} generate music-status test-task-id`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, REPLICATE_API_TOKEN: undefined },
-          timeout: 10000,
-        });
-        expect(output).toBeTruthy();
-      } catch (error: unknown) {
-        const execError = error as { stderr?: string; stdout?: string };
-        const errorOutput = execError.stderr || execError.stdout || "";
-        expect(errorOutput.toLowerCase()).toMatch(/api|key|token|replicate|task|invalid/i);
-      }
-    });
-  });
-
   describe("audio dub", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} audio dub --help`, {

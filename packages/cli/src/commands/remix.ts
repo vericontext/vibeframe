@@ -22,7 +22,6 @@ import { resolve, basename } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { registerScriptPipelineCommands } from "./ai-script-pipeline-cli.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
 import {
@@ -65,18 +64,10 @@ Cost tiers:
   auto-shorts:         $$  Medium (~$0.10-$1)
   animated-caption:    $   Low (~$0.01)
 
-Legacy:
-  remix regenerate-scene  Use 'vibe build <project> --beat <id> --force --json'
-                          for storyboard project regeneration.
-
 Use '--dry-run' to preview parameters before execution.
 Run 'vibe schema remix.<command>' for structured parameter info.
 `
   );
-
-// ── pipeline regenerate-scene ──────────────────────────────────────────
-
-registerScriptPipelineCommands(remixCommand);
 
 // ── pipeline highlights & auto-shorts ──────────────────────────────────
 
@@ -231,7 +222,6 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
 
 // Cost-tier annotations for schema/help output.
 applyTiers(remixCommand, {
-  "regenerate-scene": "very-high",
   highlights: "high",
   "auto-shorts": "high",
   "animated-caption": "low",

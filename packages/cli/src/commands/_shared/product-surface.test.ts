@@ -15,18 +15,32 @@ describe("product surface taxonomy", () => {
   });
 
   it("marks legacy aliases with replacements", () => {
-    expect(productSurfaceForCommandPath("generate.speech")).toMatchObject({
+    expect(productSurfaceForCommandPath("edit.animated-caption")).toMatchObject({
       surface: "legacy",
-      replacement: "vibe generate narration",
+      replacement: "vibe remix animated-caption",
     });
-    expect(productSurfaceForCommandPath("inspect.video")).toMatchObject({
+    expect(productSurfaceForCommandPath("project.create")).toMatchObject({
       surface: "legacy",
-      replacement: "vibe inspect media",
+      replacement: "vibe timeline create",
     });
-    expect(productSurfaceForCommandPath("remix.regenerate-scene")).toMatchObject({
-      surface: "legacy",
-      replacement: "vibe build <project> --beat <id> --force --json",
-    });
+  });
+
+  it("no longer carries the eight commands removed in 0.114", () => {
+    // Each had a documented replacement and was already hidden from help.
+    // The map must not keep describing them, or `schema --list` would
+    // advertise a surface the CLI no longer implements.
+    for (const path of [
+      "generate.speech",
+      "generate.background",
+      "generate.storyboard",
+      "generate.music-status",
+      "generate.video-status",
+      "inspect.video",
+      "inspect.review",
+      "remix.regenerate-scene",
+    ]) {
+      expect(productSurfaceForCommandPath(path).surface).not.toBe("legacy");
+    }
   });
 
   it("maps manifest tool names to command taxonomy", () => {

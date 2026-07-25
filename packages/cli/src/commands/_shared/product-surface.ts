@@ -34,34 +34,9 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   "generate.image": { surface: "public" },
   "generate.video": { surface: "public" },
   "generate.narration": { surface: "public", note: "Product-facing TTS command." },
-  "generate.speech": {
-    surface: "legacy",
-    replacement: "vibe generate narration",
-    note: "Compatibility alias for product-facing narration generation.",
-  },
   "generate.sound-effect": { surface: "public" },
   "generate.music": { surface: "public" },
   "generate.thumbnail": { surface: "public" },
-  "generate.music-status": {
-    surface: "legacy",
-    replacement: "vibe status job <job-id> --json",
-    note: "Provider-task polling primitive retained for compatibility.",
-  },
-  "generate.video-status": {
-    surface: "legacy",
-    replacement: "vibe status job <job-id> --json",
-    note: "Provider-task polling primitive retained for compatibility.",
-  },
-  "generate.storyboard": {
-    surface: "legacy",
-    replacement: "vibe init --from <brief> or vibe storyboard revise",
-    note: "Project-ready storyboard drafting belongs in init/revise.",
-  },
-  "generate.background": {
-    surface: "legacy",
-    replacement: "vibe generate image or vibe build --stage assets",
-    note: "Backdrops are generated through image generation or the project build.",
-  },
   "generate.motion": {
     surface: "advanced",
     replacement: "vibe edit motion-overlay or vibe build --stage compose",
@@ -94,16 +69,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   "inspect.project": { surface: "public" },
   "inspect.render": { surface: "public" },
   "inspect.media": { surface: "public" },
-  "inspect.video": {
-    surface: "legacy",
-    replacement: "vibe inspect media",
-    note: "Compatibility alias for media understanding.",
-  },
-  "inspect.review": {
-    surface: "legacy",
-    replacement: "vibe inspect render --ai",
-    note: "Project render review now lives under inspect render.",
-  },
   "inspect.suggest": {
     surface: "advanced",
     note: "Suggestion primitive; reports should drive host-agent edits.",
@@ -122,11 +87,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   "remix.highlights": { surface: "public" },
   "remix.auto-shorts": { surface: "public" },
   "remix.animated-caption": { surface: "public" },
-  "remix.regenerate-scene": {
-    surface: "legacy",
-    replacement: "vibe build <project> --beat <id> --force --json",
-    note: "Scene regeneration belongs in the project build flow.",
-  },
 
   "storyboard.validate": { surface: "public" },
   "storyboard.revise": { surface: "public" },

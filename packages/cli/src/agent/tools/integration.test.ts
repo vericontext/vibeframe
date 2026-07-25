@@ -63,15 +63,19 @@ vi.mock("../../commands/ai-animated-caption.js", () => ({
 }));
 
 vi.mock("../../commands/ai-analyze.js", () => ({
-  executeGeminiVideo: vi.fn().mockResolvedValue({
+  executeAnalyze: vi.fn().mockResolvedValue({
     success: true,
     response: "This is a test video summary.",
     model: "gemini-3.5-flash",
     totalTokens: 1000,
   }),
-  executeAnalyze: vi.fn().mockResolvedValue({
+  // No longer behind a tool of its own after the 0.114 removals, but still
+  // the `analyze-video` action in the YAML pipeline executor.
+  executeGeminiVideo: vi.fn().mockResolvedValue({
     success: true,
-    response: "Test analysis",
+    response: "This is a test video summary.",
+    model: "gemini-3.5-flash",
+    totalTokens: 1000,
   }),
 }));
 
@@ -162,7 +166,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     it("should register the full manifest", () => {
       // Manifest is the single source of truth post-v0.67 PR2.
       const tools = registry.getAll();
-      expect(tools.length).toBe(101);
+      expect(tools.length).toBe(93);
     });
 
     it("should register all project tools (5)", () => {
@@ -227,15 +231,14 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       }
     });
 
-    it("should register all AI tools (24)", () => {
+    it("should register all AI tools (19)", () => {
       const aiTools = [
-        // Generation tools (8)
+        // Generation tools (6)
         "generate_image",
         "generate_video",
-        "generate_speech",
+        "generate_narration",
         "generate_sound_effect",
         "generate_music",
-        "generate_storyboard",
         "generate_motion",
         "generate_thumbnail",
         // Edit tools (9)
@@ -248,14 +251,11 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         "edit_fade",
         "edit_translate_srt",
         "edit_image",
-        // Analyze tools (3)
-        "inspect_review",
-        "inspect_video",
+        // Analyze tools (1)
         "inspect_media",
-        // Pipeline tools (3)
+        // Pipeline tools (2)
         "remix_highlights",
         "remix_auto_shorts",
-        "remix_regenerate_scene",
       ];
       for (const name of aiTools) {
         expect(registry.get(name)).toBeDefined();
@@ -284,10 +284,6 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
     });
 
     it("preserves product-surface replacement metadata from the manifest", () => {
-      expect(registry.get("generate_speech")).toMatchObject({
-        surface: "legacy",
-        replacement: "vibe generate narration",
-      });
       expect(registry.get("scene_compose_prompts")).toMatchObject({
         surface: "internal",
       });
@@ -391,9 +387,9 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       });
     });
 
-    describe("inspect_video", () => {
+    describe("inspect_media", () => {
       it("should have all CLI options as parameters", () => {
-        const tool = registry.get("inspect_video");
+        const tool = registry.get("inspect_media");
         expect(tool).toBeDefined();
 
         const params = tool!.parameters.properties;
@@ -409,7 +405,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       });
 
       it("should have correct enum values for model", () => {
-        const tool = registry.get("inspect_video");
+        const tool = registry.get("inspect_media");
         const model = tool!.parameters.properties.model as { enum?: string[] };
         expect(model.enum).toContain("flash");
         expect(model.enum).toContain("latest");
@@ -502,10 +498,10 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       });
     });
 
-    describe("inspect_video handler", () => {
-      it("should call executeGeminiVideo with correct parameters", async () => {
-        const { executeGeminiVideo } = await import("../../commands/ai-analyze.js");
-        const handler = registry.getHandler("inspect_video");
+    describe("inspect_media handler", () => {
+      it("should call executeAnalyze with correct parameters", async () => {
+        const { executeAnalyze } = await import("../../commands/ai-analyze.js");
+        const handler = registry.getHandler("inspect_media");
         expect(handler).toBeDefined();
 
         const result = await handler!(
@@ -518,7 +514,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         );
 
         // Manifest passes args through raw (see remix_highlights note).
-        expect(executeGeminiVideo).toHaveBeenCalledWith(
+        expect(executeAnalyze).toHaveBeenCalledWith(
           expect.objectContaining({
             source: "video.mp4",
             prompt: "Summarize this video",
@@ -526,14 +522,14 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           })
         );
         expect(result.success).toBe(true);
-        // Manifest's inspect_video humanLines reports the model, not the
-        // raw summary text — the summary is in result.data.text.
-        expect(result.output).toContain("Analyzed video");
+        // Manifest's inspect_media humanLines reports the model, not the
+        // raw summary text - the summary is in result.data.response.
+        expect(result.output).toContain("Analyzed");
       });
 
       it("should handle YouTube URLs without modification", async () => {
-        const { executeGeminiVideo } = await import("../../commands/ai-analyze.js");
-        const handler = registry.getHandler("inspect_video");
+        const { executeAnalyze } = await import("../../commands/ai-analyze.js");
+        const handler = registry.getHandler("inspect_media");
 
         await handler!(
           {
@@ -543,7 +539,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
           mockContext
         );
 
-        expect(executeGeminiVideo).toHaveBeenCalledWith(
+        expect(executeAnalyze).toHaveBeenCalledWith(
           expect.objectContaining({
             source: "https://youtube.com/watch?v=test",
           })
@@ -587,10 +583,10 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(timelineTools.length).toBe(13); // Includes canonical timeline_create/info
       expect(fsTools.length).toBe(4);
       expect(mediaTools.length).toBe(12); // +audio_isolate/voice_clone/dub/duck (Phase B v0.64)
-      expect(generateTools.length).toBe(14); // +background, video_status/cancel/extend, music_status, narration
+      expect(generateTools.length).toBe(9); // 0.114 dropped speech/background/storyboard/music_status/video_status
       expect(editTools.length).toBe(16); // +grade, speed_ramp, reframe, interpolate, upscale, animated_caption, edit_fill_gaps, edit_motion_overlay
-      expect(inspectTools.length).toBe(6); // +project, render local review-loop tools
-      expect(remixTools.length).toBe(3); // v0.75: highlights, auto_shorts, regenerate_scene (was pipeline_*)
+      expect(inspectTools.length).toBe(4); // 0.114 dropped inspect_video/inspect_review
+      expect(remixTools.length).toBe(2); // 0.114 dropped remix_regenerate_scene
       expect(runTools.length).toBe(0); // v0.75: bare `run` is MCP-only (`surfaces: ["mcp"]`); not registered into the agent surface
       expect(exportTools.length).toBe(3);
       expect(batchTools.length).toBe(3);
@@ -601,7 +597,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
       expect(guideTools.length).toBe(1); // v0.91: universal guide equivalent
       expect(statusTools.length).toBe(2); // TO-BE: job/project async status
 
-      // 5+13+4+12+14+16+6+3+0+3+3+7+6+4+1+2 = 99.
+      // 6+13+4+12+9+16+4+2+0+3+3+7+6+1+4+1+2 = 93.
       // timeline_create/info are canonical; project_create/info remain
       // compatibility aliases until v1.0.
       const totalTools =
@@ -622,7 +618,7 @@ describe("CLI ↔ Agent Tool Synchronization", () => {
         projectFlowTools.length +
         guideTools.length +
         statusTools.length;
-      expect(totalTools).toBe(101);
+      expect(totalTools).toBe(93);
     });
   });
 });

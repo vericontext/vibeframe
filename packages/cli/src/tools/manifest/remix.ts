@@ -1,14 +1,14 @@
 /**
  * @module manifest/pipeline
  * @description Pipeline tools.
- *   remix_highlights, remix_auto_shorts (long-form → clips),
- *   run (YAML pipeline executor — wraps top-level `vibe run`),
- *   remix_regenerate_scene (scene re-render against an existing
- *     storyboard.{yaml,json} on disk).
+ *   remix_highlights, remix_auto_shorts (long-form -> clips),
+ *   run (YAML pipeline executor - wraps top-level `vibe run`).
  *
- * `pipeline_script_to_video` was retired alongside the CLI subcommand —
+ * `pipeline_script_to_video` was retired alongside the CLI subcommand -
  * the skill-driven `build` flow replaces it (idempotent, cheaper,
- * per-beat editable).
+ * per-beat editable). `remix_regenerate_scene` followed it out for the
+ * same reason: `vibe build <project> --beat <id> --force` regenerates one
+ * beat against the storyboard the project already owns.
  */
 
 import { writeFile } from "node:fs/promises";
@@ -16,7 +16,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool } from "../define-tool.js";
-import { executeRegenerateScene } from "../../commands/ai-script-pipeline.js";
 import {
   executeHighlights,
   executeAutoShorts,
@@ -191,40 +190,8 @@ export const pipelineRunTool = defineTool({
   },
 });
 
-export const pipelineRegenerateSceneTool = defineTool({
-  name: "remix_regenerate_scene",
-  category: "pipeline",
-  cost: "high",
-  title: "Regenerate Storyboard Scenes",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "Regenerate specific scenes against an existing storyboard.{yaml,json} on disk. Can regenerate video, image, or narration independently.",
-  schema: z.object({
-    projectDir: z.string().describe("Path to the project output directory containing storyboard.json"),
-    scenes: z.array(z.number()).describe("1-indexed scene numbers to regenerate"),
-    videoOnly: z.boolean().optional().describe("Only regenerate video (keep existing image)"),
-    narrationOnly: z.boolean().optional().describe("Only regenerate narration audio"),
-    imageOnly: z.boolean().optional().describe("Only regenerate scene image"),
-    generator: z.enum(["kling", "runway", "veo"]).optional().describe("Video generation provider"),
-    imageProvider: z.enum(["gemini", "openai", "grok"]).optional().describe("Image generation provider"),
-    voice: z.string().optional().describe("ElevenLabs voice name or ID"),
-    aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Video aspect ratio"),
-    retries: z.number().optional().describe("Max retries per video generation call (default: 2)"),
-  }),
-  async execute(args) {
-    const result = await executeRegenerateScene(args);
-    if (!result.success) return { success: false, error: result.error ?? "Regenerate scene failed" };
-    return {
-      success: true,
-      data: { regeneratedScenes: result.regeneratedScenes },
-      humanLines: [`✅ Regenerated ${result.regeneratedScenes?.length ?? 0} scene(s)`],
-    };
-  },
-});
-
 export const remixTools: readonly AnyTool[] = [
   pipelineHighlightsTool as unknown as AnyTool,
   pipelineAutoShortsTool as unknown as AnyTool,
   pipelineRunTool as unknown as AnyTool,
-  pipelineRegenerateSceneTool as unknown as AnyTool,
 ];
