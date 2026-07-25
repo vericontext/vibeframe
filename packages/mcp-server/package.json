@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/mcp-server",
-  "version": "0.113.29",
+  "version": "0.113.30",
   "description": "VibeFrame MCP Server - frontier AI video generation for agents (Seedance, Runway, Veo, Kling) on your own keys, behind a hard cost cap",
   "type": "module",
   "bin": {

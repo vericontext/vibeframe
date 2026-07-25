@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.30] - 2026-07-25
+
+### Fixed
+
+- point scene authors at the contract that is actually present (#290)
+- make the --max-cost refusal use the structured error envelope (#289)
+
+### Maintenance
+
+- retire the two stale demo videos and the plumbing they needed (#291)
+
 ## [0.113.29] - 2026-07-25
 
 ### Documentation
