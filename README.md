@@ -1,45 +1,75 @@
 # VibeFrame
 
-Turn a written brief into a rendered MP4 using a coding agent.
+Let your coding agent generate real video, on your own provider keys, under a spend ceiling it cannot cross.
 
-VibeFrame is a CLI tool and MCP server for agentic video workflows. It takes a
-brief, scaffolds a structured storyboard project, routes generation calls to AI
-providers, and produces a reviewed MP4. The CLI is the stable runtime — JSON
-output, dry runs, cost gates, and machine-readable reports that Codex, Claude
-Code, Cursor, and other host agents can act on.
+VibeFrame is a CLI and MCP server that gives Claude Code, Codex, Cursor, or any bash-capable agent the commands to plan a video, generate the assets from frontier models - Seedance, Runway, Veo, Kling - and render a finished MP4.
+Every paid step sits behind a dry run and a hard `--max-cost` ceiling, and every failure comes back as machine-readable recovery actions instead of a stack trace.
 
-Your existing coding agent is the outer loop. VibeFrame provides the
-video-specific commands and reports. `vibe agent` exists as a fallback when you
-do not have another agent available.
+Scene composition is [Hyperframes](https://github.com/heygen-com/hyperframes)' job, not ours.
+VibeFrame installs its skill and builds the generation, cost, and review layer around it.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
-## Start with zero API keys
+## Know the price before anything is spent
 
-The first render costs $0 and needs no provider accounts.
-Narration runs on local Kokoro TTS, scenes are HTML/CSS composed by your coding agent, and the render is headless Chrome plus FFmpeg.
+`--dry-run` prices the whole build without calling a provider or needing a single key.
+Pair it with `--max-cost` and the build refuses to start when the estimate is over your ceiling:
+
+```bash
+vibe build film --dry-run --max-cost 3 --json
+```
+
+```json
+{
+  "error": {
+    "code": "COST_CAP_EXCEEDED",
+    "message": "Estimated cost $10.93 exceeds --max-cost $3.00.",
+    "suggestion": "Raise --max-cost or reduce the stage/provider scope.",
+    "retryWith": [
+      "vibe build . --stage all --skip-backdrop --json",
+      "vibe build . --stage all --max-cost 10.93 --json"
+    ],
+    "recoverable": true
+  }
+}
+```
+
+It exits non-zero, so an agent loop stops instead of guessing.
+`retryWith` gives it the two cheaper ways forward it can take without asking you.
+The same dry run also names the keys each stage would need, so you find out what a video costs before you own an account:
+
+```text
+Keyframe generation will need openai (OPENAI_API_KEY), but no key/config is available.
+Video generation will need seedance (FAL_API_KEY), but no key/config is available.
+```
+
+This is the part of VibeFrame that has no equivalent in a credit-based tool.
+Your keys, your bill, your ceiling.
+
+## Try it with no keys at all
+
+Before wiring up any provider, the whole pipeline runs locally for $0: local Kokoro TTS narration, HTML/CSS scenes composed by your coding agent, and a headless Chrome plus FFmpeg render.
 
 ```bash
 npm install -g @vibeframe/cli
 vibe init demo --from "30-second video introducing my project"
 ```
 
-Then ask your coding agent (Claude Code, Codex, Cursor, ...) to finish it:
+Then ask your coding agent to finish it:
 
 > Build demo/ into a rendered MP4 with zero API keys.
 > Use `vibe build demo --tts kokoro --skip-backdrop --json`, author the scene
 > HTML from `vibe scene compose-prompts demo --json`, then run
 > `vibe build demo --stage sync --json` and `vibe render demo --json`.
 
-The agent authors each scene against the project's design contract, and every other step is a deterministic CLI command.
-Measured cold-start on this exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~530 MB local voice model download.
+Measured cold start on that exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~530 MB voice model download.
 Repeat runs skip the downloads.
-
 No coding agent available? The same commands work by hand - `vibe scene compose-prompts` prints the full per-scene authoring brief for you.
 
-API keys only enter the picture when you want provider-generated images, video, or premium voices - and each key unlocks exactly the commands listed by `vibe doctor`.
+It is a real render, and it is the cheapest way to see whether the workflow fits you.
+It is not the point of the tool: the paid generation path above is.
 
 ## Requirements
 
@@ -47,8 +77,9 @@ API keys only enter the picture when you want provider-generated images, video, 
 - FFmpeg
 - Chrome or Chromium (for HTML scene rendering)
 
-That is the whole zero-key stack: FFmpeg edits, Kokoro TTS narration, HTML scene composition, detection, timeline work, and rendering all run locally.
-AI image and video generation is BYO-key: add provider keys such as `OPENAI_API_KEY`, `FAL_API_KEY`, or `GOOGLE_API_KEY` only for the providers you actually use (full list in [MODELS.md](MODELS.md)).
+Everything local runs on those three: FFmpeg edits, Kokoro narration, HTML scene composition, detection, timeline work, and rendering.
+Generation is BYO-key - add `OPENAI_API_KEY`, `FAL_API_KEY`, `GOOGLE_API_KEY`, `RUNWAY_API_SECRET`, or `KLING_API_KEY` only for the providers you actually use (full list in [MODELS.md](MODELS.md)).
+`vibe doctor` lists exactly which commands each key unlocks.
 
 ## Install
 
@@ -240,10 +271,11 @@ vibe build my-film --beat wonder --stage assets --force --skip-video  # regenera
 vibe build my-film --max-cost 6        # animate the approved keyframes
 ```
 
-## Directed AI video — one character, many scenes
+## What the spend buys: one character, many scenes
 
-This is the paid, provider-backed end of the same pipeline.
-One brief in, a directed short film out: VibeFrame reuses a single character sheet across every scene, generates a cheap image storyboard you review first, then animates only the stills you approve with image-to-video and composes the final render - all driven by `vibe build`.
+Generating four shots that look like the same film is the hard part, and it is what the paid path is for.
+VibeFrame reuses a single character sheet across every scene, generates a cheap image storyboard you review first, then animates only the stills you approve with image-to-video and composes the final render - all driven by `vibe build`.
+Reviewing stills before animating is also the cheapest way to keep a run under its ceiling, since the stills cost a fraction of the video.
 
 ```bash
 # frontmatter declares the character once, reused everywhere:
@@ -525,10 +557,8 @@ VibeFrame wraps lower-level composition engines rather than replacing them:
 | [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                 |
 | VibeFrame                                                | Storyboard/design files, provider routing, build reports, render inspection, edit/remix commands, and host-agent guidance. |
 
-Use Hyperframes directly when the job is only HTML scene authoring and
-rendering. Use VibeFrame when the job includes storyboard planning,
-image/video/audio generation, narration, build reports, or editing steps around
-the composition layer.
+If the job is only HTML scene authoring and rendering, use Hyperframes directly - it is the better tool for that and VibeFrame installs its skill for you either way.
+Reach for VibeFrame when the job involves paid generation: frontier image and video models, character continuity across scenes, narration, cost ceilings, build reports, or editing steps around the composition layer.
 
 VibeFrame is not affiliated with HeyGen. See [CREDITS.md](CREDITS.md) for
 dependency and provenance notes.

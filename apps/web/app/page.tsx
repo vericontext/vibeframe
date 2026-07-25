@@ -62,34 +62,33 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-8 animate-fade-in">
             <Terminal className="w-4 h-4" />
-            <span>Brief-to-MP4 workflow for coding agents</span>
+            <span>Frontier video generation for coding agents</span>
             <span className="px-2 py-0.5 rounded-full bg-primary/20 text-xs font-medium">
               v{process.env.NEXT_PUBLIC_VERSION}
             </span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
-            Brief to MP4
+            Let your agent generate video
             <br />
-            <span className="text-primary">with your coding agent.</span>
+            <span className="text-primary">under a ceiling it cannot cross.</span>
           </h1>
 
           <p className="text-2xl sm:text-3xl font-semibold text-foreground/90 mb-6 animate-fade-in-up delay-75">
-            The CLI is the agent workflow layer.
+            Your keys. Your bill. Your limit.
           </p>
 
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 animate-fade-in-up delay-100">
-            VibeFrame turns a written brief into{" "}
+            VibeFrame gives Claude Code, Codex, or Cursor the commands to plan a video, generate the
+            assets from{" "}
+            <span className="text-foreground font-medium">Seedance, Runway, Veo, and Kling</span> on
+            your own provider keys, and render a finished MP4. Every paid step sits behind a dry run
+            and a hard{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
-              STORYBOARD.md
+              --max-cost
             </code>{" "}
-            and{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
-              DESIGN.md
-            </code>{" "}
-            and then routes asset generation, scene composition, build reports, render inspection,
-            and the final rendered MP4 through commands any bash-capable coding agent can run. Your
-            coding agent&apos;s own loop stays the outer loop; VibeFrame supplies the video runtime.
+            ceiling, and every failure comes back as machine-readable recovery actions instead of a
+            stack trace.
           </p>
 
           <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4 max-w-5xl mx-auto mb-10 text-left animate-fade-in-up delay-150">
@@ -98,34 +97,34 @@ export default function LandingPage() {
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                 <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                <span className="ml-2 text-xs text-muted-foreground font-mono">agent loop</span>
+                <span className="ml-2 text-xs text-muted-foreground font-mono">
+                  the spend gate
+                </span>
               </div>
               <pre className="p-4 sm:p-5 text-xs sm:text-sm overflow-x-auto">
                 <code className="text-muted-foreground">
-                  # Brief → local narration → agent-authored scenes → MP4{"\n"}
+                  # price the whole build first - no provider call, no key needed{"\n"}
+                </code>
+                <code className="text-foreground">
+                  vibe build film --dry-run --max-cost 3 --json{"\n"}
+                </code>
+                <code className="text-muted-foreground">{'{ "error": {\n'}</code>
+                <code className="text-red-400">{'    "code": "COST_CAP_EXCEEDED",\n'}</code>
+                <code className="text-red-400">
+                  {'    "message": "Estimated cost $10.93 exceeds --max-cost $3.00.",\n'}
+                </code>
+                <code className="text-muted-foreground">{'    "retryWith": [\n'}</code>
+                <code className="text-muted-foreground">
+                  {'      "vibe build . --stage all --skip-backdrop --json",\n'}
                 </code>
                 <code className="text-muted-foreground">
-                  # $0 · zero API keys · local Kokoro TTS + Chrome/FFmpeg render{"\n"}
+                  {'      "vibe build . --stage all --max-cost 10.93 --json"\n'}
                 </code>
-                <code className="text-foreground">
-                  vibe init demo --from brief.md --json{"\n"}
-                </code>
-                <code className="text-foreground">
-                  vibe build demo --tts kokoro --skip-backdrop --json{"\n"}
-                </code>
-                <code className="text-muted-foreground">
-                  # your coding agent authors each scene from the compose plan{"\n"}
-                </code>
-                <code className="text-foreground">
-                  vibe scene compose-prompts demo --json{"\n"}
-                </code>
-                <code className="text-foreground">vibe build demo --stage sync --json{"\n"}</code>
-                <code className="text-foreground">vibe render demo --json{"\n"}</code>
-                <code className="text-foreground">
-                  vibe inspect render demo --cheap --json{"\n"}
-                </code>
+                <code className="text-muted-foreground">{"    ],\n"}</code>
+                <code className="text-muted-foreground">{'    "recoverable": true\n'}</code>
+                <code className="text-muted-foreground">{"} }\n"}</code>
                 <code className="text-green-400">
-                  {"✓ renders/demo.mp4 — reviewed 1080p render, $0 spent"}
+                  {"# exit 1 - the agent stops instead of guessing"}
                 </code>
               </pre>
             </div>
@@ -160,8 +159,8 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground -mt-4 mb-8 animate-fade-in-up delay-200">
-            The first render costs $0 and needs no API keys — local TTS, HTML scenes, Chrome +
-            FFmpeg.
+            Want to look before you spend? The whole pipeline also runs locally for $0 with no keys
+            at all - local TTS, HTML scenes, Chrome + FFmpeg.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
@@ -282,36 +281,45 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">3. Build · free assets</div>
+              <div className="text-xs text-muted-foreground mb-2">3. Price · before any spend</div>
               <code className="font-mono text-xs text-foreground block break-all">
-                vibe build launch --tts kokoro --skip-backdrop --json
+                vibe build launch --dry-run --max-cost 12 --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Local Kokoro narration, $0. Your agent then authors scene HTML from the compose
-                plan.
+                Costs nothing and needs no key. Prints the estimate and names the keys each stage
+                would need.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">4. Render · review</div>
+              <div className="text-xs text-muted-foreground mb-2">4. Generate · under the cap</div>
+              <code className="font-mono text-xs text-foreground block break-all">
+                vibe setup --scope project && vibe build launch --max-cost 12 --json
+              </code>
+              <p className="text-xs text-muted-foreground mt-3">
+                BYO-key generation on Seedance, Runway, Veo, or Kling. Over the ceiling it refuses
+                and hands back recovery actions.
+              </p>
+            </div>
+            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
+              <div className="text-xs text-muted-foreground mb-2">5. Render · review</div>
               <code className="font-mono text-xs text-foreground block break-all">
                 vibe render launch --json && vibe inspect render launch --cheap --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                Chrome + FFmpeg render, still $0. Writes reports agents can inspect, repair, and
+                Chrome + FFmpeg render, free. Writes reports agents can inspect, repair, and
                 re-render.
               </p>
             </div>
-            <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
-              <div className="text-xs text-muted-foreground mb-2">5. Add keys · only if needed</div>
-              <code className="font-mono text-xs text-foreground block break-all">
-                vibe setup --scope project && vibe build launch --dry-run --max-cost 5 --json
-              </code>
-              <p className="text-xs text-muted-foreground mt-3">
-                BYO-key unlocks provider image/video generation — always behind dry runs and cost
-                gates.
-              </p>
-            </div>
           </div>
+
+          <p className="text-center text-sm text-muted-foreground mt-8">
+            Evaluating first?{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
+              vibe build launch --tts kokoro --skip-backdrop --json
+            </code>{" "}
+            runs steps 3 and 4 entirely locally for $0 - local Kokoro narration and agent-authored
+            HTML scenes, no provider account needed.
+          </p>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
             Primary path: <span className="text-foreground font-medium">BUILD</span> from storyboard
