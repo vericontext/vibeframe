@@ -818,7 +818,7 @@ export function insertClipIntoRoot(rootHtml: string, clip: ClipReferenceInput): 
   const closeMatch = rootHtml.match(/\n(\s*)<\/div>(\s*\n\s*<script>)/);
   if (!closeMatch) {
     throw new Error(
-      "Could not find root composition closing </div>. Ensure index.html follows the layout from `vibe scene init`."
+      "Could not find root composition closing </div>. Ensure index.html follows the layout from `vibe init`."
     );
   }
   const closeIdx = closeMatch.index!;

@@ -529,7 +529,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       phase: "failed",
       mode,
       selectedStage,
-      error: `STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`,
+      error: `STORYBOARD.md not found at ${storyboardPath}. Run \`vibe init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`,
       beats: [],
       stageReports,
       warnings,
