@@ -64,8 +64,8 @@ Then ask your coding agent to finish it:
 > HTML from `vibe scene compose-prompts demo --json`, then run
 > `vibe build demo --stage sync --json` and `vibe render demo --json`.
 
-Measured cold start on that exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~530 MB voice model download.
-Repeat runs skip the downloads.
+Measured cold start on that exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~88 MB voice model download.
+Repeat runs skip the download.
 No coding agent available? The same commands work by hand - `vibe scene compose-prompts` prints the full per-scene authoring brief for you.
 
 It is a real render, and it is the cheapest way to see whether the workflow fits you.
@@ -113,20 +113,17 @@ pnpm vibe --help
 
 ## How The Pieces Fit Together
 
-VibeFrame has two main flows:
+Use the highest-level lane that fits the job:
 
-- **Project flow:** scaffold a storyboard, let an agent revise it, build assets,
-  render, and inspect. This is the primary path.
-- **One-shot flow:** edit or transform existing media directly with `generate`,
-  `edit`, `remix`, `audio`, or a YAML pipeline. No storyboard needed.
+| Lane               | Use it when...                                        | Commands                                                             |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------- |
+| **BUILD**          | You want a complete video from a written brief        | `init`, `storyboard`, `plan`, `build`, `preview`, `render`, `inspect` |
+| **GENERATE/ASSET** | You need one standalone image, clip, voice, or music  | `generate image/video/narration/music/motion`                        |
+| **EDIT/REMIX**     | You already have media and want to change or reuse it | `edit`, `remix`, `audio`, `detect`                                   |
 
-The architecture is:
+BUILD is the primary path; the other two need no storyboard.
 
-```text
-CLI (Commander.js + Agent) -> Engine (Project state) -> Core (Zustand + FFmpeg) -> AI Providers
-```
-
-Within a project, the files have defined roles:
+Within a BUILD project, the files have defined roles:
 
 | Path            | Role                                                                              |
 | --------------- | --------------------------------------------------------------------------------- |
@@ -136,7 +133,6 @@ Within a project, the files have defined roles:
 | `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings. |
 | `assets/`       | Generated or canonical build artifacts: narration, backdrops, music, video clips. |
 | `renders/`      | Final and intermediate MP4 outputs.                                               |
-| `references/`   | Legacy only: older projects kept vendored composition rules here. New installs put them under `.agents/skills/hyperframes/` via `vibe scene install-skill`. |
 
 `vibe.config.json` owns the project contract (provider, model, quality, and
 build defaults). The composition engine today is Hyperframes (HTML/CSS/JS scene
@@ -239,14 +235,13 @@ asset: "media/logo.png"
 The default is `agent`. Pass `--mcp` to also create project-scoped MCP config
 during init.
 
-### Character-consistent video
+## What the spend buys: one character, many scenes
 
-Declare a character pool in the storyboard frontmatter, then reference it from
-individual beats. VibeFrame generates a character sheet once and uses it as a
-reference image for Seedance image-to-video, keeping the character consistent
-across scenes.
+Generating four shots that look like the same film is the hard part, and it is what the paid path is for.
+Declare a character pool in the storyboard frontmatter and reference it from individual beats.
+VibeFrame generates the character sheet once and reuses it as the reference image for Seedance image-to-video, so the character stays consistent across scenes.
 
-```yaml
+````markdown
 ---
 characters:
   mira: "arctic aurora photographer, deep-red fur-lined parka, dark hair under a charcoal beanie, vintage 35mm camera"
@@ -261,35 +256,19 @@ characters: [mira]
 keyframe: "MIRA stands on the frozen ice, camera lowered, looking up as the aurora fills the sky"
 video: "slow tilt up as the aurora ripples and pulses overhead"
 ```
-```
+````
 
-Review keyframe stills before paying for video generation:
-
-```bash
-vibe build my-film --skip-video        # generate keyframe stills only (cheap)
-vibe build my-film --beat wonder --stage assets --force --skip-video  # regenerate one beat
-vibe build my-film --max-cost 6        # animate the approved keyframes
-```
-
-## What the spend buys: one character, many scenes
-
-Generating four shots that look like the same film is the hard part, and it is what the paid path is for.
-VibeFrame reuses a single character sheet across every scene, generates a cheap image storyboard you review first, then animates only the stills you approve with image-to-video and composes the final render - all driven by `vibe build`.
-Reviewing stills before animating is also the cheapest way to keep a run under its ceiling, since the stills cost a fraction of the video.
+Each beat pairs a `keyframe` still with a `video` motion prompt.
+Generate the cheap image storyboard first, review it, then animate only the stills you approve - that is also the cheapest way to keep a run under its ceiling, since stills cost a fraction of the video.
 
 ```bash
-# frontmatter declares the character once, reused everywhere:
-#   characters: { mira: "arctic photographer, deep-red fur-lined parka" }
-# each beat pairs a keyframe still with a motion prompt:
-#   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
-#   video:    "slow tilt up as the aurora ripples and pulses overhead"
-
 vibe build my-film --skip-video   # keyframe stills only (cheap) - review them first
+vibe build my-film --beat wonder --stage assets --force --skip-video  # redo one beat
 vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 ```
 
-▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
-- one photographer across a single arctic night (trek → first aurora → the
+▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**:
+one photographer across a single arctic night (trek → first aurora → the
 whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
 
 ![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
@@ -320,16 +299,6 @@ vibe detect scenes video.mp4
 vibe remix highlights demo-process.mp4 -d 60 -o highlight.mp4
 vibe audio duck bgm.mp3 --voice highlight.mp4 -o bgm-ducked.mp3
 ```
-
-## Workflow Lanes
-
-Use the highest-level lane that fits the job:
-
-| Lane             | Use it when...                                       | Commands                                               |
-| ---------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| **BUILD**        | You want a complete video from a written brief       | `init`, `storyboard`, `plan`, `build`, `preview`, `render`, `inspect` |
-| **GENERATE/ASSET** | You need one standalone image, clip, voice, or music | `generate image/video/narration/music/motion`          |
-| **EDIT/REMIX**   | You already have media and want to change or reuse it | `edit`, `remix`, `audio`, `detect`                     |
 
 ## YAML Pipelines
 
@@ -366,18 +335,10 @@ The intended agent path: use your host's agent loop as the outer loop,
 drive VibeFrame CLI commands with `--json`, and use `build-report.json` and
 `review-report.json` as loop state.
 
-```text
-ask coding agent to: "build a 45-second launch video from this brief"
--> vibe init launch --from brief.md --json
--> edit launch/STORYBOARD.md and launch/DESIGN.md
--> vibe plan launch --json
--> vibe build launch --dry-run --max-cost 5 --json
--> vibe build launch --max-cost 5 --json
--> vibe status project launch --refresh --json
--> vibe inspect project launch --json
--> vibe render launch --json
--> vibe inspect render launch --cheap --json
+The forward pass is the Project Flow above. What makes it a loop is the
+recovery pass:
 
+```text
 "fix quality issues from the render review"
 -> read review-report.json
 -> vibe scene repair launch --json
@@ -395,11 +356,12 @@ run `safeToAutoRun:true` actions automatically, ask before
 
 ### Outer-loop agent prompts
 
-Hand your coding agent a prompt like the following - these are plain prompts,
-not a built-in command. For Codex:
+Hand your coding agent a prompt like the following - a plain prompt, not a
+built-in command. It works the same in Codex, Claude Code, or Cursor:
 
 ```text
-Build launch/ into a reviewed VibeFrame MP4 from brief.md.
+Build launch/ into a reviewed VibeFrame MP4 from brief.md, using your own agent
+loop as the outer loop.
 Use vibe context/schema first when command details are unclear. Use --json for
 all vibe commands. Run --dry-run before paid operations and keep generated-asset
 spend under $5 with --max-cost 5 where supported. Read build-report.json and
@@ -414,25 +376,6 @@ less, the aspect ratio is 16:9 unless brief.md says otherwise,
 vibe inspect render launch --cheap --json reports no errors, any AI review score
 is at least 90 when AI review is requested, and every remaining host-agent issue is fixed,
 intentionally accepted with a written reason, or reported as blocked.
-```
-
-For Claude Code:
-
-```text
-Create the final VibeFrame project render for launch/ using your host's agent
-loop as the outer loop. Use vibe commands with --json, run
-dry-run before paid operations, cap build spend at $5 with --max-cost 5, and
-use build-report.json plus review-report.json as the loop state. Follow
-nextActions first, run only safeToAutoRun:true actions automatically, ask
-before requiresConfirmation:true actions, and use retryWith only as a fallback.
-Distinguish fixOwner:"vibe" from fixOwner:"host-agent" when deciding whether
-to run vibe scene repair or edit STORYBOARD.md, DESIGN.md, or compositions.
-
-Stop only when launch/renders/final.mp4 exists, duration is within the requested
-30s target, aspect ratio is 16:9 unless the brief overrides it, render
-inspection status has no errors, any AI review score is >= 90 when AI review is
-requested, and unresolved host-agent issues are either fixed, explicitly accepted
-with rationale, or reported as blocked.
 ```
 
 ### Configuring hosts
@@ -512,28 +455,13 @@ resource, and prompt details.
 ## Providers
 
 VibeFrame routes to multiple providers for LLMs, image generation, video
-generation, TTS, transcription, and analysis. Common environment variables:
-
-```text
-OPENAI_API_KEY
-ANTHROPIC_API_KEY
-GOOGLE_API_KEY
-FAL_API_KEY
-ELEVENLABS_API_KEY
-RUNWAY_API_SECRET
-KLING_API_KEY
-XAI_API_KEY
-REPLICATE_API_TOKEN
-OPENROUTER_API_KEY
-IMGBB_API_KEY
-```
-
-The canonical list is `vibe doctor --json | jq '.data.providers'`, which stays
-in sync with new providers automatically.
+generation, TTS, transcription, and analysis. Rather than duplicate the list
+here, read it from the CLI - it stays in sync with new providers automatically:
 
 ```bash
-vibe setup --show   # list configured keys
-vibe doctor         # verify keys and dependencies
+vibe doctor --json | jq '.data.providers'   # every provider and its env var
+vibe setup --show                           # which keys you have configured
+vibe doctor                                 # verify keys and dependencies
 ```
 
 For model and provider details, see [MODELS.md](MODELS.md).
