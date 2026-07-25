@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.31] - 2026-07-25
+
+### Changed
+
+- group `vibe --help` by use case instead of listing it twice (#298)
+- cut the landing page from ten sections to six (#295)
+
+### Documentation
+
+- restructure the README around reading order, 447 -> 306 lines (#297)
+
+### Fixed
+
+- stop promising per-host scaffolds that vibe init never writes (#296)
+- drop a cue key that does not exist and trim the README to its own job (#294)
+
+### Maintenance
+
+- remove em dashes from the CLI reference by fixing its sources (#293)
+
 ## [0.113.30] - 2026-07-25
 
 ### Fixed
