@@ -25,10 +25,7 @@ import {
 import type { ScenePreset } from "../../commands/_shared/scene-html-emit.js";
 import {
   installHyperframesSkill,
-  deriveInstallHosts,
-  type InstallSkillHost,
 } from "../../commands/_shared/install-skill.js";
-import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 import { getComposePrompts } from "../../commands/_shared/compose-prompts.js";
 import { executeSceneRepair } from "../../commands/_shared/scene-repair.js";
 import { executeSceneSubmit } from "../../commands/_shared/scene-submit.js";
@@ -783,22 +780,18 @@ const sceneInstallSkillSchema = z.object({
     .describe(
       "Project directory containing STORYBOARD.md / DESIGN.md. Required to keep cross-host calls explicit; in MCP hosts, relative paths resolve under the configured server workspace."
     ),
-  host: z
-    .enum(["claude-code", "cursor", "auto", "all"])
+  global: z
+    .boolean()
     .optional()
-    .describe(
-      "Host layout target. 'auto' (default) detects installed agent hosts; 'all' writes every layout; 'claude-code' / 'cursor' force a single host. Codex / Aider read the universal SKILL.md via AGENTS.md so don't need a host-specific layout."
-    ),
+    .describe("Install at user level (~/.claude/skills) instead of into the project."),
   force: z
     .boolean()
     .optional()
-    .describe(
-      "Overwrite existing skill files. Default: skip-on-exist (preserves user customisations)."
-    ),
+    .describe("Reinstall even when the skill is already available. Default: skip when present."),
   dryRun: z
     .boolean()
     .optional()
-    .describe("Report which files would be written without writing them."),
+    .describe("Report the command that would run without running it."),
 });
 
 export const sceneInstallSkillTool = defineTool({
@@ -808,42 +801,43 @@ export const sceneInstallSkillTool = defineTool({
   title: "Install Hyperframes Skill",
   annotations: { readOnly: false, idempotent: true, openWorld: false },
   description:
-    "Eject editable copies of the vendored Hyperframes skill bundle into a scene project so you can customize the framework rules + house style per project. Writes a universal SKILL.md + references/ at the project root, plus per-host layouts (.claude/skills/hyperframes/ for Claude Code, .cursor/rules/hyperframes.mdc for Cursor) when those hosts are detected. Note: vibe init already skips these copies when the Hyperframes skill is installed globally (the host agent loads it from there); run this only to get editable per-project copies. Build/render read the vendored bundle, not these files.",
+    "Install the Hyperframes composition rules into a scene project by running upstream's installer (`npx skills add heygen-com/hyperframes`). Lands at .agents/skills/hyperframes/ and is picked up by ~19 agents, with symlinks for the ones that want their own directory. Skips when the rules are already available in the project or globally unless force is set. Needs network access. Build and render do not read these files - they exist so you can read the rules while authoring scene HTML.",
   schema: sceneInstallSkillSchema,
   async execute(args, ctx) {
     const projectDir = resolve(ctx.workingDirectory, args.projectDir);
 
-    const hostFlag = args.host ?? "auto";
-    const hosts: InstallSkillHost[] = (() => {
-      if (hostFlag === "all") return ["all"];
-      if (hostFlag === "auto") {
-        return deriveInstallHosts(detectedAgentHosts().map((h) => h.id));
-      }
-      return [hostFlag];
-    })();
-
     const result = await installHyperframesSkill({
       projectDir,
-      hosts,
+      global: args.global ?? false,
       force: args.force ?? false,
       dryRun: args.dryRun ?? false,
-      // Explicit install is the opt-in "eject": omit `lean` so copies are
-      // materialized in full even when a global skill exists.
     });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error ?? "Skill install failed.",
+        retryWith: result.retryWith,
+      };
+    }
+
+    const humanLine =
+      result.status === "already-installed"
+        ? `Hyperframes composition rules are already available${result.skillPath ? ` at ${result.skillPath}` : " globally"}.`
+        : result.status === "would-install"
+          ? `Would run: ${result.command}`
+          : `Installed the Hyperframes composition rules${result.skillPath ? ` at ${result.skillPath}` : ""}.`;
 
     return {
       success: true,
       data: {
         projectDir: relative(ctx.workingDirectory, projectDir) || ".",
-        host: hostFlag,
-        resolvedHosts: hosts,
-        bundleVersion: result.bundleVersion,
-        files: result.files,
+        status: result.status,
+        command: result.command,
+        skillReference: result.skillPath,
         dryRun: args.dryRun ?? false,
       },
-      humanLines: [
-        `Installed Hyperframes skill (${result.bundleVersion}) — ${result.files.filter((f) => f.status === "wrote" || f.status === "would-write").length} file(s) ${args.dryRun ? "would be written" : "written"}.`,
-      ],
+      humanLines: [humanLine],
     };
   },
 });
@@ -895,7 +889,6 @@ export const sceneComposePromptsTool = defineTool({
         compositionsDir: result.compositionsDir,
         beats: result.beats,
         instructions: result.instructions,
-        bundleVersion: result.bundleVersion,
         warnings: result.warnings,
       },
       humanLines: [

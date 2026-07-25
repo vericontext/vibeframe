@@ -7,11 +7,12 @@ const execFileAsync = promisify(execFile);
 export async function execSafe(
   cmd: string,
   args: string[],
-  options?: { timeout?: number; maxBuffer?: number },
+  options?: { timeout?: number; maxBuffer?: number; cwd?: string },
 ): Promise<{ stdout: string; stderr: string }> {
   return execFileAsync(cmd, args, {
     timeout: options?.timeout,
     maxBuffer: options?.maxBuffer ?? 50 * 1024 * 1024,
+    cwd: options?.cwd,
   });
 }
 

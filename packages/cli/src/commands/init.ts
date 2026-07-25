@@ -39,7 +39,11 @@ import {
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
-import { deriveInstallHosts, deriveRootReaderPresent, installHyperframesSkill } from "./_shared/install-skill.js";
+import {
+  HYPERFRAMES_SKILL_INSTALL_COMMAND,
+  hyperframesSkillAvailable,
+  resolveSkillReference,
+} from "./_shared/install-skill.js";
 import { hostDefinitions, planHostSetup, type HostSetupId } from "./_shared/host-integration.js";
 import {
   AGENTS_MD,
@@ -401,17 +405,17 @@ async function runSceneInit(
     draftWarnings.push(...draft.warnings);
   }
   const detectedIds = detectedAgentHosts().map((h) => h.id);
-  const skillResult =
-    profile === "agent" || profile === "full"
-      ? await installHyperframesSkill({
-          projectDir,
-          hosts: deriveInstallHosts(detectedIds),
-          // Automatic path stays lean: skip copies the global skill already
-          // provides, but keep root files if a root-reading host needs them.
-          lean: true,
-          rootReaderHostPresent: deriveRootReaderPresent(detectedIds),
-        })
-      : { success: true, files: [], bundleVersion: "not-installed" };
+  // The composition rules come from upstream now, and fetching them is a
+  // network call - too big a surprise for a scaffold that is otherwise
+  // instant and offline. `init` reports whether they are already available
+  // and hands over the one-line command; `vibe scene install-skill` runs it.
+  const skillReference =
+    profile === "agent" || profile === "full" ? resolveSkillReference(projectDir) : null;
+  if ((profile === "agent" || profile === "full") && !hyperframesSkillAvailable(projectDir)) {
+    draftWarnings.push(
+      `Hyperframes composition rules are not installed here. Run \`${HYPERFRAMES_SKILL_INSTALL_COMMAND}\` (or \`vibe scene install-skill\`) so your agent can read them before authoring scenes.`
+    );
+  }
   const mcpActions =
     options.mcp === true
       ? await setupProjectMcpTargets(projectDir, detectedIds, {
@@ -438,8 +442,7 @@ async function runSceneInit(
         merged: result.merged,
         skipped: result.skipped,
         groups: result.groups,
-        skillFiles: skillResult.files,
-        skillBundleVersion: skillResult.bundleVersion,
+        skillReference,
         mcpFiles: mcpActions,
         warnings: draftWarnings,
       },
@@ -476,9 +479,6 @@ async function runSceneInit(
     console.log(chalk.yellow(`    ~ ${p.replace(projectDir + "/", "")} (merged)`));
   for (const p of result.skipped)
     console.log(chalk.dim(`    · ${p.replace(projectDir + "/", "")} (kept existing)`));
-  for (const f of skillResult.files.filter((f) => f.status === "wrote")) {
-    console.log(chalk.green(`    + ${f.path.replace(projectDir + "/", "")}`));
-  }
   for (const f of mcpActions) {
     const icon = f.status === "wrote" || f.status === "merged" ? chalk.green("+") : chalk.dim("·");
     console.log(`${icon} ${f.path.replace(projectDir + "/", "")} ${chalk.dim(`(${f.status})`)}`);

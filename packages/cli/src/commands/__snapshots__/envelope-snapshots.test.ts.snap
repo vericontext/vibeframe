@@ -3805,23 +3805,22 @@ exports[`CLI --describe schemas (drift detection) > vibe scene compose-prompts -
 exports[`CLI --describe schemas (drift detection) > vibe scene install-skill --describe 1`] = `
 {
   "cost": "free",
-  "description": "Eject editable Hyperframes skill copies into a scene project (SKILL.md + references/). vibe init skips these when the skill is installed globally; run this to customize them per project.",
+  "description": "Install the Hyperframes composition rules into a scene project by running upstream's installer (npx skills add heygen-com/hyperframes)",
   "name": "scene.install-skill",
   "note": "Build/init installs the host-agent composition skill when needed.",
   "parameters": {
     "properties": {
       "dryRun": {
-        "description": "Preview which files would be written without changing anything",
+        "description": "Print the command that would run without running it",
         "type": "boolean",
       },
       "force": {
-        "description": "Overwrite existing skill files (default: skip-on-exist)",
+        "description": "Reinstall even when the skill is already available",
         "type": "boolean",
       },
-      "host": {
-        "default": "auto",
-        "description": "Host layout target: claude-code | cursor | auto | all",
-        "type": "string",
+      "global": {
+        "description": "Install at user level (~/.claude/skills) instead of into the project",
+        "type": "boolean",
       },
       "project-dir": {
         "description": "Project directory containing STORYBOARD.md / DESIGN.md",
