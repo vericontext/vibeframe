@@ -31,8 +31,8 @@ The `vibe scene ...` namespace is the lower-level authoring surface:
 
 | Path                       | Use when                                                                                | Commands                                                     |
 | -------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Self-contained batch build | A human is running the demo or CI should produce scene HTML without a host coding agent | `vibe build --mode batch --composer openai`                  |
-| Host-agent authoring       | Claude Code/Codex/Cursor should write the scene HTML from a plan                        | `vibe build --mode agent`, then `vibe scene compose-prompts` |
+| Host-agent authoring       | Claude Code/Codex/Cursor writes the scene HTML from a plan (default)                    | `vibe build`, then `vibe scene compose-prompts`              |
+| Deterministic template     | CI or a human demo should produce scene HTML without a coding agent (no LLM call)       | `vibe build --composer template`                             |
 | Single-scene draft         | You need a quick template scene or fallback HTML                                        | `vibe scene add`                                             |
 
 Default recommendation for public demos and reproducible dogfood runs:
@@ -41,11 +41,10 @@ Default recommendation for public demos and reproducible dogfood runs:
 vibe init my-video --profile agent --ratio 16:9
 # edit DESIGN.md and STORYBOARD.md
 vibe build my-video \
-  --mode batch \
-  --composer openai \
   --tts kokoro \
   --skip-backdrop \
   --skip-render
+# (the host agent authors compositions/scene-*.html, then re-run vibe build)
 vibe scene lint index.html --project my-video --fix
 vibe render my-video -o renders/final.mp4 --quality standard
 ```
@@ -61,7 +60,6 @@ authors `compositions/scene-*.html`.
 
 ```bash
 vibe build my-video \
-  --mode agent \
   --tts kokoro \
   --skip-backdrop \
   --skip-render
@@ -69,7 +67,7 @@ vibe build my-video \
 vibe scene compose-prompts my-video --json
 ```
 
-If `vibe build --mode agent` returns a `needs-author` plan:
+If `vibe build` returns a `needs-author` plan:
 
 1. Read the compose plan.
 2. Author each missing `compositions/scene-<id>.html`.
@@ -173,8 +171,8 @@ correct and deterministic.
 
 - `Root composition not found`: run `vibe build` once so the render scaffold is
   created, or use `vibe init --profile full`.
-- `needs-author`: expected in `--mode agent`; author the listed scene files and
-  rerun build.
+- `needs-author`: expected when the host agent authors scenes (the default);
+  author the listed scene files and rerun build.
 - `OPENAI_API_KEY not set`: use `--skip-backdrop` for a local composition test,
   or configure the key before generating backdrops.
 - Render hangs at 0%: run `vibe doctor`; install Chrome or set `CHROME_PATH`.

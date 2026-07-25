@@ -59,19 +59,23 @@ export async function markBannerShown(): Promise<void> {
 export function showFirstRunBanner(): void {
   console.log();
   console.log(chalk.cyan.bold("  Welcome to VibeFrame!"));
-  console.log(chalk.dim("  AI-native video editing from your terminal."));
+  console.log(chalk.dim("  Frontier video generation for your coding agent. Your keys, your ceiling."));
   console.log();
   console.log(
-    `  ${chalk.white("1.")} ${chalk.green("vibe setup")}         Configure API keys ${chalk.dim("(1 min)")}`
+    `  ${chalk.white("1.")} ${chalk.green("vibe init demo --from \"30s video\"")}  Scaffold a project ${chalk.dim("(no key needed)")}`
   );
-  console.log(`  ${chalk.white("2.")} ${chalk.green("vibe doctor")}        Check system health`);
-  console.log(`  ${chalk.white("3.")} ${chalk.green("vibe --help")}        See all commands`);
+  console.log(
+    `  ${chalk.white("2.")} ${chalk.green("vibe build demo --dry-run")}          Price it before any spend`
+  );
+  console.log(
+    `  ${chalk.white("3.")} ${chalk.green("vibe setup")}                         Add provider keys when a step generates`
+  );
   console.log();
   console.log(chalk.dim("  Try without keys:"));
   console.log(
-    `    ${chalk.green("vibe demo")}                          Run sample edits on a test video`
+    `    ${chalk.green("vibe build demo --dry-run --max-cost 5")}  See the cost gate refuse an over-budget build`
   );
+  console.log(chalk.dim("    vibe demo                        Run sample edits on a test video"));
   console.log(chalk.dim("    vibe edit silence-cut video.mp4 -o clean.mp4"));
-  console.log(chalk.dim("    vibe detect scenes video.mp4"));
   console.log();
 }

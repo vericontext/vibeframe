@@ -63,14 +63,14 @@ describe("SceneKind", () => {
   });
 
   it("buildScriptMd is always emittable and names the project", () => {
-    expect(buildScriptMd("my-film", "cinema")).toContain("# my-film — Script");
+    expect(buildScriptMd("my-film", "cinema")).toContain("# my-film - Script");
     expect(buildScriptMd("promo", "product")).toContain("Product walkthrough");
     expect(buildScriptMd("loop", "motion")).toContain("Motion piece");
   });
 
   it("buildCharactersMd seeds a cast block with a reference sheet", () => {
     const md = buildCharactersMd("my-film");
-    expect(md).toContain("# my-film — Characters");
+    expect(md).toContain("# my-film - Characters");
     expect(md).toContain("assets/characters/hero.png");
   });
 
@@ -304,7 +304,7 @@ describe("buildStoryboardMd", () => {
 describe("buildDesignMd", () => {
   it("emits placeholder sections when no style is provided", () => {
     const md = buildDesignMd({ name: "my-promo" });
-    expect(md).toContain("# my-promo — Design");
+    expect(md).toContain("# my-promo - Design");
     expect(md).toContain("Hard-gate (BUILD flow only).");
     // Section headings are stable.
     expect(md).toContain("## Style");
@@ -417,7 +417,7 @@ describe("scaffoldSceneProject", () => {
     const dir = await makeTmp();
     await scaffoldSceneProject({ dir, name: "fixture" });
     const design = await readFile(resolve(dir, "DESIGN.md"), "utf-8");
-    expect(design).toContain("# fixture — Design");
+    expect(design).toContain("# fixture - Design");
     expect(design).toContain("--visual-style");
     // Should NOT pre-fill from any specific style:
     expect(design).not.toContain("Swiss Pulse");

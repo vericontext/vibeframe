@@ -71,7 +71,7 @@ function parseScope(raw: unknown): Scope {
 }
 
 export const setupCommand = new Command("setup")
-  .description("Configure VibeFrame (LLM provider, API keys)")
+  .description("Configure VibeFrame (video/image provider keys, LLM provider)")
   .option("--reset", "Reset configuration to defaults")
   .option("--full", "Run full setup with all optional providers")
   .option("--show", "Show current configuration (for debugging)")
@@ -102,8 +102,8 @@ Non-interactive examples (no TTY required):
   vibe setup --scope project --yes --import-env           Project-only setup (./.vibeframe/config.yaml)
 
 Scopes:
-  user    (default) ~/.vibeframe/config.yaml — shared across every project
-  project ./.vibeframe/config.yaml — gitignored, isolates keys/defaults to this directory
+  user    (default) ~/.vibeframe/config.yaml - shared across every project
+  project ./.vibeframe/config.yaml - gitignored, isolates keys/defaults to this directory
           When a project config exists at the cwd, it is used and the user file is ignored.
 
 Exit codes (non-interactive):
@@ -357,7 +357,7 @@ const AI_FEATURES: AIFeature[] = [
     label: "Audio",
     desc: "TTS, SFX, music, voice clone",
     defaultProvider:
-      "ElevenLabs (paid, premium quality) — falls back to local Kokoro when no key (free, since v0.54)",
+      "ElevenLabs (paid, premium quality) - falls back to local Kokoro when no key (free, since v0.54)",
     alsoAvailable: "Replicate MusicGen (music only)",
     keyHint: "0-1 key",
     keys: [
@@ -605,7 +605,7 @@ function mergeSelectedFeatures(current: AIFeature[], next: AIFeature[]): AIFeatu
 /**
  * Non-interactive setup for CI / devcontainer / scripted bootstrap.
  *
- * Exits 0 even when no fields are touched — running `vibe setup --yes` with no
+ * Exits 0 even when no fields are touched - running `vibe setup --yes` with no
  * other flags is a valid "ensure config file exists" idempotency op, similar
  * to `git init`. Prints a one-line summary so callers can grep for it.
  */
@@ -744,7 +744,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
     scope === "project"
       ? "applies to this project only · user config is ignored while this file exists · add .vibeframe/ to .gitignore"
       : "applies to every project for this user";
-  console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.bold(` — ${scope} scope`));
+  console.log(chalk.bold.magenta("VibeFrame Setup") + chalk.bold(` - ${scope} scope`));
   console.log(chalk.dim(`${cfgPath} · ${scopeNote}`));
   if (userStatus?.source === "legacy") {
     console.log(
@@ -762,7 +762,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
   console.log();
 
   // Show detected agent hosts up-front so the user knows VibeFrame can
-  // tell what they have. Informational only — never blocks setup.
+  // tell what they have. Informational only - never blocks setup.
   const hosts = detectedAgentHosts();
   console.log(chalk.dim(`Agent hosts: ${summariseAgentHosts(hosts)}`));
   console.log();
@@ -785,17 +785,17 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
   console.log();
 
   const topLabels = [
+    `Generate AI video ${chalk.dim("(build from a storyboard, remix highlights, auto-shorts)")}`,
+    `AI features ${chalk.dim("(pick what you need - images, videos, audio, editing)")}`,
     `Edit videos offline ${chalk.dim("(silence-cut, fade, noise-reduce, detect)")} ${chalk.green("no API keys")}`,
-    `AI features ${chalk.dim("(pick what you need — images, videos, audio, editing)")}`,
-    `Full AI pipeline ${chalk.dim("(build, remix highlights, auto-shorts)")}`,
-    `Full provider list ${chalk.dim("(every supported provider, one by one — same as --full)")}`,
+    `Full provider list ${chalk.dim("(every supported provider, one by one - same as --full)")}`,
   ];
 
   const topIndex = await promptSelect(chalk.cyan("  Select [1-4]: "), topLabels, 0);
   console.log();
 
   // ── Edit videos (FREE) ─────────────────────────────────────────────
-  if (topIndex === 0) {
+  if (topIndex === 2) {
     await saveConfig(config, { scope });
     await completeOrContinue(config, "vibe edit silence-cut video.mp4 -o clean.mp4", [], scope);
     return;
@@ -809,8 +809,8 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
     return;
   }
 
-  // ── Full AI pipeline ───────────────────────────────────────────────
-  if (topIndex === 2) {
+  // ── Generate AI video (full pipeline) ──────────────────────────────
+  if (topIndex === 0) {
     config.llm.provider = "claude";
     const pipelineKeys: AIFeatureKey[] = [
       {
@@ -818,7 +818,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
         envVar: "ANTHROPIC_API_KEY",
         name: "Anthropic",
         url: "https://console.anthropic.com/settings/keys",
-        what: "Claude — storyboard generation + reasoning",
+        what: "Claude - storyboard generation + reasoning",
       },
       {
         configKey: "openai",
@@ -832,7 +832,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
         envVar: "FAL_API_KEY",
         name: "fal.ai",
         url: "https://fal.ai/dashboard/keys",
-        what: "Seedance 2.0 — video generation, default since v0.57",
+        what: "Seedance 2.0 - video generation, default since v0.57",
       },
       {
         configKey: "elevenlabs",
@@ -1196,7 +1196,7 @@ async function collectKeys(
 }
 
 /**
- * Custom setup — provider-by-provider (old --full flow)
+ * Custom setup - provider-by-provider (old --full flow)
  */
 async function runCustomSetup(
   config: Awaited<ReturnType<typeof loadConfig>> & object,
@@ -1222,7 +1222,7 @@ async function runCustomSetup(
     xai: "Grok 4.1 Fast, 2M context, great for tool calling",
     openrouter: "300+ models via one API key (Claude, GPT, Gemini, Llama, etc.)",
     evolink: "GPT-5, Claude, Gemini, DeepSeek & more via one key",
-    ollama: "Free, local, no API key — offline capable (default: llama3.2)",
+    ollama: "Free, local, no API key - offline capable (default: llama3.2)",
   };
   const providerLabels = providers.map((p) => {
     const rec = p === "claude" ? chalk.dim(" (recommended)") : "";
@@ -1243,7 +1243,7 @@ async function runCustomSetup(
   console.log(chalk.dim("   Press Enter to skip any provider you don't need."));
   console.log();
 
-  // Derived from the provider registry — adding/editing a row means
+  // Derived from the provider registry - adding/editing a row means
   // editing `defineApiKey({...setupDescription})` in
   // `packages/ai-providers/src/api-keys.ts`. The order follows declaration
   // order in api-keys.ts.
@@ -1321,7 +1321,7 @@ async function showComplete(
 
   // The first try-this command is what most users will run next; copy it
   // to the clipboard so they can paste straight into the next prompt.
-  // Best-effort — failures are silent (missing pbcopy/xclip, headless CI).
+  // Best-effort - failures are silent (missing pbcopy/xclip, headless CI).
   const primaryTry = features.length > 1 ? features[0].tryCommand : defaultTryCommand;
   if (features.length > 1) {
     console.log(chalk.bold("  Try these:"));
@@ -1345,7 +1345,7 @@ async function showComplete(
     )
   );
 
-  // Surface every registered guide — the topic table is the single
+  // Surface every registered guide - the topic table is the single
   // source of truth (`walkthroughs.ts`), so adding a topic there shows up
   // here automatically. When an agent host is detected, the `scene` flow
   // is the canonical entry point so we tag it (recommended).
@@ -1363,7 +1363,7 @@ async function showComplete(
   console.log(chalk.dim("    vibe schema --list        Discover every command"));
   console.log(chalk.dim("    vibe setup                Re-run user-scope setup anytime"));
 
-  // Tab-completion install hint — pick the user's likely shell from
+  // Tab-completion install hint - pick the user's likely shell from
   // $SHELL, fall back to a generic line. Runs once at setup time so
   // returning users see it.
   const shellHint = pickCompletionHint(process.env.SHELL);
@@ -1373,30 +1373,30 @@ async function showComplete(
     console.log(chalk.dim(`    ${shellHint}`));
   }
 
-  // Tailored hint when an agent host is detected — points at the file
-  // `vibe init` will scaffold for that host, and surfaces the Plan H
-  // agentic compose path so they know `vibe build` will dispatch to
-  // their host agent automatically.
+  // Tailored hint when an agent host is detected - points at the file
+  // `vibe init` will scaffold for that host. Scene HTML is authored by the
+  // host agent; there is no internal LLM composer (removed in v0.113).
   const hosts = detectedAgentHosts();
   const primary = hosts[0];
   if (primary) {
     console.log();
     console.log(
       chalk.dim(
-        `  Detected ${primary.label} — \`vibe init\` will scaffold ${primary.projectFiles.join(" + ")} in your project.`
+        `  Detected ${primary.label} - \`vibe init\` will scaffold ${primary.projectFiles.join(" + ")} in your project.`
       )
     );
     console.log(
       chalk.dim(
-        `  Scene composer will auto-dispatch to ${primary.label} (${chalk.bold("--mode agent")}). ` +
-          `Run \`vibe init my-promo\` to scaffold a video project + install local composition rules.`
+        `  ${primary.label} authors each scene during \`vibe build\`. ` +
+          `Run \`vibe init my-promo\` to scaffold a video project.`
       )
     );
   } else {
     console.log();
     console.log(
       chalk.dim(
-        `  No agent host detected — \`vibe build\` will use the internal LLM composer (${chalk.bold("--mode batch")}).`
+        `  No agent host detected - scenes are authored by a coding agent during \`vibe build\`; ` +
+          `pass ${chalk.bold("--composer template")} for the deterministic no-model fallback.`
       )
     );
   }
@@ -1411,7 +1411,7 @@ async function setupClaudeCode(): Promise<void> {
   console.log(chalk.bold.cyan("Claude Code Integration"));
   console.log(chalk.dim("─".repeat(40)));
   console.log();
-  console.log("  VibeFrame CLI is self-discoverable — no extra setup needed.");
+  console.log("  VibeFrame CLI is self-discoverable - no extra setup needed.");
   console.log("  Claude Code can use these commands to understand the CLI:");
   console.log();
   console.log(`  ${chalk.green("vibe --help")}                  All command groups`);
@@ -1436,7 +1436,7 @@ function maskApiKey(key: string): string {
  *
  * Default mode lists only set keys + the LLM provider + config path.
  * `--verbose` re-adds unset rows, the Defaults block, and the
- * Resolution order — useful when troubleshooting why a key isn't being
+ * Resolution order - useful when troubleshooting why a key isn't being
  * picked up. The default keeps a returning user's status check to
  * roughly the screen height.
  */
@@ -1558,13 +1558,13 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
   if (!verbose && unsetCount > 0) {
     console.log(
       chalk.dim(
-        `  (${unsetCount} provider${unsetCount === 1 ? "" : "s"} unset — run with --verbose to list)`
+        `  (${unsetCount} provider${unsetCount === 1 ? "" : "s"} unset - run with --verbose to list)`
       )
     );
   }
   console.log();
 
-  // Defaults + resolution order are debugging aids — only useful when
+  // Defaults + resolution order are debugging aids - only useful when
   // something's actually wrong. Hide behind --verbose by default.
   if (verbose) {
     if (config) {

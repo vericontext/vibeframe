@@ -65,9 +65,12 @@ describe("walkthroughs", () => {
       expect(r.content).toContain("--asset");
     });
 
-    it("scene walkthrough mentions Plan H mode dispatch (--mode agent)", () => {
+    it("scene walkthrough describes agent authoring and the template fallback", () => {
       const r = loadWalkthrough("scene");
-      expect(r.content).toMatch(/--mode agent/);
+      // The internal LLM composer is gone (#276): the guide must not point
+      // agents at removed --mode batch, and must name the surviving fallback.
+      expect(r.content).not.toMatch(/--mode batch/);
+      expect(r.content).toContain("--composer template");
       expect(r.content).toContain("compose-prompts");
     });
 
