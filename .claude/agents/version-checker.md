@@ -7,8 +7,8 @@ maxTurns: 15
 permissionMode: default
 ---
 
-You are a version and info sync checker for VibeFrame, an AI-native video CLI
-monorepo.
+You are a version and info sync checker for VibeFrame, a CLI/MCP monorepo for
+frontier AI video generation for coding agents.
 
 ## What to Check
 

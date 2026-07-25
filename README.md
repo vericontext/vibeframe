@@ -98,7 +98,7 @@ that project config in isolation and does not merge user-scope keys.
 > [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) (binary
 > `vibe`) and the MCP server as
 > [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
-> There is no bare `vibeframe` npm package from this project — that name belongs
+> There is no bare `vibeframe` npm package from this project - that name belongs
 > to an unrelated package, so `npx vibeframe` will not run this tool.
 
 For local development:
@@ -136,7 +136,7 @@ Within a project, the files have defined roles:
 | `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings. |
 | `assets/`       | Generated or canonical build artifacts: narration, backdrops, music, video clips. |
 | `renders/`      | Final and intermediate MP4 outputs.                                               |
-| `references/`   | Composition rule docs installed by VibeFrame skills; not for user media.          |
+| `references/`   | Legacy only: older projects kept vendored composition rules here. New installs put them under `.agents/skills/hyperframes/` via `vibe scene install-skill`. |
 
 `vibe.config.json` owns the project contract (provider, model, quality, and
 build defaults). The composition engine today is Hyperframes (HTML/CSS/JS scene
@@ -145,7 +145,7 @@ rendering in a headless browser).
 ## Quick Start
 
 ```bash
-vibe setup    # optional for the zero-key path — this is where provider keys go
+vibe setup    # this is where provider keys go - optional until a step generates
 vibe doctor
 vibe guide
 ```
@@ -284,12 +284,12 @@ Reviewing stills before animating is also the cheapest way to keep a run under i
 #   keyframe: "Mira on the ice, camera lowered, looking up as the aurora fills the sky"
 #   video:    "slow tilt up as the aurora ripples and pulses overhead"
 
-vibe build my-film --skip-video   # keyframe stills only (cheap) — review them first
+vibe build my-film --skip-video   # keyframe stills only (cheap) - review them first
 vibe build my-film --max-cost 12  # animate the approved stills (image-to-video)
 ```
 
 ▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
-— one photographer across a single arctic night (trek → first aurora → the
+- one photographer across a single arctic night (trek → first aurora → the
 whole sky → dawn), 1080p, generated end-to-end. Open source, MIT.
 
 ![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
@@ -395,7 +395,7 @@ run `safeToAutoRun:true` actions automatically, ask before
 
 ### Outer-loop agent prompts
 
-Hand your coding agent a prompt like the following — these are plain prompts,
+Hand your coding agent a prompt like the following - these are plain prompts,
 not a built-in command. For Codex:
 
 ```text
@@ -482,7 +482,7 @@ The CLI is the primary runtime. For hosts that prefer MCP, VibeFrame also
 ships `@vibeframe/mcp-server` (binary `vibeframe-mcp`).
 
 **Claude Desktop users:** install the prebuilt extension instead of editing
-JSON — download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
+JSON - download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
 and drop it into **Settings → Extensions**, then pick a workspace folder.
 
 For other hosts, generate snippets with:
@@ -555,7 +555,7 @@ VibeFrame wraps lower-level composition engines rather than replacing them:
 | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.             |
 | [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                 |
-| VibeFrame                                                | Storyboard/design files, provider routing, build reports, render inspection, edit/remix commands, and host-agent guidance. |
+| VibeFrame                                                | Frontier-model generation on your own keys, dry runs and the hard `--max-cost` ceiling, storyboard/design files, build reports, render inspection, edit/remix commands, and host-agent guidance. |
 
 If the job is only HTML scene authoring and rendering, use Hyperframes directly - it is the better tool for that and VibeFrame installs its skill for you either way.
 Reach for VibeFrame when the job involves paid generation: frontier image and video models, character continuity across scenes, narration, cost ceilings, build reports, or editing steps around the composition layer.
