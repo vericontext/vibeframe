@@ -72,10 +72,25 @@ describe("schema product surface taxonomy", () => {
     const leaves = getLeafCommands();
     expect(leaves.length).toBeGreaterThan(0);
     expect(leaves.every((leaf) => typeof leaf.surface === "string")).toBe(true);
-    expect(leaves.find((leaf) => leaf.path === "generate.speech")).toMatchObject({
-      surface: "legacy",
-      replacement: "vibe generate narration",
-    });
+    // With the 0.114 removals the catalog advertises no legacy surface at
+    // all. Every listed command is one the CLI still stands behind.
+    expect(leaves.filter((leaf) => leaf.surface === "legacy")).toEqual([]);
+  });
+
+  it("does not list the eight commands removed in 0.114", () => {
+    const paths = getLeafCommands().map((leaf) => leaf.path);
+    for (const gone of [
+      "generate.speech",
+      "generate.background",
+      "generate.storyboard",
+      "generate.music-status",
+      "generate.video-status",
+      "inspect.video",
+      "inspect.review",
+      "remix.regenerate-scene",
+    ]) {
+      expect(paths).not.toContain(gone);
+    }
   });
 
   it("filters schema --list by product surface", () => {
@@ -114,25 +129,26 @@ describe("CLI help product surface taxonomy", () => {
     expect(footer).not.toContain("scene.compose-prompts");
   });
 
-  it("keeps generate help focused on public primitives with legacy replacements", () => {
+  it("keeps generate help focused on public primitives", () => {
     const help = runCli("generate --help");
     expect(help).toContain("narration|voiceover");
     expect(help).not.toMatch(/\n\s+speech\|tts\b/);
     expect(help).not.toMatch(/\n\s+storyboard\s+\[options\]/);
     expect(help).not.toMatch(/\n\s+background\s+\[options\]/);
-    expect(help).toContain("generate speech       Legacy alias; use 'vibe generate narration'");
-    expect(help).toContain("generate storyboard   Legacy primitive; use 'vibe init --from'");
+    // The removed commands must not linger as help-text advice either.
+    expect(help).not.toContain("Legacy");
+    expect(help).toContain("generate motion");
   });
 
-  it("keeps inspect help focused on project/render/media with replacements", () => {
+  it("keeps inspect help focused on project/render/media", () => {
     const help = runCli("inspect --help");
     expect(help).toContain("project [options]");
     expect(help).toContain("render [options]");
     expect(help).toContain("media [options]");
     expect(help).not.toMatch(/\n\s+video\s+\[options\]/);
     expect(help).not.toMatch(/\n\s+review\s+\[options\]/);
-    expect(help).toContain("inspect video    Legacy alias; use 'vibe inspect media'");
-    expect(help).toContain("inspect review   Legacy render review; use 'vibe inspect render --ai'");
+    expect(help).not.toContain("Legacy");
+    expect(help).toContain("inspect suggest");
   });
 
   it("keeps remix help focused on repurposing and points regeneration to build", () => {
@@ -141,9 +157,7 @@ describe("CLI help product surface taxonomy", () => {
     expect(help).toContain("auto-shorts|shorts");
     expect(help).toContain("animated-caption [options]");
     expect(help).not.toMatch(/\n\s+regenerate-scene\s+\[options\]/);
-    expect(help).toContain(
-      "remix regenerate-scene  Use 'vibe build <project> --beat <id> --force --json'"
-    );
+    expect(help).not.toContain("regenerate-scene");
   });
 });
 
@@ -201,14 +215,6 @@ describe("envelope shape (--dry-run --json)", () => {
     {
       name: "generate video (high cost, async)",
       cmd: 'generate video "test" --dry-run --json',
-    },
-    {
-      name: "generate speech (medium cost)",
-      cmd: 'generate speech "hello" --dry-run --json',
-    },
-    {
-      name: "generate background (low cost)",
-      cmd: 'generate background "sunset over ocean" --dry-run --json',
     },
     {
       name: "inspect render AI (low cost, dry-run)",

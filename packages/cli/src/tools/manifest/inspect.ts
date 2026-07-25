@@ -9,11 +9,7 @@
 import { z } from "zod";
 import { resolve } from "node:path";
 import { defineTool, type AnyTool } from "../define-tool.js";
-import {
-  executeAnalyze,
-  executeGeminiVideo,
-} from "../../commands/ai-analyze.js";
-import { executeReview } from "../../commands/ai-review.js";
+import { executeAnalyze } from "../../commands/ai-analyze.js";
 import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { inspectProject } from "../../commands/_shared/scene-inspect.js";
 import { inspectRender, previewInspectRender } from "../../commands/_shared/render-inspect.js";
@@ -165,73 +161,7 @@ export const analyzeMediaTool = defineTool({
   },
 });
 
-// ── inspect_video ───────────────────────────────────────────────────────────
 
-export const analyzeVideoTool = defineTool({
-  name: "inspect_video",
-  category: "analyze",
-  cost: "low",
-  title: "Inspect Video with AI",
-  annotations: { readOnly: true, openWorld: true },
-  description:
-    "Analyze video content using Gemini AI with temporal understanding. Requires GOOGLE_API_KEY.",
-  schema: z.object({
-    source: z.string().describe("Path to video file"),
-    prompt: z.string().describe("Analysis prompt"),
-    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant (default: flash)"),
-    fps: z.number().optional().describe("Frames per second for sampling"),
-    start: z.number().optional().describe("Start time in seconds"),
-    end: z.number().optional().describe("End time in seconds"),
-    lowRes: z.boolean().optional().describe("Use lower resolution"),
-  }),
-  async execute(args) {
-    const result = await executeGeminiVideo(args);
-    if (!result.success) return { success: false, error: result.error ?? "Analysis failed" };
-    return {
-      success: true,
-      data: {
-        response: result.response,
-        model: result.model,
-        totalTokens: result.totalTokens,
-      },
-      humanLines: [`✅ Analyzed video (${result.model})`],
-    };
-  },
-});
-
-// ── inspect_review ──────────────────────────────────────────────────────────
-
-export const analyzeReviewTool = defineTool({
-  name: "inspect_review",
-  category: "analyze",
-  cost: "low",
-  title: "Review Video with AI",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "AI video review: analyzes quality, suggests fixes, and optionally auto-applies them. Requires GOOGLE_API_KEY.",
-  schema: z.object({
-    videoPath: z.string().describe("Path to the video file to review"),
-    storyboardPath: z.string().optional().describe("Path to storyboard.json for intent comparison"),
-    autoApply: z.boolean().optional().describe("Automatically apply suggested fixes (default: false)"),
-    verify: z.boolean().optional().describe("Re-review after applying fixes (default: false)"),
-    model: z.enum(["flash", "latest", "flash-3", "flash-2.5", "pro", "pro-3.1"]).optional().describe("Gemini model variant (default: flash)"),
-    outputPath: z.string().optional().describe("Output path for fixed video"),
-  }),
-  async execute(args) {
-    const result = await executeReview(args);
-    if (!result.success) return { success: false, error: result.error ?? "Review failed" };
-    return {
-      success: true,
-      data: {
-        feedback: result.feedback,
-        appliedFixes: result.appliedFixes,
-        verificationScore: result.verificationScore,
-        outputPath: result.outputPath,
-      },
-      humanLines: [`✅ Review complete${result.outputPath ? ` → ${result.outputPath}` : ""}`],
-    };
-  },
-});
 
 // ── inspect_suggest ─────────────────────────────────────────────────────────
 
@@ -276,7 +206,5 @@ export const inspectTools: readonly AnyTool[] = [
   inspectProjectTool as unknown as AnyTool,
   inspectRenderTool as unknown as AnyTool,
   analyzeMediaTool as unknown as AnyTool,
-  analyzeVideoTool as unknown as AnyTool,
-  analyzeReviewTool as unknown as AnyTool,
   analyzeSuggestTool as unknown as AnyTool,
 ];

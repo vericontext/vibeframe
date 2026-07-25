@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 // directory listing + MCP tool name regex), so they stay in sync with the
 // source. Falls back to conservative static numbers if env var lookup fails.
 const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "15";
-const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "85";
+const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "77";
 const SHARE_TITLE = "VibeFrame - frontier video generation for coding agents";
 const SHARE_DESCRIPTION = `Let your coding agent generate video on Seedance, Runway, Veo, or Kling with your own keys, behind a dry run and a hard --max-cost ceiling. ${AI_PROVIDERS} AI providers, ${MCP_TOOLS} MCP tools, MIT.`;
 

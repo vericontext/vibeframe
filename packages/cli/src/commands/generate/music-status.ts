@@ -5,11 +5,8 @@
  * Phase 2).
  */
 
-import type { Command } from "commander";
-import chalk from "chalk";
 import { ReplicateProvider } from "@vibeframe/ai-providers";
-import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
-import { isJsonMode, outputSuccess, exitWithError, apiError } from "../output.js";
+import { getConfiguredApiKey } from "../../utils/api-key.js";
 
 // ── Library: executeMusicStatus ─────────────────────────────────────────
 
@@ -59,64 +56,3 @@ export async function executeMusicStatus(
 }
 
 // ── CLI: vibe generate music-status (hidden) ────────────────────────────
-
-export function registerMusicStatusCommand(parent: Command): void {
-  parent
-    .command("music-status", { hidden: true })
-    .description("Check music generation status")
-    .argument("<task-id>", "Task ID from music generation")
-    .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
-    .action(async (taskId: string, options) => {
-      const startedAt = Date.now();
-      try {
-        const apiKey = await requireApiKey(
-          "REPLICATE_API_TOKEN",
-          "Replicate",
-          options.apiKey,
-        );
-
-        const replicate = new ReplicateProvider();
-        await replicate.initialize({ apiKey });
-
-        const result = await replicate.getMusicStatus(taskId);
-
-        if (isJsonMode()) {
-          const status = result.audioUrl
-            ? "completed"
-            : result.error
-              ? "failed"
-              : "processing";
-          outputSuccess({
-            command: "generate music-status",
-            startedAt,
-            data: {
-              taskId,
-              status,
-              audioUrl: result.audioUrl,
-              error: result.error,
-            },
-          });
-          return;
-        }
-
-        console.log();
-        console.log(chalk.bold.cyan("Music Generation Status"));
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(`Task ID: ${taskId}`);
-
-        if (result.audioUrl) {
-          console.log(`Status: ${chalk.green("completed")}`);
-          console.log(`Audio URL: ${result.audioUrl}`);
-        } else if (result.error) {
-          console.log(`Status: ${chalk.red("failed")}`);
-          console.log(`Error: ${result.error}`);
-        } else {
-          console.log(`Status: ${chalk.yellow("processing")}`);
-        }
-        console.log();
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        exitWithError(apiError(`Failed to get music status: ${msg}`, true));
-      }
-    });
-}

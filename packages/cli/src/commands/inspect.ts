@@ -10,8 +10,6 @@
  *   inspect project - Local project completeness and composition checks
  *   inspect render  - Local rendered video checks plus optional Gemini review
  *   inspect media   - Unified analysis for images, videos, and YouTube URLs (Gemini)
- *   inspect video   - Analyze video files or YouTube URLs with Gemini
- *   inspect review  - AI video quality review and auto-fix (Gemini)
  *   inspect suggest - Get AI edit suggestions using Gemini
  *
  * @dependencies Gemini (Google), FFmpeg (auto-fix filters)
@@ -26,8 +24,7 @@ import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, isGeminiTextModelAlias } from "
 import { Project, type ProjectFile } from "../engine/index.js";
 import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
-import { executeAnalyze, executeGeminiVideo } from "./ai-analyze.js";
-import { registerReviewCommand } from "./ai-review.js";
+import { executeAnalyze } from "./ai-analyze.js";
 import {
   isJsonMode,
   outputSuccess,
@@ -69,9 +66,7 @@ Examples:
   $ vibe inspect media video.mp4 "Summarize this video"
   $ vibe inspect media "https://youtube.com/watch?v=..." "Key takeaways"
 
-Advanced and legacy:
-  inspect video    Legacy alias; use 'vibe inspect media'
-  inspect review   Legacy render review; use 'vibe inspect render --ai'
+Advanced:
   inspect suggest  Advanced suggestion primitive; reports should drive host-agent edits
 
 API Keys:
@@ -371,114 +366,6 @@ function parseRenderAiModel(value: string): RenderInspectModel {
     )
   );
 }
-
-// ── analyze video ──────────────────────────────────────────────────────
-
-inspectCommand
-  .command("video", { hidden: true })
-  .description("Analyze video using Gemini (summarize, Q&A, extract info)")
-  .argument("<source>", "Video file path or YouTube URL")
-  .argument("<prompt>", "Analysis prompt (e.g., 'Summarize this video')")
-  .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-  .option("-m, --model <model>", `Model: ${GEMINI_TEXT_MODEL_HELP}`, "flash")
-  .option("--fps <number>", "Frames per second (default: 1, higher for action)")
-  .option("--start <seconds>", "Start offset in seconds (for clipping)")
-  .option("--end <seconds>", "End offset in seconds (for clipping)")
-  .option("--low-res", "Use low resolution mode (fewer tokens, longer videos)")
-  .option("--verbose", "Show token usage")
-  .option("--fields <fields>", "Comma-separated fields to include in output (e.g., response,model)")
-  .option("--dry-run", "Preview parameters without executing")
-  .action(async (source: string, prompt: string, options) => {
-    const startedAt = Date.now();
-    try {
-      rejectControlChars(prompt);
-
-      if (options.dryRun) {
-        outputSuccess({
-          command: "inspect video",
-          startedAt,
-          dryRun: true,
-          data: {
-            params: {
-              source,
-              prompt,
-              model: options.model,
-              fps: options.fps,
-              start: options.start,
-              end: options.end,
-              lowRes: options.lowRes ?? false,
-            },
-          },
-        });
-        return;
-      }
-
-      if (options.apiKey) {
-        process.env.GOOGLE_API_KEY = options.apiKey;
-      } else {
-        await requireApiKey("GOOGLE_API_KEY", "Google");
-      }
-
-      const spinner = ora("Analyzing video...").start();
-      const result = await executeGeminiVideo({
-        source,
-        prompt,
-        model: options.model,
-        fps: options.fps ? parseFloat(options.fps) : undefined,
-        start: options.start ? parseInt(options.start, 10) : undefined,
-        end: options.end ? parseInt(options.end, 10) : undefined,
-        lowRes: options.lowRes,
-      });
-
-      if (!result.success) {
-        spinner.fail();
-        exitWithError(apiError(result.error || "Video analysis failed", true));
-      }
-
-      spinner.succeed(chalk.green("Video analyzed"));
-
-      const response = sanitizeLLMResponse(result.response || "");
-
-      if (isJsonMode()) {
-        const data: Record<string, unknown> = { response, model: result.model };
-        if (result.totalTokens) {
-          data.promptTokens = result.promptTokens;
-          data.responseTokens = result.responseTokens;
-          data.totalTokens = result.totalTokens;
-        }
-        outputSuccess({
-          command: "inspect video",
-          startedAt,
-          data,
-        });
-        return;
-      }
-
-      console.log();
-      console.log(response);
-      console.log();
-
-      if (options.verbose && result.totalTokens) {
-        console.log(chalk.dim("-".repeat(40)));
-        console.log(chalk.dim(`Model: ${result.model}`));
-        if (result.promptTokens) {
-          console.log(chalk.dim(`Prompt tokens: ${result.promptTokens.toLocaleString()}`));
-        }
-        if (result.responseTokens) {
-          console.log(chalk.dim(`Response tokens: ${result.responseTokens.toLocaleString()}`));
-        }
-        console.log(chalk.dim(`Total tokens: ${result.totalTokens.toLocaleString()}`));
-      }
-    } catch (error) {
-      exitWithError(apiError(`Video analysis failed: ${(error as Error).message}`));
-    }
-  });
-applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");
-
-// ── analyze review ─────────────────────────────────────────────────────
-
-registerReviewCommand(inspectCommand);
-applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");
 
 // ── analyze suggest ────────────────────────────────────────────────────
 

@@ -32,7 +32,7 @@ const CLI_TREE: Record<string, string[]> = {
   // working — they delegate to the same shared executeXxx() functions.
   // v0.77: `styles` → `list-styles` (verb-first leaf consistency).
   scene:    ["list-styles", "add", "lint", "install-skill", "compose-prompts", "repair"],
-  generate: ["image", "video", "video-status", "video-cancel", "video-extend", "speech", "narration", "sound-effect", "music", "music-status", "storyboard", "motion", "thumbnail", "background"],
+  generate: ["image", "video", "video-cancel", "video-extend", "narration", "sound-effect", "music", "motion", "thumbnail"],
   edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "motion-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale"],
   // v0.74: `voices` → `list-voices`, `voice-clone` → `clone-voice`
   // (verb-first leaf consistency). Old names remain as Commander aliases.
@@ -40,7 +40,7 @@ const CLI_TREE: Record<string, string[]> = {
   // `pipeline` was renamed to `remix` in v0.74; the old name + `pipe`
   // remain registered as Commander aliases (deprecation warning fires)
   // but the canonical name reported by Commander is `remix`.
-  remix:    ["highlights", "auto-shorts", "animated-caption", "regenerate-scene"],
+  remix:    ["highlights", "auto-shorts", "animated-caption"],
   detect:   ["scenes", "silence", "beats"],
   // v0.77: bare verbs (`trim`, `split`, etc.) became verb-noun
   // (`trim-clip`, `split-clip`, ...) to match the existing `add-*`
@@ -49,7 +49,7 @@ const CLI_TREE: Record<string, string[]> = {
   project:  ["create", "info", "set"],
   // `analyze` was renamed to `inspect` in v0.74 (see remix note above).
   // `analyze` and `az` remain as deprecated Commander aliases.
-  inspect:  ["media", "video", "review", "suggest", "project", "render"],
+  inspect:  ["media", "suggest", "project", "render"],
   // `vibe guide <topic>` is a top-level command with a positional
   // arg, not a real subcommand group. We model the topics as "subs" here
   // so each one ↔ manifest mapping is verifiable; the single backing
@@ -85,18 +85,13 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   // generate
   "generate image":         "generate_image",
   "generate video":         "generate_video",
-  "generate video-status":  "generate_video_status",
   "generate video-cancel":  "generate_video_cancel",
   "generate video-extend":  "generate_video_extend",
-  "generate speech":        "generate_speech",
   "generate narration":     "generate_narration",
   "generate sound-effect":  "generate_sound_effect",
   "generate music":         "generate_music",
-  "generate music-status":  "generate_music_status",
-  "generate storyboard":    "generate_storyboard",
   "generate motion":        "generate_motion",
   "generate thumbnail":     "generate_thumbnail",
-  "generate background":    "generate_background",
   // edit
   "edit silence-cut":   "edit_silence_cut",
   "edit caption":       "edit_caption",
@@ -125,7 +120,6 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "remix highlights":         "remix_highlights",
   "remix auto-shorts":        "remix_auto_shorts",
   "remix animated-caption":   "edit_animated_caption",
-  "remix regenerate-scene":   "remix_regenerate_scene",
   // detect
   "detect scenes":  "detect_scenes",
   "detect silence": "detect_silence",
@@ -150,8 +144,6 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "project set":    null, // deprecated CLI-only alias
   // inspect (was: analyze — manifest tool names keep `analyze_*` prefix)
   "inspect media":   "inspect_media",
-  "inspect video":   "inspect_video",
-  "inspect review":  "inspect_review",
   "inspect suggest": "inspect_suggest",
   "inspect project": "inspect_project",
   "inspect render":  "inspect_render",

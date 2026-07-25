@@ -14,14 +14,10 @@ import {
   executeSpeech,
   executeSoundEffect,
   executeMusic,
-  executeMusicStatus,
-  executeStoryboard,
-  executeBackground,
 } from "../../commands/generate.js";
 import { executeImageGenerate, executeThumbnailBestFrame } from "../../commands/ai-image.js";
 import {
   executeVideoGenerate,
-  executeVideoStatus,
   executeVideoCancel,
   executeVideoExtend,
 } from "../../commands/ai-video.js";
@@ -80,31 +76,6 @@ export const generateMotionTool = defineTool({
         componentName: result.componentName,
       },
       humanLines: [`✅ Motion generated → ${out}`],
-    };
-  },
-});
-
-// ── generate_speech ─────────────────────────────────────────────────────────
-
-export const generateSpeechTool = defineTool({
-  name: "generate_speech",
-  category: "generate",
-  cost: "low",
-  title: "Generate Speech Audio",
-  annotations: { readOnly: false, openWorld: true },
-  description: "Generate speech from text using ElevenLabs TTS. Requires ELEVENLABS_API_KEY.",
-  schema: z.object({
-    text: z.string().describe("Text to convert to speech"),
-    output: z.string().optional().describe("Output audio file path (default: output.mp3)"),
-    voice: z.string().optional().describe("Voice ID (default: Rachel)"),
-  }),
-  async execute(args) {
-    const result = await executeSpeech(args);
-    if (!result.success) return { success: false, error: result.error ?? "Speech failed" };
-    return {
-      success: true,
-      data: { outputPath: result.outputPath, characterCount: result.characterCount },
-      humanLines: [`✅ Speech → ${result.outputPath}`],
     };
   },
 });
@@ -228,35 +199,6 @@ export const generateMusicTool = defineTool({
   },
 });
 
-// ── generate_music_status ───────────────────────────────────────────────────
-
-export const generateMusicStatusTool = defineTool({
-  name: "generate_music_status",
-  category: "generate",
-  cost: "free",
-  title: "Check Music Generation Status",
-  annotations: { readOnly: true, openWorld: true },
-  description:
-    "Check Replicate music generation task status. `generate_music` returns a task id; this tool polls it until the audio URL is ready. Requires REPLICATE_API_TOKEN.",
-  schema: z.object({
-    taskId: z.string().describe("Task ID returned from generate_music"),
-  }),
-  async execute(args) {
-    const result = await executeMusicStatus(args);
-    if (!result.success) return { success: false, error: result.error ?? "Music status failed" };
-    return {
-      success: true,
-      data: {
-        taskId: result.taskId,
-        status: result.status,
-        audioUrl: result.audioUrl,
-        error: result.error,
-      },
-      humanLines: [`Music task ${result.taskId}: ${result.status}`],
-    };
-  },
-});
-
 // ── generate_image ──────────────────────────────────────────────────────────
 
 export const generateImageTool = defineTool({
@@ -298,71 +240,6 @@ export const generateImageTool = defineTool({
         imageCount: result.images?.length,
       },
       humanLines: [`✅ Image (${result.provider}) → ${result.outputPath}`],
-    };
-  },
-});
-
-// ── generate_storyboard ─────────────────────────────────────────────────────
-
-export const generateStoryboardTool = defineTool({
-  name: "generate_storyboard",
-  category: "generate",
-  cost: "low",
-  title: "Generate Storyboard",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "Generate a video storyboard from text content using Claude. Returns scene segments with descriptions, visuals, and narration. Requires ANTHROPIC_API_KEY.",
-  schema: z.object({
-    content: z.string().describe("Text content to analyze (script, article, etc.)"),
-    duration: z.number().optional().describe("Target total duration in seconds"),
-    creativity: z
-      .enum(["low", "high"])
-      .optional()
-      .describe("Creativity level (default: low — consistent; high — varied)"),
-    output: z.string().optional().describe("Output JSON file path"),
-  }),
-  async execute(args) {
-    const result = await executeStoryboard(args);
-    if (!result.success) return { success: false, error: result.error ?? "Storyboard failed" };
-    return {
-      success: true,
-      data: { segmentCount: result.segmentCount, outputPath: result.outputPath },
-      humanLines: [
-        `✅ Storyboard: ${result.segmentCount} segments${result.outputPath ? ` → ${result.outputPath}` : ""}`,
-      ],
-    };
-  },
-});
-
-// ── generate_background ─────────────────────────────────────────────────────
-
-export const generateBackgroundTool = defineTool({
-  name: "generate_background",
-  category: "generate",
-  cost: "low",
-  title: "Generate Background Image",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "Generate a cinematic backdrop image (OpenAI gpt-image-2 / DALL·E variant tuned for video backgrounds). Returns the image URL and, when `output` is provided, downloads the PNG to disk. Requires OPENAI_API_KEY.",
-  schema: z.object({
-    description: z.string().describe("Background description / image prompt."),
-    aspect: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Aspect ratio. Default '16:9'."),
-    output: z
-      .string()
-      .optional()
-      .describe("Output PNG path. Relative paths resolve against the surface's cwd; in MCP hosts, that is the configured server workspace."),
-  }),
-  async execute(args) {
-    const result = await executeBackground(args);
-    if (!result.success) return { success: false, error: result.error ?? "Background failed" };
-    return {
-      success: true,
-      data: {
-        imageUrl: result.imageUrl,
-        outputPath: result.outputPath,
-        revisedPrompt: result.revisedPrompt,
-      },
-      humanLines: [`✅ Background → ${result.outputPath ?? result.imageUrl}`],
     };
   },
 });
@@ -492,47 +369,6 @@ export const generateVideoTool = defineTool({
   },
 });
 
-// ── generate_video_status ───────────────────────────────────────────────────
-
-export const generateVideoStatusTool = defineTool({
-  name: "generate_video_status",
-  category: "generate",
-  cost: "free",
-  title: "Check Video Generation Status",
-  annotations: { readOnly: false, openWorld: true },
-  description: "Check video generation status for Grok, Runway, Kling, or Veo tasks.",
-  schema: z.object({
-    taskId: z.string().describe("Task ID from video generation"),
-    provider: z
-      .enum(["grok", "runway", "kling", "veo"])
-      .optional()
-      .describe("Provider (default: runway)"),
-    taskType: z
-      .enum(["text2video", "image2video"])
-      .optional()
-      .describe("Kling task type (default: text2video)"),
-    wait: z.boolean().optional().describe("Wait for completion"),
-    output: z.string().optional().describe("Download video when complete"),
-  }),
-  async execute(args) {
-    const result = await executeVideoStatus(args);
-    if (!result.success) return { success: false, error: result.error ?? "Status check failed" };
-    return {
-      success: true,
-      data: {
-        taskId: result.taskId,
-        status: result.status,
-        progress: result.progress,
-        videoUrl: result.videoUrl,
-        outputPath: result.outputPath,
-      },
-      humanLines: [
-        `Task ${result.taskId}: ${result.status}${result.progress !== undefined ? ` (${result.progress}%)` : ""}`,
-      ],
-    };
-  },
-});
-
 // ── generate_video_cancel ───────────────────────────────────────────────────
 
 export const generateVideoCancelTool = defineTool({
@@ -597,17 +433,12 @@ export const generateVideoExtendTool = defineTool({
 
 export const generateTools: readonly AnyTool[] = [
   generateMotionTool as unknown as AnyTool,
-  generateSpeechTool as unknown as AnyTool,
   generateNarrationTool as unknown as AnyTool,
   generateSoundEffectTool as unknown as AnyTool,
   generateMusicTool as unknown as AnyTool,
-  generateMusicStatusTool as unknown as AnyTool,
   generateImageTool as unknown as AnyTool,
-  generateStoryboardTool as unknown as AnyTool,
-  generateBackgroundTool as unknown as AnyTool,
   generateThumbnailTool as unknown as AnyTool,
   generateVideoTool as unknown as AnyTool,
-  generateVideoStatusTool as unknown as AnyTool,
   generateVideoCancelTool as unknown as AnyTool,
   generateVideoExtendTool as unknown as AnyTool,
 ];
