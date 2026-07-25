@@ -200,16 +200,11 @@ vibe inspect render my-video --cheap --json
 vibe scene repair my-video --json
 ```
 
-To iterate on a single beat without rebuilding everything:
+`plan`, `build`, `preview`, `render`, and both `inspect` commands take
+`--beat <id>` to work one beat at a time instead of rebuilding everything.
 
-```bash
-vibe build my-video --beat hook --stage sync --json
-vibe inspect project my-video --beat hook --json
-vibe render my-video --beat hook --json
-vibe inspect render my-video --beat hook --cheap --json
-```
-
-Each storyboard beat carries YAML cues:
+Each storyboard beat carries YAML cues. A cue's value is either a prompt to
+generate from, or a project-relative path to a file you already have:
 
 ````markdown
 ## Beat hook - Open
@@ -217,34 +212,15 @@ Each storyboard beat carries YAML cues:
 ```yaml
 narration: "Start with a storyboard. VibeFrame turns each beat into a render plan."
 backdrop: "Clean developer terminal beside structured storyboard cues"
-video: "Slow push-in across generated interface panels"
-motion: "Kinetic headline, subtle parallax, clean lower-third"
+video: "media/broll.mp4"   # a path reuses your file instead of generating
 voice: "alloy"
-music: "minimal pulse, confident"
 duration: 5
 ```
 ````
 
-When a beat should reuse a local file instead of generating one, use a
-project-relative path:
-
-```yaml
-backdrop: "media/product-shot.png"
-video: "media/broll.mp4"
-narration: "media/voice.wav"
-asset: "media/logo.png"
-```
-
-### `vibe init` profiles
-
-| Profile   | Use when                                              | What it creates                               |
-| --------- | ----------------------------------------------------- | --------------------------------------------- |
-| `minimal` | You only want the authoring docs at first             | `STORYBOARD.md`, `DESIGN.md`, project config  |
-| `agent`   | Recommended for Codex, Claude Code, Cursor, and Aider | authoring docs plus local agent guidance      |
-| `full`    | You want all render/backend files up front            | authoring docs, agent guidance, render scaffold |
-
-The default is `agent`. Pass `--mcp` to also create project-scoped MCP config
-during init.
+`vibe init` takes a `--profile` (`minimal` | `agent` | `full`, default `agent`)
+and `--mcp` for project-scoped MCP config. Profiles, every cue key, and the
+character/keyframe workflow are in [docs/projects.md](docs/projects.md).
 
 ## What the spend buys: one character, many scenes
 
@@ -365,89 +341,44 @@ run `safeToAutoRun:true` actions automatically, ask before
 `fixOwner:"host-agent"` means the outer loop (or a human) must edit
 `STORYBOARD.md`, `DESIGN.md`, or compositions.
 
-### Outer-loop agent prompts
+You do not have to write that contract into your prompt. `vibe context`
+prints it - the loop, the envelope, and the `nextActions` rules above - so
+"read `vibe context`, then build `launch/` from `brief.md` under `--max-cost 5`"
+is enough to start a host agent.
 
-Hand your coding agent a prompt like the following - a plain prompt, not a
-built-in command. It works the same in Codex, Claude Code, or Cursor:
-
-```text
-Build launch/ into a reviewed VibeFrame MP4 from brief.md, using your own agent
-loop as the outer loop.
-Use vibe context/schema first when command details are unclear. Use --json for
-all vibe commands. Run --dry-run before paid operations and keep generated-asset
-spend under $5 with --max-cost 5 where supported. Read build-report.json and
-review-report.json before choosing the next action. Prefer nextActions:
-run only safeToAutoRun:true actions automatically, ask before
-requiresConfirmation:true actions, and use retryWith only as the compatibility
-fallback. Treat fixOwner:"vibe" issues as deterministic CLI repair work and
-fixOwner:"host-agent" issues as storyboard, DESIGN.md, or composition edits.
-
-Stop only when launch/renders/final.mp4 exists, the target duration is 30s or
-less, the aspect ratio is 16:9 unless brief.md says otherwise,
-vibe inspect render launch --cheap --json reports no errors, any AI review score
-is at least 90 when AI review is requested, and every remaining host-agent issue is fixed,
-intentionally accepted with a written reason, or reported as blocked.
-```
-
-### Configuring hosts
-
-`vibe init` creates agent guidance files for Codex, Claude Code, Cursor, Aider,
-Gemini CLI, OpenCode, and a universal `AGENTS.md` fallback.
-
-`vibe host` turns that guidance into app-ready configuration:
-
-```bash
-vibe host list --json
-vibe host setup all              # print snippets only
-vibe host setup cursor --write   # write .cursor/mcp.json
-vibe host doctor all --json
-```
-
-By default, `--write` is required to apply config; `vibe host setup` prints
-only. For Claude Desktop, pass the workspace directory so relative project
-names resolve correctly:
-
-```bash
-vibe host setup claude-desktop ~/dev/videos --write
-```
-
-### Schema and introspection
+### Discovering the surface
 
 ```bash
 vibe schema --list                  # full command catalog
 vibe schema --list --surface public # first-run / product surface only
 vibe schema --list --filter free    # narrow to cost tier
-vibe schema <command> --json        # JSON Schema for one command
-vibe context                        # agent quickstart: rules, envelope, conventions
-vibe guide                          # workflow guides
-vibe guide motion
-vibe guide scene
-vibe guide pipeline
+vibe context                        # agent rules, envelope, conventions
+vibe guide                          # workflow guides (motion | scene | pipeline)
 ```
 
 `vibe schema` is the source of truth for command availability and parameters.
-The `surface` field on each entry signals intent: `public` = first-run product
-path; `agent` = host-agent automation; `advanced`/`legacy` = compatible power
-primitives.
+The `surface` field signals intent: `public` = first-run product path;
+`agent` = host-agent automation; `advanced`/`legacy` = power primitives.
 
-## MCP Server
+## Connect your host
 
-The CLI is the primary runtime. For hosts that prefer MCP, VibeFrame also
-ships `@vibeframe/mcp-server` (binary `vibeframe-mcp`).
+`vibe init` writes agent guidance for Codex, Claude Code, Cursor, Aider,
+Gemini CLI, and OpenCode, with a universal `AGENTS.md` fallback. `vibe host`
+turns that into app-ready config - it prints by default, `--write` applies:
+
+```bash
+vibe host setup all                              # print snippets for every host
+vibe host setup cursor --write                   # write .cursor/mcp.json
+vibe host setup claude-desktop ~/dev/videos --write   # pass the workspace dir
+vibe host doctor all --json                      # verify what landed
+```
 
 **Claude Desktop users:** install the prebuilt extension instead of editing
 JSON - download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb)
 and drop it into **Settings → Extensions**, then pick a workspace folder.
 
-For other hosts, generate snippets with:
-
-```bash
-vibe host setup codex
-vibe host setup claude
-vibe host setup cursor
-```
-
-Or configure directly:
+The CLI is the primary runtime; MCP is for hosts that prefer typed tool calls.
+To wire `@vibeframe/mcp-server` (binary `vibeframe-mcp`) by hand:
 
 ```json
 {
@@ -475,16 +406,9 @@ vibe setup --show                           # which keys you have configured
 vibe doctor                                 # verify keys and dependencies
 ```
 
-For model and provider details, see [MODELS.md](MODELS.md).
-
-Cost tiers are stamped on commands. General expectations:
-
-- **Free/local:** schema, setup/doctor, timeline/batch/detect/media, many FFmpeg edits
-- **Low:** speech, transcription, inspection, simple AI-assisted edits
-- **High:** image generation, storyboard/motion generation
-- **Very high:** video generation and expensive provider-backed transforms
-
-Use `vibe schema --list --filter <tier>` to check before running.
+Every command carries a cost tier - `vibe schema --list --filter free|low|high|very-high`
+sorts by it before you run anything. For model and provider details, see
+[MODELS.md](MODELS.md).
 
 ## Relationship To Composition Engines
 
@@ -502,48 +426,12 @@ Reach for VibeFrame when the job involves paid generation: frontier image and vi
 VibeFrame is not affiliated with HeyGen. See [CREDITS.md](CREDITS.md) for
 dependency and provenance notes.
 
-## Repository Layout
-
-```text
-packages/cli/            CLI and agent mode
-packages/core/           Timeline engine and shared core types
-packages/ai-providers/   Provider registry and implementations
-packages/mcp-server/     MCP server package
-packages/ui/             Shared React UI
-apps/web/                Next.js landing/demo app
-docs/                    Compact public docs
-scripts/                 Install, docs generation, demos, and maintainer helpers
-tests/                   Manual smoke checks outside CI
-```
-
-## Development
-
-```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm lint
-```
-
-Useful local commands:
-
-```bash
-pnpm vibe --help
-pnpm -F @vibeframe/cli test
-pnpm -F @vibeframe/web dev
-```
-
 ## Contributing
 
 Contributions are welcome: bug fixes, provider integrations, CLI UX
-improvements, docs, and tests.
-
-```bash
-pnpm scaffold:provider <name>
-pnpm scaffold:command <generate|edit> <name>
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+improvements, docs, and tests. [CONTRIBUTING.md](CONTRIBUTING.md) has the
+package map, dev setup, test commands, and the `pnpm scaffold:provider` /
+`pnpm scaffold:command` generators.
 
 ## Reference
 

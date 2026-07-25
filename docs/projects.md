@@ -209,13 +209,15 @@ work:
 
 `vibe init` supports three profiles:
 
-| Profile   | Use when                                                                | What it creates                                 |
-| --------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
-| `minimal` | You only want the authoring docs at first                               | `STORYBOARD.md`, `DESIGN.md`, project config    |
-| `agent`   | Recommended for Codex, Claude Code, Cursor, Aider, Gemini CLI, OpenCode | authoring docs plus local agent guidance        |
-| `full`    | You want all render/backend files up front                              | authoring docs, agent guidance, render scaffold |
+| Profile   | Use when                                                                | What it creates                                                                                              |
+| --------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `minimal` | You only want the authoring docs at first                               | `STORYBOARD.md`, `SCRIPT.md`, `CHARACTERS.md`, `DESIGN.md`, `vibe.config.json`, `.gitignore`                  |
+| `agent`   | Recommended for Codex, Claude Code, Cursor, Aider, Gemini CLI, OpenCode | the above plus `AGENTS.md` and `CLAUDE.md`                                                                    |
+| `full`    | You want all render/backend files up front                              | the above plus `index.html`, `compositions/`, `assets/`, `renders/`, `hyperframes.json`, `meta.json`          |
 
-The default is `agent`.
+The default is `agent`. `CHARACTERS.md` is written for the character-driven
+kinds (`cinema`, `story`, `aivideo`); `--kind product` and `--kind motion` skip
+it.
 
 Pass `--mcp` to `vibe init` when you want project-scoped MCP config for Codex,
 Claude Code, and Cursor created during init:
