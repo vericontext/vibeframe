@@ -48,6 +48,52 @@ Use Remotion directly when the task is a React video application or a
 component-driven motion graphics workflow and you do not need VibeFrame's
 agent/project layer.
 
+## The Zero-Key Render, Start To Finish
+
+Because the composition half is local, the whole pipeline runs for $0 before
+you own a single provider key: Kokoro TTS narration, HTML/CSS scenes composed
+by your coding agent, and a headless Chrome plus FFmpeg render.
+The scene authoring in the middle is Hyperframes' contract, not VibeFrame's -
+this is the path to use when you want to see the machinery work before paying
+for anything.
+
+```bash
+vibe init demo --from "30-second video introducing my project"
+vibe scene install-skill demo    # upstream's own installer; the rules your agent authors against
+```
+
+Then ask your coding agent to finish it:
+
+> Build demo/ into a rendered MP4 with zero API keys.
+> Read `demo/AGENTS.md` ("Key Rules for hand-authored scene HTML") first, then
+> run `vibe build demo --tts kokoro --skip-backdrop --json` and author the
+> scene HTML from `vibe scene compose-prompts demo --json`.
+> Run `vibe build demo --stage sync --json` and fix every lint error it
+> reports before rendering - it exits non-zero while any remain.
+> Then `vibe render demo --json`.
+
+Treat `--stage sync` as the gate.
+It lints the composed scenes and exits non-zero on real errors, such as an
+unregistered GSAP timeline or a composition div missing
+`data-width`/`data-height`.
+Rendering past a failed sync produces a black MP4, so fix the scenes first.
+
+That is about three minutes of machine time (measured on v0.113.29 in an
+isolated environment: 63s install, 1s init, 66s build including the one-time
+~88 MB voice model download, 64s render; repeat runs skip the download).
+The scene-authoring pass in the middle is your agent's, so the wall clock
+depends on it and on how many lint rounds it needs.
+
+No coding agent available?
+`vibe scene add <id> --style announcement --headline "..." --no-audio
+--no-image` writes a lint-clean template scene with no model call, and doubles
+as a reference for the file shape.
+
+If this is the whole job for you - HTML scene authoring and rendering, no paid
+generation - use Hyperframes directly.
+It is the better tool for that, and `vibe scene install-skill` installs its
+skill either way.
+
 ## What Each Layer Provides
 
 | Concern                         | Remotion                    | Hyperframes          | VibeFrame                                                 |
