@@ -622,8 +622,8 @@ no unresolved unacknowledged host-agent issues.
 **Load the \`hyperframes\` skill before authoring scenes** — it encodes the
 composition rules, motion principles, type system, and visual-identity gate.
 If your agent has it installed globally it is already available; otherwise run
-\`vibe scene install-skill\` to eject a local, editable copy (\`SKILL.md\` +
-\`references/\`, gitignored by default) and read \`SKILL.md\`.
+\`vibe scene install-skill\`, which runs upstream's installer and writes
+\`.agents/skills/hyperframes/SKILL.md\`. Read that file before authoring.
 
 **Always invoke the relevant skill before authoring scenes.** Skills encode
 framework-specific patterns (GSAP timeline registration, data-attribute
@@ -653,7 +653,7 @@ the framework-level minimum, not the cinematic craft layer.
 - \`index.html\` — root composition (timeline)
 - \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
 - \`assets/\` — generated/canonical build media (narration audio, images, video)
-- \`references/\` — composition rule docs, only when ejected via \`vibe scene install-skill\` (not user media)
+- \`.agents/skills/hyperframes/\` — upstream composition rules, when installed here rather than globally
 - \`transcript.json\` — Whisper word-level transcript (if narration exists)
 - \`hyperframes.json\` — HF registry config (speak to both toolchains)
 - \`vibe.config.json\` — canonical VibeFrame config (providers, budget)
@@ -721,8 +721,9 @@ export function buildSceneGitignore(): string {
 renders/*.mp4
 tmp/
 
-# Vendored Hyperframes skill copies — regenerable via 'vibe scene install-skill'.
-# Delete these lines if you eject and want to commit per-project customizations.
+# Hyperframes skill copies left by older VibeFrame versions. Nothing writes
+# these now - upstream's installer owns the rules and puts them under
+# .agents/skills/hyperframes/, which is yours to commit or ignore.
 /SKILL.md
 /references/
 /.claude/skills/hyperframes/
@@ -809,13 +810,12 @@ export function describeSceneScaffold(opts: {
     ];
   }
 
+  // Only files the scaffold actually writes. The Hyperframes composition rules
+  // used to be vendored here as `SKILL.md` + `references/`; upstream's own
+  // installer owns that now and puts them under `.agents/skills/hyperframes/`,
+  // so listing them as scaffold output would report files that never appear.
   if (profile === "agent" || profile === "full") {
-    groups.agent = [
-      resolve(dir, "AGENTS.md"),
-      resolve(dir, "SKILL.md"),
-      resolve(dir, "references"),
-      resolve(dir, "CLAUDE.md"),
-    ];
+    groups.agent = [resolve(dir, "AGENTS.md"), resolve(dir, "CLAUDE.md")];
   }
 
   return groups;

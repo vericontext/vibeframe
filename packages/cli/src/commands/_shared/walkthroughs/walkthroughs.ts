@@ -63,11 +63,11 @@ narration / backdrop intent.
 1. \`vibe init my-promo --visual-style "Swiss Pulse"\` — seeds
    \`DESIGN.md\` (palette, typography, motion, transitions) plus the
    \`vibe.config.json\` / \`hyperframes.json\` / \`index.html\` scaffold.
-   In Plan H this **also installs local composition rules** at the
-   right place for your host (\`.claude/skills/hyperframes/\` for Claude
-   Code, \`.cursor/rules/hyperframes.mdc\` for Cursor, universal
-   \`SKILL.md\` for everyone else).
-2. Read \`SKILL.md\` (or the host-specific copy) — Hyperframes
+   It does **not** install the composition rules; if your agent does not
+   already have the \`hyperframes\` skill, run
+   \`vibe scene install-skill\` to fetch them from upstream into
+   \`.agents/skills/hyperframes/\`.
+2. Read \`.agents/skills/hyperframes/SKILL.md\` (or your global copy) —
    framework rules, motion principles, type system, transition recipes.
 3. Read \`DESIGN.md\` — project-specific palette / typography / motion
    signature (visual identity hard-gate).
@@ -401,9 +401,10 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
     title: "Scene authoring with vibe",
     summary: "Author per-scene HTML compositions and render to MP4 (BUILD flow)",
     steps: [
-      'Run `vibe init <dir> --visual-style "<style name>"` to scaffold the project + install local composition rules.',
+      'Run `vibe init <dir> --visual-style "<style name>"` to scaffold the project.',
+      "Run `vibe scene install-skill` unless your agent already has the `hyperframes` skill; `vibe doctor` tells you which.",
       "Edit `STORYBOARD.md` with per-beat YAML cues (narration / backdrop / duration).",
-      "Read `SKILL.md` for the framework rules and `DESIGN.md` for the visual-identity hard-gate.",
+      "Read `.agents/skills/hyperframes/SKILL.md` for the framework rules and `DESIGN.md` for the visual-identity hard-gate.",
       "Run `vibe build <dir>`. With an agent host detected, the CLI emits a `needs-author` plan; the host agent authors each `compositions/scene-<id>.html` and re-invokes to render.",
       "Run `vibe build <dir> --stage sync` to assemble index.html, `vibe scene lint <dir> --fix` to validate, then `vibe render <dir>` to produce the MP4.",
     ],

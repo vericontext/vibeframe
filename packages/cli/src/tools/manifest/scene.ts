@@ -867,7 +867,7 @@ export const sceneComposePromptsTool = defineTool({
   title: "Get Scene Authoring Prompts",
   annotations: { readOnly: true, openWorld: false },
   description:
-    "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus references to the project's SKILL.md (Hyperframes rules) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here. Hosts that cannot write files (e.g. Claude Desktop) submit each authored beat with scene_submit instead. Pairs with scene_install_skill (Phase H1). Phase H2 of the agentic-native composer plan; the internal-LLM batch path (build) remains as a fallback for non-agent contexts.",
+    "Emit the per-beat compose plan for the host agent to author scene HTML itself. Reads STORYBOARD.md + DESIGN.md and returns each beat's outputPath + userPrompt + cues + body, plus the path to the Hyperframes rules (skillReference) and DESIGN.md (visual identity). The host agent writes each compositions/scene-<id>.html file directly — VibeFrame makes NO LLM call here, and there is no internal-LLM fallback: authoring is always the host agent's job. Hosts that cannot write files (e.g. Claude Desktop) submit each authored beat with scene_submit instead. Pairs with scene_install_skill, which fetches the rules from upstream when the agent does not already have them.",
   schema: sceneComposePromptsSchema,
   async execute(args, ctx) {
     const projectDir = resolve(ctx.workingDirectory, args.projectDir);

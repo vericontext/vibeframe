@@ -569,7 +569,26 @@ describe("scaffoldSceneProject", () => {
     expect(await pathExists(resolve(dir, "index.html"))).toBe(false);
     expect(await pathExists(resolve(dir, "hyperframes.json"))).toBe(false);
     expect(result.groups.agent.map((p) => p.split("/").pop())).toContain("AGENTS.md");
-    expect(result.groups.agent.map((p) => p.split("/").pop())).toContain("SKILL.md");
     expect(result.groups.render).toEqual([]);
+  });
+
+  // The scaffold once advertised a vendored `SKILL.md` + `references/` that it
+  // had stopped writing, and the old assertions did not catch it because they
+  // only inspected the reported list. Check the list against the disk instead,
+  // so any future group entry has to be a file the scaffold really creates.
+  it("only reports files it actually wrote", async () => {
+    for (const profile of ["minimal", "agent", "full"] as const) {
+      const dir = await makeTmp();
+      const result = await scaffoldSceneProject({ dir, name: "fixture", profile });
+      const reported = [
+        ...result.groups.authoring,
+        ...result.groups.render,
+        ...result.groups.agent,
+      ];
+
+      for (const path of reported) {
+        expect(await pathExists(path), `${profile}: reported but missing - ${path}`).toBe(true);
+      }
+    }
   });
 });
