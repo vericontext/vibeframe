@@ -54,6 +54,19 @@ function assertRecord(value: unknown, label: string): asserts value is Record<st
 const tmp = await mkdtemp(join(tmpdir(), "vibe-dogfood-smoke-"));
 
 try {
+  // Root help groups commands by use case. `renderCommandGroups` parks any
+  // command no group claims under "Other" so it can never vanish; this
+  // asserts the real tree never needs that fallback. It also guards the
+  // Commander 12 `visibleCommands` override, which suppresses the flat
+  // alphabetical block for the root only - subcommands must keep theirs.
+  const rootHelp = runVibe(["--help"]);
+  for (const heading of ["Project video", "One-off media", "Agents & setup"]) {
+    assert.match(rootHelp, new RegExp(`^${heading}$`, "m"), `root help should group "${heading}"`);
+  }
+  assert.doesNotMatch(rootHelp, /^Other$/m, "every top-level command should belong to a group");
+  assert.doesNotMatch(rootHelp, /^Commands:$/m, "root help should not print the flat list too");
+  assert.match(runVibe(["generate", "--help"]), /^Commands:$/m, "subcommands keep their listing");
+
   const context = runJson(["context", "--json"]);
   assertRecord(context, "context");
   assert.equal(context.product, "vibeframe");

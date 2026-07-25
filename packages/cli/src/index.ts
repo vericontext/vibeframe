@@ -5,7 +5,7 @@ if (process.env.VIBE_DEBUG === "1") {
   console.log("[CLI] Script started, loading modules...");
 }
 
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Help } from "commander";
 import chalk from "chalk";
 // Bundled inline by esbuild — works after `tsc` (workspace dev) and after
 // `node build.js` (npm publish artifact). The previous `require("../package.json")`
@@ -52,19 +52,28 @@ import { rejectControlChars } from "./utils/input-validation.js";
 import { buildSchema } from "./commands/schema.js";
 import { getCostTier, TIER_DESCRIPTION, type CostTier } from "./commands/_shared/cost-tier.js";
 import { productSurfaceForCommandPath } from "./commands/_shared/product-surface.js";
+import { renderCommandGroups } from "./commands/_shared/help-groups.js";
 
 interface HelpHiddenCommand {
   _hidden?: boolean;
 }
 
 /**
+ * How many example commands each cost-tier row names. Two keeps every row
+ * inside 80 columns; the tier's full membership is one command away via
+ * `vibe schema --list --filter <tier>`.
+ */
+const COST_TIER_EXAMPLES = 2;
+
+/**
  * Build the "Cost tiers" footer for `vibe --help`.
  *
  * Walks the live program tree, groups subcommands by cost tier, and
- * emits one row per tier with up-to-3 example commands and the
- * canonical price-band string. Pre-fix this section was a hardcoded
- * block in `addHelpText` that drifted from the SSOT (e.g. it claimed
- * "V.High remix (...)" while `remix animated-caption` is actually low).
+ * emits one row per tier with {@link COST_TIER_EXAMPLES} example commands
+ * and the canonical price-band string. Pre-fix this section was a
+ * hardcoded block in `addHelpText` that drifted from the SSOT (e.g. it
+ * claimed "V.High remix (...)" while `remix animated-caption` is
+ * actually low).
  */
 function renderCostTierFooter(prog: Command): string {
   const buckets: Record<CostTier, string[]> = { free: [], low: [], high: [], "very-high": [] };
@@ -79,14 +88,25 @@ function renderCostTierFooter(prog: Command): string {
   for (const top of prog.commands) walk(top, "");
 
   const order: CostTier[] = ["free", "low", "high", "very-high"];
+  const rows = order
+    .map((tier) => ({
+      tier,
+      label: tier === "very-high" ? "V.High" : tier[0].toUpperCase() + tier.slice(1),
+      examples: buckets[tier].slice(0, COST_TIER_EXAMPLES).join(", "),
+    }))
+    .filter((row) => row.examples);
+
+  // Width is measured, not assumed: a fixed padEnd(50) silently overflowed
+  // once the `low` tier's three example names grew past it, pushing that
+  // row's price band out of column.
+  const exampleWidth = Math.max(...rows.map((row) => row.examples.length));
   const lines: string[] = [
     "Cost tiers (`vibe --describe <cmd>` for each tag; legacy/internal omitted here):",
   ];
-  for (const tier of order) {
-    const examples = buckets[tier].slice(0, 3).join(", ");
-    if (!examples) continue;
-    const label = tier === "very-high" ? "V.High" : tier[0].toUpperCase() + tier.slice(1);
-    lines.push(`  ${label.padEnd(7)}${examples.padEnd(50)} ${TIER_DESCRIPTION[tier]}`);
+  for (const row of rows) {
+    lines.push(
+      `  ${row.label.padEnd(7)}${row.examples.padEnd(exampleWidth)}  ${TIER_DESCRIPTION[row.tier]}`
+    );
   }
   return "\n" + lines.join("\n") + "\n";
 }
@@ -148,48 +168,33 @@ program
       }
     },
   })
+  // Root help lists commands by use case instead of alphabetically. The
+  // flat `Commands:` block is suppressed for the root only (subcommands
+  // keep Commander's default), because it used to duplicate the very
+  // listing the footer below already gave by use case.
+  .configureHelp({
+    visibleCommands(cmd) {
+      if (cmd === program) return [];
+      return Help.prototype.visibleCommands.call(this, cmd);
+    },
+  })
+  .addHelpText("after", () => renderCommandGroups(program))
   .addHelpText(
     "after",
     `
-Common workflows (the alphabetical list above is the full command set;
-this section shows the typical entry points by use case):
+Full command catalog, including the timeline, batch, and scene primitives
+this listing omits:
 
-  Get started:
-    vibe doctor                         System health + key status
-    vibe setup                          Configure API keys interactively
-    vibe init my-video                  Scaffold a video project
-    vibe storyboard validate my-video   Validate STORYBOARD.md cues
-    vibe plan my-video                  Preview build stages, cost, and missing work
-    vibe build my-video                 Build STORYBOARD.md → scene assets
-    vibe status project my-video        Check build/review/jobs status
-    vibe inspect project my-video       Inspect files, assets, and scene wiring
-    vibe render my-video                Render the project to MP4
-    vibe inspect render my-video        Inspect the final MP4
+  vibe schema --list                  Every command, with cost tier
+  vibe schema --list --surface public First-run product path only
+  vibe schema generate.video          JSON schema for one command
 
-  One-shot media:
-    vibe generate image "..."           Generate a still image
-    vibe generate video "..."           Generate a standalone AI video
-    vibe edit caption clip.mp4 -o out.mp4
-    vibe inspect media clip.mp4 "Summarize this"
-    vibe remix highlights long.mp4 -d 60
-
-  Automation & agents:
-    vibe run workflow.yaml              Video-as-YAML pipeline
-    vibe guide                          Choose the right workflow
-    vibe guide motion                   Text vs motion overlay guidance
-    vibe schema --list --surface public Compact first-run command catalog
-    vibe schema generate.video          JSON schema for any command
-    vibe context                        Agent integration quickstart
-    vibe host setup all                 Configure Codex/Claude/Cursor app integrations
-    vibe agent                          Optional built-in agent when you do not use Claude Code/Codex/etc.
-
-Common-flag note: most commands accept --dry-run to preview cost/output
-before invoking paid providers.
-`
+Most commands accept --dry-run to preview cost and output before invoking
+a paid provider.`
   )
-  // Cost tiers block — generated from the live cost-tier registry so
+  // Cost tiers block - generated from the live cost-tier registry so
   // it can't drift from `_shared/cost-tier.ts`. Picks two representative
-  // examples per tier (alphabetical first hits) instead of hand-curating.
+  // examples per tier (registry order) instead of hand-curating.
   .addHelpText("after", () => renderCostTierFooter(program));
 
 // Set JSON mode env var before subcommand parsing
