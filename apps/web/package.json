@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/web",
-  "version": "0.113.31",
+  "version": "0.114.0",
   "description": "VibeFrame Web - landing and demo site for the frontier-video-generation CLI for coding agents",
   "private": true,
   "keywords": [
