@@ -94,7 +94,7 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
   for (const target of targets) {
     const rel = relative(projectDir, target.abs) || target.abs;
     const html = await readFile(target.abs, "utf-8");
-    const findings = lintHtml(html, rel, target.isSub);
+    const findings = await lintHtml(html, rel, target.isSub);
     const { html: nextHtml, fixedCodes } = applyMechanicalFixes(html, findings);
     if (fixedCodes.length > 0) {
       const item = { file: rel, codes: fixedCodes };
@@ -107,7 +107,7 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
       files.push({
         file: rel,
         isSubComposition: target.isSub,
-        findings: lintHtml(nextHtml, rel, target.isSub),
+        findings: await lintHtml(nextHtml, rel, target.isSub),
       });
     } else {
       files.push({ file: rel, isSubComposition: target.isSub, findings });
@@ -139,13 +139,13 @@ export async function executeSceneRepair(opts: SceneRepairOptions): Promise<Scen
   };
 }
 
-function lintHtml(html: string, rel: string, isSub: boolean): LintFinding[] {
+async function lintHtml(html: string, rel: string, isSub: boolean): Promise<LintFinding[]> {
   const prepared: PreparedHyperframeLintInput = {
     html,
     entryFile: rel,
     source: "projectDir",
   };
-  const raw = runHyperframeLint(prepared);
+  const raw = await runHyperframeLint(prepared);
   return withVibeframeSubCompFindings(
     filterSubCompFalsePositives(raw.findings as LintFinding[], isSub),
     html,

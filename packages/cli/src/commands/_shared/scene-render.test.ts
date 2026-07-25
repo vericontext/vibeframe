@@ -313,6 +313,16 @@ describe("executeSceneRender — Chrome-gated render", () => {
     const dir = await makeTmp("vibe-scene-render-int-");
     await scaffoldSceneProject({ dir, name: "fixture", aspect: "16:9", duration: 2 });
 
+    // The scaffold seeds a three-beat storyboard. Trim it to the single beat
+    // this test authors HTML for: the pre-render sync injects a clip ref per
+    // storyboard beat, and the producer now fails the compile stage when a
+    // data-composition-src target is missing instead of rendering it black.
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# fixture — Storyboard\n\n## Beat intro — Intro\n\n\`\`\`yaml\nnarration: "One line."\nduration: 1.5\n\`\`\`\n`,
+      "utf-8"
+    );
+
     let root = await readFile(resolve(dir, "index.html"), "utf-8");
     const intro = emitSceneHtml({
       id: "intro", preset: "announcement", width: 1920, height: 1080,

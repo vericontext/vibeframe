@@ -90,10 +90,11 @@ describe("executeSceneSubmit", () => {
   });
 
   it("rejects lint-error HTML without writing", async () => {
-    // No window.__timelines registration → lint error from the producer.
+    // Root element carries no data-composition-id → `root_missing_composition_id`,
+    // a structural error the mechanical fixer cannot repair.
     const broken = `<template id="scene-hook-template">
-  <div data-composition-id="scene-hook" data-start="0" data-duration="4" data-width="1920" data-height="1080">
-    <div class="clip" data-start="0" data-duration="4" data-track-index="0"><h1>x</h1></div>
+  <div data-start="0" data-duration="4" data-width="1920" data-height="1080">
+    <div class="clip" id="c1" data-start="0" data-duration="4" data-track-index="0"><h1>x</h1></div>
   </div>
 </template>`;
     const result = await executeSceneSubmit({ projectDir, beatId: "hook", html: broken });

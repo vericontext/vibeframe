@@ -101,11 +101,11 @@ export async function executeSceneSubmit(opts: SceneSubmitOptions): Promise<Scen
     );
   }
 
-  const fixed = applyMechanicalFixes(html, lintBeatHtml(html, beatId).findings);
+  const fixed = applyMechanicalFixes(html, (await lintBeatHtml(html, beatId)).findings);
   html = fixed.html;
   base.mechanicalFixes = fixed.fixedCodes;
 
-  const lint = lintBeatHtml(html, beatId);
+  const lint = await lintBeatHtml(html, beatId);
   base.lint = lint;
   if (lint.errorCount > 0) {
     return {

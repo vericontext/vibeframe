@@ -551,16 +551,16 @@ describe("formatLintFeedback", () => {
 });
 
 describe("lintBeatHtml", () => {
-  it("returns errors for HTML missing required structure", () => {
+  it("returns errors for HTML missing required structure", async () => {
     // Missing data-composition-id, data-width, data-height entirely
     const html = `<template id="bad"><div>hi</div></template>`;
-    const r = lintBeatHtml(html, "test");
+    const r = await lintBeatHtml(html, "test");
     expect(r.errorCount).toBeGreaterThan(0);
   });
 
-  it("structure has expected counts shape", () => {
+  it("structure has expected counts shape", async () => {
     const html = `<template id="bad"><div>nothing</div></template>`;
-    const r = lintBeatHtml(html, "test");
+    const r = await lintBeatHtml(html, "test");
     expect(r).toHaveProperty("errorCount");
     expect(r).toHaveProperty("warningCount");
     expect(r).toHaveProperty("findings");
