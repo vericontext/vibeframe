@@ -54,7 +54,7 @@ export default function DemoPage() {
               <span>Agent demo · brief to MP4</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up">
-              From setup
+              From a brief
               <br />
               <span className="text-primary">to final MP4.</span>
             </h1>
@@ -249,7 +249,7 @@ export default function DemoPage() {
       {/* CTA */}
       <section className="py-20 px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Create from a storyboard</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Generate on your own keys</h2>
           <p className="text-muted-foreground text-lg mb-8">
             Open source. MIT licensed. One install command.
           </p>
