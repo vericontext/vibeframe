@@ -49,6 +49,27 @@ Video generation will need seedance (FAL_API_KEY), but no key/config is availabl
 
 Your keys, your bill, your ceiling.
 
+## Where VibeFrame fits
+
+It wraps lower-level composition engines rather than replacing them:
+
+| Layer                                                    | Owns                                                                             |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.              |
+| [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                  |
+| VibeFrame                                                | Frontier-model generation on your own keys, dry runs and the hard `--max-cost` ceiling, storyboard/design files, build reports, render inspection, edit/remix commands, and host-agent guidance. |
+
+Read that table as one sentence: scene composition is delegated, generation is not.
+If the job is only HTML scene authoring and rendering, use Hyperframes directly - it is the better tool for that, and `vibe scene install-skill` installs its skill for you either way.
+Reach for VibeFrame when the job involves paid generation: frontier image and video models, character continuity across scenes, narration, cost ceilings, build reports, or editing steps around the composition layer.
+
+One consequence worth knowing before you install: the whole pipeline runs locally for $0 without a provider key, because that free half is the delegated half - Kokoro narration, agent-authored HTML/CSS scenes, headless Chrome plus FFmpeg.
+It is the cheapest way to see whether the workflow fits you, and the full walkthrough is in [docs/hyperframes.md](docs/hyperframes.md#the-zero-key-render-start-to-finish).
+It is not the point of the tool: the paid generation path below is.
+
+VibeFrame is not affiliated with HeyGen.
+See [CREDITS.md](CREDITS.md) for dependency and provenance notes.
+
 ## Install
 
 ```bash
@@ -80,38 +101,6 @@ pnpm vibe --help
 ```
 
 </details>
-
-## First, a render that costs nothing
-
-Before wiring up a provider, the whole pipeline runs locally for $0: Kokoro TTS narration, HTML/CSS scenes composed by your coding agent, and a headless Chrome plus FFmpeg render.
-
-```bash
-vibe init demo --from "30-second video introducing my project"
-vibe scene install-skill demo    # Hyperframes' own installer; the rules your agent authors against
-```
-
-Then ask your coding agent to finish it:
-
-> Build demo/ into a rendered MP4 with zero API keys.
-> Read `demo/AGENTS.md` ("Key Rules for hand-authored scene HTML") first, then
-> run `vibe build demo --tts kokoro --skip-backdrop --json` and author the
-> scene HTML from `vibe scene compose-prompts demo --json`.
-> Run `vibe build demo --stage sync --json` and fix every lint error it
-> reports before rendering - it exits non-zero while any remain.
-> Then `vibe render demo --json`.
-
-Treat `--stage sync` as the gate.
-It lints the composed scenes and exits non-zero on real errors, such as an unregistered GSAP timeline or a composition div missing `data-width`/`data-height`.
-Rendering past a failed sync produces a black MP4, so fix the scenes first.
-
-That is about three minutes of machine time (measured on v0.113.29 in an isolated environment: 63s install, 1s init, 66s build including the one-time ~88 MB voice model download, 64s render; repeat runs skip the download).
-The scene-authoring pass in the middle is your agent's, so the wall clock depends on it and on how many lint rounds it needs.
-
-No coding agent available?
-`vibe scene add <id> --style announcement --headline "..." --no-audio --no-image` writes a lint-clean template scene with no model call, and doubles as a reference for the file shape.
-
-It is a real render, and it is the cheapest way to see whether the workflow fits you.
-It is not the point of the tool: the paid generation path is.
 
 ## Build a video from a brief
 
@@ -273,27 +262,11 @@ To wire `@vibeframe/mcp-server` (binary `vibeframe-mcp`) by hand, add:
 
 Tool, resource, and prompt details are in [packages/mcp-server/README.md](packages/mcp-server/README.md).
 
-## Where VibeFrame fits
-
-It wraps lower-level composition engines rather than replacing them:
-
-| Layer                                                    | Owns                                                                             |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Remotion](https://github.com/remotion-dev/remotion)     | React-based programmatic video and component-driven motion graphics.              |
-| [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                  |
-| VibeFrame                                                | Frontier-model generation on your own keys, dry runs and the hard `--max-cost` ceiling, storyboard/design files, build reports, render inspection, edit/remix commands, and host-agent guidance. |
-
-If the job is only HTML scene authoring and rendering, use Hyperframes directly.
-It is the better tool for that, and VibeFrame installs its skill for you either way.
-Reach for VibeFrame when the job involves paid generation: frontier image and video models, character continuity across scenes, narration, cost ceilings, build reports, or editing steps around the composition layer.
-
-VibeFrame is not affiliated with HeyGen.
-See [CREDITS.md](CREDITS.md) for dependency and provenance notes.
-
 ## Reference
 
 - [docs/projects.md](docs/projects.md): project files, profiles, characters, keyframes, and the host agent loop.
 - [docs/recipes.md](docs/recipes.md): worked end-to-end examples.
+- [docs/hyperframes.md](docs/hyperframes.md): where VibeFrame ends and the composition engine begins, plus the zero-key render.
 - [docs/ai-video-prompting.md](docs/ai-video-prompting.md): prompt craft for image and video models.
 - [MODELS.md](MODELS.md): provider and model reference.
 - [CONTRIBUTING.md](CONTRIBUTING.md): package map, dev setup, tests, and the `pnpm scaffold:*` generators.
