@@ -553,19 +553,13 @@ const sceneBuildSchema = z.object({
     .enum(["agent", "batch", "auto"])
     .optional()
     .describe(
-      "Build mode dispatch [Plan H — Phase 3]. 'agent' = the calling host agent authors per-beat HTML itself (no internal LLM call); on missing compositions/scene-*.html files, returns a needs-author plan with prompts for the agent to consume. 'batch' = current internal-LLM compose path (Claude/OpenAI/Gemini). 'auto' (default) = agent if any agent host is detected, else batch. Override via VIBE_BUILD_MODE env var."
-    ),
-  effort: z
-    .enum(["low", "medium", "high"])
-    .optional()
-    .describe(
-      "Compose effort tier (batch mode only) passed to compose-scenes-with-skills. Default 'medium'."
+      "Build mode dispatch. 'agent' (the default, and the only model-authored path) = the calling host agent writes each compositions/scene-<id>.html itself; on missing files, build returns a needs-author plan with per-beat prompts to consume. Pass composer:'template' instead for the deterministic no-model composer. VibeFrame no longer runs its own LLM compose loop, so 'batch' and 'auto' resolve to 'agent' unless composer is 'template'."
     ),
   composer: z
-    .enum(["claude", "openai", "gemini"])
+    .enum(["template"])
     .optional()
     .describe(
-      "LLM provider that composes the per-beat scene HTML in batch mode. Default: auto-resolve from available API keys (ANTHROPIC_API_KEY > GOOGLE_API_KEY > OPENAI_API_KEY). All three pass first-shot lint per the v0.70 spike; Claude is fastest, Gemini cheapest. Ignored in agent mode."
+      "Set to 'template' for the deterministic AI-video composer: concatenated background clip plus transparent lower-thirds, authored without any model. Omit to let the host agent author each scene."
     ),
   skipNarration: z
     .boolean()
@@ -741,7 +735,6 @@ export const sceneBuildTool = defineTool({
         stage: args.stage,
         beatId: args.beat,
         mode: args.mode,
-        effort: args.effort,
         composer: args.composer,
         skipNarration: args.skipNarration,
         skipBackdrop: args.skipBackdrop,

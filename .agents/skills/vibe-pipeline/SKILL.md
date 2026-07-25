@@ -90,7 +90,7 @@ Keep this in sync with `packages/cli/src/pipeline/types.ts` and
 - Audio: `audio-transcribe`, `audio-isolate`, `audio-dub`, `audio-duck`
 - Detect: `detect-scenes`, `detect-silence`, `detect-beats`
 - Analyze/review: `analyze-video`, `analyze-media`, `review-video`
-- Scene: `compose-scenes-with-skills`, `scene-build`, `scene-render`
+- Scene: `scene-build`, `scene-render`
 - Legacy/meta: `export`
 
 If unsure, read the executor source. There is no public `vibe run

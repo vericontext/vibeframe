@@ -30,14 +30,6 @@ vi.mock("@vibeframe/ai-providers", async (importOriginal) => {
   };
 });
 
-vi.mock("./compose-scenes-skills.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./compose-scenes-skills.js")>();
-  return {
-    ...actual,
-    executeComposeScenesWithSkills: vi.fn(),
-  };
-});
-
 vi.mock("./scene-render.js", () => ({
   executeSceneRender: vi.fn(),
 }));
@@ -48,7 +40,6 @@ vi.mock("../../utils/agent-host-detect.js", () => ({
 
 import { resolveTtsProvider } from "./tts-resolve.js";
 import { OpenAIImageProvider } from "@vibeframe/ai-providers";
-import { executeComposeScenesWithSkills } from "./compose-scenes-skills.js";
 import { executeSceneRender } from "./scene-render.js";
 import { detectedAgentHosts } from "../../utils/agent-host-detect.js";
 
@@ -113,12 +104,6 @@ beforeEach(() => {
     }),
   } as unknown as InstanceType<typeof OpenAIImageProvider>));
 
-  vi.mocked(executeComposeScenesWithSkills).mockResolvedValue({
-    success: true,
-    outputPath: projectDir,
-    data: { beats: 2, written: [], totalCostUsd: 0, totalTokensIn: 0, totalTokensOut: 0, cacheHits: 0 },
-  });
-
   vi.mocked(executeSceneRender).mockResolvedValue({
     success: true,
     outputPath: join(projectDir, "renders", "out.mp4"),
@@ -141,38 +126,28 @@ afterEach(() => {
 });
 
 describe("resolveSceneBuildMode", () => {
-  it("explicit batch / agent passes through", () => {
-    expect(resolveSceneBuildMode({ mode: "batch" })).toBe("batch");
+  // The CLI-internal LLM composer is gone, so `agent` is the only
+  // model-authored path. Nothing selects `batch` any more except
+  // `--composer template`, which scene-build handles before asking here.
+  it("always resolves to agent", () => {
     expect(resolveSceneBuildMode({ mode: "agent" })).toBe("agent");
+    expect(resolveSceneBuildMode({ mode: "batch" })).toBe("agent");
+    expect(resolveSceneBuildMode({ mode: "auto" })).toBe("agent");
+    expect(resolveSceneBuildMode({})).toBe("agent");
   });
 
-  it("auto picks batch when no agent hosts are detected", () => {
-    vi.mocked(detectedAgentHosts).mockReturnValue([]);
-    expect(resolveSceneBuildMode({ mode: "auto" })).toBe("batch");
-    // mode omitted → auto
-    expect(resolveSceneBuildMode({})).toBe("batch");
-  });
+  it("ignores VIBE_BUILD_MODE, including a batch request", () => {
+    process.env.VIBE_BUILD_MODE = "batch";
+    expect(resolveSceneBuildMode({ mode: "agent" })).toBe("agent");
+    expect(resolveSceneBuildMode({})).toBe("agent");
 
-  it("auto picks agent when at least one host is detected", () => {
-    vi.mocked(detectedAgentHosts).mockReturnValue([
-      { id: "claude-code", label: "Claude Code", detected: true, signals: [], projectFiles: [] },
-    ]);
+    process.env.VIBE_BUILD_MODE = "nonsense";
     expect(resolveSceneBuildMode({ mode: "auto" })).toBe("agent");
   });
 
-  it("VIBE_BUILD_MODE=batch overrides explicit agent (and vice-versa)", () => {
-    process.env.VIBE_BUILD_MODE = "batch";
-    expect(resolveSceneBuildMode({ mode: "agent" })).toBe("batch");
-
-    process.env.VIBE_BUILD_MODE = "agent";
-    expect(resolveSceneBuildMode({ mode: "batch" })).toBe("agent");
-  });
-
-  it("VIBE_BUILD_MODE with garbage value falls through to the requested mode", () => {
-    process.env.VIBE_BUILD_MODE = "nonsense";
+  it("does not depend on host detection", () => {
     vi.mocked(detectedAgentHosts).mockReturnValue([]);
-    expect(resolveSceneBuildMode({ mode: "auto" })).toBe("batch");
-    expect(resolveSceneBuildMode({ mode: "agent" })).toBe("agent");
+    expect(resolveSceneBuildMode({ mode: "auto" })).toBe("agent");
   });
 });
 
@@ -186,8 +161,6 @@ describe("executeSceneBuild — agent mode dispatch", () => {
     // Both beats reported with exists:false
     expect(r.composePrompts!.beats).toHaveLength(2);
     expect(r.composePrompts!.beats.every((b) => !b.exists)).toBe(true);
-    // Internal LLM compose path NOT invoked
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     // Render NOT invoked yet — agent must author first
     expect(executeSceneRender).not.toHaveBeenCalled();
     // Instructions present and reference the top-level render command at the end
@@ -202,8 +175,6 @@ describe("executeSceneBuild — agent mode dispatch", () => {
     expect(r.success).toBe(true);
     expect(r.phase).toBe("done");
     expect(r.mode).toBe("agent");
-    // Internal compose still skipped — agent already authored
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     // Render fired
     expect(executeSceneRender).toHaveBeenCalledOnce();
     expect(r.outputPath).toBe(join(projectDir, "renders", "out.mp4"));
@@ -218,14 +189,13 @@ describe("executeSceneBuild — agent mode dispatch", () => {
     expect(r.phase).toBe("needs-author");
   });
 
-  it("VIBE_BUILD_MODE=batch overrides auto-detected agent host", async () => {
+  it("VIBE_BUILD_MODE=batch no longer buys a model-authored build", async () => {
     vi.mocked(detectedAgentHosts).mockReturnValue([
       { id: "claude-code", label: "Claude Code", detected: true, signals: [], projectFiles: [] },
     ]);
     process.env.VIBE_BUILD_MODE = "batch";
     const r = await executeSceneBuild({ projectDir });
-    expect(r.mode).toBe("batch");
-    // Internal compose called in batch mode
-    expect(executeComposeScenesWithSkills).toHaveBeenCalledOnce();
+    expect(r.mode).toBe("agent");
+    expect(r.phase).toBe("needs-author");
   });
 });

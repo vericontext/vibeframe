@@ -29,7 +29,6 @@ import {
   type ComposerProvider,
 } from "./_shared/composer-resolve.js";
 import { getCostTier, TIER_COLOR, type CostTier } from "./_shared/cost-tier.js";
-import { resolveSceneBuildMode } from "./_shared/scene-build-mode.js";
 import { outputSuccess } from "./output.js";
 
 /**
@@ -203,17 +202,15 @@ interface DiagnosticResults {
       summary: string;
     };
     /**
-     * Plan H — `vibe build` agentic dispatch readiness.
+     * `vibe build` authoring readiness.
      *
-     * `recommendedMode` mirrors `resolveSceneBuildMode()` so the user
-     * sees what `vibe build` will actually do without flags.
-     * `composer` reports the auto-resolved batch fallback (claude /
-     * gemini / openai) so they know which key powers `--mode batch`.
-     * `sceneProjectInCwd` + `skillInstalled` flag whether the local
-     * cwd is a scene project that already has SKILL.md from H1.
+     * Scene HTML is authored by the host agent, so what matters here is
+     * whether the cwd is a scene project and whether it carries the
+     * composition rules the agent reads. `composer` reports the
+     * auto-resolved text model behind `vibe storyboard revise`; it no
+     * longer has anything to do with scene composition.
      */
     sceneComposer: {
-      recommendedMode: "agent" | "batch";
       composer: ComposerProvider | null;
       composerEnvVar: string | null;
       sceneProjectInCwd: boolean;
@@ -362,8 +359,7 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
   const hosts = detectAgentHosts();
   const detectedNames = hosts.filter((h) => h.detected).map((h) => h.label);
 
-  // Plan H — scene composer readiness ───────────────────────────────────
-  const recommendedMode = resolveSceneBuildMode({});
+  // Scene authoring readiness ────────────────────────────────────────────
   let composerResolved: ComposerProvider | null = null;
   let composerEnv: string | null = null;
   try {
@@ -410,7 +406,6 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
       },
       agentHosts: { detected: detectedNames, summary: summariseAgentHosts(hosts) },
       sceneComposer: {
-        recommendedMode,
         composer: composerResolved,
         composerEnvVar: composerEnv,
         sceneProjectInCwd,
@@ -559,19 +554,16 @@ function printReport(
     console.log();
     console.log(chalk.bold("  Scene composer (vibe build)"));
     const sc = results.scope.sceneComposer;
-    const modeBadge = sc.recommendedMode === "agent" ? chalk.cyan("agent") : chalk.dim("batch");
-    const modeNote =
-      sc.recommendedMode === "agent"
-        ? chalk.dim("host agent authors HTML; no internal LLM call")
-        : chalk.dim("CLI's internal LLM authors HTML");
-    console.log(`    Mode (auto)  ${modeBadge}  ${modeNote}`);
+    console.log(
+      `    Authoring    ${chalk.cyan("agent")}  ${chalk.dim("your host agent writes each scene HTML; the CLI makes no LLM call")}`
+    );
     if (sc.composer) {
       console.log(
-        `    Batch LLM    ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar})`)}`
+        `    Revise LLM   ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar}) — powers 'vibe storyboard revise'`)}`
       );
     } else {
       console.log(
-        `    Batch LLM    ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — agent-mode only")}`
+        `    Revise LLM   ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — 'vibe storyboard revise' unavailable")}`
       );
     }
     if (sc.sceneProjectInCwd) {

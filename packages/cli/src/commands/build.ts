@@ -39,11 +39,10 @@ export const buildCommand = new Command("build")
   .argument("[project-dir]", "Video project directory", ".")
   .option("--stage <stage>", `Build stage: ${VALID_STAGES.join("|")}`, "all")
   .option("--beat <id>", "Restrict asset/compose work to one beat id")
-  .option("--mode <mode>", "Build mode: agent|batch|auto", "auto")
-  .option("--effort <level>", "Compose effort tier (batch mode only): low|medium|high", "medium")
+  .option("--mode <mode>", "Retained for compatibility; scene HTML is always authored by your host agent unless --composer template is set", "auto")
   .option(
     "--composer <provider>",
-    "Batch composer: template (deterministic AI-video — concat bg + lower-thirds, no LLM) | claude | openai | gemini"
+    "Set to `template` for the deterministic AI-video composer (concat bg + lower-thirds, no model). Omit to let the host agent author each scene."
   )
   .option("--max-cost <usd>", "Fail before provider spend when estimated cost exceeds this USD cap")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")
@@ -124,7 +123,6 @@ Advanced equivalent: \`vibe scene build\`.`
       stage,
       beatId: options.beat,
       mode,
-      effort: options.effort,
       composer: options.composer,
       maxCostUsd,
       skipNarration: options.skipNarration ?? false,
@@ -240,7 +238,6 @@ Advanced equivalent: \`vibe scene build\`.`
       mode,
       stage,
       beatId: options.beat,
-      effort: options.effort,
       composer: options.composer,
       maxCostUsd,
       skipNarration: options.skipNarration,
@@ -302,7 +299,6 @@ type BuildDryRunParams = {
   stage: BuildStage;
   beatId: unknown;
   mode: SceneBuildMode;
-  effort: unknown;
   composer: unknown;
   maxCostUsd: unknown;
   skipNarration: boolean;
@@ -594,16 +590,6 @@ function printBuildResult(
       console.log(chalk.dim(`    video job: vibe status job ${beat.videoJobId} --json`));
     if (beat.musicJobId)
       console.log(chalk.dim(`    music job: vibe status job ${beat.musicJobId} --json`));
-  }
-  if (result.composeData) {
-    console.log();
-    console.log(chalk.bold.cyan("Compose"));
-    console.log(chalk.dim("-".repeat(60)));
-    console.log(`  beats     ${result.composeData.beats}`);
-    console.log(
-      `  cache     ${result.composeData.cacheHits} hit / ${result.composeData.beats - result.composeData.cacheHits} fresh`
-    );
-    console.log(`  cost      $${result.composeData.totalCostUsd.toFixed(4)}`);
   }
   console.log();
   console.log(chalk.bold.cyan("Next"));

@@ -34,17 +34,6 @@ vi.mock("./transcribe-narration.js", async (importOriginal) => ({
   transcribeNarrationWords: vi.fn(async () => []),
 }));
 
-vi.mock("./compose-scenes-skills.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./compose-scenes-skills.js")>();
-  // Keep the real `buildUserPrompt` (and other pure helpers) so
-  // `getComposePrompts` works, but stub the LLM-dependent
-  // `executeComposeScenesWithSkills`.
-  return {
-    ...actual,
-    executeComposeScenesWithSkills: vi.fn(),
-  };
-});
-
 vi.mock("./scene-render.js", () => ({
   executeSceneRender: vi.fn(),
 }));
@@ -60,7 +49,6 @@ vi.mock("../generate/music.js", () => ({
 import { resolveTtsProvider } from "./tts-resolve.js";
 import { GeminiProvider, GrokProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
 import { transcribeNarrationWords } from "./transcribe-narration.js";
-import { executeComposeScenesWithSkills } from "./compose-scenes-skills.js";
 import { executeSceneRender } from "./scene-render.js";
 import { executeVideoGenerate } from "../ai-video.js";
 import { executeMusic } from "../generate/music.js";
@@ -164,47 +152,6 @@ beforeEach(() => {
       }) as unknown as InstanceType<typeof GrokProvider>
   );
 
-  vi.mocked(executeComposeScenesWithSkills).mockImplementation(async () => {
-    writeFileSync(
-      join(projectDir, "compositions", "scene-hook.html"),
-      validCompositionHtml("hook", 3),
-      "utf-8"
-    );
-    writeFileSync(
-      join(projectDir, "compositions", "scene-close.html"),
-      validCompositionHtml("close", 3),
-      "utf-8"
-    );
-    return {
-      success: true,
-      outputPath: projectDir,
-      data: {
-        beats: 2,
-        written: [
-          {
-            beatId: "hook",
-            path: join(projectDir, "compositions", "scene-hook.html"),
-            cached: false,
-            cacheKey: "compose-hook-key",
-            lintAttempts: 1,
-            costUsd: 0.03,
-          },
-          {
-            beatId: "close",
-            path: join(projectDir, "compositions", "scene-close.html"),
-            cached: true,
-            cacheKey: "compose-close-key",
-            lintAttempts: 1,
-          },
-        ],
-        totalCostUsd: 0.05,
-        totalTokensIn: 0,
-        totalTokensOut: 0,
-        cacheHits: 0,
-      },
-    };
-  });
-
   vi.mocked(executeSceneRender).mockResolvedValue({
     success: true,
     outputPath: join(projectDir, "renders", "out.mp4"),
@@ -262,6 +209,24 @@ afterEach(() => {
   delete process.env.VIBE_BUILD_MODE;
 });
 
+/**
+ * Stand in for the host agent: write the beat HTML a build needs before it can
+ * sync and render. Builds no longer author scene files themselves, so any test
+ * that expects a build to reach the render stage has to call this first.
+ */
+function authorCompositions(): void {
+  writeFileSync(
+    join(projectDir, "compositions", "scene-hook.html"),
+    validCompositionHtml("hook", 3),
+    "utf-8"
+  );
+  writeFileSync(
+    join(projectDir, "compositions", "scene-close.html"),
+    validCompositionHtml("close", 3),
+    "utf-8"
+  );
+}
+
 function readBuildReport(): BuildReport {
   return JSON.parse(readFileSync(join(projectDir, "build-report.json"), "utf-8"));
 }
@@ -313,7 +278,8 @@ function expectBuildReportContract(
 }
 
 describe("executeSceneBuild", () => {
-  it("dispatches narration + backdrop per beat with cues, then composes + renders", async () => {
+  it("dispatches narration + backdrop per beat with cues, then syncs + renders", async () => {
+    authorCompositions();
     const r = await executeSceneBuild({ projectDir });
 
     expect(r.success).toBe(true);
@@ -328,7 +294,6 @@ describe("executeSceneBuild", () => {
     expect(r.beats[1].backdropStatus).toBe("no-cue");
 
     expect(r.outputPath).toBeDefined();
-    expect(executeComposeScenesWithSkills).toHaveBeenCalledOnce();
     expect(executeSceneRender).toHaveBeenCalledOnce();
 
     const rootHtml = readFileSync(join(projectDir, "index.html"), "utf-8");
@@ -377,8 +342,7 @@ describe("executeSceneBuild", () => {
     expect(report.beats[0].composition).toMatchObject({
       path: "compositions/scene-hook.html",
       exists: true,
-      status: "generated",
-      cacheKey: "compose-hook-key",
+      status: "exists",
     });
     expect(report.stageReports).toMatchObject({
       assets: expect.objectContaining({ status: "done", costUsd: expect.any(Number) }),
@@ -633,7 +597,6 @@ backdrop: "../outside.png"
       'Asset reference "../outside.png" must stay inside the project directory.'
     );
     expect(OpenAIImageProvider).not.toHaveBeenCalled();
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
 
     const report = readBuildReport();
     expectBuildReportContract(report, {
@@ -748,7 +711,6 @@ backdrop: "../outside.png"
     const r = await executeSceneBuild({ projectDir, mode: "agent" });
 
     expect(r.success).toBe(true);
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     expect(executeSceneRender).toHaveBeenCalledOnce();
     expect(r.sceneRepair?.ran).toBe(true);
     expect(r.sceneRepair?.fixed.some((item) => item.file.endsWith("scene-hook.html"))).toBe(true);
@@ -791,7 +753,6 @@ backdrop: "../outside.png"
     expect(r.code).toBe("SCENE_REPAIR_FAILED");
     expect(r.sceneRepair?.status).toBe("fail");
     expect(r.sceneRepair?.retryWith).toContain(`vibe scene repair ${projectDir} --json`);
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     expect(executeSceneRender).not.toHaveBeenCalled();
   });
 
@@ -860,7 +821,6 @@ backdrop: "This should not dispatch."
     ]);
     expect(resolveTtsProvider).not.toHaveBeenCalled();
     expect(OpenAIImageProvider).not.toHaveBeenCalled();
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     expect(executeSceneRender).not.toHaveBeenCalled();
 
     const report = readBuildReport();
@@ -876,38 +836,6 @@ backdrop: "This should not dispatch."
     expect(report.retryWith).toEqual(r.retryWith);
   });
 
-  it("compose failure surfaces with beat outcomes preserved", async () => {
-    vi.mocked(executeComposeScenesWithSkills).mockResolvedValueOnce({
-      success: false,
-      error: "rate limited",
-    });
-    const r = await executeSceneBuild({ projectDir });
-    expect(r.success).toBe(false);
-    expect(r.code).toBe("COMPOSE_FAILED");
-    expect(r.currentStage).toBe("compose");
-    expect(r.recoverable).toBe(true);
-    expect(r.error).toContain("compose failed: rate limited");
-    expect(r.retryWith).toContain(`vibe build ${projectDir} --stage compose --json`);
-    expect(r.stageReports?.compose.retryWith).toContain(
-      `vibe build ${projectDir} --stage compose --json`
-    );
-    expect(r.beats).toHaveLength(2); // primitives still ran
-
-    const report = readBuildReport();
-    expectBuildReportContract(report, {
-      success: false,
-      phase: "failed",
-      code: "COMPOSE_FAILED",
-      status: "failed",
-      currentStage: "compose",
-    });
-    expect(report).toMatchObject({
-      success: false,
-      code: "COMPOSE_FAILED",
-      currentStage: "compose",
-    });
-  });
-
   it("render failure surfaces a stable code and retry contract", async () => {
     vi.mocked(executeSceneRender).mockResolvedValueOnce({
       success: false,
@@ -917,6 +845,7 @@ backdrop: "This should not dispatch."
       retryWith: ["vibe doctor --json"],
     });
 
+    authorCompositions();
     const r = await executeSceneBuild({ projectDir });
 
     expect(r.success).toBe(false);
@@ -950,10 +879,10 @@ backdrop: "This should not dispatch."
   });
 
   it("writes a stable render-only build-report contract", async () => {
+    authorCompositions();
     const r = await executeSceneBuild({ projectDir, stage: "render" });
 
     expect(r.success).toBe(true);
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     expect(executeSceneRender).toHaveBeenCalledOnce();
 
     const report = readBuildReport();
@@ -1030,7 +959,6 @@ music: "Minimal confident pulse."
     expect(r.beats[0].musicStatus).toBe("pending");
     expect(r.beats[0].videoJobId).toBeDefined();
     expect(r.beats[0].musicJobId).toBeDefined();
-    expect(executeComposeScenesWithSkills).not.toHaveBeenCalled();
     expect(executeSceneRender).not.toHaveBeenCalled();
 
     const report = readBuildReport();

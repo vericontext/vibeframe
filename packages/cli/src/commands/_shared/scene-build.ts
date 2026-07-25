@@ -35,12 +35,6 @@ import {
 import { getAudioDuration } from "../../utils/audio.js";
 import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
 import { mapWithConcurrency } from "../../utils/concurrency.js";
-import {
-  executeComposeScenesWithSkills,
-  type ComposeEffort,
-  type ComposeProgressEvent,
-  type ComposeScenesActionResult,
-} from "./compose-scenes-skills.js";
 import { composeAiVideo } from "./compose-aivideo.js";
 import {
   composerDefaultForKind,
@@ -152,7 +146,6 @@ export type SceneBuildProgressEvent =
   | { type: "music-pending"; beatId: string; jobId: string; provider: string }
   | { type: "music-failed"; beatId: string; error: string }
   | { type: "music-skipped"; beatId: string; reason: string }
-  | ComposeProgressEvent
   | { type: "render-start" }
   | { type: "render-done"; outputPath: string };
 
@@ -245,8 +238,6 @@ export interface SceneBuildOptions {
    * Build mode dispatch. See {@link SceneBuildMode}. Default: `auto`.
    */
   mode?: SceneBuildMode;
-  /** Compose effort tier — passed through to `compose-scenes-with-skills`. */
-  effort?: ComposeEffort;
   /**
    * Composer LLM provider. Defaults to whatever `resolveComposer()` picks
    * based on env keys (claude > gemini > openai). Pass an explicit value
@@ -363,7 +354,6 @@ export interface SceneBuildResult {
   beats: BeatBuildOutcome[];
   /** MP4 path when `skipRender` is false and render succeeded. */
   outputPath?: string;
-  composeData?: ComposeScenesActionResult["data"];
   renderResult?: SceneRenderResult;
   /**
    * Populated only in agent mode when {@link phase} === `"needs-author"`.
@@ -817,7 +807,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   // `getComposePrompts()`. The host agent fills in the files and
   // re-invokes `vibe scene build`; this branch then sees all files
   // present and skips straight to lint+render.
-  let composeData: ComposeScenesActionResult["data"] | undefined;
   if (shouldRunStage(selectedStage, "compose")) {
     if (mode === "agent") {
       const compositionsDir = join(projectDir, "compositions");
@@ -894,56 +883,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           totalLatencyMs: Date.now() - startedAt,
         });
       }
-    } else {
-      // batch — current internal-LLM compose path (PR #176, multi-provider).
-      onProgress({ type: "phase-start", phase: "compose" });
-      const composeResult = await executeComposeScenesWithSkills(
-        {
-          project: ".",
-          effort: opts.effort,
-          composer,
-          cacheDir: opts.cacheDir,
-          onProgress: (e) => onProgress(e),
-        },
-        projectDir
-      );
-      if (!composeResult.success) {
-        stageReports.compose.status = "failed";
-        const composeRetryWith = unique([
-          ...retryWith,
-          `vibe build ${projectDir}${opts.beatId ? ` --beat ${opts.beatId}` : ""} --stage compose --json`,
-          `vibe scene compose-prompts ${projectDir}${opts.beatId ? ` --beat ${opts.beatId}` : ""} --json`,
-        ]);
-        stageReports.compose.retryWith = unique([
-          ...stageReports.compose.retryWith,
-          ...composeRetryWith,
-        ]);
-        return finishBuildResult({
-          success: false,
-          phase: "failed",
-          mode,
-          selectedStage,
-          code: "COMPOSE_FAILED",
-          error: `compose failed: ${composeResult.error ?? "unknown"}`,
-          message: `compose failed: ${composeResult.error ?? "unknown"}`,
-          suggestion: "Retry compose, or use compose-prompts for host-agent authored scene files.",
-          recoverable: true,
-          beats: beatOutcomes,
-          composeData: composeResult.data,
-          estimatedCostUsd: buildPlan.estimatedCostUsd,
-          costUsd: stageReports.assets.costUsd,
-          stageReports,
-          warnings,
-          retryWith: composeRetryWith,
-          status: "failed",
-          currentStage: "compose",
-          totalLatencyMs: Date.now() - startedAt,
-        });
-      }
-      composeData = composeResult.data;
-      stageReports.compose.status = "done";
-      stageReports.compose.costUsd =
-        (composeResult.data as { costUsd?: number } | undefined)?.costUsd ?? 0;
     }
   } else {
     stageReports.compose.status = "skipped";
@@ -986,7 +925,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           "Run `vibe scene repair <project> --json`, then edit remaining scene HTML findings.",
         recoverable: true,
         beats: beatOutcomes,
-        composeData,
         estimatedCostUsd: buildPlan.estimatedCostUsd,
         costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
         stageReports,
@@ -1007,7 +945,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       mode,
       selectedStage,
       beats: beatOutcomes,
-      composeData,
       estimatedCostUsd: buildPlan.estimatedCostUsd,
       costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
       stageReports,
@@ -1064,7 +1001,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           "Run `vibe scene repair <project> --json`, then edit remaining scene HTML findings.",
         recoverable: true,
         beats: beatOutcomes,
-        composeData,
         estimatedCostUsd: buildPlan.estimatedCostUsd,
         costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
         stageReports,
@@ -1085,7 +1021,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       mode,
       selectedStage,
       beats: beatOutcomes,
-      composeData,
       estimatedCostUsd: buildPlan.estimatedCostUsd,
       costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
       stageReports,
@@ -1128,7 +1063,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
         suggestion: "Inspect project readiness, rerun sync if needed, then retry render.",
         recoverable: true,
         beats: beatOutcomes,
-        composeData,
         renderResult,
         estimatedCostUsd: buildPlan.estimatedCostUsd,
         costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
@@ -1155,7 +1089,6 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     selectedStage,
     beats: beatOutcomes,
     outputPath,
-    composeData,
     renderResult,
     estimatedCostUsd: buildPlan.estimatedCostUsd,
     costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
@@ -3028,14 +2961,7 @@ function normalizeReportDuration(value: number | undefined): number {
   return Number((value ?? 0).toFixed(3));
 }
 
-type ComposeWrittenEntry = NonNullable<ComposeScenesActionResult["data"]>["written"][number];
-type BuildReportCompositionStatus =
-  | "generated"
-  | "cached"
-  | "exists"
-  | "needs-author"
-  | "skipped"
-  | "failed";
+type BuildReportCompositionStatus = "exists" | "needs-author" | "skipped" | "failed";
 
 function buildReportComposition(
   projectDir: string,
@@ -3045,31 +2971,14 @@ function buildReportComposition(
   path: string;
   exists: boolean;
   status: BuildReportCompositionStatus;
-  cacheKey?: string;
 } {
   const path = `compositions/scene-${beatId}.html`;
   const exists = existsSync(join(projectDir, path));
-  const written = composeWrittenEntry(result, beatId);
-  if (written) {
-    return {
-      path,
-      exists,
-      status: written.cached ? "cached" : "generated",
-      cacheKey: written.cacheKey,
-    };
-  }
   if (result.stageReports?.compose.status === "failed") return { path, exists, status: "failed" };
   if (result.phase === "needs-author" && !exists) return { path, exists, status: "needs-author" };
   if (exists) return { path, exists, status: "exists" };
   if (result.stageReports?.compose.status === "skipped") return { path, exists, status: "skipped" };
   return { path, exists, status: "needs-author" };
-}
-
-function composeWrittenEntry(
-  result: SceneBuildResult,
-  beatId: string
-): ComposeWrittenEntry | undefined {
-  return result.composeData?.written.find((entry) => entry.beatId === beatId);
 }
 
 function buildWorkflowStatus(result: SceneBuildResult): BuildWorkflowStatus {
