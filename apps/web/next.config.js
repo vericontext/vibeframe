@@ -38,9 +38,9 @@ function countManifestTools() {
       mcpOnly += lines.filter((line) => line === 'surfaces: ["mcp"],').length;
     }
   } catch {
-    return { mcp: 69, agent: 85 };
+    return { mcp: 85, agent: 101 };
   }
-  if (total === 0) return { mcp: 69, agent: 85 };
+  if (total === 0) return { mcp: 85, agent: 101 };
   return {
     mcp: total - agentOnly,
     agent: total - mcpOnly,
