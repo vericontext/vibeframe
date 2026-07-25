@@ -29,6 +29,11 @@ import {
   type ComposerProvider,
 } from "./_shared/composer-resolve.js";
 import { getCostTier, TIER_COLOR, type CostTier } from "./_shared/cost-tier.js";
+import {
+  HYPERFRAMES_SKILL_INSTALL_COMMAND,
+  hyperframesSkillAvailable,
+  resolveSkillReference,
+} from "./_shared/install-skill.js";
 import { outputSuccess } from "./output.js";
 
 /**
@@ -214,7 +219,10 @@ interface DiagnosticResults {
       composer: ComposerProvider | null;
       composerEnvVar: string | null;
       sceneProjectInCwd: boolean;
+      /** Rules readable from anywhere the host agent looks: project or global. */
       skillInstalled: boolean;
+      /** Project-relative path when installed here; null for a global-only install. */
+      skillPath: string | null;
     };
     configError?: { path: string; message: string };
   };
@@ -371,7 +379,13 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
     // No composer key — composerResolved stays null. Reported in render.
   }
   const sceneProjectInCwd = existsSync(resolve(cwd, "STORYBOARD.md"));
-  const skillInstalled = existsSync(resolve(cwd, "SKILL.md"));
+  // Upstream's installer owns these rules now, so "installed" means any place
+  // the host agent can actually read them: this project or the user's global
+  // skills dir. Checking only a project-root `SKILL.md` reported MISSING for a
+  // correct install and sent the user back to an installer that had nothing
+  // left to do.
+  const skillInstalled = hyperframesSkillAvailable(cwd);
+  const skillPath = resolveSkillReference(cwd);
 
   return {
     system: {
@@ -410,6 +424,7 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
         composerEnvVar: composerEnv,
         sceneProjectInCwd,
         skillInstalled,
+        skillPath,
       },
       ...(configError ? { configError } : {}),
     },
@@ -568,17 +583,16 @@ function printReport(
     }
     if (sc.sceneProjectInCwd) {
       if (sc.skillInstalled) {
-        console.log(
-          `    SKILL.md     ${chalk.green("OK")}     ${chalk.dim("installed in this scene project")}`
-        );
+        const where = sc.skillPath ?? "installed globally for your agent";
+        console.log(`    HF rules     ${chalk.green("OK")}     ${chalk.dim(where)}`);
       } else {
         console.log(
-          `    SKILL.md     ${chalk.yellow("MISSING")} ${chalk.dim("Run: vibe scene install-skill")}`
+          `    HF rules     ${chalk.yellow("MISSING")} ${chalk.dim(`Run: vibe scene install-skill`)}`
         );
       }
     } else {
       console.log(
-        `    SKILL.md     ${chalk.dim("(no STORYBOARD.md in cwd — skill is per-scene-project)")}`
+        `    HF rules     ${chalk.dim("(no STORYBOARD.md in cwd — rules are per-scene-project)")}`
       );
     }
   }
@@ -796,11 +810,11 @@ function pickNextStep(results: DiagnosticResults, hasMissingProviders: boolean):
   if (!results.scope.project.initialized) {
     return "Next: run 'vibe init' in your project directory to scaffold AGENTS.md / CLAUDE.md / .env.example.";
   }
-  // Plan H — nudge a scene project that's missing the skill files.
-  // Without SKILL.md the agentic compose path can't run.
+  // Nudge a scene project whose host agent has no Hyperframes rules to read.
+  // Without them the agent authors scene HTML blind.
   const sc = results.scope.sceneComposer;
   if (sc.sceneProjectInCwd && !sc.skillInstalled) {
-    return "Next: run 'vibe scene install-skill' so your host agent can read the Hyperframes rules from this project.";
+    return `Next: run 'vibe scene install-skill' (or '${HYPERFRAMES_SKILL_INSTALL_COMMAND}') so your host agent can read the Hyperframes composition rules.`;
   }
   if (hasMissingProviders) {
     return "Run 'vibe setup' to add more provider keys.";

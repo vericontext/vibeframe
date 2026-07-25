@@ -250,14 +250,14 @@ agreement.
 Where the skill comes from depends on your setup:
 
 - If the \`hyperframes\` skill is installed globally (e.g. Claude Code), your
-  agent already has it — \`vibe init\` does **not** copy it into the project.
-- Otherwise \`vibe init\` writes a local copy: universal \`SKILL.md\` (with
-  \`references/*.md\`) at the project root, plus host layouts
-  (\`.claude/skills/hyperframes/\`, \`.cursor/rules/hyperframes.mdc\`).
+  agent already has it and nothing else is needed.
+- Otherwise install it into this project with \`vibe scene install-skill\`,
+  which runs upstream's own installer and writes
+  \`.agents/skills/hyperframes/\`.
 
-To get editable per-project copies on demand, run
-\`vibe scene install-skill [--host all]\` (these copies are gitignored by
-default — see \`.gitignore\`).
+\`vibe init\` never copies the rules in. They come from upstream so they stay
+current, and fetching them is a network call the scaffold does not make on
+your behalf. \`vibe doctor\` reports whether your agent can read them.
 
 For render-stable text, do not apply continuous \`scale\`, \`x\`, \`y\`,
 \`filter\`, or other transform tweens to \`.scene-content\` or any ancestor
@@ -424,8 +424,10 @@ renders/
 *.vibe.json
 .vibeframe/
 
-# Vendored Hyperframes skill copies — regenerable via 'vibe scene install-skill'.
-# Delete these lines if you eject and want to commit per-project customizations.
+# Hyperframes skill copies left by older VibeFrame versions, which vendored a
+# snapshot of upstream's rules. Nothing writes these now - upstream's installer
+# owns the rules and puts them under .agents/skills/hyperframes/, which is
+# yours to commit or ignore. These lines only keep pre-existing copies quiet.
 /SKILL.md
 /references/
 /.claude/skills/hyperframes/
