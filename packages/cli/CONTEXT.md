@@ -2,7 +2,9 @@
 
 ## Overview
 
-VibeFrame CLI (`vibe`) is a CLI-first video toolkit. Every operation is
+VibeFrame CLI (`vibe`) generates AI video on the user's own provider keys
+(Seedance, Runway, Veo, Kling), behind dry runs and a hard `--max-cost`
+ceiling, and edits the results. Every operation is
 a shell command. The same surface is exposed as MCP tools through
 [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
 For long-running video work, your host's agent loop (Claude Code, Codex,
@@ -12,7 +14,7 @@ VibeFrame owns the video-specific command surface, JSON reports, cost gates,
 deterministic repair, render inspection, and `retryWith` recovery hints.
 
 For the full reference (every flag, default, enum), read
-[`docs/cli-reference.md`](../../docs/cli-reference.md) — auto-generated
+[`docs/cli-reference.md`](../../docs/cli-reference.md) - auto-generated
 from `vibe schema --list`. This file is the _agent quickstart_: rules,
 conventions, and discovery hooks.
 
@@ -27,7 +29,7 @@ host agent loop -> vibe context/schema -> plan dry-run -> build with budget
 -> repair/edit using nextActions/fixOwner -> repeat until stop rules pass
 ```
 
-Copy-paste agent prompt (Codex) — a plain prompt, not a built-in command:
+Copy-paste agent prompt (Codex) - a plain prompt, not a built-in command:
 
 ```text
 Build my-video/ into a reviewed VibeFrame MP4. Use --json for every vibe
@@ -44,7 +46,7 @@ AI review score is >= 90 when AI review is requested, and unresolved host-agent 
 accepted with a written reason, or reported as blocked.
 ```
 
-Copy-paste agent prompt (Claude Code) — a plain prompt, not a built-in command:
+Copy-paste agent prompt (Claude Code) - a plain prompt, not a built-in command:
 
 ```text
 Finish the VibeFrame render for my-video/ using your host's agent loop as
@@ -71,15 +73,15 @@ vibe guide <topic> --json              # Step-by-step guides (motion | scene | p
 
 ## Global rules
 
-1. **`--json` everywhere** — auto-enabled on non-TTY stdout but pass
+1. **`--json` everywhere** - auto-enabled on non-TTY stdout but pass
    explicitly for clarity. Output goes to **stdout**.
-2. **`--dry-run` before any paid call** — returns a `costUsd` estimate
+2. **`--dry-run` before any paid call** - returns a `costUsd` estimate
    in the JSON envelope without spending. Validates inputs.
-3. **`--stdin` for complex options** — `echo '{"key":"value"}' | vibe
+3. **`--stdin` for complex options** - `echo '{"key":"value"}' | vibe
 <cmd> --stdin --json`. CLI flags still win on conflict.
-4. **`--fields <list>`** — limit JSON output fields on read-heavy
+4. **`--fields <list>`** - limit JSON output fields on read-heavy
    commands (e.g. `--fields "path,duration"`).
-5. **`--describe`** — print a command's JSON Schema and exit (no
+5. **`--describe`** - print a command's JSON Schema and exit (no
    execution). Useful for prompt-time discovery.
 
 ## Cost tiers

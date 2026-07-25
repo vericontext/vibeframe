@@ -480,7 +480,7 @@ Cost tier: _not tagged_
 
 #### `vibe setup`
 
-Configure VibeFrame (LLM provider, API keys)
+Configure VibeFrame (video/image provider keys, LLM provider)
 
 Product surface: `public`
 Note: Initial configuration helper.

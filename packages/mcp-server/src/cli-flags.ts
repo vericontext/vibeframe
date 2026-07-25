@@ -13,9 +13,10 @@ function usage(version: string): string {
   return [
     `VibeFrame MCP Server v${version}`,
     "",
-    "AI-native video editing exposed over the Model Context Protocol (stdio).",
+    "AI video generation and editing exposed over the Model Context Protocol",
+    "(stdio), on your own provider keys and behind dry runs and cost caps.",
     "It is launched by an MCP client (Claude Desktop, Cursor, Claude Code), not",
-    "run directly — there is normally nothing to interact with on the terminal.",
+    "run directly - there is normally nothing to interact with on the terminal.",
     "",
     "Add it to your client config:",
     "",

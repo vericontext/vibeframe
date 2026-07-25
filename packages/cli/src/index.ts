@@ -119,7 +119,7 @@ const program = new Command();
 program
   .name("vibe")
   .showSuggestionAfterError(true)
-  .description("VibeFrame CLI - video projects, AI media generation, and workflow automation")
+  .description("VibeFrame CLI - AI video generation on your own provider keys, behind dry runs and a hard cost cap")
   .version(pkg.version)
   .option("--json", "Output in JSON format")
   .option("-q, --quiet", "Output only the primary result value (path, URL, or ID)")

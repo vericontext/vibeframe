@@ -3940,7 +3940,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene submit --describe
 
 exports[`CLI --describe schemas (drift detection) > vibe setup --describe 1`] = `
 {
-  "description": "Configure VibeFrame (LLM provider, API keys)",
+  "description": "Configure VibeFrame (video/image provider keys, LLM provider)",
   "name": "setup",
   "note": "Initial configuration helper.",
   "parameters": {

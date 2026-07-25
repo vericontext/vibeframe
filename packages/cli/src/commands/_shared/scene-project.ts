@@ -1,7 +1,7 @@
 /**
  * @module _shared/scene-project
  *
- * Helpers for scaffolding a "scene project" — a directory that works as both
+ * Helpers for scaffolding a "scene project" - a directory that works as both
  * a VibeFrame project (via `vibe.config.json`) AND a HeyGen Hyperframes
  * project (via `hyperframes.json` + `meta.json` + `index.html`). Either
  * toolchain can be run inside the directory.
@@ -22,13 +22,13 @@ export type SceneAspect = "16:9" | "9:16" | "1:1" | "4:5";
 export type SceneScaffoldProfile = "minimal" | "agent" | "full";
 
 /**
- * Project KIND — orthogonal to {@link SceneScaffoldProfile} (which decides which
+ * Project KIND - orthogonal to {@link SceneScaffoldProfile} (which decides which
  * files exist). Kind decides which pipeline STAGES run and which composer is the
  * default:
- * - `cinema` / `story` — directed, character-driven; keyframe→i2v, LLM composer.
- * - `aivideo` — character + i2v, the deterministic `template` composer.
- * - `product` — backdrop/asset-centric (no i2v keyframes).
- * - `motion` — pure HTML/CSS/GSAP graphics (no AI image/video assets).
+ * - `cinema` / `story` - directed, character-driven; keyframe→i2v, LLM composer.
+ * - `aivideo` - character + i2v, the deterministic `template` composer.
+ * - `product` - backdrop/asset-centric (no i2v keyframes).
+ * - `motion` - pure HTML/CSS/GSAP graphics (no AI image/video assets).
  */
 export type SceneKind = "cinema" | "product" | "aivideo" | "story" | "motion";
 
@@ -181,7 +181,7 @@ export function mergeHyperframesConfig(
 }
 
 /**
- * Minimal valid Hyperframes root composition — empty (no sub-compositions
+ * Minimal valid Hyperframes root composition - empty (no sub-compositions
  * yet). A later `vibe scene add` inserts `<div class="clip" ...>` children.
  */
 export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number }): string {
@@ -228,7 +228,7 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
 }
 
 /**
- * Project-local `DESIGN.md` template — the visual-identity hard-gate.
+ * Project-local `DESIGN.md` template - the visual-identity hard-gate.
  *
  * Hyperframes' `hyperframes` skill teaches: "no scene HTML before DESIGN.md is
  * authored." This template seeds that contract so the project never opens
@@ -236,7 +236,7 @@ export function buildEmptyRootHtml(opts: { aspect: SceneAspect; duration: number
  * from the vendored named-style data (`visual-styles.ts`); otherwise the
  * user (or agent) fills the placeholders.
  *
- * The agent-driven craft path expects this file as input — see
+ * The agent-driven craft path expects this file as input - see
  * `.claude/skills/vibe-scene/SKILL.md`.
  */
 /**
@@ -275,16 +275,16 @@ colors:
 `;
 
   const intro = style
-    ? `Visual identity for **${name}**, scaffolded from the **${style.name}** style (after ${style.designer}). Customise freely — this file is the single source of truth for every scene's palette, typography, and motion.`
+    ? `Visual identity for **${name}**, scaffolded from the **${style.name}** style (after ${style.designer}). Customise freely - this file is the single source of truth for every scene's palette, typography, and motion.`
     : `Visual identity for **${name}**. Fill the sections below before authoring any scene HTML or generating any backdrop. Pick a named style with \`vibe scene list-styles\` if you want a credible starting point.`;
 
   const moodLine = style
     ? `**Mood:** ${style.mood} · **Best for:** ${style.bestFor}`
-    : `**Mood:** _(one line — what should the viewer FEEL?)_`;
+    : `**Mood:** _(one line - what should the viewer FEEL?)_`;
 
   const palette = style
     ? `${style.palette.map((c) => `- \`${c}\``).join("\n")}\n\n${style.paletteNotes}`
-    : `- _hex_ — primary\n- _hex_ — accent\n\n_2–3 colours max. Declare explicit hex values; never name colours abstractly._`;
+    : `- _hex_ - primary\n- _hex_ - accent\n\n_2–3 colours max. Declare explicit hex values; never name colours abstractly._`;
 
   const typography = style
     ? style.typography
@@ -306,7 +306,7 @@ colors:
     ? style.avoid.map((a) => `- ${a}`).join("\n")
     : `- _anti-pattern 1_\n- _anti-pattern 2_\n- _anti-pattern 3_`;
 
-  return `${frontmatter}# ${name} — Design
+  return `${frontmatter}# ${name} - Design
 
 > **Hard-gate (BUILD flow only).** This file is the visual contract for
 > the scene-project flow (\`vibe build\`, \`vibe scene ...\`, composition
@@ -355,20 +355,20 @@ ${style ? `_This file was seeded by \`vibe scene init --visual-style "${style.na
 }
 
 /**
- * Always-on `SCRIPT.md` — the narrative spine authored before the beat-level
+ * Always-on `SCRIPT.md` - the narrative spine authored before the beat-level
  * STORYBOARD.md. Kind tailors the guidance (a `motion`/`product` script is a
  * shot/asset list; a `story`/`cinema` script is a scene-by-scene narrative).
  */
 export function buildScriptMd(name: string, kind: SceneKind = DEFAULT_SCENE_KIND): string {
   const intent =
     kind === "product"
-      ? "Product walkthrough — what each section demonstrates, in order."
+      ? "Product walkthrough - what each section demonstrates, in order."
       : kind === "motion"
-        ? "Motion piece — the message and the beats of on-screen text/graphics."
+        ? "Motion piece - the message and the beats of on-screen text/graphics."
         : kind === "aivideo"
-          ? "AI-video script — the spoken/voiced narrative the generated shots illustrate."
-          : "Narrative script — scene-by-scene story, dialogue, and voiceover.";
-  return `# ${name} — Script
+          ? "AI-video script - the spoken/voiced narrative the generated shots illustrate."
+          : "Narrative script - scene-by-scene story, dialogue, and voiceover.";
+  return `# ${name} - Script
 
 > **Authoring order:** SCRIPT.md (this file) → STORYBOARD.md (beats + cues)${
     kindHasCast(kind) ? " → CHARACTERS.md (cast bible)" : ""
@@ -399,12 +399,12 @@ Voiceover / on-screen: …
 }
 
 /**
- * Kind-gated `CHARACTERS.md` — the cast bible. Promotes today's STORYBOARD
+ * Kind-gated `CHARACTERS.md` - the cast bible. Promotes today's STORYBOARD
  * \`characters:\` frontmatter into first-class identity blocks (reference sheet
  * path + an identity-lock description used to keep keyframes/i2v on-model).
  */
 export function buildCharactersMd(name: string): string {
-  return `# ${name} — Characters
+  return `# ${name} - Characters
 
 > Each character is referenced from STORYBOARD beats via the \`characters:\` cue.
 > The reference sheet + identity block keep keyframes and image-to-video on-model
@@ -413,8 +413,8 @@ export function buildCharactersMd(name: string): string {
 ## hero
 
 - **Reference sheet:** \`assets/characters/hero.png\` (a clean, front-lit full-body
-  or portrait sheet — the identity anchor for keyframe edits).
-- **Identity:** one paragraph of fixed, on-model traits — age, build, hair,
+  or portrait sheet - the identity anchor for keyframe edits).
+- **Identity:** one paragraph of fixed, on-model traits - age, build, hair,
   wardrobe, palette. Keep this stable across every beat.
 - **Range:** expressions / poses this character should hit.
 
@@ -434,14 +434,14 @@ tts: auto
 imageProvider: openai
 ---
 
-# ${name} — Storyboard
+# ${name} - Storyboard
 
 Edit these beats before running \`vibe build\`. Each beat starts with
 YAML cues that drive narration, backdrop generation, and timing.
 Pacing: keep beats 6-15 seconds (split longer ones); a 90s video should
 have 6-8 beats, not 3 long ones.
 
-## Beat hook — Hook
+## Beat hook - Hook
 
 \`\`\`yaml
 narration: "Introduce the promise in one crisp sentence."
@@ -452,7 +452,7 @@ duration: 4
 Show the core visual identity immediately. Keep copy short enough for one
 screen and one spoken breath.
 
-## Beat proof — Proof
+## Beat proof - Proof
 
 \`\`\`yaml
 narration: "Show the mechanism or proof point that makes the promise believable."
@@ -463,7 +463,7 @@ duration: 4
 Use this beat for the concrete differentiator: command, workflow, metric, or
 before/after.
 
-## Beat close — Close
+## Beat close - Close
 
 \`\`\`yaml
 narration: "Close with the action the viewer should remember."
@@ -478,7 +478,7 @@ final beat.
 
 /** Project-local AGENTS.md that orients every agent host to both toolchains. */
 export function buildProjectAgentsMd(name: string): string {
-  return `# ${name} — Scene Authoring Project
+  return `# ${name} - Scene Authoring Project
 
 This is the canonical cross-agent guidance file for this scene project.
 Claude Code imports it through \`CLAUDE.md\`; Codex, Cursor, Aider,
@@ -517,7 +517,7 @@ contradict DESIGN.md are rejected by the Hyperframes \`hyperframes\`
 skill.
 
 Single-asset requests (\`vibe generate image|video|speech|...\`) do NOT
-consult this file — run the generate command directly.
+consult this file - run the generate command directly.
 
 Browse named styles: \`vibe scene list-styles\`. Re-seed from one with
 \`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).
@@ -532,8 +532,9 @@ after init, those two files are the working source of truth.
 Use \`media/\` for user-provided source files: product photos, screenshots,
 logos, B-roll, recorded narration, or reference clips. Keep those inputs
 inside this project so build references stay project-relative. Do not put user
-media in \`references/\`; that directory is reserved for local composition
-rules installed by VibeFrame.
+media in \`references/\`; older VibeFrame versions vendored composition rules
+there, and current installs keep the rules under \`.agents/skills/hyperframes/\`
+via \`vibe scene install-skill\`.
 
 When a beat should reuse a local file, reference it from \`STORYBOARD.md\`
 with a project-relative path:
@@ -589,7 +590,7 @@ project-level agent loop; it provides \`--json\` commands, dry runs, cost caps,
 \`requiresConfirmation\`, \`fixOwner\`, deterministic repair, and render
 inspection for the host agent to reason over.
 
-Copy-paste agent prompts — plain prompts, not a built-in command:
+Copy-paste agent prompts - plain prompts, not a built-in command:
 
 \`\`\`text
 Build this VibeFrame project into renders/final.mp4. Use --json for every
@@ -617,9 +618,9 @@ target duration/aspect ratio, clean render inspection, any AI review score >= 90
 no unresolved unacknowledged host-agent issues.
 \`\`\`
 
-## Skills — USE THESE FIRST
+## Skills - USE THESE FIRST
 
-**Load the \`hyperframes\` skill before authoring scenes** — it encodes the
+**Load the \`hyperframes\` skill before authoring scenes** - it encodes the
 composition rules, motion principles, type system, and visual-identity gate.
 If your agent has it installed globally it is already available; otherwise run
 \`vibe scene install-skill\`, which runs upstream's installer and writes
@@ -631,7 +632,7 @@ semantics, VibeFrame pipeline conventions) that are NOT in generic web docs.
 
 | Skill             | Command          | When to use                                                                           |
 | ----------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| **hyperframes**   | \`/hyperframes\`   | Cinematic-quality composition — DESIGN.md hard-gate, named styles, motion principles  |
+| **hyperframes**   | \`/hyperframes\`   | Cinematic-quality composition - DESIGN.md hard-gate, named styles, motion principles  |
 | **vibe-scene**    | \`/vibe-scene\`    | VibeFrame's authoring loop, AI assets, lint feedback, pipeline integration            |
 | **gsap**          | \`/gsap\`          | GSAP tweens, timelines, easing                                                        |
 
@@ -642,22 +643,22 @@ npx skills add heygen-com/hyperframes
 \`\`\`
 
 Restart your agent session (or reload the skill list) after installing.
-If skills aren't available, follow the **Key Rules** below — they cover
+If skills aren't available, follow the **Key Rules** below - they cover
 the framework-level minimum, not the cinematic craft layer.
 
 ## Project structure
 
-- \`DESIGN.md\` — visual identity contract (palette, type, motion, transitions)
-- \`STORYBOARD.md\` — per-beat narration/backdrop/duration cues for \`vibe build\`
-- \`media/\` — user-provided source files (photos, logos, clips, voice recordings)
-- \`index.html\` — root composition (timeline)
-- \`compositions/scene-*.html\` — per-scene HTML authored by you or the agent
-- \`assets/\` — generated/canonical build media (narration audio, images, video)
-- \`.agents/skills/hyperframes/\` — upstream composition rules, when installed here rather than globally
-- \`transcript.json\` — Whisper word-level transcript (if narration exists)
-- \`hyperframes.json\` — HF registry config (speak to both toolchains)
-- \`vibe.config.json\` — canonical VibeFrame config (providers, budget)
-- \`renders/\` — output MP4s
+- \`DESIGN.md\` - visual identity contract (palette, type, motion, transitions)
+- \`STORYBOARD.md\` - per-beat narration/backdrop/duration cues for \`vibe build\`
+- \`media/\` - user-provided source files (photos, logos, clips, voice recordings)
+- \`index.html\` - root composition (timeline)
+- \`compositions/scene-*.html\` - per-scene HTML authored by you or the agent
+- \`assets/\` - generated/canonical build media (narration audio, images, video)
+- \`.agents/skills/hyperframes/\` - upstream composition rules, when installed here rather than globally
+- \`transcript.json\` - Whisper word-level transcript (if narration exists)
+- \`hyperframes.json\` - HF registry config (speak to both toolchains)
+- \`vibe.config.json\` - canonical VibeFrame config (providers, budget)
+- \`renders/\` - output MP4s
 
 ## Commands
 
@@ -667,7 +668,7 @@ vibe build                                                 # STORYBOARD.md → n
 vibe scene lint                                             # Validate scenes (in-process HF linter)
 vibe render                                                 # Render to MP4
 
-# Hyperframes CLI (if installed — works in this project too)
+# Hyperframes CLI (if installed - works in this project too)
 npx hyperframes preview
 npx hyperframes render
 \`\`\`
@@ -675,7 +676,7 @@ npx hyperframes render
 ## Key Rules (for hand-authored scene HTML)
 
 1. Every timed element needs \`data-start\`, \`data-duration\`, and \`data-track-index\`.
-2. Elements with timing **MUST** have \`class="clip"\` — the framework uses this for visibility control.
+2. Elements with timing **MUST** have \`class="clip"\` - the framework uses this for visibility control.
 3. Timelines must be paused and registered on \`window.__timelines\`:
    \`\`\`js
    window.__timelines = window.__timelines || {};
@@ -687,12 +688,12 @@ npx hyperframes render
    \`filter\` tweens to \`.scene-content\` or any ancestor containing live text.
    Animate background/media layers instead; text/cards should enter briefly and
    then hold still at their final CSS positions.
-7. Only deterministic logic — no \`Date.now()\`, \`Math.random()\`, or network fetches.
+7. Only deterministic logic - no \`Date.now()\`, \`Math.random()\`, or network fetches.
 
-## Linting — run after changes
+## Linting - run after changes
 
 \`\`\`bash
-vibe scene lint           # preferred — in-process, no network
+vibe scene lint           # preferred - in-process, no network
 vibe scene lint --fix     # auto-fix mechanical issues
 vibe scene lint --json    # structured output for agent loops
 \`\`\`
@@ -703,7 +704,7 @@ vibe scene lint --json    # structured output for agent loops
 export function buildProjectClaudeMd(name: string): string {
   return `@AGENTS.md
 
-# ${name} — Claude Code Overrides
+# ${name} - Claude Code Overrides
 
 This file imports \`AGENTS.md\`; keep cross-agent VibeFrame and
 Hyperframes instructions there so Codex, Cursor, Aider, Gemini CLI, and
@@ -714,7 +715,7 @@ only when this project needs them.
 
 /** Minimal .gitignore for a scene project. */
 export function buildSceneGitignore(): string {
-  return `# VibeFrame — caches, checkpoints, and project-scope config.yaml (may contain API keys)
+  return `# VibeFrame - caches, checkpoints, and project-scope config.yaml (may contain API keys)
 .vibeframe/
 
 # Render outputs
@@ -753,7 +754,7 @@ export interface ScaffoldOptions {
   visualStyle?: VisualStyle;
   /** Scaffold shape. Defaults to "full" for backward-compatible programmatic use. */
   profile?: SceneScaffoldProfile;
-  /** Project kind — drives which pipeline stages run + the default composer. */
+  /** Project kind - drives which pipeline stages run + the default composer. */
   kind?: SceneKind;
 }
 
@@ -856,7 +857,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   const merged: string[] = [];
 
   if (profile === "full") {
-    // hyperframes.json — merge if exists, else create.
+    // hyperframes.json - merge if exists, else create.
     const hfPath = resolve(dir, "hyperframes.json");
     const hfDefaults = buildHyperframesConfig();
     if (await pathExists(hfPath)) {
@@ -870,7 +871,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
       created.push(hfPath);
     }
 
-    // meta.json — preserve existing (id shouldn't change).
+    // meta.json - preserve existing (id shouldn't change).
     const metaPath = resolve(dir, "meta.json");
     if (await pathExists(metaPath)) {
       skipped.push(metaPath);
@@ -883,7 +884,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
       created.push(metaPath);
     }
 
-    // index.html — preserve existing (user may have edited root).
+    // index.html - preserve existing (user may have edited root).
     const rootPath = resolve(dir, "index.html");
     if (await pathExists(rootPath)) {
       skipped.push(rootPath);
@@ -893,7 +894,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     }
   }
 
-  // vibe.project.yaml — preserve existing; this is VibeFrame's own config.
+  // vibe.project.yaml - preserve existing; this is VibeFrame's own config.
   const vibeConfigJsonPath = resolve(dir, VIBE_CONFIG_FILENAME);
   if (await pathExists(vibeConfigJsonPath)) {
     skipped.push(vibeConfigJsonPath);
@@ -903,7 +904,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   }
 
   if (profile === "agent" || profile === "full") {
-    // AGENTS.md — canonical cross-tool guidance; preserve existing.
+    // AGENTS.md - canonical cross-tool guidance; preserve existing.
     const agentsPath = resolve(dir, "AGENTS.md");
     if (await pathExists(agentsPath)) {
       skipped.push(agentsPath);
@@ -912,7 +913,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
       created.push(agentsPath);
     }
 
-    // CLAUDE.md — preserve existing content, but ensure it imports AGENTS.md.
+    // CLAUDE.md - preserve existing content, but ensure it imports AGENTS.md.
     const claudePath = resolve(dir, "CLAUDE.md");
     if (await pathExists(claudePath)) {
       const existing = await readFile(claudePath, "utf-8");
@@ -928,7 +929,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     }
   }
 
-  // DESIGN.md — visual-identity hard-gate (Hyperframes skill convention).
+  // DESIGN.md - visual-identity hard-gate (Hyperframes skill convention).
   // Preserve existing so users can hand-edit between init runs.
   const designPath = resolve(dir, "DESIGN.md");
   if (await pathExists(designPath)) {
@@ -938,7 +939,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     created.push(designPath);
   }
 
-  // STORYBOARD.md — starter cues for the one-shot build flow.
+  // STORYBOARD.md - starter cues for the one-shot build flow.
   // Preserve existing so users can hand-edit between init runs.
   const storyboardPath = resolve(dir, "STORYBOARD.md");
   if (await pathExists(storyboardPath)) {
@@ -948,7 +949,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     created.push(storyboardPath);
   }
 
-  // SCRIPT.md — always-on narrative spine (authored before STORYBOARD beats).
+  // SCRIPT.md - always-on narrative spine (authored before STORYBOARD beats).
   const scriptPath = resolve(dir, "SCRIPT.md");
   if (await pathExists(scriptPath)) {
     skipped.push(scriptPath);
@@ -957,7 +958,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     created.push(scriptPath);
   }
 
-  // CHARACTERS.md — only for kinds with a recurring cast (cinema/story/aivideo).
+  // CHARACTERS.md - only for kinds with a recurring cast (cinema/story/aivideo).
   if (kindHasCast(kind)) {
     const charactersPath = resolve(dir, "CHARACTERS.md");
     if (await pathExists(charactersPath)) {
@@ -968,7 +969,7 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
     }
   }
 
-  // .gitignore — preserve existing.
+  // .gitignore - preserve existing.
   const gitignorePath = resolve(dir, ".gitignore");
   if (await pathExists(gitignorePath)) {
     skipped.push(gitignorePath);

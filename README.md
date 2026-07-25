@@ -205,7 +205,7 @@ vibe inspect render my-video --beat hook --cheap --json
 Each storyboard beat carries YAML cues:
 
 ````markdown
-## Beat hook — Open
+## Beat hook - Open
 
 ```yaml
 narration: "Start with a storyboard. VibeFrame turns each beat into a render plan."
@@ -253,7 +253,7 @@ characters:
   rival: { image: "media/rival-ref.png" }
 ---
 
-## Beat hook — Hook
+## Beat hook - Hook
 
 ```yaml
 duration: 5

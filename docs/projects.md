@@ -144,7 +144,7 @@ characters:
   rival: { image: "media/rival-ref.png" }
 ---
 
-## Beat hook — Hook
+## Beat hook - Hook
 
 ```yaml
 duration: 5

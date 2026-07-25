@@ -16,31 +16,32 @@
  * OpenAI Codex, Cursor, Aider, Sourcegraph Cody, OpenCode, and (via
  * the @AGENTS.md import) Claude Code. Gemini CLI users may want to
  * also keep a sibling \`GEMINI.md\` since that's its primary context
- * file. Keep this as the canonical source of truth for agent guidance —
+ * file. Keep this as the canonical source of truth for agent guidance -
  * \`CLAUDE.md\` and \`GEMINI.md\` just import it.
  */
 export const AGENTS_MD = `# AGENTS.md
 
-This project uses [VibeFrame](https://github.com/vericontext/vibeframe) —
-a CLI for AI-powered video editing. The \`vibe\` command provides 80+
-subcommands for video generation, editing, analysis, and pipeline
-orchestration. Cost tiers below — **always confirm with the user before
-running High / Very High tier commands**.
+This project uses [VibeFrame](https://github.com/vericontext/vibeframe) -
+a CLI for AI video generation on the user's own provider keys (Seedance,
+Runway, Veo, Kling), behind dry runs and a hard \`--max-cost\` ceiling.
+The \`vibe\` command provides 80+ subcommands for video generation,
+editing, and analysis. Cost tiers below - **always confirm with the user
+before running High / Very High tier commands**.
 
 ## Agent host coverage
 
 VibeFrame's CLI works with any bash-capable AI coding agent. Six host
 families have first-class auto-detection and scaffolds today:
 
-- **Claude Code** — \`CLAUDE.md\` (this file's import wrapper) +
+- **Claude Code** - \`CLAUDE.md\` (this file's import wrapper) +
   \`AGENTS.md\` + \`/vibe-*\` slash commands.
-- **OpenAI Codex** — reads \`AGENTS.md\` natively (agents.md spec).
-- **Cursor** — reads \`AGENTS.md\` plus \`.cursor/rules/\` for project
+- **OpenAI Codex** - reads \`AGENTS.md\` natively (agents.md spec).
+- **Cursor** - reads \`AGENTS.md\` plus \`.cursor/rules/\` for project
   rules; supports MCP via \`.cursor/mcp.json\`.
-- **Aider** — reads \`AGENTS.md\` (binary-only detection by VibeFrame).
-- **Gemini CLI** — primary context file is \`GEMINI.md\`; also reads
+- **Aider** - reads \`AGENTS.md\` (binary-only detection by VibeFrame).
+- **Gemini CLI** - primary context file is \`GEMINI.md\`; also reads
   \`AGENTS.md\` if present.
-- **OpenCode** — reads \`AGENTS.md\` (officially supported per
+- **OpenCode** - reads \`AGENTS.md\` (officially supported per
   \`opencode.ai/docs/rules\`); supports MCP via \`.opencode/mcp.json\`.
 
 Run \`vibe doctor\` to see which host(s) the CLI detects in your
@@ -50,7 +51,7 @@ fallback.
 
 ## Self-discovery
 
-Don't memorise the command surface — read it from the CLI:
+Don't memorise the command surface - read it from the CLI:
 
 \`\`\`bash
 vibe --help                    # command groups overview
@@ -70,10 +71,10 @@ vibe guide pipeline            # step-by-step authoring guide (pipeline)
 Routing the user's request correctly is the most important judgement call
 you'll make. Do not force everything into a scene project.
 
-**ASSET — default for any single-asset request OR ambiguous prompt.**
+**ASSET - default for any single-asset request OR ambiguous prompt.**
 If the user asks for a single image, single video clip, sound effect, music
-bed, or narration file — **OR pastes a visual/audio brief without explicit
-storyboard / scene / multi-scene language** — treat it as ASSET. Use
+bed, or narration file - **OR pastes a visual/audio brief without explicit
+storyboard / scene / multi-scene language** - treat it as ASSET. Use
 \`vibe generate ...\` directly. Do **not** edit \`DESIGN.md\`,
 \`STORYBOARD.md\`, run \`vibe scene ...\`, or auto-load the hyperframes
 skill until BUILD intent is explicit. The visual-identity hard-gate
@@ -90,13 +91,13 @@ If genuinely uncertain, ask one short question: *"single asset or
 multi-scene project?"* before authoring DESIGN.md or loading the
 hyperframes skill.
 
-**BUILD — create new video from text intent.**
+**BUILD - create new video from text intent.**
 Use \`vibe build\` with a STORYBOARD.md + DESIGN.md. The
 skills-driven pipeline (v0.60+) dispatches narration TTS + backdrop
 image-gen per beat, composes scene HTML via the bundled composition rules
 bundle, then renders to MP4. Idempotent re-runs reuse cached assets.
 
-**REMIX — transform existing video / audio.**
+**REMIX - transform existing video / audio.**
 Use \`vibe remix\`, \`vibe edit\`, or \`vibe audio\`. One-shot,
 batch-oriented operations on a file the user already has on disk.
 \`vibe edit text-overlay\` is the free deterministic path for simple static
@@ -156,7 +157,7 @@ starting from a media file and wants it transformed, it's REMIX.
 When you run vibe commands programmatically:
 
 1. **Always \`--json\`** for structured output you can parse without regex
-2. **Always \`--dry-run\` first** for any High/Very-High tier command — it returns
+2. **Always \`--dry-run\` first** for any High/Very-High tier command - it returns
    the cost estimate without spending API budget
 3. **Use \`vibe schema <command>\`** to discover parameters; do not guess flags
 4. **Pass complex options via \`--stdin\`**:
@@ -198,7 +199,7 @@ vibe host doctor all --json # verify readiness
 
 Default setup is snippet-only; use \`--write\` when you want VibeFrame to merge
 the generated config. Keep provider keys in \`.vibeframe/config.yaml\`, user
-config, or env files — not in app host config.
+config, or env files - not in app host config.
 
 ## Host agent loop
 
@@ -209,7 +210,7 @@ budget caps, \`build-report.json\`, \`review-report.json\`, \`nextActions\`,
 \`safeToAutoRun\`, \`requiresConfirmation\`, \`fixOwner\`, deterministic repair,
 and render inspection for the host agent to decide what to do next.
 
-Copy-paste agent prompt (Codex) — a plain prompt, not a built-in command:
+Copy-paste agent prompt (Codex) - a plain prompt, not a built-in command:
 
 \`\`\`text
 Build this VibeFrame project into renders/final.mp4. Use --json for every
@@ -226,7 +227,7 @@ remaining host-agent issue is fixed, accepted with rationale, or reported as
 blocked.
 \`\`\`
 
-Copy-paste agent prompt (Claude Code) — a plain prompt, not a built-in command:
+Copy-paste agent prompt (Claude Code) - a plain prompt, not a built-in command:
 
 \`\`\`text
 Finish this VibeFrame render using your host's agent loop as the outer
@@ -241,7 +242,7 @@ no unresolved unacknowledged host-agent issues.
 
 ### Composition rules (scene HTML)
 
-Composition rules live in the **Hyperframes skill** — framework rules, motion
+Composition rules live in the **Hyperframes skill** - framework rules, motion
 principles, type system, and visual-identity hard-gate. **Load that skill
 before authoring any scene composition HTML under \`compositions/\`.** The same
 rules govern \`vibe scene lint\`, so your authored HTML and the linter stay in
@@ -265,22 +266,12 @@ containing live text/cards. Put ambient zoom/parallax on background or media
 layers only; text should enter briefly and then hold still at its final CSS
 position.
 
-### Scene composer (batch / non-agent fallback)
+### Scene composer (non-agent fallback)
 
-When you don't want to author HTML yourself, \`vibe build --mode batch\` runs an
-LLM internally with the same skill bundle. It auto-picks a provider based
-on available keys (\`claude > gemini > openai\`) — pass \`--composer <name>\`
-to force one:
-
-| Provider | Env var | Spike notes (v0.70) |
-|---|---|---|
-| Claude (default) | \`ANTHROPIC_API_KEY\` | ~9 s/beat. Fastest, validated baseline. |
-| Gemini | \`GOOGLE_API_KEY\` | ~20 s/beat. ~2.6× cheaper than Claude. |
-| OpenAI | \`OPENAI_API_KEY\` | ~70 s/beat. gpt-5 reasoning latency — opt-in only. |
-
-All three pass first-shot lint at every effort tier on the \`vibeframe-promo\`
-fixture. Quality on more complex storyboards may differ — fall back to
-\`--composer claude\` if a non-default provider repeatedly fails lint.
+Scene HTML is authored by you, the host agent - the CLI makes no LLM call
+during \`vibe build\`. When no agent is available to author scenes, pass
+\`--composer template\` for the deterministic no-model composer
+(concat background + lower-thirds).
 
 ## Project conventions
 
@@ -300,7 +291,7 @@ export const CLAUDE_MD = `@AGENTS.md
 
 # Claude Code overrides
 
-This file imports \`AGENTS.md\` (above) — that's the canonical source.
+This file imports \`AGENTS.md\` (above) - that's the canonical source.
 Add anything Claude-Code-specific *below*; everything generic should
 stay in AGENTS.md so other agent hosts (Codex, Cursor, Aider, Gemini CLI, OpenCode) see it
 too.
@@ -308,11 +299,11 @@ too.
 ## Skills
 
 If you ran \`vibe init\` with Claude Code detected, the VibeFrame skill
-pack is available as slash commands (consolidated to 2 in v0.62 — the
+pack is available as slash commands (consolidated to 2 in v0.62 - the
 overview content moved into AGENTS.md above):
 
-- \`/vibe-pipeline\` — YAML pipeline authoring helper (Video as Code)
-- \`/vibe-scene\` — per-scene HTML authoring + \`vibe build\`
+- \`/vibe-pipeline\` - YAML pipeline authoring helper (Video as Code)
+- \`/vibe-scene\` - per-scene HTML authoring + \`vibe build\`
 
 Claude-specific routing note: follow the ASSET / BUILD / REMIX decision
 rules in \`AGENTS.md\`. In particular, a request for one generated image or
@@ -350,7 +341,7 @@ export const GEMINI_MD = `@AGENTS.md
 
 # Gemini CLI overrides
 
-This project's canonical agent guidance lives in \`AGENTS.md\` — read
+This project's canonical agent guidance lives in \`AGENTS.md\` - read
 it first. The \`@AGENTS.md\` line above is the import marker; if
 Gemini CLI doesn't inline imported files in your version, open
 \`AGENTS.md\` directly. Both files are kept in sync by \`vibe init\`.
@@ -382,11 +373,11 @@ export function renderEnvExample(opts: EnvExampleOptions = {}): string {
 # Run \`vibe doctor\` to see what's currently detected.
 
 `;
-  return `# VibeFrame API keys — copy this file to \`.env\` and fill in what you need.
+  return `# VibeFrame API keys - copy this file to \`.env\` and fill in what you need.
 # Free local fallbacks work without any keys. See README for the full list.
 
 ${fallback}# ── LLM provider / optional \`vibe agent\` fallback (pick one) ───────────
-ANTHROPIC_API_KEY=                    # Claude — recommended default
+ANTHROPIC_API_KEY=                    # Claude - recommended default
 OPENAI_API_KEY=                       # GPT-5-mini · Whisper · gpt-image-2
 GOOGLE_API_KEY=                       # Gemini · Veo
 XAI_API_KEY=                          # Grok image+video
@@ -395,7 +386,7 @@ OPENROUTER_API_KEY=                   # multiplexes any provider above
 
 # ── Media providers ─────────────────────────────────────────────────────
 ELEVENLABS_API_KEY=                   # paid TTS / SFX / music (Kokoro is the free fallback)
-FAL_API_KEY=                              # Seedance 2.0 — default video provider since v0.57
+FAL_API_KEY=                              # Seedance 2.0 - default video provider since v0.57
 IMGBB_API_KEY=                        # image hosting for Seedance/Kling image-to-video
 RUNWAY_API_SECRET=                    # Runway Gen-4.5 video
 KLING_API_KEY=                        # Kling video
@@ -436,7 +427,7 @@ renders/
 
 /**
  * vibe.project.yaml minimal scaffold. Only written when no project
- * config exists — `vibe init` never overwrites an existing file unless
+ * config exists - `vibe init` never overwrites an existing file unless
  * --force.
  */
 export function renderProjectYaml(opts: { name: string }): string {
@@ -447,13 +438,13 @@ aspect: "16:9"
 defaults:
   exportQuality: standard
 
-# Optional — uncomment to set per-primitive provider preferences.
+# Optional - uncomment to set per-primitive provider preferences.
 # providers:
 #   tts: elevenlabs       # auto | elevenlabs | kokoro
 #   image: openai         # openai | gemini | grok
 #   music: elevenlabs
 
-# Optional — cap total spend per pipeline run.
+# Optional - cap total spend per pipeline run.
 # budget:
 #   maxUsd: 5.00
 `;

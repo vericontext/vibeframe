@@ -552,7 +552,7 @@ function printNeedsAuthor(result: SceneBuildResult): void {
   console.log("  Then run: vibe build");
   console.log(
     chalk.dim(
-      "  Use `vibe build --mode batch` when you want the CLI to call an LLM composer instead."
+      "  Use `vibe build --composer template` for the deterministic no-model composer instead."
     )
   );
 }

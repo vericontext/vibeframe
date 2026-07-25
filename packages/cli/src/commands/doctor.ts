@@ -38,7 +38,7 @@ import { outputSuccess } from "./output.js";
 
 /**
  * Mapping of env vars to the commands they unlock. Derived from the
- * provider registry — each provider's `commandsUnlocked` aggregates by
+ * provider registry - each provider's `commandsUnlocked` aggregates by
  * apiKey. Pre-v0.68 this was hand-maintained alongside the provider
  * arrays; v0.68 collapsed both into the registry.
  */
@@ -75,7 +75,7 @@ export const doctorCommand = new Command("doctor")
     `
 Examples:
   $ vibe doctor              Compact health summary (issues + Ready %)
-  $ vibe doctor --verbose    Full report — all providers, composer, free commands
+  $ vibe doctor --verbose    Full report - all providers, composer, free commands
   $ vibe doctor --test-keys  Validate each configured key against its provider
   $ vibe doctor --json       Machine-readable output
 `
@@ -110,7 +110,7 @@ Examples:
  * The Homebrew core `ffmpeg` formula on macOS ships **without** several
  * libs we need (`libfreetype` → drawtext, `libass` → subtitles). The
  * `homebrew-ffmpeg/ffmpeg` tap rebuilds with the kitchen sink. Apple's
- * suggestions used to read "brew reinstall ffmpeg" — that does nothing
+ * suggestions used to read "brew reinstall ffmpeg" - that does nothing
  * because the formula itself omits the libs. Fixed in v0.79.1. */
 const REQUIRED_FFMPEG_FILTERS: Record<string, { commands: string[]; fix: Record<string, string> }> =
   {
@@ -195,11 +195,11 @@ interface DiagnosticResults {
       cwd: string;
       /** True when ANY of (AGENTS.md / CLAUDE.md / vibe.project.yaml) exists. */
       initialized: boolean;
-      /** Per-file existence — each entry is informational for the report. */
+      /** Per-file existence - each entry is informational for the report. */
       files: { path: string; exists: boolean }[];
       /** `<cwd>/.vibeframe/config.yaml` path (whether or not it exists). */
       configPath: string;
-      /** `<cwd>/.vibeframe/config.yaml` exists — `vibe setup --scope project` has run here. */
+      /** `<cwd>/.vibeframe/config.yaml` exists - `vibe setup --scope project` has run here. */
       configFileExists: boolean;
     };
     agentHosts: {
@@ -376,7 +376,7 @@ async function runDiagnostics(): Promise<DiagnosticResults> {
     composerEnv = composerEnvVar(r.provider);
   } catch (err) {
     if (!(err instanceof ComposerResolveError)) throw err;
-    // No composer key — composerResolved stays null. Reported in render.
+    // No composer key - composerResolved stays null. Reported in render.
   }
   const sceneProjectInCwd = existsSync(resolve(cwd, "STORYBOARD.md"));
   // Upstream's installer owns these rules now, so "installed" means any place
@@ -510,7 +510,7 @@ function printReport(
   console.log();
   console.log(chalk.bold("  Scope"));
 
-  // Config scope — which config.yaml is being read
+  // Config scope - which config.yaml is being read
   const userActive = results.scope.activeScope === "user" && results.scope.user.configured;
   const projectActive = results.scope.activeScope === "project";
   const activeMark = chalk.cyan(" ← active");
@@ -551,7 +551,7 @@ function printReport(
     console.log(`    Cfg error  ${chalk.red(results.scope.configError.message)}`);
   }
 
-  // Project init — vibe init scaffolding (AGENTS.md / CLAUDE.md / vibe.project.yaml)
+  // Project init - vibe init scaffolding (AGENTS.md / CLAUDE.md / vibe.project.yaml)
   if (results.scope.project.initialized) {
     const present = results.scope.project.files.filter((f) => f.exists).map((f) => f.path);
     console.log(`    Init       ${chalk.green("OK")}       ${chalk.dim(present.join(", "))}`);
@@ -561,10 +561,10 @@ function printReport(
     );
   }
 
-  // Agent hosts — informational
+  // Agent hosts - informational
   console.log(`    Agents     ${chalk.dim(results.scope.agentHosts.summary)}`);
 
-  // Plan H — scene composer (verbose only — most users don't tune this).
+  // Scene composer (verbose only - most users don't tune this).
   if (verbose) {
     console.log();
     console.log(chalk.bold("  Scene composer (vibe build)"));
@@ -574,11 +574,11 @@ function printReport(
     );
     if (sc.composer) {
       console.log(
-        `    Revise LLM   ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar}) — powers 'vibe storyboard revise'`)}`
+        `    Revise LLM   ${chalk.green("OK")}     ${chalk.dim(`${composerLabel(sc.composer)} (${sc.composerEnvVar}) - powers 'vibe storyboard revise'`)}`
       );
     } else {
       console.log(
-        `    Revise LLM   ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY — 'vibe storyboard revise' unavailable")}`
+        `    Revise LLM   ${chalk.yellow("--")}     ${chalk.dim("no ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY - 'vibe storyboard revise' unavailable")}`
       );
     }
     if (sc.sceneProjectInCwd) {
@@ -592,7 +592,7 @@ function printReport(
       }
     } else {
       console.log(
-        `    HF rules     ${chalk.dim("(no STORYBOARD.md in cwd — rules are per-scene-project)")}`
+        `    HF rules     ${chalk.dim("(no STORYBOARD.md in cwd - rules are per-scene-project)")}`
       );
     }
   }
@@ -604,7 +604,7 @@ function printReport(
   const missing: string[] = [];
 
   // Friendly label disambiguates gateways (Seedance 2.0 via fal.ai) from
-  // direct providers — derived from the `displayName`+`gateway` pair when
+  // direct providers - derived from the `displayName`+`gateway` pair when
   // present, else the apiKey's own label.
   const labelFor = (configKey: string, fallbackEnv: string): string => {
     const label = getDisplayLabelForApiKey(configKey);
@@ -633,7 +633,7 @@ function printReport(
         );
       }
     } else {
-      // Compact: one summary line — keeps the "what's missing" signal but
+      // Compact: one summary line - keeps the "what's missing" signal but
       // doesn't blast 11 rows when the user has only configured 2.
       console.log(
         chalk.dim(
@@ -643,7 +643,7 @@ function printReport(
     }
   }
 
-  // Free commands (verbose only — they're always available, no signal in
+  // Free commands (verbose only - they're always available, no signal in
   // the default view).
   if (verbose) {
     console.log();
@@ -651,7 +651,7 @@ function printReport(
     console.log(`    ${chalk.dim(FREE_COMMANDS.join(", "))}`);
   }
 
-  // Summary — three counts, each describing a different slice. Three
+  // Summary - three counts, each describing a different slice. Three
   // numbers used to drift unlabeled (catalog total, runnable count,
   // cost-tagged count) so they're now grouped together with explicit
   // labels and `vibe schema --list` is the canonical "show me
@@ -690,7 +690,7 @@ function printReport(
   }
 
   // ── v0.61: scope-aware "what to do next" hint ────────────────────────
-  // Prioritise scope problems over provider gaps — a user without setup
+  // Prioritise scope problems over provider gaps - a user without setup
   // configured can't run 'vibe setup' to add providers either.
   const nextStep = pickNextStep(results, missing.length > 0);
   if (nextStep) {
@@ -747,7 +747,7 @@ function countCostTiers(program: Command): Record<CostTier, number> {
 }
 
 /**
- * `--test-keys` driver. Runs sequentially — most providers rate-limit
+ * `--test-keys` driver. Runs sequentially - most providers rate-limit
  * authenticated requests and parallelism would also clutter the
  * progressive output.
  */
@@ -760,7 +760,7 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
 
   const configured = Object.entries(results.providers).filter(([, info]) => info.configured);
   if (configured.length === 0) {
-    console.log(chalk.dim("    No keys configured — nothing to test."));
+    console.log(chalk.dim("    No keys configured - nothing to test."));
     return;
   }
 
@@ -778,7 +778,7 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
       process.env[info.envVar] ||
       PROVIDER_ENV_ALIASES[info.envVar]?.map((alias) => process.env[alias]).find(Boolean) ||
       activeConfig?.providers[name as keyof typeof activeConfig.providers];
-    if (!value) continue; // shouldn't happen — info.configured already checked
+    if (!value) continue; // shouldn't happen - info.configured already checked
     process.stdout.write(`    ${name.padEnd(12)} `);
     const result = await testKey(name, value);
     if (result.skipped) {
@@ -801,7 +801,7 @@ async function runLiveKeyTests(results: DiagnosticResults): Promise<void> {
  *  4. everything ok → no hint
  */
 function pickNextStep(results: DiagnosticResults, hasMissingProviders: boolean): string | null {
-  // Either scope satisfies "configured" — project-only users shouldn't be
+  // Either scope satisfies "configured" - project-only users shouldn't be
   // nagged to run user-scope setup.
   const anyConfigured = results.scope.user.configured || results.scope.project.configFileExists;
   if (!anyConfigured) {

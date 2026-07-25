@@ -167,8 +167,9 @@ const manifest = {
   version: pkg.version,
   description: pkg.description,
   long_description:
-    "AI-native video editing for Claude Desktop. Draft a storyboard, generate narration and backdrops, " +
-    "author HTML/GSAP scenes (scene_submit lets Claude write them in-chat), and render the result to MP4 — " +
+    "AI video generation for Claude Desktop, on your own provider keys and behind dry runs and cost caps. " +
+    "Draft a storyboard, generate narration, backdrops, and video clips, author HTML/GSAP scenes " +
+    "(scene_submit lets Claude write them in-chat), and render the result to MP4 - " +
     "all inside the workspace folder you pick below. Free local narration (Kokoro) is bundled and needs no " +
     "install; rendering requires Google Chrome and ffmpeg on this machine.",
   author: {
