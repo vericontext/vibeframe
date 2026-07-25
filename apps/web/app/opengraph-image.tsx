@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "VibeFrame — Storyboard-first video CLI for coding agents";
+export const alt = "VibeFrame - frontier video generation for coding agents";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -117,7 +117,7 @@ export default async function Image() {
             textAlign: "center",
           }}
         >
-          Video workflows from terminal, YAML, and MCP.
+          Your keys. Your bill. Your ceiling.
         </div>
 
         {/* Terminal preview */}
