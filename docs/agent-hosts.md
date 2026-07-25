@@ -7,8 +7,8 @@ tags: [agents, hosts, sync]
 
 # Agent Hosts & Sync
 
-VibeFrame ships agent configuration for three hosts — Claude Code, OpenAI
-Codex, and Cursor — from a single canonical source. This document is the
+VibeFrame ships agent configuration for three hosts - Claude Code, OpenAI
+Codex, and Cursor - from a single canonical source. This document is the
 authoritative map of what is canonical, what is generated, and how to change
 each piece without breaking sync.
 
@@ -60,7 +60,7 @@ targets above; it does **not** read or copy `AGENTS.md`, nor touch
 **Add a Claude-only path-scoped rule** (Claude ergonomics, not shared):
 1. Create `.claude/rules/<name>.md` with `paths:` frontmatter (plus an optional
    `description`). Keep frontmatter minimal so startup context stays lean.
-2. No sync needed — it is Claude-local. If the guidance must apply to Codex and
+2. No sync needed - it is Claude-local. If the guidance must apply to Codex and
    Cursor too, put it in `AGENTS.md` instead.
 
 **Add a hook:** create `.claude/hooks/<name>.sh` and wire it in
