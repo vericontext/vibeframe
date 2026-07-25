@@ -5,16 +5,16 @@ description: "Character sheet to image storyboard to multi-scene image-to-video 
 tags: [video, prompting, characters]
 ---
 
-# AI video prompting playbook — character sheet → image storyboard → multi-scene video
+# AI video prompting playbook - character sheet → image storyboard → multi-scene video
 
 A practical, copy-paste guide for the workflow that produces consistent,
 directed multi-scene AI video:
 
-1. **Character sheet** — lock the character once (image model).
-2. **Image storyboard** — generate one keyframe still per scene, editing the
+1. **Character sheet** - lock the character once (image model).
+2. **Image storyboard** - generate one keyframe still per scene, editing the
    sheet so the character stays consistent (image model).
-3. **Animate** — turn each keyframe into a clip with Seedance **image-to-video**.
-4. **Assemble** — compose the scenes into one cut and render.
+3. **Animate** - turn each keyframe into a clip with Seedance **image-to-video**.
+4. **Assemble** - compose the scenes into one cut and render.
 
 > **Why image-to-video, not text-to-video, for every scene after the first?**
 > Lock the composition as a still you can review, then animate it. You get far
@@ -34,7 +34,7 @@ These map directly onto VibeFrame primitives:
 
 ---
 
-## Part 1 — Image model (GPT Image 2 / Nano Banana Pro)
+## Part 1 - Image model (GPT Image 2 / Nano Banana Pro)
 
 GPT Image 2 (`-p openai`, default) is the workhorse. **Nano Banana Pro** (Gemini
 3 Pro Image, `-p gemini`) is the most-requested image model on fal and a strong
@@ -51,7 +51,7 @@ pick for hero keyframes when quality matters most.
 ```
 ([OpenAI cookbook](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide))
 
-### Template A — character sheet (do this once)
+### Template A - character sheet (do this once)
 
 ```
 Character turnaround reference sheet of an original fictional character named MIRA:
@@ -63,23 +63,23 @@ Plain light-grey studio background, even neutral lighting, no props.
 Photorealistic, professional character-design-sheet layout, readable labels.
 ```
 
-### Template B — scene keyframe by editing the sheet (the storyboard panel)
+### Template B - scene keyframe by editing the sheet (the storyboard panel)
 
-Feed the sheet as a reference and **restate the identity invariants** — the model
+Feed the sheet as a reference and **restate the identity invariants** - the model
 does not carry character design forward on its own; say it every time.
 ([OpenAI cookbook](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide),
 [laozhang.ai](https://blog.laozhang.ai/ai-tools/mastering-character-consistency-chatgpt-image-generator/))
 
 ```
-Image 1 is the MIRA character sheet. Place MIRA — same face, same hair, same
-<wardrobe> — into this scene: <location, time of day, what she is doing>.
+Image 1 is the MIRA character sheet. Place MIRA - same face, same hair, same
+<wardrobe> - into this scene: <location, time of day, what she is doing>.
 Framing: <e.g. low-angle hero shot, waist-up three-quarter>.
 Lighting: <one strong lighting idea>. Mood: <…>. Cinematic, photorealistic.
 Keep her exact likeness, hairstyle, wardrobe, and proportions. Change only the
 setting and pose.
 ```
 
-- **`vibe edit image` accepts multiple input images** — pass the sheet (and, if
+- **`vibe edit image` accepts multiple input images** - pass the sheet (and, if
   you have them, a couple of extra angles) so identity is well-anchored. GPT
   Image 2 accepts up to ~8 reference images.
 - For identity-sensitive edits on `gpt-image-1.5/1`, the API exposes
@@ -100,9 +100,9 @@ setting and pose.
 
 ---
 
-## Part 2 — Video model (Seedance 2.0)
+## Part 2 - Video model (Seedance 2.0)
 
-Seedance wants **cinematic direction, not image keywords** — write the prompt
+Seedance wants **cinematic direction, not image keywords** - write the prompt
 like a shot list for a DP, not a tag soup.
 ([fal.ai](https://fal.ai/learn/tools/how-to-use-seedance-2-0),
 [apiyi](https://help.apiyi.com/en/seedance-2-0-prompt-guide-video-generation-camera-style-tips-en.html))
@@ -120,9 +120,9 @@ push-in/dolly-in · pull-out/dolly-out · pan · tracking/follow · orbit/arc ·
 aerial/drone · handheld · fixed/locked-off.
 **Multiple conflicting camera instructions = jitter.**
 
-### Template C — image-to-video (animating a keyframe)
+### Template C - image-to-video (animating a keyframe)
 
-Describe **motion only** — do not redescribe the still.
+Describe **motion only** - do not redescribe the still.
 
 ```
 Animate the provided image. Preserve composition, character, and colors.
@@ -131,10 +131,10 @@ Camera: <one move>. Consistent lighting. 5 seconds, 16:9.
 Avoid jitter, bent limbs, temporal flicker, identity drift.
 ```
 
-### Template D — reference-to-video (keep one look across shots)
+### Template D - reference-to-video (keep one look across shots)
 
 Reuse the **same reference image** across shots instead of new references each
-time. Start with **one** reference type and add control gradually — too many
+time. Start with **one** reference type and add control gradually - too many
 references degrades results.
 ([magichour.ai](https://magichour.ai/blog/seedance-20-reference-guide))
 
@@ -165,7 +165,7 @@ In VibeFrame: `-i <img>` drives **image-to-video** (the keyframe as first frame)
 
 ---
 
-## Part 3 — Multi-scene continuity recipe
+## Part 3 - Multi-scene continuity recipe
 
 The craft that separates a one-off clip from a coherent piece: **scene 1
 establishes the character; every later scene repeats the same identity anchors
@@ -178,7 +178,7 @@ Face, hair, wardrobe rules, expression style, movement style, and explicit
 **do-not-change** rules. This text becomes your reusable **identity block**:
 
 ```
-MIRA — the same woman from the reference: late-20s arctic photographer, dark hair
+MIRA - the same woman from the reference: late-20s arctic photographer, dark hair
 under a charcoal beanie, deep crimson-red fur-lined parka, vintage 35mm camera on a
 leather strap, calm focused expression.
 ```
@@ -192,12 +192,12 @@ close-ups, silhouettes, backlight, and fast motion until the look is established
 ### 3. Per-scene prompt = 6 blocks
 
 ```
-1. Identity block      — the exact reusable phrasing above
-2. Scene block         — location + context
-3. Action block        — what she does
-4. Camera block        — one framing + one move
-5. Continuity statement — "the same person as the previous scene"
-6. Negative prompt      — "no different person, no face morph, no age/hair/outfit change"
+1. Identity block      - the exact reusable phrasing above
+2. Scene block         - location + context
+3. Action block        - what she does
+4. Camera block        - one framing + one move
+5. Continuity statement - "the same person as the previous scene"
+6. Negative prompt      - "no different person, no face morph, no age/hair/outfit change"
 ```
 
 ### 4. Generate in sequence, then repair
@@ -232,8 +232,8 @@ See `docs/projects.md` → "Keyframe → image-to-video" for the storyboard cue.
 
 ## Sources
 
-- [OpenAI — GPT image models prompting guide](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide)
-- [fal.ai — prompting GPT Image 2](https://fal.ai/learn/tools/prompting-gpt-image-2) · [How to use Seedance 2.0](https://fal.ai/learn/tools/how-to-use-seedance-2-0)
+- [OpenAI - GPT image models prompting guide](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide)
+- [fal.ai - prompting GPT Image 2](https://fal.ai/learn/tools/prompting-gpt-image-2) · [How to use Seedance 2.0](https://fal.ai/learn/tools/how-to-use-seedance-2-0)
 - [Seedance 2.0 official prompt guide (6-step formula, camera moves, pitfalls)](https://help.apiyi.com/en/seedance-2-0-prompt-guide-video-generation-camera-style-tips-en.html)
 - [Seedance character-consistency guide](https://www.seedance.tv/blog/seedance-character-consistency-guide-2026) · [Seedance reference guide](https://magichour.ai/blog/seedance-20-reference-guide)
 - [Mastering character consistency (ChatGPT image)](https://blog.laozhang.ai/ai-tools/mastering-character-consistency-chatgpt-image-generator/)
