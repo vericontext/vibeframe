@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.27] - 2026-07-25
+
+### Added
+
+- lead with the zero-key flow and remove the editor prototype *(web)*
+
+### Changed
+
+- install the Hyperframes skill from upstream instead of vendoring it (#278)
+- drop the CLI-internal LLM composer (#276)
+
+### Documentation
+
+- lead README with the verified zero-key first run
+
+### Fixed
+
+- keep render engine chatter off stdout so --json parses (#277)
+- write job records atomically to prevent torn reads
+- zero-key first-run frictions found in E2E measurement
+
+### Maintenance
+
+- upgrade @hyperframes/producer 0.4.10 to 0.7.71 (#275)
+
 ## [0.113.26] - 2026-07-22
 
 ### Added
