@@ -398,7 +398,7 @@ sceneCommand
       console.log(chalk.dim("Show details: "), chalk.cyan('vibe scene list-styles "<name>"'));
       console.log(
         chalk.dim("Seed DESIGN.md:"),
-        chalk.cyan('vibe scene init <dir> --visual-style "<name>"')
+        chalk.cyan('vibe init <dir> --visual-style "<name>"')
       );
       return;
     }
@@ -436,7 +436,7 @@ sceneCommand
     console.log();
     console.log(
       chalk.dim("Seed DESIGN.md:"),
-      chalk.cyan(`vibe scene init <dir> --visual-style "${style.name}"`)
+      chalk.cyan(`vibe init <dir> --visual-style "${style.name}"`)
     );
   });
 
@@ -839,7 +839,9 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   });
 
   if (!(await pathExists(rootPath))) {
-    return errResult(`Root composition not found: ${rootPath}. Run \`vibe scene init\` first.`);
+    return errResult(
+      `Root composition not found: ${rootPath}. Run \`vibe build\` once to create the render scaffold, or scaffold it up front with \`vibe init <dir> --profile full\`.`
+    );
   }
   if (!opts.force && (await pathExists(scenePath))) {
     return errResult(`Scene already exists: ${sceneRel}. Re-run with --force to overwrite.`);

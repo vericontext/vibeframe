@@ -55,18 +55,25 @@ Before wiring up any provider, the whole pipeline runs locally for $0: local Kok
 ```bash
 npm install -g @vibeframe/cli
 vibe init demo --from "30-second video introducing my project"
+vibe scene install-skill demo    # Hyperframes' own installer; the rules your agent authors against
 ```
 
 Then ask your coding agent to finish it:
 
 > Build demo/ into a rendered MP4 with zero API keys.
-> Use `vibe build demo --tts kokoro --skip-backdrop --json`, author the scene
-> HTML from `vibe scene compose-prompts demo --json`, then run
-> `vibe build demo --stage sync --json` and `vibe render demo --json`.
+> Read `demo/AGENTS.md` ("Key Rules for hand-authored scene HTML") first, then
+> run `vibe build demo --tts kokoro --skip-backdrop --json` and author the
+> scene HTML from `vibe scene compose-prompts demo --json`.
+> Run `vibe build demo --stage sync --json` and fix every lint error it
+> reports before rendering - it exits non-zero while any remain.
+> Then `vibe render demo --json`.
 
-Measured cold start on that exact sequence: about 4 to 5 minutes from `npm install` to a reviewed 1080p MP4, including a one-time ~88 MB voice model download.
+Measured cold start (v0.113.29, isolated environment, no keys): install 63s, `vibe init` 1s, `vibe build --tts kokoro --skip-backdrop` 66s including the one-time ~88 MB voice model download, and `vibe render` 64s.
+That is about 3 minutes of machine time; the scene-authoring pass in the middle is your agent's, so the wall clock depends on it and on how many lint rounds it needs.
 Repeat runs skip the download.
-No coding agent available? The same commands work by hand - `vibe scene compose-prompts` prints the full per-scene authoring brief for you.
+
+Treat `vibe build --stage sync` as the gate: it lints the composed scenes and exits non-zero on real errors - an unregistered GSAP timeline, a composition div missing `data-width`/`data-height`. Rendering past a failed sync produces a black MP4, so fix the scenes first.
+No coding agent available? `vibe scene add <id> --style announcement --headline "..." --no-audio --no-image` writes a lint-clean template scene with no model call, and doubles as a reference for the file shape.
 
 It is a real render, and it is the cheapest way to see whether the workflow fits you.
 It is not the point of the tool: the paid generation path above is.

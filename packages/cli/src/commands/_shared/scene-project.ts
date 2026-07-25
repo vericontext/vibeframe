@@ -164,7 +164,7 @@ export function buildHyperframesMeta(name: string, now: Date = new Date()): Hype
 
 /**
  * Merge an existing Hyperframes config with our defaults, preserving any
- * user-authored keys and nested values. `vibe scene init` is idempotent:
+ * user-authored keys and nested values. `vibe init` is idempotent:
  * running it on a directory that already has `hyperframes.json` must never
  * lose user config.
  */
@@ -350,7 +350,7 @@ ${avoid}
 ---
 
 _Browse other named styles: \`vibe scene list-styles\`_
-${style ? `_This file was seeded by \`vibe scene init --visual-style "${style.name}"\`._` : `_Seed this file from a named style: \`vibe scene init <dir> --visual-style "<name>"\`._`}
+${style ? `_This file was seeded by \`vibe init --visual-style "${style.name}"\`._` : `_Seed this file from a named style: \`vibe init <dir> --visual-style "<name>"\`._`}
 `;
 }
 
@@ -520,7 +520,7 @@ Single-asset requests (\`vibe generate image|video|speech|...\`) do NOT
 consult this file - run the generate command directly.
 
 Browse named styles: \`vibe scene list-styles\`. Re-seed from one with
-\`vibe scene init . --visual-style "Swiss Pulse"\` (idempotent).
+\`vibe init . --visual-style "Swiss Pulse"\` (idempotent).
 
 ## Brief and local media
 
@@ -675,9 +675,21 @@ npx hyperframes render
 
 ## Key Rules (for hand-authored scene HTML)
 
+0. A scene file is a \`<template id="scene-<id>-template">\` wrapping ONE
+   composition div - not a standalone \`<!doctype html>\` document:
+   \`\`\`html
+   <template id="scene-hook-template">
+     <div data-composition-id="scene-hook" data-start="0" data-duration="3.3"
+          data-width="1920" data-height="1080">…</div>
+   </template>
+   \`\`\`
+   The composition div **MUST** carry \`data-width\` and \`data-height\`.
 1. Every timed element needs \`data-start\`, \`data-duration\`, and \`data-track-index\`.
 2. Elements with timing **MUST** have \`class="clip"\` - the framework uses this for visibility control.
-3. Timelines must be paused and registered on \`window.__timelines\`:
+3. Timelines must be paused and registered on \`window.__timelines\`, which is an
+   OBJECT keyed by composition id - not an array, and \`.push()\` leaves the
+   timeline undiscovered, which renders a black frame because \`gsap.from\` holds
+   elements at their start state:
    \`\`\`js
    window.__timelines = window.__timelines || {};
    window.__timelines["composition-id"] = gsap.timeline({ paused: true });

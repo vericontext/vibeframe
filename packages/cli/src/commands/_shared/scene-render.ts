@@ -307,7 +307,7 @@ export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise
       kind: "render",
       beat: opts.beatId ?? null,
       root,
-      error: `Root composition not found: ${resolve(projectDir, root)}. Run \`vibe scene init\` first.`,
+      error: `Root composition not found: ${resolve(projectDir, root)}. Run \`vibe build ${projectDir}\` once to create the render scaffold, or scaffold it up front with \`vibe init <dir> --profile full\`.`,
     };
   }
   const chrome = await preflightChrome();

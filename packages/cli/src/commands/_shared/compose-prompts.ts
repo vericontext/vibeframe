@@ -159,10 +159,10 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
   });
 
   if (!existsSync(designPath)) {
-    return baseError(`DESIGN.md not found at ${designPath}. Run \`vibe scene init <dir>\` first.`);
+    return baseError(`DESIGN.md not found at ${designPath}. Run \`vibe init <dir>\` first.`);
   }
   if (!existsSync(storyboardPath)) {
-    return baseError(`STORYBOARD.md not found at ${storyboardPath}. Run \`vibe scene init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`);
+    return baseError(`STORYBOARD.md not found at ${storyboardPath}. Run \`vibe init <dir>\` to create a starter, or add STORYBOARD.md with per-beat cues.`);
   }
 
   if (!hyperframesSkillAvailable(projectDir)) {
@@ -265,7 +265,16 @@ function buildInstructions(args: {
   if (args.skillRef) {
     lines.push(`1. Read \`${args.skillRef}\` for the Hyperframes framework rules + house style. This is the visual-identity hard-gate.`);
   } else {
-    lines.push(`1. Run \`vibe scene install-skill\` to install the Hyperframes composition rules, then read them.`);
+    // Point at the project's own AGENTS.md first: `vibe init` writes the
+    // "Key Rules (for hand-authored scene HTML)" section, and unlike the
+    // installed skill it is present and complete offline. Upstream's
+    // installer writes a ROUTER whose actual contract sits behind
+    // `/hyperframes-core`, which only resolves in a host that has upstream's
+    // domain skills - so an agent that follows install-skill alone can end up
+    // authoring blind.
+    lines.push(
+      `1. Read this project's \`AGENTS.md\` section "Key Rules (for hand-authored scene HTML)" - written by \`vibe init\`, and the authoritative local contract. \`vibe scene install-skill\` adds Hyperframes' house style on top, but note it installs a ROUTER whose full contract sits behind \`/hyperframes-core\`, which resolves only in a host that has upstream's Hyperframes skills.`
+    );
   }
   lines.push(`2. Read \`DESIGN.md\` for project-specific palette, typography, motion signature.`);
   if (args.compositionRef) {
@@ -275,6 +284,7 @@ function buildInstructions(args: {
   lines.push(`3b. Use each beat's \`finalDurationSec\` (narration-synced) for \`data-duration\` and timeline anchors when present — NOT the storyboard \`duration\`, which is only the minimum. Scenes composed at the storyboard duration end early and render black tails.`);
   lines.push(`3c. Never give inner \`.clip\` elements a non-zero \`data-start\` — the renderer does not toggle internal clip visibility inside sub-compositions, so phased clips render all phases at once (overlapping text). Use full-window clips and GSAP autoAlpha phase transitions instead. Also keep beats 6-15s; split anything longer in the storyboard first.`);
   lines.push(`3d. If your environment cannot write files (e.g. Claude Desktop / MCP-only hosts), author each beat's HTML and submit it with the \`scene_submit\` tool (beat id + html). It validates with the same Hyperframes lint and writes the file for you; on lint errors it returns the findings without writing — fix and resubmit.`);
+  lines.push(`3e. Hard requirements the linter fails on, so satisfy them even without the full contract. A scene file is a \`<template id="scene-<id>-template">\` wrapping ONE \`<div data-composition-id="scene-<id>" data-start="0" data-duration="<sec>" data-width="1920" data-height="1080">\` — not a standalone \`<!doctype html>\` document. Register the paused GSAP timeline on the registry OBJECT keyed by composition id: \`window.__timelines = window.__timelines || {}; window.__timelines["scene-<id>"] = tl;\` — it is not an array, and \`.push()\` leaves the timeline undiscovered, which renders a black frame because \`gsap.from\` holds elements at their start state. Also put \`class="clip"\` on every timed element and give timeline-visible elements a stable \`id\`. Generate a reference scene with \`vibe scene add <id> --style <preset> --no-audio --no-image\` and match its shape.`);
   if (args.beatCount > 1) {
     lines.push(`4. After authoring all ${args.beatCount} beat(s), run \`vibe build <project> --stage sync --json\` to assemble the root composition (index.html) from the fragments. Lint needs that root, so sync comes first.`);
   } else if (args.filtered) {
