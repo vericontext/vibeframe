@@ -487,9 +487,9 @@ export default function LandingPage() {
                 scaffold: ".cursor/rules + .cursor/mcp.json",
                 note: "rules + MCP",
               },
-              { name: "Aider", scaffold: "AGENTS.md", note: "binary-detected" },
-              { name: "Gemini CLI", scaffold: "AGENTS.md", note: "universal fallback" },
-              { name: "OpenCode", scaffold: "AGENTS.md", note: "MCP-ready" },
+              { name: "Aider", scaffold: "AGENTS.md + .aider.conf.yml", note: "binary-detected" },
+              { name: "Gemini CLI", scaffold: "GEMINI.md + AGENTS.md", note: "universal fallback" },
+              { name: "OpenCode", scaffold: "AGENTS.md + .opencode/", note: "MCP-ready" },
             ].map((host) => (
               <div
                 key={host.name}
@@ -805,13 +805,6 @@ export default function LandingPage() {
               gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard
-              icon={<Layers className="w-6 h-6" />}
-              title="Video as Code"
-              command="vibe run pipeline.yaml"
-              description="Declarative YAML pipelines, --resume + budget guards"
-              gradient="from-green-500 to-teal-500"
-            />
-            <PipelineCard
               icon={<Zap className="w-6 h-6" />}
               title="Auto Highlights + Shorts"
               command="vibe remix highlights"
@@ -831,6 +824,13 @@ export default function LandingPage() {
               command="vibe audio dub"
               description="Transcribe → translate → TTS in any language"
               gradient="from-green-500 to-emerald-500"
+            />
+            <PipelineCard
+              icon={<Layers className="w-6 h-6" />}
+              title="Review + Repair"
+              command="vibe inspect render --cheap"
+              description="Machine-readable review with nextActions and deterministic repair"
+              gradient="from-green-500 to-teal-500"
             />
           </div>
         </div>
