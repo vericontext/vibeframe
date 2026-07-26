@@ -4,6 +4,15 @@ export const FLAGSHIP_VIDEO =
   "https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4";
 
 /**
+ * Frame grabbed at t=10s. The render opens on a fade from black, so without a
+ * poster the site's only demo artifact is a black rectangle until the visitor
+ * presses play. Regenerate with:
+ *   ffmpeg -ss 10 -i vibeframe-showcase.mp4 -frames:v 1 -vf scale=1280:-2 -q:v 3 \
+ *     apps/web/public/showcase-poster.jpg
+ */
+const FLAGSHIP_POSTER = "/showcase-poster.jpg";
+
+/**
  * The flagship render is the only demo artifact on the site. Two companion
  * videos were retired: a screen recording whose project pane showed files the
  * scaffold no longer creates, and a benchmark slideshow that demonstrated the
@@ -20,6 +29,7 @@ function FlagshipCard() {
       <div className="relative bg-black">
         <video
           src={FLAGSHIP_VIDEO}
+          poster={FLAGSHIP_POSTER}
           controls
           muted
           loop

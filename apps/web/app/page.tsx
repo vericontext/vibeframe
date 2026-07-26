@@ -185,8 +185,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground -mt-4 mb-8 animate-fade-in-up delay-200">
-            Want to look before you spend? The whole pipeline also runs locally for $0 with no keys
-            at all - local TTS, HTML scenes, Chrome + FFmpeg.
+            No API key needed to try it - the whole pipeline runs locally for $0.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
@@ -200,11 +199,11 @@ export default function LandingPage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="#install-to-mp4"
+              href="#demo"
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary hover:border-primary/30 transition-all"
             >
-              <Terminal className="w-5 h-5" />
-              See it in action
+              <Film className="w-5 h-5" />
+              Watch the render
             </Link>
             <Link
               href="https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb"
@@ -221,50 +220,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Demo pair */}
-      <section className="py-20 px-4 border-t border-border/50 relative">
+      {/* Demo - the one finished artifact on the site */}
+      <section id="demo" className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-4 py-1.5 text-sm text-blue-400 mb-4">
               <Film className="w-4 h-4" />
-              <span>Process and result</span>
+              <span>What it produces</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              The first-run agent loop, end to end.
+              Generated end to end by <code className="text-primary">vibe build</code>.
             </h2>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              <code>brief.md</code> can be rough notes, pasted research, links, or a one-line idea.
-              Optional photos, logos, screenshots, clips, or voice files can live in{" "}
-              <code>media/</code>. A coding agent then edits <code>STORYBOARD.md</code> and{" "}
-              <code>DESIGN.md</code>, runs the build, reviews the reports, and renders the MP4.
+              1080p, four scenes, one consistent character. Everything below is how it was made.
             </p>
           </div>
 
           <DemoShowcase />
-
-          <div className="mt-8 grid md:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
-              <div className="font-mono font-semibold text-foreground">BUILD</div>
-              <p className="mt-2 text-muted-foreground">
-                Primary path: rough brief, optional media, dry-run price, generated assets on your
-                keys, Hyperframes composition, render.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
-              <div className="font-mono font-semibold text-foreground">GENERATE</div>
-              <p className="mt-2 text-muted-foreground">
-                Escape hatch: ask for one standalone image, video, narration, music, or motion
-                asset.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
-              <div className="font-mono font-semibold text-foreground">EDIT / REMIX</div>
-              <p className="mt-2 text-muted-foreground">
-                Escape hatch: change existing media with captions, reframe, highlights, overlays,
-                BGM, cleanup.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -276,20 +248,19 @@ export default function LandingPage() {
               <Wand2 className="w-4 h-4" />
               <span>From install to MP4</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Project files, reports, final render.
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Use a rough brief and optional <code>media/</code> inputs first. Scene composition
-              runs on{" "}
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Five commands, start to finish.</h2>
+            <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
+              <code>brief.md</code> can be rough notes, pasted research, links, or a one-line idea,
+              and optional photos, logos, clips, or voice files live in <code>media/</code>. Your
+              coding agent edits <code>STORYBOARD.md</code> and <code>DESIGN.md</code>, runs the
+              build, reads the reports, and renders. Scene composition itself runs on{" "}
               <a
                 href="https://github.com/heygen-com/hyperframes"
                 className="text-primary hover:underline"
               >
                 Hyperframes
               </a>
-              ; lower-level media, scene, timeline, and YAML commands stay available when an agent
-              needs to debug a specific stage.
+              .
             </p>
           </div>
 
@@ -346,27 +317,12 @@ export default function LandingPage() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-8">
-            Evaluating first?{" "}
+            No provider account yet? Step 4 has a $0 variant:{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
               vibe build launch --tts kokoro --skip-backdrop --json
             </code>{" "}
-            runs steps 3 and 4 entirely locally for $0 - local Kokoro narration and agent-authored
-            HTML scenes, no provider account needed.
-          </p>
-
-          <p className="text-center text-sm text-muted-foreground mt-8">
-            Primary path: <span className="text-foreground font-medium">price, then generate</span>{" "}
-            via{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
-              vibe build
-            </code>
-            . Existing-media workflows still use{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
-              vibe remix
-            </code>
-            , <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">edit</code>
-            , and{" "}
-            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">audio</code>.
+            swaps paid generation for local Kokoro narration and agent-authored HTML scenes. Steps
+            1, 2 and 5 are unchanged, and step 3 has nothing left to price.
           </p>
         </div>
       </section>
