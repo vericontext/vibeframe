@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.1] - 2026-07-26
+
+### Documentation
+
+- add the HyperFrames hybrid recipe and the Seedance face-filter note (#319)
+
+### Fixed
+
+- keep every beat in build-report.json across a --beat run (#318)
+- stop real `generate video` runs reporting costUsd 0 (#317)
+- stop `init --from` leaving starter scenes beside the draft's (#316)
+
 ## [0.115.0] - 2026-07-26
 
 ### Added
