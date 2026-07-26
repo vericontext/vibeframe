@@ -14,7 +14,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import {
@@ -24,6 +24,7 @@ import {
   type LintFinding,
 } from "./scene-lint.js";
 import { parseStoryboard } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import { resolveSyncedBeatDuration, loadProjectRootSyncBeats } from "./root-sync.js";
 
 export interface SceneSubmitOptions {
@@ -71,7 +72,7 @@ export async function executeSceneSubmit(opts: SceneSubmitOptions): Promise<Scen
       error: `STORYBOARD.md not found at ${storyboardPath}. Run \`vibe init <dir>\` first.`,
     };
   }
-  const parsed = parseStoryboard(await readFile(storyboardPath, "utf-8"));
+  const parsed = parseStoryboard(await loadStoryboardMarkdown(projectDir));
   const beat = parsed.beats.find((b) => b.id === beatId);
   if (!beat) {
     const available = parsed.beats.map((b) => b.id).join(", ") || "(none)";

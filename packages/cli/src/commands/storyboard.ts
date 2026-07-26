@@ -12,6 +12,7 @@ import {
   STORYBOARD_CUE_KEYS,
   validateStoryboardMarkdown,
 } from "./_shared/storyboard-edit.js";
+import { loadStoryboard } from "./_shared/storyboard-source.js";
 import {
   executeStoryboardRevision,
   type StoryboardRevisionResult,
@@ -112,6 +113,7 @@ storyboardCommand
         exitWithError(usageError(`Invalid JSON cue value: ${error instanceof Error ? error.message : String(error)}`));
       }
     }
+    await refuseWriteOnBundle(projectDir, "set");
     let next: string;
     try {
       next = setStoryboardCue(md, { beatId, key, value, unset: options.unset });
@@ -143,6 +145,7 @@ storyboardCommand
     const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
     const md = await readStoryboard(projectDir);
+    await refuseWriteOnBundle(projectDir, "move");
     let next: string;
     try {
       next = moveStoryboardBeat(md, { beatId, afterBeatId: options.after });
@@ -246,11 +249,33 @@ storyboardCommand
   });
 
 async function readStoryboard(projectDir: string): Promise<string> {
-  const path = storyboardPath(projectDir);
-  if (!existsSync(path)) {
-    exitWithError(generalError(`STORYBOARD.md not found at ${path}`, `Run 'vibe init ${projectDir} --from "<brief>"' first.`));
+  const loaded = await loadStoryboard(projectDir);
+  if (loaded.layout === "missing") {
+    exitWithError(
+      generalError(
+        `No storyboard found in ${projectDir}`,
+        `Run 'vibe init ${projectDir} --from "<brief>"' first.`
+      )
+    );
   }
-  return readFile(path, "utf-8");
+  return loaded.markdown;
+}
+
+/**
+ * Read-modify-write commands rewrite the whole document. In the bundle
+ * layout that document is assembled from `scenes/*.md`, so writing it back
+ * to STORYBOARD.md would silently collapse the split. Refuse instead of
+ * destroying the project, and name the per-file edit as the way forward.
+ */
+async function refuseWriteOnBundle(projectDir: string, command: string): Promise<void> {
+  const { layout, scenes } = await loadStoryboard(projectDir);
+  if (layout !== "bundle") return;
+  exitWithError(
+    generalError(
+      `\`vibe storyboard ${command}\` cannot write to a scenes/ bundle yet.`,
+      `Edit the scene file directly - this project has ${scenes.length} under ${projectDir}/scenes/.`
+    )
+  );
 }
 
 function storyboardPath(projectDir: string): string {

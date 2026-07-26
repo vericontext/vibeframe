@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseStoryboard } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 
 /**
  * @module _shared/project-list
@@ -92,7 +93,7 @@ async function describeProject(name: string, projectDir: string): Promise<Projec
 
   try {
     const storyboardPath = join(projectDir, "STORYBOARD.md");
-    const parsed = parseStoryboard(await readFile(storyboardPath, "utf-8"));
+    const parsed = parseStoryboard(await loadStoryboardMarkdown(projectDir));
     beats = parsed.beats.length;
     storyboardDurationSec = Number(
       parsed.beats.reduce((sum, beat) => sum + (beat.duration ?? 0), 0).toFixed(2)

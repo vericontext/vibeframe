@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { config as loadDotenv } from "dotenv";
@@ -38,6 +37,7 @@ import {
   type ParsedStoryboard,
   type BeatCues,
 } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
@@ -249,7 +249,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     });
   }
 
-  const storyboardMd = await readFile(storyboardPath, "utf-8");
+  const storyboardMd = await loadStoryboardMarkdown(projectDir);
   const validation = validateStoryboardMarkdown(storyboardMd);
   const validationIssues: StoryboardValidationIssue[] = [...validation.issues];
   const parsed = parseStoryboard(storyboardMd);

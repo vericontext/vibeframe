@@ -33,7 +33,6 @@
  */
 
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 import {
@@ -42,6 +41,7 @@ import {
   type Beat,
   type BeatCues,
 } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import { buildUserPrompt } from "./compose-beat-prompt.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import {
@@ -177,7 +177,7 @@ export async function getComposePrompts(opts: ComposePromptsOptions): Promise<Co
     );
   }
 
-  const storyboardMd = await readFile(storyboardPath, "utf-8");
+  const storyboardMd = await loadStoryboardMarkdown(projectDir);
   const parsed = parseStoryboard(storyboardMd);
 
   if (parsed.beats.length === 0) {
