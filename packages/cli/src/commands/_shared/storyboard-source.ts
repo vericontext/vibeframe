@@ -34,7 +34,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
@@ -47,7 +47,7 @@ import {
   type BeatCues,
   type StoryboardCueKey,
 } from "./storyboard-parse.js";
-import { normalizeCueValue } from "./storyboard-edit.js";
+import { isStarterStoryboard, normalizeCueValue } from "./storyboard-edit.js";
 
 /** Directory, relative to the project root, that holds one file per scene. */
 export const SCENES_DIRNAME = "scenes";
@@ -435,4 +435,72 @@ export function strayBeatIssues(strayBeatIds: string[]): Array<{
       `uses scenes/. That heading is ignored. Move it to scenes/ as its own file, ` +
       `or delete it from STORYBOARD.md.`,
   }));
+}
+
+/**
+ * Create or update one scene file, mirroring `upsertStoryboardBeat`.
+ *
+ * The three actions match the single-document writer so `vibe scene add`
+ * reports the same thing either way:
+ *
+ * - `updated` - a scene with this id exists; its cues are merged and its
+ *   body is left alone unless a new one is supplied.
+ * - `replaced-starter` - the bundle is still the untouched three-beat
+ *   scaffold, so it is cleared rather than appended to.
+ * - `appended` - a new scene file after the current last one.
+ */
+export async function upsertScene(
+  projectDir: string,
+  opts: {
+    beatId: string;
+    title?: string;
+    duration?: number;
+    narration?: string;
+    backdrop?: string;
+    body?: string;
+  }
+): Promise<{ action: "updated" | "replaced-starter" | "appended"; path: string }> {
+  const beatId = deriveBeatId(opts.beatId);
+  const dir = join(projectDir, SCENES_DIRNAME);
+  await mkdir(dir, { recursive: true });
+
+  const cues: Record<string, unknown> = {};
+  if (opts.duration !== undefined) cues.duration = opts.duration;
+  if (opts.narration?.trim()) cues.narration = opts.narration.trim();
+  if (opts.backdrop?.trim()) cues.backdrop = opts.backdrop.trim();
+  if (opts.title?.trim()) cues.title = opts.title.trim();
+
+  const scenes = await listSceneFiles(projectDir);
+  const existing = scenes.find((s) => s.id === beatId);
+
+  if (existing) {
+    const raw = await readFile(existing.path, "utf-8");
+    const { data, body } = extractFrontmatter(raw);
+    const merged: Record<string, unknown> = { type: "Scene", ...(data ?? {}), ...cues };
+    const nextBody = opts.body?.trim() || body.trim();
+    await writeFile(
+      existing.path,
+      `---\n${stringifyYaml(merged, { lineWidth: 0 }).trimEnd()}\n---\n\n${nextBody}\n`,
+      "utf-8"
+    );
+    return { action: "updated", path: existing.path };
+  }
+
+  const starter = scenes.length > 0 && isStarterStoryboard((await loadStoryboard(projectDir)).markdown);
+  if (starter) {
+    for (const scene of scenes) await rm(scene.path);
+  }
+
+  const order = starter ? 1 : scenes.length + 1;
+  const path = join(dir, sceneFilename(order, beatId));
+  const front = { type: "Scene", ...cues };
+  const body =
+    opts.body?.trim() ||
+    "Scene created with `vibe scene add`. Edit this body if the build flow should recompose it.";
+  await writeFile(
+    path,
+    `---\n${stringifyYaml(front, { lineWidth: 0 }).trimEnd()}\n---\n\n${body}\n`,
+    "utf-8"
+  );
+  return { action: starter ? "replaced-starter" : "appended", path };
 }

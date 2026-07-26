@@ -331,7 +331,12 @@ function humanizeBeatId(id: string): string {
     .join(" ") || "Scene";
 }
 
-function isStarterStoryboard(markdown: string): boolean {
+/**
+ * True for the untouched three-beat scaffold. Exported so the bundle writer
+ * makes the same "this is still the starter, replace it" call as the
+ * single-document writer, off the same assembled markdown.
+ */
+export function isStarterStoryboard(markdown: string): boolean {
   const parsed = parseStoryboard(markdown);
   if (parsed.beats.length !== 3) return false;
   const ids = parsed.beats.map((beat) => beat.id);

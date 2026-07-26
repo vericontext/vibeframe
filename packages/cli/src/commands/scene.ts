@@ -75,6 +75,7 @@ import {
   upsertStoryboardBeat,
   type StoryboardBeatUpsertAction,
 } from "./_shared/storyboard-edit.js";
+import { loadStoryboard, upsertScene } from "./_shared/storyboard-source.js";
 
 function validateDuration(value: string): number {
   const n = parseFloat(value);
@@ -1087,21 +1088,31 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   let storyboardAction: "skipped" | StoryboardBeatUpsertAction = "skipped";
   const shouldSyncStoryboard = opts.syncStoryboard !== false && (await pathExists(storyboardAbsPath));
   if (shouldSyncStoryboard) {
-    opts.onProgress?.("Syncing STORYBOARD.md...");
-    const before = await readFile(storyboardAbsPath, "utf-8");
-    const synced = upsertStoryboardBeat(before, {
+    const upsert = {
       beatId: id,
       title: opts.headline,
       duration,
       narration: narrationText && !opts.skipAudio ? narrationText : undefined,
       backdrop: opts.visuals && !opts.skipImage ? opts.visuals : undefined,
-    });
-    if (synced.markdown !== before) {
-      await writeFile(storyboardAbsPath, synced.markdown, "utf-8");
+    };
+    // A bundle gets its own scene file; a single document gets a new section.
+    // Both report the same three actions.
+    if ((await loadStoryboard(projectDir)).layout === "bundle") {
+      opts.onProgress?.("Syncing scenes/...");
+      const synced = await upsertScene(projectDir, upsert);
+      storyboardPath = relative(process.cwd(), synced.path) || synced.path;
+      storyboardAction = synced.action;
+    } else {
+      opts.onProgress?.("Syncing STORYBOARD.md...");
+      const before = await readFile(storyboardAbsPath, "utf-8");
+      const synced = upsertStoryboardBeat(before, upsert);
+      if (synced.markdown !== before) {
+        await writeFile(storyboardAbsPath, synced.markdown, "utf-8");
+      }
+      storyboardPath = relative(process.cwd(), storyboardAbsPath) || storyboardAbsPath;
+      storyboardAction = synced.action;
     }
-    storyboardPath = relative(process.cwd(), storyboardAbsPath) || storyboardAbsPath;
     storyboardSynced = true;
-    storyboardAction = synced.action;
   }
 
   // -- Emit scene HTML -----------------------------------------------------
