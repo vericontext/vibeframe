@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,7 +7,9 @@ import {
   detectStoryboardLayout,
   listSceneFiles,
   loadStoryboard,
+  moveScene,
   planMigration,
+  setSceneCue,
   sceneFilename,
   sceneToBeatSection,
 } from "./storyboard-source.js";
@@ -276,5 +278,80 @@ describe("planMigration", () => {
     if (parsedDuration !== undefined) {
       expect(scene.contents).toContain(`duration: ${parsedDuration}`);
     }
+  });
+});
+
+describe("bundle writes", () => {
+  async function bundle() {
+    await writeBundle([
+      ["01-hook.md", '---\ntype: Scene\nduration: 5\nnarration: "One"\n---\n\nHook body.'],
+      ["02-proof.md", '---\ntype: Scene\nduration: 4\n---\n\nProof body.'],
+      ["03-close.md", '---\ntype: Scene\nduration: 3\n---\n\nClose body.'],
+    ]);
+  }
+
+  it("sets a cue in one scene file and leaves the body alone", async () => {
+    await bundle();
+    const { cues } = await setSceneCue(dir, { beatId: "hook", key: "duration", value: 9 });
+    expect(cues.duration).toBe(9);
+    const raw = await readFile(join(dir, "scenes", "01-hook.md"), "utf-8");
+    expect(raw).toContain("duration: 9");
+    expect(raw).toContain("Hook body.");
+    expect(raw).toMatch(/^---\ntype: Scene\n/);
+  });
+
+  it("unsets a cue", async () => {
+    await bundle();
+    const { cues } = await setSceneCue(dir, { beatId: "hook", key: "narration", unset: true });
+    expect(cues.narration).toBeUndefined();
+    expect(cues.duration).toBe(5);
+  });
+
+  it("rejects an unsupported cue key", async () => {
+    await bundle();
+    await expect(setSceneCue(dir, { beatId: "hook", key: "bogus", value: "x" })).rejects.toThrow(
+      /Unsupported cue/
+    );
+  });
+
+  it("rejects a non-positive duration, like the single-document writer", async () => {
+    await bundle();
+    await expect(
+      setSceneCue(dir, { beatId: "hook", key: "duration", value: "abc" })
+    ).rejects.toThrow(/positive number/);
+  });
+
+  it("names the known scenes when the id is wrong", async () => {
+    await bundle();
+    await expect(setSceneCue(dir, { beatId: "nope", key: "duration", value: 1 })).rejects.toThrow(
+      /hook, proof, close/
+    );
+  });
+
+  it("renumbers filenames on move without leaving temp files", async () => {
+    await bundle();
+    const order = await moveScene(dir, { beatId: "hook", afterBeatId: "close" });
+    expect(order).toEqual(["proof", "close", "hook"]);
+    const names = (await listSceneFiles(dir)).map((s) => s.filename);
+    expect(names).toEqual(["01-proof.md", "02-close.md", "03-hook.md"]);
+    const { readdir } = await import("node:fs/promises");
+    const all = await readdir(join(dir, "scenes"));
+    expect(all.filter((n) => n.startsWith(".vibe-move"))).toEqual([]);
+  });
+
+  it("survives a permutation that a naive rename order would clobber", async () => {
+    await bundle();
+    // close -> front. Every file needs a new number and 01 is occupied.
+    await moveScene(dir, { beatId: "close", afterBeatId: "hook" });
+    const scenes = await listSceneFiles(dir);
+    expect(scenes.map((s) => s.id)).toEqual(["hook", "close", "proof"]);
+    // No scene was lost or overwritten.
+    expect(scenes).toHaveLength(3);
+  });
+
+  it("moving a scene onto itself is a no-op", async () => {
+    await bundle();
+    const order = await moveScene(dir, { beatId: "hook", afterBeatId: "hook" });
+    expect(order).toEqual(["hook", "proof", "close"]);
   });
 });

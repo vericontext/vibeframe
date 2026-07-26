@@ -343,7 +343,11 @@ function isStarterStoryboard(markdown: string): boolean {
   );
 }
 
-function normalizeCueValue(key: string, value: unknown): unknown {
+/**
+ * Coerce and validate one cue value. Shared with the bundle writer so both
+ * storage layouts reject the same bad input.
+ */
+export function normalizeCueValue(key: string, value: unknown): unknown {
   if (key === "duration") {
     const n = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
     if (!Number.isFinite(n) || n <= 0) {
