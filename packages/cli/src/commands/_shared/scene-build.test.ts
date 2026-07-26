@@ -665,6 +665,7 @@ backdrop: "../outside.png"
     });
 
     expect(r.success).toBe(true);
+    // The RETURNED envelope describes this run: one beat.
     expect(r.beats).toHaveLength(1);
     expect(r.beats[0].beatId).toBe("hook");
 
@@ -675,7 +676,11 @@ backdrop: "../outside.png"
       selectedStage: "assets",
       success: true,
     });
-    expect(report.beats).toHaveLength(1);
+    // The WRITTEN report is the host loop's state and covers every
+    // storyboard beat - a scoped run must not shrink it (the other beats
+    // are reconstructed from disk, untouched ones reporting "skipped").
+    expect(report.beats.map((b) => b.id)).toEqual(["hook", "close"]);
+    expect(report.beats[1].narration).toMatchObject({ status: "skipped" });
     expect(report.beats[0]).toMatchObject({
       id: "hook",
       startSec: 0,
@@ -981,5 +986,53 @@ music: "Minimal confident pulse."
     });
     expect(report.jobs).toHaveLength(2);
     expect(report.retryWith).toContain(`vibe status project ${projectDir} --refresh --json`);
+  });
+});
+
+describe("beat-scoped report preservation", () => {
+  it("a failed --beat run does not shrink build-report.json to that beat", async () => {
+    // Full build first: both beats succeed and the report records them.
+    const full = await executeSceneBuild({
+      projectDir,
+      stage: "assets",
+      skipBackdrop: true,
+      skipMusic: true,
+      skipVideo: true,
+    });
+    expect(full.success).toBe(true);
+    const reportPath = join(projectDir, "build-report.json");
+    const before = JSON.parse(readFileSync(reportPath, "utf-8"));
+    expect(before.beats.map((b: { id: string }) => b.id)).toEqual(["hook", "close"]);
+    const closeNarrationPath = before.beats.find(
+      (b: { id: string }) => b.id === "close"
+    ).narration.path;
+    expect(closeNarrationPath).toBeTruthy();
+
+    // Now make narration fail and retry ONE beat. The report used to be
+    // overwritten with just that failed beat, losing the other beat's
+    // records mid-recovery (hybrid-brew dogfood, 2026-07-26).
+    vi.mocked(resolveTtsProvider).mockResolvedValue({
+      provider: "kokoro",
+      audioExtension: "wav",
+      call: vi.fn().mockResolvedValue({ success: false, error: "boom" }),
+    } as never);
+    const scoped = await executeSceneBuild({
+      projectDir,
+      stage: "assets",
+      beatId: "hook",
+      force: true,
+      skipBackdrop: true,
+      skipMusic: true,
+      skipVideo: true,
+    });
+    expect(scoped.success).toBe(false);
+
+    const after = JSON.parse(readFileSync(reportPath, "utf-8"));
+    expect(after.beats.map((b: { id: string }) => b.id)).toEqual(["hook", "close"]);
+    expect(after.status).toBe("failed");
+    const afterById = Object.fromEntries(after.beats.map((b: { id: string }) => [b.id, b]));
+    expect(afterById.hook.narration.status).toBe("failed");
+    // The untouched beat keeps its on-disk record.
+    expect(afterById.close.narration.path).toBe(closeNarrationPath);
   });
 });
