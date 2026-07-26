@@ -11,6 +11,7 @@ import {
 } from "./composer-resolve.js";
 import { readProjectConfig } from "./project-config.js";
 import { parseStoryboard, STORYBOARD_CUE_KEYS } from "./storyboard-parse.js";
+import { loadStoryboard, rewriteBundleFromMarkdown } from "./storyboard-source.js";
 import {
   validateStoryboardMarkdown,
   type StoryboardValidationIssue,
@@ -70,7 +71,10 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
     });
   }
 
-  const currentStoryboard = await readFile(storyboardPath, "utf-8");
+  // Read through the loader: on a bundle the current storyboard is the
+  // assembled scenes, not the near-empty STORYBOARD.md on disk.
+  const loaded = await loadStoryboard(projectDir);
+  const currentStoryboard = loaded.markdown;
   const projectConfig = await readProjectConfig(projectDir);
   const explicitComposer = opts.composer ?? projectConfig.config.providers.composer ?? undefined;
 
@@ -175,7 +179,15 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
 
   const storyboardMd = normalizeMarkdown(payload.storyboardMd);
   if (!opts.dryRun) {
-    await writeFile(storyboardPath, storyboardMd, "utf-8");
+    if (loaded.layout === "bundle") {
+      // Writing the model's single document to STORYBOARD.md would lose the
+      // revision entirely: scenes/ still wins, so the old scenes would render
+      // while the new beats sat in STORYBOARD.md being reported as stray.
+      // Re-split instead, and drop scene files the revision no longer names.
+      await rewriteBundleFromMarkdown(projectDir, storyboardMd);
+    } else {
+      await writeFile(storyboardPath, storyboardMd, "utf-8");
+    }
   }
 
   const changedBeats = unique([...diffChangedBeats(currentStoryboard, storyboardMd), ...payload.changedBeats]);

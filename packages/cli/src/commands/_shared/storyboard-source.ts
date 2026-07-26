@@ -504,3 +504,30 @@ export async function upsertScene(
   );
   return { action: starter ? "replaced-starter" : "appended", path };
 }
+
+/**
+ * Replace a bundle's scenes with the ones described by a single markdown
+ * document.
+ *
+ * Used when something produces a whole storyboard at once - today
+ * `vibe storyboard revise`, whose model returns one document. Writing that
+ * document to STORYBOARD.md would lose the revision: `scenes/` still wins, so
+ * the old scenes would keep rendering while the new beats sat in
+ * STORYBOARD.md being reported as stray.
+ *
+ * Scene files the new document does not name are deleted, so a revision that
+ * removes a beat actually removes it rather than leaving an orphan that keeps
+ * playing.
+ */
+export async function rewriteBundleFromMarkdown(
+  projectDir: string,
+  markdown: string
+): Promise<MigrationPlan> {
+  const plan = planMigration(markdown);
+  const keep = new Set(plan.scenes.map((file) => basename(file.path)));
+  for (const scene of await listSceneFiles(projectDir)) {
+    if (!keep.has(scene.filename)) await rm(scene.path);
+  }
+  await writeMigration(projectDir, plan);
+  return plan;
+}
