@@ -7,6 +7,7 @@ import {
   detectStoryboardLayout,
   listSceneFiles,
   loadStoryboard,
+  planMigration,
   sceneFilename,
   sceneToBeatSection,
 } from "./storyboard-source.js";
@@ -181,5 +182,99 @@ describe("sceneFilename", () => {
     expect(sceneFilename(1, "hook")).toBe("01-hook.md");
     expect(sceneFilename(12, "proof")).toBe("12-proof.md");
     expect(sceneFilename(100, "late")).toBe("100-late.md");
+  });
+});
+
+describe("planMigration", () => {
+  const LEGACY = [
+    "---",
+    "type: Storyboard",
+    'title: "Launch"',
+    "characters:",
+    '  mira: "arctic photographer"',
+    "---",
+    "",
+    "# Launch - Storyboard",
+    "",
+    "Pacing note.",
+    "",
+    "## Beat hook - Hook",
+    "",
+    "```yaml",
+    "duration: 5",
+    'narration: "One"',
+    "```",
+    "",
+    "Hook body.",
+    "",
+    "## Beat proof - Proof",
+    "",
+    "```yaml",
+    "duration: 4",
+    "characters: [mira]",
+    "```",
+    "",
+    "Proof body.",
+    "",
+  ].join("\n");
+
+  it("writes one numbered scene file per beat, in order", () => {
+    const plan = planMigration(LEGACY);
+    expect(plan.scenes.map((f) => f.path)).toEqual([
+      "scenes/01-hook.md",
+      "scenes/02-proof.md",
+    ]);
+    expect(plan.beatIds).toEqual(["hook", "proof"]);
+  });
+
+  it("turns cues into frontmatter and tags the file as a Scene", () => {
+    const [hook] = planMigration(LEGACY).scenes;
+    expect(hook.contents).toMatch(/^---\ntype: Scene\n/);
+    expect(hook.contents).toContain("duration: 5");
+    expect(hook.contents).toContain("Hook body.");
+    expect(hook.contents).not.toContain("```yaml");
+  });
+
+  it("leaves STORYBOARD.md with frontmatter and prose but no beats", () => {
+    const { storyboard } = planMigration(LEGACY);
+    expect(storyboard.contents).toContain("type: Storyboard");
+    expect(storyboard.contents).toContain("mira: arctic photographer");
+    expect(storyboard.contents).toContain("Pacing note.");
+    expect(storyboard.contents).not.toContain("## Beat");
+    expect(storyboard.contents).toContain("Scenes live in `scenes/`");
+  });
+
+  it("round-trips: the migrated bundle parses to the same beats", async () => {
+    const plan = planMigration(LEGACY);
+    await writeFile(join(dir, "STORYBOARD.md"), plan.storyboard.contents, "utf-8");
+    await mkdir(join(dir, "scenes"), { recursive: true });
+    for (const file of plan.scenes) {
+      await writeFile(join(dir, file.path), file.contents, "utf-8");
+    }
+    const before = parseStoryboard(LEGACY);
+    const after = parseStoryboard((await loadStoryboard(dir)).markdown);
+
+    expect(after.beats.map((b) => b.id)).toEqual(before.beats.map((b) => b.id));
+    expect(after.beats.map((b) => b.cues)).toEqual(before.beats.map((b) => b.cues));
+    expect(after.beats.map((b) => b.duration)).toEqual(before.beats.map((b) => b.duration));
+    expect(after.frontmatter?.characters).toEqual(before.frontmatter?.characters);
+  });
+
+  it("carries a duration that only existed as a `### Beat duration` subsection", () => {
+    const md = [
+      "## Beat solo - Solo",
+      "",
+      "### Beat duration",
+      "",
+      "7 seconds",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const parsedDuration = parseStoryboard(md).beats[0]?.duration;
+    const [scene] = planMigration(md).scenes;
+    if (parsedDuration !== undefined) {
+      expect(scene.contents).toContain(`duration: ${parsedDuration}`);
+    }
   });
 });

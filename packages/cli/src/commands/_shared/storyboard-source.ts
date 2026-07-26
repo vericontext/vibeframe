@@ -39,7 +39,7 @@ import { basename, join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
 import { extractFrontmatter } from "./frontmatter.js";
-import { deriveBeatId } from "./storyboard-parse.js";
+import { deriveBeatId, parseStoryboard, type Beat } from "./storyboard-parse.js";
 
 /** Directory, relative to the project root, that holds one file per scene. */
 export const SCENES_DIRNAME = "scenes";
@@ -128,8 +128,10 @@ function humanise(id: string): string {
  * the humanised id and `title` stays in the cue block where it belongs.
  */
 export function sceneToBeatSection(scene: SceneFile, contents: string): string {
+  // `data` is null for a scene file with no frontmatter, which is legal:
+  // a scene can be prose-only and inherit every default.
   const { data, body } = extractFrontmatter(contents);
-  const cues: Record<string, unknown> = { ...data };
+  const cues: Record<string, unknown> = { ...(data ?? {}) };
   delete cues.type;
 
   const cueBlock =
@@ -184,4 +186,75 @@ export async function loadStoryboardMarkdown(projectDir: string): Promise<string
 export function sceneFilename(order: number, id: string): string {
   const width = order >= 100 ? 3 : 2;
   return `${String(order).padStart(width, "0")}-${basename(id)}.md`;
+}
+
+// ── Migration: single document -> scenes/ bundle ─────────────────────────
+
+export interface MigrationPlanFile {
+  /** Path relative to the project root, e.g. `scenes/01-hook.md`. */
+  path: string;
+  contents: string;
+}
+
+export interface MigrationPlan {
+  /** Files to create, in play order. */
+  scenes: MigrationPlanFile[];
+  /** What STORYBOARD.md becomes: frontmatter + direction prose, no beats. */
+  storyboard: MigrationPlanFile;
+  /** Beat ids in the order they will play. */
+  beatIds: string[];
+}
+
+/**
+ * Render one beat as a standalone scene document.
+ *
+ * Cues become real frontmatter, which is the whole point of the bundle
+ * layout. `type: Scene` is added so the file is a valid OKF document; the
+ * loader strips it again on the way back in.
+ */
+export function beatToSceneFile(beat: Beat, order: number): MigrationPlanFile {
+  const cues: Record<string, unknown> = { type: "Scene", ...(beat.cues ?? {}) };
+  // `duration` is derivable from a `### Beat duration` subsection too, so
+  // carry the resolved value rather than losing it with the subsection.
+  if (cues.duration === undefined && beat.duration !== undefined) {
+    cues.duration = beat.duration;
+  }
+  const front = stringifyYaml(cues, { lineWidth: 0 }).trimEnd();
+  const body = beat.body.trim();
+  return {
+    path: `${SCENES_DIRNAME}/${sceneFilename(order, beat.id)}`,
+    contents: `---\n${front}\n---\n\n${body}\n`,
+  };
+}
+
+/**
+ * Plan the conversion of a single-document storyboard into a bundle.
+ *
+ * Pure: returns the files to write without touching disk, so the command can
+ * offer `--dry-run` and so the whole shape is testable.
+ */
+export function planMigration(markdown: string): MigrationPlan {
+  const parsed = parseStoryboard(markdown);
+  // `data` is null when the document has no frontmatter at all.
+  const data = extractFrontmatter(markdown).data ?? {};
+
+  const scenes = parsed.beats.map((beat, index) => beatToSceneFile(beat, index + 1));
+
+  const frontBlock =
+    Object.keys(data).length > 0
+      ? `---\n${stringifyYaml(data, { lineWidth: 0 }).trimEnd()}\n---\n\n`
+      : "";
+  const prose = parsed.global.trim();
+  const note =
+    "Scenes live in `scenes/`, one file per scene, and play in filename order.";
+  const storyboardBody = [prose, note].filter(Boolean).join("\n\n");
+
+  return {
+    scenes,
+    storyboard: {
+      path: STORYBOARD_FILENAME,
+      contents: `${frontBlock}${storyboardBody}\n`,
+    },
+    beatIds: parsed.beats.map((beat) => beat.id),
+  };
 }

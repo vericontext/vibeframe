@@ -4096,6 +4096,28 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard list --descr
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe storyboard migrate --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Convert a single STORYBOARD.md into a scenes/ bundle (one file per scene)",
+  "name": "storyboard.migrate",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Show the files that would be written without touching disk",
+        "type": "boolean",
+      },
+      "project-dir": {
+        "description": "Project directory",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe storyboard move --describe 1`] = `
 {
   "cost": "free",
