@@ -23,6 +23,7 @@ import { join, resolve } from "node:path";
 
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
 import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import { parseDesign } from "./design-parse.js";
 
 /**
@@ -302,8 +303,7 @@ export async function composeAiVideo(opts: {
     throw new Error("ffmpeg not found in PATH — required to concatenate AI-video clips.");
   }
 
-  const storyboardPath = join(projectDir, "STORYBOARD.md");
-  const md = await readFile(storyboardPath, "utf-8");
+  const md = await loadStoryboardMarkdown(projectDir);
   const beats = parseStoryboard(md).beats;
   if (beats.length === 0) throw new Error("STORYBOARD.md has no beats to compose.");
 

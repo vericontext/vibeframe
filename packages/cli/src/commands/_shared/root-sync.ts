@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { getAudioDuration } from "../../utils/audio.js";
 import { parseStoryboard } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import type { ReviewIssue } from "./review-report.js";
 
 export const ROOT_SYNC_FIX_CODES = {
@@ -147,7 +148,7 @@ export async function loadProjectRootSyncBeats(projectDir: string): Promise<Root
   const storyboardPath = join(root, "STORYBOARD.md");
   if (!existsSync(storyboardPath)) return [];
 
-  const parsed = parseStoryboard(await readFile(storyboardPath, "utf-8"));
+  const parsed = parseStoryboard(await loadStoryboardMarkdown(root));
   const reportBeats = await readBuildReportBeats(root);
   return parsed.beats.map((beat) => {
     const reportBeat = reportBeats.find((item) => item.id === beat.id);

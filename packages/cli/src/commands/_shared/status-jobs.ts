@@ -10,6 +10,7 @@ import { writeAssetMetadata } from "./build-asset-metadata.js";
 import type { ReviewAction, ReviewActionCostTier, ReviewFixOwner } from "./review-report.js";
 import { normalizeReviewActions, reviewActionsFromRetryWith } from "./review-report.js";
 import { parseStoryboard } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "unknown";
 /**
@@ -1039,7 +1040,7 @@ async function readProjectBeatReadiness(
   }
 
   try {
-    const parsed = parseStoryboard(await readFile(storyboardPath, "utf-8"));
+    const parsed = parseStoryboard(await loadStoryboardMarkdown(projectDir));
     const needsAuthor: string[] = [];
     let compositionsReady = 0;
     for (const beat of parsed.beats) {

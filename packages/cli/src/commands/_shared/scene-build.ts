@@ -56,6 +56,7 @@ import {
   type StoryboardCueKey,
   type ResolvedCharacter,
 } from "./storyboard-parse.js";
+import { loadStoryboardMarkdown } from "./storyboard-source.js";
 import { scaffoldSceneProject } from "./scene-project.js";
 import {
   backdropCostUsd,
@@ -498,7 +499,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   if (!buildPlan.validation.ok) {
     let invalidBeats: Beat[] = [];
     if (existsSync(storyboardPath)) {
-      invalidBeats = parseStoryboard(await readFile(storyboardPath, "utf-8")).beats;
+      invalidBeats = parseStoryboard(await loadStoryboardMarkdown(projectDir)).beats;
     }
     return finishBuildResult({
       success: false,
@@ -538,7 +539,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       totalLatencyMs: Date.now() - startedAt,
     });
   }
-  const storyboardMd = await readFile(storyboardPath, "utf-8");
+  const storyboardMd = await loadStoryboardMarkdown(projectDir);
   const parsed = parseStoryboard(storyboardMd);
   if (parsed.beats.length === 0) {
     return finishBuildResult({
