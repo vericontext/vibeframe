@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import {
@@ -18,6 +18,8 @@ import {
   moveScene,
   planMigration,
   setSceneCue,
+  strayBeatIssues,
+  writeMigration,
 } from "./_shared/storyboard-source.js";
 import {
   executeStoryboardRevision,
@@ -262,13 +264,7 @@ storyboardCommand
     }
 
     if (!options.dryRun) {
-      await mkdir(join(projectDir, "scenes"), { recursive: true });
-      for (const file of plan.scenes) {
-        await writeFile(join(projectDir, file.path), file.contents, "utf-8");
-      }
-      // STORYBOARD.md is rewritten last: if a scene write fails, the original
-      // single-file storyboard is still the source of truth on disk.
-      await writeFile(join(projectDir, plan.storyboard.path), plan.storyboard.contents, "utf-8");
+      await writeMigration(projectDir, plan);
     }
 
     if (isJsonMode()) {
@@ -298,8 +294,15 @@ storyboardCommand
   .action(async (projectDirArg: string) => {
     const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
-    const md = await readStoryboard(projectDir);
-    const result = validateStoryboardMarkdown(md);
+    const loaded = await loadStoryboard(projectDir);
+    const result = validateStoryboardMarkdown(loaded.markdown);
+    // Beat headings left behind in STORYBOARD.md are invisible to the parser
+    // once a project is a bundle, so they have to be reported from here.
+    const stray = strayBeatIssues(loaded.strayBeatIds);
+    if (stray.length > 0) {
+      result.issues = [...stray, ...result.issues];
+      result.ok = false;
+    }
     if (isJsonMode()) {
       outputSuccess({
         command: "storyboard validate",

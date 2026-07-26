@@ -34,7 +34,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
@@ -76,6 +76,13 @@ export interface LoadedStoryboard {
   scenes: SceneFile[];
   /** Absolute path of the project-level document. */
   storyboardPath: string;
+  /**
+   * Beat ids found as `## Beat ...` headings inside STORYBOARD.md while the
+   * project is a bundle. Those headings are ignored - `scenes/` is the only
+   * source of scenes - and reported so validation can say so out loud.
+   * Always empty for the single layout.
+   */
+  strayBeatIds: string[];
 }
 
 /** `01-hook.md` -> { order: 1, id: "hook" }; `hook.md` -> { order: null, id: "hook" }. */
@@ -150,13 +157,22 @@ export function sceneToBeatSection(scene: SceneFile, contents: string): string {
   return `## Beat ${scene.id} - ${humanise(scene.id)}\n\n${cueBlock}${prose}\n`;
 }
 
+/** Everything from the first `## ` heading onward. */
+const FIRST_HEADING_RE = /^## .*/m;
+
 /**
  * Load a project's storyboard as a single markdown document, whichever
  * layout it uses on disk.
  *
- * For a bundle this concatenates `STORYBOARD.md` (frontmatter + direction
- * prose, with any stray beat headings left alone) and one synthesized
- * section per scene file.
+ * For a bundle, STORYBOARD.md contributes only its frontmatter and direction
+ * prose. Anything from its first `## ` heading onward is dropped and its beat
+ * ids returned in `strayBeatIds`.
+ *
+ * Concatenating instead would merge two sets of scenes into one timeline: a
+ * project that has both would silently render the STORYBOARD.md beats *and*
+ * the scene files, in that order. `scenes/` is the layout the project opted
+ * into, so it is the only source of scenes, and the leftovers are surfaced as
+ * a validation error rather than quietly obeyed or quietly discarded.
  */
 export async function loadStoryboard(projectDir: string): Promise<LoadedStoryboard> {
   const storyboardPath = join(projectDir, STORYBOARD_FILENAME);
@@ -164,24 +180,30 @@ export async function loadStoryboard(projectDir: string): Promise<LoadedStoryboa
   const layout = detectStoryboardLayout(projectDir, scenes.length);
 
   if (layout === "missing") {
-    return { layout, markdown: "", scenes: [], storyboardPath };
+    return { layout, markdown: "", scenes: [], storyboardPath, strayBeatIds: [] };
   }
 
   const head = existsSync(storyboardPath) ? await readFile(storyboardPath, "utf-8") : "";
 
   if (layout === "single") {
-    return { layout, markdown: head, scenes: [], storyboardPath };
+    return { layout, markdown: head, scenes: [], storyboardPath, strayBeatIds: [] };
   }
+
+  const headingAt = head.search(FIRST_HEADING_RE);
+  const strayBeatIds =
+    headingAt === -1 ? [] : parseStoryboard(head.slice(headingAt)).beats.map((b) => b.id);
+  const preamble = headingAt === -1 ? head : head.slice(0, headingAt);
 
   const sections = await Promise.all(
     scenes.map(async (scene) => sceneToBeatSection(scene, await readFile(scene.path, "utf-8")))
   );
-  const prefix = head.trimEnd();
+  const prefix = preamble.trimEnd();
   return {
     layout,
     markdown: `${prefix}${prefix ? "\n\n" : ""}${sections.join("\n")}`,
     scenes,
     storyboardPath,
+    strayBeatIds,
   };
 }
 
@@ -355,4 +377,62 @@ export async function moveScene(
   for (const { temp, final } of staged) await rename(temp, final);
 
   return ordered.map((s) => s.id);
+}
+
+/**
+ * Write a migration plan to disk.
+ *
+ * Scene files land before STORYBOARD.md is rewritten, so a failure part way
+ * through leaves the original single-file storyboard as the source of truth
+ * rather than a half-emptied document. Shared by `storyboard migrate` and by
+ * `vibe init`, which scaffolds straight into the bundle layout.
+ */
+export async function writeMigration(projectDir: string, plan: MigrationPlan): Promise<void> {
+  await mkdir(join(projectDir, SCENES_DIRNAME), { recursive: true });
+  for (const file of plan.scenes) {
+    await writeFile(join(projectDir, file.path), file.contents, "utf-8");
+  }
+  await writeFile(join(projectDir, plan.storyboard.path), plan.storyboard.contents, "utf-8");
+}
+
+/**
+ * Scaffold a bundle from a single-document storyboard string.
+ *
+ * `vibe init` builds its starter (and its `--from` draft) as one markdown
+ * document, then hands it here rather than writing it out. That keeps one
+ * generator for the content and one converter for the layout, instead of a
+ * second scaffolder that could drift from the first.
+ */
+export async function writeStoryboardAsBundle(
+  projectDir: string,
+  markdown: string
+): Promise<MigrationPlan> {
+  const plan = planMigration(markdown);
+  await writeMigration(projectDir, plan);
+  return plan;
+}
+
+/**
+ * Validation issues for beat headings left in STORYBOARD.md after a project
+ * became a bundle.
+ *
+ * An error, not a warning: the headings look like scenes and are not being
+ * rendered, so the project on disk does not describe the video that comes
+ * out. Anything less than an error lets that gap sit unnoticed.
+ */
+export function strayBeatIssues(strayBeatIds: string[]): Array<{
+  severity: "error";
+  code: "STRAY_BEATS_IN_STORYBOARD";
+  message: string;
+  beatId: string;
+}> {
+  return strayBeatIds.map((beatId) => ({
+    severity: "error" as const,
+    code: "STRAY_BEATS_IN_STORYBOARD" as const,
+    beatId,
+    message:
+      `STORYBOARD.md still contains a "## Beat ${beatId}" section, but this project ` +
+      `uses scenes/. That heading is ignored. Move it to scenes/ as its own file, ` +
+      `or delete it from STORYBOARD.md.`,
+  }));
 }
