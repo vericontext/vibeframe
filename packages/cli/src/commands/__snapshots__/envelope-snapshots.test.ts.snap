@@ -63,7 +63,7 @@ exports[`CLI --describe schemas (drift detection) > vibe agent --describe 1`] = 
 
 exports[`CLI --describe schemas (drift detection) > vibe assemble --describe 1`] = `
 {
-  "description": "Mux a scene project's audio onto an already-rendered (silent) video",
+  "description": "Mux a scene project's audio onto a rendered video, or crossfade-cut its generated clips (--footage)",
   "name": "assemble",
   "note": "Standalone audio-mux stage; \`render\` does this automatically.",
   "parameters": {
@@ -72,9 +72,31 @@ exports[`CLI --describe schemas (drift detection) > vibe assemble --describe 1`]
         "description": "Preview parameters without muxing",
         "type": "boolean",
       },
+      "fade": {
+        "default": 0.6,
+        "description": "Footage fade-from/to-black length in seconds",
+        "type": "number",
+      },
+      "footage": {
+        "description": "Assemble assets/video-<beat>.mp4 clips into one cinematic cut (no HTML render)",
+        "type": "boolean",
+      },
       "format": {
         "default": "mp4",
         "description": "Output container: mp4|webm|mov",
+        "type": "string",
+      },
+      "music": {
+        "description": "Footage music bed: a file path or "none" (default: auto-detect assets/music*)",
+        "type": "string",
+      },
+      "musicVolume": {
+        "default": "0.35",
+        "description": "Footage music-bed volume before ducking (0-1)",
+        "type": "string",
+      },
+      "output": {
+        "description": "Footage-cut output path (default: renders/footage.mp4)",
         "type": "string",
       },
       "project-dir": {
@@ -85,6 +107,11 @@ exports[`CLI --describe schemas (drift detection) > vibe assemble --describe 1`]
         "default": "index.html",
         "description": "Root composition file",
         "type": "string",
+      },
+      "transition": {
+        "default": 0.5,
+        "description": "Footage crossfade length in seconds",
+        "type": "number",
       },
       "video": {
         "default": "preview.mp4",
@@ -1750,51 +1777,6 @@ exports[`CLI --describe schemas (drift detection) > vibe edit upscale --describe
 }
 `;
 
-exports[`CLI --describe schemas (drift detection) > vibe generate background --describe 1`] = `
-{
-  "cost": "high",
-  "description": "Generate video background using DALL-E",
-  "name": "generate.background",
-  "note": "Backdrops are generated through image generation or the project build.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "OpenAI API key (or set OPENAI_API_KEY env)",
-        "type": "string",
-      },
-      "aspect": {
-        "default": "16:9",
-        "description": "Aspect ratio: 16:9, 9:16, 1:1",
-        "enum": [
-          "16:9",
-          "9:16",
-          "1:1",
-        ],
-        "type": "string",
-      },
-      "description": {
-        "description": "Background description",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "output": {
-        "description": "Output file path (downloads image)",
-        "type": "string",
-      },
-    },
-    "required": [
-      "description",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe generate image or vibe build --stage assets",
-  "surface": "legacy",
-}
-`;
-
 exports[`CLI --describe schemas (drift detection) > vibe generate image --describe 1`] = `
 {
   "cost": "high",
@@ -2039,33 +2021,6 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
 }
 `;
 
-exports[`CLI --describe schemas (drift detection) > vibe generate music-status --describe 1`] = `
-{
-  "cost": "free",
-  "description": "Check music generation status",
-  "name": "generate.music-status",
-  "note": "Provider-task polling primitive retained for compatibility.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "Replicate API token (or set REPLICATE_API_TOKEN env)",
-        "type": "string",
-      },
-      "task-id": {
-        "description": "Task ID from music generation",
-        "type": "string",
-      },
-    },
-    "required": [
-      "task-id",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe status job <job-id> --json",
-  "surface": "legacy",
-}
-`;
-
 exports[`CLI --describe schemas (drift detection) > vibe generate narration --describe 1`] = `
 {
   "cost": "low",
@@ -2142,100 +2097,6 @@ exports[`CLI --describe schemas (drift detection) > vibe generate sound-effect -
     "type": "object",
   },
   "surface": "public",
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe generate speech --describe 1`] = `
-{
-  "cost": "low",
-  "description": "Generate speech from text using ElevenLabs",
-  "name": "generate.speech",
-  "note": "Compatibility alias for product-facing narration generation.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "fitDuration": {
-        "description": "Speed up audio to fit target duration (via FFmpeg atempo)",
-        "type": "number",
-      },
-      "listVoices": {
-        "description": "List available voices",
-        "type": "boolean",
-      },
-      "output": {
-        "default": "output.mp3",
-        "description": "Output audio file path",
-        "type": "string",
-      },
-      "text": {
-        "description": "Text to convert to speech (interactive if omitted)",
-        "type": "string",
-      },
-      "voice": {
-        "default": "21m00Tcm4TlvDq8ikWAM",
-        "description": "Voice ID (default: Rachel)",
-        "type": "string",
-      },
-    },
-    "type": "object",
-  },
-  "replacement": "vibe generate narration",
-  "surface": "legacy",
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe generate storyboard --describe 1`] = `
-{
-  "cost": "high",
-  "description": "Generate video storyboard from content using Claude",
-  "name": "generate.storyboard",
-  "note": "Project-ready storyboard drafting belongs in init/revise.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "Anthropic API key (or set ANTHROPIC_API_KEY env)",
-        "type": "string",
-      },
-      "content": {
-        "description": "Content to analyze (text or file path)",
-        "type": "string",
-      },
-      "creativity": {
-        "default": "low",
-        "description": "Creativity level: low (default, consistent) or high (varied, unexpected)",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "duration": {
-        "description": "Target total duration in seconds",
-        "type": "number",
-      },
-      "file": {
-        "description": "Treat content argument as file path",
-        "type": "boolean",
-      },
-      "output": {
-        "description": "Output JSON file path",
-        "type": "string",
-      },
-    },
-    "required": [
-      "content",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe init --from <brief> or vibe storyboard revise",
-  "surface": "legacy",
 }
 `;
 
@@ -2501,57 +2362,6 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
     "type": "object",
   },
   "surface": "advanced",
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe generate video-status --describe 1`] = `
-{
-  "cost": "free",
-  "description": "Check video generation status (Grok, Runway, Kling, or Veo)",
-  "name": "generate.video-status",
-  "note": "Provider-task polling primitive retained for compatibility.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "API key (or set XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)",
-        "type": "string",
-      },
-      "output": {
-        "description": "Download video when complete",
-        "type": "string",
-      },
-      "provider": {
-        "default": "grok",
-        "description": "Provider: grok, runway, kling, veo",
-        "enum": [
-          "grok",
-          "runway",
-          "kling",
-          "veo",
-        ],
-        "type": "string",
-      },
-      "task-id": {
-        "description": "Task ID from video generation",
-        "type": "string",
-      },
-      "type": {
-        "default": "text2video",
-        "description": "Task type: text2video or image2video (Kling only)",
-        "type": "string",
-      },
-      "wait": {
-        "description": "Wait for completion",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "task-id",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe status job <job-id> --json",
-  "surface": "legacy",
 }
 `;
 
@@ -2869,54 +2679,6 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect render --descri
 }
 `;
 
-exports[`CLI --describe schemas (drift detection) > vibe inspect review --describe 1`] = `
-{
-  "cost": "low",
-  "description": "Review video quality using Gemini AI and optionally auto-fix issues",
-  "name": "inspect.review",
-  "note": "Project render review now lives under inspect render.",
-  "parameters": {
-    "properties": {
-      "autoApply": {
-        "description": "Automatically apply fixable corrections",
-        "type": "boolean",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "model": {
-        "default": "flash",
-        "description": "Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
-        "type": "string",
-      },
-      "output": {
-        "description": "Output video file path (for auto-apply)",
-        "type": "string",
-      },
-      "source": {
-        "description": "Video file path",
-        "type": "string",
-      },
-      "storyboard": {
-        "description": "Storyboard JSON file for context",
-        "type": "string",
-      },
-      "verify": {
-        "description": "Run verification pass after applying fixes",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "source",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe inspect render --ai",
-  "surface": "legacy",
-}
-`;
-
 exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --describe 1`] = `
 {
   "cost": "low",
@@ -2953,71 +2715,6 @@ exports[`CLI --describe schemas (drift detection) > vibe inspect suggest --descr
     "type": "object",
   },
   "surface": "advanced",
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe inspect video --describe 1`] = `
-{
-  "cost": "low",
-  "description": "Analyze video using Gemini (summarize, Q&A, extract info)",
-  "name": "inspect.video",
-  "note": "Compatibility alias for media understanding.",
-  "parameters": {
-    "properties": {
-      "apiKey": {
-        "description": "Google API key (or set GOOGLE_API_KEY env)",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "end": {
-        "description": "End offset in seconds (for clipping)",
-        "type": "number",
-      },
-      "fields": {
-        "description": "Comma-separated fields to include in output (e.g., response,model)",
-        "type": "string",
-      },
-      "fps": {
-        "description": "Frames per second (default: 1, higher for action)",
-        "type": "number",
-      },
-      "lowRes": {
-        "description": "Use low resolution mode (fewer tokens, longer videos)",
-        "type": "boolean",
-      },
-      "model": {
-        "default": "flash",
-        "description": "Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-* model ID",
-        "type": "string",
-      },
-      "prompt": {
-        "description": "Analysis prompt (e.g., 'Summarize this video')",
-        "type": "string",
-      },
-      "source": {
-        "description": "Video file path or YouTube URL",
-        "type": "string",
-      },
-      "start": {
-        "description": "Start offset in seconds (for clipping)",
-        "type": "number",
-      },
-      "verbose": {
-        "description": "Show token usage",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "source",
-      "prompt",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe inspect media",
-  "surface": "legacy",
 }
 `;
 
@@ -3428,77 +3125,6 @@ exports[`CLI --describe schemas (drift detection) > vibe remix highlights --desc
     "type": "object",
   },
   "surface": "public",
-}
-`;
-
-exports[`CLI --describe schemas (drift detection) > vibe remix regenerate-scene --describe 1`] = `
-{
-  "cost": "very-high",
-  "description": "Regenerate a specific scene in a script-to-video output directory",
-  "name": "remix.regenerate-scene",
-  "note": "Scene regeneration belongs in the project build flow.",
-  "parameters": {
-    "properties": {
-      "aspectRatio": {
-        "default": "16:9",
-        "description": "Aspect ratio: 16:9 | 9:16 | 1:1",
-        "type": "string",
-      },
-      "dryRun": {
-        "description": "Preview parameters without executing",
-        "type": "boolean",
-      },
-      "generator": {
-        "default": "grok",
-        "description": "Video generator: grok | kling | runway | veo",
-        "type": "string",
-      },
-      "imageOnly": {
-        "description": "Only regenerate image",
-        "type": "boolean",
-      },
-      "imageProvider": {
-        "default": "gemini",
-        "description": "Image provider: gemini | openai | grok",
-        "type": "string",
-      },
-      "narrationOnly": {
-        "description": "Only regenerate narration",
-        "type": "boolean",
-      },
-      "project-dir": {
-        "description": "Path to the script-to-video output directory",
-        "type": "string",
-      },
-      "referenceScene": {
-        "description": "Use another scene's image as reference for character consistency",
-        "type": "string",
-      },
-      "retries": {
-        "default": 2,
-        "description": "Number of retries for video generation failures",
-        "type": "number",
-      },
-      "scene": {
-        "description": "Scene number(s) to regenerate (1-based), e.g., 3 or 3,4,5",
-        "type": "string",
-      },
-      "videoOnly": {
-        "description": "Only regenerate video",
-        "type": "boolean",
-      },
-      "voice": {
-        "description": "ElevenLabs voice ID for narration",
-        "type": "string",
-      },
-    },
-    "required": [
-      "project-dir",
-    ],
-    "type": "object",
-  },
-  "replacement": "vibe build <project> --beat <id> --force --json",
-  "surface": "legacy",
 }
 `;
 
@@ -4776,22 +4402,6 @@ exports[`envelope shape (--dry-run --json) > detect scenes (free, basic) 1`] = `
 }
 `;
 
-exports[`envelope shape (--dry-run --json) > generate background (low cost) 1`] = `
-{
-  "command": "generate background",
-  "costUsd": 0,
-  "data": {
-    "params": {
-      "aspect": "16:9",
-      "description": "sunset over ocean",
-    },
-  },
-  "dryRun": true,
-  "elapsedMs": "<elapsedMs>",
-  "warnings": [],
-}
-`;
-
 exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI default) 1`] = `
 {
   "command": "generate image",
@@ -4804,23 +4414,6 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
       "quality": "standard",
       "ratio": "1:1",
       "size": "1024x1024",
-    },
-  },
-  "dryRun": true,
-  "elapsedMs": "<elapsedMs>",
-  "warnings": [],
-}
-`;
-
-exports[`envelope shape (--dry-run --json) > generate speech (medium cost) 1`] = `
-{
-  "command": "generate speech",
-  "costUsd": 0.3,
-  "data": {
-    "params": {
-      "output": "output.mp3",
-      "text": "hello",
-      "voice": "21m00Tcm4TlvDq8ikWAM",
     },
   },
   "dryRun": true,
