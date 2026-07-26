@@ -57,7 +57,7 @@ interface BeatSection {
 const HEADING_RE = /^##\s+(.+?)\s*$/gm;
 const LEADING_CUE_RE = /^(\s*)```ya?ml\s*\n([\s\S]*?)\n```\s*(?:\n|$)/;
 const ALLOWED_CUE_KEYS = new Set<string>(STORYBOARD_CUE_KEYS);
-const STRING_CUE_KEYS = new Set<string>(["narration", "backdrop", "video", "keyframe", "motion", "voice", "music", "asset", "eyebrow", "title", "caption", "kicker", "sub"]);
+const STRING_CUE_KEYS = new Set<string>(["narration", "backdrop", "video", "keyframe", "provider", "motion", "voice", "music", "asset", "eyebrow", "title", "caption", "kicker", "sub"]);
 
 /** Beats beyond this render as static, overstuffed scenes. */
 export const MAX_RECOMMENDED_BEAT_SEC = 15;

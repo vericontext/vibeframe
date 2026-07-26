@@ -139,6 +139,7 @@ export const STORYBOARD_CUE_KEYS = [
   "backdrop",
   "video",
   "keyframe",
+  "provider",
   "motion",
   "voice",
   "music",
@@ -185,6 +186,12 @@ export interface BeatCues {
    * and shapes the HTML that agent writes.
    */
   motion?: string;
+  /**
+   * Video-provider override for this beat (seedance|runway|kling|veo|grok).
+   * Use to pin a face-visible keyframe to a provider that accepts it (e.g.
+   * `provider: runway` — Seedance's likeness filter rejects face i2v inputs).
+   */
+  provider?: string;
   /** Voice override for this beat (overrides project frontmatter `voice`). */
   voice?: string;
   /** Music prompt or a project-relative path to an existing track. */

@@ -280,7 +280,7 @@ asset: "media/logo.png"
 
 ### The cue vocabulary
 
-Fifteen keys, and only these fifteen.
+Sixteen keys, and only these sixteen.
 `vibe storyboard validate` warns on anything else and `vibe storyboard set`
 refuses it, so a typo surfaces instead of being silently ignored.
 
@@ -291,6 +291,7 @@ refuses it, so a typo surfaces instead of being silently ignored.
 | `backdrop` | Image prompt for the backdrop plate, or a path to an existing image. |
 | `video` | Motion prompt for video generation, or a path to existing footage. |
 | `keyframe` | Still prompt. Generates a keyframe, then runs image-to-video on it. |
+| `provider` | Video-provider override for this beat (`seedance`/`runway`/`kling`/`veo`/`grok`). Pin face-visible keyframes to a provider that accepts them. |
 | `music` | Music prompt, or a path to an existing track. |
 | `asset` | A project-relative file this beat reuses instead of generating. |
 | `voice` | Voice override for this beat, above the project frontmatter default. |

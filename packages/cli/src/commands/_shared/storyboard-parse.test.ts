@@ -443,6 +443,7 @@ describe("cue vocabulary is one list", () => {
       backdrop: "b",
       video: "v",
       keyframe: "k",
+      provider: "runway",
       motion: "m",
       voice: "alloy",
       music: "mu",

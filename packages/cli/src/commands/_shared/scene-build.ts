@@ -145,6 +145,7 @@ export type SceneBuildProgressEvent =
   | { type: "video-generated"; beatId: string; path: string; provider: string }
   | { type: "video-pending"; beatId: string; jobId: string; provider: string }
   | { type: "video-failed"; beatId: string; error: string }
+  | { type: "video-fallback"; beatId: string; from: string; to: string; reason: string }
   | { type: "video-skipped"; beatId: string; reason: string }
   | { type: "music-cached"; beatId: string; path: string }
   | { type: "music-generated"; beatId: string; path: string; provider: string }
@@ -2205,6 +2206,14 @@ async function dispatchVideo(
   const prompt = stringOrUndefined(beat.cues?.video) ?? keyframeCue;
   if (!prompt) return { status: "no-cue" };
 
+  // Per-beat override: a `provider:` cue pins this beat's video provider (e.g.
+  // route a face-visible keyframe straight to runway instead of tripping
+  // Seedance's likeness filter). Falls back to the build-level provider.
+  const providerCue = stringOrUndefined(beat.cues?.provider);
+  const requestedProvider = providerCue
+    ? resolveBuildVideoProvider(providerCue)
+    : ctx.videoProvider;
+
   // Resolve this beat's character sheets (generated up front by buildCharacters)
   // into Seedance reference-to-video inputs. Relative paths key the cache (stable
   // across machines); absolute paths are handed to the generator.
@@ -2218,7 +2227,7 @@ async function dispatchVideo(
   const cache = videoCacheDescriptor({
     beatId: beat.id,
     cue: prompt,
-    provider: ctx.videoProvider,
+    provider: requestedProvider,
     duration: normalizeVideoDuration(beat.duration),
     // Keyframe mode keys the clip to the keyframe prompt; refs feed the keyframe,
     // not the clip directly.
@@ -2235,7 +2244,7 @@ async function dispatchVideo(
         kind: "video",
         beatId: beat.id,
         cue: prompt,
-        provider: ctx.videoProvider,
+        provider: requestedProvider,
         options: { duration: normalizeVideoDuration(beat.duration), ratio: "16:9" },
         cacheKey: cache.key,
       })
@@ -2244,7 +2253,7 @@ async function dispatchVideo(
       return {
         status: "cached",
         path: rel,
-        provider: metadata?.provider ?? ctx.videoProvider,
+        provider: metadata?.provider ?? requestedProvider,
         cachePath: metadata?.cachePath ?? cache.path,
         cacheKey: metadata?.cacheKey ?? cache.key,
         metadataPath,
@@ -2261,7 +2270,7 @@ async function dispatchVideo(
       kind: "video",
       beatId: beat.id,
       cue: prompt,
-      provider: ctx.videoProvider,
+      provider: requestedProvider,
       options: { duration: normalizeVideoDuration(beat.duration), ratio: "16:9" },
       cacheKey: cache.key,
       canonicalPath: rel,
@@ -2271,7 +2280,7 @@ async function dispatchVideo(
     return {
       status: "cached",
       path: rel,
-      provider: ctx.videoProvider,
+      provider: requestedProvider,
       cachePath: cache.path,
       cacheKey: cache.key,
       metadataPath,
@@ -2297,31 +2306,60 @@ async function dispatchVideo(
   const keyframeImageAbs = keyframeImageRel ? join(ctx.projectDir, keyframeImageRel) : undefined;
 
   loadSceneBuildEnv(ctx.projectDir);
-  const result = await executeVideoGenerate({
-    prompt,
-    provider: ctx.videoProvider,
-    duration: normalizeVideoDuration(beat.duration),
-    ratio: "16:9",
-    output: abs,
-    wait: false,
-    // Keyframe mode → single init frame (image-to-video); otherwise character
-    // reference-to-video.
-    image: keyframeImageAbs,
-    refImages: keyframeImageAbs
-      ? undefined
-      : characterRefsAbs.length > 0
-        ? characterRefsAbs
-        : undefined,
-    // Build clips are always muted in the composition (a separate narration/music
-    // track carries audio), so the model's generated audio is never used. Disable
-    // it: it's wasted, and Seedance's audio moderation can spuriously fail a beat.
-    generateAudio: false,
-    apiKey: await apiKeyForVideoProvider(ctx.videoProvider, ctx.projectDir),
-  });
+  const generateWith = (provider: BuildVideoProvider, apiKey: string | undefined) =>
+    executeVideoGenerate({
+      prompt,
+      provider,
+      duration: normalizeVideoDuration(beat.duration),
+      ratio: "16:9",
+      output: abs,
+      wait: false,
+      // Keyframe mode → single init frame (image-to-video); otherwise character
+      // reference-to-video.
+      image: keyframeImageAbs,
+      refImages: keyframeImageAbs
+        ? undefined
+        : characterRefsAbs.length > 0
+          ? characterRefsAbs
+          : undefined,
+      // Build clips are always muted in the composition (a separate narration/music
+      // track carries audio), so the model's generated audio is never used. Disable
+      // it: it's wasted, and Seedance's audio moderation can spuriously fail a beat.
+      generateAudio: false,
+      apiKey,
+    });
+  let activeProvider = requestedProvider;
+  let result = await generateWith(
+    activeProvider,
+    await apiKeyForVideoProvider(activeProvider, ctx.projectDir)
+  );
   if (!result.success || !result.taskId) {
     const error = result.error ?? "video generation did not return a task id";
-    ctx.onProgress({ type: "video-failed", beatId: beat.id, error });
-    return { status: "failed", error };
+    // ByteDance rejects face-visible i2v inputs with a deterministic likeness
+    // 422 — retrying the same provider is useless, but Runway accepts the same
+    // keyframe. Fall back automatically when a Runway key is configured.
+    const runwayKey =
+      isLikenessRejection(error) && activeProvider !== "runway"
+        ? await apiKeyForVideoProvider("runway", ctx.projectDir)
+        : undefined;
+    if (!runwayKey) {
+      ctx.onProgress({ type: "video-failed", beatId: beat.id, error });
+      return { status: "failed", error };
+    }
+    ctx.onProgress({
+      type: "video-fallback",
+      beatId: beat.id,
+      from: activeProvider,
+      to: "runway",
+      reason: error,
+    });
+    activeProvider = "runway";
+    result = await generateWith(activeProvider, runwayKey);
+    if (!result.success || !result.taskId) {
+      const fallbackError = result.error ?? "video generation did not return a task id";
+      ctx.onProgress({ type: "video-failed", beatId: beat.id, error: fallbackError });
+      return { status: "failed", error: fallbackError };
+    }
   }
 
   if (result.status === "completed" && existsSync(abs)) {
@@ -2332,7 +2370,7 @@ async function dispatchVideo(
       kind: "video",
       beatId: beat.id,
       cue: prompt,
-      provider: result.provider ?? ctx.videoProvider,
+      provider: result.provider ?? activeProvider,
       options: { duration: normalizeVideoDuration(beat.duration), ratio: "16:9" },
       cacheKey: cache.key,
       canonicalPath: rel,
@@ -2342,12 +2380,12 @@ async function dispatchVideo(
       type: "video-generated",
       beatId: beat.id,
       path: rel,
-      provider: result.provider ?? ctx.videoProvider,
+      provider: result.provider ?? activeProvider,
     });
     return {
       status: "generated",
       path: rel,
-      provider: result.provider ?? ctx.videoProvider,
+      provider: result.provider ?? activeProvider,
       cachePath: cache.path,
       cacheKey: cache.key,
       metadataPath,
@@ -2357,7 +2395,7 @@ async function dispatchVideo(
 
   const job = await createAndWriteJobRecord({
     jobType: "generate-video",
-    provider: result.provider ?? ctx.videoProvider,
+    provider: result.provider ?? activeProvider,
     providerTaskId: result.taskId,
     providerTaskType: keyframeImageAbs ? "image2video" : "text2video",
     status: "running",
@@ -2895,6 +2933,15 @@ function resolveBuildVideoProvider(value: unknown): BuildVideoProvider {
 function resolveBuildMusicProvider(value: unknown): BuildMusicProvider {
   const provider = String(value ?? "elevenlabs").toLowerCase();
   return provider === "replicate" ? "replicate" : "elevenlabs";
+}
+
+/**
+ * ByteDance's platform-wide moderation rejects i2v inputs showing a
+ * recognizable face with a deterministic 422 ("likenesses of real people") —
+ * it applies to AI-generated photoreal faces too, and retrying never helps.
+ */
+export function isLikenessRejection(error: string | undefined): boolean {
+  return typeof error === "string" && /likeness(es)? of real people/i.test(error);
 }
 
 function stringOrUndefined(value: unknown): string | undefined {
