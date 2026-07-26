@@ -277,6 +277,7 @@ Cost tier: _not tagged_
 - `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
+- `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted.
 - `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|veo
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ _(default: `"hd"`)_ - Image quality: standard|hd

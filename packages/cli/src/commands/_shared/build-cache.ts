@@ -52,11 +52,14 @@ export function backdropCacheDescriptor(opts: {
   quality: "standard" | "hd";
   size: string;
   ratio?: string;
+  /** Provider-specific image model override — switching models re-keys the asset. */
+  model?: string;
 }): CacheAssetDescriptor {
   return cacheAssetDescriptor("backdrop", {
     beatId: opts.beatId,
     cue: opts.cue,
     provider: opts.provider,
+    model: opts.model,
     quality: opts.quality,
     size: opts.size,
     ratio: opts.ratio,
@@ -70,11 +73,14 @@ export function characterCacheDescriptor(opts: {
   provider: string;
   quality: "standard" | "hd";
   size: string;
+  /** Provider-specific image model override — switching models re-keys the asset. */
+  model?: string;
 }): CacheAssetDescriptor {
   return cacheAssetDescriptor("character", {
     name: opts.name,
     cue: opts.cue,
     provider: opts.provider,
+    model: opts.model,
     quality: opts.quality,
     size: opts.size,
     ext: "png",
@@ -90,10 +96,13 @@ export function keyframeCacheDescriptor(opts: {
   ratio?: string;
   /** Character sheet paths used as edit references — changing them re-keys the keyframe. */
   characters?: string[];
+  /** Provider-specific image model override — switching models re-keys the asset. */
+  model?: string;
 }): CacheAssetDescriptor {
   return cacheAssetDescriptor("keyframe", {
     beatId: opts.beatId,
     cue: opts.cue,
+    model: opts.model,
     provider: opts.provider,
     quality: opts.quality,
     size: opts.size,

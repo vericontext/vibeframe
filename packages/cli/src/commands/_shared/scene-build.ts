@@ -29,6 +29,8 @@ import {
   GrokProvider,
   OpenAIImageProvider,
   estimateSeedanceVideoCostUsd,
+  type GPTImageModel,
+  type GeminiImageModel,
   type ImageOptions,
 } from "@vibeframe/ai-providers";
 
@@ -273,6 +275,12 @@ export interface SceneBuildOptions {
    * kinetic-type reveals to speech. Pass true to opt out (no transcribe cost).
    */
   skipTranscript?: boolean;
+  /**
+   * Provider-specific image model for backdrops/keyframes/character sheets
+   * (e.g. gemini `flash` | `pro`, openai `gpt-image-2`). Provider default when
+   * omitted; grok has a single model and ignores it.
+   */
+  imageModel?: string;
   /** OpenAI image quality — see `vibe generate image --quality`. */
   imageQuality?: "standard" | "hd";
   /** OpenAI image size. Default 1536x1024 for cinematic 16:9-ish framing. */
@@ -470,6 +478,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     imageProvider: opts.imageProvider,
     imageQuality: opts.imageQuality,
     imageSize: opts.imageSize,
+    imageModel: opts.imageModel,
     videoProvider: opts.videoProvider,
     musicProvider: opts.musicProvider,
     skipTranscript,
@@ -682,6 +691,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
             imageProvider,
             imageSize: opts.imageSize ?? "1536x1024",
             imageQuality: opts.imageQuality ?? "hd",
+            imageModel: opts.imageModel,
             force: opts.force ?? false,
             onProgress,
           }
@@ -705,6 +715,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
           musicProvider,
           imageQuality: opts.imageQuality ?? "hd",
           imageSize: opts.imageSize ?? "1536x1024",
+          imageModel: opts.imageModel,
           skipNarration: opts.skipNarration ?? false,
           skipBackdrop,
           skipVideo: skipVideoAssets,
@@ -1204,6 +1215,7 @@ interface BeatDispatchContext {
   musicProvider: BuildMusicProvider;
   imageQuality: "standard" | "hd";
   imageSize: ImageOptions["size"];
+  imageModel?: string;
   skipNarration: boolean;
   skipBackdrop: boolean;
   skipVideo: boolean;
@@ -1704,6 +1716,7 @@ async function buildCharacters(
       provider: ctx.imageProvider,
       quality: ctx.imageQuality,
       size,
+      model: ctx.imageModel,
     });
 
     if (existsSync(abs) && !ctx.force) {
@@ -1752,6 +1765,7 @@ async function buildCharacters(
         imageProvider: ctx.imageProvider,
         imageSize: size,
         imageQuality: ctx.imageQuality,
+        imageModel: ctx.imageModel,
       },
       imageRatioForSize(size)
     );
@@ -1808,6 +1822,7 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
     quality: ctx.imageQuality,
     size,
     ratio,
+    model: ctx.imageModel,
   });
   const metadataPath = assetMetadataPath("backdrop", beat.id);
   if (existsSync(abs) && !ctx.force) {
@@ -1918,6 +1933,7 @@ interface ImageGenContext {
   imageProvider: BuildImageProvider;
   imageSize: ImageOptions["size"];
   imageQuality: "standard" | "hd";
+  imageModel?: string;
 }
 
 async function generateBackdropImage(
@@ -1942,7 +1958,9 @@ async function generateBackdropImage(
     const provider = new OpenAIImageProvider();
     await provider.initialize({ apiKey });
     const result = await provider.generateImage(prompt, {
-      model: "gpt-image-2",
+      // CLI input is free-form; an alias the provider doesn't know fails the
+      // API call and surfaces as a beat-scoped backdrop/keyframe error.
+      model: (ctx.imageModel as GPTImageModel | undefined) ?? "gpt-image-2",
       size: ctx.imageSize,
       quality: ctx.imageQuality,
     });
@@ -1953,7 +1971,7 @@ async function generateBackdropImage(
     const provider = new GeminiProvider();
     await provider.initialize({ apiKey });
     const result = await provider.generateImage(prompt, {
-      model: "flash",
+      model: (ctx.imageModel as GeminiImageModel | undefined) ?? "flash",
       aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
     });
     return imageBufferFromResult(result);
@@ -2003,7 +2021,7 @@ async function editKeyframeImage(
     const provider = new GeminiProvider();
     await provider.initialize({ apiKey });
     const result = await provider.editImage(sheetBuffers, prompt, {
-      model: "flash",
+      model: (ctx.imageModel as GeminiImageModel | undefined) ?? "flash",
       aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
     });
     return imageBufferFromResult(result);
@@ -2040,6 +2058,7 @@ async function ensureKeyframe(
     size,
     ratio,
     characters: characterRefsRel,
+    model: ctx.imageModel,
   });
 
   if (existsSync(abs) && !ctx.force) {
@@ -2087,6 +2106,7 @@ async function ensureKeyframe(
     imageProvider: ctx.imageProvider,
     imageSize: size,
     imageQuality: ctx.imageQuality,
+    imageModel: ctx.imageModel,
   };
   // Identity-lock prefix: editing a scene from the character sheet drifts the
   // face unless we explicitly pin the facial features. Only applies when we have

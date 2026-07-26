@@ -610,6 +610,10 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "description": "Re-dispatch primitives even when assets already exist",
         "type": "boolean",
       },
+      "imageModel": {
+        "description": "Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted.",
+        "type": "string",
+      },
       "imageProvider": {
         "description": "Image provider: openai|gemini|grok",
         "type": "string",
