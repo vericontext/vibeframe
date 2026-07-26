@@ -163,6 +163,8 @@ export interface CreateBuildPlanOptions {
   imageProvider?: string;
   imageQuality?: "standard" | "hd";
   imageSize?: string;
+  /** Provider-specific image model override — must match executeSceneBuild for cache parity. */
+  imageModel?: string;
   videoProvider?: string;
   musicProvider?: string;
   composer?: string;
@@ -359,6 +361,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             quality: imageQuality,
             size: imageSize,
             ratio: imageRatio,
+            model: opts.imageModel,
           })
         : null;
     const videoCache =
@@ -379,6 +382,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
           quality: imageQuality,
           size: imageSize,
           ratio: imageRatio,
+          model: opts.imageModel,
         })
       : null;
     const musicCache =

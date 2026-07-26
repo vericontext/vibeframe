@@ -49,6 +49,7 @@ export {
   omniProvider,
   isGeminiTextModelAlias,
   resolveGeminiTextModel,
+  type GeminiImageModel,
   type GeminiTextModel,
   type GeminiTextModelAlias,
 } from "./gemini/index.js";
@@ -68,7 +69,7 @@ export {
 } from "./kokoro/index.js";
 export type { KokoroTTSOptions, KokoroTTSResult, KokoroLoadEvent } from "./kokoro/index.js";
 export { OpenAIImageProvider, openaiImageProvider } from "./openai-image/index.js";
-export type { ImageOptions, ImageResult, ImageEditOptions } from "./openai-image/index.js";
+export type { ImageOptions, ImageResult, ImageEditOptions, GPTImageModel } from "./openai-image/index.js";
 export { OpenAiTtsProvider, openaiTtsProvider, OPENAI_TTS_VOICES } from "./openai-tts/index.js";
 export type { OpenAiTtsModel, OpenAiTtsVoice, OpenAiTtsOptions, OpenAiTtsResult } from "./openai-tts/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";

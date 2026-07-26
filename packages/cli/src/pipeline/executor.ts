@@ -371,6 +371,7 @@ async function ensureActionsRegistered(): Promise<void> {
       voice: params.voice as string | undefined,
       imageProvider: params.imageProvider as "openai" | undefined,
       imageQuality: params.quality as "standard" | "hd" | undefined,
+      imageModel: params.imageModel as string | undefined,
       force: params.force as boolean | undefined,
     });
     return {

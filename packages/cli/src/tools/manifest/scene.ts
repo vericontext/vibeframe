@@ -601,6 +601,12 @@ const sceneBuildSchema = z.object({
     .enum(["standard", "hd"])
     .optional()
     .describe("OpenAI image quality. Default 'standard'."),
+  imageModel: z
+    .string()
+    .optional()
+    .describe(
+      "Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted."
+    ),
   imageSize: z
     .enum(["1024x1024", "1536x1024", "1024x1536"])
     .optional()
@@ -744,6 +750,7 @@ export const sceneBuildTool = defineTool({
         videoProvider: args.videoProvider,
         musicProvider: args.musicProvider,
         imageQuality: args.imageQuality,
+        imageModel: args.imageModel,
         imageSize: args.imageSize,
         maxCostUsd: args.maxCostUsd,
         force: args.force,

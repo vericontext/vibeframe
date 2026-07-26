@@ -62,6 +62,10 @@ export const buildCommand = new Command("build")
   .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
   .option("--voice <id>", "Voice id")
   .option("--image-provider <name>", `Image provider: ${VALID_IMAGE_PROVIDERS.join("|")}`)
+  .option(
+    "--image-model <model>",
+    "Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted."
+  )
   .option("--video-provider <name>", `Video provider: ${VALID_VIDEO_PROVIDERS.join("|")}`)
   .option("--music-provider <name>", `Music provider: ${VALID_MUSIC_PROVIDERS.join("|")}`)
   .option("--quality <q>", "Image quality: standard|hd", "hd")
@@ -139,6 +143,7 @@ Advanced equivalent: \`vibe scene build\`.`
       videoProvider,
       musicProvider,
       imageQuality: options.quality,
+      imageModel: options.imageModel,
       imageSize: options.imageSize,
       force: options.force ?? false,
     };
@@ -159,6 +164,7 @@ Advanced equivalent: \`vibe scene build\`.`
         voice: options.voice,
         imageProvider,
         imageQuality: options.quality,
+        imageModel: options.imageModel,
         imageSize: options.imageSize,
         videoProvider,
         musicProvider,
@@ -238,6 +244,7 @@ Advanced equivalent: \`vibe scene build\`.`
       videoProvider,
       musicProvider,
       imageQuality: options.quality,
+      imageModel: options.imageModel,
       imageSize: options.imageSize,
       force: options.force,
       onProgress: (e: SceneBuildProgressEvent) => {
