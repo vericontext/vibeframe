@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    45 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +35 more |
+| **Advanced** |    46 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +36 more |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                         |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
@@ -133,7 +133,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    48 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +40 more          | FFmpeg only, no API call                                                                          |
+| **Free**       |    49 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +41 more          | FFmpeg only, no API call                                                                          |
 | **Low**        |    19 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +11 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     8 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                              | $1–$5 per call                                                                                    |
 | **Very High**  |     3 | `generate.video` · `edit.fill-gaps` · `generate.video-extend`                                                                                                               | $5–$50+ per call                                                                                  |
@@ -1777,6 +1777,19 @@ Cost tier: `free`
 **Parameters:**
 
 - `project-dir` _(string)_ - Project directory
+
+#### `vibe storyboard migrate`
+
+Convert a single STORYBOARD.md into a scenes/ bundle (one file per scene)
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `project-dir` _(string)_ - Project directory
+- `dryRun` _(boolean)_ - Show the files that would be written without touching disk
 
 #### `vibe storyboard move`
 

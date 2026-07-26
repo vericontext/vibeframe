@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import {
@@ -12,7 +12,7 @@ import {
   STORYBOARD_CUE_KEYS,
   validateStoryboardMarkdown,
 } from "./_shared/storyboard-edit.js";
-import { loadStoryboard } from "./_shared/storyboard-source.js";
+import { loadStoryboard, planMigration } from "./_shared/storyboard-source.js";
 import {
   executeStoryboardRevision,
   type StoryboardRevisionResult,
@@ -209,6 +209,73 @@ storyboardCommand
   });
 
 storyboardCommand
+  .command("migrate")
+  .description("Convert a single STORYBOARD.md into a scenes/ bundle (one file per scene)")
+  .argument("[project-dir]", "Project directory", ".")
+  .option("--dry-run", "Show the files that would be written without touching disk")
+  .action(async (projectDirArg: string, options: { dryRun?: boolean }) => {
+    const startedAt = Date.now();
+    const projectDir = resolve(projectDirArg);
+    const loaded = await loadStoryboard(projectDir);
+
+    if (loaded.layout === "missing") {
+      exitWithError(
+        generalError(
+          `No storyboard found in ${projectDir}`,
+          `Run 'vibe init ${projectDir} --from "<brief>"' first.`
+        )
+      );
+    }
+    if (loaded.layout === "bundle") {
+      exitWithError(
+        generalError(
+          `${projectDir} is already a scenes/ bundle.`,
+          `It has ${loaded.scenes.length} scene file(s); nothing to migrate.`
+        )
+      );
+    }
+
+    const plan = planMigration(loaded.markdown);
+    if (plan.scenes.length === 0) {
+      exitWithError(
+        generalError(
+          "STORYBOARD.md has no beats to migrate.",
+          "Add at least one `## Beat <id> - <Title>` section first."
+        )
+      );
+    }
+
+    if (!options.dryRun) {
+      await mkdir(join(projectDir, "scenes"), { recursive: true });
+      for (const file of plan.scenes) {
+        await writeFile(join(projectDir, file.path), file.contents, "utf-8");
+      }
+      // STORYBOARD.md is rewritten last: if a scene write fails, the original
+      // single-file storyboard is still the source of truth on disk.
+      await writeFile(join(projectDir, plan.storyboard.path), plan.storyboard.contents, "utf-8");
+    }
+
+    if (isJsonMode()) {
+      outputSuccess({
+        command: "storyboard migrate",
+        startedAt,
+        data: {
+          projectDir,
+          dryRun: !!options.dryRun,
+          beats: plan.beatIds,
+          written: [plan.storyboard.path, ...plan.scenes.map((f) => f.path)],
+        },
+      });
+      return;
+    }
+    const verb = options.dryRun ? "Would write" : "Wrote";
+    console.log(`${verb} ${plan.scenes.length} scene file(s):`);
+    for (const file of plan.scenes) console.log(`  ${file.path}`);
+    console.log(`${verb} ${plan.storyboard.path} (project frontmatter + direction only)`);
+    if (options.dryRun) console.log("\nRe-run without --dry-run to apply.");
+  });
+
+storyboardCommand
   .command("validate")
   .description("Validate cue blocks and beat ids")
   .argument("[project-dir]", "Project directory", ".")
@@ -319,4 +386,5 @@ applyTiers(storyboardCommand, {
   move: "free",
   revise: "low",
   validate: "free",
+  migrate: "free",
 });
