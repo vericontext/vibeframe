@@ -229,7 +229,7 @@ Cost tier: _not tagged_
 
 #### `vibe assemble`
 
-Mux a scene project's audio onto an already-rendered (silent) video
+Mux a scene project's audio onto a rendered video, or crossfade-cut its generated clips (--footage)
 
 Product surface: `advanced`
 Note: Standalone audio-mux stage; `render` does this automatically.
@@ -242,6 +242,12 @@ Cost tier: _not tagged_
 - `video` _(string)_ _(default: `"preview.mp4"`)_ - Rendered video to add audio to (default: preview.mp4)
 - `root` _(string)_ _(default: `"index.html"`)_ - Root composition file
 - `format` _(string)_ _(default: `"mp4"`)_ - Output container: mp4|webm|mov
+- `footage` _(boolean)_ - Assemble assets/video-<beat>.mp4 clips into one cinematic cut (no HTML render)
+- `output` _(string)_ - Footage-cut output path (default: renders/footage.mp4)
+- `transition` _(number)_ _(default: `0.5`)_ - Footage crossfade length in seconds
+- `fade` _(number)_ _(default: `0.6`)_ - Footage fade-from/to-black length in seconds
+- `music` _(string)_ - Footage music bed: a file path or "none" (default: auto-detect assets/music\*)
+- `musicVolume` _(string)_ _(default: `"0.35"`)_ - Footage music-bed volume before ducking (0-1)
 - `dryRun` _(boolean)_ - Preview parameters without muxing
 
 #### `vibe build`
