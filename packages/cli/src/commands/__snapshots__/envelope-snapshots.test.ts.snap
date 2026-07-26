@@ -77,6 +77,10 @@ exports[`CLI --describe schemas (drift detection) > vibe assemble --describe 1`]
         "description": "Footage fade-from/to-black length in seconds",
         "type": "number",
       },
+      "finish": {
+        "description": "Footage cinematic finish: vignette + film grain before the fades",
+        "type": "boolean",
+      },
       "footage": {
         "description": "Assemble assets/video-<beat>.mp4 clips into one cinematic cut (no HTML render)",
         "type": "boolean",

@@ -1094,9 +1094,12 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   if (composer === "footage" && shouldRunStage(selectedStage, "render")) {
     // Footage composer: the render IS the one-pass FFmpeg assembly — no HTML,
     // no browser capture. assemble-report.json carries the cut's anatomy.
+    // The finish pass (vignette + grain) is on by default here: this composer
+    // encodes the cinematic playbook; run `vibe assemble --footage` directly
+    // for an unfinished cut.
     onProgress({ type: "phase-start", phase: "render" });
     onProgress({ type: "render-start" });
-    const assembled = await executeFootageAssemble({ projectDir });
+    const assembled = await executeFootageAssemble({ projectDir, finish: true });
     if (!assembled.success) {
       stageReports.render.status = "failed";
       const renderRetryWith = unique([

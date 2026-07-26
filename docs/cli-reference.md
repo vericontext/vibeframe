@@ -248,6 +248,7 @@ Cost tier: _not tagged_
 - `fade` _(number)_ _(default: `0.6`)_ - Footage fade-from/to-black length in seconds
 - `music` _(string)_ - Footage music bed: a file path or "none" (default: auto-detect assets/music\*)
 - `musicVolume` _(string)_ _(default: `"0.35"`)_ - Footage music-bed volume before ducking (0-1)
+- `finish` _(boolean)_ - Footage cinematic finish: vignette + film grain before the fades
 - `dryRun` _(boolean)_ - Preview parameters without muxing
 
 #### `vibe build`

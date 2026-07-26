@@ -1053,6 +1053,7 @@ describe("footage composer", () => {
     fadeSec: 0.6,
     beats: [],
     music: null,
+    finish: { filters: ["vignette=angle=PI/5", "noise=alls=7:allf=t"] },
     warnings: ["Beat \"close\": narration outruns the clip; last frame held for 1s."],
     nextActions: [],
   };
@@ -1081,6 +1082,10 @@ describe("footage composer", () => {
     expect(r.warnings).toEqual(expect.arrayContaining([expect.stringContaining("last frame held")]));
     // The HTML render path never runs.
     expect(executeSceneRender).not.toHaveBeenCalled();
+    // The footage composer encodes the playbook: finish pass on by default.
+    expect(executeFootageAssemble).toHaveBeenCalledWith(
+      expect.objectContaining({ finish: true })
+    );
     // Backdrops are composition backgrounds — pure waste with no HTML render.
     const hook = r.beats.find((b) => b.beatId === "hook");
     expect(hook?.backdropStatus).toBe("skipped");
