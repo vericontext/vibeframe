@@ -25,7 +25,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, resolve, sep } from "node:path";
 
 import { detectedAgentHosts, type AgentHostId } from "../utils/agent-host-detect.js";
 import {
@@ -38,7 +38,7 @@ import {
 } from "./_shared/scene-project.js";
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
-import { writeStoryboardAsBundle } from "./_shared/storyboard-source.js";
+import { rewriteBundleFromMarkdown } from "./_shared/storyboard-source.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
 import {
   HYPERFRAMES_SKILL_INSTALL_COMMAND,
@@ -397,11 +397,21 @@ async function runSceneInit(
     const designPath = resolve(projectDir, "DESIGN.md");
     if (options.force || result.created.includes(storyboardPath) || !existsSync(storyboardPath)) {
       // The draft is generated as one document and split into scenes/ by the
-      // same conversion `vibe storyboard migrate` runs.
-      const plan = await writeStoryboardAsBundle(projectDir, draft.storyboardMd);
+      // same conversion `vibe storyboard migrate` runs. Rewrite semantics,
+      // not write: the scaffold has already seeded starter scenes, and any
+      // of them the draft does not name must be deleted, or they survive
+      // beside the draft (a fresh `init --from` with a 4-beat draft used to
+      // leave the starter's `03-close.md` next to `03-mechanism.md` - five
+      // scenes, two of them numbered 03).
+      const plan = await rewriteBundleFromMarkdown(projectDir, draft.storyboardMd);
       if (!result.created.includes(storyboardPath)) result.created.push(storyboardPath);
-      for (const file of plan.scenes) {
-        const scenePath = resolve(projectDir, file.path);
+      const planScenePaths = new Set(plan.scenes.map((file) => resolve(projectDir, file.path)));
+      const scenesDir = resolve(projectDir, "scenes") + sep;
+      // Starter scenes the rewrite deleted must leave the created list too.
+      result.created = result.created.filter(
+        (path) => !path.startsWith(scenesDir) || planScenePaths.has(path)
+      );
+      for (const scenePath of planScenePaths) {
         if (!result.created.includes(scenePath)) result.created.push(scenePath);
       }
     }
