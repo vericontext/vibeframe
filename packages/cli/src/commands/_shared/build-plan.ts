@@ -37,7 +37,7 @@ import {
   type ParsedStoryboard,
   type BeatCues,
 } from "./storyboard-parse.js";
-import { loadStoryboardMarkdown } from "./storyboard-source.js";
+import { loadStoryboard, strayBeatIssues } from "./storyboard-source.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
@@ -249,9 +249,16 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     });
   }
 
-  const storyboardMd = await loadStoryboardMarkdown(projectDir);
+  const loaded = await loadStoryboard(projectDir);
+  const storyboardMd = loaded.markdown;
   const validation = validateStoryboardMarkdown(storyboardMd);
-  const validationIssues: StoryboardValidationIssue[] = [...validation.issues];
+  // Stray `## Beat` headings in a bundle's STORYBOARD.md are stripped before
+  // parsing, so the plan has to be told about them separately or it would
+  // price a video the project does not actually describe.
+  const validationIssues: StoryboardValidationIssue[] = [
+    ...strayBeatIssues(loaded.strayBeatIds),
+    ...validation.issues,
+  ];
   const parsed = parseStoryboard(storyboardMd);
   let sourceBeats = parsed.beats;
   if (opts.beat) {

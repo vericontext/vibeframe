@@ -12,6 +12,7 @@ import {
   setSceneCue,
   sceneFilename,
   sceneToBeatSection,
+  strayBeatIssues,
 } from "./storyboard-source.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 
@@ -353,5 +354,79 @@ describe("bundle writes", () => {
     await bundle();
     const order = await moveScene(dir, { beatId: "hook", afterBeatId: "hook" });
     expect(order).toEqual(["hook", "proof", "close"]);
+  });
+});
+
+describe("stray beats in a bundle's STORYBOARD.md", () => {
+  const HEAD_WITH_BEAT = [
+    "---",
+    "type: Storyboard",
+    'title: "Launch"',
+    "---",
+    "",
+    "# Launch - Storyboard",
+    "",
+    "Direction prose.",
+    "",
+    "## Beat leftover - Leftover",
+    "",
+    "```yaml",
+    "duration: 9",
+    "```",
+    "",
+    "A beat that was never moved into scenes/.",
+    "",
+  ].join("\n");
+
+  it("does not merge them into the timeline", async () => {
+    await writeFile(join(dir, "STORYBOARD.md"), HEAD_WITH_BEAT, "utf-8");
+    await mkdir(join(dir, "scenes"), { recursive: true });
+    await writeFile(join(dir, "scenes", "01-hook.md"), "---\nduration: 5\n---\n\nHook.", "utf-8");
+
+    const loaded = await loadStoryboard(dir);
+    const ids = parseStoryboard(loaded.markdown).beats.map((b) => b.id);
+    expect(ids).toEqual(["hook"]);
+    expect(ids).not.toContain("leftover");
+  });
+
+  it("reports them so they cannot pass unnoticed", async () => {
+    await writeFile(join(dir, "STORYBOARD.md"), HEAD_WITH_BEAT, "utf-8");
+    await mkdir(join(dir, "scenes"), { recursive: true });
+    await writeFile(join(dir, "scenes", "01-hook.md"), "---\nduration: 5\n---\n\nHook.", "utf-8");
+
+    const loaded = await loadStoryboard(dir);
+    expect(loaded.strayBeatIds).toEqual(["leftover"]);
+    const issues = strayBeatIssues(loaded.strayBeatIds);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].severity).toBe("error");
+    expect(issues[0].code).toBe("STRAY_BEATS_IN_STORYBOARD");
+    expect(issues[0].message).toContain("scenes/");
+  });
+
+  it("keeps the frontmatter and prose that precede the stray heading", async () => {
+    await writeFile(join(dir, "STORYBOARD.md"), HEAD_WITH_BEAT, "utf-8");
+    await mkdir(join(dir, "scenes"), { recursive: true });
+    await writeFile(join(dir, "scenes", "01-hook.md"), "---\nduration: 5\n---\n\nHook.", "utf-8");
+
+    const parsed = parseStoryboard((await loadStoryboard(dir)).markdown);
+    expect(parsed.frontmatter?.title).toBe("Launch");
+    expect(parsed.global).toContain("Direction prose.");
+    expect(parsed.global).not.toContain("never moved into scenes/");
+  });
+
+  it("stays empty for a clean bundle and for the single layout", async () => {
+    await writeBundle([["01-hook.md", "---\nduration: 5\n---\n\nHook."]]);
+    expect((await loadStoryboard(dir)).strayBeatIds).toEqual([]);
+
+    await rm(join(dir, "scenes"), { recursive: true, force: true });
+    await writeFile(
+      join(dir, "STORYBOARD.md"),
+      "## Beat hook - Hook\n\n```yaml\nduration: 5\n```\n\nBody.\n",
+      "utf-8"
+    );
+    const single = await loadStoryboard(dir);
+    expect(single.layout).toBe("single");
+    expect(single.strayBeatIds).toEqual([]);
+    expect(parseStoryboard(single.markdown).beats.map((b) => b.id)).toEqual(["hook"]);
   });
 });
