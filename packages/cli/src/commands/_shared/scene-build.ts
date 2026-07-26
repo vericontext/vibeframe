@@ -36,6 +36,7 @@ import { getAudioDuration } from "../../utils/audio.js";
 import { ffmpegToolsAvailable } from "./ffmpeg-gate.js";
 import { mapWithConcurrency } from "../../utils/concurrency.js";
 import { composeAiVideo } from "./compose-aivideo.js";
+import { executeFootageAssemble, type FootageAssembleReport } from "./footage-assemble.js";
 import {
   composerDefaultForKind,
   isSceneKind,
@@ -245,7 +246,7 @@ export interface SceneBuildOptions {
    * based on env keys (claude > gemini > openai). Pass an explicit value
    * to require that provider's key.
    */
-  composer?: ComposerProvider | "template";
+  composer?: ComposerProvider | "template" | "footage";
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   skipRender?: boolean;
@@ -358,6 +359,12 @@ export interface SceneBuildResult {
   outputPath?: string;
   renderResult?: SceneRenderResult;
   /**
+   * The footage composer's cut anatomy (offsets, extensions, clamps) — also
+   * persisted as `assemble-report.json`. Present only when
+   * `composer === "footage"` reached the render phase.
+   */
+  footageReport?: FootageAssembleReport;
+  /**
    * Populated only in agent mode when {@link phase} === `"needs-author"`.
    * The host agent should consume this to write each beat's HTML, then
    * re-run `vibe scene build`.
@@ -411,17 +418,24 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   const projectKind = readProjectKindSync(projectDir);
   const kindPolicy = kindAssetPolicy(projectKind);
   const composer = opts.composer ?? composerDefaultForKind(projectKind);
-  const skipBackdrop = opts.skipBackdrop ?? kindPolicy.skipBackdrop ?? false;
+  // The footage composer never renders HTML, so backdrops (composition
+  // backgrounds) would be paid images nothing ever shows. Explicit flag wins.
+  const skipBackdrop =
+    opts.skipBackdrop ?? (composer === "footage" ? true : (kindPolicy.skipBackdrop ?? false));
   const skipKeyframe = opts.skipKeyframe ?? kindPolicy.skipKeyframe ?? false;
   // Asset-stage video skip (don't generate i2v clips). Distinct from the
   // explicit `--skip-video` render-stop below: a `product`/`motion` kind has no
   // i2v but still RENDERS (backdrops / graphics), so only the explicit flag
   // stops the render.
   const skipVideoAssets = opts.skipVideo ?? kindPolicy.skipVideo ?? false;
+  // The footage cut has no caption layer, so word timings default off there.
+  const skipTranscript = opts.skipTranscript ?? composer === "footage";
 
-  // The deterministic template composer is a batch (CLI-authored) path — it must
-  // not route to agent/needs-author even when an agent host is detected.
-  const mode = composer === "template" ? "batch" : resolveSceneBuildMode(opts);
+  // The deterministic template/footage composers are batch (CLI-authored) paths
+  // — they must not route to agent/needs-author even when an agent host is
+  // detected.
+  const mode =
+    composer === "template" || composer === "footage" ? "batch" : resolveSceneBuildMode(opts);
   const selectedStage = opts.stage ?? (opts.skipRender ? "sync" : "all");
   // --skip-video produces keyframe stills (an image storyboard) for review, not
   // a final video. The composition would reference <video> clips that were never
@@ -458,6 +472,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     imageSize: opts.imageSize,
     videoProvider: opts.videoProvider,
     musicProvider: opts.musicProvider,
+    skipTranscript,
     composer,
     force: opts.force,
   });
@@ -798,7 +813,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   // never fails the build. Narration paths/freshness come from `beatOutcomes`
   // (fresh asset run OR `collectExistingBeatOutcomes` on disk), so this works
   // standalone via `--stage transcript`.
-  if (shouldRunStage(selectedStage, "transcript") && !(opts.skipTranscript ?? false)) {
+  if (shouldRunStage(selectedStage, "transcript") && !skipTranscript) {
     const { statuses } = await runTranscriptStage(activeBeats, beatOutcomes, {
       projectDir,
       force: opts.force ?? false,
@@ -875,6 +890,10 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       // All compositions present — fall through to render (no compose call).
       onProgress({ type: "phase-start", phase: "compose" });
       stageReports.compose.status = "done";
+    } else if (composer === "footage") {
+      // Footage composer: no HTML is authored at all — the cut is assembled
+      // straight from the generated clips in the render phase.
+      stageReports.compose.status = "skipped";
     } else if (composer === "template") {
       // Deterministic AI-video composer: concat clips → one bg video +
       // transparent lower-third overlays. No LLM, no multi-video render race.
@@ -985,7 +1004,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   // Both batch and agent modes need this — agents that just authored
   // composition HTML still need them referenced from the root index for
   // the producer to find them.
-  if (shouldRunStage(selectedStage, "sync")) {
+  if (composer !== "footage" && shouldRunStage(selectedStage, "sync")) {
     if (!existsSync(join(projectDir, "index.html"))) {
       await scaffoldSceneProject({
         dir: projectDir,
@@ -1060,7 +1079,54 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   // ── Phase 3: render (optional) ────────────────────────────────────────
   let outputPath: string | undefined;
   let renderResult: SceneRenderResult | undefined;
-  if (shouldRunStage(selectedStage, "render")) {
+  let footageReport: FootageAssembleReport | undefined;
+  if (composer === "footage" && shouldRunStage(selectedStage, "render")) {
+    // Footage composer: the render IS the one-pass FFmpeg assembly — no HTML,
+    // no browser capture. assemble-report.json carries the cut's anatomy.
+    onProgress({ type: "phase-start", phase: "render" });
+    onProgress({ type: "render-start" });
+    const assembled = await executeFootageAssemble({ projectDir });
+    if (!assembled.success) {
+      stageReports.render.status = "failed";
+      const renderRetryWith = unique([
+        ...retryWith,
+        `vibe build ${projectDir} --stage assets --json`,
+        `vibe assemble ${projectDir} --footage --dry-run --json`,
+      ]);
+      stageReports.render.retryWith = unique([
+        ...stageReports.render.retryWith,
+        ...renderRetryWith,
+      ]);
+      return finishBuildResult({
+        success: false,
+        phase: "failed",
+        mode,
+        selectedStage,
+        code: "FOOTAGE_ASSEMBLE_FAILED",
+        error: `footage assemble failed: ${assembled.error ?? "unknown"}`,
+        message: `footage assemble failed: ${assembled.error ?? "unknown"}`,
+        suggestion:
+          assembled.suggestion ??
+          "Ensure every beat has a generated clip (run --stage assets), then retry.",
+        recoverable: true,
+        beats: beatOutcomes,
+        estimatedCostUsd: buildPlan.estimatedCostUsd,
+        costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
+        stageReports,
+        sceneRepair,
+        warnings,
+        retryWith: renderRetryWith,
+        status: "failed",
+        currentStage: "render",
+        totalLatencyMs: Date.now() - startedAt,
+      });
+    }
+    outputPath = assembled.outputPath;
+    footageReport = assembled.report;
+    warnings.push(...(assembled.report?.warnings ?? []));
+    onProgress({ type: "render-done", outputPath });
+    stageReports.render.status = "done";
+  } else if (shouldRunStage(selectedStage, "render")) {
     onProgress({ type: "phase-start", phase: "render" });
     onProgress({ type: "render-start" });
     renderResult = await executeSceneRender({ projectDir });
@@ -1116,6 +1182,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
     beats: beatOutcomes,
     outputPath,
     renderResult,
+    footageReport,
     estimatedCostUsd: buildPlan.estimatedCostUsd,
     costUsd: stageReports.assets.costUsd + stageReports.compose.costUsd,
     stageReports,

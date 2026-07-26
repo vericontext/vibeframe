@@ -43,7 +43,7 @@ export const buildCommand = new Command("build")
   .option("--mode <mode>", "Retained for compatibility; scene HTML is always authored by your host agent unless --composer template is set", "auto")
   .option(
     "--composer <provider>",
-    "Set to `template` for the deterministic AI-video composer (concat bg + lower-thirds, no model). Omit to let the host agent author each scene."
+    "Set to `template` for the deterministic AI-video composer (concat bg + lower-thirds, no model) or `footage` for the crossfade footage cut (clips + narration + music, no HTML render). Omit to let the host agent author each scene."
   )
   .option("--max-cost <usd>", "Fail before provider spend when estimated cost exceeds this USD cap")
   .option("--skip-narration", "Don't dispatch TTS even when beats declare narration cues")

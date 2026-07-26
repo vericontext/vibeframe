@@ -599,7 +599,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "composer": {
-        "description": "Set to \`template\` for the deterministic AI-video composer (concat bg + lower-thirds, no model). Omit to let the host agent author each scene.",
+        "description": "Set to \`template\` for the deterministic AI-video composer (concat bg + lower-thirds, no model) or \`footage\` for the crossfade footage cut (clips + narration + music, no HTML render). Omit to let the host agent author each scene.",
         "type": "string",
       },
       "dryRun": {
