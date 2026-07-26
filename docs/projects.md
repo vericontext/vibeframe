@@ -103,6 +103,137 @@ vibe host setup claude-desktop ~/dev/videos --write
 
 `vibe scene ...` is the advanced namespace. It remains useful when you want to add a single HTML scene, lint scene files, install agent rules, or render a scene project with low-level options.
 
+## Build And Review Reports
+
+Two JSON files hold the state the outer loop reads between steps.
+Both are written into the project root, both are overwritten on every run, and
+both are safe to delete - the next `build` or `inspect` rewrites them.
+
+| File                 | Written by                                     | Answers                                                              |
+| -------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| `build-report.json`  | `vibe build`                                   | What did this build produce, what did it cost, what stage is it in?  |
+| `review-report.json` | `vibe inspect project`, `vibe inspect render`  | What is wrong, who fixes it, and what command fixes it?              |
+
+`vibe build --dry-run` does not write a report.
+It prices the build and returns the plan on stdout instead, so a dry run never
+overwrites the record of your last real build.
+`vibe render` additionally writes `render-report.json` with the latest render
+output.
+
+### build-report.json
+
+```jsonc
+{
+  "schemaVersion": "1",
+  "kind": "build",
+  "project": "/abs/path/to/my-video",
+  "phase": "needs-author",        // done | assets-only | transcript-only | pending-jobs
+                                  // | compose-only | sync-only | render-only
+                                  // | needs-author | failed
+  "status": "needs-author",       // done | running | needs-author | failed | ready
+  "currentStage": "compose",      // assets | transcript | compose | sync | render | done
+  "mode": "agent",
+  "selectedStage": "all",         // whatever --stage asked for
+  "success": true,                // the run did not error; NOT "the video is finished"
+  "estimatedCostUsd": 0,
+  "costUsd": 0,                   // what was actually spent
+  "beatSummary": { "total": 3, "assetsReady": 3, "compositionsReady": 0,
+                   "needsAuthor": ["hook", "proof", "close"] },
+  "stageReports": {               // one entry per stage, always all five
+    "assets":     { "status": "done",         "costUsd": 0, "warnings": [], "retryWith": [] },
+    "transcript": { "status": "skipped",      "costUsd": 0, "warnings": [], "retryWith": [] },
+    "compose":    { "status": "needs-author", "costUsd": 0, "warnings": [], "retryWith": [] },
+    "sync":       { "status": "skipped",      "costUsd": 0, "warnings": [], "retryWith": [] },
+    "render":     { "status": "skipped",      "costUsd": 0, "warnings": [], "retryWith": [] }
+  },
+  "beats": [ /* per-beat detail, see below */ ],
+  "jobs": [],                     // async provider tasks still in flight; poll with `vibe status job`
+  "sceneRepair": { "ran": false, "stage": null, "status": "skipped",
+                   "score": null, "fixed": [], "remainingIssues": [], "retryWith": [] },
+  "providerResolution": [],       // which provider each stage actually resolved to
+  "warnings": ["--skip-video: skipped render (no clips to capture). ..."],
+  "retryWith": ["vibe build . --stage sync --json"],
+  "totalLatencyMs": 1234
+}
+```
+
+Read `status` and `currentStage` first: together they say where the project
+stopped and what the next stage is.
+`success: true` only means the command itself did not error - a build can
+succeed and still leave `status: "needs-author"`, which is the normal state
+after the asset stage when your agent has not written the scene HTML yet.
+
+Each entry in `beats[]` carries `id`, `startSec`, `endSec`,
+`sceneDurationSec`, a nested object per asset kind (`narration`, `backdrop`,
+`video`, `music`) with `prompt`/`provider`/`path`/`status`/`sourcePath`/cache
+metadata, and a `composition` object:
+
+```jsonc
+"composition": { "path": "compositions/scene-hook.html", "exists": false, "status": "needs-author" }
+```
+
+Flat `narrationStatus`/`backdropStatus`/`videoStatus`/`musicStatus` fields are
+kept alongside the nested objects for older consumers.
+
+### review-report.json
+
+```jsonc
+{
+  "schemaVersion": "1",
+  "kind": "review",
+  "project": "/abs/path/to/my-video",
+  "mode": "project",              // project | render
+  "status": "fail",               // pass | warn | fail
+  "score": 0,
+  "summary": { "issueCount": 10, "errorCount": 4, "warningCount": 6, "infoCount": 0,
+               "fixOwners": { "vibe": 5, "hostAgent": 5 } },
+  "sourceReports": ["STORYBOARD.md", "DESIGN.md", "vibe.config.json"],
+  "issues": [ /* see below */ ],
+  "nextActions": [ /* the pre-classified fix list - prefer this */ ],
+  "retryWith": ["..."],           // compatibility fallback only
+  "reportPath": "/abs/path/to/my-video/review-report.json"
+}
+```
+
+Each issue names its own owner and carries the actions that would resolve it:
+
+```jsonc
+{
+  "severity": "warning",          // error | warning | info
+  "code": "DESIGN_PLACEHOLDER_FIELD",
+  "message": "DESIGN.md still contains placeholder palette entries.",
+  "file": "DESIGN.md",
+  "fixOwner": "host-agent",       // vibe | host-agent
+  "suggestedFix": "Fill DESIGN.md or rerun `vibe init --from ... --visual-style <name>`.",
+  "actions": [ /* same shape as nextActions entries */ ]
+}
+```
+
+`nextActions` is the list to drive from, not `issues` - it is deduplicated
+across issues and pre-classified:
+
+```jsonc
+{
+  "id": "command:vibe-build-my-video",
+  "kind": "command",              // command | agent | manual
+  "label": "Sync the project root composition",
+  "command": "vibe build my-video --stage sync --json",
+  "fixOwner": "vibe",
+  "costTier": "free",             // free | low | high | very-high | unknown
+  "safeToAutoRun": true,
+  "requiresConfirmation": false,
+  "reason": "The root composition is missing or could not be verified.",
+  "sourceIssueCodes": ["MISSING_ROOT_COMPOSITION"]
+}
+```
+
+`kind: "manual"` entries carry no `command` - they need a human or the host
+agent to edit a source file. `kind: "agent"` entries carry an `agentPrompt`
+instead.
+
+How to drive the loop from these two files is in
+[Host Agent Loop](#host-agent-loop) above.
+
 ## Project File Roles
 
 Use the folders consistently:
