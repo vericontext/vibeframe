@@ -9,6 +9,7 @@ import {
   loadStoryboard,
   moveScene,
   planMigration,
+  rewriteBundleFromMarkdown,
   setSceneCue,
   sceneFilename,
   sceneToBeatSection,
@@ -490,5 +491,87 @@ describe("upsertScene", () => {
     const { action } = await upsertScene(dir, { beatId: "first", duration: 4 });
     expect(action).toBe("appended");
     expect((await listSceneFiles(dir)).map((s) => s.filename)).toEqual(["01-first.md"]);
+  });
+});
+
+describe("rewriteBundleFromMarkdown", () => {
+  const revised = (ids: string[]) =>
+    [
+      "---",
+      "type: Storyboard",
+      'title: "Launch"',
+      "---",
+      "",
+      "# Launch",
+      "",
+      ...ids.flatMap((id) => [
+        `## Beat ${id} - ${id}`,
+        "",
+        "```yaml",
+        "duration: 5",
+        `narration: "${id} line"`,
+        "```",
+        "",
+        `${id} body.`,
+        "",
+      ]),
+    ].join("\n");
+
+  it("replaces the scenes with the ones the document names", async () => {
+    await writeBundle([
+      ["01-hook.md", "---\ntype: Scene\nduration: 1\n---\n\nOld hook."],
+      ["02-proof.md", "---\ntype: Scene\nduration: 1\n---\n\nOld proof."],
+    ]);
+    await rewriteBundleFromMarkdown(dir, revised(["hook", "proof"]));
+
+    const scenes = await listSceneFiles(dir);
+    expect(scenes.map((s) => s.id)).toEqual(["hook", "proof"]);
+    const hook = await readFile(join(dir, "scenes", "01-hook.md"), "utf-8");
+    expect(hook).toContain("duration: 5");
+    expect(hook).toContain("hook body.");
+    expect(hook).not.toContain("Old hook.");
+  });
+
+  it("deletes scene files the revision dropped", async () => {
+    await writeBundle([
+      ["01-hook.md", "---\ntype: Scene\nduration: 1\n---\n\nHook."],
+      ["02-proof.md", "---\ntype: Scene\nduration: 1\n---\n\nProof."],
+      ["03-close.md", "---\ntype: Scene\nduration: 1\n---\n\nClose."],
+    ]);
+    await rewriteBundleFromMarkdown(dir, revised(["hook", "close"]));
+
+    const scenes = await listSceneFiles(dir);
+    expect(scenes.map((s) => s.id)).toEqual(["hook", "close"]);
+    // Not merely unreferenced - gone, so it cannot keep playing.
+    const { readdir } = await import("node:fs/promises");
+    expect(await readdir(join(dir, "scenes"))).toEqual(["01-hook.md", "02-close.md"]);
+  });
+
+  it("renumbers when the revision reorders", async () => {
+    await writeBundle([
+      ["01-a.md", "---\ntype: Scene\nduration: 1\n---\n\nA."],
+      ["02-b.md", "---\ntype: Scene\nduration: 1\n---\n\nB."],
+    ]);
+    await rewriteBundleFromMarkdown(dir, revised(["b", "a"]));
+    expect((await listSceneFiles(dir)).map((s) => s.filename)).toEqual(["01-b.md", "02-a.md"]);
+  });
+
+  it("leaves STORYBOARD.md free of beats afterwards", async () => {
+    await writeBundle([["01-hook.md", "---\ntype: Scene\nduration: 1\n---\n\nHook."]]);
+    await rewriteBundleFromMarkdown(dir, revised(["hook", "extra"]));
+
+    const head = await readFile(join(dir, "STORYBOARD.md"), "utf-8");
+    expect(head).not.toContain("## Beat");
+    expect((await loadStoryboard(dir)).strayBeatIds).toEqual([]);
+  });
+
+  it("round-trips: the rewritten bundle parses to the revised beats", async () => {
+    await writeBundle([["01-hook.md", "---\ntype: Scene\nduration: 1\n---\n\nHook."]]);
+    const md = revised(["hook", "proof", "close"]);
+    await rewriteBundleFromMarkdown(dir, md);
+
+    const after = parseStoryboard((await loadStoryboard(dir)).markdown);
+    expect(after.beats.map((b) => b.id)).toEqual(["hook", "proof", "close"]);
+    expect(after.beats.every((b) => b.duration === 5)).toBe(true);
   });
 });
