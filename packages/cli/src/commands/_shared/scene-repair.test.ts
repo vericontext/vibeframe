@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -82,23 +82,19 @@ describe("executeSceneRepair", () => {
       "<template></template>",
       "utf-8"
     );
+    // The scaffold above is a scenes/ bundle; replace its starter scenes with
+    // the two this test needs. Beats written into STORYBOARD.md would be
+    // ignored (and reported) now that the project is a bundle.
+    await rm(resolve(dir, "scenes"), { recursive: true, force: true });
+    await mkdir(resolve(dir, "scenes"), { recursive: true });
     await writeFile(
-      resolve(dir, "STORYBOARD.md"),
-      `# Root sync
-
-## Beat hook - Hook
-
-\`\`\`yaml
-duration: 3
-narration: "Hello."
-\`\`\`
-
-## Beat close - Close
-
-\`\`\`yaml
-duration: 2
-\`\`\`
-`,
+      resolve(dir, "scenes", "01-hook.md"),
+      `---\ntype: Scene\nduration: 3\nnarration: "Hello."\n---\n\nHook.\n`,
+      "utf-8"
+    );
+    await writeFile(
+      resolve(dir, "scenes", "02-close.md"),
+      `---\ntype: Scene\nduration: 2\n---\n\nClose.\n`,
       "utf-8"
     );
     await writeFile(

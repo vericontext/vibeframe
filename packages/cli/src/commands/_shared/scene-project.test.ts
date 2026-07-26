@@ -390,6 +390,10 @@ describe("scaffoldSceneProject", () => {
       "SCRIPT.md",
       "CHARACTERS.md",
       ".gitignore",
+      // The starter storyboard scaffolds as a scenes/ bundle.
+      "scenes/01-hook.md",
+      "scenes/02-proof.md",
+      "scenes/03-close.md",
     ];
     for (const f of expected) {
       expect(await pathExists(resolve(dir, f))).toBe(true);

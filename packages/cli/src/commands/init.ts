@@ -38,6 +38,7 @@ import {
 } from "./_shared/scene-project.js";
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
+import { writeStoryboardAsBundle } from "./_shared/storyboard-source.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
 import {
   HYPERFRAMES_SKILL_INSTALL_COMMAND,
@@ -395,8 +396,14 @@ async function runSceneInit(
     const storyboardPath = resolve(projectDir, "STORYBOARD.md");
     const designPath = resolve(projectDir, "DESIGN.md");
     if (options.force || result.created.includes(storyboardPath) || !existsSync(storyboardPath)) {
-      await writeFile(storyboardPath, draft.storyboardMd, "utf-8");
+      // The draft is generated as one document and split into scenes/ by the
+      // same conversion `vibe storyboard migrate` runs.
+      const plan = await writeStoryboardAsBundle(projectDir, draft.storyboardMd);
       if (!result.created.includes(storyboardPath)) result.created.push(storyboardPath);
+      for (const file of plan.scenes) {
+        const scenePath = resolve(projectDir, file.path);
+        if (!result.created.includes(scenePath)) result.created.push(scenePath);
+      }
     }
     if (options.force || result.created.includes(designPath) || !existsSync(designPath)) {
       await writeFile(designPath, draft.designMd, "utf-8");

@@ -12,6 +12,7 @@
  */
 
 import { mkdir, readFile, writeFile, access } from "node:fs/promises";
+import { writeStoryboardAsBundle } from "./storyboard-source.js";
 import { resolve, basename } from "node:path";
 
 import type { VisualStyle } from "./visual-styles.js";
@@ -536,15 +537,25 @@ media in \`references/\`; older VibeFrame versions vendored composition rules
 there, and current installs keep the rules under \`.agents/skills/hyperframes/\`
 via \`vibe scene install-skill\`.
 
-When a beat should reuse a local file, reference it from \`STORYBOARD.md\`
-with a project-relative path:
+Scenes live in \`scenes/\`, one file per scene, and play in filename order.
+Each scene is a markdown file whose frontmatter carries its cues:
 
-\`\`\`yaml
-backdrop: "media/product-shot.png" # existing still image
-video: "media/broll.mp4"           # existing video/B-roll
-narration: "media/voice.wav"       # existing recorded narration
-asset: "media/logo.png"            # generic local asset reference
-\`\`\`
+    ---
+    type: Scene
+    duration: 5
+    narration: "One crisp sentence."
+    backdrop: "Clean editorial background plate, generous negative space"
+    ---
+
+    Direction prose for this scene goes in the body.
+
+When a scene should reuse a local file, give the cue a project-relative path
+instead of a prompt:
+
+    backdrop: "media/product-shot.png"   # existing still image
+    video: "media/broll.mp4"             # existing video/B-roll
+    narration: "media/voice.wav"         # existing recorded narration
+    asset: "media/logo.png"              # generic local asset reference
 
 Use text cues when you want VibeFrame to generate an asset. Use path cues
 when you want VibeFrame to reuse a local file. Avoid absolute paths or parent
@@ -957,8 +968,13 @@ export async function scaffoldSceneProject(opts: ScaffoldOptions): Promise<Scaff
   if (await pathExists(storyboardPath)) {
     skipped.push(storyboardPath);
   } else {
-    await writeFile(storyboardPath, buildStoryboardMd(name, duration), "utf-8");
+    // Scaffold straight into the scenes/ bundle. The starter is generated as
+    // one document and converted by the same code `vibe storyboard migrate`
+    // runs, so there is one content generator and one layout converter
+    // rather than two scaffolders that can drift.
+    const plan = await writeStoryboardAsBundle(dir, buildStoryboardMd(name, duration));
     created.push(storyboardPath);
+    for (const file of plan.scenes) created.push(resolve(dir, file.path));
   }
 
   // SCRIPT.md - always-on narrative spine (authored before STORYBOARD beats).
