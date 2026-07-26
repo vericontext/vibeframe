@@ -463,11 +463,37 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   });
   warnings.push(...buildPlan.warnings);
   retryWith.push(...buildPlan.retryWith);
-  const finishBuildResult = (result: SceneBuildResult) =>
-    finalizeBuildResult(projectDir, startedAt, {
+  const finishBuildResult = async (result: SceneBuildResult) => {
+    const withResolution: SceneBuildResult = {
       providerResolution: buildPlan.providerResolution,
       ...result,
-    });
+    };
+    // A --beat run must not shrink build-report.json to that one beat: the
+    // report is the host loop's state, and the success path preserves the
+    // other beats by reconstructing them from disk during sync. Failure
+    // paths return before sync, so do the same reconstruction here - a
+    // failed per-beat retry used to overwrite a four-beat report with a
+    // single failed beat (hybrid-brew dogfood, 2026-07-26). The merge is
+    // applied to the WRITTEN report only: the returned envelope keeps
+    // describing what this run did, i.e. the one beat.
+    let reportResult = withResolution;
+    if (opts.beatId && result.beats?.length) {
+      try {
+        const parsedAll = parseStoryboard(await loadStoryboardMarkdown(projectDir));
+        reportResult = {
+          ...withResolution,
+          beats: mergeBeatOutcomes(
+            collectExistingBeatOutcomes(parsedAll.beats, projectDir),
+            result.beats
+          ),
+          beatSummary: undefined, // recomputed from the merged beats
+        };
+      } catch {
+        // Reconstruction is best-effort; a scoped report beats no report.
+      }
+    }
+    return finalizeBuildResult(projectDir, startedAt, withResolution, reportResult);
+  };
 
   // ffprobe powers every narration-duration probe. Without it the assets
   // and sync stages would "succeed" with storyboard durations and the final
@@ -2803,27 +2829,38 @@ async function apiKeyForVideoProvider(
 async function finalizeBuildResult(
   projectDir: string,
   startedAt: number,
-  result: SceneBuildResult
+  result: SceneBuildResult,
+  /**
+   * What gets WRITTEN to build-report.json. Defaults to `result`; a
+   * beat-scoped run passes a variant whose beats are merged with the other
+   * beats reconstructed from disk, so the on-disk loop state stays whole
+   * while the returned envelope still describes only this run.
+   */
+  reportResult: SceneBuildResult = result
 ): Promise<SceneBuildResult> {
   const reportPath = join(projectDir, "build-report.json");
-  if (result.stageReports) {
-    for (const report of Object.values(result.stageReports)) {
-      if (report.status === "pending") report.status = "skipped";
+  for (const source of new Set([result, reportResult])) {
+    if (source.stageReports) {
+      for (const report of Object.values(source.stageReports)) {
+        if (report.status === "pending") report.status = "skipped";
+      }
     }
   }
-  const withMeta: SceneBuildResult = {
-    ...result,
-    status: result.status ?? buildWorkflowStatus(result),
-    currentStage: result.currentStage ?? buildCurrentStage(result),
-    beatSummary: result.beatSummary ?? summarizeBuildBeats(projectDir, result.beats),
-    sceneRepair: result.sceneRepair ?? skippedSceneRepairSummary(),
+  const decorate = (base: SceneBuildResult): SceneBuildResult => ({
+    ...base,
+    status: base.status ?? buildWorkflowStatus(base),
+    currentStage: base.currentStage ?? buildCurrentStage(base),
+    beatSummary: base.beatSummary ?? summarizeBuildBeats(projectDir, base.beats),
+    sceneRepair: base.sceneRepair ?? skippedSceneRepairSummary(),
     reportPath,
     totalLatencyMs: Date.now() - startedAt,
-  };
+  });
+  const withMeta = decorate(result);
+  const reportMeta = reportResult === result ? withMeta : decorate(reportResult);
   try {
     await writeFile(
       reportPath,
-      JSON.stringify(toBuildReport(projectDir, withMeta), null, 2) + "\n",
+      JSON.stringify(toBuildReport(projectDir, reportMeta), null, 2) + "\n",
       "utf-8"
     );
   } catch {
