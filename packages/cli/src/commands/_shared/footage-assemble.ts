@@ -83,9 +83,14 @@ export const FOOTAGE_DEFAULTS = {
    * them so blacks stay black.
    */
   finish: ["vignette=angle=PI/5", "noise=alls=7:allf=t"],
+  /** Base segment length for a ken-burns keyframe fallback (no clip to probe). */
+  kenburnsSec: 4,
+  /** Slow-push ceiling for the ken-burns zoom. */
+  kenburnsMaxZoom: 1.1,
 } as const;
 
 const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 /**
  * Compute segment lengths and timeline offsets from real clip/narration
@@ -172,9 +177,16 @@ export function planFootageTimeline(
 
 // ── ffmpeg args (pure) ─────────────────────────────────────────────────────
 
+/** One visual source per beat: a generated clip, or a keyframe still to ken-burns. */
+export interface FootageSource {
+  /** Absolute path to the clip (video) or keyframe still (image). */
+  path: string;
+  kind: "video" | "image";
+}
+
 export interface FootageAssembleArgsOptions {
-  /** Absolute clip paths, in beat order (parallel to `plan.beats`). */
-  clipPaths: string[];
+  /** Visual sources in beat order (parallel to `plan.beats`). */
+  sources: FootageSource[];
   plan: FootageTimelinePlan;
   /** Absolute narration paths keyed by beat index (sparse — not every beat narrates). */
   narrationPaths: ReadonlyMap<number, string>;
@@ -197,7 +209,7 @@ export interface FootageAssembleArgsOptions {
  * sidechain-ducked music bed.
  */
 export function buildFootageAssembleArgs(opts: FootageAssembleArgsOptions): string[] {
-  const { plan, clipPaths, narrationPaths, musicPath, outputPath } = opts;
+  const { plan, sources, narrationPaths, musicPath, outputPath } = opts;
   const width = opts.width ?? FOOTAGE_DEFAULTS.width;
   const height = opts.height ?? FOOTAGE_DEFAULTS.height;
   const fps = opts.fps ?? FOOTAGE_DEFAULTS.fps;
@@ -210,23 +222,54 @@ export function buildFootageAssembleArgs(opts: FootageAssembleArgsOptions): stri
   const fade = plan.fadeSec;
 
   const args: string[] = ["-y"];
-  for (const clip of clipPaths) args.push("-i", clip);
+  for (let i = 0; i < sources.length; i++) {
+    const source = sources[i];
+    if (source.kind === "image") {
+      // A looped still becomes this beat's segment; zoompan animates it below.
+      args.push(
+        "-loop",
+        "1",
+        "-framerate",
+        String(fps),
+        "-t",
+        String(plan.beats[i].segmentDurationSec),
+        "-i",
+        source.path
+      );
+    } else {
+      args.push("-i", source.path);
+    }
+  }
   const narrationEntries = [...narrationPaths.entries()].sort(([a], [b]) => a - b);
   const narrationInputIndex = new Map<number, number>();
   for (const [beatIndex, path] of narrationEntries) {
-    narrationInputIndex.set(beatIndex, clipPaths.length + narrationInputIndex.size);
+    narrationInputIndex.set(beatIndex, sources.length + narrationInputIndex.size);
     args.push("-i", path);
   }
   let musicInputIndex: number | undefined;
   if (musicPath) {
-    musicInputIndex = clipPaths.length + narrationInputIndex.size;
+    musicInputIndex = sources.length + narrationInputIndex.size;
     args.push("-stream_loop", "-1", "-i", musicPath);
   }
 
   const filters: string[] = [];
 
-  // Video: normalize each clip, extend where the plan says so, xfade-chain.
-  for (let i = 0; i < clipPaths.length; i++) {
+  // Video: normalize each source, extend where the plan says so, xfade-chain.
+  for (let i = 0; i < sources.length; i++) {
+    const seg = plan.beats[i].segmentDurationSec;
+    if (sources[i].kind === "image") {
+      // Ken-burns slow push: upsample 2x (zoompan jitters at 1:1), crop to the
+      // target aspect, then zoom toward the ceiling over the full segment.
+      const rate = round6((FOOTAGE_DEFAULTS.kenburnsMaxZoom - 1) / Math.max(1, seg * fps));
+      filters.push(
+        `[${i}:v]scale=${width * 2}:${height * 2}:force_original_aspect_ratio=increase,` +
+          `crop=${width * 2}:${height * 2},` +
+          `zoompan=z='min(pzoom+${rate},${FOOTAGE_DEFAULTS.kenburnsMaxZoom})':` +
+          `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${width}x${height}:fps=${fps},` +
+          `setsar=1,settb=AVTB,format=yuv420p[v${i}]`
+      );
+      continue;
+    }
     const extend = plan.beats[i].extendedSec;
     const tpad = extend > 0 ? `,tpad=stop_mode=clone:stop_duration=${extend}` : "";
     filters.push(
@@ -235,7 +278,7 @@ export function buildFootageAssembleArgs(opts: FootageAssembleArgsOptions): stri
     );
   }
   let videoLabel = "[v0]";
-  for (let i = 1; i < clipPaths.length; i++) {
+  for (let i = 1; i < sources.length; i++) {
     const out = `[vx${i}]`;
     filters.push(
       `${videoLabel}[v${i}]xfade=transition=fade:duration=${plan.transitionSec}:` +
@@ -342,7 +385,10 @@ export interface FootageAssembleReport {
   fadeSec: number;
   beats: Array<
     FootageBeatPlan & {
+      /** The visual source file (generated clip, or keyframe still on fallback). */
       clip: string;
+      /** How the segment was produced. */
+      source: "clip" | "keyframe-kenburns";
       narration?: string;
     }
   >;
@@ -410,19 +456,32 @@ export async function executeFootageAssemble(
     };
   }
 
+  // Source resolution per beat: generated clip, else ken-burns the keyframe
+  // still (a failed or skipped clip must not sink the whole unattended cut).
   const missing: string[] = [];
-  const clipRels: string[] = [];
+  const sourceRels: Array<{ rel: string; kind: "video" | "image" }> = [];
+  const kenburnsBeatIds: string[] = [];
   for (const beat of beats) {
-    const rel = `assets/video-${beat.id}.mp4`;
-    if (!existsSync(join(projectDir, rel))) missing.push(`${beat.id} (${rel})`);
-    clipRels.push(rel);
+    const clipRel = `assets/video-${beat.id}.mp4`;
+    if (existsSync(join(projectDir, clipRel))) {
+      sourceRels.push({ rel: clipRel, kind: "video" });
+      continue;
+    }
+    const keyframeRel = `assets/keyframe-${beat.id}.png`;
+    if (existsSync(join(projectDir, keyframeRel))) {
+      sourceRels.push({ rel: keyframeRel, kind: "image" });
+      kenburnsBeatIds.push(beat.id);
+      continue;
+    }
+    missing.push(`${beat.id} (${clipRel})`);
+    sourceRels.push({ rel: clipRel, kind: "video" });
   }
   if (missing.length > 0) {
     return {
       success: false,
       dryRun: Boolean(opts.dryRun),
       outputPath,
-      error: `Missing clips for beat(s): ${missing.join(", ")}.`,
+      error: `No clip or keyframe for beat(s): ${missing.join(", ")}.`,
       suggestion: `Generate them first: vibe build ${projectDir} --stage assets --json`,
     };
   }
@@ -447,7 +506,12 @@ export async function executeFootageAssemble(
 
   const inputs: FootageClipInput[] = [];
   for (let i = 0; i < beats.length; i++) {
-    const clipDurationSec = round3(await ffprobeDuration(join(projectDir, clipRels[i])));
+    // Ken-burns segments have no file duration to probe: use the declared beat
+    // duration (the narration floor still extends them like any clip).
+    const clipDurationSec =
+      sourceRels[i].kind === "image"
+        ? (beats[i].duration ?? FOOTAGE_DEFAULTS.kenburnsSec)
+        : round3(await ffprobeDuration(join(projectDir, sourceRels[i].rel)));
     const narrationRel = narrationRels.get(i);
     const narrationDurationSec = narrationRel
       ? round3(await ffprobeDuration(join(projectDir, narrationRel)))
@@ -471,7 +535,8 @@ export async function executeFootageAssemble(
     fadeSec: plan.fadeSec,
     beats: plan.beats.map((b, i) => ({
       ...b,
-      clip: clipRels[i],
+      clip: sourceRels[i].rel,
+      source: sourceRels[i].kind === "image" ? ("keyframe-kenburns" as const) : ("clip" as const),
       narration: narrationRels.get(i),
     })),
     music: music.rel
@@ -483,7 +548,12 @@ export async function executeFootageAssemble(
         }
       : null,
     finish: opts.finish ? { filters: [...FOOTAGE_DEFAULTS.finish] } : null,
-    warnings: plan.warnings,
+    warnings: [
+      ...plan.warnings,
+      ...kenburnsBeatIds.map(
+        (id) => `Beat "${id}": no generated clip; keyframe ken-burns fallback used.`
+      ),
+    ],
     nextActions: [
       {
         id: "inspect-footage-cut",
@@ -496,6 +566,17 @@ export async function executeFootageAssemble(
         requiresConfirmation: false,
         reason: "Verify duration, black frames, and audio coverage without watching the video.",
       },
+      ...kenburnsBeatIds.map((id) => ({
+        id: `regenerate-clip-${id}`,
+        kind: "command" as const,
+        label: `Regenerate the missing clip for beat "${id}"`,
+        command: `vibe build ${projectDir} --beat ${id} --stage assets --force --json`,
+        fixOwner: "vibe" as const,
+        costTier: "very-high" as const,
+        safeToAutoRun: false,
+        requiresConfirmation: true,
+        reason: `Beat "${id}" shipped as a ken-burns still; regenerating the clip restores real motion.`,
+      })),
     ],
   };
 
@@ -505,7 +586,7 @@ export async function executeFootageAssemble(
 
   await mkdir(dirname(outputPath), { recursive: true });
   const args = buildFootageAssembleArgs({
-    clipPaths: clipRels.map((r) => join(projectDir, r)),
+    sources: sourceRels.map((s) => ({ path: join(projectDir, s.rel), kind: s.kind })),
     plan,
     narrationPaths: new Map(
       [...narrationRels.entries()].map(([i, rel]) => [i, join(projectDir, rel)])
