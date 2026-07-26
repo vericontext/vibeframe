@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.0] - 2026-07-26
+
+### Added
+
+- make `vibe storyboard revise` work on a scenes/ bundle (#313)
+- scaffold new projects as a scenes/ bundle (#312)
+- let `vibe scene add` write into a scenes/ bundle (#311)
+- let `storyboard set` and `move` write to a scenes/ bundle (#309)
+- add `vibe storyboard migrate` to convert a project to the scenes/ bundle (#308)
+- read storyboards from a scenes/ bundle as well as one STORYBOARD.md (#307)
+
+### Changed
+
+- make the cue vocabulary one list instead of five (#306)
+- make each landing section say one thing, once (#304)
+
+### Documentation
+
+- teach the scenes/ bundle instead of beat blocks (#314)
+- document the build and review reports, and link the hero cards to them (#303)
+
+### Fixed
+
+- stop silently merging leftover STORYBOARD.md beats into a scenes/ bundle (#310)
+- link the CLI package from the landing, and give #install-to-mp4 a referrer (#305)
+
 ## [0.114.0] - 2026-07-25
 
 ### Changed
