@@ -38,6 +38,10 @@ vi.mock("./scene-render.js", () => ({
   executeSceneRender: vi.fn(),
 }));
 
+vi.mock("./footage-assemble.js", () => ({
+  executeFootageAssemble: vi.fn(),
+}));
+
 vi.mock("../ai-video.js", () => ({
   executeVideoGenerate: vi.fn(),
 }));
@@ -50,6 +54,7 @@ import { resolveTtsProvider } from "./tts-resolve.js";
 import { GeminiProvider, GrokProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
 import { transcribeNarrationWords } from "./transcribe-narration.js";
 import { executeSceneRender } from "./scene-render.js";
+import { executeFootageAssemble } from "./footage-assemble.js";
 import { executeVideoGenerate } from "../ai-video.js";
 import { executeMusic } from "../generate/music.js";
 
@@ -1034,5 +1039,82 @@ describe("beat-scoped report preservation", () => {
     expect(afterById.hook.narration.status).toBe("failed");
     // The untouched beat keeps its on-disk record.
     expect(afterById.close.narration.path).toBe(closeNarrationPath);
+  });
+});
+
+describe("footage composer", () => {
+  const footageReport = {
+    schemaVersion: "1" as const,
+    kind: "footage-assemble" as const,
+    project: "",
+    output: "",
+    totalDurationSec: 9.5,
+    transitionSec: 0.5,
+    fadeSec: 0.6,
+    beats: [],
+    music: null,
+    warnings: ["Beat \"close\": narration outruns the clip; last frame held for 1s."],
+    nextActions: [],
+  };
+
+  it("skips compose/sync/transcript/backdrop and renders via the footage assembler", async () => {
+    vi.mocked(executeFootageAssemble).mockResolvedValue({
+      success: true,
+      dryRun: false,
+      outputPath: join(projectDir, "renders", "footage.mp4"),
+      reportPath: join(projectDir, "assemble-report.json"),
+      report: { ...footageReport, project: projectDir },
+    });
+
+    const r = await executeSceneBuild({ projectDir, composer: "footage" });
+
+    expect(r.success).toBe(true);
+    expect(r.phase).toBe("done");
+    expect(r.mode).toBe("batch");
+    expect(r.outputPath).toBe(join(projectDir, "renders", "footage.mp4"));
+    expect(r.footageReport?.kind).toBe("footage-assemble");
+    expect(r.stageReports?.compose.status).toBe("skipped");
+    expect(r.stageReports?.sync.status).toBe("skipped");
+    expect(r.stageReports?.transcript.status).toBe("skipped");
+    expect(r.stageReports?.render.status).toBe("done");
+    // The assembler's warnings surface on the build envelope.
+    expect(r.warnings).toEqual(expect.arrayContaining([expect.stringContaining("last frame held")]));
+    // The HTML render path never runs.
+    expect(executeSceneRender).not.toHaveBeenCalled();
+    // Backdrops are composition backgrounds — pure waste with no HTML render.
+    const hook = r.beats.find((b) => b.beatId === "hook");
+    expect(hook?.backdropStatus).toBe("skipped");
+
+    const report = readBuildReport();
+    expectBuildReportContract(report, { phase: "done", status: "done" });
+  });
+
+  it("fails the render stage with FOOTAGE_ASSEMBLE_FAILED and actionable retryWith", async () => {
+    vi.mocked(executeFootageAssemble).mockResolvedValue({
+      success: false,
+      dryRun: false,
+      outputPath: join(projectDir, "renders", "footage.mp4"),
+      error: "Missing clips for beat(s): hook (assets/video-hook.mp4).",
+      suggestion: "Generate them first: vibe build --stage assets --json",
+    });
+
+    const r = await executeSceneBuild({ projectDir, composer: "footage" });
+
+    expect(r.success).toBe(false);
+    expect(r.code).toBe("FOOTAGE_ASSEMBLE_FAILED");
+    expect(r.recoverable).toBe(true);
+    expect(r.stageReports?.render.status).toBe("failed");
+    expect(r.retryWith).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("--stage assets"),
+        expect.stringContaining("--footage --dry-run"),
+      ])
+    );
+  });
+
+  it("stops before assembly when --skip-render is set", async () => {
+    const r = await executeSceneBuild({ projectDir, composer: "footage", skipRender: true });
+    expect(r.success).toBe(true);
+    expect(executeFootageAssemble).not.toHaveBeenCalled();
   });
 });

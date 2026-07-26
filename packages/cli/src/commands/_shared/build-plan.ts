@@ -211,7 +211,11 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
   // OR'd with the explicit `--skip-*` flags. Applied here so the dry-run plan +
   // cost estimate match what the build actually runs.
   const kindPolicy = kindAssetPolicy(config.config.kind);
-  const skipBackdrop = opts.skipBackdrop ?? kindPolicy.skipBackdrop ?? false;
+  // Mirrors executeSceneBuild: the footage composer renders no HTML, so
+  // backdrops default off there and must be priced accordingly.
+  const composerIsFootage = stringOrUndefined(opts.composer)?.toLowerCase() === "footage";
+  const skipBackdrop =
+    opts.skipBackdrop ?? (composerIsFootage ? true : (kindPolicy.skipBackdrop ?? false));
   const skipKeyframe = opts.skipKeyframe ?? kindPolicy.skipKeyframe ?? false;
   const skipVideo = opts.skipVideo ?? kindPolicy.skipVideo ?? false;
   const storyboardPath = join(projectDir, "STORYBOARD.md");
@@ -1008,6 +1012,19 @@ async function resolveComposerProvider(
   projectDir: string
 ): Promise<ProviderResolution> {
   const requested = input.value.toLowerCase();
+  // Deterministic composers (template concat, footage crossfade cut) run
+  // entirely in FFmpeg — resolving an LLM here would report a phantom key need.
+  if (requested === "template" || requested === "footage") {
+    return {
+      kind: "composer",
+      requested: input.requested,
+      resolved: requested,
+      source: input.source,
+      requiresKey: false,
+      configured: true,
+      retryWith: [],
+    };
+  }
   const explicit = isComposerProvider(requested) ? requested : undefined;
   const resolved = explicit ?? (await firstConfiguredComposer(projectDir)) ?? "claude";
   const configKey = composerConfigKey(resolved);

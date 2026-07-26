@@ -265,7 +265,7 @@ Cost tier: _not tagged_
 - `stage` _(string)_ _(default: `"all"`)_ - Build stage: assets|transcript|compose|sync|render|all
 - `beat` _(string)_ - Restrict asset/compose work to one beat id
 - `mode` _(string)_ _(default: `"auto"`)_ - Retained for compatibility; scene HTML is always authored by your host agent unless --composer template is set
-- `composer` _(string)_ - Set to `template` for the deterministic AI-video composer (concat bg + lower-thirds, no model). Omit to let the host agent author each scene.
+- `composer` _(string)_ - Set to `template` for the deterministic AI-video composer (concat bg + lower-thirds, no model) or `footage` for the crossfade footage cut (clips + narration + music, no HTML render). Omit to let the host agent author each scene.
 - `maxCost` _(number)_ - Fail before provider spend when estimated cost exceeds this USD cap
 - `skipNarration` _(boolean)_ - Don't dispatch TTS even when beats declare narration cues
 - `skipBackdrop` _(boolean)_ - Don't dispatch image-gen even when beats declare backdrop cues
