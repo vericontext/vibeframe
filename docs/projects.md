@@ -258,6 +258,34 @@ narration: "media/voice.wav"
 asset: "media/logo.png"
 ```
 
+### The cue vocabulary
+
+Fifteen keys, and only these fifteen.
+`vibe storyboard validate` warns on anything else and `vibe storyboard set`
+refuses it, so a typo surfaces instead of being silently ignored.
+
+| Cue | Drives |
+| --- | --- |
+| `duration` | Beat length in seconds. Aim for 6-15; longer beats render static and overstuffed. |
+| `narration` | TTS text, or a path to an existing audio file. |
+| `backdrop` | Image prompt for the backdrop plate, or a path to an existing image. |
+| `video` | Motion prompt for video generation, or a path to existing footage. |
+| `keyframe` | Still prompt. Generates a keyframe, then runs image-to-video on it. |
+| `music` | Music prompt, or a path to an existing track. |
+| `asset` | A project-relative file this beat reuses instead of generating. |
+| `voice` | Voice override for this beat, above the project frontmatter default. |
+| `characters` | Names from the frontmatter `characters:` pool. One name or a list. |
+| `motion` | Animation direction for the scene-authoring agent (see below). |
+| `eyebrow` / `kicker` | Lower-third eyebrow. `eyebrow` wins when both are set. |
+| `title` | Lower-third headline. Falls back to the beat heading. |
+| `caption` / `sub` | Lower-third sub-line. `caption` wins when both are set. |
+
+`motion` is the one cue no deterministic stage reads.
+It travels to the host agent in the compose plan, where the instructions treat
+it as binding on how elements enter, hold, and leave - the same way `narration`
+is binding on the audio.
+Every other cue above feeds the build or the composer directly.
+
 ### Characters (consistent AI video)
 
 Declare a reusable character pool in the document frontmatter, then reference it

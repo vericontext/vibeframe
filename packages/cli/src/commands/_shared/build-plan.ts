@@ -36,6 +36,7 @@ import {
   parseStoryboard,
   resolveCharacters,
   type ParsedStoryboard,
+  type BeatCues,
 } from "./storyboard-parse.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { kindAssetPolicy } from "./scene-project.js";
@@ -60,7 +61,7 @@ export interface BuildPlanBeat {
   id: string;
   heading: string;
   durationSec: number | null;
-  cues: Record<string, unknown>;
+  cues: BeatCues;
   assets: {
     narration: AssetPlan | null;
     backdrop: AssetPlan | null;

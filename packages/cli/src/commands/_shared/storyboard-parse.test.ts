@@ -8,6 +8,9 @@ import {
   parseBeatDuration,
   parseStoryboard,
   resolveCharacters,
+  STORYBOARD_CUE_KEYS,
+  type BeatCues,
+  type StoryboardCueKey,
 } from "./storyboard-parse.js";
 
 describe("parseStoryboard", () => {
@@ -426,5 +429,41 @@ describe("beatCharacterNames", () => {
     expect(beatCharacterNames({ characters: [1, "ace"] as unknown as string[] })).toEqual(["ace"]);
     expect(beatCharacterNames(undefined)).toEqual([]);
     expect(beatCharacterNames({})).toEqual([]);
+  });
+});
+
+describe("cue vocabulary is one list", () => {
+  it("declares every STORYBOARD_CUE_KEYS entry on BeatCues", () => {
+    // BeatCues has no index signature, so this object only compiles while the
+    // interface covers the whole vocabulary. Adding a key to
+    // STORYBOARD_CUE_KEYS without declaring it fails the type check here.
+    const everyCue: Required<{ [K in StoryboardCueKey]: unknown }> = {
+      duration: 5,
+      narration: "n",
+      backdrop: "b",
+      video: "v",
+      keyframe: "k",
+      motion: "m",
+      voice: "alloy",
+      music: "mu",
+      asset: "media/a.png",
+      characters: ["mira"],
+      eyebrow: "e",
+      title: "t",
+      caption: "c",
+      kicker: "ki",
+      sub: "s",
+    };
+    const cues: BeatCues = everyCue as BeatCues;
+    expect(Object.keys(cues).sort()).toEqual([...STORYBOARD_CUE_KEYS].sort());
+  });
+
+  it("round-trips every cue through the parser", () => {
+    const yaml = [...STORYBOARD_CUE_KEYS]
+      .map((k) => (k === "duration" ? "duration: 5" : `${k}: "x"`))
+      .join("\n");
+    const md = ["## Beat hook - Hook", "", "```yaml", yaml, "```", "", "Body."].join("\n");
+    const cues = parseStoryboard(md).beats[0]?.cues ?? {};
+    expect(Object.keys(cues).sort()).toEqual([...STORYBOARD_CUE_KEYS].sort());
   });
 });
