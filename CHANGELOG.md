@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.2] - 2026-07-26
+
+### Added
+
+- ken-burns keyframe fallback for missing clips in the footage cut (#326)
+- per-beat video provider cue + automatic Runway fallback on likeness 422 (#325)
+- cinematic finish pass (vignette + film grain) for the footage cut (#324)
+- pass --image-model through build to backdrop/keyframe/character generation (#323)
+- unattended footage cut via vibe build --composer footage (#322)
+- crossfade-cut generated clips with vibe assemble --footage (#321)
+
 ## [0.115.1] - 2026-07-26
 
 ### Documentation
