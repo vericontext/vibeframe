@@ -34,12 +34,20 @@
  */
 
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
 import { extractFrontmatter } from "./frontmatter.js";
-import { deriveBeatId, parseStoryboard, type Beat } from "./storyboard-parse.js";
+import {
+  deriveBeatId,
+  parseStoryboard,
+  STORYBOARD_CUE_KEYS,
+  type Beat,
+  type BeatCues,
+  type StoryboardCueKey,
+} from "./storyboard-parse.js";
+import { normalizeCueValue } from "./storyboard-edit.js";
 
 /** Directory, relative to the project root, that holds one file per scene. */
 export const SCENES_DIRNAME = "scenes";
@@ -257,4 +265,94 @@ export function planMigration(markdown: string): MigrationPlan {
     },
     beatIds: parsed.beats.map((beat) => beat.id),
   };
+}
+
+// ── Writing into a scenes/ bundle ────────────────────────────────────────
+
+/** Locate one scene file by beat id. */
+async function requireScene(projectDir: string, beatId: string): Promise<SceneFile> {
+  const scenes = await listSceneFiles(projectDir);
+  const scene = scenes.find((s) => s.id === beatId);
+  if (!scene) {
+    const known = scenes.map((s) => s.id).join(", ") || "(none)";
+    throw new Error(`Scene "${beatId}" not found. Scenes in this project: ${known}.`);
+  }
+  return scene;
+}
+
+/**
+ * Set or unset one cue in a scene file, rewriting only that file's
+ * frontmatter and leaving its body untouched.
+ *
+ * Key validation and value coercion come from the same helpers the
+ * single-document writer uses, so `duration: "abc"` is rejected identically
+ * in both layouts.
+ */
+export async function setSceneCue(
+  projectDir: string,
+  opts: { beatId: string; key: string; value?: unknown; unset?: boolean }
+): Promise<{ path: string; cues: BeatCues }> {
+  if (!STORYBOARD_CUE_KEYS.includes(opts.key as StoryboardCueKey)) {
+    throw new Error(
+      `Unsupported cue "${opts.key}". Supported cues: ${STORYBOARD_CUE_KEYS.join(", ")}.`
+    );
+  }
+  const scene = await requireScene(projectDir, opts.beatId);
+  const raw = await readFile(scene.path, "utf-8");
+  const { data, body } = extractFrontmatter(raw);
+  const front: Record<string, unknown> = { ...(data ?? {}) };
+
+  if (opts.unset) {
+    delete front[opts.key];
+  } else {
+    front[opts.key] = normalizeCueValue(opts.key, opts.value);
+  }
+  // `type` stays first so the file keeps reading as an OKF Scene document.
+  const ordered: Record<string, unknown> = {};
+  if (front.type !== undefined) ordered.type = front.type;
+  for (const [k, v] of Object.entries(front)) if (k !== "type") ordered[k] = v;
+
+  const next = `---\n${stringifyYaml(ordered, { lineWidth: 0 }).trimEnd()}\n---\n\n${body.trim()}\n`;
+  await writeFile(scene.path, next, "utf-8");
+
+  const cues = { ...ordered };
+  delete cues.type;
+  // The file may still hold keys outside the vocabulary from a hand edit.
+  // Surfacing those is `vibe storyboard validate`'s job, not this writer's.
+  return { path: scene.path, cues: cues as BeatCues };
+}
+
+/**
+ * Reorder scenes by renumbering their filename prefixes.
+ *
+ * Renames go through a temporary name first. Renaming `02 -> 01` while an
+ * `01` still exists would clobber it, and no ordering of direct renames is
+ * safe for an arbitrary permutation.
+ */
+export async function moveScene(
+  projectDir: string,
+  opts: { beatId: string; afterBeatId: string }
+): Promise<string[]> {
+  const scenes = await listSceneFiles(projectDir);
+  const from = scenes.findIndex((s) => s.id === opts.beatId);
+  if (from === -1) throw new Error(`Scene "${opts.beatId}" not found.`);
+  const after = scenes.findIndex((s) => s.id === opts.afterBeatId);
+  if (after === -1) throw new Error(`Scene "${opts.afterBeatId}" not found.`);
+  if (opts.beatId === opts.afterBeatId) return scenes.map((s) => s.id);
+
+  const ordered = [...scenes];
+  const [moving] = ordered.splice(from, 1);
+  ordered.splice(from < after ? after : after + 1, 0, moving);
+
+  const dir = join(projectDir, SCENES_DIRNAME);
+  const staged = ordered.map((scene, index) => ({
+    scene,
+    temp: join(dir, `.vibe-move-${index}-${scene.filename}`),
+    final: join(dir, sceneFilename(index + 1, scene.id)),
+  }));
+
+  for (const { scene, temp } of staged) await rename(scene.path, temp);
+  for (const { temp, final } of staged) await rename(temp, final);
+
+  return ordered.map((s) => s.id);
 }

@@ -12,7 +12,13 @@ import {
   STORYBOARD_CUE_KEYS,
   validateStoryboardMarkdown,
 } from "./_shared/storyboard-edit.js";
-import { loadStoryboard, planMigration } from "./_shared/storyboard-source.js";
+import type { BeatCues } from "./_shared/storyboard-parse.js";
+import {
+  loadStoryboard,
+  moveScene,
+  planMigration,
+  setSceneCue,
+} from "./_shared/storyboard-source.js";
 import {
   executeStoryboardRevision,
   type StoryboardRevisionResult,
@@ -113,15 +119,20 @@ storyboardCommand
         exitWithError(usageError(`Invalid JSON cue value: ${error instanceof Error ? error.message : String(error)}`));
       }
     }
-    await refuseWriteOnBundle(projectDir, "set");
-    let next: string;
+    // A bundle edits one scene file; a single document rewrites itself.
+    // Both go through the same key validation and value coercion.
+    let cues: BeatCues;
     try {
-      next = setStoryboardCue(md, { beatId, key, value, unset: options.unset });
+      if ((await loadStoryboard(projectDir)).layout === "bundle") {
+        cues = (await setSceneCue(projectDir, { beatId, key, value, unset: options.unset })).cues;
+      } else {
+        const next = setStoryboardCue(md, { beatId, key, value, unset: options.unset });
+        await writeFile(storyboardPath(projectDir), next, "utf-8");
+        cues = getStoryboardBeat(next, beatId)?.cues ?? {};
+      }
     } catch (error) {
       exitWithError(usageError(error instanceof Error ? error.message : String(error)));
     }
-    await writeFile(storyboardPath(projectDir), next, "utf-8");
-    const beat = getStoryboardBeat(next, beatId);
     outputSuccess({
       command: "storyboard set",
       startedAt,
@@ -130,7 +141,7 @@ storyboardCommand
         beatId,
         key,
         unset: options.unset ?? false,
-        cues: beat?.cues ?? {},
+        cues,
       },
     });
   });
@@ -145,15 +156,20 @@ storyboardCommand
     const startedAt = Date.now();
     const projectDir = resolve(projectDirArg);
     const md = await readStoryboard(projectDir);
-    await refuseWriteOnBundle(projectDir, "move");
-    let next: string;
+    // A bundle reorders by renumbering filename prefixes; a single document
+    // moves the section. Either way the reported `order` is the new one.
+    let order: string[];
     try {
-      next = moveStoryboardBeat(md, { beatId, afterBeatId: options.after });
+      if ((await loadStoryboard(projectDir)).layout === "bundle") {
+        order = await moveScene(projectDir, { beatId, afterBeatId: options.after });
+      } else {
+        const next = moveStoryboardBeat(md, { beatId, afterBeatId: options.after });
+        await writeFile(storyboardPath(projectDir), next, "utf-8");
+        order = parseStoryboard(next).beats.map((beat) => beat.id);
+      }
     } catch (error) {
       exitWithError(usageError(error instanceof Error ? error.message : String(error)));
     }
-    await writeFile(storyboardPath(projectDir), next, "utf-8");
-    const parsed = parseStoryboard(next);
     outputSuccess({
       command: "storyboard move",
       startedAt,
@@ -161,7 +177,7 @@ storyboardCommand
         projectDir,
         beatId,
         after: options.after,
-        order: parsed.beats.map((beat) => beat.id),
+        order,
       },
     });
   });
@@ -328,22 +344,6 @@ async function readStoryboard(projectDir: string): Promise<string> {
   return loaded.markdown;
 }
 
-/**
- * Read-modify-write commands rewrite the whole document. In the bundle
- * layout that document is assembled from `scenes/*.md`, so writing it back
- * to STORYBOARD.md would silently collapse the split. Refuse instead of
- * destroying the project, and name the per-file edit as the way forward.
- */
-async function refuseWriteOnBundle(projectDir: string, command: string): Promise<void> {
-  const { layout, scenes } = await loadStoryboard(projectDir);
-  if (layout !== "bundle") return;
-  exitWithError(
-    generalError(
-      `\`vibe storyboard ${command}\` cannot write to a scenes/ bundle yet.`,
-      `Edit the scene file directly - this project has ${scenes.length} under ${projectDir}/scenes/.`
-    )
-  );
-}
 
 function storyboardPath(projectDir: string): string {
   return resolve(projectDir, "STORYBOARD.md");
