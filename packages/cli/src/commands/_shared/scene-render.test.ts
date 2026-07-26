@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -313,13 +313,15 @@ describe("executeSceneRender — Chrome-gated render", () => {
     const dir = await makeTmp("vibe-scene-render-int-");
     await scaffoldSceneProject({ dir, name: "fixture", aspect: "16:9", duration: 2 });
 
-    // The scaffold seeds a three-beat storyboard. Trim it to the single beat
+    // The scaffold seeds a three-scene bundle. Trim it to the single scene
     // this test authors HTML for: the pre-render sync injects a clip ref per
-    // storyboard beat, and the producer now fails the compile stage when a
+    // scene, and the producer fails the compile stage when a
     // data-composition-src target is missing instead of rendering it black.
+    await rm(resolve(dir, "scenes"), { recursive: true, force: true });
+    await mkdir(resolve(dir, "scenes"), { recursive: true });
     await writeFile(
-      resolve(dir, "STORYBOARD.md"),
-      `# fixture — Storyboard\n\n## Beat intro — Intro\n\n\`\`\`yaml\nnarration: "One line."\nduration: 1.5\n\`\`\`\n`,
+      resolve(dir, "scenes", "01-intro.md"),
+      `---\ntype: Scene\nnarration: "One line."\nduration: 1.5\n---\n\nIntro.\n`,
       "utf-8"
     );
 

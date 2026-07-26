@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, readFile, writeFile, access } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { scaffoldSceneProject } from "./_shared/scene-project.js";
 import { executeSceneAdd, resolveSceneRepairTarget } from "./scene.js";
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
+import { loadStoryboard } from "./_shared/storyboard-source.js";
 
 async function pathExists(p: string): Promise<boolean> {
   try {
@@ -58,9 +59,9 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     expect(rootHtml).toContain('data-start="0"');
     expect(rootHtml).toContain('data-duration="4"');
 
-    const storyboard = parseStoryboard(
-      await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8")
-    );
+    // The scaffold is a bundle, so the beats live in scenes/. Going through
+    // the loader is also what every consumer does.
+    const storyboard = parseStoryboard((await loadStoryboard(projectDir)).markdown);
     expect(storyboard.beats.map((beat) => beat.id)).toEqual(["intro-scene"]);
     expect(storyboard.beats[0].duration).toBe(4);
     expect(result.storyboardSynced).toBe(true);
@@ -107,9 +108,11 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
 
   it("appends to a custom storyboard and syncs root refs from storyboard order", async () => {
     const projectDir = await makeProject();
+    await rm(resolve(projectDir, "scenes"), { recursive: true, force: true });
+    await mkdir(resolve(projectDir, "scenes"), { recursive: true });
     await writeFile(
-      resolve(projectDir, "STORYBOARD.md"),
-      `# Custom\n\n## Beat existing - Existing\n\n\`\`\`yaml\nduration: 2\n\`\`\`\n\nKeep this body.\n`,
+      resolve(projectDir, "scenes", "01-existing.md"),
+      `---\ntype: Scene\nduration: 2\n---\n\nKeep this body.\n`,
       "utf-8"
     );
 
@@ -125,7 +128,7 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     expect(result.success).toBe(true);
     expect(result.storyboardAction).toBe("appended");
     expect(result.start).toBe(2);
-    const storyboardMd = await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8");
+    const storyboardMd = (await loadStoryboard(projectDir)).markdown;
     expect(storyboardMd).toContain("Keep this body.");
     expect(parseStoryboard(storyboardMd).beats.map((beat) => beat.id)).toEqual([
       "existing",
@@ -136,11 +139,16 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     expect(root).toContain('data-composition-id="scene-new-proof"');
   });
 
-  it("updates an existing storyboard beat without clobbering body text", async () => {
+  it("updates an existing scene without clobbering body text", async () => {
     const projectDir = await makeProject();
+    // The scaffold is a scenes/ bundle, so replace its starter scenes with
+    // one hand-written scene rather than writing beats into STORYBOARD.md -
+    // beats there are ignored, and reported, once a project is a bundle.
+    await rm(resolve(projectDir, "scenes"), { recursive: true, force: true });
+    await mkdir(resolve(projectDir, "scenes"), { recursive: true });
     await writeFile(
-      resolve(projectDir, "STORYBOARD.md"),
-      `# Custom\n\n## Beat intro - Old title\n\n\`\`\`yaml\nduration: 2\n\`\`\`\n\nCustom body stays.\n`,
+      resolve(projectDir, "scenes", "01-intro.md"),
+      `---\ntype: Scene\nduration: 2\n---\n\nCustom body stays.\n`,
       "utf-8"
     );
 
@@ -155,9 +163,9 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
 
     expect(result.success).toBe(true);
     expect(result.storyboardAction).toBe("updated");
-    const storyboardMd = await readFile(resolve(projectDir, "STORYBOARD.md"), "utf-8");
-    expect(storyboardMd).toContain("duration: 6");
-    expect(storyboardMd).toContain("Custom body stays.");
+    const scene = await readFile(resolve(projectDir, "scenes", "01-intro.md"), "utf-8");
+    expect(scene).toContain("duration: 6");
+    expect(scene).toContain("Custom body stays.");
   });
 
   it("uses the narration text as the subhead even when --no-audio is set", async () => {
