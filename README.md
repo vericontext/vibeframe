@@ -113,30 +113,37 @@ vibe inspect render launch --cheap          # check the result
 ```
 
 `brief.md` can be messy notes, links, or a single line.
-What `init` produces are two files you then own:
+What `init` produces is a project you then own:
 
-| File            | What it holds                                                            |
-| --------------- | ------------------------------------------------------------------------ |
-| `STORYBOARD.md` | Beats: narration, duration, and image/video/music cues. The intent layer. |
-| `DESIGN.md`     | Palette, typography, layout, motion, transitions. The visual system.      |
+```text
+launch/
+  STORYBOARD.md     title, duration, aspect, providers, cast - and the direction prose
+  DESIGN.md         palette, typography, layout, motion, transitions
+  scenes/
+    01-hook.md      one scene per file, in play order
+    02-proof.md
+    03-close.md
+```
 
-Edit them directly, or ask a coding agent to research and revise them.
-The rest is convention: `media/` for footage you supply, `assets/` for generated ones, `renders/` for output, and `vibe.config.json` for the provider, model, and quality contract.
+Each scene is a markdown file. Its frontmatter carries the cues, its body carries the direction:
 
-Each beat carries YAML cues.
-A cue's value is either a prompt to generate from, or a project-relative path to a file you already have:
-
-````markdown
-## Beat hook - Open
-
-```yaml
+```markdown
+---
+type: Scene
+duration: 5
 narration: "Start with a storyboard. VibeFrame turns each beat into a render plan."
 backdrop: "Clean developer terminal beside structured storyboard cues"
-video: "media/broll.mp4"   # a path reuses your file instead of generating
+video: "media/broll.mp4"
 voice: "alloy"
-duration: 5
+---
+
+Open on the terminal. Let the storyboard cues land before the camera moves.
 ```
-````
+
+A cue's value is either a prompt to generate from, or a project-relative path to a file you already have - `video: "media/broll.mp4"` above reuses your footage instead of generating any.
+
+Scenes play in filename order, so `vibe storyboard move` reorders by renumbering. Edit the files directly, or ask a coding agent to research and revise them.
+The rest is convention: `media/` for footage you supply, `assets/` for generated ones, `renders/` for output, and `vibe.config.json` for the provider, model, and quality contract.
 
 Add `--json` to any command for structured output.
 `plan`, `build`, `preview`, `render`, and both `inspect` commands take `--beat <id>` to work one beat at a time instead of rebuilding everything.
@@ -148,27 +155,32 @@ Profiles (`--profile minimal | agent | full`), [the full cue vocabulary](docs/pr
 ## What the spend buys: one character, many scenes
 
 Generating four shots that look like the same film is the hard part, and it is what the paid path is for.
-Declare a character pool in the storyboard frontmatter and reference it from individual beats.
+Declare a character pool in `STORYBOARD.md` and reference it from individual scenes.
 VibeFrame generates the character sheet once and reuses it as the reference image for Seedance image-to-video, so the character stays consistent across scenes.
 
-````markdown
+`STORYBOARD.md` declares who exists:
+
+```markdown
 ---
 characters:
   mira: "arctic aurora photographer, deep-red fur-lined parka, dark hair under a charcoal beanie, vintage 35mm camera"
   rival: { image: "media/rival-ref.png" }
 ---
+```
 
-## Beat hook - Hook
+`scenes/01-hook.md` says who is in this shot:
 
-```yaml
+```markdown
+---
+type: Scene
 duration: 5
 characters: [mira]
 keyframe: "MIRA stands on the frozen ice, camera lowered, looking up as the aurora fills the sky"
 video: "slow tilt up as the aurora ripples and pulses overhead"
+---
 ```
-````
 
-Each beat pairs a `keyframe` still with a `video` motion prompt.
+Each scene pairs a `keyframe` still with a `video` motion prompt.
 Generate the cheap image storyboard first, review it, then animate only the stills you approve.
 That is also the cheapest way to keep a run under its ceiling, since stills cost a fraction of the video.
 

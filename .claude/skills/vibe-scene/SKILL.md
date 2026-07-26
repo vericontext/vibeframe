@@ -129,19 +129,23 @@ for visual decisions:
 - animation timing and transition style
 - what to avoid
 
-For `STORYBOARD.md`, prefer compact beat blocks:
+Scenes live in `scenes/`, one markdown file per scene, playing in filename
+order. Cues go in the frontmatter, direction in the body:
 
-````markdown
-## Beat hook - First claim
-
-```yaml
+```markdown
+---
+type: Scene
 narration: "The first sentence the viewer hears."
 backdrop: "Specific visual prompt for the scene backdrop"
 duration: 5
-```
+---
 
 What the scene should show.
-````
+```
+
+`STORYBOARD.md` holds only project frontmatter and direction prose. Beat
+headings left in it are ignored and reported - move them into `scenes/`, or
+run `vibe storyboard migrate` on an older single-file project.
 
 ## Lint Feedback Loop
 

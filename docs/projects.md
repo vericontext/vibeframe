@@ -241,21 +241,41 @@ Use the folders consistently:
 | Path            | Role                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `brief.md`      | Optional rough input before `vibe init`; can live outside or beside the project.     |
-| `STORYBOARD.md` | Beats, narration, duration, and image/video/music cues. Scene audio comes only from explicit `narration`/`music` cues - composition never invents ambient/foley SFX. |
+| `STORYBOARD.md` | Project frontmatter (title, duration, aspect, providers, character pool) and the direction prose. No scenes. |
+| `scenes/`       | One markdown file per scene, in filename order. Frontmatter carries the cues; the body carries the direction. Scene audio comes only from explicit `narration`/`music` cues - composition never invents ambient/foley SFX. |
 | `DESIGN.md`     | Palette, typography, layout, motion, transitions, and visual anti-patterns.          |
 | `media/`        | User-provided source files: photos, screenshots, logos, B-roll, voice recordings.    |
 | `assets/`       | Generated or canonical build assets such as narration, backdrops, music, and videos. |
 | `references/`   | Legacy only: older projects kept vendored composition rules here. New installs put them under `.agents/skills/hyperframes/` via `vibe scene install-skill`. |
 | `renders/`      | Final and intermediate MP4 outputs.                                                  |
 
-When a beat should reuse a local file, use a project-relative path in
-`STORYBOARD.md`:
+A scene file looks like this:
 
-```yaml
+```markdown
+---
+type: Scene
+duration: 5
+narration: "One crisp sentence."
+backdrop: "Clean editorial background plate, generous negative space"
+---
+
+Direction prose for this scene goes in the body.
+```
+
+Scenes play in filename order. `vibe storyboard move` reorders by renumbering
+the prefixes, so `01-`, `02-`, `03-` stay contiguous.
+
+When a scene should reuse a local file, give the cue a project-relative path
+instead of a prompt:
+
+```markdown
+---
+type: Scene
 backdrop: "media/product-shot.png"
 video: "media/broll.mp4"
 narration: "media/voice.wav"
 asset: "media/logo.png"
+---
 ```
 
 ### The cue vocabulary
@@ -277,7 +297,7 @@ refuses it, so a typo surfaces instead of being silently ignored.
 | `characters` | Names from the frontmatter `characters:` pool. One name or a list. |
 | `motion` | Animation direction for the scene-authoring agent (see below). |
 | `eyebrow` / `kicker` | Lower-third eyebrow. `eyebrow` wins when both are set. |
-| `title` | Lower-third headline. Falls back to the beat heading. |
+| `title` | Lower-third headline. Falls back to the scene id. |
 | `caption` / `sub` | Lower-third sub-line. `caption` wins when both are set. |
 
 `motion` is the one cue no deterministic stage reads.
@@ -288,29 +308,37 @@ Every other cue above feeds the build or the composer directly.
 
 ### Characters (consistent AI video)
 
-Declare a reusable character pool in the document frontmatter, then reference it
-from a beat's `characters` cue. During `vibe build`, each referenced character
-is rendered once as a turnaround sheet (`assets/character-<name>.png`) and used
-as a reference image for that beat's `video` generation (Seedance
-reference-to-video), so the same character stays consistent across beats. A
+Declare a reusable character pool in `STORYBOARD.md`, then reference it from a
+scene's `characters` cue. During `vibe build`, each referenced character is
+rendered once as a turnaround sheet (`assets/character-<name>.png`) and used as
+a reference image for that scene's `video` generation (Seedance
+reference-to-video), so the same character stays consistent across scenes. A
 character value is a generation prompt, or `{ image: <path> }` to bring your own
 reference (skips generation).
 
-```yaml
+`STORYBOARD.md` declares who exists:
+
+```markdown
 ---
 characters:
   mira: "arctic aurora photographer, deep-red fur-lined parka, dark hair under a charcoal beanie, vintage 35mm camera"
   rival: { image: "media/rival-ref.png" }
 ---
+```
 
-## Beat hook - Hook
+`scenes/01-hook.md` says who is in this shot:
 
-```yaml
+```markdown
+---
+type: Scene
 duration: 5
 characters: [mira]
 video: "MIRA treks across the moonlit snowfield, handheld tracking shot, wind and crunching snow"
+---
 ```
-```
+
+The same key means different things at the two levels: a map of who exists at
+the project level, a list of who appears at the scene level.
 
 Character sheets add image-generation cost, and each character video beat is a
 provider video call - run `vibe build --dry-run` to see the estimate and gate
@@ -318,18 +346,21 @@ with `--max-cost`.
 
 ### Keyframe → image-to-video
 
-For tighter art direction, a beat can declare a `keyframe` cue. During
+For tighter art direction, a scene can declare a `keyframe` cue. During
 `vibe build`, the keyframe prompt first produces a still
-(`assets/keyframe-<beatId>.png`) - edited from the beat's `characters` sheet when
-present (for consistency), otherwise generated from text - and that exact frame
-is then animated with Seedance **image-to-video**. The `video` cue, if present,
-supplies the motion prompt; otherwise the keyframe prompt is reused.
+(`assets/keyframe-<beatId>.png`) - edited from the scene's `characters` sheet
+when present (for consistency), otherwise generated from text - and that exact
+frame is then animated with Seedance **image-to-video**. The `video` cue, if
+present, supplies the motion prompt; otherwise the keyframe prompt is reused.
 
-```yaml
+```markdown
+---
+type: Scene
 duration: 5
 characters: [mira]
 keyframe: "MIRA stands on the frozen ice, low-angle hero shot, dramatic aurora light"
 video: "slow tilt up as the aurora ripples and pulses overhead"
+---
 ```
 
 Keyframe mode costs one extra image generation per beat plus the clip
