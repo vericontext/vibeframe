@@ -246,6 +246,78 @@ Available positions: `full`, `center`, `top-left`, `top-right`, `bottom-left`,
 `bottom-right`. The overlay loops by default; pass `--no-loop` for one-shot
 animations. Use `--start <sec>` to delay when the overlay appears.
 
+## 7. Compose VibeFrame Footage With HyperFrames
+
+VibeFrame and upstream [HyperFrames](https://github.com/heygen-com/hyperframes)
+each own half of a narrated, footage-led video: VibeFrame generates the
+frontier clips (cast continuity, keyframe review, a hard `--max-cost`), and
+HyperFrames' `faceless-explainer` workflow owns narration timing, word-synced
+captions, a designed frame system, and transitions. This recipe runs them
+together. It was validated end to end on 2026-07-26; the sharp edges below
+are all from that run.
+
+Requires:
+
+- image + video provider keys for the vibe side (e.g. `GOOGLE_API_KEY`,
+  `FAL_API_KEY`, and `RUNWAY_API_SECRET` for the face-shot fallback)
+- `npx hyperframes` ≥ 0.7.72 with its skills installed
+- for local TTS: a Python ≥ 3.10 venv with `kokoro-onnx` (see step 3)
+
+**1. Generate the footage with vibe.** Author scenes with `keyframe:` +
+`video:` cues and a `characters:` pool, then build assets only - narration,
+music, and composition belong to the other side:
+
+```bash
+vibe init film --from brief.md
+vibe build film --dry-run --max-cost 8 --json     # price gate
+vibe build film --stage assets --skip-video \
+  --skip-narration --skip-music --skip-backdrop   # stills first - review them
+vibe build film --stage assets \
+  --skip-narration --skip-music --skip-backdrop   # animate approved stills
+```
+
+Review the keyframes before animating: cross-scene prop drift (a kettle
+changing color between scenes) is cheap to fix at the still stage and
+expensive after. If Seedance rejects a face-visible keyframe (HTTP 422
+likeness filter - see MODELS.md), route that shot through Runway:
+
+```bash
+vibe generate video "<the scene's motion prompt>" \
+  -p runway -i film/assets/keyframe-<beat>.png -d 5 \
+  -o film/assets/video-<beat>.mp4
+```
+
+**2. Hand the clips to a HyperFrames project.** Scaffold with the
+faceless-explainer skill, copy the clips into `public/`, and write its
+`SCRIPT.md` with the same narration your scenes carried (`VO_MODE:
+verbatim`). One script, both sides - if they drift, visuals and voice
+disagree.
+
+**3. Let upstream own the timing.** Its `audio.mjs` synthesizes narration
+(Kokoro locally - a Python dependency, unlike vibe's built-in Kokoro:
+`uv venv --python 3.12 && uv pip install kokoro-onnx soundfile`, then export
+`HYPERFRAMES_PYTHON=<venv>/bin/python`), and `sync-durations` sets each
+frame's length from the measured voice.
+
+Three sharp edges, all hit in the validation run:
+
+- **Duration has no floor upstream.** `sync-durations` REPLACES a frame's
+  duration with the voice length (vibe keeps `max(declared, voice)`), so a
+  5s clip under a 2s narration line gets hard-trimmed. Write narration long
+  enough for the shot, or add silent frames - upstream keeps their
+  estimates.
+- **Frame ids start with digits** (`01-grind`), and `.01-grind-x` is an
+  illegal CSS/`querySelector` selector. Prefix authored classes with a
+  letter (`f01-`) or gsap throws before registering the timeline and the
+  render "completes" with frozen motion.
+- **Give every `<video>` an `id`.** Upstream lint enforces it
+  (`media_missing_id`) - without one the renderer cannot drive the video
+  and it renders frozen.
+
+**4. Render upstream** (`npx hyperframes lint && npx hyperframes render`)
+and you get the hybrid: your generated footage under their word-synced
+captions and design system.
+
 ## Tips
 
 - Use `--dry-run` before provider-backed steps.
