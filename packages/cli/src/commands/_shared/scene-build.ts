@@ -53,6 +53,7 @@ import {
   parseStoryboard,
   resolveCharacters,
   type Beat,
+  type StoryboardCueKey,
   type ResolvedCharacter,
 } from "./storyboard-parse.js";
 import { scaffoldSceneProject } from "./scene-project.js";
@@ -1251,9 +1252,16 @@ async function referencePrimitiveOutcome(
   };
 }
 
+/**
+ * `kind` is narrowed to the asset kinds that are also cue keys. The wider
+ * `BuildAssetKind` includes `"character"`, which is not a cue - the cue is
+ * `characters` (plural) - so `cue[kind]` would have been a permanent miss for
+ * that member. Nothing called it that way, but the old index signature on
+ * `BeatCues` let the mistake typecheck.
+ */
 function assetReferenceForBeat(
   projectDir: string,
-  kind: BuildAssetKind,
+  kind: Extract<BuildAssetKind, StoryboardCueKey>,
   beat: Beat
 ): AssetReferenceCandidate | null {
   const cue = beat.cues ?? {};

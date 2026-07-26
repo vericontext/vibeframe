@@ -36,7 +36,12 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
-import { parseStoryboard, type Beat } from "./storyboard-parse.js";
+import {
+  parseStoryboard,
+  STORYBOARD_CUE_KEYS,
+  type Beat,
+  type BeatCues,
+} from "./storyboard-parse.js";
 import { buildUserPrompt } from "./compose-beat-prompt.js";
 import { resolveProjectBeatDurations } from "./root-sync.js";
 import {
@@ -63,7 +68,7 @@ export interface ComposePromptsBeat {
    */
   finalDurationSec?: number;
   /** Per-beat YAML cues parsed from the leading code block of the body. */
-  cues?: Record<string, unknown>;
+  cues?: BeatCues;
   /** Beat body markdown (with the leading `\`\`\`yaml` cue block stripped). */
   body: string;
   /**
@@ -280,7 +285,12 @@ function buildInstructions(args: {
   if (args.compositionRef) {
     lines.push(`2b. Read \`${args.compositionRef}\` for the project STRUCTURAL contract (layout system, GSAP timeline conventions, element/track rules) — a HARD-GATE parallel to DESIGN.md; every composition must satisfy it.`);
   }
-  lines.push(`3. For each beat in the \`beats\` array below, author HTML at \`outputPath\` matching the \`userPrompt\`. The beat \`body\` carries the narrative + visual + animation intent; \`cues\` carries machine-readable per-beat overrides (narration, duration, backdrop, voice).`);
+  // The cue list is rendered from the SSOT rather than restated. The old
+  // hand-typed "(narration, duration, backdrop, voice)" named 4 of 15, so the
+  // agent was handed `motion`, `characters`, `keyframe` and the lower-third
+  // cues in the payload without ever being told they were there.
+  lines.push(`3. For each beat in the \`beats\` array below, author HTML at \`outputPath\` matching the \`userPrompt\`. The beat \`body\` carries the narrative intent; \`cues\` carries machine-readable per-beat overrides (${STORYBOARD_CUE_KEYS.join(", ")}).`);
+  lines.push(`   The \`motion\` cue, when present, is the animation direction for this beat - treat it as binding on how elements enter, hold, and leave, the same way \`narration\` is binding on the audio.`);
   lines.push(`3b. Use each beat's \`finalDurationSec\` (narration-synced) for \`data-duration\` and timeline anchors when present — NOT the storyboard \`duration\`, which is only the minimum. Scenes composed at the storyboard duration end early and render black tails.`);
   lines.push(`3c. Never give inner \`.clip\` elements a non-zero \`data-start\` — the renderer does not toggle internal clip visibility inside sub-compositions, so phased clips render all phases at once (overlapping text). Use full-window clips and GSAP autoAlpha phase transitions instead. Also keep beats 6-15s; split anything longer in the storyboard first.`);
   lines.push(`3d. If your environment cannot write files (e.g. Claude Desktop / MCP-only hosts), author each beat's HTML and submit it with the \`scene_submit\` tool (beat id + html). It validates with the same Hyperframes lint and writes the file for you; on lint errors it returns the findings without writing — fix and resubmit.`);

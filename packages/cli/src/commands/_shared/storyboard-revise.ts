@@ -10,7 +10,7 @@ import {
   type ComposerProvider,
 } from "./composer-resolve.js";
 import { readProjectConfig } from "./project-config.js";
-import { parseStoryboard } from "./storyboard-parse.js";
+import { parseStoryboard, STORYBOARD_CUE_KEYS } from "./storyboard-parse.js";
 import {
   validateStoryboardMarkdown,
   type StoryboardValidationIssue,
@@ -238,7 +238,10 @@ function revisionMessages(opts: {
     "Return exactly one JSON object, with no markdown fence and no prose outside JSON.",
     "The JSON object must have: storyboardMd string, summary string, changedBeats string[], warnings string[].",
     "Preserve existing frontmatter, beat ids, cue YAML keys, and useful prose unless the user asks to change structure.",
-    "Keep cue YAML valid. Allowed cue keys are duration, narration, backdrop, video, motion, voice, music, asset.",
+    // Rendered from the SSOT: this list used to be a hand-typed subset of 8,
+    // so a revise pass could silently drop `characters`, `keyframe`, and the
+    // lower-third cues it had never been told about.
+    `Keep cue YAML valid. Allowed cue keys are ${STORYBOARD_CUE_KEYS.join(", ")}.`,
     "If a target duration is supplied, every beat must have a positive duration cue and durations must sum to that target.",
   "Aim for 6-15 seconds per beat and never exceed ~15s — long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
   ].join("\n");

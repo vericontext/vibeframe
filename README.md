@@ -142,7 +142,8 @@ Add `--json` to any command for structured output.
 `plan`, `build`, `preview`, `render`, and both `inspect` commands take `--beat <id>` to work one beat at a time instead of rebuilding everything.
 `storyboard`, `status`, and `scene repair` cover editing beats, polling async work, and deterministic fixes.
 
-Profiles (`--profile minimal | agent | full`), every cue key, and the full project flow are in [docs/projects.md](docs/projects.md).
+Those five are the common cues; there are fifteen in all, and `vibe storyboard validate` warns on anything outside them.
+Profiles (`--profile minimal | agent | full`), [the full cue vocabulary](docs/projects.md#the-cue-vocabulary), and the whole project flow are in [docs/projects.md](docs/projects.md).
 
 ## What the spend buys: one character, many scenes
 

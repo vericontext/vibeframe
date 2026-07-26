@@ -4,29 +4,16 @@ import {
   beatCharacterNames,
   deriveBeatId,
   parseStoryboard,
+  STORYBOARD_CUE_KEYS,
   type Beat,
   type BeatCues,
+  type StoryboardCueKey,
 } from "./storyboard-parse.js";
 
-export const STORYBOARD_CUE_KEYS = [
-  "duration",
-  "narration",
-  "backdrop",
-  "video",
-  "keyframe",
-  "motion",
-  "voice",
-  "music",
-  "asset",
-  "characters",
-  "eyebrow",
-  "title",
-  "caption",
-  "kicker",
-  "sub",
-] as const;
-
-export type StoryboardCueKey = (typeof STORYBOARD_CUE_KEYS)[number];
+// The cue vocabulary now lives beside `BeatCues` in storyboard-parse.ts so the
+// type can be checked against it. Re-exported here because callers (and
+// `vibe storyboard set`) have always imported it from this module.
+export { STORYBOARD_CUE_KEYS, type StoryboardCueKey } from "./storyboard-parse.js";
 
 export interface StoryboardValidationIssue {
   severity: "error" | "warning";

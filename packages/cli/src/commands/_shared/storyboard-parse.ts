@@ -124,24 +124,53 @@ export function resolveCharacters(
 }
 
 /**
+ * The complete per-beat cue vocabulary, in the order it is presented to
+ * humans and agents.
+ *
+ * This is the single source of truth. {@link BeatCues} is derived from it,
+ * `validateStoryboardMarkdown` rejects anything outside it, `vibe storyboard
+ * set` refuses unlisted keys, and the compose and revise prompts render it
+ * rather than restating it - four surfaces had drifted to four different
+ * sub-lists before this became the one list.
+ */
+export const STORYBOARD_CUE_KEYS = [
+  "duration",
+  "narration",
+  "backdrop",
+  "video",
+  "keyframe",
+  "motion",
+  "voice",
+  "music",
+  "asset",
+  "characters",
+  "eyebrow",
+  "title",
+  "caption",
+  "kicker",
+  "sub",
+] as const;
+
+export type StoryboardCueKey = (typeof STORYBOARD_CUE_KEYS)[number];
+
+/**
  * Per-beat cues extracted from the first ```yaml fenced block inside a beat
  * body. The driver passes these to TTS / image / compose calls so the
  * storyboard alone is enough source for `vibe scene build`.
+ *
+ * Every key in {@link STORYBOARD_CUE_KEYS} is declared here. There is
+ * deliberately no index signature: an unlisted key is a validation warning at
+ * runtime, so letting it typecheck only hides the drift.
  */
 export interface BeatCues {
+  /** Beat duration in seconds; overrides the `### Beat duration` subsection if both are present. */
+  duration?: number;
   /** Narration text for this beat (drives TTS + scene `<audio>` element). */
   narration?: string;
   /** Image prompt for the backdrop generation (drives T2I). */
   backdrop?: string;
-  /** Beat duration in seconds — overrides `### Beat duration` subsection if both present. */
-  duration?: number;
-  /** Voice override for this beat (overrides project frontmatter `voice`). */
-  voice?: string;
-  /**
-   * Character pool names whose reference sheets drive this beat's
-   * reference-to-video generation. A single name or a list.
-   */
-  characters?: string | string[];
+  /** Motion prompt for video generation. Pairs with `keyframe` for image-to-video. */
+  video?: string;
   /**
    * Keyframe still prompt. When set, the build generates a keyframe image for
    * this beat (using the character sheet as an edit reference when `characters`
@@ -149,13 +178,34 @@ export interface BeatCues {
    * if present, supplies the motion prompt; otherwise this text is used.
    */
   keyframe?: string;
+  /**
+   * Animation direction for the scene-authoring agent, e.g. "restrained camera
+   * push, headline settles first". Unlike the cues around it this drives no
+   * deterministic stage - it reaches the host agent through the compose plan
+   * and shapes the HTML that agent writes.
+   */
+  motion?: string;
+  /** Voice override for this beat (overrides project frontmatter `voice`). */
+  voice?: string;
+  /** Music prompt or a project-relative path to an existing track. */
+  music?: string;
+  /** Project-relative path to a file this beat should reuse instead of generating. */
+  asset?: string;
+  /**
+   * Character pool names whose reference sheets drive this beat's
+   * reference-to-video generation. A single name or a list.
+   */
+  characters?: string | string[];
   /** Lower-third overlay eyebrow/kicker (read by the deterministic composer). */
   eyebrow?: string;
   /** Lower-third headline; falls back to the beat heading when absent. */
   title?: string;
   /** Lower-third sub-line / caption. */
   caption?: string;
-  [key: string]: unknown;
+  /** Alias for `eyebrow`; `eyebrow` wins when both are present. */
+  kicker?: string;
+  /** Alias for `caption`; `caption` wins when both are present. */
+  sub?: string;
 }
 
 /** Normalize a beat's `characters` cue to a clean string[] (single or list). */
