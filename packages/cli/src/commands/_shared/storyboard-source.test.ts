@@ -13,6 +13,7 @@ import {
   sceneFilename,
   sceneToBeatSection,
   strayBeatIssues,
+  upsertScene,
 } from "./storyboard-source.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 
@@ -428,5 +429,66 @@ describe("stray beats in a bundle's STORYBOARD.md", () => {
     expect(single.layout).toBe("single");
     expect(single.strayBeatIds).toEqual([]);
     expect(parseStoryboard(single.markdown).beats.map((b) => b.id)).toEqual(["hook"]);
+  });
+});
+
+describe("upsertScene", () => {
+  const STARTER = (id: string, prose: string) =>
+    `---\ntype: Scene\nduration: 4\n---\n\n${prose}`;
+
+  async function starterBundle() {
+    // Same three ids and prose markers `isStarterStoryboard` looks for.
+    await writeBundle([
+      ["01-hook.md", STARTER("hook", "Introduce the promise in one crisp sentence.")],
+      [
+        "02-proof.md",
+        STARTER("proof", "Show the mechanism or proof point that makes the promise believable."),
+      ],
+      ["03-close.md", STARTER("close", "Close with the action the viewer should remember.")],
+    ]);
+  }
+
+  it("clears an untouched starter instead of appending to it", async () => {
+    await starterBundle();
+    const { action } = await upsertScene(dir, { beatId: "intro", duration: 5 });
+    expect(action).toBe("replaced-starter");
+    expect((await listSceneFiles(dir)).map((s) => s.filename)).toEqual(["01-intro.md"]);
+  });
+
+  it("appends after a bundle that is no longer the starter", async () => {
+    await writeBundle([["01-mine.md", "---\ntype: Scene\nduration: 5\n---\n\nMine."]]);
+    const { action } = await upsertScene(dir, { beatId: "next", duration: 3 });
+    expect(action).toBe("appended");
+    expect((await listSceneFiles(dir)).map((s) => s.id)).toEqual(["mine", "next"]);
+  });
+
+  it("updates an existing scene in place without renumbering", async () => {
+    await writeBundle([
+      ["01-a.md", "---\ntype: Scene\nduration: 5\n---\n\nOriginal body."],
+      ["02-b.md", "---\ntype: Scene\nduration: 5\n---\n\nB."],
+    ]);
+    const { action } = await upsertScene(dir, { beatId: "a", duration: 9, title: "New" });
+    expect(action).toBe("updated");
+    expect((await listSceneFiles(dir)).map((s) => s.filename)).toEqual(["01-a.md", "02-b.md"]);
+
+    const raw = await readFile(join(dir, "scenes", "01-a.md"), "utf-8");
+    expect(raw).toContain("duration: 9");
+    expect(raw).toContain("title: New");
+    // The body survives an update that does not supply one.
+    expect(raw).toContain("Original body.");
+  });
+
+  it("keeps type: Scene first after an update", async () => {
+    await writeBundle([["01-a.md", "---\ntype: Scene\nduration: 5\n---\n\nBody."]]);
+    await upsertScene(dir, { beatId: "a", duration: 6 });
+    const raw = await readFile(join(dir, "scenes", "01-a.md"), "utf-8");
+    expect(raw).toMatch(/^---\ntype: Scene\n/);
+  });
+
+  it("creates the scenes directory when the project has none yet", async () => {
+    await writeFile(join(dir, "STORYBOARD.md"), HEAD, "utf-8");
+    const { action } = await upsertScene(dir, { beatId: "first", duration: 4 });
+    expect(action).toBe("appended");
+    expect((await listSceneFiles(dir)).map((s) => s.filename)).toEqual(["01-first.md"]);
   });
 });
