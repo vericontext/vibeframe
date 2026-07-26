@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { executeSceneBuild, type BuildReport } from "./scene-build.js";
+import { executeSceneBuild, isLikenessRejection, type BuildReport } from "./scene-build.js";
 import { __setFfmpegToolsForTests } from "./ffmpeg-gate.js";
 import { buildEmptyRootHtml } from "./scene-project.js";
 
@@ -1121,5 +1121,112 @@ describe("footage composer", () => {
     const r = await executeSceneBuild({ projectDir, composer: "footage", skipRender: true });
     expect(r.success).toBe(true);
     expect(executeFootageAssemble).not.toHaveBeenCalled();
+  });
+});
+
+describe("video provider override + likeness fallback", () => {
+  const VIDEO_STORYBOARD = `---
+project: video-fallback-test
+providers:
+  tts: kokoro
+---
+
+## Beat pour — Pour
+
+\`\`\`yaml
+video: "steady spiral pour, steam in window light"
+\`\`\`
+
+### Concept
+
+Face-visible shot.
+`;
+
+  const pendingResult = (provider: string) => ({
+    success: true,
+    taskId: "task-1",
+    status: "running",
+    provider,
+  });
+
+  beforeEach(() => {
+    writeFileSync(join(projectDir, "STORYBOARD.md"), VIDEO_STORYBOARD);
+  });
+
+  it("honors a per-beat provider cue", async () => {
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      VIDEO_STORYBOARD.replace('window light"', 'window light"\nprovider: runway')
+    );
+    vi.mocked(executeVideoGenerate).mockResolvedValue(pendingResult("runway") as never);
+    process.env.RUNWAY_API_SECRET = "test-runway";
+    try {
+      const r = await executeSceneBuild({ projectDir, stage: "assets", skipNarration: true });
+      expect(r.success).toBe(true);
+      expect(executeVideoGenerate).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(executeVideoGenerate).mock.calls[0][0]).toMatchObject({
+        provider: "runway",
+      });
+    } finally {
+      delete process.env.RUNWAY_API_SECRET;
+    }
+  });
+
+  it("falls back to runway on a Seedance likeness 422 when a key is configured", async () => {
+    vi.mocked(executeVideoGenerate)
+      .mockResolvedValueOnce({
+        success: false,
+        error:
+          "HTTP 422 - body.image_url: The images or videos provided may contain likenesses of real people.",
+      } as never)
+      .mockResolvedValueOnce(pendingResult("runway") as never);
+    process.env.RUNWAY_API_SECRET = "test-runway";
+    const events: Array<{ type: string }> = [];
+    try {
+      const r = await executeSceneBuild({
+        projectDir,
+        stage: "assets",
+        skipNarration: true,
+        onProgress: (e) => events.push(e),
+      });
+      expect(r.success).toBe(true);
+      expect(executeVideoGenerate).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(executeVideoGenerate).mock.calls[0][0]).toMatchObject({
+        provider: "seedance",
+      });
+      expect(vi.mocked(executeVideoGenerate).mock.calls[1][0]).toMatchObject({
+        provider: "runway",
+      });
+      expect(events.some((e) => e.type === "video-fallback")).toBe(true);
+    } finally {
+      delete process.env.RUNWAY_API_SECRET;
+    }
+  });
+
+  it("does not fall back on a non-likeness failure (no double spend on generic errors)", async () => {
+    vi.mocked(executeVideoGenerate).mockResolvedValue({
+      success: false,
+      error: "provider timeout",
+    } as never);
+    process.env.RUNWAY_API_SECRET = "test-runway";
+    try {
+      const r = await executeSceneBuild({ projectDir, stage: "assets", skipNarration: true });
+      expect(r.success).toBe(false);
+      expect(executeVideoGenerate).toHaveBeenCalledTimes(1);
+      expect(r.code).toBe("ASSET_GENERATION_FAILED");
+    } finally {
+      delete process.env.RUNWAY_API_SECRET;
+    }
+  });
+
+  it("recognizes the ByteDance likeness rejection shape", () => {
+    expect(
+      isLikenessRejection(
+        "HTTP 422 - The images or videos provided may contain likenesses of real people."
+      )
+    ).toBe(true);
+    expect(isLikenessRejection("likeness of real people")).toBe(true);
+    expect(isLikenessRejection("provider timeout")).toBe(false);
+    expect(isLikenessRejection(undefined)).toBe(false);
   });
 });

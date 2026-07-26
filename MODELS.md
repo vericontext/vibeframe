@@ -190,14 +190,15 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 > `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed at the 1.0 cut. Use `-p seedance` in new scripts.
 
 > ⚠️ **Seedance rejects image-to-video inputs showing a recognizable face.**
-> The fal.ai endpoint returns a deterministic HTTP 422 ("The images or videos
-> provided may contain likenesses of real people") for keyframes where a
-> person's face is clearly visible; hands-only or back-of-head shots pass.
-> Retrying does not help. For character work where the face must appear, route
-> those shots through another provider, e.g.
-> `vibe generate video "<motion>" -p runway -i keyframe.png`, or through a
-> project build's video provider override. Observed 2026-07-26 on
-> `seedance-2.0`.
+> This is ByteDance's platform-wide likeness policy, not a fal.ai quirk: the
+> API returns a deterministic HTTP 422 ("The images or videos provided may
+> contain likenesses of real people") for keyframes where a person's face is
+> clearly visible — including AI-generated photoreal faces. Hands-only or
+> back-of-head shots pass. Retrying does not help. `vibe build` falls back to
+> Runway automatically for such beats when `RUNWAY_API_SECRET` is configured;
+> you can also pin a beat with a `provider: runway` cue, or run
+> `vibe generate video "<motion>" -p runway -i keyframe.png` directly.
+> Observed 2026-07-26 on `seedance-2.0`.
 
 > ⚠️ **Gemini Omni is experimental.** It is not wired into default provider resolution — you must pass `-p omni` explicitly. The preview interactions schema may change; treat it as unstable.
 
