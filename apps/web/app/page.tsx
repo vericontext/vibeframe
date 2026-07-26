@@ -19,6 +19,13 @@ import {
 import { ThemeToggle } from "../components/theme-toggle";
 import { DemoShowcase } from "../components/demo-showcase";
 
+/**
+ * Project-files reference. The hero's four artifact cards deep-link into its
+ * headings, so an anchor change here has to be matched in docs/projects.md.
+ */
+const DOCS_PROJECTS_URL =
+  "https://github.com/vericontext/vibeframe/blob/main/docs/projects.md";
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
@@ -47,7 +54,7 @@ export default function LandingPage() {
             </Link>
             <ThemeToggle />
             <Link
-              href="https://github.com/vericontext/vibeframe#quick-start"
+              href="https://github.com/vericontext/vibeframe/blob/main/docs/README.md"
               target="_blank"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
             >
@@ -135,20 +142,34 @@ export default function LandingPage() {
             </div>
             <div className="grid gap-3">
               {[
-                ["Intent", "STORYBOARD.md"],
-                ["Design", "DESIGN.md"],
-                ["Build", "build-report.json"],
-                ["Review", "review-report.json"],
-              ].map(([label, file]) => (
-                <div
+                ["Intent", "STORYBOARD.md", "Beats, narration, cues", "#project-file-roles"],
+                ["Design", "DESIGN.md", "Palette, type, motion", "#project-file-roles"],
+                [
+                  "Build",
+                  "build-report.json",
+                  "What it cost, where it stopped",
+                  "#build-and-review-reports",
+                ],
+                [
+                  "Review",
+                  "review-report.json",
+                  "What is wrong, who fixes it",
+                  "#build-and-review-reports",
+                ],
+              ].map(([label, file, blurb, anchor]) => (
+                <a
                   key={file}
-                  className="rounded-xl border border-border/60 bg-secondary/35 px-4 py-3"
+                  href={`${DOCS_PROJECTS_URL}${anchor}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl border border-border/60 bg-secondary/35 px-4 py-3 transition-colors hover:border-primary/60 hover:bg-secondary/60"
                 >
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
                     {label}
                   </div>
                   <div className="font-mono text-sm text-foreground mt-1">{file}</div>
-                </div>
+                  <div className="text-xs text-muted-foreground mt-1">{blurb}</div>
+                </a>
               ))}
             </div>
           </div>
@@ -539,7 +560,7 @@ export default function LandingPage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="https://github.com/vericontext/vibeframe#quick-start"
+              href="https://github.com/vericontext/vibeframe/blob/main/docs/README.md"
               target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium hover:bg-secondary hover:border-primary/30 transition-all"
             >
