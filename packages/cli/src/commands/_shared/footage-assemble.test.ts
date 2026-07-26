@@ -91,7 +91,10 @@ describe("buildFootageAssembleArgs", () => {
 
   it("builds the xfade chain at planned offsets with normalized inputs", () => {
     const args = buildFootageAssembleArgs({
-      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/b.mp4", kind: "video" as const },
+      ],
       plan,
       narrationPaths: new Map(),
       outputPath: "/p/out.mp4",
@@ -109,7 +112,10 @@ describe("buildFootageAssembleArgs", () => {
 
   it("delays each narration to its planned start and mixes over ducked music", () => {
     const args = buildFootageAssembleArgs({
-      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/b.mp4", kind: "video" as const },
+      ],
       plan,
       narrationPaths: new Map([[0, "/p/nar-a.mp3"]]),
       musicPath: "/p/music.mp3",
@@ -127,7 +133,10 @@ describe("buildFootageAssembleArgs", () => {
 
   it("mixes multiple narrations without music via amix", () => {
     const args = buildFootageAssembleArgs({
-      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/b.mp4", kind: "video" as const },
+      ],
       plan: planFootageTimeline(
         [
           { id: "a", clipDurationSec: 5, narrationDurationSec: 2 },
@@ -158,7 +167,10 @@ describe("finish pass", () => {
 
   it("inserts vignette + grain between the xfade chain and the fades", () => {
     const args = buildFootageAssembleArgs({
-      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/b.mp4", kind: "video" as const },
+      ],
       plan,
       narrationPaths: new Map(),
       outputPath: "/p/out.mp4",
@@ -173,7 +185,10 @@ describe("finish pass", () => {
 
   it("is off by default", () => {
     const args = buildFootageAssembleArgs({
-      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/b.mp4", kind: "video" as const },
+      ],
       plan,
       narrationPaths: new Map(),
       outputPath: "/p/out.mp4",
@@ -181,5 +196,37 @@ describe("finish pass", () => {
     const fc = args[args.indexOf("-filter_complex") + 1];
     expect(fc).not.toContain("vignette");
     expect(fc).not.toContain("noise=");
+  });
+});
+
+describe("ken-burns keyframe fallback", () => {
+  it("loops the still for the full segment and animates it with zoompan", () => {
+    const plan = planFootageTimeline(
+      [
+        { id: "a", clipDurationSec: 5 },
+        { id: "b", clipDurationSec: 4, narrationDurationSec: 5 },
+      ],
+      { transitionSec: 0.5 }
+    );
+    const args = buildFootageAssembleArgs({
+      sources: [
+        { path: "/p/a.mp4", kind: "video" as const },
+        { path: "/p/keyframe-b.png", kind: "image" as const },
+      ],
+      plan,
+      narrationPaths: new Map(),
+      outputPath: "/p/out.mp4",
+    });
+    const loopIdx = args.indexOf("-loop");
+    expect(loopIdx).toBeGreaterThan(-1);
+    // The looped still runs for the planned segment (narration floor included).
+    const tIdx = args.indexOf("-t", loopIdx);
+    expect(args[tIdx + 1]).toBe(String(plan.beats[1].segmentDurationSec));
+    const fc = args[args.indexOf("-filter_complex") + 1];
+    expect(fc).toContain("zoompan=z='min(pzoom+");
+    // The image segment gets no tpad — its length comes from the loop itself.
+    expect(fc).not.toContain("tpad");
+    // Still xfade-chained like any clip.
+    expect(fc).toContain("xfade=transition=fade");
   });
 });
