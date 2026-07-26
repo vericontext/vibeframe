@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -97,6 +97,32 @@ try {
   assert.ok(existsSync(join(project, "STORYBOARD.md")), "init should write STORYBOARD.md");
   assert.ok(existsSync(join(project, "DESIGN.md")), "init should write DESIGN.md");
   assert.ok(existsSync(join(project, "vibe.config.json")), "init should write vibe.config.json");
+
+  // `init --from` rewrites the starter bundle with the draft. A duration
+  // long enough for a 4-beat draft makes the draft's scene set differ from
+  // the 3-scene starter, which is exactly the case where leftover starter
+  // files used to survive (two files both numbered 03). The short-duration
+  // init above cannot catch that: its draft ids match the starter's.
+  const fourBeat = join(tmp, "dogfood-four-beat");
+  dataOf(
+    runJson([
+      "init",
+      fourBeat,
+      "--from",
+      "A 20-second four-scene product film to exercise the draft rewrite.",
+      "--duration",
+      "20",
+      "--json",
+    ])
+  );
+  const sceneFiles = (await readdir(join(fourBeat, "scenes"))).filter((f) => f.endsWith(".md")).sort();
+  const prefixes = sceneFiles.map((f) => f.split("-")[0]);
+  assert.equal(
+    new Set(prefixes).size,
+    prefixes.length,
+    `scene filename prefixes must be unique, got: ${sceneFiles.join(", ")}`
+  );
+  assert.ok(sceneFiles.length >= 4, `4-beat draft should yield 4 scenes, got: ${sceneFiles.join(", ")}`);
 
   const validation = dataOf(runJson(["storyboard", "validate", project, "--json"]));
   assertRecord(validation, "storyboard validation");
