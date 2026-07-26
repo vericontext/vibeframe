@@ -232,7 +232,11 @@ export default function LandingPage() {
               Generated end to end by <code className="text-primary">vibe build</code>.
             </h2>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              1080p, four scenes, one consistent character. Everything below is how it was made.
+              1080p, four scenes, one consistent character.{" "}
+              <Link href="#install-to-mp4" className="text-primary hover:underline">
+                Here is how it was made
+              </Link>
+              .
             </p>
           </div>
 
@@ -555,6 +559,13 @@ export default function LandingPage() {
               className="hover:text-foreground transition-colors"
             >
               Roadmap
+            </Link>
+            <Link
+              href="https://www.npmjs.com/package/@vibeframe/cli"
+              target="_blank"
+              className="hover:text-foreground transition-colors"
+            >
+              CLI (npm)
             </Link>
             <Link
               href="https://www.npmjs.com/package/@vibeframe/mcp-server"
