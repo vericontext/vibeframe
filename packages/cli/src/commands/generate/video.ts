@@ -26,6 +26,7 @@ import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
   isJsonMode,
+  lookupCostEstimateUpperBound,
   outputSuccess,
   log,
   exitWithError,
@@ -721,9 +722,12 @@ Examples:
             outputPath = resolve(process.cwd(), options.output);
             await writeFile(outputPath, buffer);
           }
+          const cost = realRunCost(provider, options);
           outputSuccess({
             command: "generate video",
             startedAt,
+            costUsd: cost.costUsd,
+            warnings: cost.warnings,
             data: {
               provider,
               taskId: result?.id,
@@ -761,6 +765,43 @@ Examples:
         exitWithError(apiError(`Video generation failed: ${(error as Error).message}`));
       }
     });
+}
+
+
+/**
+ * Cost figure for a REAL (non-dry-run) generation envelope.
+ *
+ * Seedance has a token-accurate estimator; every other provider reports the
+ * command's tier upper bound with a warning naming it an estimate. Without
+ * this the success envelope defaulted to costUsd 0, which an agent budget
+ * loop reads as "free" - the hybrid-brew dogfood run billed Runway twice
+ * while reporting $0.
+ */
+export function realRunCost(provider: string, options: {
+  duration?: string;
+  resolution?: string;
+  ratio?: string;
+  seedanceModel?: string;
+  refVideos?: string[];
+}): { costUsd: number; warnings: string[] } {
+  if (provider === "seedance" || provider === "fal") {
+    return {
+      costUsd: estimateSeedanceVideoCostUsd({
+        durationSec: Number(options.duration) || 5,
+        resolution: options.resolution,
+        aspectRatio: options.ratio,
+        fast: options.seedanceModel === "fast",
+        hasVideoReference: Boolean(options.refVideos),
+      }),
+      warnings: [],
+    };
+  }
+  return {
+    costUsd: lookupCostEstimateUpperBound("generate video") ?? 5,
+    warnings: [
+      `costUsd is the tier upper bound for ${provider} - actual provider billing is typically lower and is not metered here.`,
+    ],
+  };
 }
 
 async function prepareSeedanceReferences(opts: {

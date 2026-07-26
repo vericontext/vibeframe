@@ -259,7 +259,12 @@ export interface SuccessEnvelopeOptions {
 }
 
 /** Look up the upper-bound cost estimate for a command (used by dry-run). */
-function lookupCostEstimateUpperBound(command: string): number {
+/**
+ * Exported for real-run envelopes that want the same tier bound the dry-run
+ * default uses (e.g. `generate video` on providers without an accurate
+ * estimator) instead of the misleading non-dry default of 0.
+ */
+export function lookupCostEstimateUpperBound(command: string): number {
   return COST_ESTIMATES[command]?.max ?? 0;
 }
 
