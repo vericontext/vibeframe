@@ -28,6 +28,7 @@ export const assembleCommand = new Command("assemble")
   .option("--fade <sec>", "Footage fade-from/to-black length in seconds", "0.6")
   .option("--music <path>", 'Footage music bed: a file path or "none" (default: auto-detect assets/music*)')
   .option("--music-volume <v>", "Footage music-bed volume before ducking (0-1)", "0.35")
+  .option("--finish", "Footage cinematic finish: vignette + film grain before the fades")
   .option("--dry-run", "Preview parameters without muxing")
   .addHelpText("after", `
 The default assemble stage lays the project's <audio> elements onto a silent
@@ -113,6 +114,7 @@ async function runFootageAssemble(
     fadeSec,
     music: options.music as string | undefined,
     musicVolume,
+    finish: Boolean(options.finish),
     dryRun: Boolean(options.dryRun),
   });
 

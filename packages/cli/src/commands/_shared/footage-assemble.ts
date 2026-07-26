@@ -73,8 +73,16 @@ export const FOOTAGE_DEFAULTS = {
   height: 1080,
   fps: 30,
   crf: 18,
+  finishCrf: 23,
   musicVolume: 0.35,
   duck: { thresholdDb: -30, ratio: 3, attackMs: 20, releaseMs: 200 },
+  /**
+   * The cinematic finish pass: subtle vignette + temporal film grain, applied
+   * before the head/tail fades. These are the field-tested values that pull
+   * provider clips away from the too-clean "AI look"; the fades multiply over
+   * them so blacks stay black.
+   */
+  finish: ["vignette=angle=PI/5", "noise=alls=7:allf=t"],
 } as const;
 
 const round3 = (n: number): number => Math.round(n * 1000) / 1000;
@@ -178,6 +186,8 @@ export interface FootageAssembleArgsOptions {
   fps?: number;
   crf?: number;
   musicVolume?: number;
+  /** Apply the cinematic finish pass (vignette + film grain) before the fades. */
+  finish?: boolean;
 }
 
 /**
@@ -191,7 +201,10 @@ export function buildFootageAssembleArgs(opts: FootageAssembleArgsOptions): stri
   const width = opts.width ?? FOOTAGE_DEFAULTS.width;
   const height = opts.height ?? FOOTAGE_DEFAULTS.height;
   const fps = opts.fps ?? FOOTAGE_DEFAULTS.fps;
-  const crf = opts.crf ?? FOOTAGE_DEFAULTS.crf;
+  // Temporal grain is pure entropy to x264 — at crf 18 it inflates the file
+  // ~15x. The grain itself masks compression, so a softer crf keeps the look
+  // at a deliverable size.
+  const crf = opts.crf ?? (opts.finish ? FOOTAGE_DEFAULTS.finishCrf : FOOTAGE_DEFAULTS.crf);
   const musicVolume = opts.musicVolume ?? FOOTAGE_DEFAULTS.musicVolume;
   const total = plan.totalDurationSec;
   const fade = plan.fadeSec;
@@ -230,8 +243,9 @@ export function buildFootageAssembleArgs(opts: FootageAssembleArgsOptions): stri
     );
     videoLabel = out;
   }
+  const finishChain = opts.finish ? `${FOOTAGE_DEFAULTS.finish.join(",")},` : "";
   filters.push(
-    `${videoLabel}fade=t=in:st=0:d=${fade},` +
+    `${videoLabel}${finishChain}fade=t=in:st=0:d=${fade},` +
       `fade=t=out:st=${round3(Math.max(0, total - fade))}:d=${fade}[vout]`
   );
 
@@ -313,6 +327,8 @@ export interface FootageAssembleOptions {
    */
   music?: string;
   musicVolume?: number;
+  /** Apply the cinematic finish pass (vignette + film grain). */
+  finish?: boolean;
   dryRun?: boolean;
 }
 
@@ -331,6 +347,8 @@ export interface FootageAssembleReport {
     }
   >;
   music: { path: string; source: "flag" | "auto"; volume: number; ducked: boolean } | null;
+  /** The finish filters applied before the fades, or null when skipped. */
+  finish: { filters: string[] } | null;
   warnings: string[];
   nextActions: ReviewAction[];
 }
@@ -464,6 +482,7 @@ export async function executeFootageAssemble(
           ducked: narrationRels.size > 0,
         }
       : null,
+    finish: opts.finish ? { filters: [...FOOTAGE_DEFAULTS.finish] } : null,
     warnings: plan.warnings,
     nextActions: [
       {
@@ -498,6 +517,7 @@ export async function executeFootageAssemble(
       : undefined,
     outputPath,
     musicVolume,
+    finish: opts.finish,
   });
   try {
     await execSafe("ffmpeg", args, { timeout: 600_000 });

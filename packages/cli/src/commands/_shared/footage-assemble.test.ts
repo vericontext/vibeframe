@@ -146,3 +146,40 @@ describe("buildFootageAssembleArgs", () => {
     expect(fc).not.toContain("sidechaincompress");
   });
 });
+
+describe("finish pass", () => {
+  const plan = planFootageTimeline(
+    [
+      { id: "a", clipDurationSec: 5 },
+      { id: "b", clipDurationSec: 5 },
+    ],
+    { transitionSec: 0.5 }
+  );
+
+  it("inserts vignette + grain between the xfade chain and the fades", () => {
+    const args = buildFootageAssembleArgs({
+      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      plan,
+      narrationPaths: new Map(),
+      outputPath: "/p/out.mp4",
+      finish: true,
+    });
+    const fc = args[args.indexOf("-filter_complex") + 1];
+    expect(fc).toContain("vignette=angle=PI/5,noise=alls=7:allf=t,fade=t=in");
+    const xfadeIdx = fc.indexOf("xfade=");
+    expect(xfadeIdx).toBeGreaterThan(-1);
+    expect(fc.indexOf("vignette=")).toBeGreaterThan(xfadeIdx);
+  });
+
+  it("is off by default", () => {
+    const args = buildFootageAssembleArgs({
+      clipPaths: ["/p/a.mp4", "/p/b.mp4"],
+      plan,
+      narrationPaths: new Map(),
+      outputPath: "/p/out.mp4",
+    });
+    const fc = args[args.indexOf("-filter_complex") + 1];
+    expect(fc).not.toContain("vignette");
+    expect(fc).not.toContain("noise=");
+  });
+});
