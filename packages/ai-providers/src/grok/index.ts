@@ -1,4 +1,4 @@
-export { GrokProvider, grokProvider, type GrokModel, type GrokVideoOptions, type GrokImageOptions, type GrokEditOptions } from "./GrokProvider.js";
+export { GrokProvider, grokProvider, resolveGrokImageModel, type GrokModel, type GrokImageModel, type GrokImageQuality, type GrokVideoOptions, type GrokImageOptions, type GrokEditOptions } from "./GrokProvider.js";
 
 import { defineProvider } from "../define-provider.js";
 

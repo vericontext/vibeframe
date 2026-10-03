@@ -114,17 +114,22 @@ Claude motion replies use structured outputs, so the generated component code al
 
 ---
 
-## Text-to-Image (3 providers, 7 models)
+## Text-to-Image (3 providers, 9 models)
 
 | Provider | Model | Env Key | CLI Option | Notes |
 |----------|-------|---------|------------|-------|
-| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai` | Flagship OpenAI image model |
-| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai -m 1.5` | Previous default, still strong on editing (#1 editing leaderboard). Quality tiers: low ($0.009), medium ($0.035), high ($0.133) |
-| Gemini | `gemini-2.5-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Nano Banana Flash - **GA**, fast. Auto-selected when only `GOOGLE_API_KEY` is set |
-| Gemini | `gemini-3.1-flash-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m 3.1-flash` | Nano Banana 2 - Image Search grounding, 512px |
-| Gemini | `gemini-3-pro-image-preview` | `GOOGLE_API_KEY` | `-p gemini -m pro` | Nano Banana Pro - higher quality, up to 4K |
-| xAI Grok | `grok-imagine-image` | `XAI_API_KEY` | `-p grok` | $0.02/image, standard quality |
-| xAI Grok | `grok-imagine-image-pro` | `XAI_API_KEY` | `-p grok -m pro` | $0.07/image, higher quality |
+| OpenAI | `gpt-image-2.5-sunburst` | `OPENAI_API_KEY` | `-p openai` | **Default**. OpenAI's most capable image model (2026-09-08); high quality about $0.21 per 1024x1024 image |
+| OpenAI | `gpt-image-2.5-flare` | `OPENAI_API_KEY` | `-p openai -m flare` | Fast, high-quality everyday tier |
+| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai -m 2` | Previous default |
+| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai -m 1.5` | Shuts down 2026-12-01 |
+| Gemini | `gemini-3.1-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Nano Banana 2 (GA). `flash`, `latest`, and `3.1-flash` all resolve here. About $0.067 at 1K |
+| Gemini | `gemini-3.1-flash-lite-image` | `GOOGLE_API_KEY` | `-p gemini -m lite` | Nano Banana 2 Lite, about $0.034 at 1K |
+| Gemini | `gemini-3-pro-image` | `GOOGLE_API_KEY` | `-p gemini -m pro` | Nano Banana Pro (GA), up to 4K |
+| xAI Grok | `grok-imagine-image` | `XAI_API_KEY` | `-p grok` | $0.02/image |
+| xAI Grok | `grok-imagine-image-2.0` | `XAI_API_KEY` | `-p grok -m pro` | Medium quality, $0.06-0.08/image |
+
+Images are saved in the format the output file name asks for: when a provider returns JPEG for a `.png` path, VibeFrame converts it with FFmpeg.
+`gemini-2.5-flash-image` and the `-preview` Nano Banana IDs are past their shutdown dates; pass them explicitly only if you must.
 
 ### Image Aspect Ratios (Gemini)
 
@@ -138,12 +143,10 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 | Provider | Model | Max Input Images | CLI Option | Features |
 |----------|-------|------------------|------------|----------|
-| Gemini | Flash | 3 | `-p gemini` (default) | Fast editing, 1K output |
-| Gemini | 3.1 Flash | 3 | `-p gemini -m 3.1-flash` | Image Search grounding, 512px-1K output |
-| Gemini | Pro | 14 | `-p gemini -m pro` | Multi-image composition, up to 4K output |
-| OpenAI | `gpt-image-1.5` | 16 | `-p openai` | Instruction-based editing, multipart upload |
-| OpenAI | `gpt-image-2` | 16 | `-p openai -m 2` | Flagship editor, 2026-04-21 GA |
-| xAI Grok | `grok-imagine-image` | 1 | `-p grok` | Single image editing, $0.02/edit |
+| Gemini | `gemini-3.1-flash-image` | 3 | `-p gemini` (default) | Fast editing |
+| Gemini | `gemini-3-pro-image` | 14 | `-p gemini -m pro` | Multi-image composition, up to 4K output |
+| OpenAI | `gpt-image-2.5-sunburst` | 16 | `-p openai` | Instruction-based editing, multipart upload |
+| xAI Grok | `grok-imagine-image` | 1 | `-p grok` | Single image editing, $0.02/edit; `-m pro` uses `grok-imagine-image-2.0` |
 
 ---
 
@@ -257,7 +260,7 @@ preview schema is not yet stable.
 
 ```bash
 # LLM Providers
-export OPENAI_API_KEY="sk-..."        # GPT, Whisper, GPT Image 1.5
+export OPENAI_API_KEY="sk-..."        # GPT, Whisper, GPT Image 2.5
 export ANTHROPIC_API_KEY="sk-ant-..." # Claude
 export GOOGLE_API_KEY="AIza..."       # Gemini (image, Veo video)
 export XAI_API_KEY="xai-..."          # xAI Grok

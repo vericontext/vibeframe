@@ -11,9 +11,30 @@ import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
  * Grok Imagine model versions
  * - grok-imagine-video: Text/Image to Video (1-15 sec, $4.20/min)
  * - grok-imagine-image: Text to Image ($0.02/image)
- * - grok-imagine-image-pro: Text to Image, higher quality ($0.07/image)
+ * - grok-imagine-image-2.0: Text to Image, higher quality ($0.04-0.08/image by quality)
  */
-export type GrokModel = "grok-imagine-video" | "grok-imagine-image" | "grok-imagine-image-pro";
+export type GrokModel = "grok-imagine-video" | "grok-imagine-image" | "grok-imagine-image-2.0";
+
+/** Grok Imagine image models. `grok-imagine-image-pro` was retired on 2026-05-15. */
+export type GrokImageModel = "grok-imagine-image" | "grok-imagine-image-2.0";
+
+/** `grok-imagine-image-2.0` quality tier; `auto` lets xAI pick (edits bill as medium). */
+export type GrokImageQuality = "low" | "medium" | "auto";
+
+/**
+ * Resolve a CLI image model alias for Grok. `pro`, `2.0`, and `quality`
+ * select grok-imagine-image-2.0 at medium quality; anything else selects
+ * the base grok-imagine-image.
+ */
+export function resolveGrokImageModel(alias?: string): {
+  model: GrokImageModel;
+  quality?: GrokImageQuality;
+} {
+  if (alias === "pro" || alias === "2.0" || alias === "quality" || alias === "grok-imagine-image-2.0") {
+    return { model: "grok-imagine-image-2.0", quality: "medium" };
+  }
+  return { model: "grok-imagine-image" };
+}
 
 /** Default model */
 const DEFAULT_MODEL: GrokModel = "grok-imagine-video";
@@ -37,7 +58,9 @@ export interface GrokVideoOptions {
  */
 export interface GrokImageOptions {
   /** Model to use (default: grok-imagine-image) */
-  model?: "grok-imagine-image" | "grok-imagine-image-pro";
+  model?: GrokImageModel;
+  /** Quality tier (grok-imagine-image-2.0 only) */
+  quality?: GrokImageQuality;
   /** Number of images (1-10, default: 1) */
   n?: number;
   /** Aspect ratio */
@@ -53,7 +76,9 @@ export interface GrokImageOptions {
  */
 export interface GrokEditOptions {
   /** Model to use (default: grok-imagine-image) */
-  model?: "grok-imagine-image" | "grok-imagine-image-pro";
+  model?: GrokImageModel;
+  /** Quality tier (grok-imagine-image-2.0 only) */
+  quality?: GrokImageQuality;
   /** Aspect ratio */
   aspectRatio?: string;
   /** Response format */
@@ -123,6 +148,7 @@ export class GrokProvider implements AIProvider {
     try {
       const body: Record<string, unknown> = {
         model: options.model || "grok-imagine-image",
+        ...(options.quality ? { quality: options.quality } : {}),
         prompt,
         n: options.n || 1,
         response_format: options.responseFormat || "url",
@@ -209,6 +235,7 @@ export class GrokProvider implements AIProvider {
 
       const body: Record<string, unknown> = {
         model: options.model || "grok-imagine-image",
+        ...(options.quality ? { quality: options.quality } : {}),
         prompt,
         image: {
           url: dataUri,

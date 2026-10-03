@@ -4,7 +4,7 @@ import { defineProvider } from "../define-provider.js";
 
 // "openai" is the user-facing provider id (`-p openai`). Internally four
 // classes back this single id: OpenAIProvider (chat/LLM), OpenAIImageProvider
-// (gpt-image-2), OpenAiTtsProvider (gpt-4o-mini-tts speech), and
+// (gpt-image-2.5), OpenAiTtsProvider (gpt-4o-mini-tts speech), and
 // WhisperProvider (transcription). The metadata layer stays user-facing;
 // the class wiring is in commands/_shared/*.
 defineProvider({

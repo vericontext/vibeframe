@@ -1,5 +1,6 @@
 export {
   OpenAIImageProvider,
+  OPENAI_IMAGE_DEFAULT_MODEL,
   openaiImageProvider,
   type GPTImageModel,
   type GPTImageQuality,

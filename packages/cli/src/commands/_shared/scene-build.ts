@@ -27,6 +27,7 @@ import { config as loadDotenv } from "dotenv";
 import {
   GeminiProvider,
   GrokProvider,
+  OPENAI_IMAGE_DEFAULT_MODEL,
   OpenAIImageProvider,
   estimateSeedanceVideoCostUsd,
   type GPTImageModel,
@@ -105,6 +106,7 @@ import { createAndWriteJobRecord, type JobRecord } from "./status-jobs.js";
 import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
+import { writeImageFile } from "../../utils/image-file.js";
 
 export { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 
@@ -278,7 +280,7 @@ export interface SceneBuildOptions {
   skipTranscript?: boolean;
   /**
    * Provider-specific image model for backdrops/keyframes/character sheets
-   * (e.g. gemini `flash` | `pro`, openai `gpt-image-2`). Provider default when
+   * (e.g. gemini `flash` | `pro`, openai `gpt-image-2.5-sunburst`). Provider default when
    * omitted; grok has a single model and ignores it.
    */
   imageModel?: string;
@@ -1779,9 +1781,9 @@ async function buildCharacters(
       continue;
     }
     await mkdir(dirname(abs), { recursive: true });
-    await writeFile(abs, generated.buffer);
+    await writeImageFile(abs, generated.buffer);
     await mkdir(dirname(cacheAbs), { recursive: true });
-    await writeFile(cacheAbs, generated.buffer);
+    await writeImageFile(cacheAbs, generated.buffer);
     await writeAssetMetadata({
       projectDir: ctx.projectDir,
       kind: "character",
@@ -1891,9 +1893,9 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
 
   await mkdir(dirname(abs), { recursive: true });
   const buffer = generated.buffer;
-  await writeFile(abs, buffer);
+  await writeImageFile(abs, buffer);
   await mkdir(dirname(cacheAbs), { recursive: true });
-  await writeFile(cacheAbs, buffer);
+  await writeImageFile(cacheAbs, buffer);
   await writeAssetMetadata({
     projectDir: ctx.projectDir,
     kind: "backdrop",
@@ -1964,7 +1966,7 @@ async function generateBackdropImage(
     const result = await provider.generateImage(prompt, {
       // CLI input is free-form; an alias the provider doesn't know fails the
       // API call and surfaces as a beat-scoped backdrop/keyframe error.
-      model: (ctx.imageModel as GPTImageModel | undefined) ?? "gpt-image-2",
+      model: (ctx.imageModel as GPTImageModel | undefined) ?? OPENAI_IMAGE_DEFAULT_MODEL,
       size: ctx.imageSize,
       quality: ctx.imageQuality,
     });
@@ -2124,9 +2126,9 @@ async function ensureKeyframe(
   if (!generated.success) return { status: "failed", error: generated.error };
 
   await mkdir(dirname(abs), { recursive: true });
-  await writeFile(abs, generated.buffer);
+  await writeImageFile(abs, generated.buffer);
   await mkdir(dirname(cacheAbs), { recursive: true });
-  await writeFile(cacheAbs, generated.buffer);
+  await writeImageFile(cacheAbs, generated.buffer);
   await writeAssetMetadata({
     projectDir: ctx.projectDir,
     kind: "keyframe",

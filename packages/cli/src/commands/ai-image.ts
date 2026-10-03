@@ -14,10 +14,17 @@
  */
 
 import { resolve, dirname } from "node:path";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { GeminiProvider, OpenAIImageProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
+import {
+  GeminiProvider,
+  GrokProvider,
+  OpenAIImageProvider,
+  resolveGeminiTextModel,
+  resolveGrokImageModel,
+} from "@vibeframe/ai-providers";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
+import { writeImageFile } from "../utils/image-file.js";
 
 // ============================================================================
 // Image Generate
@@ -92,7 +99,7 @@ export async function executeImageGenerate(options: ImageGenerateOptions): Promi
         }
         outputPath = resolve(process.cwd(), output);
         await mkdir(dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, buffer);
+        await writeImageFile(outputPath, buffer);
       }
 
       return {
@@ -134,7 +141,7 @@ export async function executeImageGenerate(options: ImageGenerateOptions): Promi
         if (img.base64) {
           outputPath = resolve(process.cwd(), output);
           await mkdir(dirname(outputPath), { recursive: true });
-          await writeFile(outputPath, Buffer.from(img.base64, "base64"));
+          await writeImageFile(outputPath, Buffer.from(img.base64, "base64"));
         }
       }
 
@@ -149,11 +156,12 @@ export async function executeImageGenerate(options: ImageGenerateOptions): Promi
       const key = apiKey || process.env.XAI_API_KEY;
       if (!key) return { success: false, error: "XAI_API_KEY required" };
 
-      const openaiImage = new OpenAIImageProvider();
-      await openaiImage.initialize({ apiKey: key, baseUrl: "https://api.x.ai/v1" });
+      const grok = new GrokProvider();
+      await grok.initialize({ apiKey: key });
 
-      const result = await openaiImage.generateImage(prompt, {
-        size: size as "1024x1024" | "1536x1024" | "1024x1536" | "auto" | undefined,
+      const result = await grok.generateImage(prompt, {
+        ...resolveGrokImageModel(model),
+        aspectRatio: ratio,
         n: count,
       });
 
@@ -175,7 +183,7 @@ export async function executeImageGenerate(options: ImageGenerateOptions): Promi
         }
         outputPath = resolve(process.cwd(), output);
         await mkdir(dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, buffer);
+        await writeImageFile(outputPath, buffer);
       }
 
       return {
@@ -268,7 +276,7 @@ export async function executeGeminiEdit(options: GeminiEditOptions): Promise<Gem
     if (img.base64) {
       outputPath = resolve(process.cwd(), output);
       await mkdir(dirname(outputPath), { recursive: true });
-      await writeFile(outputPath, Buffer.from(img.base64, "base64"));
+      await writeImageFile(outputPath, Buffer.from(img.base64, "base64"));
     }
 
     return {

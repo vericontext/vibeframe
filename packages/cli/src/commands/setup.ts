@@ -204,7 +204,7 @@ const AI_FEATURES: AIFeature[] = [
   {
     label: "Images",
     desc: "generate + edit",
-    defaultProvider: "OpenAI gpt-image-2 (Artificial Analysis #1, since v0.56)",
+    defaultProvider: "OpenAI gpt-image-2.5-sunburst",
     alsoAvailable: "Gemini Nano Banana, Grok Imagine",
     keyHint: "1 key",
     keys: [
@@ -213,19 +213,19 @@ const AI_FEATURES: AIFeature[] = [
         envVar: "OPENAI_API_KEY",
         name: "OpenAI",
         url: "https://platform.openai.com/api-keys",
-        what: "gpt-image-2 image generation + editing (also Whisper, Agent)",
+        what: "gpt-image-2.5 image generation + editing (also Whisper, Agent)",
       },
     ],
     providerChoices: [
       {
-        label: "OpenAI gpt-image-2",
+        label: "OpenAI gpt-image-2.5",
         desc: "recommended default, image generation + editing",
         key: {
           configKey: "openai",
           envVar: "OPENAI_API_KEY",
           name: "OpenAI",
           url: "https://platform.openai.com/api-keys",
-          what: "gpt-image-2 image generation + editing (also Whisper, Agent)",
+          what: "gpt-image-2.5 image generation + editing (also Whisper, Agent)",
         },
         defaultFor: { kind: "image", value: "openai" },
       },
@@ -825,7 +825,7 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
         envVar: "OPENAI_API_KEY",
         name: "OpenAI",
         url: "https://platform.openai.com/api-keys",
-        what: "gpt-image-2 image generation (default since v0.56) + Whisper word-level transcribe",
+        what: "gpt-image-2.5 image generation + Whisper word-level transcribe",
       },
       {
         configKey: "fal",

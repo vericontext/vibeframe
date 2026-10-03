@@ -474,7 +474,7 @@ export const editImageTool = defineTool({
     imagePaths: z.array(z.string()).describe("Input image file path(s)"),
     prompt: z.string().describe("Edit instruction"),
     output: z.string().optional().describe("Output file path (default: edited.png)"),
-    model: z.enum(["flash", "3.1-flash", "latest", "pro"]).optional().describe("Gemini model (default: flash)"),
+    model: z.enum(["flash", "3.1-flash", "latest", "lite", "pro"]).optional().describe("Gemini model (default: flash = Nano Banana 2)"),
     ratio: z.string().optional().describe("Output aspect ratio"),
     resolution: z.string().optional().describe("Resolution: 1K, 2K, 4K (Pro only)"),
   }),

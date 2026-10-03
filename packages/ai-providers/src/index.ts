@@ -72,15 +72,19 @@ export {
   loadBundledKokoroRuntime,
 } from "./kokoro/index.js";
 export type { KokoroTTSOptions, KokoroTTSResult, KokoroLoadEvent } from "./kokoro/index.js";
-export { OpenAIImageProvider, openaiImageProvider } from "./openai-image/index.js";
+export {
+  OPENAI_IMAGE_DEFAULT_MODEL,
+  OpenAIImageProvider,
+  openaiImageProvider,
+} from "./openai-image/index.js";
 export type { ImageOptions, ImageResult, ImageEditOptions, GPTImageModel } from "./openai-image/index.js";
 export { OpenAiTtsProvider, openaiTtsProvider, OPENAI_TTS_VOICES } from "./openai-tts/index.js";
 export type { OpenAiTtsModel, OpenAiTtsVoice, OpenAiTtsOptions, OpenAiTtsResult } from "./openai-tts/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";
 export { KlingProvider, klingProvider } from "./kling/index.js";
 export type { KlingVideoExtendOptions } from "./kling/index.js";
-export { GrokProvider, grokProvider } from "./grok/index.js";
-export type { GrokModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
+export { GrokProvider, grokProvider, resolveGrokImageModel } from "./grok/index.js";
+export type { GrokImageModel, GrokImageQuality, GrokModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
 export { FalProvider, falProvider, estimateSeedanceVideoCostUsd } from "./fal/index.js";
 export type { SeedanceVariant } from "./fal/index.js";
 export { ReplicateProvider, replicateProvider } from "./replicate/index.js";

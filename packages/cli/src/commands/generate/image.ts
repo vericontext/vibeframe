@@ -1,23 +1,29 @@
 /**
  * @module generate/image
  * @description `vibe generate image` (alias `img`) — multi-provider image
- * generation. OpenAI gpt-image-2, Gemini Nano Banana, Grok, Runway. Split
+ * generation. OpenAI gpt-image-2.5, Gemini Nano Banana, Grok, Runway. Split
  * out of `generate.ts` in v0.69 (Plan G Phase 2).
  */
 
 import type { Command } from "commander";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider, GrokProvider, getProvidersFor } from "@vibeframe/ai-providers";
+import {
+  GeminiProvider,
+  GrokProvider,
+  getProvidersFor,
+  resolveGrokImageModel,
+} from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { isJsonMode, outputSuccess, log, exitWithError, apiError, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeOpenAIImageGenerate } from "../_shared/openai-image.js";
+import { writeImageFile } from "../../utils/image-file.js";
 
 export function registerImageCommand(parent: Command): void {
   parent
@@ -44,7 +50,7 @@ export function registerImageCommand(parent: Command): void {
     .option("--count <n>", "Number of images to generate", "1")
     .option(
       "-m, --model <model>",
-      "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5"
+      "Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"
     )
     .option("--dry-run", "Preview parameters without executing")
     .addHelpText(
@@ -177,7 +183,7 @@ Examples:
         const spinner = ora(`Generating image with ${providerName}...`).start();
 
         if (provider === "openai") {
-          const { result, modelLabel } = await executeOpenAIImageGenerate(prompt, options, {
+          const { result, modelLabel, openaiModel } = await executeOpenAIImageGenerate(prompt, options, {
             apiKey,
           });
 
@@ -204,13 +210,15 @@ Examples:
                 throw new Error("No image data available");
               }
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
             }
             outputSuccess({
               command: "generate image",
               startedAt,
               data: {
                 provider: "openai",
+                model: modelLabel,
+                modelId: openaiModel,
                 images: result.images.map((img) => ({
                   url: img.url,
                   revisedPrompt: img.revisedPrompt,
@@ -255,7 +263,7 @@ Examples:
               }
               const outputPath = resolve(process.cwd(), options.output);
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(
@@ -265,7 +273,7 @@ Examples:
           }
         } else if (provider === "gemini") {
           // Validate model name
-          const validGeminiModels = ["flash", "3.1-flash", "latest", "pro"];
+          const validGeminiModels = ["flash", "3.1-flash", "latest", "lite", "pro"];
           if (options.model && !validGeminiModels.includes(options.model)) {
             console.warn(
               chalk.yellow(
@@ -302,14 +310,15 @@ Examples:
           await gemini.initialize({ apiKey });
 
           const geminiModelNames: Record<string, string> = {
-            flash: "Nano Banana",
+            flash: "Nano Banana 2",
             "3.1-flash": "Nano Banana 2",
             latest: "Nano Banana 2",
+            lite: "Nano Banana 2 Lite",
             pro: "Nano Banana Pro",
           };
-          const modelLabel = geminiModelNames[options.model] || "Nano Banana";
+          const usedLabel = geminiModelNames[options.model] || "Nano Banana 2";
 
-          let result = await gemini.generateImage(prompt, {
+          const result = await gemini.generateImage(prompt, {
             model: options.model,
             aspectRatio: options.ratio as
               | "1:1"
@@ -328,32 +337,6 @@ Examples:
               | "21:9",
           });
 
-          // Auto-fallback: if latest/3.1-flash fails, retry with flash
-          let usedLabel = modelLabel;
-          const fallbackModels = ["latest", "3.1-flash"];
-          if (!result.success && options.model && fallbackModels.includes(options.model)) {
-            spinner.text = `${chalk.dim(result.error || "Failed")} — retrying with Nano Banana (flash)...`;
-            result = await gemini.generateImage(prompt, {
-              model: "flash",
-              aspectRatio: options.ratio as
-                | "1:1"
-                | "1:4"
-                | "1:8"
-                | "2:3"
-                | "3:2"
-                | "3:4"
-                | "4:1"
-                | "4:3"
-                | "4:5"
-                | "5:4"
-                | "8:1"
-                | "9:16"
-                | "16:9"
-                | "21:9",
-            });
-            usedLabel = "Nano Banana (fallback)";
-          }
-
           if (!result.success || !result.images) {
             spinner.fail(result.error || "Image generation failed");
             exitWithError(apiError(result.error || "Image generation failed", true));
@@ -369,17 +352,16 @@ Examples:
               const img = result.images[0];
               const buffer = Buffer.from(img.base64, "base64");
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
             }
             outputSuccess({
               command: "generate image",
               startedAt,
-              warnings: usedLabel.includes("fallback")
-                ? [`Model "${options.model}" failed; fell back to flash`]
-                : [],
+              warnings: [],
               data: {
                 provider: "gemini",
                 model: usedLabel,
+                modelId: result.model,
                 images: result.images.map((img: { mimeType?: string }) => ({
                   mimeType: img.mimeType,
                 })),
@@ -408,7 +390,7 @@ Examples:
               const buffer = Buffer.from(img.base64, "base64");
               const outputPath = resolve(process.cwd(), options.output);
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(
@@ -449,6 +431,7 @@ Examples:
           }
 
           const result = await grok.generateImage(prompt, {
+            ...resolveGrokImageModel(options.model),
             aspectRatio: options.ratio || "1:1",
             n: parseInt(options.count),
           });
@@ -474,13 +457,14 @@ Examples:
                 throw new Error("No image data available");
               }
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
             }
             outputSuccess({
               command: "generate image",
               startedAt,
               data: {
                 provider: "grok",
+                modelId: resolveGrokImageModel(options.model).model,
                 images: result.images.map((img) => ({ url: img.url })),
                 outputPath,
               },
@@ -519,7 +503,7 @@ Examples:
               }
               const outputPath = resolve(process.cwd(), options.output);
               await mkdir(dirname(outputPath), { recursive: true });
-              await writeFile(outputPath, buffer);
+              await writeImageFile(outputPath, buffer);
               saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
             } catch (err) {
               saveSpinner.fail(

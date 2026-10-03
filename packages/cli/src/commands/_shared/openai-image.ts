@@ -15,8 +15,8 @@
  * See issue #58.
  */
 
-import { OpenAIImageProvider } from "@vibeframe/ai-providers";
-import type { ImageOptions, ImageResult } from "@vibeframe/ai-providers";
+import { OPENAI_IMAGE_DEFAULT_MODEL, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import type { GPTImageModel, ImageOptions, ImageResult } from "@vibeframe/ai-providers";
 
 /** Subset of CLI options consumed by the helper. */
 export interface OpenAIImageHelperOptions {
@@ -31,24 +31,38 @@ export interface OpenAIImageHelperOptions {
 export interface OpenAIImageHelperResult {
   result: ImageResult;
   /** Resolved model id passed to the API. */
-  openaiModel: "gpt-image-2" | "gpt-image-1.5";
+  openaiModel: GPTImageModel;
   /** Human-friendly label for spinner / success output. */
-  modelLabel: "GPT Image 2" | "GPT Image 1.5";
+  modelLabel: string;
 }
+
+const OPENAI_IMAGE_MODELS: Record<GPTImageModel, { label: string; aliases: string[] }> = {
+  "gpt-image-2.5-sunburst": { label: "GPT Image 2.5 Sunburst", aliases: ["2.5", "sunburst"] },
+  "gpt-image-2.5-flare": { label: "GPT Image 2.5 Flare", aliases: ["flare", "2.5-flare"] },
+  "gpt-image-2": { label: "GPT Image 2", aliases: ["2"] },
+  "gpt-image-1.5": { label: "GPT Image 1.5", aliases: ["1.5"] },
+};
 
 /**
  * Resolve the user-supplied model alias to the API id + display label.
- * Exported so unit tests can assert label↔model parity (regression cover
- * for v0.52.0 bug).
+ * Unknown or empty aliases resolve to the default model. Exported so unit
+ * tests can assert label↔model parity (regression cover for v0.52.0 bug).
  */
 export function resolveOpenAIImageModel(modelAlias?: string): {
-  openaiModel: "gpt-image-2" | "gpt-image-1.5";
-  modelLabel: "GPT Image 2" | "GPT Image 1.5";
+  openaiModel: GPTImageModel;
+  modelLabel: string;
 } {
-  const isGptImage15 = modelAlias === "1.5" || modelAlias === "gpt-image-1.5";
+  const alias = modelAlias?.trim() ?? "";
+  for (const [id, model] of Object.entries(OPENAI_IMAGE_MODELS) as Array<
+    [GPTImageModel, (typeof OPENAI_IMAGE_MODELS)[GPTImageModel]]
+  >) {
+    if (alias === id || model.aliases.includes(alias)) {
+      return { openaiModel: id, modelLabel: model.label };
+    }
+  }
   return {
-    openaiModel: isGptImage15 ? "gpt-image-1.5" : "gpt-image-2",
-    modelLabel: isGptImage15 ? "GPT Image 1.5" : "GPT Image 2",
+    openaiModel: OPENAI_IMAGE_DEFAULT_MODEL,
+    modelLabel: OPENAI_IMAGE_MODELS[OPENAI_IMAGE_DEFAULT_MODEL].label,
   };
 }
 

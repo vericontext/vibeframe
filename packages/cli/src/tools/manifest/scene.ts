@@ -588,7 +588,7 @@ const sceneBuildSchema = z.object({
   imageProvider: z
     .enum(["openai"])
     .optional()
-    .describe("Image provider for backdrops. Default 'openai' (gpt-image-2)."),
+    .describe("Image provider for backdrops. Default 'openai' (gpt-image-2.5-sunburst)."),
   videoProvider: z
     .enum(["seedance", "grok", "kling", "runway", "veo"])
     .optional()
@@ -605,7 +605,7 @@ const sceneBuildSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted."
+      "Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted."
     ),
   imageSize: z
     .enum(["1024x1024", "1536x1024", "1024x1536"])
