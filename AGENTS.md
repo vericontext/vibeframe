@@ -119,6 +119,9 @@ General expectation:
 - Use `requireApiKey()` from `utils/api-key.ts` for required API keys.
 - Use `hasApiKey()` for side-effect-free key detection.
 - Use `resolveProvider()` / provider registry helpers instead of duplicating fallback logic.
+- Before changing a provider integration, read its
+  `.agents/references/providers/<provider>.md` (models, rejected params,
+  deprecation dates) and run `pnpm providers:check`.
 
 ## Conventions
 

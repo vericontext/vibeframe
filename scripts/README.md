@@ -17,6 +17,10 @@ demos, packaging, or contributor maintenance.
   metadata.
 - `print-env-example.mts` - regenerates `.env.example` from provider metadata.
 - `sync-counts.sh` - drift checker for provider/count-related metadata.
+- `check-provider-models.mts` - `pnpm providers:check`; checks
+  `.agents/references/providers/*.md` for format, staleness, and model IDs
+  that providers no longer list (live where API keys exist, `--offline`
+  otherwise).
 
 ## Release
 
