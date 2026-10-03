@@ -187,9 +187,8 @@ export async function analyzeContent(
   const systemPrompt = buildStoryboardSystemPrompt(targetDuration, creativity);
 
   try {
-    // Use higher temperature for creative mode
-    const temperature = creativity === "high" ? 1.0 : 0.7;
-
+    // Creativity is steered through the system prompt: Claude Opus 4.7 and
+    // every 5.x model reject a non-default `temperature` with a 400.
     const text = await callClaude(api, {
       system: systemPrompt,
       messages: [{
@@ -197,7 +196,6 @@ export async function analyzeContent(
         content: buildStoryboardUserMessage(content),
       }],
       maxTokens: 4096,
-      temperature,
     });
 
     const jsonStr = extractJsonArray(text);

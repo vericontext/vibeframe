@@ -663,7 +663,7 @@ Cost tier: `very-high`
 - `refAudio` _(string)_ - Reference audio for Seedance reference-to-video
 - `noGenerateAudio` _(boolean)_ - Disable native audio when the provider supports it
 - `person` _(string)_ - Person generation: allow_all, allow_adult (Veo only)
-- `veoModel` _(string)_ _(default: `"3.1-fast"`)_ - Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)
+- `veoModel` _(string)_ _(default: `"3.1-fast"`)_ - Veo model: 3.1, 3.1-fast (default: 3.1-fast)
 - `runwayModel` _(string)_ _(default: `"gen4.5"`)_ - Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)
 - `noWait` _(boolean)_ - Start generation and return task ID without waiting
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -701,7 +701,7 @@ Cost tier: `very-high`
 - `prompt` _(string)_ - Continuation prompt
 - `duration` _(number)_ _(default: `5`)_ - Duration: 5 or 10 (Kling), 4/6/8 (Veo)
 - `negative` _(string)_ - Negative prompt (what to avoid, Kling only)
-- `veoModel` _(string)_ _(default: `"3.1"`)_ - Veo model: 3.0, 3.1, 3.1-fast
+- `veoModel` _(string)_ _(default: `"3.1"`)_ - Veo model: 3.1, 3.1-fast
 - `noWait` _(boolean)_ - Start extension and return task ID without waiting
 - `dryRun` _(boolean)_ - Preview parameters without executing
 

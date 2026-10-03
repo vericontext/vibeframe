@@ -49,9 +49,13 @@ export {
   omniProvider,
   isGeminiTextModelAlias,
   resolveGeminiTextModel,
+  resolveVeoModel,
+  VEO_MODEL_ALIASES,
   type GeminiImageModel,
   type GeminiTextModel,
   type GeminiTextModelAlias,
+  type VeoModel,
+  type VeoModelAlias,
 } from "./gemini/index.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";

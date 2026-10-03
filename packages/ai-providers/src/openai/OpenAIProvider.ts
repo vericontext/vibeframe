@@ -126,7 +126,6 @@ Or if clarification needed:
             { role: "system", content: systemPrompt },
             { role: "user", content: instruction },
           ],
-          temperature: 0.2,
           response_format: { type: "json_object" },
         }),
       });
@@ -403,7 +402,8 @@ Each segment should be 3-10 seconds long.`;
         },
         body: JSON.stringify({
           model: "gpt-5-mini",
-          max_tokens: 4096,
+          // gpt-5-mini spends most of its budget on reasoning tokens.
+          max_completion_tokens: 16384,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: systemPrompt },
