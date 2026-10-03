@@ -4,12 +4,13 @@ import { resolve } from "node:path";
 
 import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
 import { costCapError, exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
+import { BUILD_VIDEO_PROVIDERS } from "./_shared/build-video-providers.js";
 
 const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_MODES = ["agent", "batch", "auto"] as const;
 const VALID_TTS_PROVIDERS = ["auto", "elevenlabs", "openai", "kokoro"] as const;
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
-const VALID_VIDEO_PROVIDERS = ["seedance", "grok", "kling", "runway", "veo"] as const;
+const VALID_VIDEO_PROVIDERS = BUILD_VIDEO_PROVIDERS;
 const VALID_MUSIC_PROVIDERS = ["elevenlabs", "replicate"] as const;
 const VALID_COMPOSERS = ["claude", "openai", "gemini"] as const;
 const VALID_IMAGE_QUALITIES = ["standard", "hd"] as const;

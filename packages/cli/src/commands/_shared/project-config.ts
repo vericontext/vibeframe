@@ -4,13 +4,14 @@ import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 
 import type { SceneAspect, SceneKind, VibeProjectConfig as LegacyVibeProjectConfig } from "./scene-project.js";
+import type { BuildVideoProvider } from "./build-video-providers.js";
 
 export const VIBE_CONFIG_FILENAME = "vibe.config.json";
 export const LEGACY_VIBE_PROJECT_FILENAME = "vibe.project.yaml";
 
 export type CompositionEngine = "hyperframes";
 export type ProjectImageProvider = "openai" | "gemini" | "grok" | null;
-export type ProjectVideoProvider = "seedance" | "grok" | "kling" | "runway" | "veo" | null;
+export type ProjectVideoProvider = BuildVideoProvider | null;
 export type ProjectNarrationProvider = "elevenlabs" | "openai" | "kokoro" | null;
 export type ProjectComposerProvider = "claude" | "openai" | "gemini" | null;
 export type ProjectQuality = "draft" | "standard" | "high";

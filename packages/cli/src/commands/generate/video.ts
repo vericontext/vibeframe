@@ -2,7 +2,7 @@
  * @module generate/video
  * @description `vibe generate video` (alias `vid`) — multi-provider video
  * generation. fal.ai (Seedance 2.0), Grok, Veo (Gemini), Kling, Runway,
- * plus experimental Gemini Omni (`-p omni`).
+ * plus Gemini Omni 1.1 Flash (`-p omni`).
  * Split out of `generate.ts` in v0.69 (Plan G Phase 2).
  */
 
@@ -49,7 +49,7 @@ export function registerVideoCommand(parent: Command): void {
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
     .option(
       "-p, --provider <provider>",
-      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
+      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
     )
     .option(
       "-k, --api-key <key>",
@@ -167,7 +167,7 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-                "Available providers: seedance, grok, kling, runway, veo, omni (experimental). `fal` is a deprecated alias for seedance."
+                "Available providers: seedance, grok, kling, runway, omni, veo. `fal` is a deprecated alias for seedance."
               )
             );
           }
@@ -303,7 +303,7 @@ Examples:
           runway: "Runway",
           kling: "Kling",
           veo: "Veo",
-          omni: "Gemini Omni (experimental)",
+          omni: "Gemini Omni 1.1 Flash",
           grok: "Grok",
           seedance: "Seedance 2.0 via fal.ai",
         };
@@ -686,17 +686,24 @@ Examples:
           });
           finalResult = result;
         } else if (provider === "omni") {
-          // Gemini Omni (experimental) — preview `/v1beta/interactions`
-          // endpoint. Opt-in only (`-p omni`), never auto-resolved. The
-          // interactions call returns a final video URL synchronously, so
-          // there is no separate poll/wait loop.
+          // Gemini Omni 1.1 Flash on `/v1beta/interactions`. The call is
+          // synchronous; the provider waits for the video file itself.
           const omni = new OmniProvider();
           await omni.initialize({ apiKey });
-          spinner.text = "Generating video with Gemini Omni (experimental)...";
+          spinner.text = "Generating video with Gemini Omni 1.1 Flash...";
+          let lastFrame: string | undefined;
+          if (options.lastFrame) {
+            const lastFramePath = resolve(process.cwd(), options.lastFrame);
+            const ext = options.lastFrame.toLowerCase().split(".").pop();
+            const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
+            lastFrame = `data:${mimeType};base64,${(await readFile(lastFramePath)).toString("base64")}`;
+          }
           result = await omni.generateVideo(prompt, {
             prompt,
             referenceImage,
+            lastFrame,
             aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
+            resolution: options.resolution,
           });
           finalResult = result;
         }
@@ -720,7 +727,7 @@ Examples:
             command: "generate video",
             startedAt,
             costUsd: cost.costUsd,
-            warnings: cost.warnings,
+            warnings: provider === "veo" ? [VEO_SHUTDOWN_WARNING, ...cost.warnings] : cost.warnings,
             data: {
               provider,
               taskId: result?.id,
@@ -733,6 +740,9 @@ Examples:
         }
 
         console.log();
+        if (provider === "veo") {
+          console.log(chalk.yellow(VEO_SHUTDOWN_WARNING));
+        }
         if (finalResult.videoUrl) {
           console.log(`Video URL: ${finalResult.videoUrl}`);
         }
@@ -770,6 +780,9 @@ Examples:
  * loop reads as "free" - the hybrid-brew dogfood run billed Runway twice
  * while reporting $0.
  */
+const VEO_SHUTDOWN_WARNING =
+  "Veo 3.1 preview models shut down on 2026-10-22. Use `-p omni` (Gemini Omni 1.1 Flash) instead.";
+
 export function realRunCost(provider: string, options: {
   duration?: string;
   resolution?: string;

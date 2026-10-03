@@ -41,6 +41,7 @@ import { loadStoryboard, strayBeatIssues } from "./storyboard-source.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
+import { resolveBuildVideoProvider, videoProviderConfigKey } from "./build-video-providers.js";
 
 export type BuildStage = "assets" | "transcript" | "compose" | "sync" | "render" | "all";
 export type BuildPlanStatus = "ready" | "invalid";
@@ -1067,18 +1068,7 @@ function normalizeImageProvider(value: string | null | undefined): string {
 }
 
 function normalizeVideoProvider(value: string | null | undefined): string {
-  const provider = String(value ?? "seedance").toLowerCase();
-  if (provider === "fal") return "seedance";
-  if (
-    provider === "seedance" ||
-    provider === "grok" ||
-    provider === "kling" ||
-    provider === "runway" ||
-    provider === "veo"
-  ) {
-    return provider;
-  }
-  return "seedance";
+  return resolveBuildVideoProvider(value);
 }
 
 function normalizeMusicProvider(value: string | null | undefined): string {
@@ -1093,13 +1083,7 @@ function imageConfigKey(provider: string): string {
 }
 
 function videoConfigKey(provider: string): string {
-  return provider === "seedance"
-    ? "fal"
-    : provider === "grok"
-      ? "xai"
-      : provider === "veo"
-        ? "google"
-        : provider;
+  return videoProviderConfigKey(provider);
 }
 
 function composerConfigKey(provider: ComposerProvider): string {

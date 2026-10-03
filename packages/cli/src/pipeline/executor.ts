@@ -11,6 +11,7 @@ import { resolveStepParams, findUnresolvedRefs } from "./resolver.js";
 import { COST_ESTIMATES } from "../commands/output.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { loadProviderDefaults, resolveProvider } from "../utils/provider-resolver.js";
+import { resolveBuildVideoProvider, type BuildVideoProvider } from "../commands/_shared/build-video-providers.js";
 
 // ── Action metadata registry (for cost/help/schema growth) ──────────────
 
@@ -112,13 +113,15 @@ async function resolvePipelineImageProvider(provider: unknown): Promise<"gemini"
 
 async function resolvePipelineVideoProvider(
   provider: unknown,
-): Promise<"grok" | "kling" | "runway" | "veo" | "seedance" | "fal" | undefined> {
+): Promise<BuildVideoProvider | undefined> {
   const explicit = stringParam(provider)?.toLowerCase();
   if (explicit === "fal") return "seedance";
-  if (explicit) return explicit as "grok" | "kling" | "runway" | "veo" | "seedance";
+  // Unknown names pass through so the executor reports them instead of
+  // silently switching providers.
+  if (explicit) return explicit as BuildVideoProvider;
 
   await loadProviderDefaults();
-  return (resolveProvider("video")?.name ?? "grok") as "grok" | "kling" | "runway" | "veo" | "seedance";
+  return resolveBuildVideoProvider(resolveProvider("video")?.name ?? "grok");
 }
 
 function providerKeyForImage(provider: string | undefined): string | undefined {
@@ -146,6 +149,7 @@ function providerKeyForVideo(provider: string | undefined): string | undefined {
     case "runway":
       return "runway";
     case "veo":
+    case "omni":
       return "google";
     default:
       return undefined;

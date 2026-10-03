@@ -687,7 +687,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "videoProvider": {
-        "description": "Video provider: seedance|grok|kling|runway|veo",
+        "description": "Video provider: seedance|grok|kling|runway|omni|veo",
         "type": "string",
       },
       "voice": {
@@ -2219,7 +2219,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "provider": {
-        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
+        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
         "type": "string",
       },
       "ratio": {
@@ -2844,7 +2844,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "type": "string",
       },
       "videoProvider": {
-        "description": "Video provider: seedance|grok|kling|runway|veo",
+        "description": "Video provider: seedance|grok|kling|runway|omni|veo",
         "type": "string",
       },
       "voice": {
