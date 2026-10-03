@@ -4,8 +4,10 @@ checked: 2026-10-04
 env: [ELEVENLABS_API_KEY]
 models_endpoint: none
 models_in_use:
-  - eleven_v3
-  - music_v1
+  - eleven_v3                   # TTS default
+  - music_v1                    # music
+models_recommended:
+  - music_v2_5                  # replaces music_v1
 ---
 
 # ElevenLabs

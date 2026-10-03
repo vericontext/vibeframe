@@ -4,7 +4,8 @@ checked: 2026-10-04
 env: []
 models_endpoint: none
 models_in_use:
-  - llama3.2
+  - llama3.2                    # agent default
+models_recommended: []          # a stronger tool-calling default needs a real run first
 ---
 
 # Ollama

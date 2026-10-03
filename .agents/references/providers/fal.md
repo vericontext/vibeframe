@@ -4,14 +4,18 @@ checked: 2026-10-04
 env: [FAL_API_KEY, IMGBB_API_KEY]   # IMGBB only for uploading local i2v images
 models_endpoint: none
 models_in_use:
-  - seedance-2.0                                   # our variant names
-  - seedance-2.0-fast
-  - bytedance/seedance-2.0/text-to-video
-  - bytedance/seedance-2.0/fast/text-to-video
+  - seedance-2.0                # our variant name, default video provider
+  - seedance-2.0-fast           # our variant name, `--seedance-model fast`
   - bytedance/seedance-2.0/image-to-video
-  - bytedance/seedance-2.0/fast/image-to-video
+  - bytedance/seedance-2.0/text-to-video
   - bytedance/seedance-2.0/reference-to-video
+  - bytedance/seedance-2.0/fast/image-to-video
+  - bytedance/seedance-2.0/fast/text-to-video
   - bytedance/seedance-2.0/fast/reference-to-video
+models_recommended:
+  - bytedance/seedance-2.5/image-to-video      # opt-in: up to 30s, draft then complete
+  - bytedance/seedance-2.5/text-to-video
+  - bytedance/seedance-2.5/reference-to-video
 ---
 
 # fal.ai

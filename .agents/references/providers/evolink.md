@@ -4,7 +4,10 @@ checked: 2026-10-04
 env: [EVOLINK_API_KEY]
 models_endpoint: none
 models_in_use:
-  - gpt-5.2
+  - gpt-5.2                     # agent default
+models_recommended:
+  - gemini-3.8-flash            # replaces gpt-5.2; tools work on Chat Completions
+  - claude-sonnet-5-5           # alternative default
 ---
 
 # Evolink

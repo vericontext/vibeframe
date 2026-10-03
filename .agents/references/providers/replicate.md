@@ -4,13 +4,15 @@ checked: 2026-10-04
 env: [REPLICATE_API_TOKEN]
 models_endpoint: none
 models_in_use:
-  - 7be0f12c54a8d033a0fbd14418c9af98962da9a86f5ff7811f9b3423a1f0b7d7  # meta/musicgen version, bare hash in code
-  - nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa
-  - sczhou/propainter:1d0b4c1d7296db4db6bf92dd43d2d38cf2e855a5e5e04e0c7f4e83f5ce59f6e9
-  - lucataco/resemble-enhance
-  - cd0a3bf6b7ee1ff12cfb6e1f16e3c4c1a2dc57b8d8b8c4b7a7e9f8b5c7a9d8e1  # bare hash, style transfer
-  - facebookresearch/co-tracker
-  - meta/sam-2:fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83
+  - 7be0f12c54a8d033a0fbd14418c9af98962da9a86f5ff7811f9b3423a1f0b7d7  # meta/musicgen version (bare hash), `-p replicate` music
+  - nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa  # upscale
+  - meta/sam-2:fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83  # segmentation
+  - lucataco/resemble-enhance   # audio enhance
+  - sczhou/propainter:1d0b4c1d7296db4db6bf92dd43d2d38cf2e855a5e5e04e0c7f4e83f5ce59f6e9  # dead: 404
+  - facebookresearch/co-tracker # dead: 404
+  - cd0a3bf6b7ee1ff12cfb6e1f16e3c4c1a2dc57b8d8b8c4b7a7e9f8b5c7a9d8e1  # style transfer, likely placeholder hash
+models_recommended:
+  - stability-ai/stable-audio-2.5  # replaces meta/musicgen (commercial-safe, $0.20 per file)
 ---
 
 # Replicate

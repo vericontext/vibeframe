@@ -4,17 +4,22 @@ checked: 2026-10-04
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
-  - gemini-3.5-flash
-  - gemini-3-flash-preview
-  - gemini-3.1-pro-preview
-  - gemini-2.5-flash
-  - gemini-2.5-pro
-  - gemini-2.5-flash-image
-  - gemini-3.1-flash-image-preview
-  - gemini-3-pro-image-preview
-  - veo-3.1-generate-preview
-  - veo-3.1-fast-generate-preview
-  - gemini-omni-flash-preview
+  - gemini-3.5-flash            # one-shot text default (analysis, review, storyboard, motion `gemini`)
+  - gemini-2.5-flash            # agent default; restricted for new projects since 2026-09-18
+  - gemini-3.1-pro-preview      # motion `gemini-3.1-pro`
+  - gemini-2.5-pro              # `pro` alias
+  - gemini-3-flash-preview      # `flash-3` alias
+  - gemini-2.5-flash-image      # image default; past its 2026-10-02 shutdown date
+  - gemini-3.1-flash-image-preview  # image `3.1-flash`; past its 2026-06-25 shutdown date
+  - gemini-3-pro-image-preview  # image `pro`; past its 2026-06-25 shutdown date
+  - veo-3.1-fast-generate-preview  # Veo default; shuts down 2026-10-22
+  - veo-3.1-generate-preview    # Veo `3.1`; shuts down 2026-10-22
+  - gemini-omni-flash-preview   # experimental `-p omni`; deprecated 2026-09-30
+models_recommended:
+  - gemini-3.8-flash            # replaces gemini-3.5-flash and gemini-2.5-flash
+  - gemini-3.1-flash-image      # replaces gemini-2.5-flash-image and gemini-3.1-flash-image-preview
+  - gemini-3-pro-image          # replaces gemini-3-pro-image-preview
+  - gemini-omni-1.1-flash       # replaces the Veo 3.1 previews and gemini-omni-flash-preview
 ---
 
 # Google (Gemini API)

@@ -4,7 +4,8 @@ checked: 2026-10-04
 env: [VIBE_KOKORO_RUNTIME, VIBE_ONNX_DEVICE]
 models_endpoint: none
 models_in_use:
-  - onnx-community/Kokoro-82M-v1.0-ONNX
+  - onnx-community/Kokoro-82M-v1.0-ONNX  # local TTS, q8
+models_recommended: []
 ---
 
 # Kokoro

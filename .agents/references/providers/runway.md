@@ -4,9 +4,10 @@ checked: 2026-10-04
 env: [RUNWAY_API_SECRET]
 models_endpoint: none
 models_in_use:
-  - gen4.5
-  - gen4_turbo
-  - gemini_2.5_flash   # only in a spinner label for the missing Runway image script
+  - gen4.5                      # video default
+  - gen4_turbo                  # image-to-video only
+  - gemini_2.5_flash            # only a spinner label for the missing Runway image script
+models_recommended: []
 ---
 
 # Runway

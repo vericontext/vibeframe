@@ -4,15 +4,20 @@ checked: 2026-10-04
 env: [OPENAI_API_KEY]
 models_endpoint: openai
 models_in_use:
-  - dall-e-2
-  - dall-e-3
-  - gpt-4o-mini-tts
-  - gpt-5-mini
-  - gpt-image-1.5
-  - gpt-image-2
-  - tts-1
-  - tts-1-hd
-  - whisper-1
+  - gpt-5-mini                  # agent default, storyboard, translate-srt; shuts down 2026-12-11
+  - gpt-image-2                 # image default
+  - gpt-image-1.5               # image `1.5` alias; shuts down 2026-12-01
+  - gpt-4o-mini-tts             # TTS default; shuts down 2027-01-06
+  - whisper-1                   # transcription with word timestamps; shuts down 2027-02-26
+  - tts-1                       # TTS option; shuts down 2027-01-06
+  - tts-1-hd                    # TTS option; shuts down 2027-01-06
+  - dall-e-3                    # dead code path; shut down 2026-05-12
+  - dall-e-2                    # dead code path (createVariation); shut down 2026-05-12
+models_recommended:
+  - gpt-5.4-mini                # replaces gpt-5-mini while the adapter stays on Chat Completions
+  - gpt-6-luna                  # replaces gpt-5-mini once tools send reasoning_effort none or use Responses
+  - gpt-image-2.5-sunburst      # candidate image default
+  - gpt-image-2.5-flare         # replaces gpt-image-1.5
 ---
 
 # OpenAI

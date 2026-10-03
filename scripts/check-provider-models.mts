@@ -9,9 +9,9 @@
  *  - format errors (missing frontmatter fields or sections),
  *  - listed IDs that no longer appear in `packages/*\/src` (stale list),
  *  - a `checked` date older than STALE_DAYS,
- *  - with `--live` (default when keys are present), listed IDs that the
- *    provider's free model-listing endpoint no longer returns, and IDs it
- *    silently redirects to another model.
+ *  - unless `--offline`, in-use IDs that the provider's free model-listing
+ *    endpoint no longer returns or silently redirects to another model, and
+ *    recommended IDs (`models_recommended`) it does not list.
  *
  * Run `pnpm providers:check` (live where keys exist) or
  * `pnpm providers:check --offline`. Exits 1 on format errors or on IDs a
@@ -39,8 +39,13 @@ interface Reference {
   provider: string;
   checked: string;
   endpoint: Endpoint;
+  /** IDs our source calls today, most important first. */
   models: string[];
+  /** IDs the reference recommends moving to. */
+  recommended: string[];
 }
+
+const LISTS = ["models_in_use", "models_recommended"] as const;
 
 const offline = process.argv.includes("--offline");
 const errors: string[] = [];
@@ -57,20 +62,20 @@ function parseFrontmatter(file: string, text: string): Reference | undefined {
     return undefined;
   }
   const fields: Record<string, string> = {};
-  const models: string[] = [];
-  let inModels = false;
+  const lists: Record<string, string[]> = {};
+  let list: string[] | undefined;
   for (const raw of match[1].split("\n")) {
     const line = raw.replace(/\s+#.*$/, "");
     const item = /^\s+-\s+(\S+)/.exec(line);
-    if (inModels && item) {
-      models.push(item[1].replace(/^["']|["']$/g, ""));
+    if (list && item) {
+      list.push(item[1].replace(/^["']|["']$/g, ""));
       continue;
     }
     const kv = /^(\w+):\s*(.*)$/.exec(line);
     if (!kv) continue;
-    inModels = kv[1] === "models_in_use";
-    if (inModels && kv[2].startsWith("[")) {
-      models.push(
+    list = (LISTS as readonly string[]).includes(kv[1]) ? (lists[kv[1]] = []) : undefined;
+    if (list && kv[2].startsWith("[")) {
+      list.push(
         ...kv[2]
           .replace(/^\[|\]$/g, "")
           .split(",")
@@ -81,7 +86,7 @@ function parseFrontmatter(file: string, text: string): Reference | undefined {
     fields[kv[1]] = kv[2].trim();
   }
 
-  for (const key of ["provider", "checked", "env", "models_endpoint", "models_in_use"]) {
+  for (const key of ["provider", "checked", "env", "models_endpoint", ...LISTS]) {
     if (!(key in fields)) errors.push(`${file}: frontmatter is missing \`${key}\``);
   }
   if (fields.checked && !/^\d{4}-\d{2}-\d{2}$/.test(fields.checked)) {
@@ -91,7 +96,14 @@ function parseFrontmatter(file: string, text: string): Reference | undefined {
   if (fields.models_endpoint && !ENDPOINTS.includes(endpoint)) {
     errors.push(`${file}: unknown models_endpoint "${fields.models_endpoint}"`);
   }
-  return { file, provider: fields.provider, checked: fields.checked, endpoint, models };
+  return {
+    file,
+    provider: fields.provider,
+    checked: fields.checked,
+    endpoint,
+    models: lists.models_in_use ?? [],
+    recommended: lists.models_recommended ?? [],
+  };
 }
 
 function sourceText(): string {
@@ -211,7 +223,7 @@ for (const name of files) {
     }
   }
 
-  if (offline || ref.endpoint === "none" || ref.models.length === 0) continue;
+  if (offline || ref.endpoint === "none" || ref.models.length + ref.recommended.length === 0) continue;
   let listed: Set<string> | undefined;
   try {
     listed = await listModels(ref.endpoint);
@@ -222,6 +234,11 @@ for (const name of files) {
   if (!listed) {
     warnings.push(`${file}: skipped live check (no API key for ${ref.endpoint})`);
     continue;
+  }
+  for (const id of ref.recommended) {
+    if (!listed.has(id)) {
+      errors.push(`${file}: recommended "${id}" is not listed by the ${ref.endpoint} models endpoint`);
+    }
   }
   for (const id of ref.models) {
     if (!listed.has(id)) {

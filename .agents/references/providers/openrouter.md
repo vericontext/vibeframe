@@ -4,7 +4,10 @@ checked: 2026-10-04
 env: [OPENROUTER_API_KEY]
 models_endpoint: openrouter
 models_in_use:
-  - openrouter/auto
+  - openrouter/auto             # agent default
+models_recommended:
+  - anthropic/claude-sonnet-5.5 # tool-capable pick for docs and examples
+  - qwen/qwen3.8-flash          # cheap tool-capable pick
 ---
 
 # OpenRouter
