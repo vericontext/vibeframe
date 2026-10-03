@@ -53,6 +53,12 @@ export interface AgentMessage {
   content: string;
   toolCalls?: ToolCall[];
   toolCallId?: string;
+  /**
+   * The provider's own assistant content (Claude content blocks, Gemini
+   * parts), replayed verbatim on the next turn. Newer models require their
+   * thinking blocks and thought signatures back unmodified during tool use.
+   */
+  providerContent?: unknown;
 }
 
 export interface AgentConfig {
@@ -68,6 +74,8 @@ export interface LLMResponse {
   content: string;
   toolCalls?: ToolCall[];
   finishReason: "stop" | "tool_calls" | "length" | "error";
+  /** See {@link AgentMessage.providerContent}. */
+  providerContent?: unknown;
 }
 
 export interface AgentContext {

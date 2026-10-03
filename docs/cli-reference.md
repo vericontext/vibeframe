@@ -632,7 +632,7 @@ Cost tier: `free`
 - `style` _(string)_ _(youtube \| instagram \| tiktok \| twitter)_ - Platform style: youtube, instagram, tiktok, twitter
 - `bestFrame` _(string)_ - Extract best thumbnail frame from video using Gemini AI
 - `prompt` _(string)_ - Custom prompt for best-frame analysis
-- `model` _(string)_ _(default: `"flash"`)_ - Gemini model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Gemini model: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
 
 #### `vibe generate video`
 
@@ -1014,7 +1014,7 @@ Cost tier: `low`
 - `source` _(string)_ **required** - Image/video file path, image URL, or YouTube URL
 - `prompt` _(string)_ **required** - Analysis prompt (e.g., 'Describe this image', 'Summarize this video')
 - `apiKey` _(string)_ - Google API key (or set GOOGLE_API_KEY env)
-- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
 - `fps` _(number)_ - Frames per second for video (default: 1)
 - `start` _(number)_ - Start offset in seconds (video only)
 - `end` _(number)_ - End offset in seconds (video only)
@@ -1053,7 +1053,7 @@ Cost tier: `low`
 - `project-dir` _(string)_ - VibeFrame project directory
 - `cheap` _(boolean)_ - Run local checks only (default; no AI/API calls)
 - `ai` _(boolean)_ - Also run Gemini video review and merge findings into review-report.json
-- `model` _(string)_ _(default: `"flash"`)_ - Gemini model for --ai: flash/latest (Gemini 3.5 Flash), flash-3.5, flash-3, flash-2.5, pro, pro-3.1, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Gemini model for --ai: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
 - `beat` _(string)_ - Inspect a render for one storyboard beat
 - `video` _(string)_ - Rendered video path. Defaults to build-report outputPath or latest renders/\* video.
 - `output` _(string)_ - Write review report to this path (default: <project>/review-report.json)

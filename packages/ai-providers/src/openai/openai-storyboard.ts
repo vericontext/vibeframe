@@ -1,7 +1,7 @@
 /**
  * @module openai-storyboard
  *
- * Storyboard generation using OpenAI GPT-5-mini.
+ * Storyboard generation using OpenAI GPT-5.4 mini.
  * Uses the same shared prompt as Claude and Gemini storyboard generators.
  */
 
@@ -9,7 +9,7 @@ import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
 
 /**
- * Generate a storyboard from script content using OpenAI GPT-5-mini.
+ * Generate a storyboard from script content using OpenAI GPT-5.4 mini.
  *
  * @param apiKey - OpenAI API key
  * @param content - Script/content text to break into scenes
@@ -38,12 +38,12 @@ export async function analyzeContent(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-5-mini",
+        model: "gpt-5.4-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: buildStoryboardUserMessage(content) },
         ],
-        // gpt-5-mini spends most of its budget on reasoning tokens.
+        // Reasoning tokens count against this cap.
         max_completion_tokens: 16384,
         response_format: { type: "json_object" },
       }),

@@ -13,6 +13,18 @@ import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../stor
 // generateMotion
 // ---------------------------------------------------------------------------
 
+/** Reply shape for motion generation and refinement. */
+const MOTION_COMPONENT_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    code: { type: "string" },
+    description: { type: "string" },
+  },
+  required: ["name", "code", "description"],
+  additionalProperties: false,
+};
+
 export async function generateMotion(
   api: ClaudeApiParams,
   description: string,
@@ -55,6 +67,7 @@ MANDATORY ADAPTATION RULES:
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
       maxTokens: 16000,
+      jsonSchema: MOTION_COMPONENT_SCHEMA,
     });
 
     const jsonStr = extractJsonObject(text);
@@ -142,6 +155,7 @@ Respond with ONLY valid JSON (no markdown):
         content: `Here is the existing Remotion component code:\n\`\`\`tsx\n${existingCode}\n\`\`\`\n\nModification instructions: ${instructions}\n\nReturn the complete modified component as JSON.`,
       }],
       maxTokens: 16000,
+      jsonSchema: MOTION_COMPONENT_SCHEMA,
     });
 
     const jsonStr = extractJsonObject(text);

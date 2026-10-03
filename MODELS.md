@@ -6,116 +6,94 @@
 
 ## Agent LLM Providers (7)
 
-Used for natural language processing in Agent mode (`vibe` command).
+Used for natural language processing in Agent mode (`vibe agent`).
 
 | Provider | Model | API Model ID | Env Key | CLI Option |
 |----------|-------|-------------|---------|------------|
-| OpenAI | GPT-5-mini | `gpt-5-mini` | `OPENAI_API_KEY` | `-p openai` |
-| Claude | Sonnet 4.6 | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` | `-p claude` |
-| Gemini | 2.5 Flash | `gemini-2.5-flash` | `GOOGLE_API_KEY` | `-p gemini` |
-| xAI | Grok 4.1 Fast | `grok-4-1-fast-reasoning` | `XAI_API_KEY` | `-p xai` |
+| OpenAI | GPT-5.4 mini | `gpt-5.4-mini` | `OPENAI_API_KEY` | `-p openai` |
+| Claude | Sonnet 5.5 | `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` | `-p claude` |
+| Gemini | 3.8 Flash | `gemini-3.8-flash` | `GOOGLE_API_KEY` | `-p gemini` |
+| xAI | Grok 4.3 | `grok-4.3` | `XAI_API_KEY` | `-p xai` |
 | OpenRouter | Auto (300+ models) | `openrouter/auto` | `OPENROUTER_API_KEY` | `-p openrouter` |
 | Evolink | GPT-5.2 (via unified API) | `gpt-5.2` | `EVOLINK_API_KEY` | `-p evolink` |
 | Ollama | Local models | user-configured | - | `-p ollama` |
 
-**OpenAI model options:**
+Override the model per session with `vibe agent -p <provider> --model <id>`.
+Claude and Gemini replay their own assistant content (thinking blocks, thought signatures) between tool turns, which current models require.
 
-`gpt-5-mini` is the default — 10× cheaper input / 5× cheaper output than GPT-4o, with better performance. Ideal for agentic loops (20+ calls per task). You can override per-session:
+**OpenAI model options:**
 
 | Model ID | Variant | Notes |
 |----------|---------|-------|
-| `gpt-5-mini` | GPT-5 Mini | **Default**. Best cost-performance ratio. $0.25/M input, $2/M output |
-| `gpt-5.4` | GPT-5.4 | Frontier model, 1M context. $2.50/M input, $20/M output |
+| `gpt-5.4-mini` | GPT-5.4 mini | **Default**. Function calling on Chat Completions. $0.75/M input, $4.50/M output |
+| `gpt-6-luna` | GPT-6 Luna | Cheapest GPT-6. On Chat Completions it calls tools only with `reasoning_effort: "none"`; not yet supported by the agent adapter |
+| `gpt-5-mini` | GPT-5 mini (legacy) | Shuts down 2026-12-11 |
 
-> `gpt-5.4-pro` is **not** available via Chat Completions (Responses API only) — not usable for Agent mode.
-
-To use GPT-5.4 in agent mode: `vibe agent -p openai --model gpt-5.4`
+> `gpt-6-astra` and `gpt-6.1-sol` reject tool calls on Chat Completions (Responses API only), so they cannot drive Agent mode.
 
 **Claude model options:**
 
-`claude-sonnet-4-6` is the default — best balance of capability and cost for agentic loops. You can override per-session:
-
 | Model ID | Variant | Notes |
 |----------|---------|-------|
-| `claude-sonnet-4-6` | Sonnet 4.6 | **Default**. Best cost-performance for agent loops. $3/M input, $15/M output |
-| `claude-opus-4-7` | Opus 4.7 | Highest capability, step-change in agentic coding, 1M context. $5/M input, $25/M output |
-| `claude-haiku-4-5-20251001` | Haiku 4.5 | Fastest, lowest cost. $1/M input, $5/M output |
-| `claude-opus-4-6` | Opus 4.6 (legacy) | Previous Opus tier — same price as 4.7. Still supported. |
+| `claude-sonnet-5-5` | Sonnet 5.5 | **Default**. $2/M input, $10/M output, 1M context |
+| `claude-opus-5-5` | Opus 5.5 | Highest capability in the 5.5 tier. $4/M input, $20/M output |
+| `claude-fable-5-1` | Fable 5.1 | Long-horizon agentic work. $10/M input, $50/M output |
+| `claude-sonnet-4-6` | Sonnet 4.6 (legacy) | $3/M input, $15/M output. Still supported |
 
-To use Opus in agent mode: `vibe agent -p claude --model claude-opus-4-7`
+Claude Opus 4.7 and every 5.x model reject `temperature`, `top_p`, and `top_k`; VibeFrame never sends them.
 
 **xAI model options:**
 
-`grok-4-1-fast-reasoning` is the default — optimized for tool calling with 2M context window, 15× cheaper input / 30× cheaper output than Grok 4. You can override per-session:
-
 | Model ID | Variant | Notes |
 |----------|---------|-------|
-| `grok-4-1-fast-reasoning` | Grok 4.1 Fast (reasoning) | **Default**. Agent-optimized, 2M context. $0.20/M input, $0.50/M output |
-| `grok-4` | Grok 4 (flagship) | Highest capability, 256K context. $3/M input, $15/M output |
-| `grok-4-1-fast-non-reasoning` | Grok 4.1 Fast (non-reasoning) | Faster responses, no chain-of-thought. $0.20/M input, $0.50/M output |
+| `grok-4.3` | Grok 4.3 | **Default**. 1M context. $1.25/M input, $2.50/M output |
+| `grok-4.7` | Grok 4.7 | Flagship. $2/M input, $6/M output |
 
-To use Grok 4 in agent mode: `vibe agent -p xai --model grok-4`
+> `grok-4-1-fast-reasoning` was retired on 2026-05-15; xAI now silently serves `grok-4.3` for it.
 
 **OpenRouter model options:**
 
-`openrouter/auto` is the default — automatically routes to the best available model. You can specify any model available on OpenRouter:
+`openrouter/auto` is the default and routes to a model per request. OpenRouter slugs use dots in version numbers:
 
 | Model ID | Provider | Notes |
 |----------|----------|-------|
-| `openrouter/auto` | Auto | **Default**. Automatically selects best model |
-| `anthropic/claude-sonnet-4-6` | Anthropic | Claude Sonnet via OpenRouter |
-| `openai/gpt-5-mini` | OpenAI | GPT-5 Mini via OpenRouter |
-| `google/gemini-2.5-flash` | Google | Gemini Flash via OpenRouter |
-| `meta-llama/llama-4-scout` | Meta | Llama 4 Scout (open-weight) |
-| `deepseek/deepseek-r1` | DeepSeek | DeepSeek R1 reasoning model |
+| `openrouter/auto` | Auto | **Default**. Cost and tool support vary per pick |
+| `anthropic/claude-sonnet-5.5` | Anthropic | Claude Sonnet 5.5 |
+| `openai/gpt-6-luna` | OpenAI | GPT-6 Luna |
+| `google/gemini-3.8-flash` | Google | Gemini 3.8 Flash |
+| `qwen/qwen3.8-flash` | Qwen | Inexpensive, tool-capable |
+| `deepseek/deepseek-v4.1-flash` | DeepSeek | Inexpensive, tool-capable |
 
-To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonnet-4-6`
+To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonnet-5.5`
 
-> See [openrouter.ai/models](https://openrouter.ai/models) for the full list of 300+ available models.
+> See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
 **Evolink model options:**
-
-`gpt-5.2` is the default — reliable, fast, and cost-effective for agentic loops. You can specify any model available on Evolink:
 
 | Model ID | Provider | Notes |
 |----------|----------|-------|
 | `gpt-5.2` | OpenAI | **Default**. GPT-5.2 via Evolink |
-| `evolink-auto` | Auto | Auto-routing (may have spotty availability) |
-| `claude` | Anthropic | Claude via Evolink |
-| `gemini-2.5-pro` | Google | Gemini 2.5 Pro via Evolink |
-| `deepseek-chat` | DeepSeek | DeepSeek V3 via Evolink |
+| `evolink/auto` | Auto | Auto-routing |
+| `gemini-3.8-flash` | Google | Tool calls work on Chat Completions |
+| `claude-sonnet-5-5` | Anthropic | Claude Sonnet 5.5 via Evolink |
 | `doubao-seed-2.0-pro` | ByteDance | Doubao Seed 2.0 Pro via Evolink |
-
-To use a specific model: `vibe agent -p evolink --model gpt-5.2`
 
 > See [docs.evolink.ai](https://docs.evolink.ai/llms.txt) for the full model catalog.
 
-**Why Gemini 2.5 Flash for agent mode, not Gemini 3.5 Flash?**
-
-Agent mode runs an agentic loop — the LLM is called repeatedly (potentially dozens of times per task) to reason and call tools. For this use case:
-
-- **Speed matters**: Flash responds ~3–5× faster than Pro, keeping the interactive session snappy
-- **Tool calling stability**: `gemini-2.5-flash` has well-tested, stable function calling support; newer Gemini 3.x models may have stricter rate limits or different behavior in multi-turn tool calling loops
-- **Cost**: Flash is significantly cheaper per token — important when a single agent task may trigger 20+ LLM calls
-- **Agent loop risk**: newer frontier models can be better for one-shot reasoning, but agent mode values predictable repeated tool calls
-
-For one-shot Gemini calls, VibeFrame now maps `flash` / `latest` to `gemini-3.5-flash`. That applies to media analysis, render review, storyboard generation, Gemini-backed silence-cut analysis, and Gemini composition. Agent mode keeps `gemini-2.5-flash` as its explicit default.
-
-`gemini-3.1-pro-preview` remains available for **motion graphics code generation** (`vibe generate motion -m gemini-3.1-pro`) where its creative reasoning matters for a single generation call.
-
 **Gemini model options:**
 
-`gemini-2.5-flash` is the default — fastest and most cost-effective for agentic loops. You can override per-session:
+`flash` / `latest` and Agent mode both resolve to `gemini-3.8-flash`.
+One-shot calls (media analysis, render review, storyboard, silence-cut analysis, composition) use the same default.
 
-| Model ID | Variant | Notes |
-|----------|---------|-------|
-| `gemini-2.5-flash` | 2.5 Flash | **Default**. Fast, stable tool calling. Free tier available |
-| `gemini-3.5-flash` | 3.5 Flash | One-shot `flash` / `latest` default for analysis, review, storyboard, and Gemini composition |
-| `gemini-3-flash-preview` | 3 Flash Preview | Preview model available via `flash-3` or explicit model ID |
-| `gemini-2.5-pro` | 2.5 Pro | Higher reasoning capability, slower. $1.25/M input, $10/M output |
-| `gemini-3.1-pro-preview` | 3.1 Pro (preview) | Latest, preview — may have unstable tool calling |
+| Model ID | Alias | Notes |
+|----------|-------|-------|
+| `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8` | **Default**. $0.75/M input, $3.75/M output until 2026-12-31, then $1.50/$7.50 |
+| `gemini-3.5-flash` | `flash-3.5` | Previous default |
+| `gemini-3.1-pro-preview` | `pro`, `pro-3.1` | Preview; strongest reasoning |
+| `gemini-2.5-flash` | `flash-2.5` | Legacy; new projects cannot use 2.5 models since 2026-09-18 |
+| `gemini-2.5-pro` | `pro-2.5` | Legacy; same restriction |
 
-To opt into Gemini 3.5 Flash in agent mode: `vibe agent -p gemini --model gemini-3.5-flash`
+Gemini 3.x deprecates `temperature`, `top_p`, and `top_k`; VibeFrame no longer sends them.
 
 ---
 
@@ -125,12 +103,14 @@ Used for Remotion component code generation (`vibe generate motion`).
 
 | Alias | Model | Provider | Env Key | CLI Option | Notes |
 |-------|-------|----------|---------|------------|-------|
-| `sonnet` | `claude-sonnet-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
-| `opus` | `claude-opus-4-7` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality (step-change agentic coding) |
+| `sonnet` | `claude-sonnet-5-5` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
+| `opus` | `claude-opus-5-5` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality |
 | `opus-4-6` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus-4-6` | Previous Opus tier (legacy) |
-| `gemini` | `gemini-3.5-flash` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Gemini 3.5 Flash one-shot default |
-| `gemini-2.5-pro` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini-2.5-pro` | Previous Gemini motion alias target |
+| `gemini` | `gemini-3.8-flash` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Gemini default |
+| `gemini-2.5-pro` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini-2.5-pro` | Legacy; restricted for new projects |
 | `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini | `GOOGLE_API_KEY` | `-m gemini-3.1-pro` | Gemini 3.1 Pro |
+
+Claude motion replies use structured outputs, so the generated component code always arrives as valid JSON.
 
 ---
 
@@ -295,12 +275,12 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 
 | Command | Required API Key | Model |
 |---------|-----------------|-------|
-| `vibe` (default) | `OPENAI_API_KEY` | GPT-5-mini (Agent LLM) |
-| `vibe -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 (Agent LLM) |
-| `vibe -p gemini` | `GOOGLE_API_KEY` | Gemini 2.5 Flash (Agent LLM) |
-| `vibe -p xai` | `XAI_API_KEY` | Grok 4.1 Fast (Agent LLM) |
-| `vibe -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
-| `vibe -p evolink` | `EVOLINK_API_KEY` | GPT-5.2 via Evolink (Agent LLM) |
+| `vibe agent` (default) | `OPENAI_API_KEY` | GPT-5.4 mini (Agent LLM) |
+| `vibe agent -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 5.5 (Agent LLM) |
+| `vibe agent -p gemini` | `GOOGLE_API_KEY` | Gemini 3.8 Flash (Agent LLM) |
+| `vibe agent -p xai` | `XAI_API_KEY` | Grok 4.3 (Agent LLM) |
+| `vibe agent -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
+| `vibe agent -p evolink` | `EVOLINK_API_KEY` | GPT-5.2 via Evolink (Agent LLM) |
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | OpenAI image generation |
 | `vibe generate image -p gemini` | `GOOGLE_API_KEY` | Gemini image generation |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |

@@ -2,6 +2,9 @@
  * Shared Claude API request helpers and types for split helper modules.
  */
 
+/** Floor for max_tokens; see callClaude. It is a cap, so unused room costs nothing. */
+export const CLAUDE_MIN_MAX_TOKENS = 16000;
+
 /** Parameters needed to make a Claude Messages API call */
 export interface ClaudeApiParams {
   apiKey: string;
@@ -24,6 +27,11 @@ export async function callClaude(
     system: string;
     messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }>;
     maxTokens: number;
+    /**
+     * JSON Schema the reply must match (structured outputs). Use it whenever
+     * the reply carries code or other text that is hard to escape by hand.
+     */
+    jsonSchema?: Record<string, unknown>;
   }
 ): Promise<string> {
   const response = await fetch(`${params.baseUrl}/messages`, {
@@ -35,9 +43,14 @@ export async function callClaude(
     },
     body: JSON.stringify({
       model: params.model,
-      max_tokens: opts.maxTokens,
+      // Claude 5.x thinks by default and thinking tokens count against
+      // max_tokens, so a small cap can end before any text is written.
+      max_tokens: Math.max(opts.maxTokens, CLAUDE_MIN_MAX_TOKENS),
       messages: opts.messages,
       system: opts.system,
+      ...(opts.jsonSchema
+        ? { output_config: { format: { type: "json_schema", schema: opts.jsonSchema } } }
+        : {}),
     }),
   });
 

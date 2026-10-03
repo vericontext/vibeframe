@@ -183,7 +183,7 @@ export class AgentExecutor {
       // Handle tool calls
       if (response.finishReason === "tool_calls" && response.toolCalls) {
         // Add assistant message with tool calls
-        this.memory.addAssistant(response.content, response.toolCalls);
+        this.memory.addAssistant(response.content, response.toolCalls, response.providerContent);
 
         // Execute each tool
         for (const toolCall of response.toolCalls) {

@@ -15,7 +15,7 @@ import type {
 export class OpenAIAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "openai";
   private client: OpenAI | null = null;
-  private model: string = "gpt-5-mini";
+  private model: string = "gpt-5.4-mini";
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new OpenAI({ apiKey });

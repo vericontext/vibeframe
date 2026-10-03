@@ -38,11 +38,11 @@ describe("executeTranslateSrt", () => {
 
     await expect(run("claude")).resolves.toMatchObject({ success: true, segmentCount: 1 });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.model).toBe("claude-sonnet-4-6");
+    expect(body.model).toBe("claude-sonnet-5-5");
     expect(await readFile(join(dir, "out.srt"), "utf-8")).toContain("안녕하세요.");
   });
 
-  it("calls OpenAI without the temperature gpt-5-mini rejects", async () => {
+  it("calls OpenAI without the temperature GPT-5.x rejects", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ choices: [{ message: { content: "[0] 안녕하세요." } }] }))
     );
@@ -50,7 +50,7 @@ describe("executeTranslateSrt", () => {
 
     await expect(run("openai")).resolves.toMatchObject({ success: true });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.model).toBe("gpt-5-mini");
+    expect(body.model).toBe("gpt-5.4-mini");
     expect(body).not.toHaveProperty("temperature");
   });
 

@@ -63,8 +63,8 @@ export interface MotionCommandResult {
 
 // Map model alias → { provider, modelId }
 const MODEL_MAP: Record<string, { provider: "claude" | "gemini"; modelId: string }> = {
-  sonnet: { provider: "claude", modelId: "claude-sonnet-4-6" },
-  opus: { provider: "claude", modelId: "claude-opus-4-7" },
+  sonnet: { provider: "claude", modelId: "claude-sonnet-5-5" },
+  opus: { provider: "claude", modelId: "claude-opus-5-5" },
   "opus-4-6": { provider: "claude", modelId: "claude-opus-4-6" },
   gemini: { provider: "gemini", modelId: GEMINI_DEFAULT_TEXT_MODEL },
   "gemini-2.5-pro": { provider: "gemini", modelId: "gemini-2.5-pro" },
