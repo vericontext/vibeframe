@@ -20,6 +20,7 @@ import {
   FalProvider,
   OmniProvider,
   estimateSeedanceVideoCostUsd,
+  resolveVeoModel,
   type MediaReference,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
@@ -84,7 +85,7 @@ export function registerVideoCommand(parent: Command): void {
     .option("--ref-audio <paths...>", "Reference audio for Seedance reference-to-video")
     .option("--no-generate-audio", "Disable native audio when the provider supports it")
     .option("--person <mode>", "Person generation: allow_all, allow_adult (Veo only)")
-    .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
+    .option("--veo-model <model>", "Veo model: 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
     .option(
       "--runway-model <model>",
       "Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)",
@@ -474,12 +475,7 @@ Examples:
           await gemini.initialize({ apiKey });
 
           // Map Veo model alias to full model ID
-          const veoModelMap: Record<string, string> = {
-            "3.0": "veo-3.0-generate-preview",
-            "3.1": "veo-3.1-generate-preview",
-            "3.1-fast": "veo-3.1-fast-generate-preview",
-          };
-          const veoModel = veoModelMap[options.veoModel] || "veo-3.1-fast-generate-preview";
+          const veoModel = resolveVeoModel(options.veoModel);
 
           const veoDuration = parseInt(options.duration) <= 6 ? 6 : 8;
 
@@ -513,10 +509,7 @@ Examples:
             referenceImage,
             duration: veoDuration,
             aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
-            model: veoModel as
-              | "veo-3.0-generate-preview"
-              | "veo-3.1-generate-preview"
-              | "veo-3.1-fast-generate-preview",
+            model: veoModel,
             negativePrompt: options.negative,
             resolution: options.resolution as "720p" | "1080p" | "4k" | undefined,
             lastFrame,

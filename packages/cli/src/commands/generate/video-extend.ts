@@ -13,6 +13,7 @@ import ora from "ora";
 import {
   GeminiProvider,
   KlingProvider,
+  resolveVeoModel,
 } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
 import {
@@ -37,7 +38,7 @@ export function registerVideoExtendCommand(parent: Command): void {
     .option("--prompt <text>", "Continuation prompt")
     .option("-d, --duration <sec>", "Duration: 5 or 10 (Kling), 4/6/8 (Veo)", "5")
     .option("--negative <prompt>", "Negative prompt (what to avoid, Kling only)")
-    .option("--veo-model <model>", "Veo model: 3.0, 3.1, 3.1-fast", "3.1")
+    .option("--veo-model <model>", "Veo model: 3.1, 3.1-fast", "3.1")
     .option("--no-wait", "Start extension and return task ID without waiting")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (id: string, options) => {
@@ -178,21 +179,13 @@ export function registerVideoExtendCommand(parent: Command): void {
           const gemini = new GeminiProvider();
           await gemini.initialize({ apiKey });
 
-          const veoModelMap: Record<string, string> = {
-            "3.0": "veo-3.0-generate-preview",
-            "3.1": "veo-3.1-generate-preview",
-            "3.1-fast": "veo-3.1-fast-generate-preview",
-          };
-          const veoModel = veoModelMap[options.veoModel] || "veo-3.1-generate-preview";
+          const veoModel = resolveVeoModel(options.veoModel);
 
           spinner.text = "Starting video extension...";
 
           const result = await gemini.extendVideo(id, options.prompt, {
             duration: parseInt(options.duration) as 4 | 6 | 8,
-            model: veoModel as
-              | "veo-3.0-generate-preview"
-              | "veo-3.1-generate-preview"
-              | "veo-3.1-fast-generate-preview",
+            model: veoModel,
           });
 
           if (result.status === "failed") {

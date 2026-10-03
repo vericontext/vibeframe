@@ -314,7 +314,7 @@ export const generateVideoTool = defineTool({
       .string()
       .optional()
       .describe("Resolution: 480p, 720p, 1080p, or 4k depending on provider"),
-    veoModel: z.string().optional().describe("Veo model: 3.0, 3.1, 3.1-fast"),
+    veoModel: z.string().optional().describe("Veo model: 3.1, 3.1-fast"),
     runwayModel: z.string().optional().describe("Runway model: gen4.5, gen4_turbo"),
     seedanceModel: z
       .string()
@@ -408,7 +408,7 @@ export const generateVideoExtendTool = defineTool({
     prompt: z.string().optional().describe("Continuation prompt"),
     duration: z.number().optional().describe("Duration in seconds"),
     negative: z.string().optional().describe("Negative prompt (Kling)"),
-    veoModel: z.string().optional().describe("Veo model: 3.0, 3.1, 3.1-fast"),
+    veoModel: z.string().optional().describe("Veo model: 3.1, 3.1-fast"),
     output: z.string().optional().describe("Output file path"),
     wait: z.boolean().optional().describe("Wait for completion (default: true)"),
   }),

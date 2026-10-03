@@ -24,8 +24,11 @@ export async function analyzeContent(
   options?: { creativity?: "low" | "high" }
 ): Promise<StoryboardSegment[]> {
   const creativity = options?.creativity || "low";
-  const systemPrompt = buildStoryboardSystemPrompt(targetDuration, creativity);
-  const temperature = creativity === "high" ? 1.0 : 0.7;
+  // json_object mode cannot return a bare array, so ask for the shared
+  // storyboard array wrapped in a "segments" key instead.
+  const systemPrompt =
+    buildStoryboardSystemPrompt(targetDuration, creativity) +
+    '\n\nWrap the array in a JSON object: {"segments": [ ...segment objects... ]}.';
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -40,8 +43,8 @@ export async function analyzeContent(
           { role: "system", content: systemPrompt },
           { role: "user", content: buildStoryboardUserMessage(content) },
         ],
-        temperature,
-        max_tokens: 4096,
+        // gpt-5-mini spends most of its budget on reasoning tokens.
+        max_completion_tokens: 16384,
         response_format: { type: "json_object" },
       }),
     });

@@ -102,13 +102,12 @@ export async function executeTranslateSrt(
           body: JSON.stringify({
             model: "gpt-5-mini",
             messages: [{ role: "user", content: translatePrompt }],
-            temperature: 0.3,
           }),
         });
         if (!response.ok) {
           return {
             success: false,
-            error: `OpenAI API error: ${response.status} ${response.statusText}`,
+            error: `OpenAI API error: ${response.status} ${response.statusText}: ${await response.text()}`,
           };
         }
         const data = (await response.json()) as {
@@ -132,7 +131,7 @@ export async function executeTranslateSrt(
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-6-20250514",
+            model: "claude-sonnet-4-6",
             max_tokens: 4096,
             messages: [{ role: "user", content: translatePrompt }],
           }),
@@ -140,7 +139,7 @@ export async function executeTranslateSrt(
         if (!response.ok) {
           return {
             success: false,
-            error: `Claude API error: ${response.status} ${response.statusText}`,
+            error: `Claude API error: ${response.status} ${response.statusText}: ${await response.text()}`,
           };
         }
         const data = (await response.json()) as {

@@ -22,6 +22,7 @@ import {
   KlingProvider,
   OmniProvider,
   RunwayProvider,
+  resolveVeoModel,
   type MediaReference,
 } from "@vibeframe/ai-providers";
 import { resolveUploadHost } from "../utils/upload-host.js";
@@ -268,12 +269,7 @@ export async function executeVideoGenerate(
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: key });
 
-      const veoModelMap: Record<string, string> = {
-        "3.0": "veo-3.0-generate-preview",
-        "3.1": "veo-3.1-generate-preview",
-        "3.1-fast": "veo-3.1-fast-generate-preview",
-      };
-      const model = veoModelMap[veoModel] || "veo-3.1-fast-generate-preview";
+      const model = resolveVeoModel(veoModel);
       const veoDuration = duration <= 6 ? 6 : 8;
 
       const result = await gemini.generateVideo(prompt, {
@@ -281,10 +277,7 @@ export async function executeVideoGenerate(
         referenceImage,
         duration: veoDuration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        model: model as
-          | "veo-3.0-generate-preview"
-          | "veo-3.1-generate-preview"
-          | "veo-3.1-fast-generate-preview",
+        model: model,
         negativePrompt: negative,
         resolution: resolution as "720p" | "1080p" | "4k" | undefined,
       });
@@ -731,19 +724,11 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: key });
 
-      const veoModelMap: Record<string, string> = {
-        "3.0": "veo-3.0-generate-preview",
-        "3.1": "veo-3.1-generate-preview",
-        "3.1-fast": "veo-3.1-fast-generate-preview",
-      };
-      const model = veoModelMap[veoModel] || "veo-3.1-generate-preview";
+      const model = resolveVeoModel(veoModel);
 
       const result = await gemini.extendVideo(videoId, prompt, {
         duration: duration as 4 | 6 | 8,
-        model: model as
-          | "veo-3.0-generate-preview"
-          | "veo-3.1-generate-preview"
-          | "veo-3.1-fast-generate-preview",
+        model: model,
       });
 
       if (result.status === "failed")

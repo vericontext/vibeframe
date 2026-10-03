@@ -24,7 +24,6 @@ export async function callClaude(
     system: string;
     messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }>;
     maxTokens: number;
-    temperature?: number;
   }
 ): Promise<string> {
   const response = await fetch(`${params.baseUrl}/messages`, {
@@ -37,7 +36,6 @@ export async function callClaude(
     body: JSON.stringify({
       model: params.model,
       max_tokens: opts.maxTokens,
-      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
       messages: opts.messages,
       system: opts.system,
     }),

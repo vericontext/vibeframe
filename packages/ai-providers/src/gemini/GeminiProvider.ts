@@ -80,14 +80,33 @@ export interface GeminiImageResult {
 
 /**
  * Veo model versions for video generation
- * - veo-3.0: Veo 3 (native audio, 4K)
  * - veo-3.1: Veo 3.1 Standard ($0.40/sec)
  * - veo-3.1-fast: Veo 3.1 Fast ($0.15/sec)
+ *
+ * Veo 3.0 (`veo-3.0-generate-preview`) was shut down by Google on 2025-11-12.
  */
-export type VeoModel =
-  | "veo-3.0-generate-preview"
-  | "veo-3.1-generate-preview"
-  | "veo-3.1-fast-generate-preview";
+export type VeoModel = "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview";
+
+/** User-facing `--veo-model` aliases mapped to Veo model IDs. */
+export const VEO_MODEL_ALIASES = {
+  "3.1": "veo-3.1-generate-preview",
+  "3.1-fast": "veo-3.1-fast-generate-preview",
+} as const satisfies Record<string, VeoModel>;
+
+export type VeoModelAlias = keyof typeof VEO_MODEL_ALIASES;
+
+/**
+ * Resolve a `--veo-model` alias to a Veo model ID.
+ * Throws on unknown aliases instead of silently substituting another model.
+ */
+export function resolveVeoModel(alias: string): VeoModel {
+  if (Object.hasOwn(VEO_MODEL_ALIASES, alias)) {
+    return VEO_MODEL_ALIASES[alias as VeoModelAlias];
+  }
+  const valid = Object.keys(VEO_MODEL_ALIASES).join(", ");
+  const hint = alias === "3.0" ? " Veo 3.0 was shut down by Google on 2025-11-12." : "";
+  throw new Error(`Unknown Veo model "${alias}". Valid: ${valid}.${hint}`);
+}
 
 /**
  * Veo video generation options
