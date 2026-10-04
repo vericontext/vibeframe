@@ -16,6 +16,7 @@ import { resolve, dirname } from "node:path";
 import { KlingProvider } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import { getApiKey } from "../../utils/api-key.js";
+import { resolveUploadHost, type UploadHost } from "../../utils/upload-host.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
 import { resolveTimelineFile } from "../../utils/project-resolver.js";
 import { downloadVideo, formatTime } from "../ai-helpers.js";
@@ -37,8 +38,6 @@ export interface ExecuteFillGapsOptions {
   ratio?: "16:9" | "9:16" | "1:1";
   /** Override Kling API key. */
   apiKey?: string;
-  /** Override ImgBB API key (used to host frames for Kling input). */
-  imgbbApiKey?: string;
   /** Optional progress callback for streaming status updates. */
   onProgress?: (message: string) => void;
 }
@@ -164,32 +163,17 @@ export function analyzeGapFillability(
   });
 }
 
-async function uploadFrameToImgbb(
+/** Upload an extracted frame through the configured host (ImgBB or S3). */
+async function uploadFrame(
+  host: UploadHost,
   framePath: string,
-  imgbbApiKey: string,
 ): Promise<{ url?: string; error?: string }> {
   try {
-    const frameBuffer = await readFile(framePath);
-    const frameBase64 = frameBuffer.toString("base64");
-
-    const formData = new FormData();
-    formData.append("key", imgbbApiKey);
-    formData.append("image", frameBase64);
-
-    const response = await fetch("https://api.imgbb.com/1/upload", {
-      method: "POST",
-      body: formData,
+    const upload = await host.uploadImage(await readFile(framePath), {
+      filename: framePath,
+      mimeType: "image/png",
     });
-
-    const data = (await response.json()) as {
-      success: boolean;
-      data?: { url: string };
-      error?: { message: string };
-    };
-    if (!data.success || !data.data?.url) {
-      return { error: data.error?.message || "Upload failed" };
-    }
-    return { url: data.data.url };
+    return { url: upload.url };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
@@ -381,13 +365,15 @@ export async function executeFillGaps(
 
     humanLines.push("Generating AI Videos");
 
-    const imgbbApiKey =
-      options.imgbbApiKey || (await getApiKey("IMGBB_API_KEY", "imgbb", undefined));
-    if (!imgbbApiKey) {
+    // Kling takes frames by URL; the configured upload host (ImgBB by
+    // default, S3 when VIBE_UPLOAD_PROVIDER=s3) turns them into one.
+    let uploadHost: UploadHost;
+    try {
+      uploadHost = await resolveUploadHost();
+    } catch (err) {
       return {
         success: false,
-        error:
-          "IMGBB_API_KEY required for image hosting. Get a free API key at https://api.imgbb.com/",
+        error: err instanceof Error ? err.message : String(err),
         humanLines,
       };
     }
@@ -434,13 +420,12 @@ export async function executeFillGaps(
         };
       }
 
-      // Upload frame to imgbb
-      onProgress("Uploading frame to imgbb...");
-      const upload = await uploadFrameToImgbb(framePath, imgbbApiKey);
+      onProgress(`Uploading frame via ${uploadHost.provider}...`);
+      const upload = await uploadFrame(uploadHost, framePath);
       if (!upload.url) {
         return {
           success: false,
-          error: `Failed to upload frame to imgbb: ${upload.error || "unknown"}`,
+          error: `Failed to upload frame via ${uploadHost.provider}: ${upload.error || "unknown"}`,
           humanLines,
         };
       }
@@ -531,7 +516,7 @@ export async function executeFillGaps(
           break;
         }
 
-        const extUpload = await uploadFrameToImgbb(lastFramePath, imgbbApiKey);
+        const extUpload = await uploadFrame(uploadHost, lastFramePath);
         if (!extUpload.url) {
           humanLines.push("  Failed to upload continuation frame");
           break;

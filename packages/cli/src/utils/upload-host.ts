@@ -57,7 +57,19 @@ function awsEncode(value: string): string {
   );
 }
 
-function presignS3PutUrl(params: {
+/** SigV4 presigned URLs are valid for at most 7 days. */
+const S3_MAX_PRESIGN_SECONDS = 7 * 24 * 60 * 60;
+
+/** ImgBB accepts `expiration` between 60 seconds and 180 days. */
+const IMGBB_MIN_EXPIRATION_SECONDS = 60;
+const IMGBB_MAX_EXPIRATION_SECONDS = 15_552_000;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function presignS3Url(params: {
+  method: "PUT" | "GET";
   accessKeyId: string;
   secretAccessKey: string;
   sessionToken?: string;
@@ -76,7 +88,7 @@ function presignS3PutUrl(params: {
     "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
     "X-Amz-Credential": `${params.accessKeyId}/${credentialScope}`,
     "X-Amz-Date": amzDate,
-    "X-Amz-Expires": String(params.ttlSeconds),
+    "X-Amz-Expires": String(clamp(params.ttlSeconds, 1, S3_MAX_PRESIGN_SECONDS)),
     "X-Amz-SignedHeaders": "host",
   };
   if (params.sessionToken) {
@@ -88,7 +100,7 @@ function presignS3PutUrl(params: {
     .map(([key, value]) => `${awsEncode(key)}=${awsEncode(value)}`)
     .join("&");
   const canonicalRequest = [
-    "PUT",
+    params.method,
     canonicalUri,
     canonicalQuery,
     `host:${host}`,
@@ -176,7 +188,8 @@ export async function resolveUploadHost(): Promise<UploadHost> {
         const ext = extensionFor(opts);
         const prefix = safePrefix(settings.s3.prefix);
         const key = `${prefix}/${Date.now()}-${randomUUID()}.${ext}`;
-        const presignedUrl = presignS3PutUrl({
+        const presignedUrl = presignS3Url({
+          method: "PUT",
           accessKeyId,
           secretAccessKey,
           sessionToken,
@@ -195,10 +208,30 @@ export async function resolveUploadHost(): Promise<UploadHost> {
         if (!response.ok) {
           throw new Error(`S3 upload failed (${response.status}): ${response.statusText}`);
         }
+        // With a public base URL (CDN or public bucket policy) hand out the
+        // plain object URL. Otherwise return a presigned GET so private
+        // buckets work and the link stops working after the TTL; the object
+        // itself stays until a bucket lifecycle rule removes it.
+        if (settings.s3.publicBaseUrl) {
+          return {
+            provider: "s3",
+            url: publicS3Url({ region, bucket, key, publicBaseUrl: settings.s3.publicBaseUrl }),
+          };
+        }
+        const ttlSeconds = clamp(settings.ttlSeconds, 1, S3_MAX_PRESIGN_SECONDS);
         return {
           provider: "s3",
-          url: publicS3Url({ region, bucket, key, publicBaseUrl: settings.s3.publicBaseUrl }),
-          expiresAt: new Date(Date.now() + settings.ttlSeconds * 1000).toISOString(),
+          url: presignS3Url({
+            method: "GET",
+            accessKeyId,
+            secretAccessKey,
+            sessionToken,
+            region,
+            bucket,
+            key,
+            ttlSeconds,
+          }),
+          expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
         };
       },
     };
@@ -211,11 +244,18 @@ export async function resolveUploadHost(): Promise<UploadHost> {
       if (!imgbbKey) {
         throw new Error("IMGBB_API_KEY required for image-to-video uploads.");
       }
-      const result = await uploadToImgbb(imageBuffer, imgbbKey);
+      // ImgBB keeps uploads forever unless told otherwise; expire them with
+      // the configured TTL.
+      const expiration = clamp(settings.ttlSeconds, IMGBB_MIN_EXPIRATION_SECONDS, IMGBB_MAX_EXPIRATION_SECONDS);
+      const result = await uploadToImgbb(imageBuffer, imgbbKey, expiration);
       if (!result.success || !result.url) {
         throw new Error(`ImgBB upload failed: ${result.error ?? "unknown error"}`);
       }
-      return { provider: "imgbb", url: result.url };
+      return {
+        provider: "imgbb",
+        url: result.url,
+        expiresAt: new Date(Date.now() + expiration * 1000).toISOString(),
+      };
     },
   };
 }
