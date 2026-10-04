@@ -114,8 +114,7 @@ defineApiKey({
   setupDescription: "v2.5/v3 video — std ($$) and pro ($$$) modes",
   envExampleComment: "Kling API Key (Kling video generation)",
   envExampleUrl: "https://platform.klingai.com/",
-  envExampleExtraLines: ["Format: ACCESS_KEY:SECRET_KEY"],
-  keyFormat: { prefix: /:/, example: "ACCESS_KEY:SECRET_KEY" },
+  envExampleExtraLines: ["API key from the Kling console (legacy ACCESS_KEY:SECRET_KEY also works)"],
 });
 
 defineApiKey({

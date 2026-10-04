@@ -13,7 +13,7 @@ models_recommended: []          # kling-3.0-turbo needs the new API and a single
 # Kling
 
 VibeFrame uses the official Kling API for text-to-video, image-to-video, and video extension (`vibe generate video -p kling`, `vibe edit fill-gaps`, `vibe generate video-extend`).
-Every call goes through the legacy `/v1/videos/*` API with AK/SK JWT auth, and we never pass a model, so every request runs `kling-v2-5-turbo`.
+Every call goes through the legacy `/v1/videos/*` API, authenticated with either a single console API key (Bearer) or the legacy AK/SK pair (JWT); the default model is `kling-v3`.
 
 ## Models
 
@@ -53,9 +53,9 @@ So one default 5 s std clip costs about $0.21 (docs).
 
 ## Gotchas
 
-- **Single API key will not work with our code.**
-  `KLING_API_KEY` must be `ACCESS_KEY:SECRET_KEY`; a new console API key has no colon, so `isConfigured()` returns false and generation fails before any request.
-  New Kling 3.0 Turbo and every new-style endpoint reject AK/SK (docs, probe).
+- **Single API keys work on the legacy endpoints.**
+  A key without a colon is sent as `Bearer <key>`; a `kling-v3` text2video job on `api.klingai.com` succeeded with one on 2026-10-04 (probe).
+  New Kling 3.0 Turbo and every new-style endpoint reject AK/SK, so single keys are the path forward (docs, probe).
 - **`kling-v3-omni` is not a valid `model_name` for `text2video`/`image2video`.**
   The legacy enums list only `kling-v2-5-turbo`, `kling-v2-6`, `kling-v3` (docs); omni models need `/v1/videos/omni-video`.
   Our `KlingModel` type and `STD_MODE_MODELS` include `kling-v3-omni` as if it worked on the same endpoints.
@@ -77,7 +77,7 @@ So one default 5 s std clip costs about $0.21 (docs).
 - `packages/ai-providers/src/kling/KlingProvider.ts`
   - L17 `KlingModel` union, L101 `DEFAULT_MODEL = "kling-v2-5-turbo"`, L104 `STD_MODE_MODELS`.
   - L116 base URL `https://api.klingai.com/v1` (old host).
-  - L119-137 parses `KLING_API_KEY` as `access:secret`; L135 `isConfigured()` requires both halves.
+  - `initialize()` treats `KLING_API_KEY` with one colon as an AK/SK pair and anything else as a single API key; `bearerToken()` picks the auth.
   - L142-162 HS256 JWT, 30 minute expiry.
   - L199-214 legacy body (`model_name`, `mode`, `aspect_ratio`, `duration`, `negative_prompt`, `cfg_scale`).
   - L216-241 rejects base64 and Blob images; L243 `image2video`, L256 `text2video`, L348 status poll, L472 `video-extend`, L599 cancel stub.
@@ -85,18 +85,15 @@ So one default 5 s std clip costs about $0.21 (docs).
 - `packages/cli/src/commands/_shared/execute-fill-gaps.ts` L352-390, L437-443, L534: fill-gaps uses Kling image-to-video with frames uploaded to ImgBB.
 - `packages/cli/src/commands/_shared/video-providers.ts` L73-105: storyboard retry wrapper, always `mode: "std"`; the L92 comment about a "v1.5 fallback for base64" is stale.
 - `packages/cli/src/commands/generate/video-extend.ts` L72-76; `packages/cli/src/commands/ai-video.ts` L219, L537, L684-687.
-- `packages/ai-providers/src/api-keys.ts` L109-119: key format hint `ACCESS_KEY:SECRET_KEY`, URL `platform.klingai.com`.
+- `packages/ai-providers/src/api-keys.ts` L109-118: env example says single API key or legacy pair, URL `platform.klingai.com`.
 
 ## Recommended changes
 
-1. Accept a single API key (no colon) as `Bearer <key>` and keep AK/SK as a fallback; update `isConfigured()`, the key format check, and setup copy.
-2. Move the base URL to `https://api-singapore.klingai.com`.
-3. Send raw Base64 (strip the `data:` prefix) instead of requiring an ImgBB upload; keep upload only as an option.
-4. Drop `kling-v3-omni` from the text2video/image2video model list, or route omni models to `/v1/videos/omni-video`.
-5. Expose `--kling-model` (at least `kling-v3` and `kling-v2-6`) and `sound`, and validate duration per model (5/10 for v2.5 Turbo, 3-15 for v3).
-6. Plan a migration to the new API (`/tasks`, `contents`/`settings`) once API-key auth lands, which also unlocks `kling-3.0-turbo`.
-7. Stop sending `cfg_scale`; remove the unused `cameraControl` option or wire it to a model that documents it.
-8. Re-check for a Kling 4.0 API model ID after the October launch.
+1. Move the base URL to `https://api-singapore.klingai.com`.
+2. Send raw Base64 (strip the `data:` prefix) instead of requiring an ImgBB upload; keep upload only as an option.
+3. Plan a migration to the new API (`/tasks`, `contents`/`settings`) now that single API keys work, which also unlocks `kling-3.0-turbo`.
+4. Stop sending `cfg_scale`; remove the unused `cameraControl` option or wire it to a model that documents it.
+5. Re-check for a Kling 4.0 API model ID after the October launch.
 
 ## Sources
 
