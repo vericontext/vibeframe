@@ -156,7 +156,11 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
       headers: this.headers(apiKey),
     });
     const task = (await response.json()) as RunwayTaskResponse;
-    const state: VideoJobState = { status: STATUS[task.status] ?? "pending", progress: task.progress };
+    const state: VideoJobState = {
+      status: STATUS[task.status] ?? "pending",
+      // Runway reports progress as a 0-1 fraction; the contract uses 0-100.
+      progress: typeof task.progress === "number" ? Math.round(task.progress * 100) : undefined,
+    };
     if (task.status === "SUCCEEDED" && task.output?.length) {
       state.videoUrl = task.output[0];
     }

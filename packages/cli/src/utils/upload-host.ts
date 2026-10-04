@@ -1,7 +1,6 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { loadConfig, getApiKeyFromConfig } from "../config/index.js";
-import { uploadToImgbb } from "../commands/_shared/video-utils.js";
 
 export type UploadHostProvider = "imgbb" | "s3";
 
@@ -258,4 +257,52 @@ export async function resolveUploadHost(): Promise<UploadHost> {
       };
     },
   };
+}
+
+/**
+ * Upload an image to ImgBB and return its URL (for providers that only take
+ * image URLs, such as Kling).
+ */
+export async function uploadToImgbb(
+  imageBuffer: Buffer,
+  apiKey: string,
+  /** Seconds until ImgBB deletes the image (60 to 15,552,000). Omit for a permanent upload. */
+  expirationSeconds?: number,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const base64Image = imageBuffer.toString("base64");
+
+    const formData = new URLSearchParams();
+    formData.append("key", apiKey);
+    formData.append("image", base64Image);
+    if (expirationSeconds !== undefined) {
+      formData.append("expiration", String(expirationSeconds));
+    }
+
+    const response = await fetch("https://api.imgbb.com/1/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `ImgBB API error (${response.status}): ${response.statusText}`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      success?: boolean;
+      data?: { url?: string };
+      error?: { message?: string };
+    };
+
+    if (data.success && data.data?.url) {
+      return { success: true, url: data.data.url };
+    } else {
+      return { success: false, error: data.error?.message || "Upload failed" };
+    }
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
 }

@@ -52,10 +52,10 @@ function failure(error: unknown, prefix: string): { success: false; error: strin
 async function settle(
   generator: VideoGenerator,
   job: VideoJob,
-  opts: { wait: boolean; output?: string }
+  opts: { wait: boolean; output?: string; onProgress?: (state: VideoJobState) => void }
 ): Promise<{ state: VideoJobState; outputPath?: string }> {
   const state = opts.wait
-    ? await waitForVideoJob(generator, job, { timeoutMs: WAIT_TIMEOUT_MS })
+    ? await waitForVideoJob(generator, job, { timeoutMs: WAIT_TIMEOUT_MS, onProgress: opts.onProgress })
     : await generator.getVideoJob(job);
   const outputPath =
     opts.output && state.status === "completed"
@@ -99,6 +99,10 @@ export interface VideoGenerateOptions {
    * can still be polled and downloaded.
    */
   onSubmitted?: (job: VideoJob) => void | Promise<void>;
+  /** Called after every poll while waiting. */
+  onProgress?: (state: VideoJobState) => void;
+  /** Veo only: `allow_all` or `allow_adult`. */
+  personGeneration?: string;
 }
 
 export interface VideoGenerateResult {
@@ -141,7 +145,10 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       negativePrompt: options.negative,
       seed: options.seed,
       generateAudio: options.generateAudio,
-      providerOptions: options.mode ? { mode: options.mode } : undefined,
+      providerOptions:
+        options.mode || options.personGeneration
+          ? { ...(options.mode ? { mode: options.mode } : {}), ...(options.personGeneration ? { personGeneration: options.personGeneration } : {}) }
+          : undefined,
     };
 
     const job = await generator.submitVideo(request);
@@ -151,7 +158,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     }
     let settled: Awaited<ReturnType<typeof settle>>;
     try {
-      settled = await settle(generator, job, { wait: true, output: options.output });
+      settled = await settle(generator, job, { wait: true, output: options.output, onProgress: options.onProgress });
     } catch (error) {
       // Running out of wait time is not a failure: the job may still finish.
       if (isProviderError(error) && error.kind === "timeout") {
