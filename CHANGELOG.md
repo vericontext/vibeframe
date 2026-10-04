@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.3] - 2026-10-04
+
+### Added
+
+- accept single Kling API keys (#336)
+- upgrade ElevenLabs music and fix truncated Kokoro narration (#335)
+- upgrade Grok, Kling, and Seedance video models (#334)
+- make Gemini Omni 1.1 Flash the Google video provider (#332)
+- move image models to current GA releases (#331)
+- move text LLM defaults to current models (#330)
+
+### Fixed
+
+- repair model calls rejected by current provider APIs (#328)
+
+### Maintenance
+
+- add provider reference notes and a model drift check (#329)
+
 ## [0.115.2] - 2026-07-26
 
 ### Added
