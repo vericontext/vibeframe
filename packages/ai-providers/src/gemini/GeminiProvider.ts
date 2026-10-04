@@ -19,6 +19,7 @@ import type { GeminiTextModel } from "./gemini-models.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { errorMessage, fetchJson, sleep } from "../shared/http.js";
+import { defaultModel, findModel, listModels } from "../catalog/catalog.js";
 
 /**
  * Gemini model types for image generation
@@ -98,13 +99,12 @@ export interface GeminiImageResult {
  */
 export type VeoModel = "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview";
 
-/** User-facing `--veo-model` aliases mapped to Veo model IDs. */
-export const VEO_MODEL_ALIASES = {
-  "3.1": "veo-3.1-generate-preview",
-  "3.1-fast": "veo-3.1-fast-generate-preview",
-} as const satisfies Record<string, VeoModel>;
+/** User-facing `--veo-model` aliases mapped to Veo model IDs (from the model catalog). */
+export const VEO_MODEL_ALIASES: Readonly<Record<string, VeoModel>> = Object.fromEntries(
+  listModels({ provider: "veo", kind: "video" }).flatMap((m) => (m.aliases ?? []).map((a) => [a, m.id as VeoModel]))
+);
 
-export type VeoModelAlias = keyof typeof VEO_MODEL_ALIASES;
+export type VeoModelAlias = string;
 
 /**
  * Resolve a `--veo-model` alias to a Veo model ID.
@@ -112,7 +112,7 @@ export type VeoModelAlias = keyof typeof VEO_MODEL_ALIASES;
  */
 export function resolveVeoModel(alias: string): VeoModel {
   if (Object.hasOwn(VEO_MODEL_ALIASES, alias)) {
-    return VEO_MODEL_ALIASES[alias as VeoModelAlias];
+    return VEO_MODEL_ALIASES[alias];
   }
   const valid = Object.keys(VEO_MODEL_ALIASES).join(", ");
   const hint = alias === "3.0" ? " Veo 3.0 was shut down by Google on 2025-11-12." : "";
@@ -196,26 +196,6 @@ export interface GeminiImageAnalysisResult {
   totalTokens?: number;
   error?: string;
 }
-
-/**
- * Image model aliases. `flash` and `latest` are Nano Banana 2
- * (gemini-3.1-flash-image), `lite` is its cheaper 1K tier, and `pro` is Nano
- * Banana Pro. The 2.5 Flash Image and preview IDs are past their shutdown
- * dates and stay only as explicit pass-through IDs.
- */
-const MODEL_MAP: Record<string, string> = {
-  "flash": "gemini-3.1-flash-image",
-  "3.1-flash": "gemini-3.1-flash-image",
-  "latest": "gemini-3.1-flash-image",
-  "lite": "gemini-3.1-flash-lite-image",
-  "pro": "gemini-3-pro-image",
-  "gemini-3.1-flash-image": "gemini-3.1-flash-image",
-  "gemini-3.1-flash-lite-image": "gemini-3.1-flash-lite-image",
-  "gemini-3-pro-image": "gemini-3-pro-image",
-  "gemini-2.5-flash-image": "gemini-2.5-flash-image",
-  "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image-preview",
-  "gemini-3-pro-image-preview": "gemini-3-pro-image-preview",
-};
 
 /**
  * Google Gemini provider for AI video generation, image generation, and editing
@@ -602,8 +582,9 @@ export class GeminiProvider implements AIProvider {
    * Resolve model alias to full model ID
    */
   private resolveModel(model?: GeminiImageModel): string {
-    if (!model) return MODEL_MAP["flash"];
-    return MODEL_MAP[model] || MODEL_MAP["flash"];
+    // Aliases and full IDs come from the model catalog; unknown values fall
+    // back to the default Nano Banana model.
+    return (findModel("gemini", "image", model) ?? defaultModel("gemini", "image")).id;
   }
 
   /**

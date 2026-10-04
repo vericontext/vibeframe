@@ -37,8 +37,9 @@ fi
 
 # AI provider directories (each = one external service we integrate with).
 # Match next.config.js: count every dir under ai-providers/src/ except
-# `interface` (the type-only folder that defines the AIProvider contract).
-AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! -name interface | wc -l | tr -d ' ')
+# `interface` (the AIProvider contract types) and `catalog` (the model
+# catalog), which are not integrations.
+AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! -name interface ! -name catalog | wc -l | tr -d ' ')
 
 # MCP + Agent tool counts come from the manifest itself (v0.67 PR3 / C9).
 # Pre-v0.67 PR3 the script grepped `defineTool({` and `surfaces: ["mcp"]`

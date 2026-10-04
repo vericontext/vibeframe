@@ -1,33 +1,27 @@
 /**
- * Shared Gemini text-model aliases.
+ * Shared Gemini text-model aliases, read from the model catalog.
  *
- * Keep long-running agent loops on their explicit default in the CLI adapter.
- * Provider-backed one-shot analysis, review, storyboard, and composition calls
- * use the default here.
+ * Provider-backed one-shot analysis, review, storyboard, and composition
+ * calls and the agent loop all default to the catalog's Gemini LLM default.
  */
 
-export const GEMINI_DEFAULT_TEXT_MODEL = "gemini-3.8-flash";
+import { defaultModel, listModels } from "../catalog/catalog.js";
+
+export const GEMINI_DEFAULT_TEXT_MODEL = defaultModel("gemini", "llm").id;
 export const GEMINI_AGENT_DEFAULT_TEXT_MODEL = GEMINI_DEFAULT_TEXT_MODEL;
 
-export const GEMINI_TEXT_MODEL_ALIASES = {
-  flash: GEMINI_DEFAULT_TEXT_MODEL,
-  latest: GEMINI_DEFAULT_TEXT_MODEL,
-  "flash-3.8": GEMINI_DEFAULT_TEXT_MODEL,
-  "flash-3.5": "gemini-3.5-flash",
-  "flash-3": "gemini-3-flash-preview",
-  "flash-2.5": "gemini-2.5-flash",
-  pro: "gemini-3.1-pro-preview",
-  "pro-3.1": "gemini-3.1-pro-preview",
-  "pro-2.5": "gemini-2.5-pro",
-} as const;
+/** Alias → model ID for every Gemini text model in the catalog. */
+export const GEMINI_TEXT_MODEL_ALIASES: Readonly<Record<string, string>> = Object.fromEntries(
+  listModels({ provider: "gemini", kind: "llm" }).flatMap((m) => (m.aliases ?? []).map((a) => [a, m.id]))
+);
 
-export type GeminiTextModelAlias = keyof typeof GEMINI_TEXT_MODEL_ALIASES;
+export type GeminiTextModelAlias = string;
 export type GeminiTextModel = string;
 
 export const GEMINI_TEXT_MODEL_HELP =
   "flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-* model ID";
 
-export function isGeminiTextModelAlias(model: string): model is GeminiTextModelAlias {
+export function isGeminiTextModelAlias(model: string): boolean {
   return Object.prototype.hasOwnProperty.call(GEMINI_TEXT_MODEL_ALIASES, model);
 }
 

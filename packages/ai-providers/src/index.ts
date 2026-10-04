@@ -57,6 +57,17 @@ export {
   type VeoModel,
   type VeoModelAlias,
 } from "./gemini/index.js";
+export {
+  MODEL_CATALOG,
+  defaultModel,
+  findModel,
+  listModels,
+  modelAliases,
+  type ModelKind,
+  type ModelPrice,
+  type ModelSpec,
+  type ModelStatus,
+} from "./catalog/index.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";

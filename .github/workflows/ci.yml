@@ -84,6 +84,9 @@ jobs:
       - name: CLI reference is generated
         run: pnpm gen:reference:check
 
+      - name: MODELS.md catalog section is generated
+        run: pnpm gen:models:check
+
       - name: Agent host configs are generated
         run: pnpm agent-sync:check
 

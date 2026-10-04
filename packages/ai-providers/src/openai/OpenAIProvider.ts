@@ -8,6 +8,7 @@ import type {
 } from "../interface/types.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./openai-storyboard.js";
+import { defaultModel } from "../catalog/catalog.js";
 
 /**
  * OpenAI GPT provider for natural language timeline commands
@@ -22,7 +23,7 @@ export class OpenAIProvider implements AIProvider {
 
   private apiKey?: string;
   private baseUrl = "https://api.openai.com/v1";
-  private model = "gpt-5.4-mini";
+  private model = defaultModel("openai", "llm").id;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -401,7 +402,7 @@ Each segment should be 3-10 seconds long.`;
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-5.4-mini",
+          model: defaultModel("openai", "llm").id,
           // Reasoning tokens count against this cap.
           max_completion_tokens: 16384,
           response_format: { type: "json_object" },

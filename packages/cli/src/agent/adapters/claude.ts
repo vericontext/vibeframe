@@ -11,11 +11,12 @@ import type {
   ToolCall,
   LLMProvider,
 } from "../types.js";
+import { defaultModel } from "@vibeframe/ai-providers";
 
 export class ClaudeAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "claude";
   private client: Anthropic | null = null;
-  private model: string = "claude-sonnet-5-5";
+  private model: string = defaultModel("claude", "llm").id;
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new Anthropic({ apiKey });

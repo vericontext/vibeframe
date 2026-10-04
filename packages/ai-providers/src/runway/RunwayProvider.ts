@@ -5,6 +5,7 @@ import type {
   GenerateOptions,
   VideoResult,
 } from "../interface/types.js";
+import { defaultModel } from "../catalog/catalog.js";
 
 /**
  * Runway model versions
@@ -14,7 +15,7 @@ import type {
 export type RunwayModel = "gen4_turbo" | "gen4.5";
 
 /** Default model - Gen-4.5 */
-const DEFAULT_MODEL: RunwayModel = "gen4.5";
+const DEFAULT_MODEL = defaultModel("runway", "video").id as RunwayModel;
 
 /**
  * Runway video generation options

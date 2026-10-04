@@ -24,8 +24,9 @@
 import type { GenerateOptions, VideoResult } from "../interface/types.js";
 import type { ProviderConfig } from "../interface/index.js";
 import { sleep } from "../shared/http.js";
+import { defaultModel } from "../catalog/catalog.js";
 
-export const OMNI_MODEL = "gemini-omni-1.1-flash";
+export const OMNI_MODEL = defaultModel("omni", "video").id;
 const API_ROOT = "https://generativelanguage.googleapis.com";
 const FILE_POLL_INTERVAL_MS = 3000;
 const FILE_POLL_TIMEOUT_MS = 5 * 60 * 1000;

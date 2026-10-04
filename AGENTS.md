@@ -122,6 +122,11 @@ General expectation:
 - Before changing a provider integration, read its
   `.agents/references/providers/<provider>.md` (models, rejected params,
   deprecation dates) and run `pnpm providers:check`.
+- Model IDs, CLI aliases, defaults, lifecycle dates, and list prices live in
+  the model catalog (`packages/ai-providers/src/catalog/catalog.ts`). Read
+  them through `findModel()` / `defaultModel()`; do not hardcode model IDs.
+  After editing the catalog, run `pnpm gen:models` (MODELS.md is partly
+  generated).
 
 ## Conventions
 

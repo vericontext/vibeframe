@@ -16,7 +16,13 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { ClaudeProvider, GeminiProvider, GEMINI_DEFAULT_TEXT_MODEL } from "@vibeframe/ai-providers";
+import {
+  ClaudeProvider,
+  defaultModel,
+  findModel,
+  GeminiProvider,
+  GEMINI_DEFAULT_TEXT_MODEL,
+} from "@vibeframe/ai-providers";
 import { getApiKey, loadEnv } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { exitWithError, outputSuccess, apiError, generalError, usageError } from "./output.js";
@@ -61,15 +67,18 @@ export interface MotionCommandResult {
   error?: string;
 }
 
-// Map model alias → { provider, modelId }
-const MODEL_MAP: Record<string, { provider: "claude" | "gemini"; modelId: string }> = {
-  sonnet: { provider: "claude", modelId: "claude-sonnet-5-5" },
-  opus: { provider: "claude", modelId: "claude-opus-5-5" },
-  "opus-4-6": { provider: "claude", modelId: "claude-opus-4-6" },
-  gemini: { provider: "gemini", modelId: GEMINI_DEFAULT_TEXT_MODEL },
-  "gemini-2.5-pro": { provider: "gemini", modelId: "gemini-2.5-pro" },
-  "gemini-3.1-pro": { provider: "gemini", modelId: "gemini-3.1-pro-preview" },
-};
+/**
+ * Resolve a motion `--model` alias through the model catalog: Claude aliases
+ * (sonnet, opus, opus-4-6) first, then Gemini ones (gemini, gemini-3.1-pro,
+ * gemini-2.5-pro, ...). Unknown aliases use the Claude default.
+ */
+function resolveMotionModel(alias: string): { provider: "claude" | "gemini"; modelId: string } {
+  const claude = findModel("claude", "llm", alias);
+  if (claude) return { provider: "claude", modelId: claude.id };
+  const gemini = findModel("gemini", "llm", alias);
+  if (gemini) return { provider: "gemini", modelId: gemini.id };
+  return { provider: "claude", modelId: defaultModel("claude", "llm").id };
+}
 
 async function getOptionalGoogleApiKey(): Promise<string | null> {
   const configKey = await getApiKeyFromConfig("google");
@@ -87,7 +96,7 @@ function normalizeUnderstand(value: unknown): "auto" | "off" | "required" {
 
 export async function executeMotion(options: MotionCommandOptions): Promise<MotionCommandResult> {
   const modelAlias = options.model || "sonnet";
-  const modelConfig = MODEL_MAP[modelAlias] ?? MODEL_MAP["sonnet"];
+  const modelConfig = resolveMotionModel(modelAlias);
   const useGemini = modelConfig.provider === "gemini";
 
   const width = options.width || 1920;

@@ -9,6 +9,7 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { formatSRT, parseSRT } from "../../../utils/subtitle.js";
+import { defaultModel } from "@vibeframe/ai-providers";
 
 export interface TranslateSrtOptions {
   /** Path to the source SRT subtitle file */
@@ -100,7 +101,7 @@ export async function executeTranslateSrt(
             Authorization: `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-5.4-mini",
+            model: defaultModel("openai", "llm").id,
             messages: [{ role: "user", content: translatePrompt }],
           }),
         });
@@ -131,7 +132,7 @@ export async function executeTranslateSrt(
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
-            model: "claude-sonnet-5-5",
+            model: defaultModel("claude", "llm").id,
             max_tokens: 16000,
             messages: [{ role: "user", content: translatePrompt }],
           }),

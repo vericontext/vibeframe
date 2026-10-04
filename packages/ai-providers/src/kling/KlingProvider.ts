@@ -6,6 +6,7 @@ import type {
   GenerateOptions,
   VideoResult,
 } from "../interface/types.js";
+import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
 
 /**
  * Kling model versions on the text2video / image2video endpoints
@@ -23,18 +24,9 @@ export type KlingModel = "kling-v3" | "kling-v2-6" | "kling-v2-5-turbo";
  * Full model IDs pass through. Unknown aliases throw.
  */
 export function resolveKlingModel(alias?: string): KlingModel {
-  const key = (alias ?? "v3").trim().toLowerCase();
-  const aliases: Record<string, KlingModel> = {
-    v3: "kling-v3",
-    "kling-v3": "kling-v3",
-    "v2.6": "kling-v2-6",
-    "kling-v2-6": "kling-v2-6",
-    "v2.5-turbo": "kling-v2-5-turbo",
-    "v2.5": "kling-v2-5-turbo",
-    "kling-v2-5-turbo": "kling-v2-5-turbo",
-  };
-  if (Object.hasOwn(aliases, key)) return aliases[key];
-  throw new Error(`Unknown Kling model "${alias}". Valid: v3, v2.6, v2.5-turbo.`);
+  const model = findModel("kling", "video", alias);
+  if (model) return model.id as KlingModel;
+  throw new Error(`Unknown Kling model "${alias}". Valid: ${modelAliases("kling", "video").join(", ")}.`);
 }
 
 /**
@@ -128,7 +120,7 @@ export interface KlingVideoExtendOptions {
 }
 
 /** Default model for Kling - v2.5 turbo is fastest */
-const DEFAULT_MODEL: KlingModel = "kling-v3";
+const DEFAULT_MODEL = defaultModel("kling", "video").id as KlingModel;
 
 /** All v2.5+ models support std mode */
 const STD_MODE_MODELS: KlingModel[] = ["kling-v2-5-turbo", "kling-v2-6", "kling-v3"];
