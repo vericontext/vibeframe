@@ -3,7 +3,7 @@
 ## Overview
 
 VibeFrame CLI (`vibe`) generates AI video on the user's own provider keys
-(Seedance, Runway, Veo, Kling), behind dry runs and a hard `--max-cost`
+(Seedance, Runway, Kling, Gemini Omni), behind dry runs and a hard `--max-cost`
 ceiling, and edits the results. Every operation is
 a shell command. The same surface is exposed as MCP tools through
 [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).

@@ -52,8 +52,8 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | seedance | Seedance 2.0 Fast | `seedance-2.0-fast` | `fast` | GA | $0.2419 / second (720p 16:9) | 4-15 s, up to 720p, native audio |
 | seedance | Seedance 2.5 | `seedance-2.5` | `2.5` | GA | $0.473 / second (720p 16:9) | Opt-in; 4-30 s, native audio |
 | omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $0.1 / second (720p) | Google video default; the model picks 3-10 s; native audio |
-| veo | Veo 3.1 | `veo-3.1-generate-preview` | `3.1` | Deprecated, shuts down 2026-10-22 | $0.4 / second (720p/1080p) | 4-8 s, native audio; explicit `-p veo` only |
-| veo | **Veo 3.1 Fast** (default) | `veo-3.1-fast-generate-preview` | `3.1-fast` | Deprecated, shuts down 2026-10-22 | $0.1 / second (720p) | 4-8 s, native audio; explicit `-p veo` only |
+| veo | Veo 3.1 | `veo-3.1-generate-preview` | `3.1` | Deprecated, shuts down 2026-10-22; use `-p omni` (Gemini Omni 1.1 Flash) | $0.4 / second (720p/1080p) | 4-8 s, native audio; explicit `-p veo` only |
+| veo | **Veo 3.1 Fast** (default) | `veo-3.1-fast-generate-preview` | `3.1-fast` | Deprecated, shuts down 2026-10-22; use `-p omni` (Gemini Omni 1.1 Flash) | $0.1 / second (720p) | 4-8 s, native audio; explicit `-p veo` only |
 | grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
 | grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
 | grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation |
@@ -211,7 +211,7 @@ Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`
 > `vibe generate video "<motion>" -p runway -i keyframe.png` directly.
 > Observed 2026-07-26 on `seedance-2.0`.
 
-> **Veo 3.1 previews shut down on 2026-10-22.** Google names Gemini Omni 1.1 Flash as the replacement, so Omni is now the Google video default (`-p omni`, or auto-selected when `GOOGLE_API_KEY` is the only video key) and `vibe build --video-provider omni` works. `-p veo` still works until the shutdown and prints a warning.
+> **Veo 3.1 previews shut down on 2026-10-22.** Google names Gemini Omni 1.1 Flash as the replacement, so Omni is now the Google video default (`-p omni`, or auto-selected when `GOOGLE_API_KEY` is the only video key) and `vibe build --video-provider omni` works. `-p veo` still works until the shutdown and prints a warning; from 2026-10-22 it fails before any request and points to `-p omni`.
 
 ### Veo Advanced Options
 

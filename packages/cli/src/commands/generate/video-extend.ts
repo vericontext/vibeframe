@@ -13,9 +13,11 @@ import ora from "ora";
 import {
   GeminiProvider,
   KlingProvider,
+  findModel,
   resolveVeoModel,
 } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
+import { checkModelLifecycle } from "../../utils/model-lifecycle.js";
 import {
   isJsonMode,
   outputSuccess,
@@ -49,11 +51,22 @@ export function registerVideoExtendCommand(parent: Command): void {
           validateOutputPath(options.output);
         }
 
+        let lifecycleWarnings: string[] = [];
+        if (provider === "veo") {
+          try {
+            resolveVeoModel(options.veoModel);
+          } catch (err) {
+            exitWithError(usageError(err instanceof Error ? err.message : String(err)));
+          }
+          lifecycleWarnings = checkModelLifecycle(findModel("veo", "video", options.veoModel));
+        }
+
         if (options.dryRun) {
           outputSuccess({
             command: "generate video-extend",
             startedAt,
             dryRun: true,
+            warnings: lifecycleWarnings,
             data: {
               params: {
                 id,
@@ -234,6 +247,7 @@ export function registerVideoExtendCommand(parent: Command): void {
             outputSuccess({
               command: "generate video-extend",
               startedAt,
+              warnings: lifecycleWarnings,
               data: {
                 provider: "veo",
                 taskId: result.id,

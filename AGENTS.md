@@ -3,7 +3,7 @@
 VibeFrame is a frontier-video-generation layer for coding agents: CLI-first,
 MCP-ready.
 It generates video assets on the user's own provider keys (Seedance, Runway,
-Veo, Kling) behind dry runs and a hard `--max-cost` ceiling, delegates scene
+Kling, Gemini Omni) behind dry runs and a hard `--max-cost` ceiling, delegates scene
 composition to upstream Hyperframes, and builds the generation, cost, and
 review layer around it.
 

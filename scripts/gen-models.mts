@@ -45,7 +45,9 @@ function price(m: Spec): string {
 }
 
 function status(m: Spec): string {
-  return m.shutdown ? `${STATUS[m.status]}, shuts down ${m.shutdown}` : STATUS[m.status];
+  if (!m.shutdown) return STATUS[m.status];
+  const replacement = m.replacement ? `; use ${m.replacement}` : "";
+  return `${STATUS[m.status]}, shuts down ${m.shutdown}${replacement}`;
 }
 
 function render(): string {

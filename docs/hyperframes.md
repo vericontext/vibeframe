@@ -15,7 +15,7 @@ engines. It does not try to replace Remotion or Hyperframes.
 - Hyperframes owns HTML/CSS/JS scene composition and deterministic browser
   capture for agents.
 - VibeFrame owns everything around composition: frontier-model asset
-  generation on the user's own keys (Seedance, Runway, Veo, Kling), dry runs
+  generation on the user's own keys (Seedance, Runway, Kling, Gemini Omni), dry runs
   and the hard `--max-cost` ceiling, `STORYBOARD.md`/`DESIGN.md`, build
   reports, render inspection, edit/remix commands, and host-agent guidance.
 

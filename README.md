@@ -3,7 +3,7 @@
 **Let your coding agent generate real video, on your own provider keys, under a spend ceiling it cannot cross.**
 
 VibeFrame is a CLI and MCP server for Claude Code, Codex, Cursor, or any bash-capable agent.
-It turns a written brief into a plan, generates the assets from frontier models (Seedance, Runway, Veo, Kling), and renders a finished MP4.
+It turns a written brief into a plan, generates the assets from frontier models (Seedance, Runway, Kling, Gemini Omni), and renders a finished MP4.
 Every paid step sits behind a dry run and a hard `--max-cost` ceiling, and every failure comes back as machine-readable recovery actions instead of a stack trace.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

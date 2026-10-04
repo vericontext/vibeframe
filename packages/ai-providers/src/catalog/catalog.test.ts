@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { MODEL_CATALOG, defaultModel, findModel, listModels, modelAliases } from "./catalog.js";
+import {
+  MODEL_CATALOG,
+  ModelRetiredError,
+  assertModelServed,
+  defaultModel,
+  findModel,
+  listModels,
+  modelAliases,
+  modelLifecycle,
+  type ModelSpec,
+} from "./catalog.js";
 
 const pairs = [...new Set(MODEL_CATALOG.map((m) => `${m.provider}/${m.kind}`))];
 
@@ -47,5 +57,43 @@ describe("model catalog", () => {
 
   it("throws when a provider and kind has no default", () => {
     expect(() => defaultModel("kokoro", "video")).toThrow(/no default video model for kokoro/);
+  });
+});
+
+describe("modelLifecycle", () => {
+  const dated: ModelSpec = {
+    id: "old-1",
+    provider: "test",
+    kind: "video",
+    label: "Old 1",
+    status: "deprecated",
+    shutdown: "2026-10-22",
+    replacement: "`-p new`",
+  };
+
+  it("serves models without a shutdown date", () => {
+    expect(modelLifecycle(defaultModel("seedance", "video"))).toEqual({ state: "served" });
+  });
+
+  it("counts down to the shutdown date and names the replacement", () => {
+    const lifecycle = modelLifecycle(dated, new Date("2026-10-04T10:00:00Z"));
+    expect(lifecycle).toMatchObject({ state: "retiring", daysLeft: 18 });
+    expect(lifecycle.state === "retiring" && lifecycle.message).toBe(
+      "Old 1 (old-1) shuts down on 2026-10-22 (18 days left). Use `-p new` instead."
+    );
+    expect(modelLifecycle(dated, new Date("2026-10-21T23:59:59Z"))).toMatchObject({ daysLeft: 1 });
+  });
+
+  it("retires a model from 00:00 UTC on the shutdown date", () => {
+    expect(modelLifecycle(dated, new Date("2026-10-22T00:00:00Z"))).toMatchObject({ state: "retired" });
+    expect(() => assertModelServed(dated, new Date("2026-10-22T00:00:00Z"))).toThrow(ModelRetiredError);
+    expect(() => assertModelServed(dated, new Date("2026-10-21T00:00:00Z"))).not.toThrow();
+  });
+
+  it("gives every dated catalog model a parseable ISO shutdown date", () => {
+    for (const m of MODEL_CATALOG.filter((m) => m.shutdown)) {
+      expect(m.shutdown, m.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(Date.parse(`${m.shutdown}T00:00:00Z`)), m.id).toBe(false);
+    }
   });
 });
