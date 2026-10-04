@@ -50,20 +50,24 @@ export interface RenderResult {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
- * Check that `npx remotion` is available. Returns an error message if not.
+ * Check that renders can run. Each render scaffolds a temp project that
+ * installs `remotion` and `@remotion/cli` with npm, then runs the
+ * project-local CLI through `npx remotion`, so what must exist up front is
+ * npm itself. (Probing `npx remotion` from the caller's directory resolved
+ * the `remotion` library package, which has no executable, and failed on
+ * every machine without a global @remotion/cli.)
+ * Returns an error message if npm is missing.
  */
 export async function ensureRemotionInstalled(): Promise<string | null> {
   try {
-    await execSafe("npx", ["--yes", "remotion", "--help"], { timeout: 60_000 });
+    await execSafe("npm", ["--version"], { timeout: 30_000 });
     return null;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    console.error(`[Remotion] ensureRemotionInstalled failed: ${detail.slice(0, 300)}`);
     return [
-      "Remotion CLI not found or failed to initialize.",
+      "Remotion renders need npm to install the Remotion CLI into a temporary project.",
       `  Debug: ${detail.slice(0, 200)}`,
-      "  Fix: npm install -g @remotion/cli",
-      "  Or ensure npx is available and can download @remotion/cli on demand.",
+      "  Fix: install Node.js 20+ (which includes npm) and make sure `npm` is on PATH.",
     ].join("\n");
   }
 }
