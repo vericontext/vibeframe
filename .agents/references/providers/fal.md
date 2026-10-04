@@ -12,10 +12,11 @@ models_in_use:
   - bytedance/seedance-2.0/fast/image-to-video
   - bytedance/seedance-2.0/fast/text-to-video
   - bytedance/seedance-2.0/fast/reference-to-video
-models_recommended:
-  - bytedance/seedance-2.5/image-to-video      # opt-in: up to 30s, draft then complete
+  - seedance-2.5                # our variant name, `--seedance-model 2.5`
+  - bytedance/seedance-2.5/image-to-video
   - bytedance/seedance-2.5/text-to-video
   - bytedance/seedance-2.5/reference-to-video
+models_recommended: []
 ---
 
 # fal.ai

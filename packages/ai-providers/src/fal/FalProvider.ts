@@ -21,7 +21,7 @@ import type {
  *
  * Reference: https://artificialanalysis.ai/video/leaderboard/text-to-video
  */
-export type SeedanceVariant = "seedance-2.0" | "seedance-2.0-fast";
+export type SeedanceVariant = "seedance-2.0" | "seedance-2.0-fast" | "seedance-2.5";
 
 // Endpoint ids match fal.ai's documented JS-client form exactly. They
 // don't carry a `fal-ai/` prefix despite the URL slug suggesting one —
@@ -29,19 +29,49 @@ export type SeedanceVariant = "seedance-2.0" | "seedance-2.0-fast";
 const ENDPOINT_TEXT_TO_VIDEO: Record<SeedanceVariant, string> = {
   "seedance-2.0":      "bytedance/seedance-2.0/text-to-video",
   "seedance-2.0-fast": "bytedance/seedance-2.0/fast/text-to-video",
+  "seedance-2.5":      "bytedance/seedance-2.5/text-to-video",
 };
 
 const ENDPOINT_IMAGE_TO_VIDEO: Record<SeedanceVariant, string> = {
   "seedance-2.0":      "bytedance/seedance-2.0/image-to-video",
   "seedance-2.0-fast": "bytedance/seedance-2.0/fast/image-to-video",
+  "seedance-2.5":      "bytedance/seedance-2.5/image-to-video",
 };
 
 const ENDPOINT_REFERENCE_TO_VIDEO: Record<SeedanceVariant, string> = {
   "seedance-2.0":      "bytedance/seedance-2.0/reference-to-video",
   "seedance-2.0-fast": "bytedance/seedance-2.0/fast/reference-to-video",
+  "seedance-2.5":      "bytedance/seedance-2.5/reference-to-video",
 };
 
 const DEFAULT_VARIANT: SeedanceVariant = "seedance-2.0";
+
+/** Longest clip each variant accepts, in seconds (2.0: 4-15, 2.5: 4-30). */
+const MAX_DURATION_SEC: Record<SeedanceVariant, number> = {
+  "seedance-2.0": 15,
+  "seedance-2.0-fast": 15,
+  "seedance-2.5": 30,
+};
+
+/**
+ * Resolve a `--seedance-model` alias. `quality` and `2.0` are the default
+ * Seedance 2.0, `fast` its cheaper tier, and `2.5` the opt-in Seedance 2.5
+ * (30 s clips, about 1.5x the 2.0 price at 720p). Unknown aliases throw.
+ */
+export function resolveSeedanceVariant(alias?: string): SeedanceVariant {
+  const key = (alias ?? "quality").trim().toLowerCase();
+  const aliases: Record<string, SeedanceVariant> = {
+    quality: "seedance-2.0",
+    "2.0": "seedance-2.0",
+    "seedance-2.0": "seedance-2.0",
+    fast: "seedance-2.0-fast",
+    "seedance-2.0-fast": "seedance-2.0-fast",
+    "2.5": "seedance-2.5",
+    "seedance-2.5": "seedance-2.5",
+  };
+  if (Object.hasOwn(aliases, key)) return aliases[key];
+  throw new Error(`Unknown Seedance model "${alias}". Valid: quality, fast, 2.5.`);
+}
 
 /** Resolutions Seedance 2.0 accepts. The API rejects everything else. */
 const VALID_RESOLUTIONS = ["480p", "720p", "1080p"] as const;
@@ -61,6 +91,9 @@ type SeedanceAspect = (typeof VALID_ASPECTS)[number];
  * https://fal.ai/models/bytedance/seedance-2.0/reference-to-video
  */
 const SEEDANCE_USD_PER_1K_TOKENS = 0.014;
+/** Seedance 2.5 per-1k-token rates on fal (2026-10-04): 480p/720p, and 1080p. */
+const SEEDANCE_25_USD_PER_1K_TOKENS = 0.0214;
+const SEEDANCE_25_1080P_USD_PER_1K_TOKENS = 0.0234;
 const SEEDANCE_FAST_FACTOR = 0.8;
 const SEEDANCE_VIDEO_REF_FACTOR = 0.6;
 const SEEDANCE_SHORT_SIDE: Record<string, number> = { "480p": 480, "720p": 720, "1080p": 1080 };
@@ -77,14 +110,21 @@ export function estimateSeedanceVideoCostUsd(opts: {
   aspectRatio?: string;
   fast?: boolean;
   hasVideoReference?: boolean;
+  /** Price Seedance 2.5 instead of 2.0 */
+  v25?: boolean;
 }): number {
   const shortSide = SEEDANCE_SHORT_SIDE[opts.resolution ?? "720p"] ?? 720;
   const [a, b] = (opts.aspectRatio ?? "16:9").split(":").map(Number);
   const ratioFactor = a > 0 && b > 0 ? Math.max(a, b) / Math.min(a, b) : 16 / 9;
   const longSide = Math.round(shortSide * ratioFactor);
   const tokensPerSecond = (shortSide * longSide * 24) / 1024;
-  let usdPerSecond = (tokensPerSecond / 1000) * SEEDANCE_USD_PER_1K_TOKENS;
-  if (opts.fast && shortSide <= 720) usdPerSecond *= SEEDANCE_FAST_FACTOR;
+  const rate = opts.v25
+    ? shortSide >= 1080
+      ? SEEDANCE_25_1080P_USD_PER_1K_TOKENS
+      : SEEDANCE_25_USD_PER_1K_TOKENS
+    : SEEDANCE_USD_PER_1K_TOKENS;
+  let usdPerSecond = (tokensPerSecond / 1000) * rate;
+  if (opts.fast && !opts.v25 && shortSide <= 720) usdPerSecond *= SEEDANCE_FAST_FACTOR;
   if (opts.hasVideoReference) usdPerSecond *= SEEDANCE_VIDEO_REF_FACTOR;
   return Number((usdPerSecond * Math.max(0, opts.durationSec)).toFixed(2));
 }
@@ -174,7 +214,7 @@ export class FalProvider implements AIProvider {
 
     const aspect = normaliseAspect(options?.aspectRatio);
     const resolution = normaliseResolution(options?.resolution);
-    const duration = normaliseDuration(options?.duration);
+    const duration = normaliseDuration(options?.duration, MAX_DURATION_SEC[variant]);
 
     const input: Record<string, unknown> = {
       prompt,
@@ -190,8 +230,11 @@ export class FalProvider implements AIProvider {
     } else if (referenceImage) {
       input.image_url = referenceImage;
     }
-    if (options?.negativePrompt) input.negative_prompt = options.negativePrompt;
-    if (typeof options?.seed === "number") input.seed = options.seed;
+    // Seedance 2.5's schema has no negative_prompt or seed.
+    if (variant !== "seedance-2.5") {
+      if (options?.negativePrompt) input.negative_prompt = options.negativePrompt;
+      if (typeof options?.seed === "number") input.seed = options.seed;
+    }
     if (typeof options?.generateAudio === "boolean") input.generate_audio = options.generateAudio;
     if (options?.endUserId) input.end_user_id = options.endUserId;
     if (!hasReferences && options?.lastFrame) input.end_image_url = options.lastFrame;
@@ -354,11 +397,10 @@ function normaliseResolution(value?: string): SeedanceResolution {
   return "720p";
 }
 
-function normaliseDuration(value?: number): number | "auto" {
-  if (typeof value !== "number") return "auto";
-  if (!Number.isFinite(value)) return "auto";
-  // Seedance accepts 4–15s; clamp anything outside.
-  return Math.max(4, Math.min(15, Math.round(value)));
+/** Seedance takes duration as a string enum ("4".."30") or "auto". */
+function normaliseDuration(value: number | undefined, maxSec: number): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "auto";
+  return String(Math.max(4, Math.min(maxSec, Math.round(value))));
 }
 
 export const falProvider = new FalProvider();

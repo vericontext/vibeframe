@@ -81,11 +81,12 @@ export type { ImageOptions, ImageResult, ImageEditOptions, GPTImageModel } from 
 export { OpenAiTtsProvider, openaiTtsProvider, OPENAI_TTS_VOICES } from "./openai-tts/index.js";
 export type { OpenAiTtsModel, OpenAiTtsVoice, OpenAiTtsOptions, OpenAiTtsResult } from "./openai-tts/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";
-export { KlingProvider, klingProvider } from "./kling/index.js";
+export { KlingProvider, klingProvider, klingDuration, resolveKlingModel } from "./kling/index.js";
+export type { KlingModel } from "./kling/index.js";
 export type { KlingVideoExtendOptions } from "./kling/index.js";
-export { GrokProvider, grokProvider, resolveGrokImageModel } from "./grok/index.js";
-export type { GrokImageModel, GrokImageQuality, GrokModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
-export { FalProvider, falProvider, estimateSeedanceVideoCostUsd } from "./fal/index.js";
+export { GrokProvider, grokProvider, resolveGrokImageModel, resolveGrokVideoModel } from "./grok/index.js";
+export type { GrokImageModel, GrokImageQuality, GrokModel, GrokVideoModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
+export { FalProvider, falProvider, estimateSeedanceVideoCostUsd, resolveSeedanceVariant } from "./fal/index.js";
 export type { SeedanceVariant } from "./fal/index.js";
 export { ReplicateProvider, replicateProvider } from "./replicate/index.js";
 export type { ReplicateUpscaleOptions, ReplicateUpscaleResult, ReplicateInpaintOptions, MusicGenerationOptions, MusicGenerationResult, AudioRestorationOptions, AudioRestorationResult } from "./replicate/index.js";

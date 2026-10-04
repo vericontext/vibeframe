@@ -22,6 +22,9 @@ import {
   KlingProvider,
   OmniProvider,
   RunwayProvider,
+  resolveGrokVideoModel,
+  resolveKlingModel,
+  resolveSeedanceVariant,
   resolveVeoModel,
   type MediaReference,
 } from "@vibeframe/ai-providers";
@@ -57,6 +60,8 @@ export interface VideoGenerateOptions {
   veoModel?: string;
   runwayModel?: string;
   seedanceModel?: string;
+  grokModel?: string;
+  klingModel?: string;
   generateAudio?: boolean;
   output?: string;
   wait?: boolean;
@@ -92,6 +97,8 @@ export async function executeVideoGenerate(
     resolution,
     veoModel = "3.1-fast",
     seedanceModel = "quality",
+    grokModel,
+    klingModel,
     generateAudio,
     output,
     wait = true,
@@ -152,10 +159,7 @@ export async function executeVideoGenerate(
         falImage = upload.url;
       }
 
-      const model =
-        seedanceModel === "fast" || seedanceModel === "seedance-2.0-fast"
-          ? "seedance-2.0-fast"
-          : "seedance-2.0";
+      const model = resolveSeedanceVariant(seedanceModel);
       const result = await fal.generateVideo(prompt, {
         prompt,
         referenceImage: references.length > 0 ? undefined : falImage,
@@ -238,8 +242,9 @@ export async function executeVideoGenerate(
 
       const result = await kling.generateVideo(prompt, {
         prompt,
+        model: resolveKlingModel(klingModel),
         referenceImage: klingImage,
-        duration: duration as 5 | 10,
+        duration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
         negativePrompt: negative,
         mode: mode as "std" | "pro",
@@ -315,9 +320,12 @@ export async function executeVideoGenerate(
 
       const result = await grok.generateVideo(prompt, {
         prompt,
+        model: resolveGrokVideoModel(grokModel),
         referenceImage,
         duration,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
+        resolution,
+        generateAudio,
       });
 
       if (result.status === "failed")

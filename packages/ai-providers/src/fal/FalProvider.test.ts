@@ -22,7 +22,7 @@ vi.mock("@fal-ai/client", () => ({
   },
 }));
 
-import { FalProvider, estimateSeedanceVideoCostUsd } from "./FalProvider.js";
+import { FalProvider, estimateSeedanceVideoCostUsd, resolveSeedanceVariant } from "./FalProvider.js";
 
 describe("FalProvider", () => {
   let provider: FalProvider;
@@ -83,7 +83,7 @@ describe("FalProvider", () => {
             prompt: "a cat surfing",
             aspect_ratio: "16:9",
             resolution: "720p",
-            duration: 6,
+            duration: "6",
           }),
         }),
       );
@@ -110,21 +110,38 @@ describe("FalProvider", () => {
       );
     });
 
-    it("clamps unreasonable durations into the 4–15 s API range", async () => {
+    it("clamps unreasonable durations into the 4-15 s API range, as the string enum fal documents", async () => {
       mocks.subscribe.mockResolvedValueOnce({
         requestId: "req-clamp",
         data: { video: { url: "https://x" } },
       });
 
       await provider.generateVideo("p", { prompt: "p", duration: 99 });
-      expect(mocks.subscribe.mock.calls[0][1].input.duration).toBe(15);
+      expect(mocks.subscribe.mock.calls[0][1].input.duration).toBe("15");
 
       mocks.subscribe.mockResolvedValueOnce({
         requestId: "req-clamp2",
         data: { video: { url: "https://x" } },
       });
       await provider.generateVideo("p", { prompt: "p", duration: 1 });
-      expect(mocks.subscribe.mock.calls[1][1].input.duration).toBe(4);
+      expect(mocks.subscribe.mock.calls[1][1].input.duration).toBe("4");
+    });
+
+    it("routes Seedance 2.5 to its endpoints, allows 30 s, and drops fields its schema lacks", async () => {
+      mocks.subscribe.mockResolvedValue({ requestId: "req-25", data: { video: { url: "https://x" } } });
+
+      await provider.generateVideo("p", {
+        prompt: "p",
+        model: "seedance-2.5",
+        duration: 99,
+        negativePrompt: "blur",
+        seed: 7,
+      });
+      const [endpoint, { input }] = mocks.subscribe.mock.calls.at(-1)!;
+      expect(endpoint).toBe("bytedance/seedance-2.5/text-to-video");
+      expect(input.duration).toBe("30");
+      expect(input).not.toHaveProperty("negative_prompt");
+      expect(input).not.toHaveProperty("seed");
     });
 
     it("falls back to aspect=auto on unknown ratios", async () => {
@@ -329,7 +346,25 @@ describe("estimateSeedanceVideoCostUsd", () => {
     expect(withVideo).toBeCloseTo(base * 0.6, 2);
   });
 
+  it("prices Seedance 2.5 at its own per-token rates", () => {
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 5, resolution: "720p", aspectRatio: "16:9", v25: true })).toBe(2.31);
+    expect(estimateSeedanceVideoCostUsd({ durationSec: 4, resolution: "1080p", aspectRatio: "16:9", v25: true })).toBe(4.55);
+  });
+
   it("defaults to 720p 16:9 when resolution/ratio are omitted", () => {
     expect(estimateSeedanceVideoCostUsd({ durationSec: 5 })).toBe(1.51);
+  });
+});
+
+describe("resolveSeedanceVariant", () => {
+  it("maps CLI aliases to variants", () => {
+    expect(resolveSeedanceVariant(undefined)).toBe("seedance-2.0");
+    expect(resolveSeedanceVariant("quality")).toBe("seedance-2.0");
+    expect(resolveSeedanceVariant("FAST")).toBe("seedance-2.0-fast");
+    expect(resolveSeedanceVariant("2.5")).toBe("seedance-2.5");
+  });
+
+  it("rejects unknown variants instead of substituting one", () => {
+    expect(() => resolveSeedanceVariant("3.0")).toThrow(/Unknown Seedance model "3.0"/);
   });
 });

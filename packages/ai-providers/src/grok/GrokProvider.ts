@@ -9,11 +9,38 @@ import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
 
 /**
  * Grok Imagine model versions
- * - grok-imagine-video: Text/Image to Video (1-15 sec, $4.20/min)
+ * - grok-imagine-video-1.5: Text/Image to Video, default (1-15 sec, native audio, up to 1080p)
+ * - grok-imagine-video-1.5-lite: cheaper 1.5 tier
+ * - grok-imagine-video: previous generation
  * - grok-imagine-image: Text to Image ($0.02/image)
  * - grok-imagine-image-2.0: Text to Image, higher quality ($0.04-0.08/image by quality)
  */
-export type GrokModel = "grok-imagine-video" | "grok-imagine-image" | "grok-imagine-image-2.0";
+export type GrokModel = GrokVideoModel | "grok-imagine-image" | "grok-imagine-image-2.0";
+
+/** Grok Imagine video models. */
+export type GrokVideoModel =
+  | "grok-imagine-video-1.5"
+  | "grok-imagine-video-1.5-lite"
+  | "grok-imagine-video";
+
+/**
+ * Resolve a `--grok-model` alias: `1.5` (default), `lite`, or `classic`.
+ * Full model IDs pass through. Unknown aliases throw.
+ */
+export function resolveGrokVideoModel(alias?: string): GrokVideoModel {
+  const key = (alias ?? "1.5").trim().toLowerCase();
+  const aliases: Record<string, GrokVideoModel> = {
+    "1.5": "grok-imagine-video-1.5",
+    "grok-imagine-video-1.5": "grok-imagine-video-1.5",
+    lite: "grok-imagine-video-1.5-lite",
+    "1.5-lite": "grok-imagine-video-1.5-lite",
+    "grok-imagine-video-1.5-lite": "grok-imagine-video-1.5-lite",
+    classic: "grok-imagine-video",
+    "grok-imagine-video": "grok-imagine-video",
+  };
+  if (Object.hasOwn(aliases, key)) return aliases[key];
+  throw new Error(`Unknown Grok video model "${alias}". Valid: 1.5, lite, classic.`);
+}
 
 /** Grok Imagine image models. `grok-imagine-image-pro` was retired on 2026-05-15. */
 export type GrokImageModel = "grok-imagine-image" | "grok-imagine-image-2.0";
@@ -37,7 +64,11 @@ export function resolveGrokImageModel(alias?: string): {
 }
 
 /** Default model */
-const DEFAULT_MODEL: GrokModel = "grok-imagine-video";
+const DEFAULT_MODEL: GrokVideoModel = "grok-imagine-video-1.5";
+
+/** xAI defaults video to 480p when `resolution` is omitted; ask for 720p instead. */
+const DEFAULT_VIDEO_RESOLUTION = "720p";
+const GROK_VIDEO_RESOLUTIONS = ["480p", "720p", "1080p"];
 
 /**
  * Grok video generation options
@@ -96,7 +127,8 @@ interface GrokCreateResponse {
  * Grok video status response
  */
 interface GrokStatusResponse {
-  status: "pending" | "done" | "expired";
+  status: "pending" | "done" | "expired" | "failed";
+  error?: { code?: string; message?: string };
   video?: {
     url: string;
     duration?: number;
@@ -319,11 +351,17 @@ export class GrokProvider implements AIProvider {
       const duration = Math.round(Math.min(15, Math.max(1, options?.duration || 5)));
 
       const body: Record<string, unknown> = {
-        model: DEFAULT_MODEL,
+        model: (options?.model as GrokVideoModel | undefined) || DEFAULT_MODEL,
         prompt,
         duration,
         aspect_ratio: options?.aspectRatio || "16:9",
+        resolution: GROK_VIDEO_RESOLUTIONS.includes(options?.resolution ?? "")
+          ? options!.resolution
+          : DEFAULT_VIDEO_RESOLUTION,
       };
+      if (typeof options?.generateAudio === "boolean") {
+        body.generate_audio = options.generateAudio;
+      }
 
       // Add reference image for image-to-video
       // xAI API requires image as object: { url: "..." } (works for both URLs and data URIs)
@@ -398,13 +436,19 @@ export class GrokProvider implements AIProvider {
         pending: "pending",
         done: "completed",
         expired: "failed",
+        failed: "failed",
       };
 
       return {
         id,
         status: statusMap[data.status] || "pending",
         videoUrl: data.video?.url,
-        error: data.status === "expired" ? "Generation expired" : undefined,
+        error:
+          data.status === "expired"
+            ? "Generation expired"
+            : data.status === "failed"
+              ? `Generation failed: ${data.error?.message ?? data.error?.code ?? "unknown error"}`
+              : undefined,
       };
     } catch (error) {
       return {

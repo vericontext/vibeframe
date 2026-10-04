@@ -4,12 +4,10 @@ checked: 2026-10-04
 env: [KLING_API_KEY]
 models_endpoint: none
 models_in_use:
-  - kling-v2-5-turbo            # always sent today: no model is passed
-  - kling-v3                    # listed, never sent
-  - kling-v2-6                  # listed, never sent
-  - kling-v3-omni               # listed, but invalid on text2video and image2video
-models_recommended:
-  - kling-v3                    # default once `--kling-model` and `sound` are exposed
+  - kling-v3                    # default
+  - kling-v2-6                  # `--kling-model v2.6`
+  - kling-v2-5-turbo            # `--kling-model v2.5-turbo`
+models_recommended: []          # kling-3.0-turbo needs the new API and a single API key
 ---
 
 # Kling

@@ -319,7 +319,9 @@ export const generateVideoTool = defineTool({
     seedanceModel: z
       .string()
       .optional()
-      .describe("Seedance variant: quality or fast (fal.ai only)"),
+      .describe("Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)"),
+    grokModel: z.string().optional().describe("Grok video model: 1.5 (default), lite, classic"),
+    klingModel: z.string().optional().describe("Kling model: v3 (default), v2.6, v2.5-turbo"),
     generateAudio: z
       .boolean()
       .optional()
