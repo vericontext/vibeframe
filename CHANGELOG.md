@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.6] - 2026-10-04
+
+### Added
+
+- run CLI video executors and job records on the job contract (#352)
+- move Seedance and Omni video onto the job contract (#351)
+- move Kling and Grok video onto the job contract (#350)
+- add the video job contract and provider error taxonomy (#349)
+
+### Changed
+
+- run vibe generate video and fill-gaps on the video executor (#353)
+
 ## [0.115.5] - 2026-10-04
 
 ### Fixed
