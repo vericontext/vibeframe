@@ -158,11 +158,13 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 |----------|-------|----------|-------|---------|------------|-------|
 | Seedance via fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance` | ByteDance Seedance through fal.ai |
 | Seedance via fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance --seedance-model fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
-| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Fallback default when `FAL_API_KEY` is unset. Best lip-sync/native audio. $0.07/s (720p) |
-| Kling | `kling-v2-5-turbo` | 5-10 sec | No | `KLING_API_KEY` | `-p kling` | Fast (~36s generation) |
-| Kling | `kling-v2-6` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v2.6` | High quality |
-| Kling | `kling-v3` | 5-10 sec | No | `KLING_API_KEY` | `-p kling -m v3` | Higher quality, multi-shot, lip-sync |
-| Kling | `kling-v3-omni` | 3-15 sec | Yes | `KLING_API_KEY` | `-p kling -m v3-omni` | Native audio (multilingual), character consistency |
+| Seedance via fal.ai | `seedance-2.5` | 4-30 sec | Yes | `FAL_API_KEY` | `-p seedance --seedance-model 2.5` | Opt-in. Longer clips; about 1.5x the 2.0 price at 720p ($0.47/s) |
+| xAI Grok | `grok-imagine-video-1.5` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Default Grok model, rendered at 720p unless `--resolution` says otherwise. About $0.14/s at 720p |
+| xAI Grok | `grok-imagine-video-1.5-lite` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok --grok-model lite` | Budget tier, about $0.03/s at 720p |
+| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok --grok-model classic` | Previous generation |
+| Kling | `kling-v3` | 3-15 sec | Optional | `KLING_API_KEY` | `-p kling` | Default. Multi-shot; `std` 720p, `pro` 1080p |
+| Kling | `kling-v2-6` | 5 or 10 sec | Optional (pro) | `KLING_API_KEY` | `-p kling --kling-model v2.6` | |
+| Kling | `kling-v2-5-turbo` | 5 or 10 sec | No | `KLING_API_KEY` | `-p kling --kling-model v2.5-turbo` | Cheapest Kling |
 | Gemini Omni | `gemini-omni-1.1-flash` | 3-10 sec (model picks) | Yes | `GOOGLE_API_KEY` | `-p omni` | Google default (GA 2026-08-27). 360p/720p native, 1080p/4K upscaled; about $0.10/s at 720p |
 | Veo | `veo-3.1-fast-generate-preview` | 4-8 sec | Yes | `GOOGLE_API_KEY` | `-p veo` | **Shuts down 2026-10-22**; explicit only |
 | Veo | `veo-3.1-generate-preview` | 4-8 sec | Yes | `GOOGLE_API_KEY` | `-p veo --veo-model 3.1` | **Shuts down 2026-10-22**; explicit only |
@@ -202,7 +204,7 @@ All text-to-video providers also support image-to-video. Key differences per pro
 | Provider | Model | I2V Support | Image Input | Notes |
 |----------|-------|-------------|-------------|-------|
 | Seedance via fal.ai | `seedance-2.0` | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) for local image paths. |
-| xAI Grok | `grok-imagine-video` | Yes | URL or data URI | Same pricing as T2V |
+| xAI Grok | `grok-imagine-video-1.5` | Yes | URL or data URI | Same pricing as T2V, plus $0.01 per input image |
 | Kling | all v2.5+ models | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) |
 | Veo | all models | Yes | base64 (first frame) | Supports `--last-frame` for frame interpolation |
 | Runway | `gen4.5` | Yes | URL or data URI | Text+image-to-video |
@@ -281,8 +283,8 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe generate music` | `ELEVENLABS_API_KEY` | ElevenLabs Music (default) |
 | `vibe generate music -p replicate` | `REPLICATE_API_TOKEN` | Replicate MusicGen |
 | `vibe generate video -p seedance` | `FAL_API_KEY` | Seedance via fal.ai |
-| `vibe generate video -p grok` | `XAI_API_KEY` | Grok Imagine |
-| `vibe generate video -p kling` | `KLING_API_KEY` | Kling v2.5-turbo |
+| `vibe generate video -p grok` | `XAI_API_KEY` | Grok Imagine Video 1.5 |
+| `vibe generate video -p kling` | `KLING_API_KEY` | Kling v3 |
 | `vibe generate image -p grok` | `XAI_API_KEY` | Grok Imagine |
 | `vibe generate video -p omni` | `GOOGLE_API_KEY` | Gemini Omni 1.1 Flash |
 | `vibe generate video -p veo` | `GOOGLE_API_KEY` | Veo 3.1 (shuts down 2026-10-22) |

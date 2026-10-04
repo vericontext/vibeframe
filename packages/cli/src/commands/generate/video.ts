@@ -20,6 +20,9 @@ import {
   FalProvider,
   OmniProvider,
   estimateSeedanceVideoCostUsd,
+  resolveGrokVideoModel,
+  resolveKlingModel,
+  resolveSeedanceVariant,
   resolveVeoModel,
   type MediaReference,
 } from "@vibeframe/ai-providers";
@@ -70,9 +73,11 @@ export function registerVideoCommand(parent: Command): void {
     .option("--mode <mode>", "Generation mode: std or pro (Kling only)", "std")
     .option(
       "--seedance-model <model>",
-      "Seedance variant: quality or fast (fal.ai only)",
+      "Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)",
       "quality"
     )
+    .option("--grok-model <model>", "Grok video model: 1.5 (default), lite, classic", "1.5")
+    .option("--kling-model <model>", "Kling model: v3 (default), v2.6, v2.5-turbo", "v3")
     .option("--negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
     .option("--resolution <res>", "Video resolution: 480p, 720p, 1080p, or 4k depending on provider")
     .option("--last-frame <path>", "Last frame image for frame interpolation (Veo) or Seedance end frame")
@@ -256,13 +261,7 @@ Examples:
           // providers fall back to the tier bound (costUsd left undefined).
           const costUsd =
             provider === "seedance" || provider === "fal"
-              ? estimateSeedanceVideoCostUsd({
-                  durationSec: Number(options.duration) || 5,
-                  resolution: options.resolution,
-                  aspectRatio: options.ratio,
-                  fast: options.seedanceModel === "fast",
-                  hasVideoReference: Boolean(options.refVideos),
-                })
+              ? realRunCost(provider, options).costUsd
               : undefined;
           outputSuccess({
             command: "generate video",
@@ -281,6 +280,8 @@ Examples:
                 resolution: options.resolution,
                 veoModel: options.veoModel,
                 seedanceModel: options.seedanceModel,
+                grokModel: options.grokModel,
+                klingModel: options.klingModel,
                 refImages: options.refImages,
                 refVideos: options.refVideos,
                 refAudio: options.refAudio,
@@ -420,8 +421,9 @@ Examples:
 
           result = await kling.generateVideo(prompt, {
             prompt,
+            model: resolveKlingModel(options.klingModel),
             referenceImage: klingImage,
-            duration: parseInt(options.duration) as 5 | 10,
+            duration: parseInt(options.duration),
             aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
             negativePrompt: options.negative,
             mode: options.mode as "std" | "pro",
@@ -561,9 +563,12 @@ Examples:
 
           result = await grok.generateVideo(prompt, {
             prompt,
+            model: resolveGrokVideoModel(options.grokModel),
             referenceImage,
             duration: parseInt(options.duration),
             aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
+            resolution: options.resolution,
+            generateAudio: options.generateAudio,
           });
 
           if (result.status === "failed") {
@@ -666,12 +671,8 @@ Examples:
             }
           }
 
-          spinner.text = "Generating video with fal.ai Seedance 2.0 (this may take 1-3 minutes)...";
-          const seedanceModel = String(options.seedanceModel ?? "quality").toLowerCase();
-          const falModel =
-            seedanceModel === "fast" || seedanceModel === "seedance-2.0-fast"
-              ? "seedance-2.0-fast"
-              : "seedance-2.0";
+          const falModel = resolveSeedanceVariant(options.seedanceModel);
+          spinner.text = `Generating video with fal.ai ${falModel} (this may take 1-3 minutes)...`;
           result = await fal.generateVideo(prompt, {
             prompt,
             referenceImage: seedanceReferences.length > 0 ? undefined : falImage,
@@ -791,12 +792,14 @@ export function realRunCost(provider: string, options: {
   refVideos?: string[];
 }): { costUsd: number; warnings: string[] } {
   if (provider === "seedance" || provider === "fal") {
+    const variant = resolveSeedanceVariant(options.seedanceModel);
     return {
       costUsd: estimateSeedanceVideoCostUsd({
         durationSec: Number(options.duration) || 5,
         resolution: options.resolution,
         aspectRatio: options.ratio,
-        fast: options.seedanceModel === "fast",
+        fast: variant === "seedance-2.0-fast",
+        v25: variant === "seedance-2.5",
         hasVideoReference: Boolean(options.refVideos),
       }),
       warnings: [],

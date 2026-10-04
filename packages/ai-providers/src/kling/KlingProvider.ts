@@ -8,13 +8,44 @@ import type {
 } from "../interface/types.js";
 
 /**
- * Kling model versions (v2.5+)
- * - kling-v2-5-turbo: v2.5 turbo (fastest, best quality/speed ratio)
- * - kling-v2-6: v2.6 (high quality)
- * - kling-v3: v3 (higher quality, multi-shot, lip-sync)
- * - kling-v3-omni: v3 omni (native audio, character consistency)
+ * Kling model versions on the text2video / image2video endpoints
+ * - kling-v3: default (3-15 sec, multi-shot)
+ * - kling-v2-6: v2.6 (5 or 10 sec)
+ * - kling-v2-5-turbo: v2.5 turbo (5 or 10 sec, cheapest)
+ *
+ * `kling-v3-omni` is not accepted here; it only runs on the omni-video
+ * endpoint, which VibeFrame does not call yet.
  */
-export type KlingModel = "kling-v2-5-turbo" | "kling-v2-6" | "kling-v3" | "kling-v3-omni";
+export type KlingModel = "kling-v3" | "kling-v2-6" | "kling-v2-5-turbo";
+
+/**
+ * Resolve a `--kling-model` alias: `v3` (default), `v2.6`, or `v2.5-turbo`.
+ * Full model IDs pass through. Unknown aliases throw.
+ */
+export function resolveKlingModel(alias?: string): KlingModel {
+  const key = (alias ?? "v3").trim().toLowerCase();
+  const aliases: Record<string, KlingModel> = {
+    v3: "kling-v3",
+    "kling-v3": "kling-v3",
+    "v2.6": "kling-v2-6",
+    "kling-v2-6": "kling-v2-6",
+    "v2.5-turbo": "kling-v2-5-turbo",
+    "v2.5": "kling-v2-5-turbo",
+    "kling-v2-5-turbo": "kling-v2-5-turbo",
+  };
+  if (Object.hasOwn(aliases, key)) return aliases[key];
+  throw new Error(`Unknown Kling model "${alias}". Valid: v3, v2.6, v2.5-turbo.`);
+}
+
+/**
+ * Kling takes duration as a string. v3 accepts 3-15 seconds; the v2.x
+ * models accept only 5 or 10.
+ */
+export function klingDuration(model: KlingModel, seconds?: number): string {
+  const requested = typeof seconds === "number" && Number.isFinite(seconds) ? Math.round(seconds) : 5;
+  if (model === "kling-v3") return String(Math.max(3, Math.min(15, requested)));
+  return requested >= 10 ? "10" : "5";
+}
 
 /**
  * Kling video generation options
@@ -77,10 +108,9 @@ interface KlingTaskResponse {
  * Kling AI provider for high-quality video generation
  *
  * Supported models (v2.5+):
- * - kling-v2-5-turbo: Fastest, best quality/speed ratio (default)
- * - kling-v2-6: High quality
- * - kling-v3: Higher quality, multi-shot, lip-sync
- * - kling-v3-omni: Native audio (multilingual), character consistency
+ * - kling-v3: default (3-15 sec, multi-shot)
+ * - kling-v2-6: High quality (5 or 10 sec)
+ * - kling-v2-5-turbo: Fastest, cheapest (5 or 10 sec)
  *
  * Note: image2video requires image URL (not base64) for all supported models.
  * Use ImgBB or similar service to upload base64 images before passing to Kling.
@@ -98,10 +128,10 @@ export interface KlingVideoExtendOptions {
 }
 
 /** Default model for Kling - v2.5 turbo is fastest */
-const DEFAULT_MODEL: KlingModel = "kling-v2-5-turbo";
+const DEFAULT_MODEL: KlingModel = "kling-v3";
 
 /** All v2.5+ models support std mode */
-const STD_MODE_MODELS: KlingModel[] = ["kling-v2-5-turbo", "kling-v2-6", "kling-v3", "kling-v3-omni"];
+const STD_MODE_MODELS: KlingModel[] = ["kling-v2-5-turbo", "kling-v2-6", "kling-v3"];
 
 export class KlingProvider implements AIProvider {
   id = "kling";
@@ -201,7 +231,7 @@ export class KlingProvider implements AIProvider {
         model_name: model,
         mode,
         aspect_ratio: aspectRatioMap[options?.aspectRatio || "16:9"] || "16:9",
-        duration: options?.duration === 10 ? "10" : "5",
+        duration: klingDuration(model, options?.duration),
       };
 
       if (options?.negativePrompt) {

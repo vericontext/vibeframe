@@ -2181,8 +2181,18 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "description": "Ending frame image for Seedance image-to-video",
         "type": "string",
       },
+      "grokModel": {
+        "default": "1.5",
+        "description": "Grok video model: 1.5 (default), lite, classic",
+        "type": "string",
+      },
       "image": {
         "description": "Reference image for image-to-video",
+        "type": "string",
+      },
+      "klingModel": {
+        "default": "v3",
+        "description": "Kling model: v3 (default), v2.6, v2.5-turbo",
         "type": "string",
       },
       "lastFrame": {
@@ -2258,7 +2268,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "seedanceModel": {
         "default": "quality",
-        "description": "Seedance variant: quality or fast (fal.ai only)",
+        "description": "Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)",
         "type": "string",
       },
       "veoModel": {
@@ -4438,6 +4448,8 @@ exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1
     "params": {
       "duration": "5",
       "generateAudio": true,
+      "grokModel": "1.5",
+      "klingModel": "v3",
       "mode": "std",
       "prompt": "test",
       "provider": "grok",

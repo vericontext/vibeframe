@@ -653,7 +653,9 @@ Cost tier: `very-high`
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1)_ - Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)
 - `seed` _(number)_ - Random seed for reproducibility (Runway only)
 - `mode` _(string)_ _(default: `"std"`)_ - Generation mode: std or pro (Kling only)
-- `seedanceModel` _(string)_ _(default: `"quality"`)_ - Seedance variant: quality or fast (fal.ai only)
+- `seedanceModel` _(string)_ _(default: `"quality"`)_ - Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)
+- `grokModel` _(string)_ _(default: `"1.5"`)_ - Grok video model: 1.5 (default), lite, classic
+- `klingModel` _(string)_ _(default: `"v3"`)_ - Kling model: v3 (default), v2.6, v2.5-turbo
 - `negative` _(string)_ - Negative prompt - what to avoid (Kling/Veo)
 - `resolution` _(string)_ - Video resolution: 480p, 720p, 1080p, or 4k depending on provider
 - `lastFrame` _(string)_ - Last frame image for frame interpolation (Veo) or Seedance end frame
