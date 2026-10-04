@@ -4423,7 +4423,7 @@ exports[`envelope shape (--dry-run --json) > detect scenes (free, basic) 1`] = `
 exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI default) 1`] = `
 {
   "command": "generate image",
-  "costUsd": 0.07,
+  "costUsd": 0.211,
   "data": {
     "params": {
       "count": "1",
@@ -4436,7 +4436,9 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
   },
   "dryRun": true,
   "elapsedMs": "<elapsedMs>",
-  "warnings": [],
+  "warnings": [
+    "costUsd is an upper-bound estimate from openai list prices for 1 image(s) - not metered billing.",
+  ],
 }
 `;
 

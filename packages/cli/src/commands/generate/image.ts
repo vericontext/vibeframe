@@ -23,6 +23,7 @@ import { isJsonMode, outputSuccess, log, exitWithError, apiError, usageError } f
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeOpenAIImageGenerate } from "../_shared/openai-image.js";
+import { estimateImageCostUsd } from "../_shared/image-cost.js";
 import { writeImageFile } from "../../utils/image-file.js";
 
 export function registerImageCommand(parent: Command): void {
@@ -159,6 +160,7 @@ Examples:
             command: "generate image",
             startedAt,
             dryRun: true,
+            ...estimateImageCostUsd(provider, options.model, parseInt(options.count) || 1),
             data: {
               params: {
                 prompt,
@@ -215,6 +217,7 @@ Examples:
             outputSuccess({
               command: "generate image",
               startedAt,
+              ...estimateImageCostUsd("openai", options.model, result.images.length),
               data: {
                 provider: "openai",
                 model: modelLabel,
@@ -357,7 +360,7 @@ Examples:
             outputSuccess({
               command: "generate image",
               startedAt,
-              warnings: [],
+              ...estimateImageCostUsd("gemini", options.model, result.images.length),
               data: {
                 provider: "gemini",
                 model: usedLabel,
@@ -462,6 +465,7 @@ Examples:
             outputSuccess({
               command: "generate image",
               startedAt,
+              ...estimateImageCostUsd("grok", options.model, result.images.length),
               data: {
                 provider: "grok",
                 modelId: resolveGrokImageModel(options.model).model,
