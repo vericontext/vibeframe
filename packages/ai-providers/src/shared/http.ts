@@ -4,7 +4,7 @@
  * classified `ProviderError` that never carries the API key.
  */
 
-import { ProviderError, classifyProviderError } from "./errors.js";
+import { ProviderError, classifyProviderError, type ProviderErrorKind } from "./errors.js";
 
 export interface ProviderRequestOptions {
   /** Attempts for 429/502/503/504 and network errors, including the first. Default 3. */
@@ -15,6 +15,12 @@ export interface ProviderRequestOptions {
   timeoutMs?: number;
   /** Pull a readable message (and code) out of an error body. Default: common JSON shapes. */
   parseError?: (body: string) => { message: string; code?: string };
+  /**
+   * Provider-specific classification, tried before the generic one (e.g.
+   * Kling sends exhausted credits as 429 with code 1102). Return undefined
+   * to fall back to `classifyProviderError`.
+   */
+  classify?: (input: { status: number; message: string; code?: string }) => ProviderErrorKind | undefined;
 }
 
 const RETRY_STATUS = new Set([429, 502, 503, 504]);
@@ -34,7 +40,7 @@ export function parseErrorBody(body: string): { message: string; code?: string }
     };
     const message = pick(data.error) ?? pick(data.message) ?? pick(data.detail) ?? body;
     const rawCode = data.code ?? data.failureCode ?? (data.error as Record<string, unknown> | undefined)?.code;
-    return { message, code: typeof rawCode === "string" ? rawCode : undefined };
+    return { message, code: typeof rawCode === "string" || typeof rawCode === "number" ? String(rawCode) : undefined };
   } catch {
     return { message: body.trim() || "empty response" };
   }
@@ -84,19 +90,18 @@ export async function providerRequest(
 
     if (response.ok) return response;
 
-    if (RETRY_STATUS.has(response.status) && attempt < attempts) {
-      await response.body?.cancel();
+    const { message, code } = parse(await response.text());
+    const full = `${where} -> ${response.status}: ${message}`;
+    const kind = options.classify?.({ status: response.status, message, code });
+    const error = kind
+      ? new ProviderError({ kind, provider, status: response.status, code, message: full })
+      : classifyProviderError({ provider, status: response.status, code, message: full });
+    // A 429 can mean "out of credits" (quota), which waiting never fixes.
+    if (RETRY_STATUS.has(response.status) && error.retryable && attempt < attempts) {
       await sleep(retryAfterMs(response) ?? backoffMs * 2 ** (attempt - 1));
       continue;
     }
-
-    const { message, code } = parse(await response.text());
-    throw classifyProviderError({
-      provider,
-      status: response.status,
-      code,
-      message: `${where} -> ${response.status}: ${message}`,
-    });
+    throw error;
   }
 }
 

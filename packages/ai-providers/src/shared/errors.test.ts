@@ -12,6 +12,7 @@ describe("classifyProviderError", () => {
     expect(kind("The images or videos provided may contain likenesses of real people", 422, "content_policy_violation")).toBe("likeness");
     expect(kind("Input rejected (SAFETY.INPUT.TEXT)", undefined, "SAFETY.INPUT.TEXT")).toBe("moderation");
     expect(kind("Prompt blocked by content policy", 400)).toBe("moderation");
+    expect(kind("Failure to pass the risk control system")).toBe("moderation");
     // A 429 that means the account is out of credits: waiting will not help.
     expect(kind("You have insufficient credits", 429)).toBe("quota");
     expect(kind("RESOURCE_EXHAUSTED", 429)).toBe("quota");

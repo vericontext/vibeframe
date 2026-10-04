@@ -60,6 +60,8 @@ export interface VideoJobState {
   progress?: number;
   /** Where to download the result; set once `completed`. */
   videoUrl?: string;
+  /** The provider's ID for the finished video when it differs from the job ID (Kling `video_id`); continuations use it. */
+  outputId?: string;
   durationSec?: number;
   /** Why the job failed; set when `failed`. */
   error?: ProviderErrorInfo;

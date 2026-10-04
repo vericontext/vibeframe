@@ -69,6 +69,7 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 - Classic `grok-imagine-video` rejects `last_frame`, `keyframes`, and `image` combined with reference inputs; those need `-1.5` (docs).
 - Reference-to-video caps at 720p even on `-1.5`; 1080p is T2V and I2V only (docs).
 - `-1.5` text-to-video runs text-to-image then image-to-video internally (docs).
+- Only classic `grok-imagine-video` edits and extends: `-1.5` and `-1.5-lite` answer `POST /videos/extensions` with 400 "Video extension is not supported for this model"; the extension output is the source clip plus the new segment (2 s + 2 s = 4.04 s) (probe, 2026-10-04).
 - No cancel endpoint is documented for videos; `DELETE /videos/{id}` is not in the REST reference (docs, not probed).
 - `grok-imagine-image-2.0` doc headline says $0.04 but the default (`auto`) serves `medium` for edits, which bills $0.06+ (docs, probe).
 - `21:9` and `5:2` image ratios are accepted by `grok-imagine-image-2.0` (docs).

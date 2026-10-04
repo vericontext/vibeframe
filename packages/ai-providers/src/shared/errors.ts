@@ -83,7 +83,7 @@ export function isProviderError(error: unknown): error is ProviderError {
 
 const LIKENESS = /likeness(es)? of real (people|persons?)/i;
 const MODERATION =
-  /content[ _-]?(policy|filter|moderation)|safety|moderat|blocked (by|due)|restricted content|nsfw|^SAFETY\./i;
+  /content[ _-]?(policy|filter|moderation|security)|safety|moderat|risk control|blocked (by|due)|restricted content|nsfw|^SAFETY\./i;
 const QUOTA = /quota|insufficient (credit|balance|fund)|out of credits|credits? (exhausted|remaining)|billing|payment required|RESOURCE_EXHAUSTED/i;
 const RATE_LIMIT = /rate.?limit|too many requests|concurrency limit/i;
 const AUTH = /api.?key|unauthori[sz]ed|forbidden|authenticat|invalid token|permission denied/i;
