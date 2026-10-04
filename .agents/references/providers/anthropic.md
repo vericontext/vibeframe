@@ -4,12 +4,10 @@ checked: 2026-10-04
 env: [ANTHROPIC_API_KEY]
 models_endpoint: anthropic
 models_in_use:
-  - claude-sonnet-4-6           # default: agent, storyboard, translate-srt, motion `sonnet`
-  - claude-opus-4-7             # motion `opus`
+  - claude-sonnet-5-5           # default: agent, storyboard, translate-srt, motion `sonnet`
+  - claude-opus-5-5             # motion `opus`
   - claude-opus-4-6             # motion `opus-4-6` (legacy alias)
-models_recommended:
-  - claude-sonnet-5-5           # replaces claude-sonnet-4-6, after the agent adapter keeps thinking blocks
-  - claude-opus-5-5             # replaces claude-opus-4-7 and claude-opus-4-6
+models_recommended: []
 ---
 
 # Anthropic
