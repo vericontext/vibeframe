@@ -95,7 +95,7 @@ describe("CLI command groups", () => {
         encoding: "utf-8",
       });
 
-      expect(output).toContain("Extend video duration");
+      expect(output).toContain("Extend a generated video from its last frame");
       expect(output).toContain("--output");
       expect(output).toContain("--prompt");
       expect(output).toContain("--duration");

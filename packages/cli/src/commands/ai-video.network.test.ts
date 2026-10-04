@@ -58,6 +58,20 @@ describe("video executors over the provider network", () => {
     expect(net.to("api.imgbb.com")).toHaveLength(1);
   });
 
+  it("never fetches an image URL for an inline-only provider", async () => {
+    process.env.GOOGLE_API_KEY = "test-google";
+
+    const result = await executeVideoGenerate({
+      prompt: "p",
+      provider: "omni",
+      image: "http://169.254.169.254/latest/meta-data/",
+      wait: false,
+    });
+
+    expect(result).toMatchObject({ success: false, errorKind: "invalid-request" });
+    expect(net.requests).toHaveLength(0);
+  });
+
   it("polls a stored handle on the endpoint it was submitted to", async () => {
     net.on("GET", KLING, /\/image2video\/k-1$/, () =>
       kling({ task_id: "k-1", task_status: "succeed", task_result: { videos: [{ id: "v-1", url: "https://fake.media/k.mp4", duration: "5" }] } })

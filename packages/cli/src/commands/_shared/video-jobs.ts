@@ -90,15 +90,21 @@ export async function fileToUrlOrDataUri(input: string, fallbackMimeType: string
 /**
  * An input image in the form `generator` takes: uploaded to the configured
  * upload host for URL-only providers, inlined as a data URI otherwise.
+ *
+ * Remote URLs are never fetched here: an inline-only provider gets a usage
+ * error instead, so a tool call cannot make the CLI read an internal URL
+ * and forward its contents to a provider.
  */
 export async function videoImageInput(generator: VideoGenerator, input: string): Promise<string> {
-  if (generator.imageInput !== "url" || /^https?:/.test(input)) {
-    if (generator.imageInput === "data-uri" && /^https?:/.test(input)) {
-      const response = await fetch(input);
-      if (!response.ok) throw new Error(`Could not fetch image ${input}: HTTP ${response.status}`);
-      const type = response.headers.get("content-type") ?? mimeTypeForPath(input, "image/png");
-      return `data:${type};base64,${Buffer.from(await response.arrayBuffer()).toString("base64")}`;
-    }
+  const isUrl = /^https?:/i.test(input);
+  if (generator.imageInput === "data-uri" && isUrl) {
+    throw new ProviderError({
+      kind: "invalid-request",
+      provider: generator.id,
+      message: `${generator.id} takes images inline; pass a local file path or a data URI, not a URL.`,
+    });
+  }
+  if (generator.imageInput !== "url" || isUrl) {
     return fileToUrlOrDataUri(input, "image/png");
   }
   const buffer = input.startsWith("data:")
