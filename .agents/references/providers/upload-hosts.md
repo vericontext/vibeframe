@@ -47,18 +47,16 @@ S3 as implemented in `upload-host.ts`:
 
 ## Gotchas
 
-- ImgBB uploads are permanent: we never send `expiration`, so `upload.ttlSeconds` has no effect on the ImgBB path (code, docs).
+- ImgBB uploads are permanent unless `expiration` is sent; we send `upload.ttlSeconds` (clamped to 60 s - 180 days) since 2026-10-04, confirmed `expiration: 600` in the response (probe).
 - ImgBB URLs carry no auth token, so anyone holding the link can fetch the image (docs, from the response shape).
   User reference images, including faces used for likeness, end up on a third-party host indefinitely; ImgBB's terms reserve the right to remove content and say nothing about link privacy (docs).
 - We discard `delete_url`, so we cannot clean up after a job finishes.
-- The S3 path returns an unsigned URL, so the object must be publicly readable through a bucket policy or a CDN at `VIBE_UPLOAD_PUBLIC_BASE_URL`.
-  New buckets block public access by default (docs), so a fresh bucket uploads fine and then the provider gets 403 on fetch.
-- The S3 `expiresAt` we return is the lifetime of the PUT URL, not of the object; nothing deletes uploads unless the user adds a lifecycle expiration rule on the prefix (docs).
-- SigV4 presigned URLs top out at 7 days, and URLs signed with temporary credentials die when those credentials expire (docs); a `VIBE_UPLOAD_TTL_SECONDS` above 604800 yields an invalid URL.
+- The S3 path returns a presigned GET (valid for the TTL) unless `VIBE_UPLOAD_PUBLIC_BASE_URL` is set, so private buckets work; with a public base URL the plain object URL is returned (code).
+- The S3 `expiresAt` is the lifetime of the GET link, not of the object; nothing deletes uploads unless the user adds a lifecycle expiration rule on the prefix (docs).
+- SigV4 presigned URLs top out at 7 days, and URLs signed with temporary credentials die when those credentials expire (docs); we clamp the TTL to 604800.
 - `upload.s3.endpoint` exists in the config schema but the uploader ignores it, so R2, MinIO and other S3-compatible stores do not work.
 - Base64 in a form body inflates the upload by about a third; large images approach ImgBB's 32 MB and fal's 30 MB limits sooner than the file size suggests.
-- Two separate ImgBB implementations exist:
-  `uploadToImgbb` (URL-encoded body, checks HTTP status) is used by `resolveUploadHost`, while `execute-fill-gaps.ts` has its own `uploadFrameToImgbb` (multipart body, no status check) and always uses ImgBB even when S3 is configured.
+- `execute-fill-gaps.ts` uploads frames through `resolveUploadHost` (it used to have its own ImgBB uploader that ignored S3).
 - `prepareSeedanceReferences` is duplicated in `ai-video.ts` and `generate/video.ts`.
 
 ## In our code
@@ -81,13 +79,10 @@ S3 as implemented in `upload-host.ts`:
 
 ## Recommended changes
 
-1. Send `expiration` on every ImgBB upload, derived from `upload.ttlSeconds` and clamped to 60 to 15,552,000 seconds.
-2. Route `execute-fill-gaps.ts` through `resolveUploadHost()` and delete `uploadFrameToImgbb`, so S3 users never fall back to ImgBB silently.
-3. For S3, return a presigned GET URL (bounded by the TTL and 7 days) unless `VIBE_UPLOAD_PUBLIC_BASE_URL` is set, so private buckets work without a public policy.
-4. Document that S3 objects persist and suggest a lifecycle rule on the prefix; make `expiresAt` describe the URL it actually returns.
-5. Either honor `upload.s3.endpoint` (path-style for S3-compatible stores) or drop it from the schema.
-6. Test whether fal Seedance image-to-video accepts data URIs or a fal CDN upload; if so, skip third-party hosting for Seedance entirely.
-7. Tell users in setup and `--dry-run` output that ImgBB links are public and unauthenticated.
+1. Document that S3 objects persist and suggest a lifecycle rule on the prefix; make `expiresAt` describe the URL it actually returns.
+2. Either honor `upload.s3.endpoint` (path-style for S3-compatible stores) or drop it from the schema.
+3. Test whether fal Seedance image-to-video accepts data URIs or a fal CDN upload; if so, skip third-party hosting for Seedance entirely.
+4. Tell users in setup and `--dry-run` output that ImgBB links are public and unauthenticated.
 
 ## Sources
 

@@ -57,6 +57,8 @@ export function sleep(ms: number): Promise<void> {
 export async function uploadToImgbb(
   imageBuffer: Buffer,
   apiKey: string,
+  /** Seconds until ImgBB deletes the image (60 to 15,552,000). Omit for a permanent upload. */
+  expirationSeconds?: number,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const base64Image = imageBuffer.toString("base64");
@@ -64,6 +66,9 @@ export async function uploadToImgbb(
     const formData = new URLSearchParams();
     formData.append("key", apiKey);
     formData.append("image", base64Image);
+    if (expirationSeconds !== undefined) {
+      formData.append("expiration", String(expirationSeconds));
+    }
 
     const response = await fetch("https://api.imgbb.com/1/upload", {
       method: "POST",
