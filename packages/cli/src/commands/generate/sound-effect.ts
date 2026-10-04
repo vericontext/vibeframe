@@ -79,7 +79,7 @@ export function registerSoundEffectCommand(parent: Command): void {
     .argument("<prompt>", "Description of the sound effect")
     .option("-k, --api-key <key>", "ElevenLabs API key (or set ELEVENLABS_API_KEY env)")
     .option("-o, --output <path>", "Output audio file path", "sound-effect.mp3")
-    .option("-d, --duration <seconds>", "Duration in seconds (0.5-22, default: auto)")
+    .option("-d, --duration <seconds>", "Duration in seconds (0.5-30, default: auto)")
     .option("--prompt-influence <value>", "Prompt influence (0-1, default: 0.3)")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {

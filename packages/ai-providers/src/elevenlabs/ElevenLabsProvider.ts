@@ -56,7 +56,7 @@ export interface MusicResult {
  * Sound effect generation options
  */
 export interface SoundEffectOptions {
-  /** Duration in seconds (0.5-22, default: auto) */
+  /** Duration in seconds (0.5-30, default: auto) */
   duration?: number;
   /** Prompt influence (0-1, default: 0.3) */
   promptInfluence?: number;
@@ -100,7 +100,7 @@ export interface Voice {
 export interface TTSOptions {
   /** Voice ID to use */
   voiceId?: string;
-  /** Model to use (eleven_v3, eleven_multilingual_v2, eleven_monolingual_v1) */
+  /** Model to use (eleven_v3, eleven_multilingual_v2, eleven_flash_v2_5) */
   model?: string;
   /** Stability (0-1) - higher = more consistent */
   stability?: number;
@@ -197,6 +197,12 @@ export function resolveVoiceId(input: string | undefined): string {
 /** One retry absorbs transient concurrent-limit overlap; see textToSpeech. */
 const TTS_429_MAX_RETRIES = 1;
 const TTS_429_RETRY_DELAY_MS = 2000;
+
+/**
+ * Music model. music_v2_5 (2026-09-14) is ElevenLabs' current best; it
+ * returns 48 kHz / 192 kbps MP3 by default where music_v1 returned 44.1 kHz.
+ */
+export const ELEVENLABS_MUSIC_MODEL = "music_v2_5";
 
 /**
  * ElevenLabs provider for text-to-speech
@@ -299,8 +305,9 @@ export class ElevenLabsProvider implements AIProvider {
                 similarity_boost: options.similarityBoost ?? 0.75,
                 style: options.style ?? 0,
                 use_speaker_boost: true,
+                // The API reads speed only inside voice_settings.
+                ...(options.speed !== undefined && { speed: options.speed }),
               },
-              ...(options.speed !== undefined && { speed: options.speed }),
             }),
           }
         );
@@ -394,8 +401,8 @@ export class ElevenLabsProvider implements AIProvider {
 
       // Duration is optional; API auto-determines if not provided
       if (options.duration !== undefined) {
-        // Clamp to valid range (0.5-22 seconds)
-        const duration = Math.max(0.5, Math.min(22, options.duration));
+        // Clamp to valid range (0.5-30 seconds)
+        const duration = Math.max(0.5, Math.min(30, options.duration));
         body.duration_seconds = duration;
       }
 
@@ -449,7 +456,7 @@ export class ElevenLabsProvider implements AIProvider {
     try {
       const body: Record<string, unknown> = {
         prompt,
-        model_id: "music_v1",
+        model_id: ELEVENLABS_MUSIC_MODEL,
       };
 
       if (options.duration !== undefined) {

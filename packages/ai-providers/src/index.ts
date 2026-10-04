@@ -61,7 +61,13 @@ export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";
 export { OllamaProvider, ollamaProvider } from "./ollama/index.js";
-export { ElevenLabsProvider, elevenLabsProvider, KNOWN_VOICES, resolveVoiceId } from "./elevenlabs/index.js";
+export {
+  ELEVENLABS_MUSIC_MODEL,
+  ElevenLabsProvider,
+  elevenLabsProvider,
+  KNOWN_VOICES,
+  resolveVoiceId,
+} from "./elevenlabs/index.js";
 export type { Voice, TTSOptions, TTSResult, MusicOptions, MusicResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
 export {
   KokoroProvider,

@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
 import {
+  ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,
   ReplicateProvider,
 } from "@vibeframe/ai-providers";
@@ -233,7 +234,7 @@ export function registerMusicCommand(parent: Command): void {
           console.log();
           console.log(`Saved to: ${chalk.bold(outputPath)}`);
           console.log(`Duration: ${duration}s`);
-          console.log(`Provider: ElevenLabs (music_v1)`);
+          console.log(`Provider: ElevenLabs (${ELEVENLABS_MUSIC_MODEL})`);
           if (options.instrumental) console.log(`Mode: Instrumental`);
           console.log();
         } else {
