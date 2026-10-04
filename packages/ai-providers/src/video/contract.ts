@@ -67,9 +67,14 @@ export interface VideoJobState {
   error?: ProviderErrorInfo;
 }
 
+/** How a provider takes an input image: a public URL, an inline data URI, or either. */
+export type ImageInput = "url" | "data-uri" | "either";
+
 export interface VideoGenerator {
   /** Provider registry id; matches `VideoJob.provider`. */
   readonly id: string;
+  /** How `VideoRequest.image` must be given. Callers upload or inline local files to match. */
+  readonly imageInput: ImageInput;
   /** Start a generation. Throws `ProviderError` when the provider refuses it. */
   submitVideo(request: VideoRequest): Promise<VideoJob>;
   /** Read a job's current state. Throws `ProviderError` only when the state cannot be read. */

@@ -1,295 +1,126 @@
 /**
  * @module generate/video-extend
- * @description `vibe generate video-extend` (hidden) — extend video duration
- * via Kling or Veo (Gemini). Split out of `generate.ts` in v0.69 (Plan G
- * Phase 2).
+ * @description `vibe generate video-extend` (hidden) — extend a generated
+ * video from its last frame, on any provider that can (Kling, Grok classic,
+ * Gemini Omni, and Veo until 2026-10-22).
  */
 
 import type { Command } from "commander";
-import { resolve } from "node:path";
-import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  GeminiProvider,
-  KlingProvider,
-  findModel,
-  resolveVeoModel,
-} from "@vibeframe/ai-providers";
-import { requireApiKey } from "../../utils/api-key.js";
+import { findModel } from "@vibeframe/ai-providers";
 import { checkModelLifecycle } from "../../utils/model-lifecycle.js";
-import {
-  isJsonMode,
-  outputSuccess,
-  printWarnings,
-  exitWithError,
-  apiError,
-  authError,
-  usageError,
-} from "../output.js";
+import { executeVideoExtend } from "../ai-video.js";
+import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
+import { isJsonMode, outputSuccess, printWarnings, exitWithError, providerFailure, usageError } from "../output.js";
 import { validateOutputPath } from "../validate.js";
-import { downloadVideo } from "../ai-helpers.js";
+
+const EXTEND_PROVIDERS = ["kling", "grok", "omni", "veo"];
 
 export function registerVideoExtendCommand(parent: Command): void {
   parent
     .command("video-extend", { hidden: true })
-    .description("Extend video duration (Kling by video ID, Veo by operation name)")
-    .argument("<id>", "Kling video ID or Veo operation name")
-    .option("-p, --provider <provider>", "Provider: kling, veo", "kling")
-    .option("-k, --api-key <key>", "API key (KLING_API_KEY or GOOGLE_API_KEY)")
+    .description("Extend a generated video from its last frame (Kling, Grok, Gemini Omni, Veo)")
+    .argument("<task-id>", "Task ID the generation returned (Veo: its operation name)")
+    .option("-p, --provider <provider>", `Provider: ${EXTEND_PROVIDERS.join(", ")}`, "kling")
+    .option("-k, --api-key <key>", "API key for the provider")
     .option("-o, --output <path>", "Output file path")
     .option("--prompt <text>", "Continuation prompt")
-    .option("-d, --duration <sec>", "Duration: 5 or 10 (Kling), 4/6/8 (Veo)", "5")
+    .option("-d, --duration <sec>", "Seconds to add: 5 or 10 (Kling), 2-10 (Grok), 4/6/8 (Veo); Omni picks its own", "5")
     .option("--negative <prompt>", "Negative prompt (what to avoid, Kling only)")
     .option("--veo-model <model>", "Veo model: 3.1, 3.1-fast", "3.1")
     .option("--no-wait", "Start extension and return task ID without waiting")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (id: string, options) => {
       const startedAt = Date.now();
-      try {
-        const provider = (options.provider || "kling").toLowerCase();
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
-
-        let lifecycleWarnings: string[] = [];
-        if (provider === "veo") {
-          try {
-            resolveVeoModel(options.veoModel);
-          } catch (err) {
-            exitWithError(usageError(err instanceof Error ? err.message : String(err)));
-          }
-          lifecycleWarnings = checkModelLifecycle(findModel("veo", "video", options.veoModel));
-          if (!options.dryRun) printWarnings(lifecycleWarnings);
-        }
-
-        if (options.dryRun) {
-          outputSuccess({
-            command: "generate video-extend",
-            startedAt,
-            dryRun: true,
-            warnings: lifecycleWarnings,
-            data: {
-              params: {
-                id,
-                provider,
-                prompt: options.prompt,
-                duration: options.duration,
-                negative: options.negative,
-                veoModel: options.veoModel,
-              },
-            },
-          });
-          return;
-        }
-
-        if (provider === "kling") {
-          const apiKey = await requireApiKey("KLING_API_KEY", "Kling", options.apiKey);
-
-          const spinner = ora("Initializing Kling AI...").start();
-
-          const kling = new KlingProvider();
-          await kling.initialize({ apiKey });
-
-          if (!kling.isConfigured()) {
-            spinner.fail("Invalid API key format");
-            exitWithError(authError("KLING_API_KEY", "Kling"));
-          }
-
-          spinner.text = "Starting video extension...";
-
-          const result = await kling.extendVideo(id, {
-            prompt: options.prompt,
-            negativePrompt: options.negative,
-            duration: options.duration as "5" | "10",
-          });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start extension");
-            exitWithError(apiError(result.error || "Failed to start extension", true));
-          }
-
-          console.log();
-          console.log(chalk.bold.cyan("Video Extension Started"));
-          console.log(chalk.dim("─".repeat(60)));
-          console.log(`Provider: Kling`);
-          console.log(`Task ID: ${chalk.bold(result.id)}`);
-
-          if (!options.wait) {
-            spinner.succeed(chalk.green("Extension started"));
-            console.log();
-            console.log(chalk.dim("Check status with:"));
-            console.log(chalk.dim(`  vibe generate video-status ${result.id} -p kling`));
-            console.log();
-            return;
-          }
-
-          spinner.text = "Extending video (this may take 2-5 minutes)...";
-
-          const finalResult = await kling.waitForExtendCompletion(
-            result.id,
-            (status) => {
-              spinner.text = `Extending video... ${status.status}`;
-            },
-            600000,
-          );
-
-          if (finalResult.status !== "completed") {
-            spinner.fail(finalResult.error || "Extension failed");
-            exitWithError(apiError(finalResult.error || "Extension failed", true));
-          }
-
-          spinner.succeed(chalk.green("Video extended"));
-
-          if (isJsonMode()) {
-            let outputPath: string | undefined;
-            if (options.output && finalResult.videoUrl) {
-              const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-              outputPath = resolve(process.cwd(), options.output);
-              await writeFile(outputPath, buffer);
-            }
-            outputSuccess({
-              command: "generate video-extend",
-              startedAt,
-              data: {
-                provider: "kling",
-                taskId: result.id,
-                videoUrl: finalResult.videoUrl,
-                duration: finalResult.duration,
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          if (finalResult.videoUrl) {
-            console.log(`Video URL: ${finalResult.videoUrl}`);
-          }
-          if (finalResult.duration) {
-            console.log(`Duration: ${finalResult.duration}s`);
-          }
-          console.log();
-
-          if (options.output && finalResult.videoUrl) {
-            const downloadSpinner = ora("Downloading video...").start();
-            try {
-              const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-              const outputPath = resolve(process.cwd(), options.output);
-              await writeFile(outputPath, buffer);
-              downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-            } catch (err) {
-              downloadSpinner.fail(
-                chalk.red(
-                  `Failed to download video: ${err instanceof Error ? err.message : err}`,
-                ),
-              );
-            }
-          }
-        } else if (provider === "veo") {
-          const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
-
-          const spinner = ora("Initializing Veo...").start();
-
-          const gemini = new GeminiProvider();
-          await gemini.initialize({ apiKey });
-
-          const veoModel = resolveVeoModel(options.veoModel);
-
-          spinner.text = "Starting video extension...";
-
-          const result = await gemini.extendVideo(id, options.prompt, {
-            duration: parseInt(options.duration) as 4 | 6 | 8,
-            model: veoModel,
-          });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start extension");
-            exitWithError(apiError(result.error || "Failed to start extension", true));
-          }
-
-          console.log();
-          console.log(chalk.bold.cyan("Veo Video Extension Started"));
-          console.log(chalk.dim("─".repeat(60)));
-          console.log(`Provider: Veo`);
-          console.log(`Operation: ${chalk.bold(result.id)}`);
-
-          if (!options.wait) {
-            spinner.succeed(chalk.green("Extension started"));
-            console.log();
-            console.log(chalk.dim("Check status or wait with:"));
-            console.log(chalk.dim(`  vibe generate video-extend ${result.id} -p veo`));
-            console.log();
-            return;
-          }
-
-          spinner.text = "Extending video (this may take 1-3 minutes)...";
-          const finalResult = await gemini.waitForVideoCompletion(
-            result.id,
-            (status) => {
-              spinner.text = `Extending video... ${status.status}`;
-            },
-            300000,
-          );
-
-          if (finalResult.status !== "completed") {
-            spinner.fail(finalResult.error || "Extension failed");
-            exitWithError(apiError(finalResult.error || "Extension failed", true));
-          }
-
-          spinner.succeed(chalk.green("Video extended"));
-
-          if (isJsonMode()) {
-            let outputPath: string | undefined;
-            if (options.output && finalResult.videoUrl) {
-              const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-              outputPath = resolve(process.cwd(), options.output);
-              await writeFile(outputPath, buffer);
-            }
-            outputSuccess({
-              command: "generate video-extend",
-              startedAt,
-              warnings: lifecycleWarnings,
-              data: {
-                provider: "veo",
-                taskId: result.id,
-                videoUrl: finalResult.videoUrl,
-                duration: finalResult.duration,
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          if (finalResult.videoUrl) {
-            console.log(`Video URL: ${finalResult.videoUrl}`);
-          }
-          console.log();
-
-          if (options.output && finalResult.videoUrl) {
-            const downloadSpinner = ora("Downloading video...").start();
-            try {
-              const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-              const outputPath = resolve(process.cwd(), options.output);
-              await writeFile(outputPath, buffer);
-              downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-            } catch (err) {
-              downloadSpinner.fail(
-                chalk.red(
-                  `Failed to download video: ${err instanceof Error ? err.message : err}`,
-                ),
-              );
-            }
-          }
-        } else {
-          exitWithError(
-            usageError(`Invalid provider: ${provider}. Video extend supports: kling, veo`),
-          );
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        exitWithError(apiError(`Video extension failed: ${msg}`, true));
+      const provider = String(options.provider || "kling").toLowerCase();
+      if (!EXTEND_PROVIDERS.includes(provider)) {
+        exitWithError(usageError(`Invalid provider: ${provider}. Video extend supports: ${EXTEND_PROVIDERS.join(", ")}`));
       }
+      if (options.output) validateOutputPath(options.output);
+
+      const veoSpec = provider === "veo" ? findModel("veo", "video", options.veoModel) : undefined;
+      if (provider === "veo" && !veoSpec) {
+        exitWithError(usageError(`Unknown Veo model "${options.veoModel}". Valid: 3.1, 3.1-fast.`));
+      }
+      const lifecycleWarnings = checkModelLifecycle(veoSpec);
+      const params = {
+        id,
+        provider,
+        prompt: options.prompt,
+        duration: options.duration,
+        negative: options.negative,
+        veoModel: provider === "veo" ? options.veoModel : undefined,
+      };
+
+      if (options.dryRun) {
+        outputSuccess({ command: "generate video-extend", startedAt, dryRun: true, warnings: lifecycleWarnings, data: { params } });
+        return;
+      }
+      printWarnings(lifecycleWarnings);
+
+      const spinner = isJsonMode() ? null : ora(`Extending ${provider} video (this may take a few minutes)...`).start();
+      const result = await executeVideoExtend({
+        videoId: id,
+        provider,
+        prompt: options.prompt,
+        duration: Number(options.duration),
+        negative: options.negative,
+        veoModel: options.veoModel,
+        output: options.output,
+        wait: options.wait,
+        apiKey: options.apiKey,
+      });
+
+      if (!result.success) {
+        spinner?.fail(result.error ?? "Extension failed");
+        const task = result.taskId ? ` (${provider} task ${result.taskId})` : "";
+        exitWithError(providerFailure(`${result.error ?? "Video extension failed"}${task}`, result.errorKind));
+      }
+
+      // A job left running gets a record, so `vibe status job` can poll,
+      // download, and cache it later.
+      const record =
+        result.status !== "completed" && result.taskId
+          ? await createAndWriteJobRecord({
+              jobType: "generate-video",
+              provider,
+              providerTaskId: result.taskId,
+              providerJob: result.job,
+              status: "running",
+              command: "vibe generate video-extend",
+              prompt: options.prompt,
+              outputPath: options.output,
+            })
+          : undefined;
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "generate video-extend",
+          startedAt,
+          warnings: lifecycleWarnings,
+          data: {
+            provider,
+            jobId: record?.id,
+            statusCommand: record?.retryWith[0],
+            taskId: result.taskId,
+            status: result.status,
+            videoUrl: result.videoUrl,
+            duration: result.duration,
+            outputPath: result.outputPath,
+          },
+        });
+        return;
+      }
+
+      if (record) {
+        spinner?.succeed(chalk.green(`Extension started: ${provider} task ${result.taskId}`));
+        console.log(chalk.dim(`  Check it with: ${record.retryWith[0]}`));
+        return;
+      }
+      spinner?.succeed(chalk.green("Video extended"));
+      if (result.videoUrl) console.log(`Video URL: ${result.videoUrl}`);
+      if (result.duration) console.log(`Duration: ${result.duration}s`);
+      if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
     });
 }

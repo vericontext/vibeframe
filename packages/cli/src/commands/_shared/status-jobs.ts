@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, resolve } from "node:path";
 
+import { VIDEO_GENERATOR_PROVIDERS, type VideoJob } from "@vibeframe/ai-providers";
 import { executeVideoStatus } from "../ai-video.js";
 import { executeMusicStatus } from "../generate/music-status.js";
 import type { BuildAssetKind } from "./build-cache.js";
@@ -56,7 +57,10 @@ export interface JobRecord {
   command: string;
   provider: string;
   providerTaskId: string;
+  /** Kling task type; superseded by `providerJob` and kept for older records. */
   providerTaskType?: "text2video" | "image2video";
+  /** The provider's job handle, so a refresh polls exactly the job that was submitted. */
+  providerJob?: VideoJob;
   progress?: number;
   resultUrl?: string;
   beatId?: string;
@@ -91,6 +95,7 @@ export interface CreateJobRecordOptions {
   provider: string;
   providerTaskId: string;
   providerTaskType?: "text2video" | "image2video";
+  providerJob?: VideoJob;
   projectDir?: string;
   workingDirectory?: string;
   command: string;
@@ -300,6 +305,7 @@ export function createJobRecord(opts: CreateJobRecordOptions): JobRecord {
     provider: opts.provider,
     providerTaskId: opts.providerTaskId,
     providerTaskType: opts.providerTaskType,
+    providerJob: opts.providerJob,
     progress: opts.progress,
     resultUrl: opts.resultUrl,
     beatId: opts.beatId,
@@ -396,8 +402,9 @@ export async function refreshJobRecord(
       if (output) await mkdir(dirname(output), { recursive: true });
       const result = await executeVideoStatus({
         taskId: record.providerTaskId,
-        provider: record.provider as "grok" | "runway" | "kling" | "veo",
-        taskType: record.providerTaskType as "text2video" | "image2video" | undefined,
+        provider: record.provider,
+        job: record.providerJob,
+        taskType: record.providerTaskType,
         wait: opts.wait,
         output,
       });
@@ -586,10 +593,7 @@ export function summarizeJob(record: JobRecord): JobSummary {
 }
 
 export function retryWithForJob(record: JobRecord): string[] {
-  return unique([
-    `vibe status job ${record.id} --project ${record.projectDir} --json`,
-    providerStatusCommand(record),
-  ]);
+  return [`vibe status job ${record.id} --project ${record.projectDir} --json`];
 }
 
 export function makeJobStatusResult(
@@ -740,10 +744,7 @@ function resolveRefreshOutput(record: JobRecord, opts: RefreshJobOptions): strin
 function liveSupport(record: JobRecord): { supported: boolean; error?: string } {
   if (
     record.jobType === "generate-video" &&
-    (record.provider === "grok" ||
-      record.provider === "runway" ||
-      record.provider === "kling" ||
-      record.provider === "veo")
+    (VIDEO_GENERATOR_PROVIDERS as readonly string[]).includes(record.provider === "fal" ? "seedance" : record.provider)
   ) {
     return { supported: true };
   }
@@ -1327,28 +1328,6 @@ function stringEnum<T extends readonly string[]>(value: unknown, allowed: T): T[
 
 function isActiveStatus(status: JobStatus): boolean {
   return status === "queued" || status === "running";
-}
-
-function providerStatusCommand(record: JobRecord): string | undefined {
-  if (record.jobType === "generate-video") {
-    if (
-      record.provider !== "grok" &&
-      record.provider !== "runway" &&
-      record.provider !== "kling" &&
-      record.provider !== "veo"
-    ) {
-      return undefined;
-    }
-    const type =
-      record.provider === "kling" && record.providerTaskType
-        ? ` --type ${record.providerTaskType}`
-        : "";
-    return `vibe generate video-status ${record.providerTaskId} -p ${record.provider}${type} --json`;
-  }
-  if (record.jobType === "generate-music" && record.provider === "replicate") {
-    return `vibe generate music-status ${record.providerTaskId} --json`;
-  }
-  return undefined;
 }
 
 function previewPrompt(prompt: string | undefined): string | undefined {

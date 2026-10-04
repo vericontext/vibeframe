@@ -33,6 +33,7 @@ import {
   type GPTImageModel,
   type GeminiImageModel,
   type ImageOptions,
+  type VideoJob,
 } from "@vibeframe/ai-providers";
 
 import { getAudioDuration } from "../../utils/audio.js";
@@ -102,7 +103,7 @@ import {
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { executeVideoGenerate } from "../ai-video.js";
 import { executeMusic } from "../generate/music.js";
-import { createAndWriteJobRecord, type JobRecord } from "./status-jobs.js";
+import { createAndWriteJobRecord, writeJobRecord, type JobRecord } from "./status-jobs.js";
 import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
@@ -2313,6 +2314,37 @@ async function dispatchVideo(
   const keyframeImageAbs = keyframeImageRel ? join(ctx.projectDir, keyframeImageRel) : undefined;
 
   loadSceneBuildEnv(ctx.projectDir);
+  // The job is recorded the moment the provider accepts it, then waited on
+  // inline. A crash or a wait that runs out leaves a record `vibe status job`
+  // can still poll, download, and cache.
+  let job: JobRecord | undefined;
+  const recordJob = async (provider: BuildVideoProvider, submitted: VideoJob) => {
+    job = await createAndWriteJobRecord({
+      jobType: "generate-video",
+      provider,
+      providerTaskId: submitted.id,
+      providerJob: submitted,
+      status: "running",
+      projectDir: ctx.projectDir,
+      workingDirectory: ctx.projectDir,
+      command: "build --stage assets",
+      prompt,
+      beatId: beat.id,
+      outputPath: abs,
+      cachePath: cacheAbs,
+      assetKind: "video",
+      assetCue: prompt,
+      assetOptions: { duration: normalizeVideoDuration(beat.duration), ratio: "16:9" },
+      cacheKey: cache.key,
+      canonicalPath: rel,
+      metadataPath,
+    });
+  };
+  const settleJob = async (status: "completed" | "failed", error?: string) => {
+    if (!job) return;
+    job = { ...job, status, updatedAt: new Date().toISOString(), ...(error ? { error } : {}) };
+    await writeJobRecord(job);
+  };
   const generateWith = (provider: BuildVideoProvider, apiKey: string | undefined) =>
     executeVideoGenerate({
       prompt,
@@ -2320,7 +2352,8 @@ async function dispatchVideo(
       duration: normalizeVideoDuration(beat.duration),
       ratio: "16:9",
       output: abs,
-      wait: false,
+      wait: true,
+      onSubmitted: (submitted) => recordJob(provider, submitted),
       // Keyframe mode → single init frame (image-to-video); otherwise character
       // reference-to-video.
       image: keyframeImageAbs,
@@ -2342,11 +2375,13 @@ async function dispatchVideo(
   );
   if (!result.success || !result.taskId) {
     const error = result.error ?? "video generation did not return a task id";
+    await settleJob("failed", error);
     // ByteDance rejects face-visible i2v inputs with a deterministic likeness
     // 422 — retrying the same provider is useless, but Runway accepts the same
     // keyframe. Fall back automatically when a Runway key is configured.
+    const likeness = result.errorKind === "likeness" || isLikenessRejection(error);
     const runwayKey =
-      isLikenessRejection(error) && activeProvider !== "runway"
+      likeness && activeProvider !== "runway"
         ? await apiKeyForVideoProvider("runway", ctx.projectDir)
         : undefined;
     if (!runwayKey) {
@@ -2364,12 +2399,14 @@ async function dispatchVideo(
     result = await generateWith(activeProvider, runwayKey);
     if (!result.success || !result.taskId) {
       const fallbackError = result.error ?? "video generation did not return a task id";
+      await settleJob("failed", fallbackError);
       ctx.onProgress({ type: "video-failed", beatId: beat.id, error: fallbackError });
       return { status: "failed", error: fallbackError };
     }
   }
 
   if (result.status === "completed" && existsSync(abs)) {
+    await settleJob("completed");
     await mkdir(dirname(cacheAbs), { recursive: true });
     await copyFile(abs, cacheAbs);
     await writeAssetMetadata({
@@ -2400,33 +2437,17 @@ async function dispatchVideo(
     };
   }
 
-  const job = await createAndWriteJobRecord({
-    jobType: "generate-video",
-    provider: result.provider ?? activeProvider,
-    providerTaskId: result.taskId,
-    providerTaskType: keyframeImageAbs ? "image2video" : "text2video",
-    status: "running",
-    projectDir: ctx.projectDir,
-    workingDirectory: ctx.projectDir,
-    command: "build --stage assets",
-    prompt,
-    resultUrl: result.videoUrl,
-    beatId: beat.id,
-    outputPath: abs,
-    cachePath: cacheAbs,
-    assetKind: "video",
-    assetCue: prompt,
-    assetOptions: { duration: normalizeVideoDuration(beat.duration), ratio: "16:9" },
-    cacheKey: cache.key,
-    canonicalPath: rel,
-    metadataPath,
-  });
-  ctx.onProgress({ type: "video-pending", beatId: beat.id, jobId: job.id, provider: job.provider });
+  // Still running after the wait: hand back the recorded job to poll later.
+  if (!job) {
+    await recordJob(activeProvider, result.job ?? { provider: activeProvider, id: result.taskId, model: "", submittedAt: "" });
+  }
+  const pendingJob = job!;
+  ctx.onProgress({ type: "video-pending", beatId: beat.id, jobId: pendingJob.id, provider: pendingJob.provider });
   return {
     status: "pending",
     path: rel,
-    job,
-    provider: job.provider,
+    job: pendingJob,
+    provider: pendingJob.provider,
     cachePath: cache.path,
     cacheKey: cache.key,
     metadataPath,

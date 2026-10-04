@@ -165,6 +165,8 @@ export class KlingProvider implements AIProvider, VideoGenerator {
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "video-extend"];
   iconUrl = "/icons/kling.svg";
   isAvailable = true;
+  /** Kling's legacy endpoints take image URLs only. */
+  readonly imageInput = "url" as const;
 
   private apiKey?: string;
   private accessKey?: string;
@@ -224,7 +226,17 @@ export class KlingProvider implements AIProvider, VideoGenerator {
   }
 
   async getVideoJob(job: VideoJob): Promise<VideoJobState> {
-    const type = (job.meta?.type as KlingTaskType | undefined) ?? "text2video";
+    const type = job.meta?.type as KlingTaskType | undefined;
+    if (!type) {
+      // A bare task ID (typed in by a user) does not say which endpoint
+      // created it; Kling answers "not found" on the wrong one.
+      try {
+        return await this.getVideoJob({ ...job, meta: { ...job.meta, type: "text2video" } });
+      } catch (error) {
+        if (!(isProviderError(error) && error.kind === "not-found")) throw error;
+        return this.getVideoJob({ ...job, meta: { ...job.meta, type: "image2video" } });
+      }
+    }
     const response = await providerRequest(this.id, `${this.baseUrl}/videos/${type}/${job.id}`, {
       headers: this.headers(this.token()),
     }, this.requestOptions());

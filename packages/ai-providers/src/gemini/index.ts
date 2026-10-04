@@ -42,3 +42,4 @@ defineProvider({
   resolverPriority: { video: 3 },
   commandsUnlocked: ["generate video -p omni"],
 });
+export * from "./veo-generator.js";

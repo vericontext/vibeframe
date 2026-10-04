@@ -49,8 +49,8 @@ describe("status job records", () => {
     });
 
     expect(record.id).toBe("job_test");
-    expect(record.retryWith).toContain(`vibe status job job_test --project ${resolve(dir)} --json`);
-    expect(record.retryWith).toContain("vibe generate video-status task_123 -p runway --json");
+    // `vibe status job` is the one way to poll; the old `generate video-status` is gone.
+    expect(record.retryWith).toEqual([`vibe status job job_test --project ${resolve(dir)} --json`]);
 
     const raw = await readFile(join(dir, ".vibeframe", "jobs", "job_test.json"), "utf-8");
     expect(JSON.parse(raw)).toMatchObject({ id: "job_test", providerTaskId: "task_123" });
@@ -59,31 +59,49 @@ describe("status job records", () => {
     expect(read?.provider).toBe("runway");
   });
 
-  it("does not suggest legacy video-status for video providers without live status support", async () => {
+  it("reports live status as unsupported for a provider outside the video contract", async () => {
     const dir = await tempProject();
     const record = await createAndWriteJobRecord({
-      id: "job_seedance",
+      id: "job_sora",
       now: new Date("2026-01-01T00:00:00.000Z"),
       jobType: "generate-video",
-      provider: "seedance",
-      providerTaskId: "task_seedance",
+      provider: "sora",
+      providerTaskId: "task_sora",
       projectDir: dir,
       command: "generate video --no-wait",
     });
 
-    expect(record.retryWith).toEqual([
-      `vibe status job job_seedance --project ${resolve(dir)} --json`,
-    ]);
-
     const status = await refreshJobRecord(record, { write: false });
     expect(status.refreshed).toBe(false);
     expect(status.live.supported).toBe(false);
-    expect(status.warnings).toContain(
-      "Live status is not supported for seedance generate-video jobs yet."
-    );
-    expect(status.retryWith).toEqual([
-      `vibe status job job_seedance --project ${resolve(dir)} --json`,
-    ]);
+    expect(status.warnings).toContain("Live status is not supported for sora generate-video jobs yet.");
+    expect(status.retryWith).toEqual([`vibe status job job_sora --project ${resolve(dir)} --json`]);
+  });
+
+  it("refreshes Seedance jobs with the stored job handle", async () => {
+    const dir = await tempProject();
+    const providerJob = {
+      provider: "seedance",
+      id: "req_1",
+      model: "seedance-2.0",
+      submittedAt: "2026-10-04T00:00:00.000Z",
+      meta: { endpoint: "bytedance/seedance-2.0/image-to-video" },
+    };
+    const record = await createAndWriteJobRecord({
+      id: "job_seedance",
+      jobType: "generate-video",
+      provider: "seedance",
+      providerTaskId: "req_1",
+      providerJob,
+      projectDir: dir,
+      command: "build --stage assets",
+    });
+    vi.mocked(executeVideoStatus).mockResolvedValueOnce({ success: true, taskId: "req_1", status: "processing" });
+
+    const result = await refreshJobRecord(record, { write: false });
+
+    expect(result.live.supported).toBe(true);
+    expect(executeVideoStatus).toHaveBeenCalledWith(expect.objectContaining({ job: providerJob }));
   });
 
   it("summarizes build, review, and job state for a project", async () => {
@@ -377,7 +395,6 @@ describe("status job records", () => {
       projectDir: dir,
       command: "generate video --no-wait",
     });
-    expect(record.retryWith).toContain("vibe generate video-status grok_1 -p grok --json");
 
     vi.mocked(executeVideoStatus).mockResolvedValueOnce({
       success: true,
@@ -396,6 +413,7 @@ describe("status job records", () => {
     expect(executeVideoStatus).toHaveBeenCalledWith({
       taskId: "grok_1",
       provider: "grok",
+      job: undefined,
       taskType: undefined,
       wait: undefined,
       output: undefined,
@@ -412,7 +430,6 @@ describe("status job records", () => {
       projectDir: dir,
       command: "generate video --no-wait",
     });
-    expect(record.retryWith).toContain("vibe generate video-status operations/veo_1 -p veo --json");
 
     vi.mocked(executeVideoStatus).mockResolvedValueOnce({
       success: true,

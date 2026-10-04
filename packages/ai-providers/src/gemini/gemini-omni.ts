@@ -85,6 +85,8 @@ function inlineImage(ref: string): { type: "image"; data: string; mime_type: str
 
 export class OmniProvider implements VideoGenerator {
   id = "omni";
+  /** Frames go inline in the request. */
+  readonly imageInput = "data-uri" as const;
   label = "Gemini Omni 1.1 Flash";
   private apiKey?: string;
   private pollingInterval = 5000;

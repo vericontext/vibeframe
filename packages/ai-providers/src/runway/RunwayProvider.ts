@@ -84,6 +84,7 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
   capabilities: AICapability[] = ["text-to-video", "image-to-video"];
   iconUrl = "/icons/runway.svg";
   isAvailable = true;
+  readonly imageInput = "either" as const;
 
   private static readonly API_VERSION = "2024-11-06";
   private apiKey?: string;

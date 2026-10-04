@@ -2225,21 +2225,22 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
 exports[`CLI --describe schemas (drift detection) > vibe generate video-cancel --describe 1`] = `
 {
   "cost": "free",
-  "description": "Cancel video generation (Grok or Runway)",
+  "description": "Cancel video generation (Runway, Seedance, Gemini Omni)",
   "name": "generate.video-cancel",
   "note": "Provider lifecycle control.",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "API key (or set XAI_API_KEY / RUNWAY_API_SECRET env)",
+        "description": "API key for the provider",
         "type": "string",
       },
       "provider": {
-        "default": "grok",
-        "description": "Provider: grok, runway",
+        "default": "runway",
+        "description": "Provider: runway, seedance, omni",
         "enum": [
-          "grok",
           "runway",
+          "seedance",
+          "omni",
         ],
         "type": "string",
       },
@@ -2260,13 +2261,13 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-cancel -
 exports[`CLI --describe schemas (drift detection) > vibe generate video-extend --describe 1`] = `
 {
   "cost": "very-high",
-  "description": "Extend video duration (Kling by video ID, Veo by operation name)",
+  "description": "Extend a generated video from its last frame (Kling, Grok, Gemini Omni, Veo)",
   "name": "generate.video-extend",
   "note": "Provider lifecycle control.",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "API key (KLING_API_KEY or GOOGLE_API_KEY)",
+        "description": "API key for the provider",
         "type": "string",
       },
       "dryRun": {
@@ -2275,12 +2276,8 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
       },
       "duration": {
         "default": 5,
-        "description": "Duration: 5 or 10 (Kling), 4/6/8 (Veo)",
+        "description": "Seconds to add: 5 or 10 (Kling), 2-10 (Grok), 4/6/8 (Veo); Omni picks its own",
         "type": "number",
-      },
-      "id": {
-        "description": "Kling video ID or Veo operation name",
-        "type": "string",
       },
       "negative": {
         "description": "Negative prompt (what to avoid, Kling only)",
@@ -2300,11 +2297,17 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
       },
       "provider": {
         "default": "kling",
-        "description": "Provider: kling, veo",
+        "description": "Provider: kling, grok, omni, veo",
         "enum": [
           "kling",
+          "grok",
+          "omni",
           "veo",
         ],
+        "type": "string",
+      },
+      "task-id": {
+        "description": "Task ID the generation returned (Veo: its operation name)",
         "type": "string",
       },
       "veoModel": {
@@ -2314,7 +2317,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
       },
     },
     "required": [
-      "id",
+      "task-id",
     ],
     "type": "object",
   },
