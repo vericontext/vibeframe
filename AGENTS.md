@@ -166,6 +166,12 @@ Match verification to the change:
 - TypeScript or command behavior: run `pnpm build`, `pnpm lint`, and focused tests.
 - CLI schema/reference changes: run `pnpm gen:reference:check` when relevant.
 - Scene/video work: run `vibe scene lint`, `vibe render`, and `vibe inspect render --cheap`.
+- `pnpm test` skips the Chrome/CLI-spawning integration tests for speed;
+  run `pnpm -F @vibeframe/cli test:integration` when touching rendering,
+  timeline, or batch code (CI always runs them).
+- Provider or build-pipeline changes: extend the fake provider network
+  (`packages/cli/src/testing/fake-provider-network.ts`) so the real request
+  and file-write path is tested without paid calls.
 
 Before pushing from any host, run the shared pre-push gate or enable the repo
 Git hook:

@@ -47,6 +47,8 @@ jobs:
         run: pnpm test
         env:
           CI: true
+          # CI runs the Chrome/CLI integration tests the default local run skips.
+          VIBE_TEST_INTEGRATION: "1"
 
   quality:
     runs-on: ubuntu-latest
