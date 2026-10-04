@@ -33,6 +33,7 @@ import {
   isJsonMode,
   lookupCostEstimateUpperBound,
   outputSuccess,
+  printWarnings,
   log,
   exitWithError,
   apiError,
@@ -267,6 +268,7 @@ Examples:
           exitWithError(usageError(err instanceof Error ? err.message : String(err)));
         }
         const lifecycleWarnings = checkModelLifecycle(videoModelSpec(provider, options));
+        if (!options.dryRun) printWarnings(lifecycleWarnings);
 
         if (options.dryRun) {
           // For Seedance, replace the flat cost-tier upper bound with a
@@ -289,13 +291,10 @@ Examples:
                 duration: options.duration,
                 ratio: options.ratio,
                 image: options.image,
-                mode: options.mode,
+                mode: provider === "kling" ? options.mode : undefined,
                 negative: options.negative,
                 resolution: options.resolution,
-                veoModel: options.veoModel,
-                seedanceModel: options.seedanceModel,
-                grokModel: options.grokModel,
-                klingModel: options.klingModel,
+                model: videoModelSpec(provider, options)?.id,
                 refImages: options.refImages,
                 refVideos: options.refVideos,
                 refAudio: options.refAudio,

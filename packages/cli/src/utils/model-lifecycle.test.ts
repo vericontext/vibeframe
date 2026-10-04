@@ -22,11 +22,9 @@ describe("checkModelLifecycle", () => {
     expect(checkModelLifecycle(videoModelSpec("omni", {}))).toEqual([]);
   });
 
-  it("warns on stderr and returns the warning before the shutdown date", () => {
-    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+  it("returns the warning before the shutdown date", () => {
     const warnings = checkModelLifecycle(veo(), new Date("2026-10-04T00:00:00Z"));
     expect(warnings).toEqual([expect.stringMatching(/shuts down on 2026-10-22 \(18 days left\)\. Use `-p omni`/)]);
-    expect(String(stderr.mock.calls[0]?.[0])).toMatch(/Warning: Veo 3\.1 Fast/);
   });
 
   it("exits with a usage error after the shutdown date", () => {

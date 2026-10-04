@@ -1,6 +1,12 @@
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it, beforeEach, afterEach, vi, type MockInstance } from "vitest";
 
-import { apiError, emitDeprecationWarning, _resetDeprecationMemoryForTesting } from "./output.js";
+import {
+  apiError,
+  emitDeprecationWarning,
+  outputSuccess,
+  _resetDeprecationMemoryForTesting,
+} from "./output.js";
 
 describe("apiError provider hints", () => {
   it("matches the documented provider-specific patterns", () => {
@@ -252,5 +258,57 @@ describe("emitDeprecationWarning", () => {
     emitDeprecationWarning("analyze", "inspect", "v1.0");
     const lines = stderrChunks.join("").split("\n").filter(Boolean);
     expect(lines).toHaveLength(2);
+  });
+});
+
+describe("outputSuccess dry runs in human mode", () => {
+  let stdout: string[];
+  let stderr: string[];
+
+  beforeEach(() => {
+    vi.stubEnv("VIBE_JSON_OUTPUT", "");
+    vi.stubEnv("VIBE_QUIET_OUTPUT", "");
+    stdout = [];
+    stderr = [];
+    vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      stdout.push(stripVTControlCharacters(args.join(" ")));
+    });
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+      stderr.push(stripVTControlCharacters(String(chunk)));
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("prints the command, estimated cost, set params, and warnings", () => {
+    outputSuccess({
+      command: "generate image",
+      startedAt: Date.now(),
+      dryRun: true,
+      costUsd: 0.21,
+      warnings: ["costUsd is an estimate"],
+      data: { params: { prompt: "a cat", provider: "openai", image: undefined, refs: [] } },
+    });
+
+    expect(stdout).toContain("Dry run: vibe generate image (nothing was sent)");
+    expect(stdout).toContain("  cost      up to $0.21 (estimate)");
+    expect(stdout).toContain("  prompt    a cat");
+    expect(stdout.some((line) => /^ {2}(image|refs) /.test(line))).toBe(false);
+    expect(stderr).toEqual(["Warning: costUsd is an estimate\n"]);
+  });
+
+  it("calls a zero-cost dry run free", () => {
+    outputSuccess({ command: "detect scenes", startedAt: Date.now(), dryRun: true, costUsd: 0, data: { params: {} } });
+    expect(stdout).toContain("  cost  free");
+  });
+
+  it("stays silent when the caller rendered its own output, and for real runs", () => {
+    outputSuccess({ command: "build", startedAt: Date.now(), dryRun: true, humanRendered: true, data: {} });
+    outputSuccess({ command: "generate image", startedAt: Date.now(), data: { outputPath: "c.png" } });
+    expect(stdout).toEqual([]);
   });
 });
