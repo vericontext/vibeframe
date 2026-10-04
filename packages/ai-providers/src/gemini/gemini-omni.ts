@@ -2,37 +2,42 @@
  * @module gemini/gemini-omni
  *
  * Google Gemini Omni 1.1 Flash (`gemini-omni-1.1-flash`) text- and
- * image-to-video. GA since 2026-08-27 and Google's named replacement for the
- * Veo 3.1 previews that shut down on 2026-10-22.
+ * image-to-video, plus multi-turn edits and extensions. GA since 2026-08-27
+ * and Google's named replacement for the Veo 3.1 previews that shut down on
+ * 2026-10-22.
  *
- * Omni uses the stateful `POST /v1beta/interactions` endpoint (not Veo's
- * `:predictLongRunning`) with the same `GOOGLE_API_KEY`. Request shape per
- * https://ai.google.dev/gemini-api/docs/omni:
+ * Omni runs on the Interactions API (`/v1beta/interactions`) with the same
+ * `GOOGLE_API_KEY`. Request shape per https://ai.google.dev/gemini-api/docs/omni:
+ * `input` is a string or typed items (`{type:"image", data, mime_type}`
+ * frames, then `{type:"text", text}`), and `response_format` is
+ * `{type:"video", aspect_ratio, resolution, delivery}`.
  *
- * - `input`: a string, or typed items (`{type:"image", data, mime_type}` for
- *   frames, then `{type:"text", text}`).
- * - `response_format`: `{type:"video", aspect_ratio, resolution, delivery}`.
+ * We submit with `background: true` and poll `GET /interactions/{id}`. The
+ * background docs only list text models, but Omni accepts it, and the
+ * completed interaction's `steps[]` carries the video `uri` (probe,
+ * 2026-10-04). The `uri` points at a Files API entry that must reach ACTIVE
+ * before it downloads, with the key as a header, never in the URL.
  *
- * The video comes back in `steps[].content[]` (`type:"video"`). We ask for
- * `delivery:"uri"` because inline base64 is only meant for clips under 4 MB,
- * then wait for the Files API entry to become ACTIVE and hand the CLI a
- * download URL that needs the key as a header, never in the URL.
- *
- * Omni picks the clip length itself (3-10 s); there is no duration field.
+ * Edits and extensions chain with `previous_interaction_id`, so an Omni job
+ * handle is also its session handle. Omni picks the clip length itself
+ * (3-10 s); there is no duration field.
  */
 
 import type { GenerateOptions, VideoResult } from "../interface/types.js";
 import type { ProviderConfig } from "../interface/index.js";
-import { sleep } from "../shared/http.js";
 import { defaultModel } from "../catalog/catalog.js";
+import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveVideoModel } from "../video/models.js";
+import { waitForVideoJob } from "../video/wait.js";
 
 export const OMNI_MODEL = defaultModel("omni", "video").id;
 const API_ROOT = "https://generativelanguage.googleapis.com";
-const FILE_POLL_INTERVAL_MS = 3000;
-const FILE_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Output resolutions Omni accepts; 1080p and 4k are upscaled from 720p. */
 export type OmniResolution = "360p" | "720p" | "1080p" | "4k";
+const RESOLUTIONS: readonly string[] = ["360p", "720p", "1080p", "4k"];
 
 interface InteractionContent {
   type?: string;
@@ -43,26 +48,19 @@ interface InteractionContent {
 
 interface InteractionResponse {
   id?: string;
-  status?: string;
+  status?: "in_progress" | "requires_action" | "completed" | "failed" | "cancelled" | string;
   steps?: Array<{ type?: string; content?: InteractionContent[] }>;
   output_video?: InteractionContent;
-  error?: { message?: string };
+  error?: { code?: number | string; message?: string; status?: string };
 }
 
-/** Inline images for `input`: the first frame, then an optional last frame. */
-function frameImages(options: GenerateOptions): Array<{ base64: string; mimeType: string }> {
-  const frames: Array<{ base64: string; mimeType: string }> = [];
-  const toInline = (ref: string): { base64: string; mimeType: string } => {
-    const m = ref.match(/^data:(.+?);base64,(.*)$/);
-    return m ? { mimeType: m[1], base64: m[2] } : { mimeType: "image/png", base64: ref };
-  };
-  if (options.referenceImages?.[0]?.base64) frames.push(options.referenceImages[0]);
-  else if (typeof options.referenceImage === "string" && options.referenceImage) {
-    frames.push(toInline(options.referenceImage));
-  }
-  if (frames.length > 0 && options.lastFrame) frames.push(toInline(options.lastFrame));
-  return frames;
-}
+const STATUS: Record<string, VideoJobState["status"]> = {
+  in_progress: "processing",
+  requires_action: "processing",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+};
 
 /** The generated video item from a REST interaction response. */
 export function findOmniVideo(response: InteractionResponse): InteractionContent | undefined {
@@ -74,19 +72,22 @@ export function findOmniVideo(response: InteractionResponse): InteractionContent
   return response.output_video;
 }
 
-/** `https://.../v1beta/files/abc` or `files/abc` → `abc`. */
+/** `https://.../v1beta/files/abc:download?alt=media` or `files/abc` → `abc`. */
 function fileIdFromUri(uri: string): string | undefined {
   return uri.match(/files\/([^/?:]+)/)?.[1];
 }
 
-/**
- * Gemini Omni video client. Mirrors the shape the CLI expects from other
- * video providers (`initialize` + `generateVideo` → {@link VideoResult}).
- */
-export class OmniProvider {
+/** A data URI or bare base64 string as an inline image item. */
+function inlineImage(ref: string): { type: "image"; data: string; mime_type: string } {
+  const m = ref.match(/^data:(.+?);base64,(.*)$/s);
+  return m ? { type: "image", mime_type: m[1], data: m[2] } : { type: "image", mime_type: "image/png", data: ref };
+}
+
+export class OmniProvider implements VideoGenerator {
   id = "omni";
   label = "Gemini Omni 1.1 Flash";
   private apiKey?: string;
+  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -96,85 +97,157 @@ export class OmniProvider {
     return !!this.apiKey;
   }
 
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    if (!this.apiKey) {
-      return { id: "", status: "failed", error: "GOOGLE_API_KEY not configured for Gemini Omni" };
+  // ── VideoGenerator ────────────────────────────────────────────────────
+
+  async submitVideo(request: VideoRequest): Promise<VideoJob> {
+    const apiKey = this.requireKey();
+    const model = resolveVideoModel(this.id, request.model).id;
+    const from = request.from;
+    if (from && from.job.provider !== this.id) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.id,
+        message: `Omni can only continue an Omni video, not a ${from.job.provider} job.`,
+      });
     }
-    const opts = options ?? ({ prompt } as GenerateOptions);
-    const frames = frameImages(opts);
-    const input =
-      frames.length === 0
-        ? prompt
-        : [
-            ...frames.map((f) => ({ type: "image", data: f.base64, mime_type: f.mimeType })),
-            { type: "text", text: prompt },
-          ];
-    const body = {
-      model: OMNI_MODEL,
-      input,
+    if (request.image?.startsWith("http")) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.id,
+        message: "Omni takes frames inline; pass the image as a data URI, not a URL.",
+      });
+    }
+
+    const text = from?.kind === "extend" ? `Extend this video from its last frame. ${request.prompt}` : request.prompt;
+    const frames = request.image ? [inlineImage(request.image), ...(request.lastFrame ? [inlineImage(request.lastFrame)] : [])] : [];
+    const body: Record<string, unknown> = {
+      model,
+      input: frames.length === 0 ? text : [...frames, { type: "text", text }],
+      background: true,
       response_format: {
         type: "video",
-        aspect_ratio: opts.aspectRatio === "9:16" ? "9:16" : "16:9",
-        resolution: (opts.resolution as OmniResolution | undefined) ?? "720p",
+        aspect_ratio: request.aspectRatio === "9:16" ? "9:16" : "16:9",
+        resolution: RESOLUTIONS.includes(request.resolution ?? "") ? request.resolution : "720p",
         delivery: "uri",
       },
     };
+    if (from) body.previous_interaction_id = from.job.id;
 
-    try {
-      const res = await fetch(`${API_ROOT}/v1beta/interactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
-        body: JSON.stringify(body),
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        return {
-          id: "",
-          status: "failed",
-          error: `Gemini Omni request failed: HTTP ${res.status} - ${text.slice(0, 300)}`,
-        };
-      }
-      const parsed = JSON.parse(text) as InteractionResponse;
-      const id = parsed.id ?? "";
-      const video = findOmniVideo(parsed);
-      if (!video?.uri) {
-        const reason = parsed.error?.message ?? `status ${parsed.status ?? "unknown"}`;
-        return { id, status: "failed", error: `Gemini Omni returned no video (${reason})` };
-      }
-      const fileId = fileIdFromUri(video.uri);
-      if (!fileId) {
-        return { id, status: "failed", error: `Gemini Omni returned an unexpected video URI: ${video.uri}` };
-      }
-      const ready = await this.waitForFile(fileId);
-      if (ready !== "ACTIVE") {
-        return { id, status: "failed", error: `Gemini Omni video file ended in state ${ready}` };
-      }
+    const response = await providerRequest(this.id, `${API_ROOT}/v1beta/interactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify(body),
+    });
+    const created = (await response.json()) as InteractionResponse;
+    if (!created.id) {
+      throw new ProviderError({ kind: "provider", provider: this.id, message: "Omni accepted the request without an interaction ID." });
+    }
+    return { provider: this.id, id: created.id, model, submittedAt: new Date().toISOString() };
+  }
+
+  async getVideoJob(job: VideoJob): Promise<VideoJobState> {
+    const apiKey = this.requireKey();
+    const response = await providerRequest(this.id, `${API_ROOT}/v1beta/interactions/${job.id}`, {
+      headers: { "x-goog-api-key": apiKey },
+    });
+    const interaction = (await response.json()) as InteractionResponse;
+    const status = STATUS[interaction.status ?? ""] ?? "processing";
+
+    if (status === "failed") {
+      const error = interaction.error;
       return {
-        id,
-        status: "completed",
-        videoUrl: `${API_ROOT}/download/v1beta/files/${fileId}:download?alt=media`,
+        status,
+        error: classifyProviderError({
+          provider: this.id,
+          code: error?.status ?? (error?.code !== undefined ? String(error.code) : undefined),
+          message: error?.message ?? "Omni generation failed",
+        }).toJSON(),
       };
-    } catch (err) {
+    }
+    if (status !== "completed") return { status };
+
+    const video = findOmniVideo(interaction);
+    const fileId = video?.uri ? fileIdFromUri(video.uri) : undefined;
+    if (!fileId) {
+      // Omni's safety filter can finish an interaction with no video.
       return {
-        id: "",
         status: "failed",
-        error: `Gemini Omni error: ${err instanceof Error ? err.message : String(err)}`,
+        error: new ProviderError({
+          kind: "moderation",
+          provider: this.id,
+          message: "Omni finished without a video; the prompt or frame may have been filtered.",
+        }).toJSON(),
       };
+    }
+
+    // The interaction is done, but the file may still be processing.
+    const file = await providerRequest(this.id, `${API_ROOT}/v1beta/files/${fileId}`, {
+      headers: { "x-goog-api-key": apiKey },
+    });
+    const fileState = ((await file.json()) as { state?: string }).state;
+    if (fileState === "PROCESSING") return { status: "processing", progress: 95 };
+    if (fileState !== "ACTIVE") {
+      return {
+        status: "failed",
+        error: new ProviderError({ kind: "provider", provider: this.id, message: `Omni video file ended in state ${fileState}.` }).toJSON(),
+      };
+    }
+    return { status: "completed", progress: 100, videoUrl: `${API_ROOT}/download/v1beta/files/${fileId}:download?alt=media` };
+  }
+
+  /** Background interactions cancel with `POST /interactions/{id}/cancel`. */
+  async cancelVideoJob(job: VideoJob): Promise<void> {
+    const apiKey = this.requireKey();
+    await providerRequest(this.id, `${API_ROOT}/v1beta/interactions/${job.id}/cancel`, {
+      method: "POST",
+      headers: { "x-goog-api-key": apiKey },
+    });
+  }
+
+  /** The Files API download needs the key as a header. */
+  async downloadVideo(_job: VideoJob, state: VideoJobState): Promise<Uint8Array> {
+    if (!state.videoUrl) {
+      throw new ProviderError({ kind: "not-found", provider: this.id, message: "Omni job has no video to download." });
+    }
+    const response = await providerRequest(this.id, state.videoUrl, { headers: { "x-goog-api-key": this.requireKey() } });
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  /** Submit and wait for the finished video, as the CLI expects today. */
+  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
+    let job: VideoJob | undefined;
+    try {
+      const frame = options?.referenceImages?.[0]?.base64
+        ? `data:${options.referenceImages[0].mimeType};base64,${options.referenceImages[0].base64}`
+        : typeof options?.referenceImage === "string" && options.referenceImage
+          ? options.referenceImage
+          : undefined;
+      job = await this.submitVideo({
+        prompt,
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
+        image: frame,
+        lastFrame: frame ? options?.lastFrame : undefined,
+      });
+      const state = await waitForVideoJob(this, job, { intervalMs: this.pollingInterval, timeoutMs: 15 * 60_000 });
+      return {
+        id: job.id,
+        status: state.status,
+        videoUrl: state.videoUrl,
+        ...(state.error ? { error: state.error.message } : {}),
+      };
+    } catch (error) {
+      return { id: job?.id ?? "", status: "failed", error: isProviderError(error) || error instanceof Error ? error.message : String(error) };
     }
   }
 
-  /** Poll the Files API until the generated video is downloadable. */
-  private async waitForFile(fileId: string): Promise<string> {
-    const deadline = Date.now() + FILE_POLL_TIMEOUT_MS;
-    for (;;) {
-      const res = await fetch(`${API_ROOT}/v1beta/files/${fileId}`, {
-        headers: { "x-goog-api-key": this.apiKey! },
-      });
-      const state = res.ok ? ((await res.json()) as { state?: string }).state : `HTTP ${res.status}`;
-      if (state !== "PROCESSING") return state ?? "UNKNOWN";
-      if (Date.now() > deadline) return "TIMEOUT";
-      await sleep(FILE_POLL_INTERVAL_MS);
+  private requireKey(): string {
+    if (!this.apiKey) {
+      throw new ProviderError({ kind: "auth", provider: this.id, message: "GOOGLE_API_KEY not configured for Gemini Omni" });
     }
+    return this.apiKey;
   }
 }
 

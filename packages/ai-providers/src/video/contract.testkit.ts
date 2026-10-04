@@ -22,7 +22,7 @@ export interface VideoContractFixture {
   request: VideoRequest;
   /** The catalog model ID a request without `model` runs on. */
   defaultModel: string;
-  /** Script a job that is accepted, runs, and completes with `https://fake.media/out.mp4`. */
+  /** Script a job that is accepted, runs, and completes with `videoUrl`. */
   scriptSuccess(net: FakeProviderNetwork): void;
   /** Script a job that is accepted and then fails for this reason. */
   scriptJobFailure(net: FakeProviderNetwork, reason: "moderation" | "provider"): void;
@@ -32,6 +32,8 @@ export interface VideoContractFixture {
   cancel: boolean;
   /** Continuations the provider supports. */
   continuations: ReadonlyArray<"extend" | "edit">;
+  /** The download URL `scriptSuccess` completes with. Default `https://fake.media/out.mp4`. */
+  videoUrl?: string;
 }
 
 async function rejection(promise: Promise<unknown>): Promise<ProviderError> {
@@ -78,7 +80,7 @@ export function describeVideoContract(name: string, fixture: VideoContractFixtur
       const state = await waitForVideoJob(generator, job, { intervalMs: 1, onProgress: (s) => seen.push(s.status) });
 
       expect(state.status).toBe("completed");
-      expect(state.videoUrl).toBe("https://fake.media/out.mp4");
+      expect(state.videoUrl).toBe(fixture.videoUrl ?? "https://fake.media/out.mp4");
       expect(state.error).toBeUndefined();
       expect(seen.at(-1)).toBe("completed");
       expect(Buffer.from(await generator.downloadVideo(job, state))).toEqual(FAKE_MP4);
