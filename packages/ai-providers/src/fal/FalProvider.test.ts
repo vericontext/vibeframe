@@ -1,316 +1,174 @@
 /**
- * FalProvider unit tests.
- *
- * The real fal client is mocked via `vi.mock("@fal-ai/client")` so the
- * tests run instantly with no network. Each case asserts the endpoint
- * id we picked, the input payload we sent, or the failure path we
- * surface — the behaviour the rest of the codebase relies on.
+ * FalProvider tests against the fake provider network: the real
+ * `@fal-ai/client` SDK runs, and only `fetch` is scripted, so endpoint
+ * choice, payloads, the queue protocol, and storage uploads are all real.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  subscribe: vi.fn(),
-  upload: vi.fn(),
-  createFalClient: vi.fn(),
-}));
-
-vi.mock("@fal-ai/client", () => ({
-  createFalClient: (...args: unknown[]) => {
-    mocks.createFalClient(...args);
-    return { subscribe: mocks.subscribe, storage: { upload: mocks.upload } };
-  },
-}));
-
+import { describeVideoContract } from "../video/contract.testkit.js";
+import { FakeProviderNetwork, jsonResponse, type RecordedRequest } from "../testing/fake-provider-network.js";
 import { FalProvider, estimateSeedanceVideoCostUsd, resolveSeedanceVariant } from "./FalProvider.js";
 
-describe("FalProvider", () => {
-  let provider: FalProvider;
+const QUEUE = "queue.fal.run";
+
+/** Script fal's queue: accepted, one IN_PROGRESS poll, then COMPLETED with `result` (or a failing result read). */
+function scriptQueue(
+  net: FakeProviderNetwork,
+  result: { body: unknown; status?: number } = { body: { video: { url: "https://fake.media/out.mp4" } } },
+  completed: Record<string, unknown> = {}
+): void {
+  let polls = 0;
+  net
+    .on("POST", QUEUE, /^\/bytedance\//, () =>
+      jsonResponse({ request_id: "req-1", status: "IN_QUEUE", queue_position: 0, response_url: "", status_url: "", cancel_url: "" })
+    )
+    .on("GET", QUEUE, /\/requests\/req-1\/status$/, () =>
+      jsonResponse(++polls < 2 ? { status: "IN_PROGRESS", request_id: "req-1" } : { status: "COMPLETED", request_id: "req-1", ...completed })
+    )
+    .on("GET", QUEUE, /\/requests\/req-1$/, () =>
+      jsonResponse(result.body, result.status ?? 200, { "x-fal-request-id": "req-1" })
+    )
+    .on("PUT", QUEUE, /\/requests\/req-1\/cancel$/, () => jsonResponse({ status: "CANCELLATION_REQUESTED" }, 202))
+    // fal storage: initiate returns an upload URL and the file's public URL.
+    .on("POST", "rest.fal.ai", /\/storage\/upload\/initiate$/, () =>
+      jsonResponse({ upload_url: "https://fake.media/upload-target", file_url: "https://fal.storage/uploaded.png" })
+    )
+    .on("PUT", "fake.media", /\/upload-target$/, () => new Response(null, { status: 200 }));
+}
+
+async function create() {
+  const provider = new FalProvider();
+  await provider.initialize({ apiKey: "fal_pst_test" });
+  return provider;
+}
+
+describeVideoContract("FalProvider (Seedance)", {
+  create,
+  request: { prompt: "A paper boat drifts", aspectRatio: "16:9", durationSec: 5 },
+  defaultModel: "seedance-2.0",
+  scriptSuccess: (net) => scriptQueue(net),
+  scriptJobFailure: (net, reason) =>
+    reason === "moderation"
+      ? scriptQueue(net, {
+          status: 422,
+          body: { detail: [{ loc: ["body", "prompt"], msg: "Output flagged by the content checker", type: "content_policy_violation" }] },
+        })
+      : scriptQueue(net, undefined, { error: "Internal server error", error_type: "internal_server_error" }),
+  scriptSubmitError: (net, status, body) => net.on("POST", QUEUE, /^\/bytedance\//, () => jsonResponse(body, status)),
+  cancel: true,
+  continuations: [],
+});
+
+describe("FalProvider (Seedance) requests", () => {
+  let net: FakeProviderNetwork;
+  const submitted = (): RecordedRequest => net.requests.find((r) => r.method === "POST" && r.host === QUEUE)!;
+  const input = () => submitted().body as Record<string, unknown>;
 
   beforeEach(() => {
-    mocks.subscribe.mockReset();
-    mocks.upload.mockReset();
-    mocks.upload.mockResolvedValue("https://fal.storage/uploaded-reference.png");
-    mocks.createFalClient.mockReset();
-    provider = new FalProvider();
+    net = new FakeProviderNetwork();
+    net.install();
+    scriptQueue(net);
   });
 
-  describe("initialization", () => {
-    it("declares text-to-video and image-to-video capabilities", () => {
-      expect(provider.id).toBe("seedance");
-      expect(provider.capabilities).toContain("text-to-video");
-      expect(provider.capabilities).toContain("image-to-video");
-      expect(provider.capabilities).toContain("reference-to-video");
-    });
+  afterEach(() => net.uninstall());
 
-    it("is unconfigured before initialize", () => {
-      expect(provider.isConfigured()).toBe(false);
-    });
+  it("submits text-to-video to the standard endpoint with string-enum duration", async () => {
+    const fal = await create();
+    const job = await fal.submitVideo({ prompt: "a cat surfing", aspectRatio: "16:9", durationSec: 6 });
 
-    it("creates the fal client when an API key is supplied", async () => {
-      await provider.initialize({ apiKey: "fal_pst_test" });
-      expect(mocks.createFalClient).toHaveBeenCalledWith({ credentials: "fal_pst_test" });
-      expect(provider.isConfigured()).toBe(true);
-    });
-
-    it("stays unconfigured when no API key is provided", async () => {
-      await provider.initialize({});
-      expect(provider.isConfigured()).toBe(false);
-    });
+    expect(submitted().path).toBe("/bytedance/seedance-2.0/text-to-video");
+    expect(input()).toMatchObject({ prompt: "a cat surfing", aspect_ratio: "16:9", resolution: "720p", duration: "6" });
+    expect(job.meta).toEqual({ endpoint: "bytedance/seedance-2.0/text-to-video" });
   });
 
-  describe("generateVideo — text-to-video", () => {
-    beforeEach(async () => {
-      await provider.initialize({ apiKey: "fal_pst_test" });
+  it("routes the fast variant and Seedance 2.5, clamping duration to each one's range", async () => {
+    const fal = await create();
+    await fal.submitVideo({ prompt: "p", model: "fast", durationSec: 99 });
+    expect(submitted().path).toBe("/bytedance/seedance-2.0/fast/text-to-video");
+    expect(input().duration).toBe("15");
+
+    net.requests.length = 0;
+    await fal.submitVideo({ prompt: "p", model: "2.5", durationSec: 99, negativePrompt: "blur", seed: 7 });
+    expect(submitted().path).toBe("/bytedance/seedance-2.5/text-to-video");
+    expect(input().duration).toBe("30");
+    // Seedance 2.5's schema has no negative_prompt or seed.
+    expect(input()).not.toHaveProperty("negative_prompt");
+    expect(input()).not.toHaveProperty("seed");
+
+    net.requests.length = 0;
+    await fal.submitVideo({ prompt: "p", durationSec: 1, aspectRatio: "5:3" as "16:9" });
+    expect(input()).toMatchObject({ duration: "4", aspect_ratio: "auto" });
+  });
+
+  it("routes an HTTPS first frame to image-to-video", async () => {
+    const fal = await create();
+    await fal.submitVideo({ prompt: "zoom in", image: "https://example.com/seed.png" });
+
+    expect(submitted().path).toBe("/bytedance/seedance-2.0/image-to-video");
+    expect(input().image_url).toBe("https://example.com/seed.png");
+  });
+
+  it("uploads a data-URI first frame instead of silently dropping it", async () => {
+    const fal = await create();
+    await fal.submitVideo({ prompt: "zoom in", image: "data:image/png;base64,iVBORw0KGgo=" });
+
+    expect(submitted().path).toBe("/bytedance/seedance-2.0/image-to-video");
+    expect(input().image_url).toBe("https://fal.storage/uploaded.png");
+  });
+
+  it("routes references to reference-to-video, grouped by kind, uploading data URIs", async () => {
+    const fal = await create();
+    await fal.submitVideo({
+      prompt: "animate @Image1 with the timing of @Video1",
+      references: [
+        { kind: "image", url: "data:image/png;base64,iVBORw0KGgo=" },
+        { kind: "image", url: "https://example.com/face.png" },
+        { kind: "video", url: "https://example.com/move.mp4" },
+        { kind: "audio", url: "https://example.com/voice.mp3" },
+        { kind: "image", url: "/tmp/local.png" },
+      ],
+      generateAudio: false,
+      resolution: "1080p",
     });
 
-    it("hits the standard text-to-video endpoint by default", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-abc",
-        data: { video: { url: "https://fal.media/output.mp4" } },
-      });
-
-      const result = await provider.generateVideo("a cat surfing", {
-        prompt: "a cat surfing",
-        aspectRatio: "16:9",
-        duration: 6,
-      });
-
-      expect(mocks.subscribe).toHaveBeenCalledWith(
-        "bytedance/seedance-2.0/text-to-video",
-        expect.objectContaining({
-          input: expect.objectContaining({
-            prompt: "a cat surfing",
-            aspect_ratio: "16:9",
-            resolution: "720p",
-            duration: "6",
-          }),
-        }),
-      );
-      expect(result).toMatchObject({
-        id: "req-abc",
-        status: "completed",
-        videoUrl: "https://fal.media/output.mp4",
-      });
-    });
-
-    it("routes to the fast variant when model = seedance-2.0-fast", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-fast",
-        data: { video: { url: "https://fal.media/fast.mp4" } },
-      });
-
-      await provider.generateVideo("any prompt", {
-        prompt: "any prompt",
-        model: "seedance-2.0-fast",
-      });
-
-      expect(mocks.subscribe.mock.calls[0][0]).toBe(
-        "bytedance/seedance-2.0/fast/text-to-video",
-      );
-    });
-
-    it("clamps unreasonable durations into the 4-15 s API range, as the string enum fal documents", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-clamp",
-        data: { video: { url: "https://x" } },
-      });
-
-      await provider.generateVideo("p", { prompt: "p", duration: 99 });
-      expect(mocks.subscribe.mock.calls[0][1].input.duration).toBe("15");
-
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-clamp2",
-        data: { video: { url: "https://x" } },
-      });
-      await provider.generateVideo("p", { prompt: "p", duration: 1 });
-      expect(mocks.subscribe.mock.calls[1][1].input.duration).toBe("4");
-    });
-
-    it("routes Seedance 2.5 to its endpoints, allows 30 s, and drops fields its schema lacks", async () => {
-      mocks.subscribe.mockResolvedValue({ requestId: "req-25", data: { video: { url: "https://x" } } });
-
-      await provider.generateVideo("p", {
-        prompt: "p",
-        model: "seedance-2.5",
-        duration: 99,
-        negativePrompt: "blur",
-        seed: 7,
-      });
-      const [endpoint, { input }] = mocks.subscribe.mock.calls.at(-1)!;
-      expect(endpoint).toBe("bytedance/seedance-2.5/text-to-video");
-      expect(input.duration).toBe("30");
-      expect(input).not.toHaveProperty("negative_prompt");
-      expect(input).not.toHaveProperty("seed");
-    });
-
-    it("falls back to aspect=auto on unknown ratios", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-aspect",
-        data: { video: { url: "https://x" } },
-      });
-
-      await provider.generateVideo("p", {
-        prompt: "p",
-        aspectRatio: "5:3" as unknown as "16:9",
-      });
-
-      expect(mocks.subscribe.mock.calls[0][1].input.aspect_ratio).toBe("auto");
-    });
-
-    it("returns a structured failure when subscribe rejects", async () => {
-      mocks.subscribe.mockRejectedValueOnce(new Error("rate limited"));
-      const result = await provider.generateVideo("p", { prompt: "p" });
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("rate limited");
-    });
-
-    it("includes fal validation details when subscribe rejects with a body", async () => {
-      const error = Object.assign(new Error("Unprocessable Entity"), {
-        status: 422,
-        requestId: "req-validation",
-        body: {
-          detail: [
-            {
-              loc: ["body", "image_urls", 0],
-              msg: "Invalid image URL",
-              type: "value_error",
-            },
-          ],
-        },
-        fieldErrors: [
-          {
-            loc: ["body", "image_urls", 0],
-            msg: "Invalid image URL",
-            type: "value_error",
-          },
-        ],
-      });
-      mocks.subscribe.mockRejectedValueOnce(error);
-
-      const result = await provider.generateVideo("p", { prompt: "p" });
-
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("HTTP 422");
-      expect(result.error).toContain("req-validation");
-      expect(result.error).toContain("body.image_urls.0: Invalid image URL");
-    });
-
-    it("returns a structured failure when no video URL is returned", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-empty",
-        data: {},
-      });
-      const result = await provider.generateVideo("p", { prompt: "p" });
-      expect(result.status).toBe("failed");
-      expect(result.error).toMatch(/video URL/);
+    expect(submitted().path).toBe("/bytedance/seedance-2.0/reference-to-video");
+    expect(input()).toMatchObject({
+      image_urls: ["https://fal.storage/uploaded.png", "https://example.com/face.png"],
+      video_urls: ["https://example.com/move.mp4"],
+      audio_urls: ["https://example.com/voice.mp3"],
+      generate_audio: false,
+      resolution: "1080p",
     });
   });
 
-  describe("generateVideo — image-to-video", () => {
-    beforeEach(async () => {
-      await provider.initialize({ apiKey: "fal_pst_test" });
-    });
+  it("reports the likeness filter, which fal raises when the result is read, as a failed job", async () => {
+    net.on("GET", QUEUE, /\/requests\/req-1$/, () =>
+      jsonResponse(
+        { detail: [{ msg: "The images or videos provided may contain likenesses of real people", type: "content_policy_violation" }] },
+        422
+      )
+    );
+    const fal = await create();
+    const job = await fal.submitVideo({ prompt: "p", image: "https://example.com/face.png" });
+    let state = await fal.getVideoJob(job);
+    while (state.status !== "failed" && state.status !== "completed") state = await fal.getVideoJob(job);
 
-    it("routes to image-to-video when an HTTPS reference image is supplied", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-i2v",
-        data: { video: { url: "https://fal.media/i2v.mp4" } },
-      });
-
-      await provider.generateVideo("zoom in slowly", {
-        prompt: "zoom in slowly",
-        referenceImage: "https://example.com/seed.png",
-      });
-
-      expect(mocks.subscribe.mock.calls[0][0]).toBe(
-        "bytedance/seedance-2.0/image-to-video",
-      );
-      expect(mocks.subscribe.mock.calls[0][1].input.image_url).toBe(
-        "https://example.com/seed.png",
-      );
-    });
-
-    it("ignores non-HTTPS reference images and falls back to text-to-video", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-fallback",
-        data: { video: { url: "https://x" } },
-      });
-
-      await provider.generateVideo("p", {
-        prompt: "p",
-        referenceImage: "data:image/png;base64,iVBORw0...",
-      });
-
-      expect(mocks.subscribe.mock.calls[0][0]).toBe(
-        "bytedance/seedance-2.0/text-to-video",
-      );
-      expect(mocks.subscribe.mock.calls[0][1].input.image_url).toBeUndefined();
-    });
+    expect(state).toMatchObject({ status: "failed", error: { kind: "likeness", status: 422, code: "content_policy_violation" } });
   });
 
-  describe("generateVideo — reference-to-video", () => {
-    beforeEach(async () => {
-      await provider.initialize({ apiKey: "fal_pst_test" });
-    });
+  it("keeps the older blocking generateVideo working on top of the queue", async () => {
+    const fal = await create();
+    (fal as unknown as { pollingInterval: number }).pollingInterval = 1;
+    const result = await fal.generateVideo("p", { prompt: "p" });
 
-    it("routes explicit references to reference-to-video with grouped inputs", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-ref",
-        data: { video: { url: "https://fal.media/ref.mp4" } },
-      });
-
-      await provider.generateVideo("animate @Image1 with the timing of @Video1", {
-        prompt: "animate @Image1 with the timing of @Video1",
-        references: [
-          { kind: "image", url: "data:image/png;base64,iVBORw0" },
-          { kind: "image", url: "https://example.com/face.png" },
-          { kind: "video", url: "https://example.com/move.mp4" },
-          { kind: "audio", url: "https://example.com/voice.mp3" },
-        ],
-        generateAudio: false,
-        resolution: "1080p",
-      });
-
-      expect(mocks.subscribe.mock.calls[0][0]).toBe(
-        "bytedance/seedance-2.0/reference-to-video",
-      );
-      expect(mocks.subscribe.mock.calls[0][1].input).toMatchObject({
-        prompt: "animate @Image1 with the timing of @Video1",
-        image_urls: ["https://fal.storage/uploaded-reference.png", "https://example.com/face.png"],
-        video_urls: ["https://example.com/move.mp4"],
-        audio_urls: ["https://example.com/voice.mp3"],
-        generate_audio: false,
-        resolution: "1080p",
-      });
-      expect(mocks.upload).toHaveBeenCalledTimes(1);
-    });
-
-    it("drops unsupported reference URL shapes before choosing endpoint", async () => {
-      mocks.subscribe.mockResolvedValueOnce({
-        requestId: "req-text",
-        data: { video: { url: "https://fal.media/text.mp4" } },
-      });
-
-      await provider.generateVideo("p", {
-        prompt: "p",
-        references: [{ kind: "image", url: "/tmp/local.png" }],
-      });
-
-      expect(mocks.subscribe.mock.calls[0][0]).toBe(
-        "bytedance/seedance-2.0/text-to-video",
-      );
-      expect(mocks.subscribe.mock.calls[0][1].input.image_urls).toBeUndefined();
-    });
+    expect(result).toMatchObject({ id: "req-1", status: "completed", videoUrl: "https://fake.media/out.mp4" });
   });
 
-  describe("error handling without init", () => {
-    it("returns a clean error when generateVideo is called before initialize", async () => {
-      const fresh = new FalProvider();
-      const result = await fresh.generateVideo("p", { prompt: "p" });
-      expect(result.status).toBe("failed");
-      expect(result.error).toMatch(/FAL_API_KEY/);
-    });
+  it("fails cleanly before initialize", async () => {
+    const result = await new FalProvider().generateVideo("p", { prompt: "p" });
+    expect(result.status).toBe("failed");
+    expect(result.error).toMatch(/FAL_API_KEY/);
   });
 });
 

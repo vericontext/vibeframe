@@ -135,6 +135,9 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 - `minimal` thinking errors on 3.8 Flash, 3.7 Flash, and 3.1 Pro preview but is the default on 3.5 Flash-Lite and the image models (docs).
 - Omni returns the video as base64 `data` inside `steps[]` by default; a URL comes back only with `response_format.delivery: "uri"`, and only in the create response or SSE stream, not on later `GET /interactions/{id}` (docs). Use `uri` above 4 MB (docs).
 - Omni requests are synchronous unless `background: true`; `store: false` disables `previous_interaction_id` editing (docs). Interactions are retained 55 days on paid tier, 1 day on free (docs).
+- Omni accepts `background: true` although the background-execution page lists only text models and agents: create returns `{id, status: "in_progress"}` in about 3 s, `GET /interactions/{id}` moves to `completed` after 20-70 s, and the completed interaction's `steps[]` carries the video `uri`, contrary to the note above (probe, 2026-10-04).
+- A `previous_interaction_id` edit on a background interaction kept the subject and camera and applied the edit ("snowy night"); Omni chose 10 s for both clips (probe, 2026-10-04).
+- Background interactions cancel with `POST /interactions/{id}/cancel` (docs, background execution).
 - Veo extension takes a video object from a previous generation (`instances[].video` as `uri` or `inlineData`), must be 720p, and requires `durationSeconds: 8` (docs).
 - Veo REST examples wrap reference images as `{ image: { inlineData }, referenceType: "asset" }` and frames as `{ inlineData }` (docs). `gcsUri` is not documented for the Gemini API.
 - Gemini 3.x function calling over generateContent needs thought signatures round-tripped and `FunctionResponse` `id` plus `name` matching the call; mismatches return empty responses with `STOP` rather than an error (docs).

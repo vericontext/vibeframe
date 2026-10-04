@@ -1,4 +1,4 @@
-import { createFalClient, type FalClient } from "@fal-ai/client";
+import { ApiError, createFalClient, type FalClient } from "@fal-ai/client";
 import type {
   AIProvider,
   AICapability,
@@ -8,6 +8,11 @@ import type {
   VideoResult,
 } from "../interface/types.js";
 import { findModel, modelAliases } from "../catalog/catalog.js";
+import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveVideoModel } from "../video/models.js";
+import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * fal.ai endpoints for ByteDance Seedance 2.0.
@@ -45,7 +50,6 @@ const ENDPOINT_REFERENCE_TO_VIDEO: Record<SeedanceVariant, string> = {
   "seedance-2.5":      "bytedance/seedance-2.5/reference-to-video",
 };
 
-const DEFAULT_VARIANT: SeedanceVariant = "seedance-2.0";
 
 /** Longest clip each variant accepts, in seconds (2.0: 4-15, 2.5: 4-30). */
 const MAX_DURATION_SEC: Record<SeedanceVariant, number> = {
@@ -142,7 +146,14 @@ interface SeedanceOutput {
  * carry an audio track. Useful when the caller is happy to let the
  * model compose the soundtrack.
  */
-export class FalProvider implements AIProvider {
+/**
+ * ByteDance Seedance on fal.ai.
+ *
+ * Runs on fal's queue API (submit, status, result, cancel) rather than the
+ * blocking `subscribe`, so a job keeps its request ID from the moment it is
+ * accepted and survives the caller crashing mid-wait.
+ */
+export class FalProvider implements AIProvider, VideoGenerator {
   id = "seedance";
   name = "fal.ai (Seedance 2.0)";
   description = "fal.ai hosting ByteDance Seedance 2.0 — Artificial Analysis #2 on both text-to-video and image-to-video leaderboards";
@@ -152,6 +163,7 @@ export class FalProvider implements AIProvider {
 
   private client?: FalClient;
   private apiKey?: string;
+  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -163,99 +175,192 @@ export class FalProvider implements AIProvider {
     return !!this.apiKey && !!this.client;
   }
 
-  /**
-   * Generate a video from a text prompt — or from a reference image when
-   * `options.referenceImage` is set (treated as an image-to-video
-   * request, routed to a different endpoint).
-   *
-   * fal.subscribe blocks until the final result is available. It also
-   * surfaces queue / log events through `onQueueUpdate`, which we drop
-   * silently for now — the CLI's existing spinner is the user-facing
-   * progress UI.
-   */
-  async generateVideo(
-    prompt: string,
-    options?: GenerateOptions,
-  ): Promise<VideoResult> {
-    if (!this.client) {
-      return {
-        id: "",
-        status: "failed",
-        error: "fal.ai API key not configured. Set FAL_API_KEY in .env.",
-      };
-    }
+  // ── VideoGenerator ────────────────────────────────────────────────────
 
-    const variant = (options?.model as SeedanceVariant | undefined) ?? DEFAULT_VARIANT;
-    if (!Object.hasOwn(ENDPOINT_TEXT_TO_VIDEO, variant)) {
-      return {
-        id: "",
-        status: "failed",
-        error: `Unknown Seedance variant: ${variant}. Valid: ${Object.keys(ENDPOINT_TEXT_TO_VIDEO).join(", ")}.`,
-      };
+  async submitVideo(request: VideoRequest): Promise<VideoJob> {
+    const client = this.requireClient();
+    if (request.from) {
+      throw new ProviderError({
+        kind: "unsupported",
+        provider: this.id,
+        message: `Seedance cannot ${request.from.kind} an earlier video.`,
+      });
     }
+    const variant = resolveVideoModel(this.id, request.model).id as SeedanceVariant;
 
-    const references = await normaliseReferences(options?.references, this.client);
+    const references = await this.falCall(() => normaliseReferences(request.references, client));
     const hasReferences = references.length > 0;
-    const referenceImage = hasReferences ? undefined : pickReferenceImageUrl(options?.referenceImage);
-    const isImageToVideo = !!referenceImage;
-    const endpointId = hasReferences
+    const image = !hasReferences && request.image ? await this.falCall(() => toFalUrl(client, request.image!)) : undefined;
+    const endpoint = hasReferences
       ? ENDPOINT_REFERENCE_TO_VIDEO[variant]
-      : isImageToVideo
-      ? ENDPOINT_IMAGE_TO_VIDEO[variant]
-      : ENDPOINT_TEXT_TO_VIDEO[variant];
-
-    const aspect = normaliseAspect(options?.aspectRatio);
-    const resolution = normaliseResolution(options?.resolution);
-    const duration = normaliseDuration(options?.duration, MAX_DURATION_SEC[variant]);
+      : image
+        ? ENDPOINT_IMAGE_TO_VIDEO[variant]
+        : ENDPOINT_TEXT_TO_VIDEO[variant];
 
     const input: Record<string, unknown> = {
-      prompt,
-      aspect_ratio: aspect,
-      resolution,
-      duration,
+      prompt: request.prompt,
+      aspect_ratio: normaliseAspect(request.aspectRatio),
+      resolution: normaliseResolution(request.resolution),
+      duration: normaliseDuration(request.durationSec, MAX_DURATION_SEC[variant]),
     };
     if (hasReferences) {
       const grouped = groupReferences(references);
       if (grouped.image_urls.length > 0) input.image_urls = grouped.image_urls;
       if (grouped.video_urls.length > 0) input.video_urls = grouped.video_urls;
       if (grouped.audio_urls.length > 0) input.audio_urls = grouped.audio_urls;
-    } else if (referenceImage) {
-      input.image_url = referenceImage;
+    } else if (image) {
+      input.image_url = image;
     }
     // Seedance 2.5's schema has no negative_prompt or seed.
     if (variant !== "seedance-2.5") {
-      if (options?.negativePrompt) input.negative_prompt = options.negativePrompt;
-      if (typeof options?.seed === "number") input.seed = options.seed;
+      if (request.negativePrompt) input.negative_prompt = request.negativePrompt;
+      if (typeof request.seed === "number") input.seed = request.seed;
     }
-    if (typeof options?.generateAudio === "boolean") input.generate_audio = options.generateAudio;
-    if (options?.endUserId) input.end_user_id = options.endUserId;
-    if (!hasReferences && options?.lastFrame) input.end_image_url = options.lastFrame;
+    if (typeof request.generateAudio === "boolean") input.generate_audio = request.generateAudio;
+    if (typeof request.providerOptions?.endUserId === "string") input.end_user_id = request.providerOptions.endUserId;
+    if (!hasReferences && request.lastFrame) {
+      input.end_image_url = await this.falCall(() => toFalUrl(client, request.lastFrame!));
+    }
 
+    const queued = await this.falCall(() => client.queue.submit(endpoint, { input }));
+    return {
+      provider: this.id,
+      id: queued.request_id,
+      model: variant,
+      submittedAt: new Date().toISOString(),
+      meta: { endpoint },
+    };
+  }
+
+  async getVideoJob(job: VideoJob): Promise<VideoJobState> {
+    const client = this.requireClient();
+    const endpoint = this.endpointOf(job);
+    const status = await this.falCall(() => client.queue.status(endpoint, { requestId: job.id, logs: false }));
+    if (status.status === "IN_QUEUE") return { status: "queued" };
+    if (status.status === "IN_PROGRESS") return { status: "processing" };
+
+    // fal: a COMPLETED status can still be a failure; check `error` first.
+    const failure = status as { error?: string; error_type?: string };
+    if (failure.error) {
+      return { status: "failed", error: classifyProviderError({ provider: this.id, message: failure.error, code: failure.error_type }).toJSON() };
+    }
     try {
-      const out = await this.client.subscribe(endpointId, { input, logs: false });
-      const data = (out?.data ?? {}) as SeedanceOutput;
-      const url = data.video?.url;
+      const result = await client.queue.result(endpoint, { requestId: job.id });
+      const url = (result.data as SeedanceOutput | undefined)?.video?.url;
       if (!url) {
         return {
-          id: typeof out?.requestId === "string" ? out.requestId : "",
           status: "failed",
-          error: "fal.subscribe returned without a video URL",
+          error: new ProviderError({ kind: "provider", provider: this.id, message: "Seedance finished without a video URL." }).toJSON(),
         };
       }
-      return {
-        id: typeof out?.requestId === "string" ? out.requestId : "",
-        status: "completed",
-        videoUrl: url,
-        progress: 100,
-      };
-    } catch (err) {
-      return {
-        id: "",
-        status: "failed",
-        error: formatFalError(err),
-      };
+      return { status: "completed", progress: 100, videoUrl: url };
+    } catch (error) {
+      // A rejected job (e.g. the 422 likeness filter) surfaces when its
+      // result is read: the job failed, the read did not.
+      const classified = this.toProviderError(error);
+      if (classified.retryable) throw classified;
+      return { status: "failed", error: classified.toJSON() };
     }
   }
+
+  /** fal's cancel is best effort: an in-progress job may still finish. */
+  async cancelVideoJob(job: VideoJob): Promise<void> {
+    const client = this.requireClient();
+    await this.falCall(() => client.queue.cancel(this.endpointOf(job), { requestId: job.id }));
+  }
+
+  async downloadVideo(_job: VideoJob, state: VideoJobState): Promise<Uint8Array> {
+    if (!state.videoUrl) {
+      throw new ProviderError({ kind: "not-found", provider: this.id, message: "Seedance job has no video to download." });
+    }
+    const response = await providerRequest(this.id, state.videoUrl);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  /**
+   * Submit and wait for the finished video, as the blocking `subscribe`
+   * call used to. New callers should submit and poll so the job survives.
+   */
+  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
+    let job: VideoJob | undefined;
+    try {
+      job = await this.submitVideo({
+        prompt,
+        model: options?.model,
+        durationSec: options?.duration,
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
+        image: typeof options?.referenceImage === "string" ? options.referenceImage : undefined,
+        lastFrame: options?.lastFrame,
+        references: options?.references,
+        negativePrompt: options?.negativePrompt,
+        seed: options?.seed,
+        generateAudio: options?.generateAudio,
+        providerOptions: options?.endUserId ? { endUserId: options.endUserId } : undefined,
+      });
+      const state = await waitForVideoJob(this, job, { intervalMs: this.pollingInterval, timeoutMs: 30 * 60_000 });
+      return {
+        id: job.id,
+        status: state.status,
+        videoUrl: state.videoUrl,
+        progress: state.progress,
+        ...(state.error ? { error: state.error.message } : {}),
+      };
+    } catch (error) {
+      return { id: job?.id ?? "", status: "failed", error: isProviderError(error) || error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  private requireClient(): FalClient {
+    if (!this.client) {
+      throw new ProviderError({ kind: "auth", provider: this.id, message: "fal.ai API key not configured. Set FAL_API_KEY in .env." });
+    }
+    return this.client;
+  }
+
+  private endpointOf(job: VideoJob): string {
+    const endpoint = job.meta?.endpoint;
+    if (!endpoint) {
+      throw new ProviderError({ kind: "invalid-request", provider: this.id, message: `Seedance job ${job.id} has no endpoint in its handle.` });
+    }
+    return endpoint;
+  }
+
+  /** Run an SDK call, turning its errors into classified `ProviderError`s. */
+  private async falCall<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call();
+    } catch (error) {
+      throw this.toProviderError(error);
+    }
+  }
+
+  private toProviderError(error: unknown): ProviderError {
+    if (isProviderError(error)) return error;
+    if (error instanceof ApiError) {
+      return classifyProviderError({
+        provider: this.id,
+        status: error.status,
+        code: falErrorType(error),
+        message: formatFalError(error),
+      });
+    }
+    return new ProviderError({
+      kind: "network",
+      provider: this.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** fal's documented error `type` (e.g. `content_policy_violation`), the field to branch on. */
+function falErrorType(error: ApiError<unknown>): string | undefined {
+  const body = error.body as { detail?: Array<{ type?: string }> | string } | undefined;
+  return Array.isArray(body?.detail) ? body.detail.find((d) => typeof d.type === "string")?.type : undefined;
 }
 
 function formatFalError(error: unknown): string {
@@ -300,15 +405,17 @@ function safeJson(value: unknown): string {
 }
 
 /**
- * Accept the same `referenceImage` shapes other providers do. fal.ai
- * needs an HTTPS URL — base64 / Blob isn't supported here yet (callers
- * that have only a local file should upload it via fal.storage first,
- * which we leave as a follow-up).
+ * fal takes HTTPS URLs; a data URI (a local file the caller read in) is
+ * uploaded to fal storage first, as references already were.
  */
-function pickReferenceImageUrl(input: unknown): string | undefined {
-  if (typeof input !== "string") return undefined;
-  if (input.startsWith("http://") || input.startsWith("https://")) return input;
-  return undefined;
+async function toFalUrl(client: FalClient, value: string): Promise<string> {
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("data:")) return uploadDataUri(client, value);
+  throw new ProviderError({
+    kind: "invalid-request",
+    provider: "seedance",
+    message: "Seedance needs an image URL or a data URI.",
+  });
 }
 
 function isFalFileInput(value: string): boolean {

@@ -52,6 +52,8 @@ Per-second figures below are fal's own 16:9 approximations.
 - Cancel: `PUT .../requests/{id}/cancel` returns 202 `CANCELLATION_REQUESTED` or 400 `ALREADY_COMPLETED`; in-progress jobs may still finish (docs).
 - `X-Fal-Request-Timeout` sets an absolute server-side deadline (docs).
 - The JS SDK wraps this as `fal.queue.submit/status/result/cancel`, or `fal.subscribe` which submits and polls (docs).
+  We use the queue calls, so a job keeps its request ID from submission; a rejected job (the likeness 422) surfaces when its result is read (probe, 2026-10-04).
+- SDK 1.10 calls: `POST queue.fal.run/<endpoint>`, `GET queue.fal.run/<owner>/<app>/requests/{id}/status?logs=0`, `GET .../requests/{id}`, `PUT .../requests/{id}/cancel`; storage uploads `POST rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3`, then `PUT` to the returned URL (probe).
 - Seedance output: `{ video: { url, content_type, file_name, file_size }, seed }`, plus `draft_id` on 2.5 (docs).
 - Seedance 2.0 inputs: `prompt`, `image_url` (i2v, required), `end_image_url` (i2v), `image_urls` / `video_urls` / `audio_urls` (r2v), `resolution`, `duration`, `aspect_ratio` (auto, 21:9, 16:9, 4:3, 1:1, 3:4, 9:16), `generate_audio` (default true, same price), `bitrate_mode`, `codec`, `end_user_id` (docs).
 - `duration` and `resolution` are string enums in the schema (`"auto"`, `"4"`..`"15"`) (docs).
