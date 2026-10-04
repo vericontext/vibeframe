@@ -76,7 +76,74 @@ interface KokoroModel {
   generate(
     text: string,
     options: { voice?: string; speed?: number },
-  ): Promise<{ toWav(): ArrayBuffer }>;
+  ): Promise<{ toWav(): ArrayBuffer; audio?: Float32Array; sampling_rate?: number }>;
+}
+
+/**
+ * `generate()` silently truncates its input at about 510 tokens (roughly 25
+ * seconds of speech), so long narration is synthesised in sentence-sized
+ * chunks and joined. kokoro-js's own `stream()` is not used: given a string,
+ * it never closes its sentence splitter, so the iterator never finishes.
+ */
+export const KOKORO_MAX_CHUNK_CHARS = 300;
+
+/**
+ * Split text into chunks of whole sentences, each at most `maxChars` long.
+ * A sentence longer than that is split at clause punctuation, then at spaces.
+ */
+export function splitForKokoro(text: string, maxChars = KOKORO_MAX_CHUNK_CHARS): string[] {
+  const pieces = (part: string, pattern: RegExp): string[] =>
+    part.length <= maxChars ? [part] : part.split(pattern).filter((p) => p.trim().length > 0);
+  const units = text
+    .trim()
+    .split(/(?<=[.!?…])\s+/)
+    .flatMap((sentence) => pieces(sentence, /(?<=[,;:])\s+/))
+    .flatMap((clause) => {
+      if (clause.length <= maxChars) return [clause];
+      const words: string[] = [];
+      let line = "";
+      for (const word of clause.split(/\s+/)) {
+        if (line && line.length + word.length + 1 > maxChars) {
+          words.push(line);
+          line = word;
+        } else {
+          line = line ? `${line} ${word}` : word;
+        }
+      }
+      if (line) words.push(line);
+      return words;
+    });
+  const chunks: string[] = [];
+  for (const unit of units) {
+    const last = chunks.at(-1);
+    if (last !== undefined && last.length + unit.length + 1 <= maxChars) {
+      chunks[chunks.length - 1] = `${last} ${unit}`;
+    } else {
+      chunks.push(unit);
+    }
+  }
+  return chunks;
+}
+
+/** Encode mono float samples as a 32-bit float WAV, the format kokoro-js writes. */
+export function encodeFloatWav(samples: Float32Array, sampleRate: number): Buffer {
+  const dataBytes = samples.length * 4;
+  const buffer = Buffer.alloc(44 + dataBytes);
+  buffer.write("RIFF", 0, "ascii");
+  buffer.writeUInt32LE(36 + dataBytes, 4);
+  buffer.write("WAVE", 8, "ascii");
+  buffer.write("fmt ", 12, "ascii");
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(3, 20); // IEEE float
+  buffer.writeUInt16LE(1, 22); // mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 4, 28);
+  buffer.writeUInt16LE(4, 32);
+  buffer.writeUInt16LE(32, 34);
+  buffer.write("data", 36, "ascii");
+  buffer.writeUInt32LE(dataBytes, 40);
+  Buffer.from(samples.buffer, samples.byteOffset, dataBytes).copy(buffer, 44);
+  return buffer;
 }
 
 interface KokoroLoadOptions {
@@ -350,11 +417,31 @@ export class KokoroProvider implements AIProvider {
 
     try {
       const model = await loadModel(options.onProgress);
-      const audio = await model.generate(text, {
+      const voiceOptions = {
         voice: options.voice ?? KOKORO_DEFAULT_VOICE,
         speed: options.speed ?? 1,
-      });
-      const buffer = Buffer.from(audio.toWav());
+      };
+      const chunks = splitForKokoro(text);
+      let buffer: Buffer;
+      if (chunks.length === 1) {
+        buffer = Buffer.from((await model.generate(chunks[0], voiceOptions)).toWav());
+      } else {
+        const parts: Float32Array[] = [];
+        let sampleRate = 24000;
+        for (const chunk of chunks) {
+          const audio = await model.generate(chunk, voiceOptions);
+          if (!audio.audio) throw new Error("Kokoro returned no raw samples to join");
+          parts.push(audio.audio);
+          sampleRate = audio.sampling_rate ?? sampleRate;
+        }
+        const samples = new Float32Array(parts.reduce((n, part) => n + part.length, 0));
+        let offset = 0;
+        for (const part of parts) {
+          samples.set(part, offset);
+          offset += part.length;
+        }
+        buffer = encodeFloatWav(samples, sampleRate);
+      }
       return {
         success: true,
         audioBuffer: buffer,

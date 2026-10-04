@@ -120,7 +120,7 @@ export const generateSoundEffectTool = defineTool({
   schema: z.object({
     prompt: z.string().describe("Description of the sound effect"),
     output: z.string().optional().describe("Output audio file path (default: sound-effect.mp3)"),
-    duration: z.number().optional().describe("Duration in seconds (0.5-22, default: auto)"),
+    duration: z.number().optional().describe("Duration in seconds (0.5-30, default: auto)"),
     promptInfluence: z.number().optional().describe("Prompt influence 0-1 (default: 0.3)"),
   }),
   async execute(args) {

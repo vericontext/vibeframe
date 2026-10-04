@@ -1,4 +1,5 @@
 export {
+  ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,
   elevenLabsProvider,
   KNOWN_VOICES,

@@ -85,3 +85,31 @@ describe("ElevenLabsProvider.textToSpeech 429 retry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("ElevenLabsProvider request bodies", () => {
+  async function bodyOf(call: (p: ElevenLabsProvider) => Promise<unknown>) {
+    const fetchMock = vi.fn().mockResolvedValue(ttsResponse(200, AUDIO));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new ElevenLabsProvider();
+    await provider.initialize({ apiKey: "key" });
+    await call(provider);
+    return JSON.parse(fetchMock.mock.calls[0][1].body as string);
+  }
+
+  it("sends speed inside voice_settings, where the API reads it", async () => {
+    const body = await bodyOf((p) => p.textToSpeech("hi", { speed: 1.2 }));
+    expect(body.voice_settings.speed).toBe(1.2);
+    expect(body).not.toHaveProperty("speed");
+  });
+
+  it("uses music_v2_5 for music", async () => {
+    const body = await bodyOf((p) => p.generateMusic("lo-fi piano", { duration: 10 }));
+    expect(body.model_id).toBe("music_v2_5");
+    expect(body.music_length_ms).toBe(10000);
+  });
+
+  it("allows sound effects up to 30 seconds", async () => {
+    const body = await bodyOf((p) => p.generateSoundEffect("door creak", { duration: 45 }));
+    expect(body.duration_seconds).toBe(30);
+  });
+});

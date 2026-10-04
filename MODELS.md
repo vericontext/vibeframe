@@ -238,11 +238,11 @@ Recognizable real people in uploaded images are not supported, so it is no fallb
 
 | Provider | Capability | Env Key | Notes |
 |----------|------------|---------|-------|
-| ElevenLabs | TTS, SFX, Music, Voice Clone | `ELEVENLABS_API_KEY` | Music: 3s-10min, model music_v1. TTS: eleven_v3 |
+| ElevenLabs | TTS, SFX, Music, Voice Clone | `ELEVENLABS_API_KEY` | TTS: eleven_v3. SFX: 0.5-30s. Music: 3s-10min, model music_v2_5 (48 kHz / 192 kbps MP3) |
 | OpenAI TTS | TTS | `OPENAI_API_KEY` | gpt-4o-mini-tts (~$0.015/min of audio); voices incl. marin, alloy, nova |
-| Kokoro | TTS (local, free) | — | Kokoro-82M (Apache 2.0); ~90MB model on first use; bundled in the Desktop extension |
+| Kokoro | TTS (local, free) | - | Kokoro-82M (Apache 2.0); ~90MB model on first use; bundled in the Desktop extension. English voices only. Long narration is synthesised in sentence chunks |
 | Whisper | Transcription | `OPENAI_API_KEY` | OpenAI API |
-| Replicate | Music generation | `REPLICATE_API_TOKEN` | MusicGen, max 30s |
+| Replicate | Music generation | `REPLICATE_API_TOKEN` | MusicGen, max 30s. Weights are CC-BY-NC: not for commercial use |
 
 ---
 

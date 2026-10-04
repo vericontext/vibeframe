@@ -2082,7 +2082,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate sound-effect -
         "type": "boolean",
       },
       "duration": {
-        "description": "Duration in seconds (0.5-22, default: auto)",
+        "description": "Duration in seconds (0.5-30, default: auto)",
         "type": "number",
       },
       "output": {

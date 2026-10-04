@@ -14,8 +14,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   KOKORO_DEFAULT_VOICE,
   KOKORO_MODEL_ID,
+  KOKORO_MAX_CHUNK_CHARS,
   KokoroProvider,
   __setKokoroFactoryForTests,
+  encodeFloatWav,
+  splitForKokoro,
   loadBundledKokoroRuntime,
   loadKokoroFromWorkspace,
   mapKokoroImportError,
@@ -67,7 +70,7 @@ function makeFakeFactory(opts: { failLoad?: boolean; failGenerate?: boolean } = 
           if (opts.failGenerate) {
             throw new Error("inference crashed");
           }
-          return { toWav: () => fakeWav() };
+          return { toWav: () => fakeWav(), audio: new Float32Array(10).fill(0.5), sampling_rate: 24000 };
         },
       };
     },
@@ -343,5 +346,55 @@ describe("loadBundledKokoroRuntime", () => {
     expect(tf.env.useCustomCache).toBe(true);
     expect(tf.env.customCache?.match).toBeTypeOf("function");
     expect(tf.env.backends.onnx.wasm.wasmPaths).toContain("onnxruntime-web/dist/");
+  });
+});
+
+describe("KokoroProvider — long text", () => {
+  afterEach(() => {
+    __setKokoroFactoryForTests(null);
+  });
+
+  it("synthesises long narration in sentence chunks instead of truncating it", async () => {
+    const { factory, calls } = makeFakeFactory();
+    __setKokoroFactoryForTests(factory);
+    const sentence = "The keeper climbed the stairs and lit the lamp before the storm arrived.";
+    const text = Array.from({ length: 12 }, () => sentence).join(" ");
+
+    const result = await new KokoroProvider().textToSpeech(text);
+
+    expect(result.success).toBe(true);
+    expect(calls.generateCalls.length).toBeGreaterThan(1);
+    expect(calls.generateCalls.map((c) => c.text).join(" ")).toBe(text);
+    // 44-byte header + 10 float samples per chunk.
+    expect(result.audioBuffer?.length).toBe(44 + calls.generateCalls.length * 10 * 4);
+  });
+});
+
+describe("splitForKokoro", () => {
+  it("keeps short text whole", () => {
+    expect(splitForKokoro("Hello there. How are you?")).toEqual(["Hello there. How are you?"]);
+  });
+
+  it("packs whole sentences into chunks within the limit", () => {
+    const chunks = splitForKokoro("One two three. Four five six. Seven eight nine.", 30);
+    expect(chunks).toEqual(["One two three. Four five six.", "Seven eight nine."]);
+  });
+
+  it("splits an overlong sentence at clauses, then at words", () => {
+    const long = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
+    const chunks = splitForKokoro(`${long}.`);
+    expect(chunks.every((c) => c.length <= KOKORO_MAX_CHUNK_CHARS)).toBe(true);
+    expect(chunks.join(" ")).toBe(`${long}.`);
+  });
+});
+
+describe("encodeFloatWav", () => {
+  it("writes a mono 32-bit float WAV header", () => {
+    const wav = encodeFloatWav(new Float32Array([0, 0.5, -0.5]), 24000);
+    expect(wav.toString("ascii", 0, 4)).toBe("RIFF");
+    expect(wav.readUInt16LE(20)).toBe(3);
+    expect(wav.readUInt32LE(24)).toBe(24000);
+    expect(wav.readUInt32LE(40)).toBe(12);
+    expect(wav.readFloatLE(48)).toBeCloseTo(0.5);
   });
 });

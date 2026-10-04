@@ -612,7 +612,7 @@ Cost tier: `low`
 - `prompt` _(string)_ **required** - Description of the sound effect
 - `apiKey` _(string)_ - ElevenLabs API key (or set ELEVENLABS_API_KEY env)
 - `output` _(string)_ _(default: `"sound-effect.mp3"`)_ - Output audio file path
-- `duration` _(number)_ - Duration in seconds (0.5-22, default: auto)
+- `duration` _(number)_ - Duration in seconds (0.5-30, default: auto)
 - `promptInfluence` _(string)_ - Prompt influence (0-1, default: 0.3)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
