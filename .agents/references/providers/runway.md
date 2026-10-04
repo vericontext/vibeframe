@@ -77,14 +77,13 @@ Credit rates are per second of output unless noted (docs).
 
 - `packages/ai-providers/src/runway/RunwayProvider.ts:14-17` - `gen4_turbo | gen4.5`, default `gen4.5`.
 - `packages/ai-providers/src/runway/RunwayProvider.ts:69-72` - API version `2024-11-06` and base URL.
-- `packages/ai-providers/src/runway/RunwayProvider.ts:104-109` - ratio map; `1:1` becomes `960:960` even for text-to-video.
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `generateVideo` - ratio map; `1:1` text-to-video is rejected before the request (square needs an image).
 - `packages/ai-providers/src/runway/RunwayProvider.ts:114-139` - gen4_turbo image guard and request body.
-- `packages/ai-providers/src/runway/RunwayProvider.ts:241-262` - status map turns `THROTTLED` into `failed`.
-- `packages/ai-providers/src/runway/RunwayProvider.ts:277-295` - `cancelGeneration` calls `POST /tasks/{id}/cancel`, which is not in the API reference.
-- `packages/ai-providers/src/runway/RunwayProvider.ts:300-318` - `deleteTask` uses `DELETE /tasks/{id}`, the documented cancel.
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `getGenerationStatus` - `THROTTLED` maps to `pending`; `FAILED` errors carry the `failureCode`.
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `cancelGeneration` / `deleteTask` - both use the documented `DELETE /tasks/{id}` (verified 204 on a THROTTLED task, 2026-10-04).
 - `packages/ai-providers/src/runway/RunwayProvider.ts:354-368` - retries only 429 and 503, without jitter.
 - `packages/ai-providers/src/runway/RunwayProvider.ts:373-381` - gen4_turbo duration forced to 5 or 10.
-- `packages/cli/src/commands/ai-video.ts:181-215` - MCP/agent Runway path; does not forward `runwayModel`.
+- `packages/cli/src/commands/ai-video.ts` - MCP/agent Runway path; forwards `runwayModel`.
 - `packages/cli/src/commands/ai-video.ts:507` - Runway status polling; `:627-633` cancel.
 - `packages/cli/src/commands/generate/video.ts:89-93`, `:315-345` - `--runway-model` option, guard, and call.
 - `packages/cli/src/commands/generate/video-cancel.ts:57-66` - Runway cancel command.
@@ -94,15 +93,11 @@ Credit rates are per second of output unless noted (docs).
 
 ## Recommended changes
 
-1. Map `THROTTLED` to a pending state and keep polling; today any throttled build beat is reported as failed.
-2. Make `cancelGeneration` use `DELETE /v1/tasks/{id}` and drop the undocumented `POST .../cancel`.
-3. Reject or remap `1:1` for gen4.5 text-to-video instead of sending `960:960`.
-4. Branch on `failureCode`: never retry `SAFETY.INPUT.*`, retry `INTERNAL*` and `THIRD_PARTY.UNAVAILABLE` with delay, and surface the code in JSON reports.
-5. Forward `runwayModel` in `executeVideoGenerate`, and allow gen4_turbo durations 2-10.
-6. Retry 502 and 504 too, with jitter.
-7. Remove or restore the Runway image path; the Python script it spawns is missing.
-8. Record `estimatedCost.credits` and `cost.credits` from the task for real cost reporting.
-9. Consider a Model Router `configId` option for users who do not want to pin a model.
+1. Branch on `failureCode` (now included in the error text): never retry `SAFETY.INPUT.*`, retry `INTERNAL*` and `THIRD_PARTY.UNAVAILABLE` with delay, and surface the code in JSON reports.
+2. Retry 502 and 504 too, with jitter.
+3. Remove or restore the Runway image path; the Python script it spawns is missing.
+4. Record `estimatedCost.credits` and `cost.credits` from the task for real cost reporting.
+5. Consider a Model Router `configId` option for users who do not want to pin a model.
 
 ## Sources
 

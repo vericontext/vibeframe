@@ -96,6 +96,7 @@ export async function executeVideoGenerate(
     negative,
     resolution,
     veoModel = "3.1-fast",
+    runwayModel,
     seedanceModel = "quality",
     grokModel,
     klingModel,
@@ -195,8 +196,9 @@ export async function executeVideoGenerate(
 
       const result = await runway.generateVideo(prompt, {
         prompt,
+        model: runwayModel,
         referenceImage,
-        duration: duration as 5 | 10,
+        duration,
         aspectRatio: ratio as "16:9" | "9:16",
         seed,
       });

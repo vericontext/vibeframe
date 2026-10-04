@@ -124,6 +124,16 @@ export class RunwayProvider implements AIProvider {
       const hasImage = !!options?.referenceImage;
       const endpoint = hasImage ? "image_to_video" : "text_to_video";
 
+      // Gen-4.5 text-to-video only renders 1280:720 and 720:1280; square
+      // output needs an input image.
+      if (!hasImage && apiRatio === "960:960") {
+        return {
+          id: "",
+          status: "failed",
+          error: "Runway text-to-video supports 16:9 and 9:16 only. Use 16:9 or 9:16, or pass an image (-i) for square output.",
+        };
+      }
+
       const body: Record<string, unknown> = {
         model,
         promptText: prompt,
@@ -244,7 +254,9 @@ export class RunwayProvider implements AIProvider {
         SUCCEEDED: "completed",
         FAILED: "failed",
         CANCELLED: "cancelled",
-        THROTTLED: "failed",
+        // THROTTLED means queued behind the account's concurrency limit; the
+        // task starts on its own, so keep polling.
+        THROTTLED: "pending",
       };
 
       const result: VideoResult = {
@@ -257,8 +269,11 @@ export class RunwayProvider implements AIProvider {
         result.videoUrl = data.output[0];
       }
 
-      if (data.status === "FAILED" || data.status === "THROTTLED") {
-        result.error = data.failure || data.failureCode || "Generation failed";
+      if (data.status === "FAILED") {
+        const reason = data.failure || "Generation failed";
+        // failureCode tells callers whether a retry can help: SAFETY.INPUT.*
+        // never succeeds on retry (and is billed), INTERNAL.* may.
+        result.error = data.failureCode ? `${reason} (${data.failureCode})` : reason;
       }
 
       return result;
@@ -272,30 +287,15 @@ export class RunwayProvider implements AIProvider {
   }
 
   /**
-   * Cancel ongoing generation
+   * Cancel a pending or running task. Runway documents cancellation as
+   * `DELETE /v1/tasks/{id}` (there is no `/cancel` route).
    */
   async cancelGeneration(id: string): Promise<boolean> {
-    if (!this.apiKey) {
-      return false;
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/tasks/${id}/cancel`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": RunwayProvider.API_VERSION,
-        },
-      });
-
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return this.deleteTask(id);
   }
 
   /**
-   * Delete a completed task
+   * Cancel a running task, or delete a finished one (`DELETE /v1/tasks/{id}`).
    */
   async deleteTask(id: string): Promise<boolean> {
     if (!this.apiKey) {
