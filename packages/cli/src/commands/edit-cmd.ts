@@ -34,6 +34,7 @@ import {
   GeminiProvider,
   OpenAIImageProvider,
   GrokProvider,
+  resolveGrokImageModel,
 } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
@@ -45,6 +46,7 @@ import { registerMotionOverlayCommand } from "./edit/motion-overlay.js";
 import { isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
+import { writeImageFile } from "../utils/image-file.js";
 
 export const editCommand = new Command("edit")
   .alias("ed")
@@ -696,7 +698,7 @@ editCommand
   .option("-p, --provider <provider>", "Provider: gemini (default), openai, grok", "gemini")
   .option("-k, --api-key <key>", "API key (or set env variable)")
   .option("-o, --output <path>", "Output file path", "edited.png")
-  .option("-m, --model <model>", "Model: flash/3.1-flash/latest/pro (Gemini only)", "flash")
+  .option("-m, --model <model>", "Model: flash, lite, pro (Gemini); pro (Grok)", "flash")
   .option("-r, --ratio <ratio>", "Output aspect ratio")
   .option("--size <resolution>", "Resolution: 1K, 2K, 4K (Gemini Pro only)")
   .option("--dry-run", "Preview parameters without executing")
@@ -771,15 +773,17 @@ editCommand
         const grok = new GrokProvider();
         await grok.initialize({ apiKey });
         result = await grok.editImage(imageBuffers[0], prompt, {
+          ...resolveGrokImageModel(options.model),
           aspectRatio: options.ratio,
         });
       } else {
         // Gemini (default)
         const editModelNames: Record<string, string> = {
-          flash: "gemini-2.5-flash-image",
-          "3.1-flash": "gemini-3.1-flash-image-preview",
-          latest: "gemini-3.1-flash-image-preview",
-          pro: "gemini-3-pro-image-preview",
+          flash: "gemini-3.1-flash-image",
+          "3.1-flash": "gemini-3.1-flash-image",
+          latest: "gemini-3.1-flash-image",
+          lite: "gemini-3.1-flash-lite-image",
+          pro: "gemini-3-pro-image",
         };
         const editModelName = editModelNames[options.model] || editModelNames.flash;
         spinner.text = `Editing with ${editModelName}...`;
@@ -793,16 +797,6 @@ editCommand
           resolution: options.size,
         });
 
-        // Auto-fallback: if latest/3.1-flash fails, retry with flash
-        const fallbackModels = ["latest", "3.1-flash"];
-        if (!result.success && fallbackModels.includes(options.model)) {
-          spinner.text = `${chalk.dim(result.error || `${editModelName} failed`)} — retrying with flash...`;
-          result = await gemini.editImage(imageBuffers, prompt, {
-            model: "flash",
-            aspectRatio: options.ratio,
-            resolution: options.size,
-          });
-        }
       }
 
       if (!result.success || !result.images || result.images.length === 0) {
@@ -820,11 +814,11 @@ editCommand
         await mkdir(dirname(outputPath), { recursive: true });
         if (img.base64) {
           const buffer = Buffer.from(img.base64, "base64");
-          await writeFile(outputPath, buffer);
+          await writeImageFile(outputPath, buffer);
         } else if (img.url) {
           const resp = await fetch(img.url);
           const arrayBuf = await resp.arrayBuffer();
-          await writeFile(outputPath, Buffer.from(arrayBuf));
+          await writeImageFile(outputPath, Buffer.from(arrayBuf));
         }
       };
 

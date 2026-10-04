@@ -615,7 +615,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "boolean",
       },
       "imageModel": {
-        "description": "Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted.",
+        "description": "Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted.",
         "type": "string",
       },
       "imageProvider": {
@@ -1154,7 +1154,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit image --describe 1
       },
       "model": {
         "default": "flash",
-        "description": "Model: flash/3.1-flash/latest/pro (Gemini only)",
+        "description": "Model: flash, lite, pro (Gemini); pro (Grok)",
         "type": "string",
       },
       "output": {
@@ -1806,7 +1806,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "type": "boolean",
       },
       "model": {
-        "description": "Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5",
+        "description": "Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro",
         "type": "string",
       },
       "output": {

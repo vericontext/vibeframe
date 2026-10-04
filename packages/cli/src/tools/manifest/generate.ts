@@ -225,7 +225,7 @@ export const generateImageTool = defineTool({
       .describe("Aspect ratio for Gemini (1:1, 16:9, 9:16, 4:3, 3:4, etc.)"),
     quality: z.string().optional().describe("Quality for OpenAI: standard, hd"),
     count: z.number().optional().describe("Number of images (default: 1)"),
-    model: z.string().optional().describe("Gemini model: flash, 3.1-flash, latest, pro"),
+    model: z.string().optional().describe("Image model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"),
   }),
   async execute(args) {
     const result = await executeImageGenerate(args);

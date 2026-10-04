@@ -23,7 +23,18 @@ import { errorMessage, fetchJson, sleep } from "../shared/http.js";
 /**
  * Gemini model types for image generation
  */
-export type GeminiImageModel = "flash" | "3.1-flash" | "pro" | "gemini-2.5-flash-image" | "gemini-3.1-flash-image-preview" | "gemini-3-pro-image-preview";
+export type GeminiImageModel =
+  | "flash"
+  | "3.1-flash"
+  | "latest"
+  | "lite"
+  | "pro"
+  | "gemini-3.1-flash-image"
+  | "gemini-3.1-flash-lite-image"
+  | "gemini-3-pro-image"
+  | "gemini-2.5-flash-image"
+  | "gemini-3.1-flash-image-preview"
+  | "gemini-3-pro-image-preview";
 
 /**
  * Image resolution (Pro model only)
@@ -186,11 +197,21 @@ export interface GeminiImageAnalysisResult {
   error?: string;
 }
 
+/**
+ * Image model aliases. `flash` and `latest` are Nano Banana 2
+ * (gemini-3.1-flash-image), `lite` is its cheaper 1K tier, and `pro` is Nano
+ * Banana Pro. The 2.5 Flash Image and preview IDs are past their shutdown
+ * dates and stay only as explicit pass-through IDs.
+ */
 const MODEL_MAP: Record<string, string> = {
-  "flash": "gemini-2.5-flash-image",
-  "3.1-flash": "gemini-3.1-flash-image-preview",
-  "latest": "gemini-3.1-flash-image-preview",
-  "pro": "gemini-3-pro-image-preview",
+  "flash": "gemini-3.1-flash-image",
+  "3.1-flash": "gemini-3.1-flash-image",
+  "latest": "gemini-3.1-flash-image",
+  "lite": "gemini-3.1-flash-lite-image",
+  "pro": "gemini-3-pro-image",
+  "gemini-3.1-flash-image": "gemini-3.1-flash-image",
+  "gemini-3.1-flash-lite-image": "gemini-3.1-flash-lite-image",
+  "gemini-3-pro-image": "gemini-3-pro-image",
   "gemini-2.5-flash-image": "gemini-2.5-flash-image",
   "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image-preview",
   "gemini-3-pro-image-preview": "gemini-3-pro-image-preview",
@@ -199,7 +220,7 @@ const MODEL_MAP: Record<string, string> = {
 /**
  * Google Gemini provider for AI video generation, image generation, and editing
  * - Video: Veo 3.1 Fast / Veo 3.1 (text-to-video, image-to-video)
- * - Image: Nano Banana (gemini-2.5-flash-image) / Nano Banana Pro (gemini-3-pro-image-preview)
+ * - Image: Nano Banana 2 (gemini-3.1-flash-image) / Nano Banana Pro (gemini-3-pro-image)
  */
 export class GeminiProvider implements AIProvider {
   id = "gemini";
@@ -644,7 +665,7 @@ export class GeminiProvider implements AIProvider {
       };
 
       // Add Google Search grounding
-      const is31Flash = modelId === "gemini-3.1-flash-image-preview";
+      const is31Flash = modelId.startsWith("gemini-3.1-flash-image");
       if (options.imageSearchGrounding && is31Flash) {
         // 3.1 Flash supports Image Search grounding
         payload.tools = [{ googleSearch: { searchTypes: { webSearch: {}, imageSearch: {} } } }];

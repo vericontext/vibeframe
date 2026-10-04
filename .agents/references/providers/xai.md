@@ -7,11 +7,10 @@ models_in_use:
   - grok-4.3                    # agent default
   - grok-imagine-video          # video
   - grok-imagine-image          # image default
-  - grok-imagine-image-pro      # image `pro`; retired alias of grok-imagine-image-quality
+  - grok-imagine-image-2.0      # image `pro`, quality medium
 models_recommended:
   - grok-4.7                    # quality option for the agent
   - grok-imagine-video-1.5      # replaces grok-imagine-video
-  - grok-imagine-image-2.0      # replaces grok-imagine-image-pro, with explicit quality
 ---
 
 # xAI

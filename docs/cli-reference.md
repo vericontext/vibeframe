@@ -278,7 +278,7 @@ Cost tier: _not tagged_
 - `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
-- `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|pro, openai: gpt-image-2). Provider default when omitted.
+- `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted.
 - `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|veo
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ _(default: `"hd"`)_ - Image quality: standard|hd
@@ -529,7 +529,7 @@ Cost tier: `high`
 - `quality` _(string)_ _(standard \| hd)_ _(default: `"standard"`)_ - Quality: standard, hd (openai only)
 - `style` _(string)_ _(vivid \| natural)_ _(default: `"vivid"`)_ - Style: vivid, natural (openai only)
 - `count` _(number)_ _(default: `1`)_ - Number of images to generate
-- `model` _(string)_ - Model. Gemini: flash, 3.1-flash, latest, pro. OpenAI: 2 (default), 1.5
+- `model` _(string)_ - Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe generate motion`
@@ -796,7 +796,7 @@ Cost tier: `high`
 - `provider` _(string)_ _(gemini \| openai \| grok)_ _(default: `"gemini"`)_ - Provider: gemini (default), openai, grok
 - `apiKey` _(string)_ - API key (or set env variable)
 - `output` _(string)_ _(default: `"edited.png"`)_ - Output file path
-- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/3.1-flash/latest/pro (Gemini only)
+- `model` _(string)_ _(default: `"flash"`)_ - Model: flash, lite, pro (Gemini); pro (Grok)
 - `ratio` _(string)_ - Output aspect ratio
 - `size` _(string)_ - Resolution: 1K, 2K, 4K (Gemini Pro only)
 - `dryRun` _(boolean)_ - Preview parameters without executing
