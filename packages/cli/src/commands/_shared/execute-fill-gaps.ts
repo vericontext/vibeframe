@@ -13,13 +13,14 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile, mkdir, rename as renameFs } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
-import { KlingProvider } from "@vibeframe/ai-providers";
+import { waitForVideoJob, type VideoGenerator, type VideoRequest } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../../engine/index.js";
 import { getApiKey } from "../../utils/api-key.js";
 import { resolveUploadHost, type UploadHost } from "../../utils/upload-host.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
 import { resolveTimelineFile } from "../../utils/project-resolver.js";
-import { downloadVideo, formatTime } from "../ai-helpers.js";
+import { formatTime } from "../ai-helpers.js";
+import { openVideoGenerator } from "./video-jobs.js";
 
 export interface ExecuteFillGapsOptions {
   /** Timeline file or directory (resolved relative to cwd). */
@@ -176,6 +177,30 @@ async function uploadFrame(
     return { url: upload.url };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Submit one clip, wait for it, and download it; a failure comes back as `{error}`. */
+async function generateClip(
+  generator: VideoGenerator,
+  request: VideoRequest,
+  onProgress: (message: string) => void,
+  label: string,
+): Promise<{ bytes: Uint8Array; durationSec?: number } | { error: string }> {
+  try {
+    const job = await generator.submitVideo(request);
+    onProgress(`${label} (task: ${job.id})...`);
+    const state = await waitForVideoJob(generator, job, {
+      timeoutMs: 600_000,
+      onProgress: (s) => onProgress(`${label}... ${s.status}`),
+    });
+    if (state.status !== "completed") {
+      return { error: `${state.error?.message ?? `generation ${state.status}`} (task ${job.id})` };
+    }
+    onProgress("Downloading generated video...");
+    return { bytes: await generator.downloadVideo(job, state), durationSec: state.durationSec };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -342,16 +367,7 @@ export async function executeFillGaps(
       };
     }
 
-    const kling = new KlingProvider();
-    await kling.initialize({ apiKey });
-
-    if (!kling.isConfigured()) {
-      return {
-        success: false,
-        error: "Invalid KLING_API_KEY (set your Kling API key, or the legacy ACCESS_KEY:SECRET_KEY pair)",
-        humanLines,
-      };
-    }
+    const kling = await openVideoGenerator("kling", apiKey);
 
     // Determine output directory for generated videos
     const projectDir = dirname(filePath);
@@ -442,46 +458,25 @@ export async function executeFillGaps(
 
       const prompt = options.prompt || "Continue the scene naturally with subtle motion";
 
-      const result = await kling.generateVideo(prompt, {
+      const clipRequest = (image: string, durationSec: number): VideoRequest => ({
         prompt,
-        referenceImage: frameUrl,
-        duration: parseInt(klingDuration) as 5 | 10,
-        aspectRatio: options.ratio || "16:9",
-        mode: options.mode || "std",
+        image,
+        durationSec,
+        aspectRatio: (options.ratio || "16:9") as VideoRequest["aspectRatio"],
+        providerOptions: { mode: options.mode || "std" },
       });
 
-      if (result.status === "failed") {
-        humanLines.push(`  Failed to start generation: ${result.error}`);
+      const first = await generateClip(kling, clipRequest(frameUrl, parseInt(klingDuration)), onProgress, "Generating video");
+      if ("error" in first) {
+        humanLines.push(`  Generation failed: ${first.error}`);
         continue;
       }
 
-      onProgress(`Generating video (task: ${result.id})...`);
-
-      const finalResult = await kling.waitForCompletion(
-        result.id,
-        "image2video",
-        (status) => onProgress(`Generating video... ${status.status}`),
-        600000,
-      );
-
-      if (
-        finalResult.status !== "completed" ||
-        !finalResult.videoUrl ||
-        !finalResult.videoId
-      ) {
-        humanLines.push(`  Generation failed: ${finalResult.error || "Unknown error"}`);
-        continue;
-      }
-
-      // Download the generated video
       const videoFileName = `gap-fill-${gap.start.toFixed(2)}-${gap.end.toFixed(2)}.mp4`;
       const videoPath = resolve(footageDir, videoFileName);
+      await writeFile(videoPath, first.bytes);
 
-      onProgress("Downloading generated video...");
-      const videoBuffer = await downloadVideo(finalResult.videoUrl);
-      await writeFile(videoPath, videoBuffer);
-
-      generatedDuration = finalResult.duration || parseInt(klingDuration);
+      generatedDuration = first.durationSec || parseInt(klingDuration);
       generatedVideos.push(videoPath);
 
       humanLines.push(`  Generated: ${videoFileName} (${generatedDuration}s)`);
@@ -522,30 +517,14 @@ export async function executeFillGaps(
           break;
         }
 
-        const segResult = await kling.generateVideo(prompt, {
-          prompt,
-          referenceImage: extUpload.url,
-          duration: parseInt(segmentDuration) as 5 | 10,
-          aspectRatio: options.ratio || "16:9",
-          mode: options.mode || "std",
-        });
-
-        if (segResult.status === "failed") {
-          humanLines.push(`  Segment generation failed: ${segResult.error}`);
-          break;
-        }
-
-        const segFinalResult = await kling.waitForCompletion(
-          segResult.id,
-          "image2video",
-          (status) => onProgress(`Generating segment... ${status.status}`),
-          600000,
+        const segment = await generateClip(
+          kling,
+          clipRequest(extUpload.url, parseInt(segmentDuration)),
+          onProgress,
+          "Generating segment",
         );
-
-        if (segFinalResult.status !== "completed" || !segFinalResult.videoUrl) {
-          humanLines.push(
-            `  Segment generation failed: ${segFinalResult.error || "Unknown error"}`,
-          );
+        if ("error" in segment) {
+          humanLines.push(`  Segment generation failed: ${segment.error}`);
           break;
         }
 
@@ -553,8 +532,7 @@ export async function executeFillGaps(
           footageDir,
           `gap-fill-${gap.start.toFixed(2)}-${gap.end.toFixed(2)}-seg${segmentIndex}.mp4`,
         );
-        const segVideoBuffer = await downloadVideo(segFinalResult.videoUrl);
-        await writeFile(segVideoPath, segVideoBuffer);
+        await writeFile(segVideoPath, segment.bytes);
 
         const concatListPath = resolve(footageDir, `concat-${gap.start.toFixed(2)}.txt`);
         const concatList =
@@ -578,7 +556,7 @@ export async function executeFillGaps(
         }
 
         generatedVideos.push(segVideoPath);
-        generatedDuration += segFinalResult.duration || parseInt(segmentDuration);
+        generatedDuration += segment.durationSec || parseInt(segmentDuration);
         segmentIndex++;
 
         humanLines.push(`  Added segment, total: ${generatedDuration.toFixed(1)}s`);

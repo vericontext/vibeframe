@@ -11,6 +11,18 @@ import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
 import { GeminiProvider, type VeoModel } from "./GeminiProvider.js";
 
+function veoReferenceImages(request: VideoRequest): Array<{ base64: string; mimeType: string }> | undefined {
+  const images = (request.references ?? [])
+    .filter((r) => r.kind === "image" && r.url.startsWith("data:"))
+    .slice(0, 3)
+    .map((r) => {
+      const m = r.url.match(/^data:(.+?);base64,(.*)$/s);
+      return m ? { mimeType: m[1], base64: m[2] } : undefined;
+    })
+    .filter((r): r is { base64: string; mimeType: string } => !!r);
+  return images.length > 0 ? images : undefined;
+}
+
 export class VeoGenerator implements VideoGenerator {
   readonly id = "veo";
   readonly imageInput = "data-uri" as const;
@@ -42,6 +54,9 @@ export class VeoGenerator implements VideoGenerator {
           lastFrame: request.lastFrame,
           negativePrompt: request.negativePrompt,
           resolution: request.resolution,
+          // Veo keeps up to 3 inline reference images for character consistency.
+          referenceImages: veoReferenceImages(request),
+          personGeneration: request.providerOptions?.personGeneration as string | undefined,
         });
     if (result.status === "failed" || !result.id) {
       throw classifyProviderError({ provider: this.id, message: result.error ?? "Veo generation failed" });

@@ -1,31 +1,19 @@
 /**
  * @module generate/video
  * @description `vibe generate video` (alias `vid`) — multi-provider video
- * generation. fal.ai (Seedance 2.0), Grok, Veo (Gemini), Kling, Runway,
- * plus Gemini Omni 1.1 Flash (`-p omni`).
- * Split out of `generate.ts` in v0.69 (Plan G Phase 2).
+ * generation (Seedance via fal.ai, Grok, Kling, Runway, Gemini Omni, and Veo
+ * until 2026-10-22). Validation, provider choice, and the dry run live here;
+ * generation itself is `executeVideoGenerate`, the same executor the MCP
+ * tool and builds use.
  */
 
 import type { Command } from "commander";
 import { resolve } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
 import imageSize from "image-size";
-import {
-  GeminiProvider,
-  GrokProvider,
-  KlingProvider,
-  RunwayProvider,
-  FalProvider,
-  OmniProvider,
-  estimateSeedanceVideoCostUsd,
-  resolveGrokVideoModel,
-  resolveKlingModel,
-  resolveSeedanceVariant,
-  resolveVeoModel,
-  type MediaReference,
-} from "@vibeframe/ai-providers";
+import { estimateSeedanceVideoCostUsd, modelAliases, resolveSeedanceVariant } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { checkModelLifecycle, videoModelSpec } from "../../utils/model-lifecycle.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
@@ -37,14 +25,23 @@ import {
   log,
   exitWithError,
   apiError,
-  authError,
+  providerFailure,
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
-import { resolveUploadHost } from "../../utils/upload-host.js";
-import { downloadVideo } from "../ai-helpers.js";
-import { createAndWriteJobRecord, type JobRecord } from "../_shared/status-jobs.js";
+import { executeVideoGenerate, type VideoGenerateOptions } from "../ai-video.js";
+import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
+import { VIDEO_PROVIDER_ENV } from "../_shared/video-jobs.js";
+
+const PROVIDER_LABELS: Readonly<Record<string, string>> = {
+  seedance: "Seedance via fal.ai",
+  grok: "Grok Imagine",
+  kling: "Kling",
+  runway: "Runway",
+  omni: "Gemini Omni 1.1 Flash",
+  veo: "Veo 3.1",
+};
 
 export function registerVideoCommand(parent: Command): void {
   parent
@@ -205,27 +202,9 @@ Examples:
           provider = resolved?.name ?? "grok";
         }
 
-        // Read image early so we can auto-detect aspect ratio before dry-run
-        let referenceImage: string | undefined;
-        let referenceImageBuffer: Buffer | undefined;
-        let referenceImageMimeType: string | undefined;
-        let isImageToVideo = false;
+        // Read the image early so the aspect ratio is known before the dry run.
         if (options.image) {
-          const imagePath = resolve(process.cwd(), options.image);
-          const imageBuffer = await readFile(imagePath);
-          const ext = options.image.toLowerCase().split(".").pop();
-          const mimeTypes: Record<string, string> = {
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            png: "image/png",
-            gif: "image/gif",
-            webp: "image/webp",
-          };
-          const mimeType = mimeTypes[ext || "png"] || "image/png";
-          referenceImageBuffer = imageBuffer;
-          referenceImageMimeType = mimeType;
-          referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
-          isImageToVideo = true;
+          const imageBuffer = await readFile(resolve(process.cwd(), options.image));
 
           // Auto-detect aspect ratio from image dimensions when not explicitly set
           if (!options.ratio) {
@@ -259,15 +238,13 @@ Examples:
 
         // Reject unknown model aliases before any dry run or spend, so agents
         // learn about a typo from the dry run instead of the real call.
-        try {
-          if (provider === "seedance" || provider === "fal") resolveSeedanceVariant(options.seedanceModel);
-          if (provider === "grok") resolveGrokVideoModel(options.grokModel);
-          if (provider === "kling") resolveKlingModel(options.klingModel);
-          if (provider === "veo") resolveVeoModel(options.veoModel);
-        } catch (err) {
-          exitWithError(usageError(err instanceof Error ? err.message : String(err)));
+        const modelSpec = videoModelSpec(provider, options);
+        if (!modelSpec) {
+          exitWithError(
+            usageError(`Unknown ${provider} model. Valid: ${modelAliases(provider, "video").join(", ")}.`)
+          );
         }
-        const lifecycleWarnings = checkModelLifecycle(videoModelSpec(provider, options));
+        const lifecycleWarnings = checkModelLifecycle(modelSpec);
         if (!options.dryRun) printWarnings(lifecycleWarnings);
 
         if (options.dryRun) {
@@ -305,438 +282,94 @@ Examples:
           return;
         }
 
-        const envKeyMap: Record<string, string> = {
-          runway: "RUNWAY_API_SECRET",
-          kling: "KLING_API_KEY",
-          veo: "GOOGLE_API_KEY",
-          omni: "GOOGLE_API_KEY",
-          grok: "XAI_API_KEY",
-          seedance: "FAL_API_KEY",
-        };
-        const providerNameMap: Record<string, string> = {
-          runway: "Runway",
-          kling: "Kling",
-          veo: "Veo",
-          omni: "Gemini Omni 1.1 Flash",
-          grok: "Grok",
-          seedance: "Seedance 2.0 via fal.ai",
-        };
-        const envKey = envKeyMap[provider];
-        const providerName = providerNameMap[provider];
-        const apiKey = await requireApiKey(envKey, providerName, options.apiKey);
+        const providerLabel = PROVIDER_LABELS[provider] ?? provider;
+        const apiKey = await requireApiKey(VIDEO_PROVIDER_ENV[provider], providerLabel, options.apiKey);
+        const spinner = isJsonMode() ? null : ora(`Starting ${providerLabel} video generation...`).start();
 
-        // Runway gen4_turbo requires an input image; gen4.5 supports text-to-video
-        const runwayModel = (options.runwayModel as string) || "gen4.5";
-        if (provider === "runway" && !options.image && runwayModel !== "gen4.5") {
-          exitWithError(
-            usageError(
-              `Runway ${runwayModel} requires an input image. Use -i <image> or use gen4.5 for text-to-video.`
-            )
-          );
+        const result = await executeVideoGenerate({
+          prompt,
+          provider: provider as VideoGenerateOptions["provider"],
+          image: options.image,
+          endImage: options.endImage ?? options.lastFrame,
+          refImages: options.refImages,
+          refVideos: options.refVideos,
+          refAudio: options.refAudio,
+          duration: parseFloat(options.duration),
+          ratio: options.ratio,
+          seed: options.seed !== undefined ? parseInt(options.seed, 10) : undefined,
+          mode: provider === "kling" ? options.mode : undefined,
+          negative: options.negative,
+          resolution: options.resolution,
+          veoModel: options.veoModel,
+          runwayModel: options.runwayModel,
+          seedanceModel: options.seedanceModel,
+          grokModel: options.grokModel,
+          klingModel: options.klingModel,
+          generateAudio: options.generateAudio,
+          personGeneration: options.person,
+          output: options.output,
+          wait: options.wait,
+          apiKey,
+          onSubmitted: (job) => {
+            if (!spinner) return;
+            spinner.stopAndPersist({ symbol: chalk.green("✔"), text: `${providerLabel} accepted the job (task ${job.id})` });
+            spinner.start("Generating video (usually 1-3 minutes)...");
+          },
+          onProgress: (state) => {
+            if (!spinner) return;
+            spinner.text =
+              state.status === "completed"
+                ? options.output
+                  ? "Downloading video..."
+                  : "Video ready"
+                : state.progress !== undefined
+                  ? `Generating video... ${Math.round(state.progress)}%`
+                  : `Generating video... ${state.status}`;
+          },
+        });
+
+        if (!result.success) {
+          spinner?.fail(result.error ?? "Generation failed");
+          const task = result.taskId ? ` (${provider} task ${result.taskId})` : "";
+          exitWithError(providerFailure(`${result.error ?? "Generation failed"}${task}`, result.errorKind));
         }
 
-        const spinner = ora(`Initializing ${providerName}...`).start();
-
-        spinner.text = "Starting video generation...";
-
-        let result;
-        let finalResult;
-
-        if (provider === "runway") {
-          const runway = new RunwayProvider();
-          await runway.initialize({ apiKey });
-
-          result = await runway.generateVideo(prompt, {
+        // Still running (--no-wait, or the wait ran out): record the job so
+        // `vibe status job` can poll, download, and cache it.
+        if (result.status !== "completed") {
+          const job = await createAndWriteJobRecord({
+            jobType: "generate-video",
+            provider,
+            providerTaskId: result.taskId!,
+            providerJob: result.job,
+            status: "running",
+            command: "generate video --no-wait",
             prompt,
-            referenceImage,
-            model: runwayModel,
-            duration: parseInt(options.duration),
-            aspectRatio: options.ratio as "16:9" | "9:16",
-            seed: options.seed ? parseInt(options.seed) : undefined,
+            outputPath: options.output,
           });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start generation");
-            exitWithError(apiError(result.error || "Failed to start generation", true));
-          }
-
-          if (!options.wait) {
-            const job = await recordVideoNoWaitJob({
-              provider,
-              providerTaskId: result.id,
-              prompt,
-              providerTaskType: "text2video",
+          spinner?.succeed(chalk.green(`Generation started: ${providerLabel} task ${result.taskId}`));
+          if (isJsonMode()) {
+            outputSuccess({
+              command: "generate video",
+              startedAt,
+              warnings: lifecycleWarnings,
+              data: {
+                provider,
+                taskId: result.taskId,
+                status: job.status,
+                jobId: job.id,
+                statusCommand: job.retryWith[0],
+              },
             });
-            spinner.succeed(chalk.green("Generation started"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video",
-                startedAt,
-                data: noWaitVideoData(provider, result.id, job),
-              });
-              return;
-            }
-            console.log();
-            printVideoStarted(`Runway ${runwayModel}`, result.id);
-            console.log(chalk.dim("Check status with:"));
-            console.log(chalk.dim(`  vibe status job ${job.id} --json`));
-            console.log();
             return;
           }
-
-          if (!isJsonMode()) {
-            printVideoStarted(`Runway ${runwayModel}`, result.id);
-          }
-
-          spinner.text = "Generating video (this may take 1-2 minutes)...";
-
-          finalResult = await runway.waitForCompletion(
-            result.id,
-            (status) => {
-              if (status.progress !== undefined) {
-                spinner.text = `Generating video... ${status.progress}%`;
-              }
-            },
-            300000
-          );
-        } else if (provider === "kling") {
-          const kling = new KlingProvider();
-          await kling.initialize({ apiKey });
-
-          if (!kling.isConfigured()) {
-            spinner.fail("Invalid API key format");
-            exitWithError(authError("KLING_API_KEY", "Kling"));
-          }
-
-          // Kling v2.x requires image URL, not base64 — auto-upload through
-          // the configured temporary upload host (ImgBB by default, S3 when
-          // VIBE_UPLOAD_PROVIDER=s3).
-          let klingImage = referenceImage;
-          if (klingImage && klingImage.startsWith("data:")) {
-            try {
-              const uploadHost = await resolveUploadHost();
-              spinner.text = `Uploading image via ${uploadHost.provider} for Kling...`;
-              const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
-                filename: options.image,
-                mimeType: referenceImageMimeType,
-              });
-              klingImage = upload.url;
-            } catch (err) {
-              spinner.fail("Image upload failed");
-              const message = err instanceof Error ? err.message : String(err);
-              if (message.includes("IMGBB_API_KEY")) {
-                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
-              }
-              exitWithError(apiError(message, true));
-            }
-            spinner.text = "Starting video generation...";
-          }
-
-          result = await kling.generateVideo(prompt, {
-            prompt,
-            model: resolveKlingModel(options.klingModel),
-            referenceImage: klingImage,
-            duration: parseInt(options.duration),
-            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
-            negativePrompt: options.negative,
-            mode: options.mode as "std" | "pro",
-          });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start generation");
-            exitWithError(apiError(result.error || "Failed to start generation", true));
-          }
-
-          const taskType = isImageToVideo ? "image2video" : "text2video";
-          if (!options.wait) {
-            const job = await recordVideoNoWaitJob({
-              provider,
-              providerTaskId: result.id,
-              prompt,
-              providerTaskType: taskType,
-            });
-            spinner.succeed(chalk.green("Generation started"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video",
-                startedAt,
-                data: noWaitVideoData(provider, result.id, job),
-              });
-              return;
-            }
-            console.log();
-            printVideoStarted("Kling AI", result.id, taskType);
-            console.log(chalk.dim("Check status with:"));
-            console.log(chalk.dim(`  vibe status job ${job.id} --json`));
-            console.log();
-            return;
-          }
-
-          if (!isJsonMode()) {
-            printVideoStarted("Kling AI", result.id, taskType);
-          }
-          spinner.text = "Generating video (this may take 2-5 minutes)...";
-
-          finalResult = await kling.waitForCompletion(
-            result.id,
-            taskType,
-            (status) => {
-              spinner.text = `Generating video... ${status.status}`;
-            },
-            600000
-          );
-        } else if (provider === "veo") {
-          const gemini = new GeminiProvider();
-          await gemini.initialize({ apiKey });
-
-          // Map Veo model alias to full model ID
-          const veoModel = resolveVeoModel(options.veoModel);
-
-          const veoDuration = parseInt(options.duration) <= 6 ? 6 : 8;
-
-          // Prepare last frame if provided
-          let lastFrame: string | undefined;
-          if (options.lastFrame) {
-            const lastFramePath = resolve(process.cwd(), options.lastFrame);
-            const lastFrameBuffer = await readFile(lastFramePath);
-            const ext = options.lastFrame.toLowerCase().split(".").pop();
-            const mimeType =
-              ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
-            lastFrame = `data:${mimeType};base64,${lastFrameBuffer.toString("base64")}`;
-          }
-
-          // Prepare reference images if provided
-          let refImages: Array<{ base64: string; mimeType: string }> | undefined;
-          if (options.refImages && options.refImages.length > 0) {
-            refImages = [];
-            for (const refPath of options.refImages.slice(0, 3)) {
-              const absRefPath = resolve(process.cwd(), refPath);
-              const refBuffer = await readFile(absRefPath);
-              const ext = refPath.toLowerCase().split(".").pop();
-              const mimeType =
-                ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
-              refImages.push({ base64: refBuffer.toString("base64"), mimeType });
-            }
-          }
-
-          result = await gemini.generateVideo(prompt, {
-            prompt,
-            referenceImage,
-            duration: veoDuration,
-            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
-            model: veoModel,
-            negativePrompt: options.negative,
-            resolution: options.resolution as "720p" | "1080p" | "4k" | undefined,
-            lastFrame,
-            referenceImages: refImages,
-            personGeneration: options.person as "allow_all" | "allow_adult" | undefined,
-          });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start generation");
-            exitWithError(apiError(result.error || "Failed to start generation", true));
-          }
-
-          if (!options.wait) {
-            const job = await recordVideoNoWaitJob({
-              provider,
-              providerTaskId: result.id,
-              prompt,
-            });
-            spinner.succeed(chalk.green("Generation started"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video",
-                startedAt,
-                data: noWaitVideoData(provider, result.id, job),
-              });
-              return;
-            }
-            console.log();
-            printVideoStarted("Google Veo 3.1", result.id);
-            console.log(chalk.dim(`Check status with: vibe status job ${job.id} --json`));
-            console.log();
-            return;
-          }
-
-          if (!isJsonMode()) {
-            printVideoStarted("Google Veo 3.1", result.id);
-          }
-          spinner.text = "Generating video (this may take 1-3 minutes)...";
-          finalResult = await gemini.waitForVideoCompletion(
-            result.id,
-            (status) => {
-              spinner.text = `Generating video... ${status.status}`;
-            },
-            300000
-          );
-        } else if (provider === "grok") {
-          const grok = new GrokProvider();
-          await grok.initialize({ apiKey });
-
-          result = await grok.generateVideo(prompt, {
-            prompt,
-            model: resolveGrokVideoModel(options.grokModel),
-            referenceImage,
-            duration: parseInt(options.duration),
-            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
-            resolution: options.resolution,
-            generateAudio: options.generateAudio,
-          });
-
-          if (result.status === "failed") {
-            spinner.fail(result.error || "Failed to start generation");
-            exitWithError(apiError(result.error || "Failed to start generation", true));
-          }
-
-          if (!options.wait) {
-            const job = await recordVideoNoWaitJob({
-              provider,
-              providerTaskId: result.id,
-              prompt,
-            });
-            spinner.succeed(chalk.green("Generation started"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video",
-                startedAt,
-                data: noWaitVideoData(provider, result.id, job),
-              });
-              return;
-            }
-            console.log();
-            printVideoStarted("xAI Grok Imagine", result.id);
-            console.log(chalk.dim("Check status with:"));
-            console.log(chalk.dim(`  vibe status job ${job.id} --json`));
-            console.log();
-            return;
-          }
-
-          if (!isJsonMode()) {
-            printVideoStarted("xAI Grok Imagine", result.id);
-          }
-          spinner.text = "Generating video (this may take 1-3 minutes)...";
-          finalResult = await grok.waitForCompletion(
-            result.id,
-            (status) => {
-              spinner.text = `Generating video... ${status.status}`;
-            },
-            300000
-          );
-        } else if (provider === "seedance") {
-          // fal.ai → ByteDance Seedance 2.0 (Artificial Analysis #2 on
-          // both video leaderboards). The fal client's `subscribe` blocks
-          // until the queue produces a final URL, so we don't need a
-          // separate wait/poll loop like the other providers.
-          const fal = new FalProvider();
-          await fal.initialize({ apiKey });
-          const seedanceReferences = await prepareSeedanceReferences({
-            refImages: options.refImages,
-            refVideos: options.refVideos,
-            refAudio: options.refAudio,
-          });
-
-          // Seedance 2.0 image-to-video needs an HTTPS URL. base64 / data
-          // URIs aren't accepted, so use the configured temporary upload host.
-          let falImage = referenceImage;
-          if (falImage && falImage.startsWith("data:") && seedanceReferences.length === 0) {
-            try {
-              const uploadHost = await resolveUploadHost();
-              spinner.text = `Uploading image via ${uploadHost.provider} for Seedance...`;
-              const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
-                filename: options.image,
-                mimeType: referenceImageMimeType,
-              });
-              falImage = upload.url;
-            } catch (err) {
-              spinner.fail("Image upload failed");
-              const message = err instanceof Error ? err.message : String(err);
-              if (message.includes("IMGBB_API_KEY")) {
-                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
-              }
-              exitWithError(apiError(message, true));
-            }
-          }
-
-          let seedanceEndImage: string | undefined;
-          const seedanceEndImagePath = options.endImage ?? options.lastFrame;
-          if (seedanceEndImagePath && seedanceReferences.length === 0) {
-            try {
-              const absEndImagePath = resolve(process.cwd(), seedanceEndImagePath);
-              const endImageBuffer = await readFile(absEndImagePath);
-              const ext = seedanceEndImagePath.toLowerCase().split(".").pop();
-              const mimeType =
-                ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
-              const uploadHost = await resolveUploadHost();
-              spinner.text = `Uploading end image via ${uploadHost.provider} for Seedance...`;
-              const upload = await uploadHost.uploadImage(endImageBuffer, {
-                filename: seedanceEndImagePath,
-                mimeType,
-              });
-              seedanceEndImage = upload.url;
-            } catch (err) {
-              spinner.fail("End image upload failed");
-              const message = err instanceof Error ? err.message : String(err);
-              if (message.includes("IMGBB_API_KEY")) {
-                exitWithError(authError("IMGBB_API_KEY", "ImgBB"));
-              }
-              exitWithError(apiError(message, true));
-            }
-          }
-
-          const falModel = resolveSeedanceVariant(options.seedanceModel);
-          spinner.text = `Generating video with fal.ai ${falModel} (this may take 1-3 minutes)...`;
-          result = await fal.generateVideo(prompt, {
-            prompt,
-            referenceImage: seedanceReferences.length > 0 ? undefined : falImage,
-            references: seedanceReferences.length > 0 ? seedanceReferences : undefined,
-            duration: options.duration ? parseInt(options.duration) : undefined,
-            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1" | "4:5",
-            negativePrompt: options.negative,
-            model: falModel,
-            resolution: options.resolution,
-            generateAudio: options.generateAudio,
-            lastFrame: seedanceEndImage,
-          });
-          finalResult = result;
-        } else if (provider === "omni") {
-          // Gemini Omni 1.1 Flash on `/v1beta/interactions`. The call is
-          // synchronous; the provider waits for the video file itself.
-          const omni = new OmniProvider();
-          await omni.initialize({ apiKey });
-          spinner.text = "Generating video with Gemini Omni 1.1 Flash...";
-          let lastFrame: string | undefined;
-          if (options.lastFrame) {
-            const lastFramePath = resolve(process.cwd(), options.lastFrame);
-            const ext = options.lastFrame.toLowerCase().split(".").pop();
-            const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "png"}`;
-            lastFrame = `data:${mimeType};base64,${(await readFile(lastFramePath)).toString("base64")}`;
-          }
-          result = await omni.generateVideo(prompt, {
-            prompt,
-            referenceImage,
-            lastFrame,
-            aspectRatio: options.ratio as "16:9" | "9:16" | "1:1",
-            resolution: options.resolution,
-          });
-          finalResult = result;
+          console.log(chalk.dim(`  Check it with: ${job.retryWith[0]}`));
+          return;
         }
 
-        if (!finalResult || finalResult.status !== "completed") {
-          spinner.fail(finalResult?.error || "Generation failed");
-          exitWithError(apiError(finalResult?.error || "Generation failed", true));
-        }
-
-        spinner.succeed(chalk.green("Video generated"));
-
+        spinner?.succeed(chalk.green("Video generated"));
+        const cost = realRunCost(provider, options);
         if (isJsonMode()) {
-          let outputPath: string | undefined;
-          if (options.output && finalResult.videoUrl) {
-            const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-            outputPath = resolve(process.cwd(), options.output);
-            await writeFile(outputPath, buffer);
-          }
-          const cost = realRunCost(provider, options);
           outputSuccess({
             command: "generate video",
             startedAt,
@@ -744,37 +377,19 @@ Examples:
             warnings: [...lifecycleWarnings, ...cost.warnings],
             data: {
               provider,
-              taskId: result?.id,
-              videoUrl: finalResult.videoUrl,
-              duration: finalResult.duration,
-              outputPath,
+              taskId: result.taskId,
+              videoUrl: result.videoUrl,
+              duration: result.duration,
+              outputPath: result.outputPath,
             },
           });
           return;
         }
-
         console.log();
-        if (finalResult.videoUrl) {
-          console.log(`Video URL: ${finalResult.videoUrl}`);
-        }
-        if (finalResult.duration) {
-          console.log(`Duration: ${finalResult.duration}s`);
-        }
+        if (result.videoUrl) console.log(`Video URL: ${result.videoUrl}`);
+        if (result.duration) console.log(`Duration: ${result.duration}s`);
+        if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
         console.log();
-
-        if (options.output && finalResult.videoUrl) {
-          const downloadSpinner = ora("Downloading video...").start();
-          try {
-            const buffer = await downloadVideo(finalResult.videoUrl, apiKey);
-            const outputPath = resolve(process.cwd(), options.output);
-            await writeFile(outputPath, buffer);
-            downloadSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-          } catch (err) {
-            downloadSpinner.fail(
-              chalk.red(`Failed to download video: ${err instanceof Error ? err.message : err}`)
-            );
-          }
-        }
       } catch (error) {
         exitWithError(apiError(`Video generation failed: ${(error as Error).message}`));
       }
@@ -818,96 +433,4 @@ export function realRunCost(provider: string, options: {
       `costUsd is the tier upper bound for ${provider} - actual provider billing is typically lower and is not metered here.`,
     ],
   };
-}
-
-async function prepareSeedanceReferences(opts: {
-  refImages?: string[];
-  refVideos?: string[];
-  refAudio?: string[];
-}): Promise<MediaReference[]> {
-  const references: MediaReference[] = [];
-  for (const sourcePath of opts.refImages ?? []) {
-    references.push({
-      kind: "image",
-      url: await fileInputToUrlOrDataUri(sourcePath, "image/png"),
-      sourcePath,
-    });
-  }
-  for (const sourcePath of opts.refVideos ?? []) {
-    references.push({
-      kind: "video",
-      url: await fileInputToUrlOrDataUri(sourcePath, "video/mp4"),
-      sourcePath,
-    });
-  }
-  for (const sourcePath of opts.refAudio ?? []) {
-    references.push({
-      kind: "audio",
-      url: await fileInputToUrlOrDataUri(sourcePath, "audio/mpeg"),
-      sourcePath,
-    });
-  }
-  return references;
-}
-
-async function fileInputToUrlOrDataUri(input: string, fallbackMimeType: string): Promise<string> {
-  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("data:")) {
-    return input;
-  }
-  const absPath = resolve(process.cwd(), input);
-  const buffer = await readFile(absPath);
-  return `data:${mimeTypeForPath(input, fallbackMimeType)};base64,${buffer.toString("base64")}`;
-}
-
-function mimeTypeForPath(path: string, fallback: string): string {
-  const ext = path.toLowerCase().split(".").pop();
-  const mimeTypes: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    webp: "image/webp",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    mp3: "audio/mpeg",
-    wav: "audio/wav",
-  };
-  return mimeTypes[ext || ""] || fallback;
-}
-
-async function recordVideoNoWaitJob(opts: {
-  provider: string;
-  providerTaskId: string;
-  providerTaskType?: "text2video" | "image2video";
-  prompt: string;
-}): Promise<JobRecord> {
-  return createAndWriteJobRecord({
-    jobType: "generate-video",
-    provider: opts.provider,
-    providerTaskId: opts.providerTaskId,
-    providerTaskType: opts.providerTaskType,
-    status: "running",
-    command: "generate video --no-wait",
-    prompt: opts.prompt,
-  });
-}
-
-function noWaitVideoData(provider: string, taskId: string, job: JobRecord): Record<string, unknown> {
-  return {
-    provider,
-    taskId,
-    status: job.status,
-    jobId: job.id,
-    statusCommand: `vibe status job ${job.id} --project ${job.projectDir} --json`,
-    providerStatusCommand: job.retryWith.find((item) => item.startsWith("vibe generate video-status")),
-  };
-}
-
-function printVideoStarted(providerLabel: string, taskId: string, taskType?: string): void {
-  console.log();
-  console.log(chalk.bold.cyan("Video Generation Started"));
-  console.log(chalk.dim("─".repeat(60)));
-  console.log(`Provider: ${chalk.bold(providerLabel)}`);
-  console.log(`Task ID: ${chalk.bold(taskId)}`);
-  if (taskType) console.log(`Type: ${taskType}`);
 }
