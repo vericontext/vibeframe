@@ -61,6 +61,20 @@ describe("providerRequest", () => {
     expect(net.requests).toHaveLength(1);
   });
 
+  it("does not retry a 429 that means the account is out of credits", async () => {
+    net.on("POST", "api.test", /\/jobs$/, () => jsonResponse({ code: 1102, message: "Resource pack exhausted" }, 429));
+
+    const error = await rejection(
+      providerRequest("test", "https://api.test/jobs", { method: "POST" }, {
+        backoffMs: 1,
+        classify: ({ code }) => (code === "1102" ? "quota" : undefined),
+      })
+    );
+
+    expect(error).toMatchObject({ kind: "quota", status: 429, code: "1102", retryable: false });
+    expect(net.requests).toHaveLength(1);
+  });
+
   it("reports a network failure as retryable", async () => {
     const error = await rejection(providerRequest("test", "https://unrouted.test/x", {}, { backoffMs: 1, attempts: 2 }));
     expect(error).toMatchObject({ kind: "network", retryable: true });

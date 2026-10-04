@@ -7,6 +7,11 @@ import type {
 } from "../interface/types.js";
 import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
 import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
+import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveVideoModel } from "../video/models.js";
+import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * Grok Imagine model versions
@@ -56,6 +61,13 @@ export function resolveGrokImageModel(alias?: string): {
 
 /** Default model */
 const DEFAULT_MODEL = defaultModel("grok", "video").id as GrokVideoModel;
+
+/**
+ * Edits and extensions run on classic `grok-imagine-video` only: `-1.5` and
+ * `-1.5-lite` answer 400 "Video extension is not supported for this model"
+ * (probe, 2026-10-04).
+ */
+const CONTINUATION_MODEL: GrokVideoModel = "grok-imagine-video";
 
 /** xAI defaults video to 480p when `resolution` is omitted; ask for 720p instead. */
 const DEFAULT_VIDEO_RESOLUTION = "720p";
@@ -117,8 +129,16 @@ interface GrokCreateResponse {
 /**
  * Grok video status response
  */
+const GROK_STATUS: Record<GrokStatusResponse["status"], VideoJobState["status"]> = {
+  pending: "pending",
+  done: "completed",
+  expired: "failed",
+  failed: "failed",
+};
+
 interface GrokStatusResponse {
   status: "pending" | "done" | "expired" | "failed";
+  progress?: number;
   error?: { code?: string; message?: string };
   video?: {
     url: string;
@@ -131,7 +151,7 @@ interface GrokStatusResponse {
  * xAI Grok Imagine provider for video generation
  * Supports text-to-video and image-to-video with native audio
  */
-export class GrokProvider implements AIProvider {
+export class GrokProvider implements AIProvider, VideoGenerator {
   id = "grok";
   name = "xAI Grok Imagine";
   description = "AI video generation with Grok Imagine (native audio, 1-15 sec)";
@@ -322,177 +342,162 @@ export class GrokProvider implements AIProvider {
     }
   }
 
-  /**
-   * Generate video using Grok Imagine
-   */
-  async generateVideo(
-    prompt: string,
-    options?: GenerateOptions
-  ): Promise<VideoResult> {
-    if (!this.apiKey) {
-      return {
-        id: "",
-        status: "failed",
-        error: "xAI API key not configured. Set XAI_API_KEY environment variable.",
-      };
+  // ── VideoGenerator ────────────────────────────────────────────────────
+
+  async submitVideo(request: VideoRequest): Promise<VideoJob> {
+    const apiKey = this.requireKey();
+    const model = resolveVideoModel(this.id, request.model ?? (request.from ? CONTINUATION_MODEL : undefined))
+      .id as GrokVideoModel;
+    if (request.from && model !== CONTINUATION_MODEL) {
+      throw new ProviderError({
+        kind: "unsupported",
+        provider: this.id,
+        message: `Grok ${request.from.kind}s videos with ${CONTINUATION_MODEL} only, not ${model}.`,
+      });
+    }
+    let path: string;
+    const body: Record<string, unknown> = { model, prompt: request.prompt };
+
+    if (request.from) {
+      // Edit revises an earlier clip; extension adds 2-10 s after it. Both
+      // take the earlier clip's video URL (docs: /videos/edits, /videos/extensions).
+      const source = await this.continuationSource(request.from.job);
+      body.video = { url: source };
+      if (request.from.kind === "extend") {
+        path = "/videos/extensions";
+        body.duration = Math.round(Math.min(10, Math.max(2, request.durationSec ?? 6)));
+      } else {
+        path = "/videos/edits";
+      }
+    } else {
+      path = "/videos/generations";
+      // xAI rejects float durations with a 422 deserialization error.
+      body.duration = Math.round(Math.min(15, Math.max(1, request.durationSec || 5)));
+      body.aspect_ratio = request.aspectRatio || "16:9";
+      // Without `resolution` xAI renders 480p.
+      body.resolution = GROK_VIDEO_RESOLUTIONS.includes(request.resolution ?? "")
+        ? request.resolution
+        : DEFAULT_VIDEO_RESOLUTION;
+      if (typeof request.generateAudio === "boolean") body.generate_audio = request.generateAudio;
+      // xAI takes the image as an object, for both URLs and data URIs.
+      if (request.image) body.image = { url: request.image };
     }
 
-    try {
-      // xAI API requires integer duration; floats fail with 422 deserialization error.
-      const duration = Math.round(Math.min(15, Math.max(1, options?.duration || 5)));
+    const response = await providerRequest(this.id, `${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
+    const data = (await response.json()) as GrokCreateResponse;
+    return { provider: this.id, id: data.request_id, model, submittedAt: new Date().toISOString() };
+  }
 
-      const body: Record<string, unknown> = {
-        model: (options?.model as GrokVideoModel | undefined) || DEFAULT_MODEL,
+  async getVideoJob(job: VideoJob): Promise<VideoJobState> {
+    const apiKey = this.requireKey();
+    const response = await providerRequest(this.id, `${this.baseUrl}/videos/${job.id}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const data = (await response.json()) as GrokStatusResponse;
+    const state: VideoJobState = { status: GROK_STATUS[data.status] ?? "pending", progress: data.progress };
+    if (data.status === "done") {
+      state.videoUrl = data.video?.url;
+      state.durationSec = data.video?.duration;
+    }
+    if (data.status === "expired") {
+      state.error = new ProviderError({ kind: "timeout", provider: this.id, message: "Grok generation expired" }).toJSON();
+    }
+    if (data.status === "failed") {
+      state.error = classifyProviderError({
+        provider: this.id,
+        code: data.error?.code,
+        message: `Generation failed: ${data.error?.message ?? data.error?.code ?? "unknown error"}`,
+      }).toJSON();
+    }
+    return state;
+  }
+
+  async downloadVideo(_job: VideoJob, state: VideoJobState): Promise<Uint8Array> {
+    if (!state.videoUrl) {
+      throw new ProviderError({ kind: "not-found", provider: this.id, message: "Grok job has no video to download." });
+    }
+    const response = await providerRequest(this.id, state.videoUrl);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  /** The finished video URL an edit or extension starts from. */
+  private async continuationSource(job: VideoJob): Promise<string> {
+    if (job.provider !== this.id) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.id,
+        message: `Grok can only continue a Grok video, not a ${job.provider} job.`,
+      });
+    }
+    const state = await this.getVideoJob(job);
+    if (state.status !== "completed" || !state.videoUrl) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.id,
+        message: `Grok job ${job.id} has no finished video to continue (status: ${state.status}).`,
+      });
+    }
+    return state.videoUrl;
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
+    try {
+      const job = await this.submitVideo({
         prompt,
-        duration,
-        aspect_ratio: options?.aspectRatio || "16:9",
-        resolution: GROK_VIDEO_RESOLUTIONS.includes(options?.resolution ?? "")
-          ? options!.resolution
-          : DEFAULT_VIDEO_RESOLUTION,
-      };
-      if (typeof options?.generateAudio === "boolean") {
-        body.generate_audio = options.generateAudio;
-      }
-
-      // Add reference image for image-to-video
-      // xAI API requires image as object: { url: "..." } (works for both URLs and data URIs)
-      if (options?.referenceImage) {
-        body.image = { url: options.referenceImage as string };
-      }
-
-      const response = await fetch(`${this.baseUrl}/videos/generations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
+        model: options?.model,
+        durationSec: options?.duration,
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
+        generateAudio: options?.generateAudio,
+        image: options?.referenceImage as string | undefined,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id: "",
-          status: "failed",
-          error: `Grok API error (${response.status}): ${errorText}`,
-        };
-      }
-
-      const data = (await response.json()) as GrokCreateResponse;
-
-      return {
-        id: data.request_id,
-        status: "pending",
-      };
+      return { id: job.id, status: "pending" };
     } catch (error) {
-      return {
-        id: "",
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { id: "", status: "failed", error: this.legacyMessage(error) };
     }
   }
 
-  /**
-   * Get generation status
-   */
   async getGenerationStatus(id: string): Promise<VideoResult> {
-    if (!this.apiKey) {
-      return {
-        id,
-        status: "failed",
-        error: "xAI API key not configured",
-      };
-    }
-
     try {
-      const response = await fetch(`${this.baseUrl}/videos/${id}`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id,
-          status: "failed",
-          error: `Failed to get status: ${errorText}`,
-        };
-      }
-
-      const data = (await response.json()) as GrokStatusResponse;
-
-      const statusMap: Record<string, VideoResult["status"]> = {
-        pending: "pending",
-        done: "completed",
-        expired: "failed",
-        failed: "failed",
-      };
-
-      return {
-        id,
-        status: statusMap[data.status] || "pending",
-        videoUrl: data.video?.url,
-        error:
-          data.status === "expired"
-            ? "Generation expired"
-            : data.status === "failed"
-              ? `Generation failed: ${data.error?.message ?? data.error?.code ?? "unknown error"}`
-              : undefined,
-      };
+      return this.toVideoResult(id, await this.getVideoJob(this.legacyJob(id)));
     } catch (error) {
-      return {
-        id,
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { id, status: "failed", error: this.legacyMessage(error) };
     }
   }
 
-  /**
-   * Wait for generation to complete
-   */
   async waitForCompletion(
     id: string,
     onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 300000 // 5 minutes
+    maxWaitMs: number = 300000
   ): Promise<VideoResult> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxWaitMs) {
-      const result = await this.getGenerationStatus(id);
-
-      if (onProgress) {
-        onProgress(result);
-      }
-
-      if (result.status === "completed" || result.status === "failed") {
-        return result;
-      }
-
-      await this.sleep(this.pollingInterval);
+    try {
+      const state = await waitForVideoJob(this, this.legacyJob(id), {
+        timeoutMs: maxWaitMs,
+        intervalMs: this.pollingInterval,
+        onProgress: onProgress && ((s) => onProgress(this.toVideoResult(id, s))),
+      });
+      return this.toVideoResult(id, state);
+    } catch (error) {
+      return { id, status: "failed", error: this.legacyMessage(error) };
     }
-
-    return {
-      id,
-      status: "failed",
-      error: "Generation timed out",
-    };
   }
 
   /**
-   * Cancel generation (if supported)
+   * Best-effort cancel. xAI does not document a video cancel endpoint, so
+   * this is not part of the `VideoGenerator` contract for Grok.
    */
   async cancelGeneration(id: string): Promise<boolean> {
     if (!this.apiKey) return false;
-
     try {
       const response = await fetch(`${this.baseUrl}/videos/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       return response.ok;
     } catch {
@@ -500,8 +505,33 @@ export class GrokProvider implements AIProvider {
     }
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private requireKey(): string {
+    if (!this.apiKey) {
+      throw new ProviderError({
+        kind: "auth",
+        provider: this.id,
+        message: "xAI API key not configured. Set XAI_API_KEY environment variable.",
+      });
+    }
+    return this.apiKey;
+  }
+
+  private legacyJob(id: string): VideoJob {
+    return { provider: this.id, id, model: DEFAULT_MODEL, submittedAt: new Date(0).toISOString() };
+  }
+
+  private toVideoResult(id: string, state: VideoJobState): VideoResult {
+    return {
+      id,
+      status: state.status,
+      videoUrl: state.videoUrl,
+      progress: state.progress,
+      ...(state.error ? { error: state.error.message } : {}),
+    };
+  }
+
+  private legacyMessage(error: unknown): string {
+    return isProviderError(error) || error instanceof Error ? error.message : "Unknown error";
   }
 }
 

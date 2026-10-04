@@ -56,7 +56,7 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | veo | **Veo 3.1 Fast** (default) | `veo-3.1-fast-generate-preview` | `3.1-fast` | Deprecated, shuts down 2026-10-22; use `-p omni` (Gemini Omni 1.1 Flash) | $0.1 / second (720p) | 4-8 s, native audio; explicit `-p veo` only |
 | grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
 | grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
-| grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation |
+| grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation; the only Grok model that edits and extends videos |
 | kling | **Kling v3** (default) | `kling-v3` | `v3` | GA | $0.084 / second (std, silent) | 3-15 s, multi-shot; `std` 720p, `pro` 1080p |
 | kling | Kling v2.6 | `kling-v2-6` | `v2.6` | GA | $0.042 / second (std 720p) | 5 or 10 s |
 | kling | Kling v2.5 Turbo | `kling-v2-5-turbo` | `v2.5-turbo`, `v2.5` | GA | $0.042 / second (std) | 5 or 10 s, no audio |
