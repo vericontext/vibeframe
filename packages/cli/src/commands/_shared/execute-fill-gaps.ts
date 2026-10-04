@@ -364,7 +364,7 @@ export async function executeFillGaps(
     if (!kling.isConfigured()) {
       return {
         success: false,
-        error: "Invalid KLING_API_KEY (expected ACCESS_KEY:SECRET_KEY format)",
+        error: "Invalid KLING_API_KEY (set your Kling API key, or the legacy ACCESS_KEY:SECRET_KEY pair)",
         humanLines,
       };
     }

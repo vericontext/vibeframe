@@ -141,20 +141,23 @@ export class KlingProvider implements AIProvider {
   iconUrl = "/icons/kling.svg";
   isAvailable = true;
 
+  /** Single API key from the current Kling console, sent as a Bearer token. */
+  private apiKey?: string;
+  /** Legacy access/secret key pair, signed into a short-lived JWT. */
   private accessKey?: string;
   private secretKey?: string;
   private baseUrl = "https://api.klingai.com/v1";
   private pollingInterval = 3000; // Faster polling for v2.x
 
   async initialize(config: ProviderConfig): Promise<void> {
-    // API key format: "access_key:secret_key"
+    // Either a single API key, or the legacy "access_key:secret_key" pair.
     if (config.apiKey) {
       const parts = config.apiKey.split(":");
-      if (parts.length === 2) {
+      if (parts.length === 2 && parts[0] && parts[1]) {
         this.accessKey = parts[0];
         this.secretKey = parts[1];
       } else {
-        this.accessKey = config.apiKey;
+        this.apiKey = config.apiKey;
       }
     }
     if (config.baseUrl) {
@@ -163,7 +166,12 @@ export class KlingProvider implements AIProvider {
   }
 
   isConfigured(): boolean {
-    return !!(this.accessKey && this.secretKey);
+    return !!(this.apiKey || (this.accessKey && this.secretKey));
+  }
+
+  /** Bearer value: the API key itself, or a JWT signed from the legacy pair. */
+  private bearerToken(): string {
+    return this.apiKey ?? this.generateToken();
   }
 
   /**
@@ -202,12 +210,12 @@ export class KlingProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: "Kling API credentials not configured. Use format: KLING_ACCESS_KEY:KLING_SECRET_KEY",
+        error: "Kling API credentials not configured. Set KLING_API_KEY to your Kling API key (or the legacy ACCESS_KEY:SECRET_KEY pair).",
       };
     }
 
     try {
-      const token = this.generateToken();
+      const token = this.bearerToken();
 
       // Determine model - use provided or default
       const model: KlingModel = (options?.model as KlingModel) || DEFAULT_MODEL;
@@ -373,7 +381,7 @@ export class KlingProvider implements AIProvider {
     }
 
     try {
-      const token = this.generateToken();
+      const token = this.bearerToken();
 
       const response = await fetch(`${this.baseUrl}/videos/${type}/${id}`, {
         headers: {
@@ -479,12 +487,12 @@ export class KlingProvider implements AIProvider {
       return {
         id: "",
         status: "failed",
-        error: "Kling API credentials not configured. Use format: KLING_ACCESS_KEY:KLING_SECRET_KEY",
+        error: "Kling API credentials not configured. Set KLING_API_KEY to your Kling API key (or the legacy ACCESS_KEY:SECRET_KEY pair).",
       };
     }
 
     try {
-      const token = this.generateToken();
+      const token = this.bearerToken();
 
       const body: Record<string, unknown> = {
         video_id: videoId,
@@ -531,7 +539,7 @@ export class KlingProvider implements AIProvider {
     }
 
     try {
-      const token = this.generateToken();
+      const token = this.bearerToken();
 
       const response = await fetch(`${this.baseUrl}/videos/video-extend/${id}`, {
         headers: {
