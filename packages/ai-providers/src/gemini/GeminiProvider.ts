@@ -19,7 +19,7 @@ import type { GeminiTextModel } from "./gemini-models.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { errorMessage, fetchJson, sleep } from "../shared/http.js";
-import { defaultModel, findModel, listModels } from "../catalog/catalog.js";
+import { assertModelServed, defaultModel, findModel, listModels } from "../catalog/catalog.js";
 
 /**
  * Gemini model types for image generation
@@ -108,15 +108,23 @@ export type VeoModelAlias = string;
 
 /**
  * Resolve a `--veo-model` alias to a Veo model ID.
- * Throws on unknown aliases instead of silently substituting another model.
+ * Throws on unknown aliases instead of silently substituting another model,
+ * and throws `ModelRetiredError` once the model is past its shutdown date.
  */
 export function resolveVeoModel(alias: string): VeoModel {
   if (Object.hasOwn(VEO_MODEL_ALIASES, alias)) {
-    return VEO_MODEL_ALIASES[alias];
+    return servedVeoModel(VEO_MODEL_ALIASES[alias]);
   }
   const valid = Object.keys(VEO_MODEL_ALIASES).join(", ");
   const hint = alias === "3.0" ? " Veo 3.0 was shut down by Google on 2025-11-12." : "";
   throw new Error(`Unknown Veo model "${alias}". Valid: ${valid}.${hint}`);
+}
+
+/** A Veo model ID (default when omitted), refused once Google stops serving it. */
+function servedVeoModel(id?: string): VeoModel {
+  const spec = id ? findModel("veo", "video", id) : defaultModel("veo", "video");
+  if (spec) assertModelServed(spec);
+  return (spec?.id ?? id) as VeoModel;
 }
 
 /**
@@ -244,8 +252,7 @@ export class GeminiProvider implements AIProvider {
       // Cast to VeoVideoOptions for Veo-specific fields
       const veoOpts = (options ?? {}) as VeoVideoOptions & GenerateOptions;
 
-      // Default to Veo 3.1 Fast for better speed/cost ratio
-      const model = (veoOpts.model as VeoModel) || "veo-3.1-fast-generate-preview";
+      const model = servedVeoModel(veoOpts.model);
 
       // Map aspect ratio
       const aspectRatioMap: Record<string, string> = {
@@ -519,7 +526,7 @@ export class GeminiProvider implements AIProvider {
     }
 
     try {
-      const model = options?.model || "veo-3.1-generate-preview";
+      const model = servedVeoModel(options?.model ?? findModel("veo", "video", "3.1")?.id);
 
       const instance: Record<string, unknown> = {
         video: { previousOperationName },

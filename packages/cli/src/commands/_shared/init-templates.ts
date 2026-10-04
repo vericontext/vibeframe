@@ -23,7 +23,7 @@ export const AGENTS_MD = `# AGENTS.md
 
 This project uses [VibeFrame](https://github.com/vericontext/vibeframe) -
 a CLI for AI video generation on the user's own provider keys (Seedance,
-Runway, Veo, Kling), behind dry runs and a hard \`--max-cost\` ceiling.
+Runway, Kling, Gemini Omni), behind dry runs and a hard \`--max-cost\` ceiling.
 The \`vibe\` command provides 80+ subcommands for video generation,
 editing, and analysis. Cost tiers below - **always confirm with the user
 before running High / Very High tier commands**.
@@ -379,7 +379,7 @@ export function renderEnvExample(opts: EnvExampleOptions = {}): string {
 ${fallback}# ── LLM provider / optional \`vibe agent\` fallback (pick one) ───────────
 ANTHROPIC_API_KEY=                    # Claude - recommended default
 OPENAI_API_KEY=                       # GPT-5.4 mini · Whisper · gpt-image-2.5
-GOOGLE_API_KEY=                       # Gemini · Veo
+GOOGLE_API_KEY=                       # Gemini · Omni video
 XAI_API_KEY=                          # Grok image+video
 OPENROUTER_API_KEY=                   # multiplexes any provider above
 # OLLAMA_HOST=http://localhost:11434  # offline, no key needed

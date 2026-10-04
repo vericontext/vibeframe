@@ -13,12 +13,12 @@ const inter = Inter({ subsets: ["latin"] });
 const AI_PROVIDERS = process.env.NEXT_PUBLIC_AI_PROVIDERS ?? "15";
 const MCP_TOOLS = process.env.NEXT_PUBLIC_MCP_TOOLS ?? "77";
 const SHARE_TITLE = "VibeFrame - frontier video generation for coding agents";
-const SHARE_DESCRIPTION = `Let your coding agent generate video on Seedance, Runway, Veo, or Kling with your own keys, behind a dry run and a hard --max-cost ceiling. ${AI_PROVIDERS} AI providers, ${MCP_TOOLS} MCP tools, MIT.`;
+const SHARE_DESCRIPTION = `Let your coding agent generate video on Seedance, Runway, Kling, or Gemini Omni with your own keys, behind a dry run and a hard --max-cost ceiling. ${AI_PROVIDERS} AI providers, ${MCP_TOOLS} MCP tools, MIT.`;
 
 export const metadata: Metadata = {
   title: SHARE_TITLE,
   description: SHARE_DESCRIPTION,
-  keywords: ["AI video generation", "Seedance", "Runway", "Veo", "Kling", "BYO key", "cost cap", "video CLI", "storyboard to video", "STORYBOARD.md", "DESIGN.md", "AI agent", "agentic CLI", "build-report.json", "review-report.json", "MCP", "YAML pipelines", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
+  keywords: ["AI video generation", "Seedance", "Runway", "Kling", "Gemini Omni", "BYO key", "cost cap", "video CLI", "storyboard to video", "STORYBOARD.md", "DESIGN.md", "AI agent", "agentic CLI", "build-report.json", "review-report.json", "MCP", "YAML pipelines", "Claude Code", "OpenAI Codex", "Cursor", "Aider", "Gemini CLI", "OpenCode", "agents.md", "open source"],
   metadataBase: new URL("https://vibeframe.ai"),
   openGraph: {
     title: SHARE_TITLE,

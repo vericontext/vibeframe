@@ -260,7 +260,7 @@ const AI_FEATURES: AIFeature[] = [
     label: "Videos",
     desc: "generate + extend",
     defaultProvider: "Seedance 2.0 via fal.ai (Artificial Analysis #2 t2v + i2v, since v0.57)",
-    alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Google Veo",
+    alsoAvailable: "Grok Imagine, Kling, Runway Gen-4.5, Gemini Omni",
     keyHint: "1-2 keys",
     keys: [
       {
@@ -339,16 +339,16 @@ const AI_FEATURES: AIFeature[] = [
         defaultFor: { kind: "video", value: "runway" },
       },
       {
-        label: "Veo",
-        desc: "Google Veo video generation",
+        label: "Gemini Omni",
+        desc: "Google Gemini Omni video generation",
         key: {
           configKey: "google",
           envVar: "GOOGLE_API_KEY",
           name: "Google",
           url: "https://aistudio.google.com/apikey",
-          what: "Google Veo video generation",
+          what: "Google Gemini Omni video generation",
         },
-        defaultFor: { kind: "video", value: "veo" },
+        defaultFor: { kind: "video", value: "omni" },
       },
     ],
     tryCommand: 'vibe generate video "ocean waves" -o waves.mp4',

@@ -5,7 +5,7 @@
  *
  * Commands:
  *   generate image          - Generate image (Gemini, OpenAI, Grok, Runway)
- *   generate video          - Generate video (Seedance, Grok, Kling, Runway, Veo)
+ *   generate video          - Generate video (Seedance, Grok, Kling, Runway, Omni, Veo)
  *   generate sound-effect   - Sound effects (ElevenLabs)
  *   generate music          - Music generation (ElevenLabs default, Replicate MusicGen)
  *   generate motion         - Standalone motion assets (Claude/Gemini + Remotion)
@@ -81,7 +81,7 @@ Advanced:
   generate video-cancel Provider lifecycle control; poll with 'vibe status job <job-id> --json'
 
 API Keys (per provider):
-  GOOGLE_API_KEY     Image (default), Veo video
+  GOOGLE_API_KEY     Image (default), Omni video
   OPENAI_API_KEY     Image (-p openai)
   FAL_API_KEY        Seedance video (-p seedance, default video)
   XAI_API_KEY        Grok image/video

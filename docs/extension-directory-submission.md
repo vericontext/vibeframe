@@ -20,7 +20,7 @@ to the Anthropic Connectors Directory.
 | Field | Value |
 |---|---|
 | Extension name | VibeFrame |
-| Description | AI video generation for Claude Desktop on your own provider keys (Seedance, Runway, Veo, Kling), behind dry runs and a hard cost cap: storyboard → generated assets → rendered MP4, all inside a local workspace folder. |
+| Description | AI video generation for Claude Desktop on your own provider keys (Seedance, Runway, Kling, Gemini Omni), behind dry runs and a hard cost cap: storyboard → generated assets → rendered MP4, all inside a local workspace folder. |
 | Icon | `icon.png` inside the bundle (400×400, also `apps/web/public/logo-400.png`) |
 | Documentation | <https://github.com/vericontext/vibeframe/blob/main/packages/mcp-server/README.md> |
 | Privacy policy | <https://vibeframe.ai/privacy> (source: repo `PRIVACY.md`) |

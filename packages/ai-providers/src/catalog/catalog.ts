@@ -44,6 +44,8 @@ export interface ModelSpec {
   status: ModelStatus;
   /** ISO date the provider stops serving this model, when announced. */
   shutdown?: string;
+  /** What to use once this model shuts down, as CLI guidance (e.g. "`-p omni`"). */
+  replacement?: string;
   /** Upper-bound list price, for estimates and docs. */
   price?: ModelPrice;
   /** One short line for MODELS.md. */
@@ -84,8 +86,8 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "seedance-2.0-fast", provider: "seedance", kind: "video", label: "Seedance 2.0 Fast", aliases: ["fast"], status: "ga", price: { usd: 0.2419, per: "second", basis: "720p 16:9" }, note: "4-15 s, up to 720p, native audio" },
   { id: "seedance-2.5", provider: "seedance", kind: "video", label: "Seedance 2.5", aliases: ["2.5"], status: "ga", price: { usd: 0.473, per: "second", basis: "720p 16:9" }, note: "Opt-in; 4-30 s, native audio" },
   { id: "gemini-omni-1.1-flash", provider: "omni", kind: "video", label: "Gemini Omni 1.1 Flash", default: true, status: "ga", price: { usd: 0.1, per: "second", basis: "720p" }, note: "Google video default; the model picks 3-10 s; native audio" },
-  { id: "veo-3.1-generate-preview", provider: "veo", kind: "video", label: "Veo 3.1", aliases: ["3.1"], status: "deprecated", shutdown: "2026-10-22", price: { usd: 0.4, per: "second", basis: "720p/1080p" }, note: "4-8 s, native audio; explicit `-p veo` only" },
-  { id: "veo-3.1-fast-generate-preview", provider: "veo", kind: "video", label: "Veo 3.1 Fast", aliases: ["3.1-fast"], default: true, status: "deprecated", shutdown: "2026-10-22", price: { usd: 0.1, per: "second", basis: "720p" }, note: "4-8 s, native audio; explicit `-p veo` only" },
+  { id: "veo-3.1-generate-preview", provider: "veo", kind: "video", label: "Veo 3.1", aliases: ["3.1"], status: "deprecated", shutdown: "2026-10-22", replacement: "`-p omni` (Gemini Omni 1.1 Flash)", price: { usd: 0.4, per: "second", basis: "720p/1080p" }, note: "4-8 s, native audio; explicit `-p veo` only" },
+  { id: "veo-3.1-fast-generate-preview", provider: "veo", kind: "video", label: "Veo 3.1 Fast", aliases: ["3.1-fast"], default: true, status: "deprecated", shutdown: "2026-10-22", replacement: "`-p omni` (Gemini Omni 1.1 Flash)", price: { usd: 0.1, per: "second", basis: "720p" }, note: "4-8 s, native audio; explicit `-p veo` only" },
   { id: "grok-imagine-video-1.5", provider: "grok", kind: "video", label: "Grok Imagine Video 1.5", aliases: ["1.5"], default: true, status: "ga", price: { usd: 0.14, per: "second", basis: "720p" }, note: "1-15 s, native audio; 720p unless `--resolution` says otherwise" },
   { id: "grok-imagine-video-1.5-lite", provider: "grok", kind: "video", label: "Grok Imagine Video 1.5 Lite", aliases: ["lite", "1.5-lite"], status: "ga", price: { usd: 0.03, per: "second", basis: "720p" }, note: "1-15 s, native audio" },
   { id: "grok-imagine-video", provider: "grok", kind: "video", label: "Grok Imagine Video", aliases: ["classic"], status: "legacy", price: { usd: 0.05, per: "second", basis: "480p" }, note: "Previous generation" },
@@ -127,6 +129,54 @@ export function findModel(provider: string, kind: ModelKind, aliasOrId?: string)
   if (!key) return defaultModel(provider, kind);
   const lower = key.toLowerCase();
   return listModels({ provider, kind }).find((m) => m.id === key || m.aliases?.includes(lower));
+}
+
+export type ModelLifecycle =
+  | { state: "served" }
+  | { state: "retiring"; shutdown: string; daysLeft: number; message: string }
+  | { state: "retired"; shutdown: string; message: string };
+
+/**
+ * Where a model stands against its announced shutdown date. A model is
+ * retired from 00:00 UTC on the shutdown date; before that it is retiring.
+ * Callers warn on "retiring" and refuse "retired" before any paid request,
+ * so a dated shutdown needs no code change on the day it happens.
+ */
+export function modelLifecycle(spec: ModelSpec, now: Date = new Date()): ModelLifecycle {
+  if (!spec.shutdown) return { state: "served" };
+  const remainingMs = Date.parse(`${spec.shutdown}T00:00:00Z`) - now.getTime();
+  const instead = spec.replacement ? ` Use ${spec.replacement} instead.` : "";
+  if (remainingMs <= 0) {
+    return {
+      state: "retired",
+      shutdown: spec.shutdown,
+      message: `${spec.label} (${spec.id}) was shut down by the provider on ${spec.shutdown}.${instead}`,
+    };
+  }
+  const daysLeft = Math.ceil(remainingMs / 86_400_000);
+  return {
+    state: "retiring",
+    shutdown: spec.shutdown,
+    daysLeft,
+    message: `${spec.label} (${spec.id}) shuts down on ${spec.shutdown} (${daysLeft} day${daysLeft === 1 ? "" : "s"} left).${instead}`,
+  };
+}
+
+/** Thrown when a request names a model the provider no longer serves. */
+export class ModelRetiredError extends Error {
+  constructor(
+    message: string,
+    readonly model: ModelSpec
+  ) {
+    super(message);
+    this.name = "ModelRetiredError";
+  }
+}
+
+/** Throw `ModelRetiredError` when the provider no longer serves this model. */
+export function assertModelServed(spec: ModelSpec, now: Date = new Date()): void {
+  const lifecycle = modelLifecycle(spec, now);
+  if (lifecycle.state === "retired") throw new ModelRetiredError(lifecycle.message, spec);
 }
 
 /** CLI aliases for a provider and kind, in catalog order, for help and error text. */

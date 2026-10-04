@@ -88,7 +88,7 @@ export default function LandingPage() {
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 animate-fade-in-up delay-100">
             VibeFrame gives Claude Code, Codex, or Cursor the commands to plan a video, generate the
             assets from{" "}
-            <span className="text-foreground font-medium">Seedance, Runway, Veo, and Kling</span> on
+            <span className="text-foreground font-medium">Seedance, Runway, Kling, and Gemini Omni</span> on
             your own provider keys, and render a finished MP4. Every paid step sits behind a dry run
             and a hard{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
@@ -304,7 +304,7 @@ export default function LandingPage() {
                 vibe setup --scope project && vibe build launch --max-cost 12 --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                BYO-key generation on Seedance, Runway, Veo, or Kling. Over the ceiling it refuses
+                BYO-key generation on Seedance, Runway, Kling, or Gemini Omni. Over the ceiling it refuses
                 and hands back recovery actions.
               </p>
             </div>
@@ -463,7 +463,7 @@ export default function LandingPage() {
               icon={<Sparkles className="w-6 h-6" />}
               title="Frontier Generation"
               command="vibe generate video"
-              description="One clip on Seedance, Runway, Veo, or Kling - your keys, dry-run priced"
+              description="One clip on Seedance, Runway, Kling, or Gemini Omni - your keys, dry-run priced"
               gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard

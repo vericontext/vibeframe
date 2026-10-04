@@ -59,11 +59,15 @@ export {
 } from "./gemini/index.js";
 export {
   MODEL_CATALOG,
+  ModelRetiredError,
+  assertModelServed,
   defaultModel,
   findModel,
   listModels,
   modelAliases,
+  modelLifecycle,
   type ModelKind,
+  type ModelLifecycle,
   type ModelPrice,
   type ModelSpec,
   type ModelStatus,

@@ -280,7 +280,7 @@ export const generateVideoTool = defineTool({
   title: "Generate Video",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Generate video using AI. Supports Seedance 2.0 via fal.ai, Grok, Kling, Runway, and Veo. Requires FAL_API_KEY, XAI_API_KEY, KLING_API_KEY, RUNWAY_API_SECRET, or GOOGLE_API_KEY.",
+    "Generate video using AI. Supports Seedance 2.0 via fal.ai, Grok, Kling, Runway, Gemini Omni, and Veo (shuts down 2026-10-22). Requires FAL_API_KEY, XAI_API_KEY, KLING_API_KEY, RUNWAY_API_SECRET, or GOOGLE_API_KEY.",
   schema: z.object({
     prompt: z.string().describe("Text prompt describing the video"),
     provider: z

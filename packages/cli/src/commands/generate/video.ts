@@ -27,6 +27,7 @@ import {
   type MediaReference,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
+import { checkModelLifecycle, videoModelSpec } from "../../utils/model-lifecycle.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
   isJsonMode,
@@ -265,6 +266,7 @@ Examples:
         } catch (err) {
           exitWithError(usageError(err instanceof Error ? err.message : String(err)));
         }
+        const lifecycleWarnings = checkModelLifecycle(videoModelSpec(provider, options));
 
         if (options.dryRun) {
           // For Seedance, replace the flat cost-tier upper bound with a
@@ -279,6 +281,7 @@ Examples:
             startedAt,
             dryRun: true,
             costUsd,
+            warnings: lifecycleWarnings,
             data: {
               params: {
                 prompt,
@@ -739,7 +742,7 @@ Examples:
             command: "generate video",
             startedAt,
             costUsd: cost.costUsd,
-            warnings: provider === "veo" ? [VEO_SHUTDOWN_WARNING, ...cost.warnings] : cost.warnings,
+            warnings: [...lifecycleWarnings, ...cost.warnings],
             data: {
               provider,
               taskId: result?.id,
@@ -752,9 +755,6 @@ Examples:
         }
 
         console.log();
-        if (provider === "veo") {
-          console.log(chalk.yellow(VEO_SHUTDOWN_WARNING));
-        }
         if (finalResult.videoUrl) {
           console.log(`Video URL: ${finalResult.videoUrl}`);
         }
@@ -792,9 +792,6 @@ Examples:
  * loop reads as "free" - the hybrid-brew dogfood run billed Runway twice
  * while reporting $0.
  */
-const VEO_SHUTDOWN_WARNING =
-  "Veo 3.1 preview models shut down on 2026-10-22. Use `-p omni` (Gemini Omni 1.1 Flash) instead.";
-
 export function realRunCost(provider: string, options: {
   duration?: string;
   resolution?: string;
