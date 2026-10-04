@@ -8,9 +8,8 @@
  * executors that skip this check still never call a retired model.
  */
 
-import chalk from "chalk";
 import { findModel, modelLifecycle, type ModelSpec } from "@vibeframe/ai-providers";
-import { exitWithError, isJsonMode, usageError } from "../commands/output.js";
+import { exitWithError, usageError } from "../commands/output.js";
 
 /** Model flags `generate video` reads, keyed by provider. */
 export interface VideoModelFlags {
@@ -38,13 +37,11 @@ export function videoModelSpec(provider: string, flags: VideoModelFlags): ModelS
 
 /**
  * Exit with a usage error for a retired model; return the shutdown warning
- * for a retiring one (also printed to stderr outside JSON mode).
+ * for a retiring one, for the caller's envelope and `printWarnings()`.
  */
 export function checkModelLifecycle(spec: ModelSpec | undefined, now: Date = new Date()): string[] {
   if (!spec) return [];
   const lifecycle = modelLifecycle(spec, now);
   if (lifecycle.state === "retired") exitWithError(usageError(lifecycle.message));
-  if (lifecycle.state !== "retiring") return [];
-  if (!isJsonMode()) process.stderr.write(`${chalk.yellow(`Warning: ${lifecycle.message}`)}\n`);
-  return [lifecycle.message];
+  return lifecycle.state === "retiring" ? [lifecycle.message] : [];
 }

@@ -56,6 +56,7 @@ batchCommand
 
     try {
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "batch import",
           startedAt,
@@ -170,6 +171,7 @@ batchCommand
 
     try {
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "batch concat",
           startedAt,
@@ -287,6 +289,7 @@ batchCommand
 
       try {
         if (options.dryRun) {
+          spinner.stop();
           outputSuccess({
             command: "batch apply-effect",
             startedAt,
@@ -383,6 +386,7 @@ batchCommand
 
     try {
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "batch remove-clips",
           startedAt,
@@ -469,7 +473,7 @@ batchCommand
 
       spinner.stop();
 
-      console.log(chalk.bold("\nProject Statistics\n"));
+      console.log(`\n${chalk.bold("Project Statistics")}\n`);
 
       // Sources breakdown
       const videoSources = sources.filter((s) => s.type === "video").length;

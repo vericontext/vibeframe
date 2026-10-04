@@ -256,6 +256,11 @@ export interface SuccessEnvelopeOptions {
   warnings?: string[];
   /** Pass-through of `--dry-run` flag — surfaces as a top-level `dryRun: true` in the envelope. */
   dryRun?: boolean;
+  /**
+   * The caller already printed its own human-readable output (a build plan,
+   * a render summary), so human mode adds nothing for this dry run.
+   */
+  humanRendered?: boolean;
 }
 
 /** Look up the upper-bound cost estimate for a command (used by dry-run). */
@@ -272,7 +277,8 @@ export function lookupCostEstimateUpperBound(command: string): number {
  * Emit a canonical success envelope (#33 — 2c). JSON mode prints the
  * envelope; quiet mode prints a single primary value extracted from
  * `data.outputPath ?? data.output ?? data.path ?? data.url ?? data.id`;
- * human mode prints nothing — the caller renders human output itself.
+ * human mode prints a summary for dry runs (unless the caller rendered its
+ * own) and otherwise nothing — the caller renders human output itself.
  *
  * Canary scope: `generate image` only in 2c-canary. 2c-sweep migrates
  * the rest. Old `outputResult()` remains for the sweep transition.
@@ -313,7 +319,60 @@ export function outputSuccess(opts: SuccessEnvelopeOptions): void {
     const primary =
       data.outputPath ?? data.output ?? data.path ?? data.url ?? data.id;
     if (primary !== undefined) console.log(String(primary));
+    return;
   }
+
+  if (opts.dryRun && !opts.humanRendered) {
+    printDryRunSummary(opts.command, costUsd, opts.data, opts.warnings ?? []);
+  }
+}
+
+/** Print warnings to stderr in human mode; JSON envelopes carry them instead. */
+export function printWarnings(warnings: readonly string[]): void {
+  if (isJsonMode()) return;
+  for (const warning of warnings) {
+    process.stderr.write(`${chalk.yellow(`Warning: ${warning}`)}\n`);
+  }
+}
+
+function formatDryRunValue(value: unknown): string {
+  const text = Array.isArray(value)
+    ? value.map((v) => formatDryRunValue(v)).join(", ")
+    : typeof value === "object"
+      ? JSON.stringify(value)
+      : String(value);
+  return text.length > 80 ? `${text.slice(0, 77)}...` : text;
+}
+
+/**
+ * Human-readable dry run: what would run, its estimated cost, and the
+ * parameters that were set. Without it a terminal user saw no output at all.
+ */
+function printDryRunSummary(
+  command: string,
+  costUsd: number,
+  data: Record<string, unknown>,
+  warnings: readonly string[]
+): void {
+  const params =
+    data.params && typeof data.params === "object" ? (data.params as Record<string, unknown>) : data;
+  const rows: Array<[string, string]> = [
+    ["cost", costUsd > 0 ? `up to $${costUsd.toFixed(2)} (estimate)` : "free"],
+  ];
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    rows.push([key, formatDryRunValue(value)]);
+  }
+  const width = Math.max(...rows.map(([key]) => key.length));
+  console.log();
+  console.log(`${chalk.bold.cyan(`Dry run: vibe ${command}`)} ${chalk.dim("(nothing was sent)")}`);
+  for (const [key, value] of rows) {
+    console.log(`  ${chalk.dim(key.padEnd(width))}  ${value}`);
+  }
+  printWarnings(warnings);
+  console.log(chalk.dim("  Run again without --dry-run to execute."));
+  console.log();
 }
 
 /** Output result - JSON mode outputs JSON, quiet mode outputs primary value only */

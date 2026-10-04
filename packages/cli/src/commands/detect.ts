@@ -232,6 +232,7 @@ detectCommand
       }
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "detect scenes",
           startedAt,
@@ -389,6 +390,7 @@ detectCommand
       }
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "detect silence",
           startedAt,
@@ -494,6 +496,7 @@ detectCommand
       }
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "detect beats",
           startedAt,

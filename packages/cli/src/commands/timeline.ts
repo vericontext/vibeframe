@@ -89,6 +89,7 @@ timelineCommand
 
     try {
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline add-source",
           startedAt,
@@ -173,6 +174,7 @@ timelineCommand
       if (options.track) validateResourceId(options.track);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline add-clip",
           startedAt,
@@ -272,6 +274,7 @@ timelineCommand
 
     try {
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline add-track",
           startedAt,
@@ -355,6 +358,7 @@ timelineCommand
       validateResourceId(clipId);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline add-effect",
           startedAt,
@@ -447,6 +451,7 @@ timelineCommand
       validateResourceId(clipId);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline trim-clip",
           startedAt,
@@ -647,6 +652,7 @@ timelineCommand
       validateResourceId(clipId);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline split-clip",
           startedAt,
@@ -727,6 +733,7 @@ timelineCommand
       validateResourceId(clipId);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline duplicate-clip",
           startedAt,
@@ -803,6 +810,7 @@ timelineCommand
       validateResourceId(clipId);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline delete-clip",
           startedAt,
@@ -873,6 +881,7 @@ timelineCommand
       if (options.track) validateResourceId(options.track);
 
       if (options.dryRun) {
+        spinner.stop();
         outputSuccess({
           command: "timeline move-clip",
           startedAt,

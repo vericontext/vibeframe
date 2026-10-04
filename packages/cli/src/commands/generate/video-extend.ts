@@ -21,6 +21,7 @@ import { checkModelLifecycle } from "../../utils/model-lifecycle.js";
 import {
   isJsonMode,
   outputSuccess,
+  printWarnings,
   exitWithError,
   apiError,
   authError,
@@ -59,6 +60,7 @@ export function registerVideoExtendCommand(parent: Command): void {
             exitWithError(usageError(err instanceof Error ? err.message : String(err)));
           }
           lifecycleWarnings = checkModelLifecycle(findModel("veo", "video", options.veoModel));
+          if (!options.dryRun) printWarnings(lifecycleWarnings);
         }
 
         if (options.dryRun) {

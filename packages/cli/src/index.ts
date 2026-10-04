@@ -164,7 +164,7 @@ program
         process.stderr.write(JSON.stringify(err, null, 2) + "\n");
       } else {
         write(chalk.red(str.trim()) + "\n");
-        write(chalk.dim("Run with --help for full options.\n"));
+        write(`${chalk.dim("Run with --help for full options.")}\n`);
       }
     },
   })
@@ -367,7 +367,7 @@ function propagateErrorHandling(cmd: Command): void {
           process.stderr.write(JSON.stringify(err, null, 2) + "\n");
         } else {
           write(chalk.red(str.trim()) + "\n");
-          write(chalk.dim("Run with --help for full options.\n"));
+          write(`${chalk.dim("Run with --help for full options.")}\n`);
         }
       },
     });
