@@ -28,11 +28,12 @@ import {
   outputSuccess,
   usageError,
 } from "./output.js";
+import { BUILD_VIDEO_PROVIDERS } from "./_shared/build-video-providers.js";
 
 const VALID_MODES: SceneBuildMode[] = ["agent", "batch", "auto"];
 const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
-const VALID_VIDEO_PROVIDERS: BuildVideoProvider[] = ["seedance", "grok", "kling", "runway", "veo"];
+const VALID_VIDEO_PROVIDERS: readonly BuildVideoProvider[] = BUILD_VIDEO_PROVIDERS;
 const VALID_MUSIC_PROVIDERS: BuildMusicProvider[] = ["elevenlabs", "replicate"];
 
 export const buildCommand = new Command("build")

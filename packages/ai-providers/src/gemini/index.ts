@@ -28,16 +28,17 @@ defineProvider({
   label: "Veo",
   apiKey: "google",
   kinds: ["video"],
-  resolverPriority: { video: 3 },
+  // No resolverPriority: the Veo 3.1 previews shut down on 2026-10-22, so
+  // Veo is explicit-only (`-p veo`) and Omni is the Google default.
   commandsUnlocked: ["generate video -p veo"],
 });
 
-// Gemini Omni — experimental preview video model on the same GOOGLE_API_KEY.
-// No resolverPriority: opt-in only (`-p omni`), never auto-selected as default.
+// Gemini Omni 1.1 Flash, the Google video default on the same GOOGLE_API_KEY.
 defineProvider({
   id: "omni",
-  label: "Gemini Omni (experimental)",
+  label: "Gemini Omni",
   apiKey: "google",
   kinds: ["video"],
+  resolverPriority: { video: 3 },
   commandsUnlocked: ["generate video -p omni"],
 });

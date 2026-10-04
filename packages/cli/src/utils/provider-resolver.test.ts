@@ -39,13 +39,13 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
     expect(getProvidersFor("video")).toEqual([
       { name: "seedance", envVar: "FAL_API_KEY", label: "Seedance 2.0" },
       { name: "grok", envVar: "XAI_API_KEY", label: "Grok" },
-      { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
+      { name: "omni", envVar: "GOOGLE_API_KEY", label: "Gemini Omni" },
       { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
       { name: "runway", envVar: "RUNWAY_API_SECRET", label: "Runway" },
-      // Gemini Omni (experimental) registers as a video provider but declares
-      // no resolverPriority, so it sorts last and is never auto-selected —
-      // opt-in via `-p omni` only. veo always wins GOOGLE_API_KEY resolution.
-      { name: "omni", envVar: "GOOGLE_API_KEY", label: "Gemini Omni (experimental)" },
+      // The Veo 3.1 previews shut down on 2026-10-22, so Veo declares no
+      // resolverPriority: it sorts last and is never auto-selected. Omni wins
+      // GOOGLE_API_KEY resolution; Veo is opt-in via `-p veo` only.
+      { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
     ]);
   });
 

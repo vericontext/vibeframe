@@ -279,7 +279,7 @@ Cost tier: _not tagged_
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
 - `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted.
-- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|veo
+- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni|veo
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ _(default: `"hd"`)_ - Image quality: standard|hd
 - `imageSize` _(string)_ _(default: `"1536x1024"`)_ - Image size: 1024x1024|1536x1024|1024x1536
@@ -406,7 +406,7 @@ Cost tier: _not tagged_
 - `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
-- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|veo
+- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni|veo
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ - Image quality: standard|hd
 - `imageSize` _(string)_ - Image size: 1024x1024|1536x1024|1024x1536
@@ -645,7 +645,7 @@ Cost tier: `very-high`
 **Parameters:**
 
 - `prompt` _(string)_ - Text prompt describing the video (interactive if omitted)
-- `provider` _(string)_ - Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, veo, omni (Gemini Omni, experimental). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
+- `provider` _(string)_ - Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
 - `apiKey` _(string)_ - API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `output` _(string)_ - Output file path (downloads video)
 - `image` _(string)_ - Reference image for image-to-video

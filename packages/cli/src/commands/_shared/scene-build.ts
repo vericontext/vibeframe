@@ -107,6 +107,11 @@ import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 import { writeImageFile } from "../../utils/image-file.js";
+import {
+  resolveBuildVideoProvider,
+  videoProviderConfigKey,
+  type BuildVideoProvider,
+} from "./build-video-providers.js";
 
 export { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 
@@ -219,7 +224,7 @@ export interface BeatBuildOutcome {
   musicDurationSec?: number;
 }
 
-export type BuildVideoProvider = "seedance" | "grok" | "kling" | "runway" | "veo";
+export type { BuildVideoProvider } from "./build-video-providers.js";
 export type BuildMusicProvider = "elevenlabs" | "replicate";
 
 /**
@@ -2917,21 +2922,6 @@ async function safeAudioDuration(absPath: string): Promise<number | undefined> {
   }
 }
 
-function resolveBuildVideoProvider(value: unknown): BuildVideoProvider {
-  const provider = String(value ?? "seedance").toLowerCase();
-  if (provider === "fal") return "seedance";
-  if (
-    provider === "seedance" ||
-    provider === "grok" ||
-    provider === "kling" ||
-    provider === "runway" ||
-    provider === "veo"
-  ) {
-    return provider;
-  }
-  return "seedance";
-}
-
 function resolveBuildMusicProvider(value: unknown): BuildMusicProvider {
   const provider = String(value ?? "elevenlabs").toLowerCase();
   return provider === "replicate" ? "replicate" : "elevenlabs";
@@ -2954,15 +2944,7 @@ async function apiKeyForVideoProvider(
   provider: BuildVideoProvider,
   projectDir: string
 ): Promise<string | undefined> {
-  const providerKey =
-    provider === "seedance"
-      ? "fal"
-      : provider === "grok"
-        ? "xai"
-        : provider === "veo"
-          ? "google"
-          : provider;
-  return getApiKeyFromConfig(providerKey, { cwd: projectDir });
+  return getApiKeyFromConfig(videoProviderConfigKey(provider), { cwd: projectDir });
 }
 
 async function finalizeBuildResult(

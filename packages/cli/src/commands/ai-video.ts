@@ -13,8 +13,8 @@
  * @see MODELS.md for AI model configuration
  */
 
-import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import {
   FalProvider,
   GeminiProvider,
@@ -28,6 +28,14 @@ import {
 import { resolveUploadHost } from "../utils/upload-host.js";
 import { downloadVideo } from "./ai-helpers.js";
 import { getConfiguredApiKey } from "../utils/api-key.js";
+
+/** Write a downloaded video to `output` (relative to cwd), creating its directory. */
+async function saveOutput(output: string, buffer: Buffer): Promise<string> {
+  const outputPath = resolve(process.cwd(), output);
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, buffer);
+  return outputPath;
+}
 
 // ============================================================================
 // Video Generation
@@ -166,8 +174,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
         const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -202,8 +209,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -252,8 +258,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -293,8 +298,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -328,8 +332,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -342,13 +345,14 @@ export async function executeVideoGenerate(
         provider: "grok",
       };
     } else if (provider === "omni") {
-      // EXPERIMENTAL — Gemini Omni preview (interactions endpoint), same GOOGLE_API_KEY.
+      // Gemini Omni 1.1 Flash (interactions endpoint), same GOOGLE_API_KEY.
       const omni = new OmniProvider();
       await omni.initialize({ apiKey: key });
       const result = await omni.generateVideo(prompt, {
         prompt,
         referenceImage,
         aspectRatio: ratio as "16:9" | "9:16" | "1:1",
+        resolution,
       });
       if (result.status !== "completed" || !result.videoUrl) {
         return { success: false, error: result.error || "Gemini Omni generation failed" };
@@ -356,8 +360,7 @@ export async function executeVideoGenerate(
       let outputPath: string | undefined;
       if (output) {
         const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
       return {
         success: true,
@@ -490,8 +493,7 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
         const buffer = await downloadVideo(result.videoUrl);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -521,8 +523,7 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
         const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -551,8 +552,7 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
         const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -582,8 +582,7 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
       let outputPath: string | undefined;
       if (output && result.videoUrl) {
         const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -705,8 +704,7 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {
@@ -742,8 +740,7 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       let outputPath: string | undefined;
       if (output && finalResult.videoUrl) {
         const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = resolve(process.cwd(), output);
-        await writeFile(outputPath, buffer);
+        outputPath = await saveOutput(output, buffer);
       }
 
       return {

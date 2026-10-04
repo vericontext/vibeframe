@@ -13,6 +13,7 @@ import {
 } from "../../commands/_shared/storyboard-edit.js";
 import { executeStoryboardRevision } from "../../commands/_shared/storyboard-revise.js";
 import { createBuildPlan } from "../../commands/_shared/build-plan.js";
+import { BUILD_VIDEO_PROVIDERS } from "../../commands/_shared/build-video-providers.js";
 
 const PROJECT_DIR_DESCRIPTION =
   "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
@@ -280,7 +281,7 @@ export const planTool = defineTool({
     imageQuality: z.enum(["standard", "hd"]).optional().describe("Image quality override."),
     imageSize: z.string().optional().describe("Image size override."),
     videoProvider: z
-      .enum(["seedance", "grok", "kling", "runway", "veo"])
+      .enum(BUILD_VIDEO_PROVIDERS)
       .optional()
       .describe("Video provider override."),
     musicProvider: z

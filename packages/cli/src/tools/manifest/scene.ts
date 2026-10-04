@@ -29,6 +29,7 @@ import {
 import { getComposePrompts } from "../../commands/_shared/compose-prompts.js";
 import { executeSceneRepair } from "../../commands/_shared/scene-repair.js";
 import { executeSceneSubmit } from "../../commands/_shared/scene-submit.js";
+import { BUILD_VIDEO_PROVIDERS } from "../../commands/_shared/build-video-providers.js";
 
 const SCENE_PRESETS = [
   "simple",
@@ -590,7 +591,7 @@ const sceneBuildSchema = z.object({
     .optional()
     .describe("Image provider for backdrops. Default 'openai' (gpt-image-2.5-sunburst)."),
   videoProvider: z
-    .enum(["seedance", "grok", "kling", "runway", "veo"])
+    .enum(BUILD_VIDEO_PROVIDERS)
     .optional()
     .describe("Video provider for per-beat video cues. Default seedance."),
   musicProvider: z

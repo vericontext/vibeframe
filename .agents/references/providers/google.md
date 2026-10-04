@@ -16,11 +16,10 @@ models_in_use:
   - gemini-2.5-flash-image      # explicit pass-through only; past its 2026-10-02 shutdown date
   - gemini-3.1-flash-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-3-pro-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
-  - veo-3.1-fast-generate-preview  # Veo default; shuts down 2026-10-22
-  - veo-3.1-generate-preview    # Veo `3.1`; shuts down 2026-10-22
-  - gemini-omni-flash-preview   # experimental `-p omni`; deprecated 2026-09-30
-models_recommended:
-  - gemini-omni-1.1-flash       # replaces the Veo 3.1 previews and gemini-omni-flash-preview
+  - gemini-omni-1.1-flash       # Google video default (`-p omni`, auto-resolved)
+  - veo-3.1-fast-generate-preview  # explicit `-p veo` only; shuts down 2026-10-22
+  - veo-3.1-generate-preview    # explicit `-p veo --veo-model 3.1`; shuts down 2026-10-22
+models_recommended: []
 ---
 
 # Google (Gemini API)
