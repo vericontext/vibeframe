@@ -319,7 +319,8 @@ program.addCommand(doctorCommand);
 program.addCommand(hostCommand);
 program.addCommand(demoCommand, { hidden: true });
 program.addCommand(runCommand);
-program.addCommand(agentCommand);
+// Deprecated, removed before 1.0: still runs, but no longer advertised.
+program.addCommand(agentCommand, { hidden: true });
 
 // Workflow commands
 //

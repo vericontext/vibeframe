@@ -18,7 +18,7 @@ results, dry-run/cost gates, `build-report.json`, `review-report.json`,
 | ------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------- |
 | MCP host (Claude Desktop / Cursor / OpenCode / Claude Code)         | `@vibeframe/mcp-server` _(this)_ | host calls tool by name, for example `mcp__vibeframe__build({...})`                     |
 | Shell / scripts (any agent host: Codex / Aider / Gemini CLI / etc.) | `@vibeframe/cli`                 | `vibe init my-video && vibe build my-video && vibe render my-video`                     |
-| Optional standalone agent REPL                                      | `@vibeframe/cli` (`vibe agent`)  | natural language -> CLI calls when you do not already use Claude Code/Codex/Cursor/etc. |
+| Standalone agent REPL (deprecated, removed before 1.0)              | `@vibeframe/cli` (`vibe agent`)  | use an MCP host or a coding agent instead                                               |
 
 Outer-loop stop rules should be explicit: final MP4 path exists, duration and
 aspect ratio match the brief, render inspection has no errors, any AI review score

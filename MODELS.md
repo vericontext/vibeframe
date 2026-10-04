@@ -107,7 +107,8 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 ## Agent LLM Providers (7)
 
-Used for natural language processing in Agent mode (`vibe agent`).
+Used by the built-in agent mode (`vibe agent`), which is deprecated and will be removed before 1.0.
+Let your coding agent or an MCP host drive vibe instead.
 
 | Provider | Model | API Model ID | Env Key | CLI Option |
 |----------|-------|-------------|---------|------------|

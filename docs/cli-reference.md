@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    46 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +36 more |
+| **Advanced** |    45 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +35 more |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                         |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
 
@@ -137,7 +137,7 @@ listed in their command sections for compatibility.
 | **Low**        |    19 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +11 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     8 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                              | $1–$5 per call                                                                                    |
 | **Very High**  |     3 | `generate.video` · `edit.fill-gaps` · `generate.video-extend`                                                                                                               | $5–$50+ per call                                                                                  |
-| **Not tagged** |    15 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +7 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
+| **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first - the response
 > includes a `costUsd` estimate when the command supports dry-run.
@@ -205,27 +205,6 @@ Rule 3.  Interactive diagnostics and local setup commands may remain
 ## Commands
 
 ### Top-level commands
-
-#### `vibe agent`
-
-Optional built-in natural-language agent (fallback when no external coding agent is driving vibe)
-
-Product surface: `advanced`
-Note: Optional fallback REPL; external coding agents are the primary workflow.
-
-Cost tier: _not tagged_
-
-**Parameters:**
-
-- `provider` _(string)_ _(openai \| claude \| gemini \| ollama \| xai \| openrouter \| evolink)_ _(default: `"openai"`)_ - LLM provider (openai, claude, gemini, ollama, xai, openrouter, evolink)
-- `model` _(string)_ - Model to use (provider-specific)
-- `project` _(string)_ - Timeline file or directory to load
-- `verbose` _(boolean)_ - Show verbose output including tool calls
-- `maxTurns` _(number)_ _(default: `10`)_ - Maximum turns per request
-- `input` _(string)_ - Run a single query and exit (non-interactive)
-- `confirm` _(boolean)_ - Confirm before every tool - broadens the default cost gate (paid only) to all calls
-- `noConfirm` _(boolean)_ - Disable all confirm prompts including the high/very-high cost gate (CI / automation)
-- `budgetUsd` _(number)_ - Reject tool calls past this cumulative USD ceiling using conservative tier estimates
 
 #### `vibe assemble`
 

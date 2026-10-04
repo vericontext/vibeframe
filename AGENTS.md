@@ -45,7 +45,8 @@ Canonical user-facing workflows:
 - Project video flow: `init`, `plan`, `build`, `preview`, `render` (edit beats
   with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
-- Automation: `run`, `agent`, `schema`, `context`, `guide`
+- Automation: `run`, `schema`, `context`, `guide` (`agent` is deprecated and
+  will be removed before 1.0; do not recommend it)
 - Setup & hosts: `setup`, `doctor`, `host`
 - Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
   `media`, `assemble`
