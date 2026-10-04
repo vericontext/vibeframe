@@ -25,8 +25,9 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   schema: { surface: "agent", note: "Machine-readable command discovery." },
   completion: { surface: "advanced", note: "Shell ergonomics helper." },
   agent: {
-    surface: "advanced",
-    note: "Optional fallback REPL; external coding agents are the primary workflow.",
+    surface: "legacy",
+    replacement: "a host agent (Claude Code, Codex, Cursor) or the MCP server via `vibe host setup`",
+    note: "Deprecated built-in REPL, removed before 1.0.",
   },
 
   "design.validate": { surface: "public", note: "Validate the DESIGN.md visual contract." },

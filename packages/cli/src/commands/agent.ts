@@ -80,10 +80,21 @@ async function promptConfirm(
 }
 
 /**
+ * `vibe agent` is deprecated: the host's agent loop (Claude Code, Codex,
+ * Cursor, or an MCP app host) is the outer loop, and a second built-in loop
+ * competes with it. Printed to stderr so `--input` stdout stays clean.
+ */
+export const AGENT_DEPRECATION_NOTICE =
+  "`vibe agent` is deprecated and will be removed before 1.0. " +
+  "Drive vibe from Claude Code, Codex, or Cursor, or connect the MCP server to Claude Desktop or ChatGPT (`vibe host setup`).";
+
+/**
  * Start the AI agent
  * @param options - Agent options
  */
 export async function startAgent(options: StartAgentOptions = {}): Promise<void> {
+  console.error(chalk.yellow(`Deprecated: ${AGENT_DEPRECATION_NOTICE}`));
+
   const isNonInteractive = !!options.input;
   const confirmAlways = options.confirm || false;
   const noConfirm = options.noConfirm || false;
@@ -362,7 +373,7 @@ export async function startAgent(options: StartAgentOptions = {}): Promise<void>
 }
 
 export const agentCommand = new Command("agent")
-  .description("Optional built-in natural-language agent (fallback when no external coding agent is driving vibe)")
+  .description("[Deprecated, removed before 1.0] Built-in natural-language agent. Use a host agent or the MCP server instead")
   .option("-p, --provider <provider>", "LLM provider (openai, claude, gemini, ollama, xai, openrouter, evolink)", "openai")
   .option("-m, --model <model>", "Model to use (provider-specific)")
   .option("--project <path>", "Timeline file or directory to load")

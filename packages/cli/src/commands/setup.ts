@@ -1205,7 +1205,7 @@ async function runCustomSetup(
 ): Promise<void> {
   // LLM Provider selection (for optional built-in agent mode)
   console.log(
-    chalk.bold("1. LLM Provider") + chalk.dim(" (optional built-in vibe agent / fallback)")
+    chalk.bold("1. LLM Provider") + chalk.dim(" (only for the deprecated vibe agent)")
   );
   console.log(
     chalk.dim(

@@ -283,8 +283,9 @@ they want for a given task. This guide is the operator-facing summary.
 
 If you already use Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode,
 or another coding agent, let that host drive \`vibe\` directly through shell
-commands plus \`AGENTS.md\` / \`CLAUDE.md\`. \`vibe agent\` is the optional
-built-in fallback when you do not already have an agent host.
+commands plus \`AGENTS.md\` / \`CLAUDE.md\`. Without a coding agent, connect
+the MCP server to Claude Desktop or ChatGPT (\`vibe host setup\`).
+\`vibe agent\` is deprecated and will be removed before 1.0.
 
 ## TL;DR
 
@@ -295,12 +296,12 @@ built-in fallback when you do not already have an agent host.
 | **Reproducibility** | none | high (idempotent) | highest (checkpointed) |
 | **Budget caps** | per-session max-turns | none | \`--budget-usd\`, \`--budget-tokens\`, \`--max-errors\` |
 | **Resume after crash** | no | re-invoke | \`--resume\` |
-| **Best for** | optional built-in exploration | finished script | repeatable workflows |
+| **Best for** | deprecated; use a host agent | finished script | repeatable workflows |
 
 ## Decision tree
 
 - "I am already in Claude Code/Codex/Cursor/etc." → regular \`vibe\` shell commands + \`vibe guide\` / \`vibe schema\`
-- "I want to play and do not have an external coding agent" → \`vibe agent\`
+- "I do not use a coding agent" → the MCP server in Claude Desktop or ChatGPT (\`vibe host setup\`)
 - "I have a finished script + visual identity" → \`vibe build\`
 - "I want this to run again next month" → \`vibe run\`
 
@@ -326,9 +327,6 @@ agent calls them through a tool manifest; \`build\` calls a curated subset
 - \`vibe build\` is conceptually a 4-step pipeline; \`vibe run\` could express
   the same flow but build's STORYBOARD.md input + opinionated defaults are
   the value-add.
-- \`vibe agent\`'s tool registry currently exposes primitives, not
-  orchestrators. Adding \`vibe.build\` / \`vibe.run\` as agent tools is on the
-  table for a future major.
 - \`vibe run --resume\` has no analog in build/agent; build's idempotent
   re-invoke covers the common case.
 `;
@@ -437,17 +435,17 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
   },
   architecture: {
     title: "external agents / vibe agent / build / run",
-    summary: "Choose between host-agent shell use, optional built-in agent mode, storyboard builds, and YAML pipelines",
+    summary: "Choose between host-agent shell use, MCP hosts, storyboard builds, and YAML pipelines",
     steps: [
       "If you are already in Claude Code/Codex/Cursor/etc., let that host drive normal `vibe` shell commands using `AGENTS.md`, `vibe guide`, and `vibe schema`.",
-      "Pick `vibe agent` only for optional built-in exploration when no external agent host is driving the CLI.",
+      "Without a coding agent, connect the MCP server to Claude Desktop or ChatGPT with `vibe host setup`; `vibe agent` is deprecated.",
       "Pick build for STORYBOARD.md → MP4 with opinionated defaults.",
       "Pick run for repeatable, budget-capped, checkpointed YAML pipelines.",
       "Run `vibe doctor --test-keys` before any high-cost orchestrator to validate keys upfront.",
       "Use `vibe schema --list` (cost field, v0.84) to plan the budget per step before kicking off `vibe run --budget-usd`.",
     ],
     relatedCommands: [
-      "vibe agent",
+      "vibe host setup",
       "vibe build",
       "vibe run",
       "vibe doctor",

@@ -40,11 +40,15 @@ describe("vibe completion zsh", () => {
     for (const cmd of [
       "generate", "edit", "inspect", "audio", "remix",
       "setup", "init", "build", "render", "doctor", "demo",
-      "run", "agent", "detect", "batch",
+      "run", "detect", "batch",
       "schema", "context", "guide", "completion",
     ]) {
       expect(out).toContain(`'${cmd}:`);
     }
+  });
+
+  it("leaves out deprecated commands", () => {
+    expect(out).not.toContain("'agent:");
   });
 
   it("annotates paid commands with their cost tier", () => {
