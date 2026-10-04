@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1",
+  "id": "job_mutl0mdg_ceac5dfe",
+  "jobType": "generate-video",
+  "status": "running",
+  "createdAt": "2026-10-04T08:51:40.228Z",
+  "updatedAt": "2026-10-04T08:51:40.228Z",
+  "projectDir": "/Users/kiyeonjeon21/dev/orgs/vericontext/vibeframe",
+  "workingDirectory": "/Users/kiyeonjeon21/dev/orgs/vericontext/vibeframe",
+  "command": "generate video --no-wait",
+  "provider": "runway",
+  "providerTaskId": "49a72dce-6dc5-42f5-98c9-978b52904e34",
+  "providerTaskType": "text2video",
+  "promptPreview": "A paper boat drifting on a calm pond",
+  "retryWith": [
+    "vibe status job job_mutl0mdg_ceac5dfe --project /Users/kiyeonjeon21/dev/orgs/vericontext/vibeframe --json",
+    "vibe generate video-status 49a72dce-6dc5-42f5-98c9-978b52904e34 -p runway --json"
+  ]
+}
