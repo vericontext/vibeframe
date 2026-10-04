@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.4] - 2026-10-04
+
+### Added
+
+- add a model catalog as the single source of model facts (#343)
+
+### Fixed
+
+- report an image cost estimate instead of zero (#341)
+- expire uploaded images and keep S3 uploads private (#340)
+- handle queued, cancelled, and square Runway tasks correctly (#339)
+- stop the Remotion pre-check from failing on every fresh machine (#338)
+
+### Maintenance
+
+- deprecate vibe agent ahead of its removal before 1.0 (#344)
+
+### Testing
+
+- add a fake provider network and split integration tests (#342)
+
 ## [0.115.3] - 2026-10-04
 
 ### Added
