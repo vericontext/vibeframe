@@ -7,6 +7,7 @@
 
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
+import { defaultModel } from "../catalog/catalog.js";
 
 /**
  * Generate a storyboard from script content using OpenAI GPT-5.4 mini.
@@ -38,7 +39,7 @@ export async function analyzeContent(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-5.4-mini",
+        model: defaultModel("openai", "llm").id,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: buildStoryboardUserMessage(content) },

@@ -48,6 +48,8 @@
     "agent-sync:check": "tsx scripts/sync-agent-hosts.mts --check",
     "gen:reference": "tsx scripts/gen-cli-reference.mts",
     "gen:reference:check": "tsx scripts/gen-cli-reference.mts --check",
+    "gen:models": "tsx scripts/gen-models.mts",
+    "gen:models:check": "tsx scripts/gen-models.mts --check",
     "providers:check": "tsx scripts/check-provider-models.mts",
     "hooks:install": "git config core.hooksPath .githooks",
     "package:check": "tsx scripts/package-smoke.mts"

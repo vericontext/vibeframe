@@ -3,6 +3,7 @@ import type {
   AICapability,
   ProviderConfig,
 } from "../interface/types.js";
+import { defaultModel } from "../catalog/catalog.js";
 
 /**
  * Voice clone options
@@ -202,7 +203,7 @@ const TTS_429_RETRY_DELAY_MS = 2000;
  * Music model. music_v2_5 (2026-09-14) is ElevenLabs' current best; it
  * returns 48 kHz / 192 kbps MP3 by default where music_v1 returned 44.1 kHz.
  */
-export const ELEVENLABS_MUSIC_MODEL = "music_v2_5";
+export const ELEVENLABS_MUSIC_MODEL = defaultModel("elevenlabs", "music").id;
 
 /**
  * ElevenLabs provider for text-to-speech

@@ -127,7 +127,12 @@ gated_check "docs/cli-reference.md is stale" \
   "pnpm -F @vibeframe/cli build && pnpm gen:reference" \
   pnpm gen:reference:check
 
-# 12. Package export/package smoke.
+# 12. MODELS.md catalog section sync.
+gated_check "MODELS.md catalog section is stale" \
+  "pnpm gen:models" \
+  pnpm gen:models:check
+
+# 13. Package export/package smoke.
 gated_check "Package smoke" "pnpm build && pnpm package:check" pnpm package:check
 
 if [ ${#WARNINGS[@]} -gt 0 ]; then

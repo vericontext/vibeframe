@@ -71,7 +71,7 @@ try {
 let aiProviders = 14;
 try {
   const entries = fs.readdirSync(aiProvidersDir, { withFileTypes: true });
-  aiProviders = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "interface").length || 14;
+  aiProviders = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "interface" && e.name !== "catalog").length || 14;
 } catch {
   // Fallback
 }

@@ -4,7 +4,7 @@
  * Extracted methods: generateMotion, refineMotion
  */
 
-import { GEMINI_DEFAULT_TEXT_MODEL, resolveGeminiTextModel } from "./gemini-models.js";
+import { GEMINI_TEXT_MODEL_ALIASES, resolveGeminiTextModel } from "./gemini-models.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,20 +51,8 @@ export interface GeminiMotionResult {
   error?: string;
 }
 
-/** Supported model aliases for motion graphic generation */
-export const GEMINI_MOTION_MODELS = {
-  gemini: GEMINI_DEFAULT_TEXT_MODEL,
-  flash: GEMINI_DEFAULT_TEXT_MODEL,
-  latest: GEMINI_DEFAULT_TEXT_MODEL,
-  "flash-3.8": GEMINI_DEFAULT_TEXT_MODEL,
-  "flash-3.5": "gemini-3.5-flash",
-  "flash-3": "gemini-3-flash-preview",
-  "flash-2.5": "gemini-2.5-flash",
-  pro: "gemini-3.1-pro-preview",
-  "2.5-pro": "gemini-2.5-pro",
-  "3.1-pro": "gemini-3.1-pro-preview",
-  "pro-3.1": "gemini-3.1-pro-preview",
-} as const;
+/** Supported model aliases for motion graphic generation (same as the text aliases). */
+export const GEMINI_MOTION_MODELS = GEMINI_TEXT_MODEL_ALIASES;
 
 // ---------------------------------------------------------------------------
 // Internal helpers

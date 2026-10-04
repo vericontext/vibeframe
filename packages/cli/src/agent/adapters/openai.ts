@@ -11,11 +11,12 @@ import type {
   ToolCall,
   LLMProvider,
 } from "../types.js";
+import { defaultModel } from "@vibeframe/ai-providers";
 
 export class OpenAIAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "openai";
   private client: OpenAI | null = null;
-  private model: string = "gpt-5.4-mini";
+  private model: string = defaultModel("openai", "llm").id;
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new OpenAI({ apiKey });

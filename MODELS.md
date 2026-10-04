@@ -1,6 +1,107 @@
 # AI Provider Models
 
-> Single source of truth for AI model information used across VibeFrame.
+Which models VibeFrame calls, how to pick one, and the provider behaviour worth knowing.
+The model list itself is generated from the model catalog (`packages/ai-providers/src/catalog/catalog.ts`), which the CLI also reads for aliases, defaults, and cost estimates.
+
+## Model catalog
+
+<!-- BEGIN GENERATED: model catalog (pnpm gen:models) -->
+
+Generated from the model catalog; edit `packages/ai-providers/src/catalog/catalog.ts`, then run `pnpm gen:models`.
+Prices are upper-bound list prices for estimates, not metered billing.
+
+### LLMs
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| claude | **Claude Sonnet 5.5** (default) | `claude-sonnet-5-5` | `sonnet` | GA | $2 / 1M input tokens | Agent, storyboard, translate-srt, motion default |
+| claude | Claude Opus 5.5 | `claude-opus-5-5` | `opus` | GA | $4 / 1M input tokens |  |
+| claude | Claude Opus 4.6 | `claude-opus-4-6` | `opus-4-6` | Legacy | $5 / 1M input tokens |  |
+| openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 / 1M input tokens | Agent and storyboard default (tools on Chat Completions) |
+| gemini | **Gemini 3.8 Flash** (default) | `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8`, `gemini` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
+| gemini | Gemini 3.5 Flash | `gemini-3.5-flash` | `flash-3.5` | GA |  |  |
+| gemini | Gemini 3 Flash (preview) | `gemini-3-flash-preview` | `flash-3` | Preview |  |  |
+| gemini | Gemini 3.1 Pro (preview) | `gemini-3.1-pro-preview` | `pro`, `pro-3.1`, `3.1-pro`, `gemini-3.1-pro` | Preview |  |  |
+| gemini | Gemini 2.5 Flash | `gemini-2.5-flash` | `flash-2.5` | Legacy |  | New projects cannot use 2.5 models since 2026-09-18 |
+| gemini | Gemini 2.5 Pro | `gemini-2.5-pro` | `pro-2.5`, `2.5-pro` | Legacy |  |  |
+| grok | **Grok 4.3** (default) | `grok-4.3` |  | GA | $1.25 / 1M input tokens |  |
+| grok | Grok 4.7 | `grok-4.7` |  | GA | $2 / 1M input tokens |  |
+
+### Image
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| openai | **GPT Image 2.5 Sunburst** (default) | `gpt-image-2.5-sunburst` | `2.5`, `sunburst` | GA | $0.211 / image (high, 1024x1024) |  |
+| openai | GPT Image 2.5 Flare | `gpt-image-2.5-flare` | `flare`, `2.5-flare` | GA | $0.211 / image (high, 1024x1024) |  |
+| openai | GPT Image 2 | `gpt-image-2` | `2` | GA | $0.211 / image (high, 1024x1024) |  |
+| openai | GPT Image 1.5 | `gpt-image-1.5` | `1.5` | Deprecated, shuts down 2026-12-01 | $0.133 / image (high, 1024x1024) |  |
+| gemini | **Nano Banana 2** (default) | `gemini-3.1-flash-image` | `flash`, `3.1-flash`, `latest` | GA | $0.067 / image (1K) |  |
+| gemini | Nano Banana 2 Lite | `gemini-3.1-flash-lite-image` | `lite` | GA | $0.034 / image (1K) |  |
+| gemini | Nano Banana Pro | `gemini-3-pro-image` | `pro` | GA | $0.134 / image (1K-2K) |  |
+| gemini | Nano Banana (2.5 Flash Image) | `gemini-2.5-flash-image` |  | Deprecated, shuts down 2026-10-02 |  |  |
+| gemini | Nano Banana 2 (preview) | `gemini-3.1-flash-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
+| gemini | Nano Banana Pro (preview) | `gemini-3-pro-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
+| grok | **Grok Imagine Image** (default) | `grok-imagine-image` |  | GA | $0.02 / image |  |
+| grok | Grok Imagine Image 2.0 | `grok-imagine-image-2.0` | `pro`, `2.0`, `quality` | GA | $0.08 / image (medium, 2K) |  |
+
+### Video
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| seedance | **Seedance 2.0** (default) | `seedance-2.0` | `quality`, `2.0` | GA | $0.3024 / second (720p 16:9) | 4-15 s, native audio |
+| seedance | Seedance 2.0 Fast | `seedance-2.0-fast` | `fast` | GA | $0.2419 / second (720p 16:9) | 4-15 s, up to 720p, native audio |
+| seedance | Seedance 2.5 | `seedance-2.5` | `2.5` | GA | $0.473 / second (720p 16:9) | Opt-in; 4-30 s, native audio |
+| omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $0.1 / second (720p) | Google video default; the model picks 3-10 s; native audio |
+| veo | Veo 3.1 | `veo-3.1-generate-preview` | `3.1` | Deprecated, shuts down 2026-10-22 | $0.4 / second (720p/1080p) | 4-8 s, native audio; explicit `-p veo` only |
+| veo | **Veo 3.1 Fast** (default) | `veo-3.1-fast-generate-preview` | `3.1-fast` | Deprecated, shuts down 2026-10-22 | $0.1 / second (720p) | 4-8 s, native audio; explicit `-p veo` only |
+| grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
+| grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
+| grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation |
+| kling | **Kling v3** (default) | `kling-v3` | `v3` | GA | $0.084 / second (std, silent) | 3-15 s, multi-shot; `std` 720p, `pro` 1080p |
+| kling | Kling v2.6 | `kling-v2-6` | `v2.6` | GA | $0.042 / second (std 720p) | 5 or 10 s |
+| kling | Kling v2.5 Turbo | `kling-v2-5-turbo` | `v2.5-turbo`, `v2.5` | GA | $0.042 / second (std) | 5 or 10 s, no audio |
+| runway | **Runway Gen-4.5** (default) | `gen4.5` |  | GA | $0.12 / second | 2-10 s, no audio |
+| runway | Runway Gen-4 Turbo | `gen4_turbo` |  | GA | $0.05 / second | Image-to-video only, no audio |
+
+### Speech
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| elevenlabs | **ElevenLabs v3** (default) | `eleven_v3` |  | GA | $0.08 / 1K characters |  |
+| openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06 |  |  |
+
+### Music
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| elevenlabs | **ElevenLabs Music v2.5** (default) | `music_v2_5` |  | GA | $0.15 / minute |  |
+
+### Sound effects
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| elevenlabs | **ElevenLabs Sound Effects v2** (default) | `eleven_text_to_sound_v2` |  | GA | $0.12 / minute | 0.5-30 s |
+
+### Transcription
+
+| Provider | Model | ID | Aliases | Status | Price | Notes |
+|---|---|---|---|---|---|---|
+| openai | **Whisper** (default) | `whisper-1` |  | Deprecated, shuts down 2027-02-26 |  | Only OpenAI model with word timestamps |
+
+<!-- END GENERATED: model catalog -->
+
+### Choosing a model
+
+| Command | Flag | Values |
+|---|---|---|
+| `vibe agent -p claude\|openai\|gemini\|xai` | `--model` | Any model ID; default is the provider's catalog default |
+| `vibe generate motion` | `-m` | Claude aliases (`sonnet` default, `opus`, `opus-4-6`) or Gemini aliases (`gemini`, `gemini-3.1-pro`, `gemini-2.5-pro`) |
+| `vibe generate image -p openai\|gemini\|grok`, `vibe edit image` | `-m` | The image aliases above |
+| `vibe generate video -p seedance` | `--seedance-model` | `quality` (default), `fast`, `2.5` |
+| `vibe generate video -p grok` | `--grok-model` | `1.5` (default), `lite`, `classic` |
+| `vibe generate video -p kling` | `--kling-model` | `v3` (default), `v2.6`, `v2.5-turbo` |
+| `vibe generate video -p veo` | `--veo-model` | `3.1-fast` (default), `3.1` |
+| `vibe generate video -p runway` | `--runway-model` | `gen4.5` (default), `gen4_turbo` |
 
 ---
 
@@ -21,35 +122,9 @@ Used for natural language processing in Agent mode (`vibe agent`).
 Override the model per session with `vibe agent -p <provider> --model <id>`.
 Claude and Gemini replay their own assistant content (thinking blocks, thought signatures) between tool turns, which current models require.
 
-**OpenAI model options:**
-
-| Model ID | Variant | Notes |
-|----------|---------|-------|
-| `gpt-5.4-mini` | GPT-5.4 mini | **Default**. Function calling on Chat Completions. $0.75/M input, $4.50/M output |
-| `gpt-6-luna` | GPT-6 Luna | Cheapest GPT-6. On Chat Completions it calls tools only with `reasoning_effort: "none"`; not yet supported by the agent adapter |
-| `gpt-5-mini` | GPT-5 mini (legacy) | Shuts down 2026-12-11 |
-
-> `gpt-6-astra` and `gpt-6.1-sol` reject tool calls on Chat Completions (Responses API only), so they cannot drive Agent mode.
-
-**Claude model options:**
-
-| Model ID | Variant | Notes |
-|----------|---------|-------|
-| `claude-sonnet-5-5` | Sonnet 5.5 | **Default**. $2/M input, $10/M output, 1M context |
-| `claude-opus-5-5` | Opus 5.5 | Highest capability in the 5.5 tier. $4/M input, $20/M output |
-| `claude-fable-5-1` | Fable 5.1 | Long-horizon agentic work. $10/M input, $50/M output |
-| `claude-sonnet-4-6` | Sonnet 4.6 (legacy) | $3/M input, $15/M output. Still supported |
-
-Claude Opus 4.7 and every 5.x model reject `temperature`, `top_p`, and `top_k`; VibeFrame never sends them.
-
-**xAI model options:**
-
-| Model ID | Variant | Notes |
-|----------|---------|-------|
-| `grok-4.3` | Grok 4.3 | **Default**. 1M context. $1.25/M input, $2.50/M output |
-| `grok-4.7` | Grok 4.7 | Flagship. $2/M input, $6/M output |
-
-> `grok-4-1-fast-reasoning` was retired on 2026-05-15; xAI now silently serves `grok-4.3` for it.
+Claude Opus 4.7 and every 5.x model reject `temperature`, `top_p`, and `top_k`, and Gemini 3.x deprecates them; VibeFrame never sends them.
+GPT-6 Astra and 6.1 Sol reject tool calls on Chat Completions (Responses API only), so they cannot drive Agent mode yet.
+`grok-4-1-fast-reasoning` was retired on 2026-05-15; xAI silently serves `grok-4.3` for it.
 
 **OpenRouter model options:**
 
@@ -80,53 +155,18 @@ To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonn
 
 > See [docs.evolink.ai](https://docs.evolink.ai/llms.txt) for the full model catalog.
 
-**Gemini model options:**
-
-`flash` / `latest` and Agent mode both resolve to `gemini-3.8-flash`.
-One-shot calls (media analysis, render review, storyboard, silence-cut analysis, composition) use the same default.
-
-| Model ID | Alias | Notes |
-|----------|-------|-------|
-| `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8` | **Default**. $0.75/M input, $3.75/M output until 2026-12-31, then $1.50/$7.50 |
-| `gemini-3.5-flash` | `flash-3.5` | Previous default |
-| `gemini-3.1-pro-preview` | `pro`, `pro-3.1` | Preview; strongest reasoning |
-| `gemini-2.5-flash` | `flash-2.5` | Legacy; new projects cannot use 2.5 models since 2026-09-18 |
-| `gemini-2.5-pro` | `pro-2.5` | Legacy; same restriction |
-
-Gemini 3.x deprecates `temperature`, `top_p`, and `top_k`; VibeFrame no longer sends them.
-
 ---
 
 ## Motion Graphics LLM (vibe generate motion)
 
-Used for Remotion component code generation (`vibe generate motion`).
-
-| Alias | Model | Provider | Env Key | CLI Option | Notes |
-|-------|-------|----------|---------|------------|-------|
-| `sonnet` | `claude-sonnet-5-5` | Claude | `ANTHROPIC_API_KEY` | `-m sonnet` | **Default** |
-| `opus` | `claude-opus-5-5` | Claude | `ANTHROPIC_API_KEY` | `-m opus` | Best quality |
-| `opus-4-6` | `claude-opus-4-6` | Claude | `ANTHROPIC_API_KEY` | `-m opus-4-6` | Previous Opus tier (legacy) |
-| `gemini` | `gemini-3.8-flash` | Gemini | `GOOGLE_API_KEY` | `-m gemini` | Gemini default |
-| `gemini-2.5-pro` | `gemini-2.5-pro` | Gemini | `GOOGLE_API_KEY` | `-m gemini-2.5-pro` | Legacy; restricted for new projects |
-| `gemini-3.1-pro` | `gemini-3.1-pro-preview` | Gemini | `GOOGLE_API_KEY` | `-m gemini-3.1-pro` | Gemini 3.1 Pro |
-
+Remotion component code generation takes a Claude or Gemini alias with `-m` (see "Choosing a model").
 Claude motion replies use structured outputs, so the generated component code always arrives as valid JSON.
 
 ---
 
-## Text-to-Image (3 providers, 9 models)
+## Text-to-Image (3 providers)
 
-| Provider | Model | Env Key | CLI Option | Notes |
-|----------|-------|---------|------------|-------|
-| OpenAI | `gpt-image-2.5-sunburst` | `OPENAI_API_KEY` | `-p openai` | **Default**. OpenAI's most capable image model (2026-09-08); high quality about $0.21 per 1024x1024 image |
-| OpenAI | `gpt-image-2.5-flare` | `OPENAI_API_KEY` | `-p openai -m flare` | Fast, high-quality everyday tier |
-| OpenAI | `gpt-image-2` | `OPENAI_API_KEY` | `-p openai -m 2` | Previous default |
-| OpenAI | `gpt-image-1.5` | `OPENAI_API_KEY` | `-p openai -m 1.5` | Shuts down 2026-12-01 |
-| Gemini | `gemini-3.1-flash-image` | `GOOGLE_API_KEY` | `-p gemini` | Nano Banana 2 (GA). `flash`, `latest`, and `3.1-flash` all resolve here. About $0.067 at 1K |
-| Gemini | `gemini-3.1-flash-lite-image` | `GOOGLE_API_KEY` | `-p gemini -m lite` | Nano Banana 2 Lite, about $0.034 at 1K |
-| Gemini | `gemini-3-pro-image` | `GOOGLE_API_KEY` | `-p gemini -m pro` | Nano Banana Pro (GA), up to 4K |
-| xAI Grok | `grok-imagine-image` | `XAI_API_KEY` | `-p grok` | $0.02/image |
-| xAI Grok | `grok-imagine-image-2.0` | `XAI_API_KEY` | `-p grok -m pro` | Medium quality, $0.06-0.08/image |
+Models, aliases, and prices are in the catalog above; `-p openai|gemini|grok` picks the provider.
 
 Images are saved in the format the output file name asks for: when a provider returns JPEG for a `.png` path, VibeFrame converts it with FFmpeg.
 `gemini-2.5-flash-image` and the `-preview` Nano Banana IDs are past their shutdown dates; pass them explicitly only if you must.
@@ -154,22 +194,8 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 > Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate speech` / `vibe generate sound-effect`.
 
-| Provider | Model | Duration | Audio | Env Key | CLI Option | Notes |
-|----------|-------|----------|-------|---------|------------|-------|
-| Seedance via fal.ai | `seedance-2.0` (ByteDance) | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance` | ByteDance Seedance through fal.ai |
-| Seedance via fal.ai | `seedance-2.0-fast` | 4-15 sec | Yes | `FAL_API_KEY` | `-p seedance --seedance-model fast` | Lower-latency / lower-cost variant of Seedance 2.0 |
-| Seedance via fal.ai | `seedance-2.5` | 4-30 sec | Yes | `FAL_API_KEY` | `-p seedance --seedance-model 2.5` | Opt-in. Longer clips; about 1.5x the 2.0 price at 720p ($0.47/s) |
-| xAI Grok | `grok-imagine-video-1.5` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok` | Default Grok model, rendered at 720p unless `--resolution` says otherwise. About $0.14/s at 720p |
-| xAI Grok | `grok-imagine-video-1.5-lite` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok --grok-model lite` | Budget tier, about $0.03/s at 720p |
-| xAI Grok | `grok-imagine-video` | 1-15 sec | Yes | `XAI_API_KEY` | `-p grok --grok-model classic` | Previous generation |
-| Kling | `kling-v3` | 3-15 sec | Optional | `KLING_API_KEY` | `-p kling` | Default. Multi-shot; `std` 720p, `pro` 1080p |
-| Kling | `kling-v2-6` | 5 or 10 sec | Optional (pro) | `KLING_API_KEY` | `-p kling --kling-model v2.6` | |
-| Kling | `kling-v2-5-turbo` | 5 or 10 sec | No | `KLING_API_KEY` | `-p kling --kling-model v2.5-turbo` | Cheapest Kling |
-| Gemini Omni | `gemini-omni-1.1-flash` | 3-10 sec (model picks) | Yes | `GOOGLE_API_KEY` | `-p omni` | Google default (GA 2026-08-27). 360p/720p native, 1080p/4K upscaled; about $0.10/s at 720p |
-| Veo | `veo-3.1-fast-generate-preview` | 4-8 sec | Yes | `GOOGLE_API_KEY` | `-p veo` | **Shuts down 2026-10-22**; explicit only |
-| Veo | `veo-3.1-generate-preview` | 4-8 sec | Yes | `GOOGLE_API_KEY` | `-p veo --veo-model 3.1` | **Shuts down 2026-10-22**; explicit only |
-| Runway | `gen4.5` | 2-10 sec | No | `RUNWAY_API_SECRET` | `-p runway` | Flagship, text+image-to-video (12 credits/sec) |
-| Runway | `gen4_turbo` | 5-10 sec | No | `RUNWAY_API_SECRET` | `-p runway --runway-model gen4_turbo` | Legacy, **image-to-video only** |
+Models, durations, and prices are in the catalog above.
+Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`, Omni and Veo `GOOGLE_API_KEY`, Runway `RUNWAY_API_SECRET`.
 
 > `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed at the 1.0 cut. Use `-p seedance` in new scripts.
 
@@ -177,7 +203,7 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 > This is ByteDance's platform-wide likeness policy, not a fal.ai quirk: the
 > API returns a deterministic HTTP 422 ("The images or videos provided may
 > contain likenesses of real people") for keyframes where a person's face is
-> clearly visible — including AI-generated photoreal faces. Hands-only or
+> clearly visible - including AI-generated photoreal faces. Hands-only or
 > back-of-head shots pass. Retrying does not help. `vibe build` falls back to
 > Runway automatically for such beats when `RUNWAY_API_SECRET` is configured;
 > you can also pin a beat with a `provider: runway` cue, or run

@@ -7,6 +7,7 @@ import type {
   MediaReference,
   VideoResult,
 } from "../interface/types.js";
+import { findModel, modelAliases } from "../catalog/catalog.js";
 
 /**
  * fal.ai endpoints for ByteDance Seedance 2.0.
@@ -59,18 +60,9 @@ const MAX_DURATION_SEC: Record<SeedanceVariant, number> = {
  * (30 s clips, about 1.5x the 2.0 price at 720p). Unknown aliases throw.
  */
 export function resolveSeedanceVariant(alias?: string): SeedanceVariant {
-  const key = (alias ?? "quality").trim().toLowerCase();
-  const aliases: Record<string, SeedanceVariant> = {
-    quality: "seedance-2.0",
-    "2.0": "seedance-2.0",
-    "seedance-2.0": "seedance-2.0",
-    fast: "seedance-2.0-fast",
-    "seedance-2.0-fast": "seedance-2.0-fast",
-    "2.5": "seedance-2.5",
-    "seedance-2.5": "seedance-2.5",
-  };
-  if (Object.hasOwn(aliases, key)) return aliases[key];
-  throw new Error(`Unknown Seedance model "${alias}". Valid: quality, fast, 2.5.`);
+  const model = findModel("seedance", "video", alias);
+  if (model) return model.id as SeedanceVariant;
+  throw new Error(`Unknown Seedance model "${alias}". Valid: ${modelAliases("seedance", "video").join(", ")}.`);
 }
 
 /** Resolutions Seedance 2.0 accepts. The API rejects everything else. */

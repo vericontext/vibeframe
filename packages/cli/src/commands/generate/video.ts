@@ -255,6 +255,17 @@ Examples:
           options.ratio = "16:9";
         }
 
+        // Reject unknown model aliases before any dry run or spend, so agents
+        // learn about a typo from the dry run instead of the real call.
+        try {
+          if (provider === "seedance" || provider === "fal") resolveSeedanceVariant(options.seedanceModel);
+          if (provider === "grok") resolveGrokVideoModel(options.grokModel);
+          if (provider === "kling") resolveKlingModel(options.klingModel);
+          if (provider === "veo") resolveVeoModel(options.veoModel);
+        } catch (err) {
+          exitWithError(usageError(err instanceof Error ? err.message : String(err)));
+        }
+
         if (options.dryRun) {
           // For Seedance, replace the flat cost-tier upper bound with a
           // token-accurate estimate so agents can gate spend precisely. Other

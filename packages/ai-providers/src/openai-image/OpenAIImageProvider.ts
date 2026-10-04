@@ -3,6 +3,7 @@ import type {
   AICapability,
   ProviderConfig,
 } from "../interface/types.js";
+import { defaultModel } from "../catalog/catalog.js";
 
 /**
  * GPT Image model types
@@ -73,7 +74,7 @@ export interface ImageEditOptions {
 }
 
 /** Default text-to-image model. */
-export const OPENAI_IMAGE_DEFAULT_MODEL: GPTImageModel = "gpt-image-2.5-sunburst";
+export const OPENAI_IMAGE_DEFAULT_MODEL = defaultModel("openai", "image").id as GPTImageModel;
 const DEFAULT_MODEL = OPENAI_IMAGE_DEFAULT_MODEL;
 
 /**

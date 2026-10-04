@@ -38,6 +38,7 @@ import {
   analyzeFrameForReframe,
   generateNarrationScript,
 } from "./claude-visual-fx.js";
+import { defaultModel, listModels } from "../catalog/catalog.js";
 
 /**
  * Motion graphic generation options
@@ -131,14 +132,12 @@ export class ClaudeProvider implements AIProvider {
 
   private apiKey?: string;
   private baseUrl = "https://api.anthropic.com/v1";
-  private model = "claude-sonnet-5-5";
+  private model = defaultModel("claude", "llm").id;
 
-  /** Supported model aliases for motion graphic generation */
-  static readonly MOTION_MODELS = {
-    sonnet: "claude-sonnet-5-5",
-    opus: "claude-opus-5-5",
-    "opus-4-6": "claude-opus-4-6",
-  } as const;
+  /** Supported model aliases for motion graphic generation (from the model catalog). */
+  static readonly MOTION_MODELS: Readonly<Record<string, string>> = Object.fromEntries(
+    listModels({ provider: "claude", kind: "llm" }).flatMap((m) => (m.aliases ?? []).map((a) => [a, m.id]))
+  );
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;

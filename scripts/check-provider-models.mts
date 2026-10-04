@@ -11,7 +11,10 @@
  *  - a `checked` date older than STALE_DAYS,
  *  - unless `--offline`, in-use IDs that the provider's free model-listing
  *    endpoint no longer returns or silently redirects to another model, and
- *    recommended IDs (`models_recommended`) it does not list.
+ *    recommended IDs (`models_recommended`) it does not list,
+ *  - unless `--offline`, model catalog IDs (`packages/ai-providers/src/
+ *    catalog/catalog.ts`) the provider no longer lists: an error for live
+ *    models, a warning for deprecated ones (remove them from the catalog).
  *
  * Run `pnpm providers:check` (live where keys exist) or
  * `pnpm providers:check --offline`. Exits 1 on format errors or on IDs a
@@ -248,6 +251,45 @@ for (const name of files) {
       } else {
         errors.push(`${file}: "${id}" is not listed by the ${ref.endpoint} models endpoint`);
       }
+    }
+  }
+}
+
+// The model catalog is what the CLI actually calls; check it against the
+// same listings.
+if (!offline) {
+  const { MODEL_CATALOG } = await import("../packages/ai-providers/src/catalog/catalog.js");
+  const ENDPOINT_FOR: Record<string, Endpoint> = {
+    claude: "anthropic",
+    openai: "openai",
+    gemini: "gemini",
+    veo: "gemini",
+    omni: "gemini",
+    grok: "xai",
+  };
+  const listings = new Map<Endpoint, Set<string> | undefined>();
+  for (const model of MODEL_CATALOG) {
+    const endpoint = ENDPOINT_FOR[model.provider];
+    if (!endpoint) continue;
+    if (!listings.has(endpoint)) {
+      try {
+        listings.set(endpoint, await listModels(endpoint));
+      } catch {
+        listings.set(endpoint, undefined);
+      }
+    }
+    const listed = listings.get(endpoint);
+    if (!listed || listed.has(model.id)) continue;
+    const where = `catalog: ${model.provider} ${model.kind} "${model.id}"`;
+    if (model.status === "deprecated") {
+      warnings.push(`${where} is no longer listed by ${endpoint} (shutdown ${model.shutdown}) - remove it from the catalog`);
+    } else {
+      const redirect = endpoint === "xai" ? await xaiRedirect(model.id) : undefined;
+      errors.push(
+        redirect
+          ? `${where} is retired; xAI silently serves "${redirect}" instead`
+          : `${where} is not listed by the ${endpoint} models endpoint`
+      );
     }
   }
 }

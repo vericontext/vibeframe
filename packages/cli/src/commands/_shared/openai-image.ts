@@ -15,7 +15,7 @@
  * See issue #58.
  */
 
-import { OPENAI_IMAGE_DEFAULT_MODEL, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { defaultModel, findModel, OpenAIImageProvider } from "@vibeframe/ai-providers";
 import type { GPTImageModel, ImageOptions, ImageResult } from "@vibeframe/ai-providers";
 
 /** Subset of CLI options consumed by the helper. */
@@ -36,34 +36,18 @@ export interface OpenAIImageHelperResult {
   modelLabel: string;
 }
 
-const OPENAI_IMAGE_MODELS: Record<GPTImageModel, { label: string; aliases: string[] }> = {
-  "gpt-image-2.5-sunburst": { label: "GPT Image 2.5 Sunburst", aliases: ["2.5", "sunburst"] },
-  "gpt-image-2.5-flare": { label: "GPT Image 2.5 Flare", aliases: ["flare", "2.5-flare"] },
-  "gpt-image-2": { label: "GPT Image 2", aliases: ["2"] },
-  "gpt-image-1.5": { label: "GPT Image 1.5", aliases: ["1.5"] },
-};
-
 /**
- * Resolve the user-supplied model alias to the API id + display label.
- * Unknown or empty aliases resolve to the default model. Exported so unit
- * tests can assert label↔model parity (regression cover for v0.52.0 bug).
+ * Resolve the user-supplied model alias to the API id + display label, from
+ * the model catalog. Unknown or empty aliases resolve to the default model.
+ * Exported so unit tests can assert label↔model parity (regression cover for
+ * v0.52.0 bug).
  */
 export function resolveOpenAIImageModel(modelAlias?: string): {
   openaiModel: GPTImageModel;
   modelLabel: string;
 } {
-  const alias = modelAlias?.trim() ?? "";
-  for (const [id, model] of Object.entries(OPENAI_IMAGE_MODELS) as Array<
-    [GPTImageModel, (typeof OPENAI_IMAGE_MODELS)[GPTImageModel]]
-  >) {
-    if (alias === id || model.aliases.includes(alias)) {
-      return { openaiModel: id, modelLabel: model.label };
-    }
-  }
-  return {
-    openaiModel: OPENAI_IMAGE_DEFAULT_MODEL,
-    modelLabel: OPENAI_IMAGE_MODELS[OPENAI_IMAGE_DEFAULT_MODEL].label,
-  };
+  const model = findModel("openai", "image", modelAlias) ?? defaultModel("openai", "image");
+  return { openaiModel: model.id as GPTImageModel, modelLabel: model.label };
 }
 
 /**

@@ -6,6 +6,7 @@ import type {
   VideoResult,
 } from "../interface/types.js";
 import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
+import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
 
 /**
  * Grok Imagine model versions
@@ -28,18 +29,9 @@ export type GrokVideoModel =
  * Full model IDs pass through. Unknown aliases throw.
  */
 export function resolveGrokVideoModel(alias?: string): GrokVideoModel {
-  const key = (alias ?? "1.5").trim().toLowerCase();
-  const aliases: Record<string, GrokVideoModel> = {
-    "1.5": "grok-imagine-video-1.5",
-    "grok-imagine-video-1.5": "grok-imagine-video-1.5",
-    lite: "grok-imagine-video-1.5-lite",
-    "1.5-lite": "grok-imagine-video-1.5-lite",
-    "grok-imagine-video-1.5-lite": "grok-imagine-video-1.5-lite",
-    classic: "grok-imagine-video",
-    "grok-imagine-video": "grok-imagine-video",
-  };
-  if (Object.hasOwn(aliases, key)) return aliases[key];
-  throw new Error(`Unknown Grok video model "${alias}". Valid: 1.5, lite, classic.`);
+  const model = findModel("grok", "video", alias);
+  if (model) return model.id as GrokVideoModel;
+  throw new Error(`Unknown Grok video model "${alias}". Valid: ${modelAliases("grok", "video").join(", ")}.`);
 }
 
 /** Grok Imagine image models. `grok-imagine-image-pro` was retired on 2026-05-15. */
@@ -57,14 +49,13 @@ export function resolveGrokImageModel(alias?: string): {
   model: GrokImageModel;
   quality?: GrokImageQuality;
 } {
-  if (alias === "pro" || alias === "2.0" || alias === "quality" || alias === "grok-imagine-image-2.0") {
-    return { model: "grok-imagine-image-2.0", quality: "medium" };
-  }
-  return { model: "grok-imagine-image" };
+  // Unknown aliases (including Gemini-only ones like "flash") use the base model.
+  const model = (findModel("grok", "image", alias) ?? defaultModel("grok", "image")).id as GrokImageModel;
+  return model === "grok-imagine-image-2.0" ? { model, quality: "medium" } : { model };
 }
 
 /** Default model */
-const DEFAULT_MODEL: GrokVideoModel = "grok-imagine-video-1.5";
+const DEFAULT_MODEL = defaultModel("grok", "video").id as GrokVideoModel;
 
 /** xAI defaults video to 480p when `resolution` is omitted; ask for 720p instead. */
 const DEFAULT_VIDEO_RESOLUTION = "720p";

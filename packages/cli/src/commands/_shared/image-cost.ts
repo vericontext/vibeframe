@@ -1,5 +1,5 @@
 /**
- * Per-image cost estimates for `vibe generate image`.
+ * Per-image cost estimates for `vibe generate image`, from model catalog prices.
  *
  * Without these, real runs reported `costUsd: 0`, which reads as "free" to
  * agents that gate spend on the JSON envelope. Values are upper bounds from
@@ -10,26 +10,17 @@
  * - Grok: grok-imagine-image-2.0 at its 2K medium price.
  */
 
-import { resolveGrokImageModel } from "@vibeframe/ai-providers";
+import { findModel, resolveGrokImageModel } from "@vibeframe/ai-providers";
 import { lookupCostEstimateUpperBound } from "../output.js";
 import { resolveOpenAIImageModel } from "./openai-image.js";
 
-const OPENAI_HIGH_1024_USD: Record<string, number> = {
-  "gpt-image-2.5-sunburst": 0.211,
-  "gpt-image-2.5-flare": 0.211,
-  "gpt-image-2": 0.211,
-  "gpt-image-1.5": 0.133,
-};
-
-const GEMINI_USD: Record<string, number> = {
-  flash: 0.067,
-  "3.1-flash": 0.067,
-  latest: 0.067,
-  lite: 0.034,
-  pro: 0.134,
-};
-
-const GROK_USD = { "grok-imagine-image": 0.02, "grok-imagine-image-2.0": 0.08 } as const;
+/** Catalog list price for the model a provider and alias resolve to. */
+function catalogPrice(provider: string, model: string | undefined): number | undefined {
+  if (provider === "openai") return findModel("openai", "image", resolveOpenAIImageModel(model).openaiModel)?.price?.usd;
+  if (provider === "gemini") return findModel("gemini", "image", model ?? "flash")?.price?.usd ?? findModel("gemini", "image")?.price?.usd;
+  if (provider === "grok") return findModel("grok", "image", resolveGrokImageModel(model).model)?.price?.usd;
+  return undefined;
+}
 
 export function estimateImageCostUsd(
   provider: string,
@@ -37,15 +28,7 @@ export function estimateImageCostUsd(
   count: number
 ): { costUsd: number; warnings: string[] } {
   const images = Math.max(1, count);
-  let perImage: number | undefined;
-  if (provider === "openai") {
-    perImage = OPENAI_HIGH_1024_USD[resolveOpenAIImageModel(model).openaiModel];
-  } else if (provider === "gemini") {
-    perImage = GEMINI_USD[model ?? "flash"] ?? GEMINI_USD.flash;
-  } else if (provider === "grok") {
-    perImage = GROK_USD[resolveGrokImageModel(model).model];
-  }
-
+  const perImage = catalogPrice(provider, model);
   if (perImage === undefined) {
     return {
       costUsd: lookupCostEstimateUpperBound("generate image") ?? 5,
