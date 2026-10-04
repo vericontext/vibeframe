@@ -15,7 +15,8 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["VIBE_TEST_INTEGRATION"]
     },
     "clean": {
       "cache": false

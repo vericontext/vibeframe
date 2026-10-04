@@ -72,6 +72,7 @@
     "start": "tsx src/index.ts",
     "lint": "eslint --ext .ts,.tsx src/",
     "test": "vitest run",
+    "test:integration": "VIBE_TEST_INTEGRATION=1 vitest run",
     "test:watch": "vitest",
     "pretest": "pnpm --dir ../core build && pnpm --dir ../ai-providers build && node build.js",
     "prepublishOnly": "node build.js"
