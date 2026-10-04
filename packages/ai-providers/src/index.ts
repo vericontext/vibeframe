@@ -72,6 +72,7 @@ export {
   type ModelSpec,
   type ModelStatus,
 } from "./catalog/index.js";
+export * from "./video/index.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";

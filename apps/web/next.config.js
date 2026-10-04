@@ -67,11 +67,18 @@ try {
   // Fallback
 }
 
-// Count unique AI provider directories (each dir = one provider service)
+// Count AI provider directories: dirs that hold a `*Provider.ts`. Shared
+// code (interface, catalog, shared, video, testing) has none. Match
+// scripts/sync-counts.sh.
 let aiProviders = 14;
 try {
   const entries = fs.readdirSync(aiProvidersDir, { withFileTypes: true });
-  aiProviders = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "interface" && e.name !== "catalog").length || 14;
+  aiProviders =
+    entries.filter(
+      (e) =>
+        e.isDirectory() &&
+        fs.readdirSync(path.join(aiProvidersDir, e.name)).some((f) => f.endsWith("Provider.ts"))
+    ).length || 14;
 } catch {
   // Fallback
 }

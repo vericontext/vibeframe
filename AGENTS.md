@@ -128,6 +128,11 @@ General expectation:
   them through `findModel()` / `defaultModel()`; do not hardcode model IDs.
   After editing the catalog, run `pnpm gen:models` (MODELS.md is partly
   generated).
+- Video providers implement `VideoGenerator`
+  (`packages/ai-providers/src/video/`): HTTP goes through `providerRequest`,
+  failures are `ProviderError`s with a `kind`, and each provider passes
+  `describeVideoContract`. Callers branch on `error.kind`, never on provider
+  wording.
 
 ## Conventions
 

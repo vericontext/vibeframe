@@ -35,11 +35,10 @@ fi
 
 # ── Source-of-truth values (extracted from code) ─────────────────────────
 
-# AI provider directories (each = one external service we integrate with).
-# Match next.config.js: count every dir under ai-providers/src/ except
-# `interface` (the AIProvider contract types) and `catalog` (the model
-# catalog), which are not integrations.
-AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 1 -maxdepth 1 -type d ! -name interface ! -name catalog | wc -l | tr -d ' ')
+# AI provider directories (each = one external service we integrate with):
+# dirs under ai-providers/src/ that hold a `*Provider.ts`. Shared code
+# (interface, catalog, shared, video, testing) has none. Match next.config.js.
+AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 2 -maxdepth 2 -name '*Provider.ts' -exec dirname {} \; | sort -u | wc -l | tr -d ' ')
 
 # MCP + Agent tool counts come from the manifest itself (v0.67 PR3 / C9).
 # Pre-v0.67 PR3 the script grepped `defineTool({` and `surfaces: ["mcp"]`

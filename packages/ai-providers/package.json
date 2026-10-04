@@ -50,6 +50,10 @@
     "./kling": {
       "types": "./dist/kling/index.d.ts",
       "import": "./dist/kling/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     }
   },
   "scripts": {
