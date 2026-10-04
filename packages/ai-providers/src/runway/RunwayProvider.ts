@@ -6,6 +6,11 @@ import type {
   VideoResult,
 } from "../interface/types.js";
 import { defaultModel } from "../catalog/catalog.js";
+import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveVideoModel } from "../video/models.js";
+import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * Runway model versions
@@ -37,9 +42,6 @@ export interface RunwayVideoOptions {
   watermark?: boolean;
 }
 
-/**
- * Task response from Runway API
- */
 interface RunwayTaskResponse {
   id: string;
   name?: string;
@@ -51,27 +53,42 @@ interface RunwayTaskResponse {
   failureCode?: string;
 }
 
+const RATIOS: Record<string, string> = {
+  "16:9": "1280:720",
+  "9:16": "720:1280",
+  "1:1": "960:960",
+};
+
+const STATUS: Record<RunwayTaskResponse["status"], VideoJobState["status"]> = {
+  PENDING: "pending",
+  RUNNING: "processing",
+  SUCCEEDED: "completed",
+  FAILED: "failed",
+  CANCELLED: "cancelled",
+  // THROTTLED means queued behind the account's concurrency limit; the
+  // task starts on its own, so keep polling.
+  THROTTLED: "pending",
+};
+
 /**
- * Runway provider for professional video generation
- * Default: Gen-4.5 (text-to-video + image-to-video, 12 credits/sec)
- * Legacy: Gen-4 Turbo (image-to-video only)
+ * Runway video provider (Gen-4.5 text- and image-to-video).
+ *
+ * Implements the `VideoGenerator` contract; the older `generateVideo` /
+ * `getGenerationStatus` / `waitForCompletion` methods wrap it for callers
+ * that have not moved yet.
  */
-export class RunwayProvider implements AIProvider {
+export class RunwayProvider implements AIProvider, VideoGenerator {
   id = "runway";
   name = "Runway";
   description = "Professional AI video generation with Gen-4.5";
-  capabilities: AICapability[] = [
-    "text-to-video",
-    "image-to-video",
-  ];
+  capabilities: AICapability[] = ["text-to-video", "image-to-video"];
   iconUrl = "/icons/runway.svg";
   isAvailable = true;
 
   private static readonly API_VERSION = "2024-11-06";
-  private static readonly MAX_RETRIES = 3;
   private apiKey?: string;
   private baseUrl = "https://api.dev.runwayml.com/v1";
-  private pollingInterval = 5000; // 5 seconds
+  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -84,115 +101,113 @@ export class RunwayProvider implements AIProvider {
     return !!this.apiKey;
   }
 
-  /**
-   * Generate video from text prompt (text-to-video)
-   * Uses Gen-3 Alpha Turbo model
-   */
-  async generateVideo(
-    prompt: string,
-    options?: GenerateOptions
-  ): Promise<VideoResult> {
-    if (!this.apiKey) {
-      return {
-        id: "",
-        status: "failed",
-        error: "Runway API key not configured. Set RUNWAY_API_SECRET environment variable.",
-      };
+  // ── VideoGenerator ────────────────────────────────────────────────────
+
+  async submitVideo(request: VideoRequest): Promise<VideoJob> {
+    const apiKey = this.requireKey();
+    if (request.from) {
+      throw new ProviderError({
+        kind: "unsupported",
+        provider: this.id,
+        message: `Runway cannot ${request.from.kind} an earlier video.`,
+      });
+    }
+    const model = resolveVideoModel(this.id, request.model).id as RunwayModel;
+    const hasImage = !!request.image;
+    const ratio = RATIOS[request.aspectRatio ?? "16:9"];
+    if (!ratio) {
+      throw this.invalid(`Runway does not support aspect ratio ${request.aspectRatio}. Use 16:9, 9:16, or 1:1 with an image.`);
+    }
+    // gen4_turbo requires an image; gen4.5 supports text-to-video.
+    if (!hasImage && model !== "gen4.5") {
+      throw this.invalid(`Runway ${model} requires an input image. Use -i <image> or switch to gen4.5 for text-to-video.`);
+    }
+    // Gen-4.5 text-to-video only renders 1280:720 and 720:1280; square
+    // output needs an input image.
+    if (!hasImage && ratio === RATIOS["1:1"]) {
+      throw this.invalid(
+        "Runway text-to-video supports 16:9 and 9:16 only. Use 16:9 or 9:16, or pass an image (-i) for square output."
+      );
     }
 
+    const body: Record<string, unknown> = {
+      model,
+      promptText: request.prompt,
+      ratio,
+      duration: this.clampDuration(request.durationSec, model),
+    };
+    if (hasImage) body.promptImage = request.image;
+    if (request.seed !== undefined) body.seed = request.seed;
+
+    const endpoint = hasImage ? "image_to_video" : "text_to_video";
+    const response = await providerRequest(this.id, `${this.baseUrl}/${endpoint}`, {
+      method: "POST",
+      headers: { ...this.headers(apiKey), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = (await response.json()) as { id: string };
+    return { provider: this.id, id: data.id, model, submittedAt: new Date().toISOString() };
+  }
+
+  async getVideoJob(job: VideoJob): Promise<VideoJobState> {
+    const apiKey = this.requireKey();
+    const response = await providerRequest(this.id, `${this.baseUrl}/tasks/${job.id}`, {
+      headers: this.headers(apiKey),
+    });
+    const task = (await response.json()) as RunwayTaskResponse;
+    const state: VideoJobState = { status: STATUS[task.status] ?? "pending", progress: task.progress };
+    if (task.status === "SUCCEEDED" && task.output?.length) {
+      state.videoUrl = task.output[0];
+    }
+    if (task.status === "FAILED") {
+      // failureCode tells callers whether a retry can help: SAFETY.INPUT.*
+      // never succeeds on retry (and is billed), INTERNAL.* may.
+      const reason = task.failure || "Generation failed";
+      state.error = classifyProviderError({
+        provider: this.id,
+        code: task.failureCode,
+        message: task.failureCode ? `${reason} (${task.failureCode})` : reason,
+      }).toJSON();
+    }
+    return state;
+  }
+
+  /**
+   * Cancel a pending or running task. Runway documents cancellation as
+   * `DELETE /v1/tasks/{id}` (there is no `/cancel` route).
+   */
+  async cancelVideoJob(job: VideoJob): Promise<void> {
+    const apiKey = this.requireKey();
+    await providerRequest(this.id, `${this.baseUrl}/tasks/${job.id}`, {
+      method: "DELETE",
+      headers: this.headers(apiKey),
+    });
+  }
+
+  async downloadVideo(_job: VideoJob, state: VideoJobState): Promise<Uint8Array> {
+    if (!state.videoUrl) {
+      throw new ProviderError({ kind: "not-found", provider: this.id, message: "Runway job has no video to download." });
+    }
+    const response = await providerRequest(this.id, state.videoUrl);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
     try {
-      // Map user-friendly aspect ratios to Runway API format
-      const ratioMap: Record<string, string> = {
-        "16:9": "1280:720",
-        "9:16": "720:1280",
-        "1:1": "960:960",
-      };
-      const apiRatio = ratioMap[options?.aspectRatio || "16:9"] || "1280:720";
-
-      // Use specified model or default
-      const model = (options?.model as RunwayModel) || DEFAULT_MODEL;
-
-      // gen4_turbo requires an image; gen4.5 supports text-to-video
-      if (!options?.referenceImage && model !== "gen4.5") {
-        return {
-          id: "",
-          status: "failed",
-          error: `Runway ${model} requires an input image. Use -i <image> or switch to gen4.5 for text-to-video.`,
-        };
-      }
-
-      // Determine endpoint based on whether image is provided
-      const hasImage = !!options?.referenceImage;
-      const endpoint = hasImage ? "image_to_video" : "text_to_video";
-
-      // Gen-4.5 text-to-video only renders 1280:720 and 720:1280; square
-      // output needs an input image.
-      if (!hasImage && apiRatio === "960:960") {
-        return {
-          id: "",
-          status: "failed",
-          error: "Runway text-to-video supports 16:9 and 9:16 only. Use 16:9 or 9:16, or pass an image (-i) for square output.",
-        };
-      }
-
-      const body: Record<string, unknown> = {
-        model,
-        promptText: prompt,
-        ratio: apiRatio,
-        duration: this.clampDuration(options?.duration, model),
-      };
-
-      if (hasImage) {
-        const imageData = typeof options!.referenceImage === "string"
-          ? options!.referenceImage
-          : await this.blobToDataUri(options!.referenceImage as Blob);
-        body.promptImage = imageData;
-      }
-
-      if (options?.seed !== undefined) {
-        body.seed = options.seed;
-      }
-
-      const response = await this.fetchWithRetry(`${this.baseUrl}/${endpoint}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-          "X-Runway-Version": RunwayProvider.API_VERSION,
-        },
-        body: JSON.stringify(body),
+      const image = options?.referenceImage;
+      const job = await this.submitVideo({
+        prompt,
+        model: options?.model,
+        durationSec: options?.duration,
+        aspectRatio: options?.aspectRatio,
+        seed: options?.seed,
+        image: image === undefined ? undefined : typeof image === "string" ? image : await this.blobToDataUri(image),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorData.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        console.error(`[Runway] POST /${endpoint} -> ${response.status} ${response.statusText}\n  Model: ${model}, Ratio: ${apiRatio}, Duration: ${body.duration}\n  Response: ${errorText.slice(0, 500)}`);
-        return {
-          id: "",
-          status: "failed",
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
-
-      const data = (await response.json()) as { id: string };
-
-      return {
-        id: data.id,
-        status: "pending",
-        progress: 0,
-      };
+      return { id: job.id, status: "pending", progress: 0 };
     } catch (error) {
-      return {
-        id: "",
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { id: "", status: "failed", error: this.legacyMessage(error) };
     }
   }
 
@@ -204,10 +219,7 @@ export class RunwayProvider implements AIProvider {
     promptText: string,
     options?: Omit<RunwayVideoOptions, "promptImage" | "promptText">
   ): Promise<VideoResult> {
-    const imageUri = typeof imageData === "string"
-      ? imageData
-      : await this.blobToDataUri(imageData);
-
+    const imageUri = typeof imageData === "string" ? imageData : await this.blobToDataUri(imageData);
     return this.generateVideo(promptText, {
       prompt: promptText,
       referenceImage: imageUri,
@@ -217,80 +229,14 @@ export class RunwayProvider implements AIProvider {
     });
   }
 
-  /**
-   * Get status of ongoing generation
-   */
   async getGenerationStatus(id: string): Promise<VideoResult> {
-    if (!this.apiKey) {
-      return {
-        id,
-        status: "failed",
-        error: "Runway API key not configured",
-      };
-    }
-
     try {
-      const response = await fetch(`${this.baseUrl}/tasks/${id}`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": RunwayProvider.API_VERSION,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id,
-          status: "failed",
-          error: `Failed to get status: ${errorText}`,
-        };
-      }
-
-      const data = (await response.json()) as RunwayTaskResponse;
-
-      // Map Runway status to our status
-      const statusMap: Record<string, VideoResult["status"]> = {
-        PENDING: "pending",
-        RUNNING: "processing",
-        SUCCEEDED: "completed",
-        FAILED: "failed",
-        CANCELLED: "cancelled",
-        // THROTTLED means queued behind the account's concurrency limit; the
-        // task starts on its own, so keep polling.
-        THROTTLED: "pending",
-      };
-
-      const result: VideoResult = {
-        id: data.id,
-        status: statusMap[data.status] || "pending",
-        progress: data.progress,
-      };
-
-      if (data.status === "SUCCEEDED" && data.output && data.output.length > 0) {
-        result.videoUrl = data.output[0];
-      }
-
-      if (data.status === "FAILED") {
-        const reason = data.failure || "Generation failed";
-        // failureCode tells callers whether a retry can help: SAFETY.INPUT.*
-        // never succeeds on retry (and is billed), INTERNAL.* may.
-        result.error = data.failureCode ? `${reason} (${data.failureCode})` : reason;
-      }
-
-      return result;
+      return this.toVideoResult(id, await this.getVideoJob(this.legacyJob(id)));
     } catch (error) {
-      return {
-        id,
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { id, status: "failed", error: this.legacyMessage(error) };
     }
   }
 
-  /**
-   * Cancel a pending or running task. Runway documents cancellation as
-   * `DELETE /v1/tasks/{id}` (there is no `/cancel` route).
-   */
   async cancelGeneration(id: string): Promise<boolean> {
     return this.deleteTask(id);
   }
@@ -299,73 +245,68 @@ export class RunwayProvider implements AIProvider {
    * Cancel a running task, or delete a finished one (`DELETE /v1/tasks/{id}`).
    */
   async deleteTask(id: string): Promise<boolean> {
-    if (!this.apiKey) {
-      return false;
-    }
-
     try {
-      const response = await fetch(`${this.baseUrl}/tasks/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "X-Runway-Version": RunwayProvider.API_VERSION,
-        },
-      });
-
-      return response.ok;
+      await this.cancelVideoJob(this.legacyJob(id));
+      return true;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Wait for generation to complete with polling
-   */
   async waitForCompletion(
     id: string,
     onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 300000 // 5 minutes default
+    maxWaitMs: number = 300000
   ): Promise<VideoResult> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxWaitMs) {
-      const result = await this.getGenerationStatus(id);
-
-      if (onProgress) {
-        onProgress(result);
-      }
-
-      if (result.status === "completed" || result.status === "failed" || result.status === "cancelled") {
-        return result;
-      }
-
-      await this.sleep(this.pollingInterval);
+    try {
+      const state = await waitForVideoJob(this, this.legacyJob(id), {
+        timeoutMs: maxWaitMs,
+        intervalMs: this.pollingInterval,
+        onProgress: onProgress && ((s) => onProgress(this.toVideoResult(id, s))),
+      });
+      return this.toVideoResult(id, state);
+    } catch (error) {
+      return { id, status: "failed", error: this.legacyMessage(error) };
     }
+  }
 
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  private requireKey(): string {
+    if (!this.apiKey) {
+      throw new ProviderError({
+        kind: "auth",
+        provider: this.id,
+        message: "Runway API key not configured. Set RUNWAY_API_SECRET environment variable.",
+      });
+    }
+    return this.apiKey;
+  }
+
+  private headers(apiKey: string): Record<string, string> {
+    return { Authorization: `Bearer ${apiKey}`, "X-Runway-Version": RunwayProvider.API_VERSION };
+  }
+
+  private invalid(message: string): ProviderError {
+    return new ProviderError({ kind: "invalid-request", provider: this.id, message });
+  }
+
+  private legacyJob(id: string): VideoJob {
+    return { provider: this.id, id, model: DEFAULT_MODEL, submittedAt: new Date(0).toISOString() };
+  }
+
+  private toVideoResult(id: string, state: VideoJobState): VideoResult {
     return {
       id,
-      status: "failed",
-      error: "Generation timed out",
+      status: state.status,
+      progress: state.progress,
+      videoUrl: state.videoUrl,
+      ...(state.error ? { error: state.error.message } : {}),
     };
   }
 
-  /**
-   * Fetch with retry for transient errors (429, 503)
-   */
-  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
-    let lastResponse: Response | undefined;
-    for (let attempt = 0; attempt < RunwayProvider.MAX_RETRIES; attempt++) {
-      const response = await fetch(url, init);
-      if (response.status !== 429 && response.status !== 503) {
-        return response;
-      }
-      lastResponse = response;
-      const retryAfter = response.headers.get("Retry-After");
-      const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : (2 ** (attempt + 1)) * 1000;
-      console.error(`[Runway] ${response.status} — retrying in ${delayMs / 1000}s (attempt ${attempt + 1}/${RunwayProvider.MAX_RETRIES})`);
-      await this.sleep(delayMs);
-    }
-    return lastResponse!;
+  private legacyMessage(error: unknown): string {
+    return isProviderError(error) || error instanceof Error ? error.message : "Unknown error";
   }
 
   /**
@@ -381,21 +322,11 @@ export class RunwayProvider implements AIProvider {
     return duration === 10 ? 10 : 5;
   }
 
-  /**
-   * Convert Blob to data URI
-   */
   private async blobToDataUri(blob: Blob): Promise<string> {
     const buffer = await blob.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
     const mimeType = blob.type || "image/png";
     return `data:${mimeType};base64,${base64}`;
-  }
-
-  /**
-   * Sleep helper
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

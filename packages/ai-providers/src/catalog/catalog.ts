@@ -11,6 +11,8 @@
  * 2026-10-04; see `.agents/references/providers/` for sources.
  */
 
+import { ProviderError } from "../shared/errors.js";
+
 export type ModelKind =
   | "llm"
   | "image"
@@ -163,12 +165,12 @@ export function modelLifecycle(spec: ModelSpec, now: Date = new Date()): ModelLi
 }
 
 /** Thrown when a request names a model the provider no longer serves. */
-export class ModelRetiredError extends Error {
+export class ModelRetiredError extends ProviderError {
   constructor(
     message: string,
     readonly model: ModelSpec
   ) {
-    super(message);
+    super({ kind: "model-retired", provider: model.provider, message });
     this.name = "ModelRetiredError";
   }
 }
