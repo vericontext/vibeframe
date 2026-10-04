@@ -969,7 +969,6 @@ export class GeminiProvider implements AIProvider {
 
       // Build generation config
       const generationConfig: Record<string, unknown> = {
-        temperature: 0.4,
         maxOutputTokens: 8192,
       };
 
@@ -1083,7 +1082,6 @@ export class GeminiProvider implements AIProvider {
 
       // Build generation config
       const generationConfig: Record<string, unknown> = {
-        temperature: 0.4,
         maxOutputTokens: 8192,
       };
 
@@ -1211,7 +1209,6 @@ Respond with ONLY the JSON array, no other text.`;
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.3,
               maxOutputTokens: 1024,
             },
           }),
@@ -1346,7 +1343,7 @@ Respond with ONLY the JSON array, no other text.`;
   }
 
   /**
-   * Generate a storyboard from script content using Gemini 2.5 Flash.
+   * Generate a storyboard from script content using the default Gemini Flash model.
    * Alternative to ClaudeProvider.analyzeContent for when Claude is unavailable.
    */
   async analyzeContent(

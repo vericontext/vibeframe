@@ -15,13 +15,13 @@ describe("OpenAI storyboard analyzeContent", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends only parameters gpt-5-mini accepts", async () => {
+  it("sends only parameters GPT-5.x reasoning models accept", async () => {
     const fetchMock = mockChatResponse('{"segments": []}');
 
     await analyzeContent("key", "A coffee mug teaser", 10, { creativity: "high" });
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.model).toBe("gpt-5-mini");
+    expect(body.model).toBe("gpt-5.4-mini");
     expect(body).not.toHaveProperty("temperature");
     expect(body).not.toHaveProperty("max_tokens");
     expect(body.max_completion_tokens).toBeGreaterThan(4096);

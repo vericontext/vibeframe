@@ -22,7 +22,7 @@ export class OpenAIProvider implements AIProvider {
 
   private apiKey?: string;
   private baseUrl = "https://api.openai.com/v1";
-  private model = "gpt-5-mini";
+  private model = "gpt-5.4-mini";
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -401,8 +401,8 @@ Each segment should be 3-10 seconds long.`;
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-5-mini",
-          // gpt-5-mini spends most of its budget on reasoning tokens.
+          model: "gpt-5.4-mini",
+          // Reasoning tokens count against this cap.
           max_completion_tokens: 16384,
           response_format: { type: "json_object" },
           messages: [
@@ -445,7 +445,7 @@ Each segment should be 3-10 seconds long.`;
   }
 
   /**
-   * Generate a storyboard from script content using GPT-5-mini.
+   * Generate a storyboard from script content using GPT-5.4 mini.
    * Alternative to ClaudeProvider.analyzeContent for when Claude is unavailable.
    */
   async analyzeContent(

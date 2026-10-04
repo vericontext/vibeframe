@@ -1217,9 +1217,9 @@ async function runCustomSetup(
   const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "evolink", "ollama"];
   const providerDescriptions: Record<LLMProvider, string> = {
     claude: "Best reasoning, most capable for complex tasks",
-    openai: "GPT-5-mini, reliable and fast, good default",
+    openai: "GPT-5.4 mini, reliable and fast, good default",
     gemini: "Google AI, strong multimodal understanding",
-    xai: "Grok 4.1 Fast, 2M context, great for tool calling",
+    xai: "Grok 4.3, 1M context, inexpensive tool calling",
     openrouter: "300+ models via one API key (Claude, GPT, Gemini, Llama, etc.)",
     evolink: "GPT-5, Claude, Gemini, DeepSeek & more via one key",
     ollama: "Free, local, no API key - offline capable (default: llama3.2)",

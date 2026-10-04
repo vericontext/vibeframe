@@ -17,7 +17,7 @@ import type {
   CommandParseResult,
 } from "../interface/types.js";
 
-import type { ClaudeApiParams } from "./claude-api.js";
+import { CLAUDE_MIN_MAX_TOKENS, type ClaudeApiParams } from "./claude-api.js";
 
 // Import helper functions used by delegate methods
 import { generateMotion, refineMotion, analyzeContent } from "./claude-motion.js";
@@ -131,12 +131,12 @@ export class ClaudeProvider implements AIProvider {
 
   private apiKey?: string;
   private baseUrl = "https://api.anthropic.com/v1";
-  private model = "claude-sonnet-4-6";
+  private model = "claude-sonnet-5-5";
 
   /** Supported model aliases for motion graphic generation */
   static readonly MOTION_MODELS = {
-    sonnet: "claude-sonnet-4-6",
-    opus: "claude-opus-4-7",
+    sonnet: "claude-sonnet-5-5",
+    opus: "claude-opus-5-5",
     "opus-4-6": "claude-opus-4-6",
   } as const;
 
@@ -251,7 +251,7 @@ Or if clarification needed:
         },
         body: JSON.stringify({
           model: this.model,
-          max_tokens: 2048,
+          max_tokens: CLAUDE_MIN_MAX_TOKENS,
           messages: [{ role: "user", content: instruction }],
           system: systemPrompt,
         }),
@@ -332,7 +332,7 @@ Respond with JSON array:
         },
         body: JSON.stringify({
           model: this.model,
-          max_tokens: 2048,
+          max_tokens: CLAUDE_MIN_MAX_TOKENS,
           messages: [{
             role: "user",
             content: `Clips: ${JSON.stringify(clipsInfo)}\n\nInstruction: ${instruction}`,

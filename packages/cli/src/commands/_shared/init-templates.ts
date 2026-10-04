@@ -378,7 +378,7 @@ export function renderEnvExample(opts: EnvExampleOptions = {}): string {
 
 ${fallback}# ── LLM provider / optional \`vibe agent\` fallback (pick one) ───────────
 ANTHROPIC_API_KEY=                    # Claude - recommended default
-OPENAI_API_KEY=                       # GPT-5-mini · Whisper · gpt-image-2
+OPENAI_API_KEY=                       # GPT-5.4 mini · Whisper · gpt-image-2
 GOOGLE_API_KEY=                       # Gemini · Veo
 XAI_API_KEY=                          # Grok image+video
 OPENROUTER_API_KEY=                   # multiplexes any provider above

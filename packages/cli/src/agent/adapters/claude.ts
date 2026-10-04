@@ -15,7 +15,7 @@ import type {
 export class ClaudeAdapter implements LLMAdapter {
   readonly provider: LLMProvider = "claude";
   private client: Anthropic | null = null;
-  private model: string = "claude-sonnet-4-6";
+  private model: string = "claude-sonnet-5-5";
 
   async initialize(apiKey: string): Promise<void> {
     this.client = new Anthropic({ apiKey });
@@ -53,6 +53,13 @@ export class ClaudeAdapter implements LLMAdapter {
           content: msg.content,
         });
       } else if (msg.role === "assistant") {
+        if (msg.providerContent) {
+          claudeMessages.push({
+            role: "assistant",
+            content: msg.providerContent as Anthropic.ContentBlockParam[],
+          });
+          continue;
+        }
         const content: Anthropic.ContentBlockParam[] = [];
 
         if (msg.content) {
@@ -77,16 +84,18 @@ export class ClaudeAdapter implements LLMAdapter {
           });
         }
       } else if (msg.role === "tool") {
-        claudeMessages.push({
-          role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: msg.toolCallId!,
-              content: msg.content,
-            },
-          ],
-        });
+        // Results for one assistant turn's tool calls belong in one user turn.
+        const result: Anthropic.ToolResultBlockParam = {
+          type: "tool_result",
+          tool_use_id: msg.toolCallId!,
+          content: msg.content,
+        };
+        const last = claudeMessages.at(-1);
+        if (last?.role === "user" && Array.isArray(last.content)) {
+          last.content.push(result);
+        } else {
+          claudeMessages.push({ role: "user", content: [result] });
+        }
       }
     }
 
@@ -104,7 +113,8 @@ export class ClaudeAdapter implements LLMAdapter {
     // Make API call
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 4096,
+      // Thinking tokens count against this cap on Claude 5.x.
+      max_tokens: 16000,
       system: systemPrompt,
       messages: claudeMessages,
       tools: claudeTools.length > 0 ? claudeTools : undefined,
@@ -138,6 +148,7 @@ export class ClaudeAdapter implements LLMAdapter {
       content: textContent,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       finishReason,
+      providerContent: response.content,
     };
   }
 }

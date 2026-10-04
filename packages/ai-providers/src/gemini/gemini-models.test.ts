@@ -7,23 +7,25 @@ import {
 } from "./gemini-models.js";
 
 describe("Gemini text model aliases", () => {
-  it("defaults one-shot calls to Gemini 3.5 Flash", () => {
-    expect(GEMINI_DEFAULT_TEXT_MODEL).toBe("gemini-3.5-flash");
-    expect(resolveGeminiTextModel()).toBe("gemini-3.5-flash");
-    expect(resolveGeminiTextModel("flash")).toBe("gemini-3.5-flash");
-    expect(resolveGeminiTextModel("latest")).toBe("gemini-3.5-flash");
+  it("defaults one-shot calls to Gemini 3.8 Flash", () => {
+    expect(GEMINI_DEFAULT_TEXT_MODEL).toBe("gemini-3.8-flash");
+    expect(resolveGeminiTextModel()).toBe("gemini-3.8-flash");
+    expect(resolveGeminiTextModel("flash")).toBe("gemini-3.8-flash");
+    expect(resolveGeminiTextModel("latest")).toBe("gemini-3.8-flash");
+    expect(resolveGeminiTextModel("flash-3.8")).toBe("gemini-3.8-flash");
+  });
+
+  it("uses the same default for the agent loop", () => {
+    expect(GEMINI_AGENT_DEFAULT_TEXT_MODEL).toBe("gemini-3.8-flash");
+  });
+
+  it("resolves pinned flash and pro aliases", () => {
     expect(resolveGeminiTextModel("flash-3.5")).toBe("gemini-3.5-flash");
     expect(resolveGeminiTextModel("flash-3")).toBe("gemini-3-flash-preview");
-  });
-
-  it("keeps the agent loop default separate", () => {
-    expect(GEMINI_AGENT_DEFAULT_TEXT_MODEL).toBe("gemini-2.5-flash");
-  });
-
-  it("resolves legacy and pro aliases", () => {
     expect(resolveGeminiTextModel("flash-2.5")).toBe("gemini-2.5-flash");
-    expect(resolveGeminiTextModel("pro")).toBe("gemini-2.5-pro");
+    expect(resolveGeminiTextModel("pro")).toBe("gemini-3.1-pro-preview");
     expect(resolveGeminiTextModel("pro-3.1")).toBe("gemini-3.1-pro-preview");
+    expect(resolveGeminiTextModel("pro-2.5")).toBe("gemini-2.5-pro");
   });
 
   it("passes through explicit gemini model IDs", () => {
@@ -31,6 +33,6 @@ describe("Gemini text model aliases", () => {
   });
 
   it("falls back to the safe default for unknown aliases", () => {
-    expect(resolveGeminiTextModel("unknown")).toBe("gemini-3.5-flash");
+    expect(resolveGeminiTextModel("unknown")).toBe("gemini-3.8-flash");
   });
 });

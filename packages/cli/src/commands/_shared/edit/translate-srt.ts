@@ -100,7 +100,7 @@ export async function executeTranslateSrt(
             Authorization: `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-5-mini",
+            model: "gpt-5.4-mini",
             messages: [{ role: "user", content: translatePrompt }],
           }),
         });
@@ -131,8 +131,8 @@ export async function executeTranslateSrt(
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 4096,
+            model: "claude-sonnet-5-5",
+            max_tokens: 16000,
             messages: [{ role: "user", content: translatePrompt }],
           }),
         });

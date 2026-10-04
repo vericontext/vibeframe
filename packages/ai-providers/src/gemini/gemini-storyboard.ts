@@ -32,7 +32,6 @@ export async function analyzeContent(
 ): Promise<StoryboardSegment[]> {
   const creativity = options?.creativity || "low";
   const systemPrompt = buildStoryboardSystemPrompt(targetDuration, creativity);
-  const temperature = creativity === "high" ? 1.0 : 0.7;
 
   try {
     const payload = {
@@ -43,7 +42,6 @@ export async function analyzeContent(
         parts: [{ text: buildStoryboardUserMessage(content) }],
       }],
       generationConfig: {
-        temperature,
         maxOutputTokens: 4096,
       },
     };

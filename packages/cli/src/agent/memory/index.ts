@@ -40,11 +40,12 @@ export class ConversationMemory {
   /**
    * Add an assistant message
    */
-  addAssistant(content: string, toolCalls?: ToolCall[]): void {
+  addAssistant(content: string, toolCalls?: ToolCall[], providerContent?: unknown): void {
     this.messages.push({
       role: "assistant",
       content,
       toolCalls,
+      providerContent,
     });
     this.trim();
   }
