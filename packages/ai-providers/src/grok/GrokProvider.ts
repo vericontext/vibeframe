@@ -153,6 +153,7 @@ interface GrokStatusResponse {
  */
 export class GrokProvider implements AIProvider, VideoGenerator {
   id = "grok";
+  readonly imageInput = "either" as const;
   name = "xAI Grok Imagine";
   description = "AI video generation with Grok Imagine (native audio, 1-15 sec)";
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "text-to-image", "image-editing"];

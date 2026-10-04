@@ -6,7 +6,7 @@
  * report all run. Only local tools (ffprobe) are stubbed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -106,6 +106,23 @@ music: "Soft piano"`)
 
     expect(report.beats[0].videoStatus).toBe("generated");
     expect(existsSync(join(projectDir, "assets/video-pond.mp4"))).toBe(true);
+  });
+
+  it("records the video job with its handle before waiting, then marks it completed", async () => {
+    writeFileSync(join(projectDir, "STORYBOARD.md"), storyboard(`video: "Slow push-in on the boat"`));
+
+    await executeSceneBuild({ projectDir, stage: "assets" });
+
+    const jobsDir = join(projectDir, ".vibeframe", "jobs");
+    const records = readdirSync(jobsDir).map((f) => JSON.parse(readFileSync(join(jobsDir, f), "utf-8")));
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      jobType: "generate-video",
+      provider: "seedance",
+      status: "completed",
+      beatId: "pond",
+      providerJob: { provider: "seedance", model: "seedance-2.0", meta: { endpoint: "bytedance/seedance-2.0/text-to-video" } },
+    });
   });
 
   it("falls back to Runway when Seedance rejects a keyframe for a real person's likeness", async () => {

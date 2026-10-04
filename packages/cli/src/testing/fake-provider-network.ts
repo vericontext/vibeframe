@@ -18,7 +18,8 @@ export * from "@vibeframe/ai-providers/testing";
 /**
  * Default happy-path routes for the providers a project build uses:
  * ElevenLabs (narration, music), OpenAI images, ImgBB uploads, fal
- * (Seedance queue protocol), Runway, and a CDN for media downloads.
+ * (Seedance queue protocol and storage uploads), Runway (submit and
+ * polling), and a CDN for media downloads.
  */
 export function createFakeProviderNetwork(): FakeProviderNetwork {
   const net = new FakeProviderNetwork();
@@ -44,7 +45,15 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
         "x-fal-request-id": req.path.split("/").at(-1) ?? "",
       })
     )
+    // fal storage: local frames are uploaded before a Seedance submit.
+    .on("POST", "rest.fal.ai", /^\/storage\/upload\/initiate$/, () =>
+      jsonResponse({ upload_url: "https://fake.media/fal-upload", file_url: "https://fake.media/fal-frame.png" })
+    )
+    .on("PUT", "fake.media", /^\/fal-upload$/, () => new Response(null, { status: 200 }))
     .on("POST", "api.dev.runwayml.com", /^\/v1\/(image|text)_to_video$/, () =>
       jsonResponse({ id: `runway-${++runwayTasks}` })
+    )
+    .on("GET", "api.dev.runwayml.com", /^\/v1\/tasks\/[^/]+$/, (req) =>
+      jsonResponse({ id: req.path.split("/").at(-1), status: "SUCCEEDED", output: ["https://fake.media/runway.mp4"] })
     );
 }

@@ -157,6 +157,17 @@ describe("FalProvider (Seedance) requests", () => {
     expect(state).toMatchObject({ status: "failed", error: { kind: "likeness", status: 422, code: "content_policy_violation" } });
   });
 
+  it("reads a cancelled job as cancelled, not failed", async () => {
+    net.on("GET", QUEUE, /\/requests\/req-1\/status$/, () =>
+      jsonResponse({ status: "COMPLETED", request_id: "req-1", error: "Request cancelled by the client.", error_type: "client_cancelled" })
+    );
+    const fal = await create();
+    const job = await fal.submitVideo({ prompt: "p" });
+    await fal.cancelVideoJob(job);
+
+    expect(await fal.getVideoJob(job)).toEqual({ status: "cancelled" });
+  });
+
   it("keeps the older blocking generateVideo working on top of the queue", async () => {
     const fal = await create();
     (fal as unknown as { pollingInterval: number }).pollingInterval = 1;

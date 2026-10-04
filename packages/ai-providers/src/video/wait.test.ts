@@ -9,6 +9,7 @@ const job: VideoJob = { provider: "test", id: "j1", model: "m", submittedAt: "20
 function generator(states: Array<VideoJobState | Error>): VideoGenerator {
   return {
     id: "test",
+    imageInput: "either",
     submitVideo: vi.fn(),
     downloadVideo: vi.fn(),
     getVideoJob: vi.fn(async () => {

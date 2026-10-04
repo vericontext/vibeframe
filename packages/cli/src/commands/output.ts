@@ -30,6 +30,8 @@ export interface StructuredError {
   retryWith?: string[];
   recoverable?: boolean;
   retryable: boolean;
+  /** The provider error kind (`auth`, `quota`, `likeness`, ...) when a provider call failed. */
+  errorKind?: string;
   /**
    * Structured context carried alongside the failure, so a refusal can hand
    * back the evidence it refused on instead of forcing a second call. Used by
@@ -95,6 +97,21 @@ export function apiError(msg: string, retryable = false): StructuredError {
     }
   }
   return { success: false, error: msg, code: "API_ERROR", exitCode: ExitCode.API_ERROR, suggestion: retryable ? "Retry the command." : undefined, retryable };
+}
+
+/**
+ * The structured error for a failed provider call, chosen by its error kind
+ * (`ProviderError.kind`) instead of by matching provider wording.
+ */
+export function providerFailure(message: string, kind?: string): StructuredError {
+  if (kind === "auth") {
+    return { success: false, error: message, code: "AUTH_ERROR", exitCode: ExitCode.AUTH, retryable: false, errorKind: kind };
+  }
+  if (kind === "invalid-request" || kind === "unsupported" || kind === "model-retired") {
+    return { ...usageError(message), errorKind: kind };
+  }
+  const retryable = kind === "rate-limit" || kind === "provider" || kind === "network" || kind === "timeout";
+  return { ...apiError(message, retryable), ...(kind ? { errorKind: kind } : {}) };
 }
 
 export function notFoundError(path: string): StructuredError {

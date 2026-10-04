@@ -331,19 +331,19 @@ export const generateVideoTool = defineTool({
   }),
   async execute(args, ctx) {
     const result = await executeVideoGenerate(args);
-    if (!result.success) return { success: false, error: result.error ?? "Video gen failed" };
+    if (!result.success) {
+      // Keep the job ID: a job that failed or timed out after submission may
+      // still have been billed, or may still finish.
+      const taskNote = result.taskId ? ` (${result.provider} task ${result.taskId})` : "";
+      return { success: false, error: `${result.error ?? "Video gen failed"}${taskNote}` };
+    }
     let job: Awaited<ReturnType<typeof createAndWriteJobRecord>> | undefined;
     if (args.wait === false && result.taskId && result.status !== "completed") {
       job = await createAndWriteJobRecord({
         jobType: "generate-video",
         provider: result.provider ?? args.provider ?? "unknown",
         providerTaskId: result.taskId,
-        providerTaskType:
-          result.provider === "kling" && args.image
-            ? "image2video"
-            : result.provider === "kling"
-              ? "text2video"
-              : undefined,
+        providerJob: result.job,
         status: "running",
         workingDirectory: ctx.workingDirectory,
         command: "generate_video wait=false",
@@ -379,9 +379,14 @@ export const generateVideoCancelTool = defineTool({
   cost: "free",
   title: "Cancel Video Generation",
   annotations: { readOnly: false, openWorld: true },
-  description: "Cancel a Runway video generation task.",
+  description:
+    "Cancel a video generation task. Runway, Seedance, and Gemini Omni have cancel APIs; Kling and Grok do not.",
   schema: z.object({
     taskId: z.string().describe("Task ID to cancel"),
+    provider: z
+      .enum(["runway", "seedance", "omni"])
+      .optional()
+      .describe("Provider that owns the task (default: runway)"),
   }),
   async execute(args) {
     const result = await executeVideoCancel(args);
@@ -403,10 +408,13 @@ export const generateVideoExtendTool = defineTool({
   title: "Extend Generated Video",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Extend video duration using Kling or Veo. Requires the video/operation ID from a previous generation.",
+    "Extend a generated video from its last frame. Kling, Grok (classic model), Gemini Omni, and Veo (shuts down 2026-10-22) can extend; pass the task ID the generation returned.",
   schema: z.object({
-    videoId: z.string().describe("Video ID (Kling) or operation name (Veo)"),
-    provider: z.enum(["kling", "veo"]).optional().describe("Provider (default: kling)"),
+    videoId: z.string().describe("Task ID of the video to extend (Veo: its operation name)"),
+    provider: z
+      .enum(["kling", "grok", "omni", "veo"])
+      .optional()
+      .describe("Provider that generated the video (default: kling)"),
     prompt: z.string().optional().describe("Continuation prompt"),
     duration: z.number().optional().describe("Duration in seconds"),
     negative: z.string().optional().describe("Negative prompt (Kling)"),

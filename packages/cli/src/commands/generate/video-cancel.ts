@@ -1,91 +1,44 @@
 /**
  * @module generate/video-cancel
- * @description `vibe generate video-cancel` (hidden) — cancel in-flight Grok
- * or Runway video generation. Split out of `generate.ts` in v0.69 (Plan G
- * Phase 2).
+ * @description `vibe generate video-cancel` (hidden) — cancel an in-flight
+ * video job on a provider with a cancel API (Runway, Seedance, Gemini Omni).
  */
 
 import type { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { GrokProvider, RunwayProvider } from "@vibeframe/ai-providers";
-import { requireApiKey } from "../../utils/api-key.js";
-import {
-  isJsonMode,
-  outputSuccess,
-  exitWithError,
-  apiError,
-  usageError,
-} from "../output.js";
+import { executeVideoCancel } from "../ai-video.js";
+import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+
+const CANCEL_PROVIDERS = ["runway", "seedance", "omni"];
 
 export function registerVideoCancelCommand(parent: Command): void {
   parent
     .command("video-cancel", { hidden: true })
-    .description("Cancel video generation (Grok or Runway)")
+    .description("Cancel video generation (Runway, Seedance, Gemini Omni)")
     .argument("<task-id>", "Task ID to cancel")
-    .option("-p, --provider <provider>", "Provider: grok, runway", "grok")
-    .option("-k, --api-key <key>", "API key (or set XAI_API_KEY / RUNWAY_API_SECRET env)")
+    .option("-p, --provider <provider>", `Provider: ${CANCEL_PROVIDERS.join(", ")}`, "runway")
+    .option("-k, --api-key <key>", "API key for the provider")
     .action(async (taskId: string, options) => {
       const startedAt = Date.now();
-      try {
-        const provider = (options.provider || "grok").toLowerCase();
-
-        let success = false;
-
-        if (provider === "grok") {
-          const apiKey = await requireApiKey("XAI_API_KEY", "xAI", options.apiKey);
-
-          const spinner = ora("Cancelling generation...").start();
-          const grok = new GrokProvider();
-          await grok.initialize({ apiKey });
-          success = await grok.cancelGeneration(taskId);
-
-          if (success) {
-            spinner.succeed(chalk.green("Generation cancelled"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video-cancel",
-                startedAt,
-                data: { taskId, provider: "grok", cancelled: true },
-              });
-              return;
-            }
-          } else {
-            spinner.fail("Failed to cancel generation");
-            exitWithError(apiError("Failed to cancel generation", true));
-          }
-        } else if (provider === "runway") {
-          const apiKey = await requireApiKey(
-            "RUNWAY_API_SECRET",
-            "Runway",
-            options.apiKey,
-          );
-
-          const spinner = ora("Cancelling generation...").start();
-          const runway = new RunwayProvider();
-          await runway.initialize({ apiKey });
-          success = await runway.cancelGeneration(taskId);
-
-          if (success) {
-            spinner.succeed(chalk.green("Generation cancelled"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate video-cancel",
-                startedAt,
-                data: { taskId, provider: "runway", cancelled: true },
-              });
-              return;
-            }
-          } else {
-            spinner.fail("Failed to cancel generation");
-            exitWithError(apiError("Failed to cancel generation", true));
-          }
-        } else {
-          exitWithError(usageError(`Invalid provider: ${provider}. Use grok or runway.`));
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        exitWithError(apiError(`Failed to cancel: ${msg}`, true));
+      const provider = String(options.provider || "runway").toLowerCase();
+      if (!CANCEL_PROVIDERS.includes(provider)) {
+        exitWithError(
+          usageError(
+            `${provider} has no cancel API. Video cancel supports: ${CANCEL_PROVIDERS.join(", ")}.`,
+            "Kling and Grok jobs run to completion once accepted."
+          )
+        );
+      }
+      const spinner = isJsonMode() ? null : ora("Cancelling generation...").start();
+      const result = await executeVideoCancel({ taskId, provider, apiKey: options.apiKey });
+      if (!result.success) {
+        spinner?.fail("Failed to cancel generation");
+        exitWithError(providerFailure(result.error ?? "Cancel failed", result.errorKind));
+      }
+      spinner?.succeed(chalk.green("Generation cancelled"));
+      if (isJsonMode()) {
+        outputSuccess({ command: "generate video-cancel", startedAt, data: { taskId, provider, cancelled: true } });
       }
     });
 }

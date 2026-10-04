@@ -651,7 +651,7 @@ Cost tier: `very-high`
 
 #### `vibe generate video-cancel`
 
-Cancel video generation (Grok or Runway)
+Cancel video generation (Runway, Seedance, Gemini Omni)
 
 Product surface: `advanced`
 Note: Provider lifecycle control.
@@ -661,12 +661,12 @@ Cost tier: `free`
 **Parameters:**
 
 - `task-id` _(string)_ **required** - Task ID to cancel
-- `provider` _(string)_ _(grok \| runway)_ _(default: `"grok"`)_ - Provider: grok, runway
-- `apiKey` _(string)_ - API key (or set XAI_API_KEY / RUNWAY_API_SECRET env)
+- `provider` _(string)_ _(runway \| seedance \| omni)_ _(default: `"runway"`)_ - Provider: runway, seedance, omni
+- `apiKey` _(string)_ - API key for the provider
 
 #### `vibe generate video-extend`
 
-Extend video duration (Kling by video ID, Veo by operation name)
+Extend a generated video from its last frame (Kling, Grok, Gemini Omni, Veo)
 
 Product surface: `advanced`
 Note: Provider lifecycle control.
@@ -675,12 +675,12 @@ Cost tier: `very-high`
 
 **Parameters:**
 
-- `id` _(string)_ **required** - Kling video ID or Veo operation name
-- `provider` _(string)_ _(kling \| veo)_ _(default: `"kling"`)_ - Provider: kling, veo
-- `apiKey` _(string)_ - API key (KLING_API_KEY or GOOGLE_API_KEY)
+- `task-id` _(string)_ **required** - Task ID the generation returned (Veo: its operation name)
+- `provider` _(string)_ _(kling \| grok \| omni \| veo)_ _(default: `"kling"`)_ - Provider: kling, grok, omni, veo
+- `apiKey` _(string)_ - API key for the provider
 - `output` _(string)_ - Output file path
 - `prompt` _(string)_ - Continuation prompt
-- `duration` _(number)_ _(default: `5`)_ - Duration: 5 or 10 (Kling), 4/6/8 (Veo)
+- `duration` _(number)_ _(default: `5`)_ - Seconds to add: 5 or 10 (Kling), 2-10 (Grok), 4/6/8 (Veo); Omni picks its own
 - `negative` _(string)_ - Negative prompt (what to avoid, Kling only)
 - `veoModel` _(string)_ _(default: `"3.1"`)_ - Veo model: 3.1, 3.1-fast
 - `noWait` _(boolean)_ - Start extension and return task ID without waiting

@@ -1,43 +1,67 @@
 /**
  * @module ai-video
- * @description Library functions for video generation, status, cancel, and
- * extension. Powers the manifest tools `generate_video`,
- * `generate_video_status`, `generate_video_cancel`, `generate_video_extend`
- * (the user reaches these via `vibe generate video[-...]`).
- *
- * The legacy `vibe ai video / video-status / video-cancel / kling / kling-status /
- * video-extend` Commander registrations were removed alongside the dead
- * `commands/ai.ts` orchestrator (the `vibe ai *` namespace was never
- * `addCommand`'d to `program`).
+ * @description Video generation, status, cancel, and extension on the video
+ * job contract. Powers the manifest tools `generate_video`,
+ * `generate_video_cancel`, `generate_video_extend`, and job refreshes in
+ * `vibe status`; every provider goes through `VideoGenerator`, so nothing
+ * here branches on provider names.
  *
  * @see MODELS.md for AI model configuration
  */
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
-  FalProvider,
-  GeminiProvider,
-  GrokProvider,
-  KlingProvider,
-  OmniProvider,
-  RunwayProvider,
-  resolveGrokVideoModel,
-  resolveKlingModel,
-  resolveSeedanceVariant,
-  resolveVeoModel,
+  isProviderError,
+  waitForVideoJob,
   type MediaReference,
+  type ProviderErrorKind,
+  type VideoGenerator,
+  type VideoJob,
+  type VideoJobState,
+  type VideoRequest,
 } from "@vibeframe/ai-providers";
-import { resolveUploadHost } from "../utils/upload-host.js";
-import { downloadVideo } from "./ai-helpers.js";
-import { getConfiguredApiKey } from "../utils/api-key.js";
+import { resolveProvider } from "../utils/provider-resolver.js";
+import { videoModelSpec } from "../utils/model-lifecycle.js";
+import {
+  canonicalVideoProvider,
+  fileToUrlOrDataUri,
+  jobFromTaskId,
+  openVideoGenerator,
+  videoImageInput,
+} from "./_shared/video-jobs.js";
+
+/** How long a waiting call polls before handing back the job to check later. */
+const WAIT_TIMEOUT_MS = 15 * 60_000;
 
 /** Write a downloaded video to `output` (relative to cwd), creating its directory. */
-async function saveOutput(output: string, buffer: Buffer): Promise<string> {
+async function saveOutput(output: string, bytes: Uint8Array): Promise<string> {
   const outputPath = resolve(process.cwd(), output);
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, buffer);
+  await writeFile(outputPath, bytes);
   return outputPath;
+}
+
+/** A failed result from a thrown error, keeping the provider error kind. */
+function failure(error: unknown, prefix: string): { success: false; error: string; errorKind?: ProviderErrorKind } {
+  if (isProviderError(error)) return { success: false, error: error.message, errorKind: error.kind };
+  return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}` };
+}
+
+/** Wait for a job (or read it once), then download the video when asked. */
+async function settle(
+  generator: VideoGenerator,
+  job: VideoJob,
+  opts: { wait: boolean; output?: string }
+): Promise<{ state: VideoJobState; outputPath?: string }> {
+  const state = opts.wait
+    ? await waitForVideoJob(generator, job, { timeoutMs: WAIT_TIMEOUT_MS })
+    : await generator.getVideoJob(job);
+  const outputPath =
+    opts.output && state.status === "completed"
+      ? await saveOutput(opts.output, await generator.downloadVideo(job, state))
+      : undefined;
+  return { state, outputPath };
 }
 
 // ============================================================================
@@ -46,8 +70,11 @@ async function saveOutput(output: string, buffer: Buffer): Promise<string> {
 
 export interface VideoGenerateOptions {
   prompt: string;
+  /** Default: the configured or first available video provider. */
   provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal" | "omni";
   image?: string;
+  /** Ending frame for providers that interpolate between two frames. */
+  endImage?: string;
   refImages?: string[];
   refVideos?: string[];
   refAudio?: string[];
@@ -66,393 +93,109 @@ export interface VideoGenerateOptions {
   output?: string;
   wait?: boolean;
   apiKey?: string;
+  /**
+   * Called as soon as the provider accepts the job, before waiting, so the
+   * caller can record it: a crash or timeout mid-wait then leaves a job that
+   * can still be polled and downloaded.
+   */
+  onSubmitted?: (job: VideoJob) => void | Promise<void>;
 }
 
 export interface VideoGenerateResult {
   success: boolean;
   taskId?: string;
+  /** The provider job handle; store it to poll, cancel, or extend later. */
+  job?: VideoJob;
   status?: string;
   videoUrl?: string;
   duration?: number;
   outputPath?: string;
   provider?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
-export async function executeVideoGenerate(
-  options: VideoGenerateOptions
-): Promise<VideoGenerateResult> {
-  const {
-    prompt,
-    provider = "kling",
-    image,
-    refImages,
-    refVideos,
-    refAudio,
-    duration = 5,
-    ratio = "16:9",
-    seed,
-    mode = "std",
-    negative,
-    resolution,
-    veoModel = "3.1-fast",
-    runwayModel,
-    seedanceModel = "quality",
-    grokModel,
-    klingModel,
-    generateAudio,
-    output,
-    wait = true,
-    apiKey,
-  } = options;
-
+export async function executeVideoGenerate(options: VideoGenerateOptions): Promise<VideoGenerateResult> {
+  const provider = canonicalVideoProvider(options.provider ?? resolveProvider("video")?.name ?? "seedance");
   try {
-    const envKeyMap: Record<string, string> = {
-      grok: "XAI_API_KEY",
-      runway: "RUNWAY_API_SECRET",
-      kling: "KLING_API_KEY",
-      veo: "GOOGLE_API_KEY",
-      omni: "GOOGLE_API_KEY",
-      seedance: "FAL_API_KEY",
-      fal: "FAL_API_KEY",
+    const generator = await openVideoGenerator(provider, options.apiKey);
+    const references: MediaReference[] = [];
+    for (const [kind, paths, mime] of [
+      ["image", options.refImages, "image/png"],
+      ["video", options.refVideos, "video/mp4"],
+      ["audio", options.refAudio, "audio/mpeg"],
+    ] as const) {
+      for (const sourcePath of paths ?? []) {
+        references.push({ kind, url: await fileToUrlOrDataUri(sourcePath, mime), sourcePath });
+      }
+    }
+    const request: VideoRequest = {
+      prompt: options.prompt,
+      model: videoModelSpec(provider, options)?.id,
+      durationSec: options.duration ?? 5,
+      aspectRatio: (options.ratio ?? "16:9") as VideoRequest["aspectRatio"],
+      resolution: options.resolution,
+      image: options.image ? await videoImageInput(generator, options.image) : undefined,
+      lastFrame: options.endImage ? await videoImageInput(generator, options.endImage) : undefined,
+      references: references.length > 0 ? references : undefined,
+      negativePrompt: options.negative,
+      seed: options.seed,
+      generateAudio: options.generateAudio,
+      providerOptions: options.mode ? { mode: options.mode } : undefined,
     };
-    const envKey = envKeyMap[provider] || "";
-    const key = await getConfiguredApiKey(envKey, apiKey);
-    if (!key) return { success: false, error: `${envKeyMap[provider]} required for ${provider}` };
 
-    let referenceImage: string | undefined;
-    let referenceImageBuffer: Buffer | undefined;
-    let referenceImageMimeType: string | undefined;
-    if (image) {
-      const imagePath = resolve(process.cwd(), image);
-      const imageBuffer = await readFile(imagePath);
-      const ext = image.toLowerCase().split(".").pop();
-      const mimeTypes: Record<string, string> = {
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        png: "image/png",
-        gif: "image/gif",
-        webp: "image/webp",
-      };
-      const mimeType = mimeTypes[ext || "png"] || "image/png";
-      referenceImageBuffer = imageBuffer;
-      referenceImageMimeType = mimeType;
-      referenceImage = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+    const job = await generator.submitVideo(request);
+    await options.onSubmitted?.(job);
+    if (options.wait === false) {
+      return { success: true, taskId: job.id, job, status: "processing", provider };
     }
-
-    if (provider === "seedance" || provider === "fal") {
-      const fal = new FalProvider();
-      await fal.initialize({ apiKey: key });
-
-      const references = await prepareSeedanceReferences({
-        refImages,
-        refVideos,
-        refAudio,
-      });
-
-      let falImage = referenceImage;
-      if (falImage && falImage.startsWith("data:") && references.length === 0) {
-        const uploadHost = await resolveUploadHost();
-        const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
-          filename: image,
-          mimeType: referenceImageMimeType,
-        });
-        falImage = upload.url;
+    let settled: Awaited<ReturnType<typeof settle>>;
+    try {
+      settled = await settle(generator, job, { wait: true, output: options.output });
+    } catch (error) {
+      // Running out of wait time is not a failure: the job may still finish.
+      if (isProviderError(error) && error.kind === "timeout") {
+        return { success: true, taskId: job.id, job, status: "processing", provider };
       }
-
-      const model = resolveSeedanceVariant(seedanceModel);
-      const result = await fal.generateVideo(prompt, {
-        prompt,
-        referenceImage: references.length > 0 ? undefined : falImage,
-        references: references.length > 0 ? references : undefined,
-        duration,
-        aspectRatio: ratio as "16:9" | "9:16" | "1:1" | "4:5",
-        negativePrompt: negative,
-        model,
-        resolution,
-        generateAudio,
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Seedance generation failed" };
-
-      let outputPath: string | undefined;
-      if (output && result.videoUrl) {
-        const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
+      throw error;
+    }
+    const { state, outputPath } = settled;
+    if (state.status !== "completed") {
       return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: result.videoUrl,
-        outputPath,
-        provider: "seedance",
-      };
-    } else if (provider === "runway") {
-      const runway = new RunwayProvider();
-      await runway.initialize({ apiKey: key });
-
-      const result = await runway.generateVideo(prompt, {
-        prompt,
-        model: runwayModel,
-        referenceImage,
-        duration,
-        aspectRatio: ratio as "16:9" | "9:16",
-        seed,
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Runway generation failed" };
-      if (!wait)
-        return { success: true, taskId: result.id, status: "processing", provider: "runway" };
-
-      const finalResult = await runway.waitForCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Runway generation failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        duration: finalResult.duration,
-        outputPath,
-        provider: "runway",
-      };
-    } else if (provider === "kling") {
-      const kling = new KlingProvider();
-      await kling.initialize({ apiKey: key });
-      if (!kling.isConfigured()) return { success: false, error: "Invalid Kling API key format" };
-
-      let klingImage = referenceImage;
-      if (klingImage && klingImage.startsWith("data:")) {
-        const uploadHost = await resolveUploadHost();
-        const upload = await uploadHost.uploadImage(referenceImageBuffer!, {
-          filename: image,
-          mimeType: referenceImageMimeType,
-        });
-        klingImage = upload.url;
-      }
-
-      const result = await kling.generateVideo(prompt, {
-        prompt,
-        model: resolveKlingModel(klingModel),
-        referenceImage: klingImage,
-        duration,
-        aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        negativePrompt: negative,
-        mode: mode as "std" | "pro",
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Kling generation failed" };
-      const taskType = referenceImage ? "image2video" : "text2video";
-      if (!wait)
-        return { success: true, taskId: result.id, status: "processing", provider: "kling" };
-
-      const finalResult = await kling.waitForCompletion(result.id, taskType, () => {}, 600000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Kling generation failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        duration: finalResult.duration,
-        outputPath,
-        provider: "kling",
-      };
-    } else if (provider === "veo") {
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey: key });
-
-      const model = resolveVeoModel(veoModel);
-      const veoDuration = duration <= 6 ? 6 : 8;
-
-      const result = await gemini.generateVideo(prompt, {
-        prompt,
-        referenceImage,
-        duration: veoDuration,
-        aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        model: model,
-        negativePrompt: negative,
-        resolution: resolution as "720p" | "1080p" | "4k" | undefined,
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Veo generation failed" };
-      if (!wait) return { success: true, taskId: result.id, status: "processing", provider: "veo" };
-
-      const finalResult = await gemini.waitForVideoCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Veo generation failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        outputPath,
-        provider: "veo",
-      };
-    } else if (provider === "grok") {
-      const grok = new GrokProvider();
-      await grok.initialize({ apiKey: key });
-
-      const result = await grok.generateVideo(prompt, {
-        prompt,
-        model: resolveGrokVideoModel(grokModel),
-        referenceImage,
-        duration,
-        aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        resolution,
-        generateAudio,
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Grok generation failed" };
-      if (!wait)
-        return { success: true, taskId: result.id, status: "processing", provider: "grok" };
-
-      const finalResult = await grok.waitForCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Grok generation failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        duration: finalResult.duration,
-        outputPath,
-        provider: "grok",
-      };
-    } else if (provider === "omni") {
-      // Gemini Omni 1.1 Flash (interactions endpoint), same GOOGLE_API_KEY.
-      const omni = new OmniProvider();
-      await omni.initialize({ apiKey: key });
-      const result = await omni.generateVideo(prompt, {
-        prompt,
-        referenceImage,
-        aspectRatio: ratio as "16:9" | "9:16" | "1:1",
-        resolution,
-      });
-      if (result.status !== "completed" || !result.videoUrl) {
-        return { success: false, error: result.error || "Gemini Omni generation failed" };
-      }
-      let outputPath: string | undefined;
-      if (output) {
-        const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: result.videoUrl,
-        outputPath,
-        provider: "omni",
+        success: false,
+        taskId: job.id,
+        job,
+        provider,
+        status: state.status,
+        error: state.error?.message ?? `${provider} generation ${state.status}`,
+        errorKind: state.error?.kind,
       };
     }
-
-    return { success: false, error: `Unsupported provider: ${provider}` };
-  } catch (error) {
     return {
-      success: false,
-      error: `Video generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      success: true,
+      taskId: job.id,
+      job,
+      status: "completed",
+      videoUrl: state.videoUrl,
+      duration: state.durationSec,
+      outputPath,
+      provider,
     };
+  } catch (error) {
+    return { ...failure(error, "Video generation failed"), provider };
   }
-}
-
-async function prepareSeedanceReferences(opts: {
-  refImages?: string[];
-  refVideos?: string[];
-  refAudio?: string[];
-}): Promise<MediaReference[]> {
-  const references: MediaReference[] = [];
-  for (const sourcePath of opts.refImages ?? []) {
-    references.push({
-      kind: "image",
-      url: await fileInputToUrlOrDataUri(sourcePath, "image/png"),
-      sourcePath,
-    });
-  }
-  for (const sourcePath of opts.refVideos ?? []) {
-    references.push({
-      kind: "video",
-      url: await fileInputToUrlOrDataUri(sourcePath, "video/mp4"),
-      sourcePath,
-    });
-  }
-  for (const sourcePath of opts.refAudio ?? []) {
-    references.push({
-      kind: "audio",
-      url: await fileInputToUrlOrDataUri(sourcePath, "audio/mpeg"),
-      sourcePath,
-    });
-  }
-  return references;
-}
-
-async function fileInputToUrlOrDataUri(input: string, fallbackMimeType: string): Promise<string> {
-  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("data:")) {
-    return input;
-  }
-  const absPath = resolve(process.cwd(), input);
-  const buffer = await readFile(absPath);
-  return `data:${mimeTypeForPath(input, fallbackMimeType)};base64,${buffer.toString("base64")}`;
-}
-
-function mimeTypeForPath(path: string, fallback: string): string {
-  const ext = path.toLowerCase().split(".").pop();
-  const mimeTypes: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    webp: "image/webp",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    mp3: "audio/mpeg",
-    wav: "audio/wav",
-  };
-  return mimeTypes[ext || ""] || fallback;
 }
 
 // ============================================================================
-// Video Status (Runway / Kling)
+// Video Status
 // ============================================================================
 
 export interface VideoStatusOptions {
   taskId: string;
-  provider?: "grok" | "runway" | "kling" | "veo";
+  provider?: string;
+  /** The stored job handle; preferred over `taskId` + `taskType`. */
+  job?: VideoJob;
+  /** Kling task type, for a bare task ID. */
   taskType?: "text2video" | "image2video";
   wait?: boolean;
   output?: string;
@@ -468,194 +211,73 @@ export interface VideoStatusResult {
   duration?: number;
   outputPath?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeVideoStatus(options: VideoStatusOptions): Promise<VideoStatusResult> {
-  const {
-    taskId,
-    provider = "runway",
-    taskType = "text2video",
-    wait = false,
-    output,
-    apiKey,
-  } = options;
-
+  const job =
+    options.job ?? jobFromTaskId(options.provider ?? "runway", options.taskId, { taskType: options.taskType });
   try {
-    const envKeyMap: Record<string, string> = {
-      grok: "XAI_API_KEY",
-      runway: "RUNWAY_API_SECRET",
-      kling: "KLING_API_KEY",
-      veo: "GOOGLE_API_KEY",
-    };
-    const key = apiKey || process.env[envKeyMap[provider] || ""];
-    if (!key) return { success: false, error: `${envKeyMap[provider]} required` };
-
-    if (provider === "grok") {
-      const grok = new GrokProvider();
-      await grok.initialize({ apiKey: key });
-
-      let result = await grok.getGenerationStatus(taskId);
-
-      if (wait && result.status !== "completed" && result.status !== "failed") {
-        result = await grok.waitForCompletion(taskId, () => {});
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.videoUrl) {
-        const buffer = await downloadVideo(result.videoUrl);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId,
-        status: result.status,
-        progress: result.progress,
-        videoUrl: result.videoUrl,
-        outputPath,
-        error: result.error,
-      };
-    } else if (provider === "runway") {
-      const runway = new RunwayProvider();
-      await runway.initialize({ apiKey: key });
-
-      let result = await runway.getGenerationStatus(taskId);
-
-      if (
-        wait &&
-        result.status !== "completed" &&
-        result.status !== "failed" &&
-        result.status !== "cancelled"
-      ) {
-        result = await runway.waitForCompletion(taskId, () => {});
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.videoUrl) {
-        const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId,
-        status: result.status,
-        progress: result.progress,
-        videoUrl: result.videoUrl,
-        outputPath,
-      };
-    } else if (provider === "kling") {
-      const kling = new KlingProvider();
-      await kling.initialize({ apiKey: key });
-
-      let result = await kling.getGenerationStatus(taskId, taskType);
-
-      if (
-        wait &&
-        result.status !== "completed" &&
-        result.status !== "failed" &&
-        result.status !== "cancelled"
-      ) {
-        result = await kling.waitForCompletion(taskId, taskType, () => {});
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.videoUrl) {
-        const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId,
-        status: result.status,
-        videoUrl: result.videoUrl,
-        duration: result.duration,
-        outputPath,
-        error: result.error,
-      };
-    } else if (provider === "veo") {
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey: key });
-
-      let result = await gemini.getGenerationStatus(taskId);
-
-      if (
-        wait &&
-        result.status !== "completed" &&
-        result.status !== "failed" &&
-        result.status !== "cancelled"
-      ) {
-        result = await gemini.waitForVideoCompletion(taskId, () => {});
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.videoUrl) {
-        const buffer = await downloadVideo(result.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId,
-        status: result.status,
-        progress: result.progress,
-        videoUrl: result.videoUrl,
-        outputPath,
-        error: result.error,
-      };
-    }
-
-    return { success: false, error: `Unsupported provider: ${provider}` };
-  } catch (error) {
+    const generator = await openVideoGenerator(job.provider, options.apiKey);
+    const { state, outputPath } = await settle(generator, job, { wait: options.wait ?? false, output: options.output });
     return {
-      success: false,
-      error: `Status check failed: ${error instanceof Error ? error.message : String(error)}`,
+      success: true,
+      taskId: job.id,
+      status: state.status,
+      progress: state.progress,
+      videoUrl: state.videoUrl,
+      duration: state.durationSec,
+      outputPath,
+      error: state.error?.message,
+      errorKind: state.error?.kind,
     };
+  } catch (error) {
+    return failure(error, "Status check failed");
   }
 }
 
 // ============================================================================
-// Video Cancel (Runway)
+// Video Cancel
 // ============================================================================
 
 export interface VideoCancelOptions {
   taskId: string;
+  /** Default: runway. */
+  provider?: string;
+  job?: VideoJob;
   apiKey?: string;
 }
 
 export interface VideoCancelResult {
   success: boolean;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeVideoCancel(options: VideoCancelOptions): Promise<VideoCancelResult> {
-  const { taskId, apiKey } = options;
-
+  const job = options.job ?? jobFromTaskId(options.provider ?? "runway", options.taskId);
   try {
-    const key = apiKey || process.env.RUNWAY_API_SECRET;
-    if (!key) return { success: false, error: "RUNWAY_API_SECRET required" };
-
-    const runway = new RunwayProvider();
-    await runway.initialize({ apiKey: key });
-
-    const success = await runway.cancelGeneration(taskId);
-    return { success };
+    const generator = await openVideoGenerator(job.provider, options.apiKey);
+    if (!generator.cancelVideoJob) {
+      return { success: false, error: `${job.provider} has no cancel API.`, errorKind: "unsupported" };
+    }
+    await generator.cancelVideoJob(job);
+    return { success: true };
   } catch (error) {
-    return {
-      success: false,
-      error: `Cancel failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
+    return failure(error, "Cancel failed");
   }
 }
 
 // ============================================================================
-// Video Extend (Kling / Veo)
+// Video Extend
 // ============================================================================
 
 export interface VideoExtendOptions {
+  /** The task ID of the video to extend (Veo: its operation name). */
   videoId: string;
-  provider?: "kling" | "veo";
+  /** Default: kling. */
+  provider?: string;
+  job?: VideoJob;
   prompt?: string;
   duration?: number;
   negative?: string;
@@ -668,105 +290,48 @@ export interface VideoExtendOptions {
 export interface VideoExtendResult {
   success: boolean;
   taskId?: string;
+  job?: VideoJob;
   status?: string;
   videoUrl?: string;
   duration?: number;
   outputPath?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
-  const {
-    videoId,
-    provider = "kling",
-    prompt,
-    duration = 5,
-    negative,
-    veoModel = "3.1",
-    output,
-    wait = true,
-    apiKey,
-  } = options;
-
+  const source = options.job ?? jobFromTaskId(options.provider ?? "kling", options.videoId);
   try {
-    if (provider === "kling") {
-      const key = apiKey || process.env.KLING_API_KEY;
-      if (!key) return { success: false, error: "KLING_API_KEY required" };
-
-      const kling = new KlingProvider();
-      await kling.initialize({ apiKey: key });
-      if (!kling.isConfigured()) return { success: false, error: "Invalid Kling API key format" };
-
-      const result = await kling.extendVideo(videoId, {
-        prompt,
-        negativePrompt: negative,
-        duration: String(duration) as "5" | "10",
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Kling extension failed" };
-      if (!wait) return { success: true, taskId: result.id, status: "processing" };
-
-      const finalResult = await kling.waitForExtendCompletion(result.id, () => {}, 600000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Kling extension failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
+    const generator = await openVideoGenerator(source.provider, options.apiKey);
+    const job = await generator.submitVideo({
+      prompt: options.prompt ?? "",
+      model: source.provider === "veo" ? videoModelSpec("veo", { veoModel: options.veoModel ?? "3.1" })?.id : undefined,
+      durationSec: options.duration,
+      negativePrompt: options.negative,
+      from: { job: source, kind: "extend" },
+    });
+    if (options.wait === false) return { success: true, taskId: job.id, job, status: "processing" };
+    const { state, outputPath } = await settle(generator, job, { wait: true, output: options.output });
+    if (state.status !== "completed") {
       return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        duration: finalResult.duration,
-        outputPath,
-      };
-    } else if (provider === "veo") {
-      const key = apiKey || process.env.GOOGLE_API_KEY;
-      if (!key) return { success: false, error: "GOOGLE_API_KEY required" };
-
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey: key });
-
-      const model = resolveVeoModel(veoModel);
-
-      const result = await gemini.extendVideo(videoId, prompt, {
-        duration: duration as 4 | 6 | 8,
-        model: model,
-      });
-
-      if (result.status === "failed")
-        return { success: false, error: result.error || "Veo extension failed" };
-      if (!wait) return { success: true, taskId: result.id, status: "processing" };
-
-      const finalResult = await gemini.waitForVideoCompletion(result.id, () => {}, 300000);
-      if (finalResult.status !== "completed")
-        return { success: false, error: finalResult.error || "Veo extension failed" };
-
-      let outputPath: string | undefined;
-      if (output && finalResult.videoUrl) {
-        const buffer = await downloadVideo(finalResult.videoUrl, key);
-        outputPath = await saveOutput(output, buffer);
-      }
-
-      return {
-        success: true,
-        taskId: result.id,
-        status: "completed",
-        videoUrl: finalResult.videoUrl,
-        outputPath,
+        success: false,
+        taskId: job.id,
+        job,
+        status: state.status,
+        error: state.error?.message ?? `${source.provider} extension ${state.status}`,
+        errorKind: state.error?.kind,
       };
     }
-
-    return { success: false, error: `Unsupported provider: ${provider}` };
-  } catch (error) {
     return {
-      success: false,
-      error: `Video extension failed: ${error instanceof Error ? error.message : String(error)}`,
+      success: true,
+      taskId: job.id,
+      job,
+      status: "completed",
+      videoUrl: state.videoUrl,
+      duration: state.durationSec,
+      outputPath,
     };
+  } catch (error) {
+    return failure(error, "Video extension failed");
   }
 }

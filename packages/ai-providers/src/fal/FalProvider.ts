@@ -160,6 +160,8 @@ export class FalProvider implements AIProvider, VideoGenerator {
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "reference-to-video"];
   iconUrl = "/icons/fal.svg";
   isAvailable = true;
+  /** Data URIs are uploaded to fal storage on submit. */
+  readonly imageInput = "either" as const;
 
   private client?: FalClient;
   private apiKey?: string;
@@ -241,6 +243,8 @@ export class FalProvider implements AIProvider, VideoGenerator {
 
     // fal: a COMPLETED status can still be a failure; check `error` first.
     const failure = status as { error?: string; error_type?: string };
+    // A cancelled job also ends COMPLETED, with `error_type: "client_cancelled"` (probe).
+    if (failure.error_type === "client_cancelled") return { status: "cancelled" };
     if (failure.error) {
       return { status: "failed", error: classifyProviderError({ provider: this.id, message: failure.error, code: failure.error_type }).toJSON() };
     }
@@ -322,10 +326,15 @@ export class FalProvider implements AIProvider, VideoGenerator {
     return this.client;
   }
 
+  /**
+   * The endpoint a job was submitted to. fal's status, result, and cancel
+   * URLs are app-level (`bytedance/seedance-2.0/requests/{id}`), so a bare
+   * request ID can fall back to its model's text-to-video endpoint.
+   */
   private endpointOf(job: VideoJob): string {
-    const endpoint = job.meta?.endpoint;
+    const endpoint = job.meta?.endpoint ?? ENDPOINT_TEXT_TO_VIDEO[job.model as SeedanceVariant];
     if (!endpoint) {
-      throw new ProviderError({ kind: "invalid-request", provider: this.id, message: `Seedance job ${job.id} has no endpoint in its handle.` });
+      throw new ProviderError({ kind: "invalid-request", provider: this.id, message: `Seedance job ${job.id} names no known model.` });
     }
     return endpoint;
   }
