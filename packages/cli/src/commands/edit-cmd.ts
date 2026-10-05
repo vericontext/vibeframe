@@ -377,7 +377,6 @@ editCommand
       // Step 2: Transcribe
       spinner.text = "Transcribing audio...";
 
-
       const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
       if (!transcript.segments || transcript.segments.length === 0) {
@@ -1003,9 +1002,7 @@ applyTiers(editCommand, {
   "fill-gaps": "very-high",
 });
 
-
 // ── Exported execute functions ─────────────────────────────────────────────
-
 
 // ============================================================================
 // Color Grade
@@ -1062,7 +1059,6 @@ export async function executeGrade(options: GradeOptions): Promise<GradeResult> 
     return { success: false, error: `Color grading failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-
 
 // ============================================================================
 // Speed Ramp
@@ -1145,7 +1141,6 @@ export async function executeSpeedRamp(options: SpeedRampOptions): Promise<Speed
   }
 }
 
-
 // ============================================================================
 // Reframe
 // ============================================================================
@@ -1219,7 +1214,6 @@ export async function executeReframe(options: ReframeOptions): Promise<ReframeRe
   }
 }
 
-
 // ============================================================================
 // Interpolate (Slow Motion)
 // ============================================================================
@@ -1267,7 +1261,6 @@ export async function executeInterpolate(options: InterpolateOptions): Promise<I
     return { success: false, error: `Frame interpolation failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-
 
 // ============================================================================
 // Upscale Video

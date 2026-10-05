@@ -5,7 +5,8 @@ import type {
 } from "../interface/types.js";
 import { defaultModel } from "../catalog/catalog.js";
 import type { SpeechGenerator, SpeechRequest, SpeechResult } from "../speech/contract.js";
-import { ProviderError } from "../shared/errors.js";
+import { ProviderError, isProviderError, type ProviderErrorKind } from "../shared/errors.js";
+import { audioFilename } from "../transcription/contract.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
 
@@ -32,6 +33,8 @@ export interface VoiceCloneResult {
   voiceId?: string;
   /** Error message if failed */
   error?: string;
+  /** Why the provider failed (`auth`, `quota`, `moderation`, ...). */
+  errorKind?: ProviderErrorKind;
 }
 
 /**
@@ -55,6 +58,8 @@ export interface MusicResult {
   audioBuffer?: Buffer;
   /** Error message if failed */
   error?: string;
+  /** Why the provider failed (`auth`, `quota`, `moderation`, ...). */
+  errorKind?: ProviderErrorKind;
 }
 
 /**
@@ -76,6 +81,8 @@ export interface SoundEffectResult {
   audioBuffer?: Buffer;
   /** Error message if failed */
   error?: string;
+  /** Why the provider failed (`auth`, `quota`, `moderation`, ...). */
+  errorKind?: ProviderErrorKind;
 }
 
 /**
@@ -87,6 +94,8 @@ export interface AudioIsolationResult {
   audioBuffer?: Buffer;
   /** Error message if failed */
   error?: string;
+  /** Why the provider failed (`auth`, `quota`, `moderation`, ...). */
+  errorKind?: ProviderErrorKind;
 }
 
 /**
@@ -371,6 +380,23 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
     }
   }
 
+  /** An ElevenLabs API call through the shared HTTP layer (retries, classified errors). */
+  private request(path: string, init: RequestInit): Promise<Response> {
+    return providerRequest(this.speechProvider, `${this.baseUrl}${path}`, {
+      ...init,
+      headers: { "xi-api-key": this.apiKey!, ...(init.headers as Record<string, string> | undefined) },
+    });
+  }
+
+  /** A failed result carrying the provider error kind. */
+  private failure(error: unknown): { success: false; error: string; errorKind?: ProviderErrorKind } {
+    return {
+      success: false,
+      error: errorText(error),
+      ...(isProviderError(error) ? { errorKind: error.kind } : {}),
+    };
+  }
+
   /**
    * Generate sound effect from text prompt
    */
@@ -398,23 +424,14 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         body.duration_seconds = duration;
       }
 
-      const response = await fetch(`${this.baseUrl}/sound-generation`, {
+      const response = await this.request(`/sound-generation`, {
         method: "POST",
         headers: {
-          "xi-api-key": this.apiKey,
           "Content-Type": "application/json",
           Accept: "audio/mpeg",
         },
         body: JSON.stringify(body),
       });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `Sound generation failed: ${error}`,
-        };
-      }
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);
@@ -424,10 +441,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         audioBuffer,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return this.failure(error);
     }
   }
 
@@ -465,23 +479,14 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         body.seed = options.seed;
       }
 
-      const response = await fetch(`${this.baseUrl}/music`, {
+      const response = await this.request(`/music`, {
         method: "POST",
         headers: {
-          "xi-api-key": this.apiKey,
           "Content-Type": "application/json",
           Accept: "audio/mpeg",
         },
         body: JSON.stringify(body),
       });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `Music generation failed: ${error}`,
-        };
-      }
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);
@@ -491,10 +496,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         audioBuffer,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return this.failure(error);
     }
   }
 
@@ -516,24 +518,15 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
       const audioBlob = Buffer.isBuffer(audioData)
         ? new Blob([new Uint8Array(audioData)])
         : audioData;
-      formData.append("audio", audioBlob, "audio.mp3");
+      formData.append("audio", audioBlob, audioFilename(new Uint8Array(await audioBlob.arrayBuffer())));
 
-      const response = await fetch(`${this.baseUrl}/audio-isolation`, {
+      const response = await this.request(`/audio-isolation`, {
         method: "POST",
         headers: {
-          "xi-api-key": this.apiKey,
           Accept: "audio/mpeg",
         },
         body: formData,
       });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `Audio isolation failed: ${error}`,
-        };
-      }
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);
@@ -543,10 +536,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         audioBuffer,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return this.failure(error);
     }
   }
 
@@ -601,21 +591,10 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         formData.append("files", blob, `sample_${i + 1}.mp3`);
       }
 
-      const response = await fetch(`${this.baseUrl}/voices/add`, {
+      const response = await this.request(`/voices/add`, {
         method: "POST",
-        headers: {
-          "xi-api-key": this.apiKey,
-        },
         body: formData,
       });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `Voice clone failed: ${error}`,
-        };
-      }
 
       const data = (await response.json()) as { voice_id: string };
 
@@ -624,10 +603,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         voiceId: data.voice_id,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return this.failure(error);
     }
   }
 
@@ -643,27 +619,11 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/voices/${voiceId}`, {
-        method: "DELETE",
-        headers: {
-          "xi-api-key": this.apiKey,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `Voice deletion failed: ${error}`,
-        };
-      }
+      await this.request(`/voices/${voiceId}`, { method: "DELETE" });
 
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return this.failure(error);
     }
   }
 }

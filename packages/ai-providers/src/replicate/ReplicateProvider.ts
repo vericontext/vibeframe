@@ -4,6 +4,7 @@ import type {
   ProviderConfig,
   VideoResult,
 } from "../interface/types.js";
+import { providerRequest } from "../shared/http.js";
 
 /**
  * Video upscale options
@@ -133,6 +134,12 @@ export class ReplicateProvider implements AIProvider {
     return !!this.apiToken;
   }
 
+  /** A Replicate API call through the shared HTTP layer; throws a classified `ProviderError`. */
+  private request(url: string, init: RequestInit = {}): Promise<Response> {
+    return providerRequest(this.id, url, init);
+  }
+
+
   /**
    * Upscale video using Real-ESRGAN
    */
@@ -160,7 +167,7 @@ export class ReplicateProvider implements AIProvider {
 
       const version = modelVersions[model] || modelVersions["real-esrgan"];
 
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -174,22 +181,6 @@ export class ReplicateProvider implements AIProvider {
           },
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          id: "",
-          status: "failed",
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -252,7 +243,7 @@ export class ReplicateProvider implements AIProvider {
         };
       }
 
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -263,22 +254,6 @@ export class ReplicateProvider implements AIProvider {
           input,
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          id: "",
-          status: "failed",
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -309,20 +284,11 @@ export class ReplicateProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/predictions/${id}`, {
+      const response = await this.request(`${this.baseUrl}/predictions/${id}`, {
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
         },
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          id,
-          status: "failed",
-          error: `Failed to get status: ${errorText}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -401,7 +367,7 @@ export class ReplicateProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/predictions/${id}/cancel`, {
+      const response = await this.request(`${this.baseUrl}/predictions/${id}/cancel`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
@@ -460,7 +426,7 @@ export class ReplicateProvider implements AIProvider {
         input.temperature = options.temperature;
       }
 
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -471,21 +437,6 @@ export class ReplicateProvider implements AIProvider {
           input,
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -587,7 +538,7 @@ export class ReplicateProvider implements AIProvider {
       }
 
       // Using resemble-enhance model for audio restoration
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -598,21 +549,6 @@ export class ReplicateProvider implements AIProvider {
           input,
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -727,7 +663,7 @@ export class ReplicateProvider implements AIProvider {
         };
       }
 
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -738,22 +674,6 @@ export class ReplicateProvider implements AIProvider {
           input,
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          id: "",
-          status: "failed",
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 
@@ -821,7 +741,7 @@ export class ReplicateProvider implements AIProvider {
         };
       }
 
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await this.request(`${this.baseUrl}/predictions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -834,22 +754,6 @@ export class ReplicateProvider implements AIProvider {
           input,
         }),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          id: "",
-          status: "failed",
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
 
       const prediction = (await response.json()) as ReplicatePrediction;
 

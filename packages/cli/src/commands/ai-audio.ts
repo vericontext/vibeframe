@@ -23,6 +23,8 @@ import {
 import { execSafe, execSafeSync, commandExists } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
+import { getConfiguredApiKey } from "../utils/api-key.js";
+import type { ProviderErrorKind } from "@vibeframe/ai-providers";
 
 // ============================================================================
 // Transcribe
@@ -42,33 +44,33 @@ export interface TranscribeResult {
   segments?: Array<{ startTime: number; endTime: number; text: string }>;
   detectedLanguage?: string;
   outputPath?: string;
+  /** Subtitle format written to `outputPath` (json, srt, vtt). */
+  format?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeTranscribe(options: TranscribeOptions): Promise<TranscribeResult> {
   const { audioPath, language, output, format, apiKey } = options;
 
   try {
-    const key = apiKey || process.env.OPENAI_API_KEY;
-    if (!key) return { success: false, error: "OPENAI_API_KEY required" };
-
     const absPath = resolve(process.cwd(), audioPath);
-    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}` };
+    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
+    const key = await getConfiguredApiKey("OPENAI_API_KEY", apiKey);
+    if (!key) return { success: false, error: "OPENAI_API_KEY required", errorKind: "auth" };
 
-
-
-    const result = await transcribeAudioFile(absPath, { apiKey: key, language: language });
+    const result = await transcribeAudioFile(absPath, { apiKey: key, language });
 
     if (result.status === "failed") {
-      return { success: false, error: result.error || "Transcription failed" };
+      return { success: false, error: result.error || "Transcription failed", errorKind: result.errorKind };
     }
 
     let outputPath: string | undefined;
+    let fmt: ReturnType<typeof detectFormat> | undefined;
     if (output) {
       outputPath = resolve(process.cwd(), output);
-      const fmt = detectFormat(output, format);
-      const content = formatTranscript(result, fmt);
-      await writeFile(outputPath, content, "utf-8");
+      fmt = detectFormat(output, format);
+      await writeFile(outputPath, formatTranscript(result, fmt), "utf-8");
     }
 
     return {
@@ -77,6 +79,7 @@ export async function executeTranscribe(options: TranscribeOptions): Promise<Tra
       segments: result.segments?.map(s => ({ startTime: s.startTime, endTime: s.endTime, text: s.text })),
       detectedLanguage: result.detectedLanguage,
       outputPath,
+      format: fmt,
     };
   } catch (error) {
     return { success: false, error: `Transcription failed: ${error instanceof Error ? error.message : String(error)}` };
@@ -97,17 +100,17 @@ export interface IsolateResult {
   success: boolean;
   outputPath?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeIsolate(options: IsolateOptions): Promise<IsolateResult> {
   const { audioPath, output = "vocals.mp3", apiKey } = options;
 
   try {
-    const key = apiKey || process.env.ELEVENLABS_API_KEY;
-    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required" };
-
     const absPath = resolve(process.cwd(), audioPath);
-    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}` };
+    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
+    const key = await getConfiguredApiKey("ELEVENLABS_API_KEY", apiKey);
+    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required", errorKind: "auth" };
 
     const audioBuffer = await readFile(absPath);
     const elevenlabs = new ElevenLabsProvider();
@@ -115,7 +118,7 @@ export async function executeIsolate(options: IsolateOptions): Promise<IsolateRe
 
     const result = await elevenlabs.isolateVocals(audioBuffer);
     if (!result.success || !result.audioBuffer) {
-      return { success: false, error: result.error || "Audio isolation failed" };
+      return { success: false, error: result.error || "Audio isolation failed", errorKind: result.errorKind };
     }
 
     const outputPath = resolve(process.cwd(), output);
@@ -145,14 +148,15 @@ export interface VoiceCloneResult {
   voiceId?: string;
   name?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeVoiceClone(options: VoiceCloneOptions): Promise<VoiceCloneResult> {
   const { samplePaths, name, description, labels, removeNoise, apiKey } = options;
 
   try {
-    const key = apiKey || process.env.ELEVENLABS_API_KEY;
-    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required" };
+    const key = await getConfiguredApiKey("ELEVENLABS_API_KEY", apiKey);
+    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required", errorKind: "auth" };
 
     if (!samplePaths || samplePaths.length === 0) {
       return { success: false, error: "At least one audio sample is required" };
@@ -161,7 +165,7 @@ export async function executeVoiceClone(options: VoiceCloneOptions): Promise<Voi
     const audioBuffers: Buffer[] = [];
     for (const samplePath of samplePaths) {
       const absPath = resolve(process.cwd(), samplePath);
-      if (!existsSync(absPath)) return { success: false, error: `File not found: ${samplePath}` };
+      if (!existsSync(absPath)) return { success: false, error: `File not found: ${samplePath}`, errorKind: "not-found" };
       const buffer = await readFile(absPath);
       audioBuffers.push(buffer);
     }
@@ -176,7 +180,7 @@ export async function executeVoiceClone(options: VoiceCloneOptions): Promise<Voi
       removeBackgroundNoise: removeNoise,
     });
 
-    if (!result.success) return { success: false, error: result.error || "Voice cloning failed" };
+    if (!result.success) return { success: false, error: result.error || "Voice cloning failed", errorKind: result.errorKind };
 
     return { success: true, voiceId: result.voiceId, name };
   } catch (error) {
@@ -203,7 +207,10 @@ export interface DubResult {
   sourceLanguage?: string;
   targetLanguage?: string;
   segmentCount?: number;
+  /** Each segment's timing with its original and translated text. */
+  segments?: Array<{ startTime: number; endTime: number; original: string; translated: string }>;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeDub(options: DubOptions): Promise<DubResult> {
@@ -213,9 +220,9 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
     const absPath = resolve(process.cwd(), mediaPath);
     if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}` };
 
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    const elevenlabsKey = process.env.ELEVENLABS_API_KEY;
+    const openaiKey = await getConfiguredApiKey("OPENAI_API_KEY");
+    const anthropicKey = await getConfiguredApiKey("ANTHROPIC_API_KEY");
+    const elevenlabsKey = await getConfiguredApiKey("ELEVENLABS_API_KEY");
 
     if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription" };
     if (!anthropicKey) return { success: false, error: "ANTHROPIC_API_KEY required for Claude translation" };
@@ -234,7 +241,7 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
     const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: source });
 
     if (transcriptResult.status === "failed" || !transcriptResult.segments) {
-      return { success: false, error: `Transcription failed: ${transcriptResult.error}` };
+      return { success: false, error: `Transcription failed: ${transcriptResult.error}`, errorKind: transcriptResult.errorKind };
     }
 
     const segments = transcriptResult.segments;
@@ -284,6 +291,12 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
         sourceLanguage: transcriptResult.detectedLanguage || source || "auto",
         targetLanguage: language,
         segmentCount: segments.length,
+        segments: segments.map((s, i) => ({
+          startTime: s.startTime,
+          endTime: s.endTime,
+          original: s.text,
+          translated: translatedSegments[i]?.text || s.text,
+        })),
         outputPath: output ? resolve(process.cwd(), output) : undefined,
       };
     }
@@ -315,6 +328,12 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
       sourceLanguage: transcriptResult.detectedLanguage || source || "auto",
       targetLanguage: language,
       segmentCount: segments.length,
+      segments: segments.map((s, i) => ({
+        startTime: s.startTime,
+        endTime: s.endTime,
+        original: s.text,
+        translated: translatedSegments[i]?.text || s.text,
+      })),
     };
   } catch (error) {
     return { success: false, error: `Dubbing failed: ${error instanceof Error ? error.message : String(error)}` };
