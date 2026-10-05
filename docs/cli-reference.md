@@ -1098,7 +1098,8 @@ Cost tier: `high`
 - `media` _(string)_ **required** - Input media file (video or audio)
 - `language` _(string)_ - Target language code (e.g., es, ko, ja) (required)
 - `source` _(string)_ - Source language code (default: auto-detect)
-- `voice` _(string)_ - ElevenLabs voice ID for output
+- `voice` _(string)_ - Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)
+- `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto (default), elevenlabs, openai, kokoro
 - `analyzeOnly` _(boolean)_ - Only analyze and show timing, don't generate audio
 - `output` _(string)_ - Output file path
 - `dryRun` _(boolean)_ - Preview parameters without executing

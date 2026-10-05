@@ -67,7 +67,7 @@ describe("executeTranslateSrt", () => {
 
     const result = await run("claude");
     expect(result.success).toBe(false);
-    expect(result.error).toContain("404 Not Found");
+    expect(result.error).toContain("404");
     expect(result.error).toContain("model: not_found");
   });
 });

@@ -149,8 +149,19 @@ exports[`CLI --describe schemas (drift detection) > vibe audio dub --describe 1`
         "description": "Source language code (default: auto-detect)",
         "type": "string",
       },
+      "tts": {
+        "default": "auto",
+        "description": "TTS provider: auto (default), elevenlabs, openai, kokoro",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+          "kokoro",
+        ],
+        "type": "string",
+      },
       "voice": {
-        "description": "ElevenLabs voice ID for output",
+        "description": "Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)",
         "type": "string",
       },
     },
