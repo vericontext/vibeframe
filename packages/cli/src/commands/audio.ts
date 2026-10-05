@@ -312,7 +312,8 @@ audioCommand
   .argument("<media>", "Input media file (video or audio)")
   .option("-l, --language <lang>", "Target language code (e.g., es, ko, ja) (required)")
   .option("--source <lang>", "Source language code (default: auto-detect)")
-  .option("--voice <id>", "ElevenLabs voice ID for output")
+  .option("--voice <id>", "Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)")
+  .option("--tts <provider>", "TTS provider: auto (default), elevenlabs, openai, kokoro", "auto")
   .option("--analyze-only", "Only analyze and show timing, don't generate audio")
   .option("-o, --output <path>", "Output file path")
   .option("--dry-run", "Preview parameters without executing")
@@ -330,10 +331,8 @@ audioCommand
     if (options.output) validateOutputPath(options.output);
     if (!options.language) exitWithError(usageError("Target language is required. Use -l or --language"));
     if (!existsSync(resolve(process.cwd(), mediaPath))) exitWithError(notFoundError(mediaPath));
-    // Ask for every key up front, so a run never fails halfway for a missing one.
+    // Whisper needs OpenAI; translation uses Claude when its key is set, else OpenAI.
     await requireApiKey("OPENAI_API_KEY", "OpenAI");
-    await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
-    if (!options.analyzeOnly) await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs");
 
     const spinner = isJsonMode() ? null : ora("Transcribing, translating, and dubbing...").start();
     const result = await executeDub({
@@ -341,6 +340,7 @@ audioCommand
       language: options.language,
       source: options.source,
       voice: options.voice,
+      tts: options.tts,
       analyzeOnly: options.analyzeOnly,
       output: options.output,
     });

@@ -2,7 +2,7 @@
  * @module manifest/audio
  * @description Audio post-processing tools.
  *   audio_transcribe (Whisper), audio_isolate (ElevenLabs vocals isolation),
- *   audio_clone_voice (ElevenLabs IVC), audio_dub (Whisper+Claude+ElevenLabs),
+ *   audio_clone_voice (ElevenLabs IVC), audio_dub (Whisper + translation + any TTS),
  *   audio_duck (FFmpeg sidechain).
  */
 
@@ -114,12 +114,13 @@ export const audioDubTool = defineTool({
   title: "Dub Audio to Another Language",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Dub audio/video to another language (transcribe + translate + TTS). Requires OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY.",
+    "Dub audio/video to another language: transcribe (Whisper), translate (Claude, or OpenAI without an Anthropic key), speak each line with a TTS provider, and place it at its original time. Requires OPENAI_API_KEY.",
   schema: z.object({
     mediaPath: z.string().describe("Input media file (video or audio)"),
     language: z.string().describe("Target language code (e.g., es, ko, ja)"),
     source: z.string().optional().describe("Source language code (default: auto-detect)"),
-    voice: z.string().optional().describe("ElevenLabs voice ID for output"),
+    voice: z.string().optional().describe("Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)"),
+    tts: z.enum(["auto", "elevenlabs", "openai", "kokoro"]).optional().describe("TTS provider (default: auto)"),
     analyzeOnly: z.boolean().optional().describe("Only analyze timing, don't generate audio"),
     output: z.string().optional().describe("Output file path"),
   }),

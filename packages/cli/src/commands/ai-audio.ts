@@ -13,17 +13,18 @@
  * @see MODELS.md for AI model configuration
  */
 
-import { resolve, dirname, basename, extname } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { resolve, dirname, basename, extname, join } from "node:path";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { existsSync } from "node:fs";
-import {
-  ElevenLabsProvider,
-  ClaudeProvider,
-} from "@vibeframe/ai-providers";
-import { execSafe, execSafeSync, commandExists } from "../utils/exec-safe.js";
+import { ElevenLabsProvider } from "@vibeframe/ai-providers";
+import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
 import { getConfiguredApiKey } from "../utils/api-key.js";
+import { getAudioDuration } from "../utils/audio.js";
+import { translateTexts } from "./_shared/translate-texts.js";
+import { parseTtsProviderName, resolveTtsProvider } from "./_shared/tts-resolve.js";
 import type { ProviderErrorKind } from "@vibeframe/ai-providers";
 
 // ============================================================================
@@ -194,9 +195,13 @@ export async function executeVoiceClone(options: VoiceCloneOptions): Promise<Voi
 
 export interface DubOptions {
   mediaPath: string;
+  /** Target language code or name ("ko", "Spanish"). */
   language: string;
   source?: string;
+  /** Voice for the chosen TTS provider. */
   voice?: string;
+  /** TTS provider: auto (default), elevenlabs, openai, kokoro. */
+  tts?: string;
   analyzeOnly?: boolean;
   output?: string;
 }
@@ -213,131 +218,105 @@ export interface DubResult {
   errorKind?: ProviderErrorKind;
 }
 
+/** Longest speed-up applied to a dubbed line that overruns its slot; beyond it, lines overlap. */
+const MAX_DUB_TEMPO = 1.5;
+
+/**
+ * Dub speech to another language: transcribe (Whisper), translate (Claude,
+ * or OpenAI without an Anthropic key), speak each segment (any TTS
+ * provider), and place each line at its segment's start time, speeding up
+ * lines that would overrun their slot.
+ */
 export async function executeDub(options: DubOptions): Promise<DubResult> {
   const { mediaPath, language, source, voice, analyzeOnly, output } = options;
+  const absPath = resolve(process.cwd(), mediaPath);
+  if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
+  const openaiKey = await getConfiguredApiKey("OPENAI_API_KEY");
+  if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription", errorKind: "auth" };
 
+  const workDir = await mkdtemp(join(tmpdir(), "vibe-dub-"));
   try {
-    const absPath = resolve(process.cwd(), mediaPath);
-    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}` };
-
-    const openaiKey = await getConfiguredApiKey("OPENAI_API_KEY");
-    const anthropicKey = await getConfiguredApiKey("ANTHROPIC_API_KEY");
-    const elevenlabsKey = await getConfiguredApiKey("ELEVENLABS_API_KEY");
-
-    if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription" };
-    if (!anthropicKey) return { success: false, error: "ANTHROPIC_API_KEY required for Claude translation" };
-    if (!analyzeOnly && !elevenlabsKey) return { success: false, error: "ELEVENLABS_API_KEY required for TTS" };
-
     const ext = extname(absPath).toLowerCase();
     const isVideo = [".mp4", ".mov", ".avi", ".mkv", ".webm"].includes(ext);
-
     let audioPath = absPath;
     if (isVideo) {
-      const tempAudioPath = resolve(dirname(absPath), `temp-audio-${Date.now()}.mp3`);
-      execSafeSync("ffmpeg", ["-i", absPath, "-vn", "-acodec", "mp3", "-y", tempAudioPath]);
-      audioPath = tempAudioPath;
+      audioPath = join(workDir, "source.mp3");
+      await execSafe("ffmpeg", ["-y", "-loglevel", "error", "-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "4", audioPath]);
     }
 
-    const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: source });
-
-    if (transcriptResult.status === "failed" || !transcriptResult.segments) {
-      return { success: false, error: `Transcription failed: ${transcriptResult.error}`, errorKind: transcriptResult.errorKind };
-    }
-
-    const segments = transcriptResult.segments;
-
-    const claude = new ClaudeProvider();
-    await claude.initialize({ apiKey: anthropicKey });
-
-    const languageNames: Record<string, string> = {
-      en: "English", es: "Spanish", fr: "French", de: "German",
-      it: "Italian", pt: "Portuguese", ja: "Japanese", ko: "Korean",
-      zh: "Chinese", ar: "Arabic", ru: "Russian", hi: "Hindi",
-    };
-    const targetLangName = languageNames[language] || language;
-    const segmentTexts = segments.map((s, i) => `[${i}] ${s.text}`).join("\n");
-
-    let translatedSegments: Array<{ text: string; startTime: number; endTime: number }> = [];
-    try {
-      const storyboard = await claude.analyzeContent(
-        `TRANSLATE to ${targetLangName}. Return the translated text only, preserving segment numbers:\n\n${segmentTexts}`,
-        segments[segments.length - 1]?.endTime || 60
-      );
-      translatedSegments = segments.map((s, i) => ({
-        text: storyboard[i]?.description || s.text,
-        startTime: s.startTime,
-        endTime: s.endTime,
-      }));
-    } catch {
-      translatedSegments = segments.map(s => ({ text: s.text, startTime: s.startTime, endTime: s.endTime }));
-    }
-
-    if (analyzeOnly) {
-      if (output) {
-        const timingPath = resolve(process.cwd(), output);
-        const timingData = {
-          sourcePath: absPath,
-          sourceLanguage: transcriptResult.detectedLanguage || source || "auto",
-          targetLanguage: language,
-          segments: segments.map((s, i) => ({
-            startTime: s.startTime, endTime: s.endTime,
-            original: s.text, translated: translatedSegments[i]?.text || s.text,
-          })),
-        };
-        await writeFile(timingPath, JSON.stringify(timingData, null, 2));
-      }
+    const transcript = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: source });
+    if (transcript.status === "failed" || !transcript.segments?.length) {
       return {
-        success: true,
-        sourceLanguage: transcriptResult.detectedLanguage || source || "auto",
-        targetLanguage: language,
-        segmentCount: segments.length,
-        segments: segments.map((s, i) => ({
-          startTime: s.startTime,
-          endTime: s.endTime,
-          original: s.text,
-          translated: translatedSegments[i]?.text || s.text,
-        })),
-        outputPath: output ? resolve(process.cwd(), output) : undefined,
+        success: false,
+        error: transcript.status === "failed" ? `Transcription failed: ${transcript.error}` : "No speech found to dub",
+        errorKind: transcript.errorKind,
       };
     }
+    const segments = transcript.segments;
+    const translation = await translateTexts(segments.map((s) => s.text), { targetLanguage: language, sourceLanguage: source });
+    if (!translation.success) return { success: false, error: translation.error, errorKind: translation.errorKind };
 
-    const elevenlabs = new ElevenLabsProvider();
-    await elevenlabs.initialize({ apiKey: elevenlabsKey! });
-
-    const dubbedBuffers: Buffer[] = [];
-    for (const seg of translatedSegments) {
-      const ttsResult = await elevenlabs.textToSpeech(seg.text, { voiceId: voice });
-      if (ttsResult.success && ttsResult.audioBuffer) {
-        dubbedBuffers.push(ttsResult.audioBuffer);
-      }
-    }
-
-    const combinedBuffer = Buffer.concat(dubbedBuffers);
-    const outputExt = isVideo ? ".mp3" : extname(absPath);
-    const defaultOutputPath = resolve(dirname(absPath), `${basename(absPath, extname(absPath))}-${language}${outputExt}`);
-    const finalOutputPath = resolve(process.cwd(), output || defaultOutputPath);
-    await writeFile(finalOutputPath, combinedBuffer);
-
-    if (isVideo && audioPath !== absPath) {
-      try { const { unlink } = await import("node:fs/promises"); await unlink(audioPath); } catch { /* cleanup best-effort */ }
-    }
-
-    return {
+    const sourceLanguage = transcript.detectedLanguage || source || "auto";
+    const report = segments.map((s, i) => ({
+      startTime: s.startTime,
+      endTime: s.endTime,
+      original: s.text,
+      translated: translation.texts[i],
+    }));
+    const base: DubResult = {
       success: true,
-      outputPath: finalOutputPath,
-      sourceLanguage: transcriptResult.detectedLanguage || source || "auto",
+      sourceLanguage,
       targetLanguage: language,
       segmentCount: segments.length,
-      segments: segments.map((s, i) => ({
-        startTime: s.startTime,
-        endTime: s.endTime,
-        original: s.text,
-        translated: translatedSegments[i]?.text || s.text,
-      })),
+      segments: report,
     };
+
+    if (analyzeOnly) {
+      if (!output) return base;
+      const timingPath = resolve(process.cwd(), output);
+      await writeFile(timingPath, JSON.stringify({ sourcePath: absPath, sourceLanguage, targetLanguage: language, segments: report }, null, 2));
+      return { ...base, outputPath: timingPath };
+    }
+
+    const tts = await resolveTtsProvider(parseTtsProviderName(options.tts));
+    const clips: Array<{ path: string; startTime: number; tempo: number }> = [];
+    for (const [i, seg] of report.entries()) {
+      const spoken = await tts.call(seg.translated, { voice });
+      if (!spoken.success || !spoken.audioBuffer) {
+        return { success: false, error: `Speech failed on segment ${i + 1}: ${spoken.error}`, errorKind: spoken.errorKind };
+      }
+      const clipPath = join(workDir, `line-${i}.${tts.audioExtension}`);
+      await writeFile(clipPath, spoken.audioBuffer);
+      const slot = Math.max(0.1, (report[i + 1]?.startTime ?? seg.endTime) - seg.startTime);
+      const length = await getAudioDuration(clipPath);
+      clips.push({ path: clipPath, startTime: seg.startTime, tempo: Math.min(MAX_DUB_TEMPO, Math.max(1, length / slot)) });
+    }
+
+    const outputExt = isVideo ? ".mp3" : ext || ".mp3";
+    const finalOutputPath = resolve(
+      process.cwd(),
+      output || resolve(dirname(absPath), `${basename(absPath, extname(absPath))}-${language}${outputExt}`)
+    );
+    await mixAtOffsets(clips, finalOutputPath);
+    return { ...base, outputPath: finalOutputPath };
   } catch (error) {
     return { success: false, error: `Dubbing failed: ${error instanceof Error ? error.message : String(error)}` };
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
   }
+}
+
+/** Mix clips into one track, each starting at its offset (and sped up by its tempo). */
+async function mixAtOffsets(clips: Array<{ path: string; startTime: number; tempo: number }>, outputPath: string): Promise<void> {
+  const inputs = clips.flatMap((clip) => ["-i", clip.path]);
+  const chains = clips.map((clip, i) => {
+    const delay = Math.round(clip.startTime * 1000);
+    const tempo = clip.tempo > 1.01 ? `atempo=${clip.tempo.toFixed(3)},` : "";
+    return `[${i}:a]${tempo}adelay=${delay}|${delay}[a${i}]`;
+  });
+  const mix = `${clips.map((_, i) => `[a${i}]`).join("")}amix=inputs=${clips.length}:normalize=0:dropout_transition=0[out]`;
+  await mkdir(dirname(outputPath), { recursive: true });
+  await execSafe("ffmpeg", ["-y", "-loglevel", "error", ...inputs, "-filter_complex", [...chains, mix].join(";"), "-map", "[out]", outputPath]);
 }
 
 // ============================================================================
