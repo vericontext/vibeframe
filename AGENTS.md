@@ -129,10 +129,12 @@ General expectation:
   After editing the catalog, run `pnpm gen:models` (MODELS.md is partly
   generated).
 - Video providers implement `VideoGenerator`
-  (`packages/ai-providers/src/video/`): HTTP goes through `providerRequest`,
-  failures are `ProviderError`s with a `kind`, and each provider passes
-  `describeVideoContract`. Callers branch on `error.kind`, never on provider
-  wording.
+  (`packages/ai-providers/src/video/`) and image providers implement
+  `ImageGenerator` (`src/image/`): HTTP goes through `providerRequest`,
+  failures are `ProviderError`s with a `kind`, and each provider passes its
+  contract suite. The CLI opens providers through `createVideoGenerator` /
+  `createImageGenerator` and branches on `error.kind`, never on provider
+  names or wording.
 
 ## Conventions
 

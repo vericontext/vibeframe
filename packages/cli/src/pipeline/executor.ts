@@ -178,7 +178,6 @@ async function ensureActionsRegistered(): Promise<void> {
       ratio: stringParam(params.ratio),
       size: stringParam(params.size),
       quality: stringParam(params.quality),
-      style: stringParam(params.style),
       count: numberParam(params.count),
       apiKey: await apiKeyForProvider(providerKeyForImage(provider)),
     });

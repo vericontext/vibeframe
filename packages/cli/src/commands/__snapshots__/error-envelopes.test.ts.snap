@@ -58,3 +58,19 @@ exports[`structured error envelope (exitWithError → stderr) > generate image �
   "success": false,
 }
 `;
+
+exports[`structured error envelope (exitWithError → stderr) > generate image — no API key, hermetic (API_KEY_MISSING) 1`] = `
+{
+  "code": "API_KEY_MISSING",
+  "error": "OpenAI API key required.",
+  "exitCode": 4,
+  "message": "OpenAI API key required.",
+  "recoverable": false,
+  "retryWith": [
+    "Set OPENAI_API_KEY in .env, or run: vibe setup. Check available features: vibe doctor --json. Get key: https://platform.openai.com/api-keys",
+  ],
+  "retryable": false,
+  "success": false,
+  "suggestion": "Set OPENAI_API_KEY in .env, or run: vibe setup. Check available features: vibe doctor --json. Get key: https://platform.openai.com/api-keys",
+}
+`;

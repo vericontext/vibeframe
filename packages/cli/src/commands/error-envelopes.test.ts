@@ -101,10 +101,11 @@ const cases: ErrorCase[] = [
     exitCode: 2,
   },
   {
-    name: "generate image — no API key, hermetic (API_ERROR)",
+    // A missing key is an auth error with setup hints, not a generic API failure.
+    name: "generate image — no API key, hermetic (API_KEY_MISSING)",
     cmd: 'generate image "a test prompt" -p openai --json',
-    code: "API_ERROR",
-    exitCode: 5,
+    code: "API_KEY_MISSING",
+    exitCode: 4,
   },
 ];
 

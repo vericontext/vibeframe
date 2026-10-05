@@ -491,7 +491,7 @@ Cost tier: _not tagged_
 
 #### `vibe generate image`
 
-Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)
+Generate image using AI (OpenAI GPT Image, Gemini, or Grok)
 
 Product surface: `public`
 
@@ -500,15 +500,15 @@ Cost tier: `high`
 **Parameters:**
 
 - `prompt` _(string)_ - Image description prompt (interactive if omitted)
-- `provider` _(string)_ _(openai \| gemini \| grok \| runway)_ - Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway
-- `apiKey` _(string)_ - API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)
-- `output` _(string)_ - Output file path (downloads image)
-- `size` _(string)_ _(default: `"1024x1024"`)_ - Image size (openai: 1024x1024, 1536x1024, 1024x1536)
-- `ratio` _(string)_ _(default: `"1:1"`)_ - Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)
-- `quality` _(string)_ _(standard \| hd)_ _(default: `"standard"`)_ - Quality: standard, hd (openai only)
-- `style` _(string)_ _(vivid \| natural)_ _(default: `"vivid"`)_ - Style: vivid, natural (openai only)
+- `provider` _(string)_ _(openai \| gemini \| grok)_ - Provider: openai (default when OPENAI_API_KEY set), gemini, grok
+- `apiKey` _(string)_ - API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY)
+- `output` _(string)_ - Output file path
+- `ratio` _(string)_ _(default: `"1:1"`)_ - Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)
+- `size` _(string)_ - Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)
+- `quality` _(string)_ _(low \| medium \| high)_ - Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)
+- `resolution` _(string)_ - Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k
 - `count` _(number)_ _(default: `1`)_ - Number of images to generate
-- `model` _(string)_ - Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro
+- `model` _(string)_ - Model. OpenAI: 2.5 (default), flare, 2. Gemini: flash (default), lite, pro. Grok: pro
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe generate motion`
@@ -777,7 +777,7 @@ Cost tier: `high`
 - `provider` _(string)_ _(gemini \| openai \| grok)_ _(default: `"gemini"`)_ - Provider: gemini (default), openai, grok
 - `apiKey` _(string)_ - API key (or set env variable)
 - `output` _(string)_ _(default: `"edited.png"`)_ - Output file path
-- `model` _(string)_ _(default: `"flash"`)_ - Model: flash, lite, pro (Gemini); pro (Grok)
+- `model` _(string)_ - Model: flash (default), lite, pro (Gemini); 2.5, flare, 2 (OpenAI); pro (Grok)
 - `ratio` _(string)_ - Output aspect ratio
 - `size` _(string)_ - Resolution: 1K, 2K, 4K (Gemini Pro only)
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -1256,7 +1256,7 @@ Cost tier: `free`
 - `insertInto` _(string)_ _(default: `"index.html"`)_ - Root composition file to update
 - `project` _(string)_ _(default: `"."`)_ - Project directory
 - `noStoryboard` _(boolean)_ - Do not sync STORYBOARD.md; insert this scene directly into the root composition only
-- `imageProvider` _(string)_ _(gemini \| openai)_ _(default: `"gemini"`)_ - Image provider: gemini, openai
+- `imageProvider` _(string)_ _(gemini \| openai \| grok)_ _(default: `"gemini"`)_ - Image provider: gemini, openai, grok
 - `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)
 - `voice` _(string)_ - Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)
 - `noAudio` _(boolean)_ - Skip TTS even when --narration is provided (useful for tests/agent dry runs)

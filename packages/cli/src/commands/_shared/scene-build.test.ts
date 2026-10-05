@@ -22,9 +22,7 @@ vi.mock("./tts-resolve.js", () => ({
 
 vi.mock("@vibeframe/ai-providers", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@vibeframe/ai-providers")>()),
-  GeminiProvider: vi.fn(),
-  GrokProvider: vi.fn(),
-  OpenAIImageProvider: vi.fn(),
+  createImageGenerator: vi.fn(),
 }));
 
 // Stub only the Whisper network call; keep the pure path/read helpers real so
@@ -51,7 +49,7 @@ vi.mock("../generate/music.js", () => ({
 }));
 
 import { resolveTtsProvider } from "./tts-resolve.js";
-import { GeminiProvider, GrokProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { createImageGenerator, type ImageGenerator } from "@vibeframe/ai-providers";
 import { transcribeNarrationWords } from "./transcribe-narration.js";
 import { executeSceneRender } from "./scene-render.js";
 import { executeFootageAssemble } from "./footage-assemble.js";
@@ -126,35 +124,18 @@ beforeEach(() => {
     }),
   });
 
-  vi.mocked(OpenAIImageProvider).mockImplementation(
-    () =>
+  // Each image provider returns distinct bytes, so tests can tell which one ran.
+  const imageBytes: Record<string, number[]> = { openai: [5, 6, 7, 8], gemini: [9, 10, 11, 12], grok: [13, 14, 15, 16] };
+  vi.mocked(createImageGenerator).mockImplementation(
+    async (provider: string) =>
       ({
-        initialize: vi.fn().mockResolvedValue(undefined),
-        generateImage: vi.fn().mockResolvedValue({
-          success: true,
-          images: [{ base64: Buffer.from([5, 6, 7, 8]).toString("base64") }],
+        imageProvider: provider,
+        maxEditImages: () => 3,
+        createImage: vi.fn().mockResolvedValue({
+          images: [{ bytes: new Uint8Array(imageBytes[provider]), mimeType: "image/png" }],
+          model: `${provider}-model`,
         }),
-      }) as unknown as InstanceType<typeof OpenAIImageProvider>
-  );
-  vi.mocked(GeminiProvider).mockImplementation(
-    () =>
-      ({
-        initialize: vi.fn().mockResolvedValue(undefined),
-        generateImage: vi.fn().mockResolvedValue({
-          success: true,
-          images: [{ base64: Buffer.from([9, 10, 11, 12]).toString("base64") }],
-        }),
-      }) as unknown as InstanceType<typeof GeminiProvider>
-  );
-  vi.mocked(GrokProvider).mockImplementation(
-    () =>
-      ({
-        initialize: vi.fn().mockResolvedValue(undefined),
-        generateImage: vi.fn().mockResolvedValue({
-          success: true,
-          images: [{ base64: Buffer.from([13, 14, 15, 16]).toString("base64") }],
-        }),
-      }) as unknown as InstanceType<typeof GrokProvider>
+      }) as ImageGenerator
   );
 
   vi.mocked(executeSceneRender).mockResolvedValue({
@@ -392,19 +373,19 @@ describe("executeSceneBuild", () => {
 
     expect(r.success).toBe(true);
     expect(r.beats[0].backdropStatus).toBe("generated");
-    expect(OpenAIImageProvider).toHaveBeenCalled();
+    expect(createImageGenerator).toHaveBeenCalledWith("openai", "test-key-from-dotenv");
   });
 
   it.each([
-    ["gemini", GeminiProvider, [9, 10, 11, 12]],
-    ["grok", GrokProvider, [13, 14, 15, 16]],
-  ] as const)("dispatches backdrop generation with %s", async (imageProvider, Provider, bytes) => {
+    ["gemini", [9, 10, 11, 12]],
+    ["grok", [13, 14, 15, 16]],
+  ] as const)("dispatches backdrop generation with %s", async (imageProvider, bytes) => {
     const r = await executeSceneBuild({ projectDir, stage: "assets", imageProvider });
 
     expect(r.success).toBe(true);
     expect(r.beats[0].backdropStatus).toBe("generated");
-    expect(Provider).toHaveBeenCalled();
-    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(createImageGenerator).toHaveBeenCalledWith(imageProvider, expect.any(String));
+    expect(createImageGenerator).not.toHaveBeenCalledWith("openai", expect.anything());
     expect(Array.from(readFileSync(join(projectDir, "assets", "backdrop-hook.png")))).toEqual(
       bytes
     );
@@ -456,7 +437,7 @@ describe("executeSceneBuild", () => {
     expect(r.beats[0].narrationStatus).toBe("skipped");
     expect(r.beats[0].backdropStatus).toBe("skipped");
     expect(resolveTtsProvider).not.toHaveBeenCalled();
-    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(createImageGenerator).not.toHaveBeenCalled();
   });
 
   it("runs `--stage transcript` standalone over on-disk narration and reports `transcript-only`", async () => {
@@ -546,7 +527,7 @@ asset: "assets/frame.png"
     expect(r.beats[0].backdropPath).toBe("assets/frame.png");
     expect(r.beats[0].backdropSourcePath).toBe("assets/frame.png");
     expect(resolveTtsProvider).not.toHaveBeenCalled();
-    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(createImageGenerator).not.toHaveBeenCalled();
 
     const report = readBuildReport();
     expectBuildReportContract(report, {
@@ -601,7 +582,7 @@ backdrop: "../outside.png"
     expect(r.beats[0].backdropError).toBe(
       'Asset reference "../outside.png" must stay inside the project directory.'
     );
-    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(createImageGenerator).not.toHaveBeenCalled();
 
     const report = readBuildReport();
     expectBuildReportContract(report, {
@@ -830,7 +811,7 @@ backdrop: "This should not dispatch."
       `vibe storyboard revise ${projectDir} --from "<request>" --dry-run --json`,
     ]);
     expect(resolveTtsProvider).not.toHaveBeenCalled();
-    expect(OpenAIImageProvider).not.toHaveBeenCalled();
+    expect(createImageGenerator).not.toHaveBeenCalled();
     expect(executeSceneRender).not.toHaveBeenCalled();
 
     const report = readBuildReport();

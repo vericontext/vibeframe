@@ -4,6 +4,10 @@ import type {
   ProviderConfig,
 } from "../interface/types.js";
 import { defaultModel } from "../catalog/catalog.js";
+import { fromBase64, openAiImageSize, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
+import { ProviderError, isProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * GPT Image model types
@@ -75,18 +79,18 @@ export interface ImageEditOptions {
 
 /** Default text-to-image model. */
 export const OPENAI_IMAGE_DEFAULT_MODEL = defaultModel("openai", "image").id as GPTImageModel;
-const DEFAULT_MODEL = OPENAI_IMAGE_DEFAULT_MODEL;
 
 /**
  * OpenAI Image provider (GPT Image 1.5 / GPT Image 2 / DALL-E)
  */
-export class OpenAIImageProvider implements AIProvider {
+export class OpenAIImageProvider implements AIProvider, ImageGenerator {
   id = "openai-image";
   name = "OpenAI GPT Image";
   description = "AI image generation with GPT Image 1.5 (default) and GPT Image 2 (opt-in)";
   capabilities: AICapability[] = ["text-to-image", "background-removal", "image-editing"];
   iconUrl = "/icons/openai.svg";
   isAvailable = true;
+  readonly imageProvider = "openai";
 
   private apiKey?: string;
   private baseUrl = "https://api.openai.com/v1";
@@ -106,94 +110,81 @@ export class OpenAIImageProvider implements AIProvider {
    * Generate images from text prompt
    * Uses GPT Image 2.5 Sunburst by default
    */
-  async generateImage(
-    prompt: string,
-    options: ImageOptions = {}
-  ): Promise<ImageResult> {
+  // ── ImageGenerator ────────────────────────────────────────────────────
+
+  /** GPT Image edits take up to 16 input images. */
+  maxEditImages(): number {
+    return 16;
+  }
+
+  async createImage(request: ImageRequest): Promise<ImageResultSet> {
     if (!this.apiKey) {
-      return {
-        success: false,
-        error: "OpenAI API key not configured",
-      };
+      throw new ProviderError({ kind: "auth", provider: this.imageProvider, message: "OpenAI API key not configured" });
     }
-
-    const model = options.model || DEFAULT_MODEL;
-
-    try {
-      // Build request body based on model
+    const model = resolveCatalogModel(this.imageProvider, "image", request.model).id;
+    const size = openAiSize(request);
+    let response: Response;
+    if (request.images?.length) {
+      if (request.images.length > this.maxEditImages()) {
+        throw new ProviderError({
+          kind: "invalid-request",
+          provider: this.imageProvider,
+          message: `GPT Image edits take up to ${this.maxEditImages()} images, not ${request.images.length}.`,
+        });
+      }
+      const form = new FormData();
+      form.append("model", model);
+      form.append("prompt", request.prompt);
+      for (const image of request.images) {
+        form.append("image[]", new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }), "image.png");
+      }
+      if (request.mask) form.append("mask", new Blob([new Uint8Array(request.mask)], { type: "image/png" }), "mask.png");
+      if (request.quality) form.append("quality", request.quality);
+      if (size) form.append("size", size);
+      if (request.count) form.append("n", String(request.count));
+      response = await providerRequest(this.imageProvider, `${this.baseUrl}/images/edits`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        body: form,
+      });
+    } else {
       const body: Record<string, unknown> = {
         model,
-        prompt,
-        n: options.n || 1,
+        prompt: request.prompt,
+        n: request.count ?? 1,
+        // GPT Image models take quality low/medium/high and no response_format.
+        quality: request.quality ?? "medium",
       };
-
-      // GPT Image models do NOT support response_format.
-      // Quality values: low, medium, high, auto.
-      const qualityMap: Record<string, string> = {
-        standard: "medium",
-        hd: "high",
-      };
-      const quality = options.quality || "medium";
-      body.quality = qualityMap[quality] || quality;
-      if (options.size && options.size !== "auto") {
-        body.size = options.size;
-      }
-
-      const response = await fetch(`${this.baseUrl}/images/generations`, {
+      if (size) body.size = size;
+      response = await providerRequest(this.imageProvider, `${this.baseUrl}/images/generations`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
         body: JSON.stringify(body),
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI Image API error:", errorText);
-
-        // Parse error to get detailed message
-        let errorMessage = `API error: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error?.message) {
-            errorMessage = errorJson.error.message;
-          }
-        } catch {
-          // If not JSON, use the raw text
-          if (errorText) {
-            errorMessage = errorText.substring(0, 200);
-          }
-        }
-
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      }
-
-      const data = (await response.json()) as {
-        data: Array<{
-          url?: string;
-          b64_json?: string;
-          revised_prompt?: string;
-        }>;
-      };
-
-      return {
-        success: true,
-        images: data.data.map((img) => ({
-          url: img.url,
-          base64: img.b64_json,
-          revisedPrompt: img.revised_prompt,
-        })),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
     }
+    const data = (await response.json()) as { data?: Array<{ b64_json?: string; revised_prompt?: string }> };
+    const images = (data.data ?? [])
+      .filter((img) => img.b64_json)
+      .map((img) => ({ bytes: fromBase64(img.b64_json!), mimeType: "image/png", revisedPrompt: img.revised_prompt }));
+    if (images.length === 0) {
+      throw new ProviderError({ kind: "provider", provider: this.imageProvider, message: "OpenAI returned no image." });
+    }
+    return { images, model };
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  async generateImage(prompt: string, options: ImageOptions = {}): Promise<ImageResult> {
+    const quality = options.quality === "standard" ? "medium" : options.quality === "hd" ? "high" : options.quality;
+    return this.legacy(() =>
+      this.createImage({
+        prompt,
+        model: options.model,
+        count: options.n,
+        quality,
+        providerOptions: options.size && options.size !== "auto" ? { size: options.size } : undefined,
+      })
+    );
   }
 
   /**
@@ -248,96 +239,44 @@ export class OpenAIImageProvider implements AIProvider {
   }
 
   /**
-   * Edit images using GPT Image 1.5
-   * Supports up to 16 input images with text instruction-based editing
+   * Edit images (up to 16 inputs) with a text instruction.
    */
-  async editImage(
-    imageBuffers: Buffer[],
-    prompt: string,
-    options: ImageEditOptions = {}
-  ): Promise<ImageResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "OpenAI API key not configured",
-      };
-    }
+  async editImage(imageBuffers: Buffer[], prompt: string, options: ImageEditOptions = {}): Promise<ImageResult> {
+    return this.legacy(() =>
+      this.createImage({
+        prompt,
+        model: options.model,
+        quality: options.quality,
+        count: options.n,
+        mask: options.mask,
+        images: imageBuffers.map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
+        providerOptions: options.size ? { size: options.size } : undefined,
+      })
+    );
+  }
 
+  private async legacy(run: () => Promise<ImageResultSet>): Promise<ImageResult> {
     try {
-      const formData = new FormData();
-      formData.append("model", options.model || DEFAULT_MODEL);
-      formData.append("prompt", prompt);
-
-      // Add images (up to 16)
-      for (const buf of imageBuffers) {
-        const uint8Array = new Uint8Array(buf);
-        formData.append("image[]", new Blob([uint8Array], { type: "image/png" }), "image.png");
-      }
-
-      if (options.mask) {
-        const maskUint8 = new Uint8Array(options.mask);
-        formData.append("mask", new Blob([maskUint8], { type: "image/png" }), "mask.png");
-      }
-
-      if (options.quality) {
-        formData.append("quality", options.quality);
-      }
-
-      if (options.size) {
-        formData.append("size", options.size);
-      }
-
-      const response = await fetch(`${this.baseUrl}/images/edits`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `API error: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error?.message) {
-            errorMessage = errorJson.error.message;
-          }
-        } catch {
-          if (errorText) {
-            errorMessage = errorText.substring(0, 200);
-          }
-        }
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      }
-
-      const data = (await response.json()) as {
-        data: Array<{
-          b64_json?: string;
-          url?: string;
-          revised_prompt?: string;
-        }>;
-      };
-
+      const result = await run();
       return {
         success: true,
-        images: data.data.map((img) => ({
-          base64: img.b64_json,
-          url: img.url,
-          revisedPrompt: img.revised_prompt,
+        images: result.images.map((img) => ({
+          base64: Buffer.from(img.bytes).toString("base64"),
+          revisedPrompt: img.revisedPrompt,
         })),
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { success: false, error: isProviderError(error) || error instanceof Error ? error.message : "Unknown error" };
     }
   }
 
 }
 
 export const openaiImageProvider = new OpenAIImageProvider();
+
+/** An explicit `size` wins; otherwise the aspect ratio picks one of the three GPT Image sizes. */
+function openAiSize(request: ImageRequest): string | undefined {
+  const explicit = request.providerOptions?.size;
+  if (typeof explicit === "string" && explicit !== "auto") return explicit;
+  return openAiImageSize(request.aspectRatio);
+}

@@ -25,7 +25,7 @@ describe("Gemini image contract", () => {
         content: {
           parts: [
             { thought: true, inlineData: { mimeType: "image/png", data: "THOUGHT" } },
-            { inlineData: { mimeType: "image/jpeg", data: "IMAGE" } },
+            { inlineData: { mimeType: "image/jpeg", data: "aW1hZ2U=" } },
           ],
         },
       },
@@ -50,13 +50,13 @@ describe("Gemini image contract", () => {
     expect(body.generationConfig.imageConfig.aspectRatio).toBe("16:9");
     expect(body.generationConfig).not.toHaveProperty("temperature");
     // Thought images are skipped; the real image keeps its JPEG mime type.
-    expect(result.images).toEqual([{ base64: "IMAGE", mimeType: "image/jpeg" }]);
+    expect(result.images).toEqual([{ base64: "aW1hZ2U=", mimeType: "image/jpeg" }]);
   });
 });
 
 describe("OpenAI image contract", () => {
   it("defaults to gpt-image-2.5-sunburst with medium quality and no response_format", async () => {
-    const fetchMock = stubFetch({ data: [{ b64_json: "IMG", revised_prompt: "an apple" }] });
+    const fetchMock = stubFetch({ data: [{ b64_json: "aW1n", revised_prompt: "an apple" }] });
     const openai = new OpenAIImageProvider();
     await openai.initialize({ apiKey: "key" });
 
@@ -67,11 +67,11 @@ describe("OpenAI image contract", () => {
     expect(body).toMatchObject({ model: "gpt-image-2.5-sunburst", quality: "medium", size: "1024x1024" });
     expect(body).not.toHaveProperty("response_format");
     expect(body).not.toHaveProperty("style");
-    expect(result.images?.[0].base64).toBe("IMG");
+    expect(result.images?.[0].base64).toBe("aW1n");
   });
 
   it("maps the legacy hd quality name to high", async () => {
-    const fetchMock = stubFetch({ data: [{ b64_json: "IMG" }] });
+    const fetchMock = stubFetch({ data: [{ b64_json: "aW1n" }] });
     const openai = new OpenAIImageProvider();
     await openai.initialize({ apiKey: "key" });
 

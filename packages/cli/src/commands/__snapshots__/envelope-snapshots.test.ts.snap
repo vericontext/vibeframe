@@ -1092,8 +1092,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit image --describe 1
         "type": "array",
       },
       "model": {
-        "default": "flash",
-        "description": "Model: flash, lite, pro (Gemini); pro (Grok)",
+        "description": "Model: flash (default), lite, pro (Gemini); 2.5, flare, 2 (OpenAI); pro (Grok)",
         "type": "string",
       },
       "output": {
@@ -1727,12 +1726,12 @@ exports[`CLI --describe schemas (drift detection) > vibe edit upscale --describe
 exports[`CLI --describe schemas (drift detection) > vibe generate image --describe 1`] = `
 {
   "cost": "high",
-  "description": "Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)",
+  "description": "Generate image using AI (OpenAI GPT Image, Gemini, or Grok)",
   "name": "generate.image",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)",
+        "description": "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY)",
         "type": "string",
       },
       "count": {
@@ -1745,11 +1744,11 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "type": "boolean",
       },
       "model": {
-        "description": "Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro",
+        "description": "Model. OpenAI: 2.5 (default), flare, 2. Gemini: flash (default), lite, pro. Grok: pro",
         "type": "string",
       },
       "output": {
-        "description": "Output file path (downloads image)",
+        "description": "Output file path",
         "type": "string",
       },
       "prompt": {
@@ -1757,41 +1756,34 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "type": "string",
       },
       "provider": {
-        "description": "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway",
+        "description": "Provider: openai (default when OPENAI_API_KEY set), gemini, grok",
         "enum": [
           "openai",
           "gemini",
           "grok",
-          "runway",
         ],
         "type": "string",
       },
       "quality": {
-        "default": "standard",
-        "description": "Quality: standard, hd (openai only)",
+        "description": "Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)",
         "enum": [
-          "standard",
-          "hd",
+          "low",
+          "medium",
+          "high",
         ],
         "type": "string",
       },
       "ratio": {
         "default": "1:1",
-        "description": "Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)",
+        "description": "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)",
+        "type": "string",
+      },
+      "resolution": {
+        "description": "Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k",
         "type": "string",
       },
       "size": {
-        "default": "1024x1024",
-        "description": "Image size (openai: 1024x1024, 1536x1024, 1024x1536)",
-        "type": "string",
-      },
-      "style": {
-        "default": "vivid",
-        "description": "Style: vivid, natural (openai only)",
-        "enum": [
-          "vivid",
-          "natural",
-        ],
+        "description": "Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)",
         "type": "string",
       },
     },
@@ -3241,10 +3233,11 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
       },
       "imageProvider": {
         "default": "gemini",
-        "description": "Image provider: gemini, openai",
+        "description": "Image provider: gemini, openai, grok",
         "enum": [
           "gemini",
           "openai",
+          "grok",
         ],
         "type": "string",
       },
@@ -4368,12 +4361,11 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
   "costUsd": 0.211,
   "data": {
     "params": {
-      "count": "1",
+      "count": 1,
+      "model": "gpt-image-2.5-sunburst",
       "prompt": "test prompt",
       "provider": "openai",
-      "quality": "standard",
       "ratio": "1:1",
-      "size": "1024x1024",
     },
   },
   "dryRun": true,
