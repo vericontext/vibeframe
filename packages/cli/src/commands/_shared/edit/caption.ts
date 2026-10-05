@@ -6,13 +6,13 @@
  */
 
 import { existsSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, basename, extname, join } from "node:path";
-import { WhisperProvider } from "@vibeframe/ai-providers";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { formatSRT } from "../../../utils/subtitle.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
 import { getVideoResolution } from "./_helpers.js";
+import { transcribeAudioFile } from "../transcription.js";
 
 /** Visual style preset for burned-in captions. */
 export type CaptionStyle = "minimal" | "bold" | "outline" | "karaoke";
@@ -133,12 +133,8 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
       );
 
       // Step 2: Transcribe with Whisper
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiKey });
 
-      const audioBuffer = await readFile(audioPath);
-      const audioBlob = new Blob([audioBuffer]);
-      const transcriptResult = await whisper.transcribe(audioBlob, language);
+      const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: language });
 
       if (
         transcriptResult.status === "failed" ||

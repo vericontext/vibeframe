@@ -20,7 +20,6 @@ import chalk from "chalk";
 import ora from "ora";
 import {
   GeminiProvider,
-  WhisperProvider,
   ClaudeProvider,
   type Highlight,
   type HighlightCriteria,
@@ -32,6 +31,7 @@ import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 import { exitWithError, outputSuccess, authError, notFoundError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
+import { transcribeAudioFile } from "./_shared/transcription.js";
 
 // ============================================================================
 // Shared helpers
@@ -274,12 +274,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         sourceDuration = await ffprobeDuration(absPath);
       }
 
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiApiKey });
 
-      const audioBuffer = await readFile(audioPath);
-      const audioBlob = new Blob([audioBuffer]);
-      const transcriptResult = await whisper.transcribe(audioBlob, options.language);
+      const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
 
       if (tempAudioPath && existsSync(tempAudioPath)) {
         const { unlink: unlinkFile } = await import("node:fs/promises");
@@ -551,12 +547,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
       await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiApiKey });
 
-      const audioBuffer = await readFile(tempAudio);
-      const audioBlob = new Blob([audioBuffer]);
-      const transcript = await whisper.transcribe(audioBlob, options.language);
+      const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
       try {
         const { unlink: unlinkFile } = await import("node:fs/promises");
@@ -890,12 +882,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
 
-          const whisper = new WhisperProvider();
-          await whisper.initialize({ apiKey: openaiApiKey });
 
-          const audioBuffer = await readFile(audioPath);
-          const audioBlob = new Blob([audioBuffer]);
-          const transcriptResult = await whisper.transcribe(audioBlob, options.language);
+          const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
 
           if (transcriptResult.status === "failed" || !transcriptResult.segments) {
             transcribeSpinner.fail("Transcription failed");
@@ -1215,12 +1203,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
           spinner.text = "Transcribing audio...";
 
-          const whisper = new WhisperProvider();
-          await whisper.initialize({ apiKey: openaiApiKey });
 
-          const audioBuffer = await readFile(tempAudio);
-          const audioBlob = new Blob([audioBuffer]);
-          const transcript = await whisper.transcribe(audioBlob, options.language);
+          const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
           try {
             const { unlink: unlinkFile } = await import("node:fs/promises");

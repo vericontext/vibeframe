@@ -17,12 +17,12 @@ import { resolve, dirname, basename, extname } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import {
-  WhisperProvider,
   ElevenLabsProvider,
   ClaudeProvider,
 } from "@vibeframe/ai-providers";
 import { execSafe, execSafeSync, commandExists } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
+import { transcribeAudioFile } from "./_shared/transcription.js";
 
 // ============================================================================
 // Transcribe
@@ -55,13 +55,9 @@ export async function executeTranscribe(options: TranscribeOptions): Promise<Tra
     const absPath = resolve(process.cwd(), audioPath);
     if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}` };
 
-    const whisper = new WhisperProvider();
-    await whisper.initialize({ apiKey: key });
 
-    const audioBuffer = await readFile(absPath);
-    const audioBlob = new Blob([audioBuffer]);
 
-    const result = await whisper.transcribe(audioBlob, language);
+    const result = await transcribeAudioFile(absPath, { apiKey: key, language: language });
 
     if (result.status === "failed") {
       return { success: false, error: result.error || "Transcription failed" };
@@ -235,11 +231,7 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
       audioPath = tempAudioPath;
     }
 
-    const whisper = new WhisperProvider();
-    await whisper.initialize({ apiKey: openaiKey });
-    const audioBuffer = await readFile(audioPath);
-    const audioBlob = new Blob([audioBuffer]);
-    const transcriptResult = await whisper.transcribe(audioBlob, source);
+    const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: source });
 
     if (transcriptResult.status === "failed" || !transcriptResult.segments) {
       return { success: false, error: `Transcription failed: ${transcriptResult.error}` };
