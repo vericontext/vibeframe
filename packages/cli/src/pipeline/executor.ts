@@ -211,7 +211,13 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("generate-tts", async (params, outputDir) => {
     const { executeSpeech } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "speech.mp3");
-    const r = await executeSpeech({ text: params.text as string, voice: params.voice as string | undefined, output });
+    const r = await executeSpeech({
+      text: params.text as string,
+      voice: stringParam(params.voice),
+      provider: stringParam(params.provider),
+      model: stringParam(params.model),
+      output,
+    });
     return { id: "", action: "generate-tts", success: r.success, output: r.outputPath, data: { characterCount: r.characterCount }, error: r.error };
   });
 

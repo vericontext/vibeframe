@@ -1,19 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OpenAiTtsProvider } from "./OpenAiTtsProvider.js";
 
+/** A fresh Response per call: a body can be read only once. */
 function ttsResponse(status: number, body: ArrayBuffer | string): Response {
-  if (status === 200) {
-    return {
-      ok: true,
-      status,
-      arrayBuffer: async () => body as ArrayBuffer,
-    } as unknown as Response;
-  }
-  return {
-    ok: false,
-    status,
-    text: async () => String(body),
-  } as unknown as Response;
+  return new Response(typeof body === "string" ? body : new Uint8Array(body), { status });
 }
 
 const AUDIO = new Uint8Array([1, 2, 3]).buffer;
@@ -26,7 +16,7 @@ afterEach(() => {
 
 describe("OpenAiTtsProvider.textToSpeech", () => {
   it("posts to /audio/speech with gpt-4o-mini-tts and the default voice", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ttsResponse(200, AUDIO));
+    const fetchMock = vi.fn().mockImplementation(async () => ttsResponse(200, AUDIO));
     vi.stubGlobal("fetch", fetchMock);
     const provider = new OpenAiTtsProvider();
     await provider.initialize({ apiKey: "sk-test" });
@@ -50,7 +40,7 @@ describe("OpenAiTtsProvider.textToSpeech", () => {
   });
 
   it("forwards voice (case-insensitive), speed, and instructions", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ttsResponse(200, AUDIO));
+    const fetchMock = vi.fn().mockImplementation(async () => ttsResponse(200, AUDIO));
     vi.stubGlobal("fetch", fetchMock);
     const provider = new OpenAiTtsProvider();
     await provider.initialize({ apiKey: "sk-test" });
@@ -92,14 +82,14 @@ describe("OpenAiTtsProvider.textToSpeech", () => {
     vi.useFakeTimers();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(ttsResponse(429, "rate limited"))
-      .mockResolvedValueOnce(ttsResponse(200, AUDIO));
+      .mockImplementationOnce(async () => ttsResponse(429, "rate limited"))
+      .mockImplementationOnce(async () => ttsResponse(200, AUDIO));
     vi.stubGlobal("fetch", fetchMock);
     const provider = new OpenAiTtsProvider();
     await provider.initialize({ apiKey: "sk-test" });
 
     const pending = provider.textToSpeech("Hello again.");
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(5000);
     const result = await pending;
 
     expect(result.success).toBe(true);
@@ -107,7 +97,7 @@ describe("OpenAiTtsProvider.textToSpeech", () => {
   });
 
   it("surfaces non-429 API errors without retrying", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ttsResponse(401, "invalid key"));
+    const fetchMock = vi.fn().mockImplementation(async () => ttsResponse(401, "invalid key"));
     vi.stubGlobal("fetch", fetchMock);
     const provider = new OpenAiTtsProvider();
     await provider.initialize({ apiKey: "sk-bad" });
@@ -115,7 +105,7 @@ describe("OpenAiTtsProvider.textToSpeech", () => {
     const result = await provider.textToSpeech("Hello.");
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/OpenAI TTS failed: invalid key/);
+    expect(result.error).toMatch(/401: invalid key/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

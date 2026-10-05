@@ -67,8 +67,13 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 | Provider | Model | ID | Aliases | Status | Price | Notes |
 |---|---|---|---|---|---|---|
-| elevenlabs | **ElevenLabs v3** (default) | `eleven_v3` |  | GA | $0.08 / 1K characters |  |
+| elevenlabs | **ElevenLabs v3** (default) | `eleven_v3` | `v3` | GA | $0.08 / 1K characters | 5,000 characters per request |
+| elevenlabs | ElevenLabs Multilingual v2 | `eleven_multilingual_v2` | `multilingual`, `v2` | GA | $0.08 / 1K characters | 10,000 characters; steadiest on long form |
+| elevenlabs | ElevenLabs Flash v2.5 | `eleven_flash_v2_5` | `flash` | GA | $0.04 / 1K characters | 40,000 characters; lowest latency |
 | openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06 |  |  |
+| openai | TTS-1 | `tts-1` |  | Deprecated, shuts down 2027-01-06 | $0.015 / 1K characters |  |
+| openai | TTS-1 HD | `tts-1-hd` |  | Deprecated, shuts down 2027-01-06 | $0.03 / 1K characters |  |
+| kokoro | **Kokoro 82M** (default) | `onnx-community/Kokoro-82M-v1.0-ONNX` | `kokoro` | GA | $0 / 1K characters | Runs locally; ~90 MB download on first use |
 
 ### Music
 

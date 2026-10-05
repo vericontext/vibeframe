@@ -100,8 +100,13 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "gen4_turbo", provider: "runway", kind: "video", label: "Runway Gen-4 Turbo", status: "ga", price: { usd: 0.05, per: "second" }, note: "Image-to-video only, no audio" },
 
   // ── Audio ─────────────────────────────────────────────────────────────
-  { id: "eleven_v3", provider: "elevenlabs", kind: "speech", label: "ElevenLabs v3", default: true, status: "ga", price: { usd: 0.08, per: "1K characters" } },
+  { id: "eleven_v3", provider: "elevenlabs", kind: "speech", label: "ElevenLabs v3", aliases: ["v3"], default: true, status: "ga", price: { usd: 0.08, per: "1K characters" }, note: "5,000 characters per request" },
+  { id: "eleven_multilingual_v2", provider: "elevenlabs", kind: "speech", label: "ElevenLabs Multilingual v2", aliases: ["multilingual", "v2"], status: "ga", price: { usd: 0.08, per: "1K characters" }, note: "10,000 characters; steadiest on long form" },
+  { id: "eleven_flash_v2_5", provider: "elevenlabs", kind: "speech", label: "ElevenLabs Flash v2.5", aliases: ["flash"], status: "ga", price: { usd: 0.04, per: "1K characters" }, note: "40,000 characters; lowest latency" },
   { id: "gpt-4o-mini-tts", provider: "openai", kind: "speech", label: "GPT-4o mini TTS", default: true, status: "deprecated", shutdown: "2027-01-06" },
+  { id: "tts-1", provider: "openai", kind: "speech", label: "TTS-1", status: "deprecated", shutdown: "2027-01-06", price: { usd: 0.015, per: "1K characters" } },
+  { id: "tts-1-hd", provider: "openai", kind: "speech", label: "TTS-1 HD", status: "deprecated", shutdown: "2027-01-06", price: { usd: 0.03, per: "1K characters" } },
+  { id: "onnx-community/Kokoro-82M-v1.0-ONNX", provider: "kokoro", kind: "speech", label: "Kokoro 82M", aliases: ["kokoro"], default: true, status: "ga", price: { usd: 0, per: "1K characters" }, note: "Runs locally; ~90 MB download on first use" },
   { id: "music_v2_5", provider: "elevenlabs", kind: "music", label: "ElevenLabs Music v2.5", default: true, status: "ga", price: { usd: 0.15, per: "minute" } },
   { id: "eleven_text_to_sound_v2", provider: "elevenlabs", kind: "sound-effect", label: "ElevenLabs Sound Effects v2", default: true, status: "ga", price: { usd: 0.12, per: "minute" }, note: "0.5-30 s" },
   { id: "whisper-1", provider: "openai", kind: "transcription", label: "Whisper", default: true, status: "deprecated", shutdown: "2027-02-26", note: "Only OpenAI model with word timestamps" },

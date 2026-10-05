@@ -6,7 +6,6 @@ models_endpoint: none
 models_in_use:
   - gen4.5                      # video default
   - gen4_turbo                  # image-to-video only
-  - gemini_2.5_flash            # only a spinner label for the missing Runway image script
 models_recommended: []
 ---
 
@@ -87,7 +86,7 @@ Credit rates are per second of output unless noted (docs).
 - `packages/cli/src/commands/ai-video.ts:507` - Runway status polling; `:627-633` cancel.
 - `packages/cli/src/commands/generate/video.ts:89-93`, `:315-345` - `--runway-model` option, guard, and call.
 - `packages/cli/src/commands/generate/video-cancel.ts:57-66` - Runway cancel command.
-- `packages/cli/src/commands/generate/image.ts:530-551` - Runway image spawns `.claude/skills/runway-video/scripts/image.py`, which does not exist in the repo.
+- `vibe generate image -p runway` was removed on 2026-10-05: it spawned a Python script that no longer existed. Runway images (`/v1/text_to_image`) are not wired up.
 - `packages/cli/src/utils/key-live-test.ts:122-130` - key check via `GET /v1/organization`.
 - `packages/cli/src/commands/_shared/scene-build.ts:2334-2360` - likeness fallback from Seedance to Runway (default `gen4.5`).
 

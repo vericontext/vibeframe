@@ -4,6 +4,10 @@ import type {
   ProviderConfig,
 } from "../interface/types.js";
 import { defaultModel } from "../catalog/catalog.js";
+import type { SpeechGenerator, SpeechRequest, SpeechResult } from "../speech/contract.js";
+import { ProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * Voice clone options
@@ -196,8 +200,16 @@ export function resolveVoiceId(input: string | undefined): string {
 }
 
 /** One retry absorbs transient concurrent-limit overlap; see textToSpeech. */
-const TTS_429_MAX_RETRIES = 1;
-const TTS_429_RETRY_DELAY_MS = 2000;
+/** Characters per text-to-speech request (docs). */
+const TTS_CHARACTER_LIMITS: Readonly<Record<string, number>> = {
+  eleven_v3: 5_000,
+  eleven_multilingual_v2: 10_000,
+  eleven_flash_v2_5: 40_000,
+};
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /**
  * Music model. music_v2_5 (2026-09-14) is ElevenLabs' current best; it
@@ -208,8 +220,9 @@ export const ELEVENLABS_MUSIC_MODEL = defaultModel("elevenlabs", "music").id;
 /**
  * ElevenLabs provider for text-to-speech
  */
-export class ElevenLabsProvider implements AIProvider {
+export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
   id = "elevenlabs";
+  readonly speechProvider = "elevenlabs";
   name = "ElevenLabs";
   description = "AI text-to-speech with natural voices and voice cloning";
   capabilities: AICapability[] = ["text-to-speech", "sound-generation", "music-generation", "audio-isolation", "voice-clone"];
@@ -258,90 +271,68 @@ export class ElevenLabsProvider implements AIProvider {
     }
   }
 
+  // ── SpeechGenerator ───────────────────────────────────────────────────
+
+  async synthesize(request: SpeechRequest): Promise<SpeechResult> {
+    return this.speak(request.text, { voiceId: request.voice, model: request.model, speed: request.speed });
+  }
+
+  /** Text-to-speech with ElevenLabs voice settings; throws `ProviderError`. */
+  private async speak(text: string, options: TTSOptions): Promise<SpeechResult> {
+    if (!this.apiKey) {
+      throw new ProviderError({ kind: "auth", provider: this.speechProvider, message: "ElevenLabs API key not configured" });
+    }
+    let voiceId: string;
+    try {
+      voiceId = resolveVoiceId(options.voiceId);
+    } catch (error) {
+      throw new ProviderError({ kind: "invalid-request", provider: this.speechProvider, message: errorText(error) });
+    }
+    const model = resolveCatalogModel(this.speechProvider, "speech", options.model).id;
+    const limit = TTS_CHARACTER_LIMITS[model];
+    if (limit && text.length > limit) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.speechProvider,
+        message: `${model} takes up to ${limit} characters per request, not ${text.length}. Split the text or use eleven_flash_v2_5.`,
+      });
+    }
+    // ElevenLabs caps concurrent requests per subscription and answers
+    // overflow with 429; providerRequest retries those with backoff.
+    const response = await providerRequest(this.speechProvider, `${this.baseUrl}/text-to-speech/${voiceId}`, {
+      method: "POST",
+      headers: { "xi-api-key": this.apiKey, "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({
+        text,
+        model_id: model,
+        voice_settings: {
+          stability: options.stability ?? 0.5,
+          similarity_boost: options.similarityBoost ?? 0.75,
+          style: options.style ?? 0,
+          use_speaker_boost: true,
+          // The API reads speed only inside voice_settings.
+          ...(options.speed !== undefined && { speed: options.speed }),
+        },
+      }),
+    });
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      mimeType: "audio/mpeg",
+      extension: "mp3",
+      model,
+      characters: text.length,
+    };
+  }
+
   /**
-   * Generate speech from text
+   * Generate speech from text (older interface; `synthesize` is the contract).
    */
   async textToSpeech(text: string, options: TTSOptions = {}): Promise<TTSResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "ElevenLabs API key not configured",
-      };
-    }
-
     try {
-      // Resolve voice name to ID (with validation)
-      let voiceId: string;
-      try {
-        voiceId = resolveVoiceId(options.voiceId);
-      } catch (voiceError) {
-        return {
-          success: false,
-          error: voiceError instanceof Error ? voiceError.message : String(voiceError),
-        };
-      }
-
-      const model = options.model || "eleven_v3";
-
-      // ElevenLabs subscriptions cap concurrent requests (5 on the standard
-      // tier) and reject overflow with 429 too_many_concurrent_requests.
-      // One short-backoff retry absorbs transient overlap with other
-      // in-flight requests without masking a genuinely saturated account.
-      let response: Response;
-      for (let attempt = 0; ; attempt++) {
-        response = await fetch(
-          `${this.baseUrl}/text-to-speech/${voiceId}`,
-          {
-            method: "POST",
-            headers: {
-              "xi-api-key": this.apiKey,
-              "Content-Type": "application/json",
-              Accept: "audio/mpeg",
-            },
-            body: JSON.stringify({
-              text,
-              model_id: model,
-              voice_settings: {
-                stability: options.stability ?? 0.5,
-                similarity_boost: options.similarityBoost ?? 0.75,
-                style: options.style ?? 0,
-                use_speaker_boost: true,
-                // The API reads speed only inside voice_settings.
-                ...(options.speed !== undefined && { speed: options.speed }),
-              },
-            }),
-          }
-        );
-        if (response.status === 429 && attempt < TTS_429_MAX_RETRIES) {
-          await new Promise((resolveDelay) =>
-            setTimeout(resolveDelay, TTS_429_RETRY_DELAY_MS * (attempt + 1))
-          );
-          continue;
-        }
-        break;
-      }
-
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          success: false,
-          error: `TTS failed: ${error}`,
-        };
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = Buffer.from(arrayBuffer);
-
-      return {
-        success: true,
-        audioBuffer,
-        characterCount: text.length,
-      };
+      const result = await this.speak(text, options);
+      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { success: false, error: errorText(error) };
     }
   }
 

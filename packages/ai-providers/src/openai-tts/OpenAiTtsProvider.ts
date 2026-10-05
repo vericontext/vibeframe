@@ -3,6 +3,10 @@ import type {
   AICapability,
   ProviderConfig,
 } from "../interface/types.js";
+import type { SpeechGenerator, SpeechRequest, SpeechResult } from "../speech/contract.js";
+import { ProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * OpenAI TTS models.
@@ -35,11 +39,9 @@ export type OpenAiTtsVoice = (typeof OPENAI_TTS_VOICES)[number];
 
 /** Newest narration-quality voice; verified live against gpt-4o-mini-tts. */
 const DEFAULT_VOICE: OpenAiTtsVoice = "marin";
-const DEFAULT_MODEL: OpenAiTtsModel = "gpt-4o-mini-tts";
 
-/** One retry absorbs transient rate-limit overlap, mirroring ElevenLabs. */
-const TTS_429_MAX_RETRIES = 1;
-const TTS_429_RETRY_DELAY_MS = 2000;
+/** `tts-1` and `tts-1-hd` support only the nine original voices (docs). */
+const TTS_1_VOICES = ["alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"] as const;
 
 export interface OpenAiTtsOptions {
   /** Voice name (see {@link OPENAI_TTS_VOICES}). Defaults to "marin". */
@@ -66,8 +68,9 @@ export interface OpenAiTtsResult {
  * lives in `../openai/index.ts`, mirroring how OpenAIImageProvider backs
  * the same id for images.
  */
-export class OpenAiTtsProvider implements AIProvider {
+export class OpenAiTtsProvider implements AIProvider, SpeechGenerator {
   id = "openai";
+  readonly speechProvider = "openai";
   name = "OpenAI TTS";
   description = "OpenAI cloud text-to-speech (gpt-4o-mini-tts)";
   capabilities: AICapability[] = ["text-to-speech"];
@@ -87,64 +90,56 @@ export class OpenAiTtsProvider implements AIProvider {
     return !!this.apiKey;
   }
 
-  async textToSpeech(text: string, options: OpenAiTtsOptions = {}): Promise<OpenAiTtsResult> {
+  // ── SpeechGenerator ───────────────────────────────────────────────────
+
+  async synthesize(request: SpeechRequest): Promise<SpeechResult> {
     if (!this.apiKey) {
-      return { success: false, error: "OpenAI API key not configured" };
+      throw new ProviderError({ kind: "auth", provider: this.speechProvider, message: "OpenAI API key not configured" });
     }
-
-    const voice = (options.voice ?? DEFAULT_VOICE).toLowerCase();
-    if (!(OPENAI_TTS_VOICES as readonly string[]).includes(voice)) {
-      return {
-        success: false,
-        error:
-          `Unknown OpenAI voice "${options.voice}". Available voices: ` +
-          `${OPENAI_TTS_VOICES.join(", ")}.`,
-      };
+    const model = resolveCatalogModel(this.speechProvider, "speech", request.model).id;
+    const voice = (request.voice ?? DEFAULT_VOICE).toLowerCase();
+    const voices: readonly string[] = model.startsWith("tts-1") ? TTS_1_VOICES : OPENAI_TTS_VOICES;
+    if (!voices.includes(voice)) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.speechProvider,
+        message: `Unknown OpenAI voice "${request.voice}" for ${model}. Available voices: ${voices.join(", ")}.`,
+      });
     }
+    const response = await providerRequest(this.speechProvider, `${this.baseUrl}/audio/speech`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        input: request.text,
+        voice,
+        response_format: "mp3",
+        ...(request.speed !== undefined && { speed: request.speed }),
+        ...(request.instructions !== undefined && { instructions: request.instructions }),
+      }),
+    });
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      mimeType: "audio/mpeg",
+      extension: "mp3",
+      model,
+      characters: request.text.length,
+    };
+  }
 
+  /** Older interface; `synthesize` is the contract. */
+  async textToSpeech(text: string, options: OpenAiTtsOptions = {}): Promise<OpenAiTtsResult> {
     try {
-      let response: Response;
-      for (let attempt = 0; ; attempt++) {
-        response = await fetch(`${this.baseUrl}/audio/speech`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: options.model ?? DEFAULT_MODEL,
-            input: text,
-            voice,
-            response_format: "mp3",
-            ...(options.speed !== undefined && { speed: options.speed }),
-            ...(options.instructions !== undefined && { instructions: options.instructions }),
-          }),
-        });
-        if (response.status === 429 && attempt < TTS_429_MAX_RETRIES) {
-          await new Promise((resolveDelay) =>
-            setTimeout(resolveDelay, TTS_429_RETRY_DELAY_MS * (attempt + 1)),
-          );
-          continue;
-        }
-        break;
-      }
-
-      if (!response.ok) {
-        const error = await response.text();
-        return { success: false, error: `OpenAI TTS failed: ${error}` };
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      return {
-        success: true,
-        audioBuffer: Buffer.from(arrayBuffer),
-        characterCount: text.length,
-      };
+      const result = await this.synthesize({
+        text,
+        voice: options.voice,
+        model: options.model,
+        speed: options.speed,
+        instructions: options.instructions,
+      });
+      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
   }
 }

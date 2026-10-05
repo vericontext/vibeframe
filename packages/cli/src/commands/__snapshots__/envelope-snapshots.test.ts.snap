@@ -1963,31 +1963,42 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
 exports[`CLI --describe schemas (drift detection) > vibe generate narration --describe 1`] = `
 {
   "cost": "low",
-  "description": "Generate narration from text (product-facing TTS)",
+  "description": "Generate narration from text (ElevenLabs, OpenAI, or local Kokoro)",
   "name": "generate.narration",
   "note": "Product-facing TTS command.",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "ElevenLabs API key (or set ELEVENLABS_API_KEY env)",
+        "description": "API key for the chosen provider",
         "type": "string",
       },
       "dryRun": {
         "description": "Preview parameters without executing",
         "type": "boolean",
       },
-      "output": {
-        "default": "narration.mp3",
-        "description": "Output audio file path",
+      "model": {
+        "description": "Model: ElevenLabs v3 (default), multilingual, flash; OpenAI gpt-4o-mini-tts, tts-1",
         "type": "string",
+      },
+      "output": {
+        "description": "Output audio file path (default: narration.mp3, or .wav for Kokoro)",
+        "type": "string",
+      },
+      "provider": {
+        "default": "auto",
+        "description": "auto (default: ElevenLabs if its key is set, else OpenAI, else local Kokoro), elevenlabs, openai, kokoro",
+        "type": "string",
+      },
+      "speed": {
+        "description": "Speaking speed multiplier",
+        "type": "number",
       },
       "text": {
         "description": "Narration text (interactive if omitted)",
         "type": "string",
       },
       "voice": {
-        "default": "21m00Tcm4TlvDq8ikWAM",
-        "description": "Voice ID (default: Rachel)",
+        "description": "Voice: ElevenLabs name or ID (default Rachel), OpenAI voice (default marin), Kokoro voice (default af_heart)",
         "type": "string",
       },
     },
