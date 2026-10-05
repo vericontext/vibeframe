@@ -87,22 +87,20 @@ export const generateNarrationTool = defineTool({
   title: "Generate Narration Audio",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Generate narration from text using ElevenLabs TTS. Product-facing alias for generate_speech. Requires ELEVENLABS_API_KEY.",
+    "Generate narration from text. Providers: elevenlabs (premium cloud voices), openai (fast cloud voice), kokoro (free, local; first use downloads ~90 MB). Default auto: ElevenLabs if ELEVENLABS_API_KEY is set, else OpenAI, else Kokoro.",
   schema: z.object({
     text: z.string().describe("Narration text to convert to speech"),
-    output: z.string().optional().describe("Output audio file path (default: narration.mp3)"),
-    voice: z.string().optional().describe("Voice ID (default: Rachel)"),
+    provider: z.enum(["auto", "elevenlabs", "openai", "kokoro"]).optional().describe("TTS provider (default: auto)"),
+    output: z.string().optional().describe("Output audio file path (default: narration.mp3, or .wav for Kokoro)"),
+    voice: z.string().optional().describe("Voice: ElevenLabs name or ID, OpenAI voice (e.g. marin), or Kokoro voice (e.g. af_heart)"),
+    model: z.string().optional().describe("Model alias for the provider (ElevenLabs: v3, multilingual, flash)"),
   }),
   async execute(args) {
-    const result = await executeSpeech({
-      text: args.text,
-      output: args.output ?? "narration.mp3",
-      voice: args.voice,
-    });
-    if (!result.success) return { success: false, error: result.error ?? "Narration failed" };
+    const result = await executeSpeech(args);
+    if (!result.success) return { success: false, error: result.error ?? "Narration failed", errorKind: result.errorKind };
     return {
       success: true,
-      data: { outputPath: result.outputPath, characterCount: result.characterCount },
+      data: { outputPath: result.outputPath, characterCount: result.characterCount, provider: result.provider, model: result.model },
       humanLines: [`✅ Narration → ${result.outputPath}`],
     };
   },

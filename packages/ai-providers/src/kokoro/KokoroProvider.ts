@@ -3,6 +3,10 @@ import type {
   AIProvider,
   ProviderConfig,
 } from "../interface/types.js";
+import { defaultModel } from "../catalog/catalog.js";
+import type { SpeechGenerator, SpeechRequest, SpeechResult, SpeechSynthesisOptions } from "../speech/contract.js";
+import { ProviderError } from "../shared/errors.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * Default voice for Kokoro. American English, "A" overall grade in the
@@ -15,7 +19,7 @@ export const KOKORO_DEFAULT_VOICE = "af_heart";
  * mirror so the model can be loaded via `@huggingface/transformers` without
  * any auth.
  */
-export const KOKORO_MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+export const KOKORO_MODEL_ID = defaultModel("kokoro", "speech").id;
 
 /**
  * Options accepted by {@link KokoroProvider.textToSpeech}. Mirrors the
@@ -387,8 +391,9 @@ function normaliseEvent(raw: unknown): KokoroLoadEvent {
  * The `textToSpeech()` shape matches `ElevenLabsProvider.textToSpeech` so a
  * future TTS router can pick between providers without per-callsite branches.
  */
-export class KokoroProvider implements AIProvider {
+export class KokoroProvider implements AIProvider, SpeechGenerator {
   id = "kokoro";
+  readonly speechProvider = "kokoro";
   name = "Kokoro (local)";
   description = "Local text-to-speech via Kokoro-82M (Apache 2.0)";
   capabilities: AICapability[] = ["text-to-speech"];
@@ -407,20 +412,18 @@ export class KokoroProvider implements AIProvider {
    * Synthesise speech from text. Returns a WAV buffer matching
    * `ElevenLabsProvider.textToSpeech`'s `TTSResult` shape.
    */
-  async textToSpeech(
-    text: string,
-    options: KokoroTTSOptions = {},
-  ): Promise<KokoroTTSResult> {
-    if (!text || !text.trim()) {
-      return { success: false, error: "Empty text" };
-    }
+  // ── SpeechGenerator ───────────────────────────────────────────────────
 
+  /** Local synthesis; failures (model download, runtime) read as provider errors. */
+  async synthesize(request: SpeechRequest, options: SpeechSynthesisOptions = {}): Promise<SpeechResult> {
+    const text = request.text;
+    if (!text || !text.trim()) {
+      throw new ProviderError({ kind: "invalid-request", provider: this.speechProvider, message: "Empty text" });
+    }
+    const modelId = resolveCatalogModel(this.speechProvider, "speech", request.model).id;
     try {
       const model = await loadModel(options.onProgress);
-      const voiceOptions = {
-        voice: options.voice ?? KOKORO_DEFAULT_VOICE,
-        speed: options.speed ?? 1,
-      };
+      const voiceOptions = { voice: request.voice ?? KOKORO_DEFAULT_VOICE, speed: request.speed ?? 1 };
       const chunks = splitForKokoro(text);
       let buffer: Buffer;
       if (chunks.length === 1) {
@@ -442,16 +445,26 @@ export class KokoroProvider implements AIProvider {
         }
         buffer = encodeFloatWav(samples, sampleRate);
       }
-      return {
-        success: true,
-        audioBuffer: buffer,
-        characterCount: text.length,
-      };
+      return { bytes: new Uint8Array(buffer), mimeType: "audio/wav", extension: "wav", model: modelId, characters: text.length };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      throw new ProviderError({
+        kind: "provider",
+        provider: this.speechProvider,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /** Older interface; `synthesize` is the contract. */
+  async textToSpeech(text: string, options: KokoroTTSOptions = {}): Promise<KokoroTTSResult> {
+    try {
+      const result = await this.synthesize(
+        { text, voice: options.voice, speed: options.speed },
+        { onProgress: options.onProgress }
+      );
+      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
   }
 }

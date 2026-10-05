@@ -563,7 +563,7 @@ Cost tier: `low`
 
 #### `vibe generate narration`
 
-Generate narration from text (product-facing TTS)
+Generate narration from text (ElevenLabs, OpenAI, or local Kokoro)
 
 Product surface: `public`
 Note: Product-facing TTS command.
@@ -573,9 +573,12 @@ Cost tier: `low`
 **Parameters:**
 
 - `text` _(string)_ - Narration text (interactive if omitted)
-- `apiKey` _(string)_ - ElevenLabs API key (or set ELEVENLABS_API_KEY env)
-- `output` _(string)_ _(default: `"narration.mp3"`)_ - Output audio file path
-- `voice` _(string)_ _(default: `"21m00Tcm4TlvDq8ikWAM"`)_ - Voice ID (default: Rachel)
+- `provider` _(string)_ _(default: `"auto"`)_ - auto (default: ElevenLabs if its key is set, else OpenAI, else local Kokoro), elevenlabs, openai, kokoro
+- `apiKey` _(string)_ - API key for the chosen provider
+- `output` _(string)_ - Output audio file path (default: narration.mp3, or .wav for Kokoro)
+- `voice` _(string)_ - Voice: ElevenLabs name or ID (default Rachel), OpenAI voice (default marin), Kokoro voice (default af_heart)
+- `model` _(string)_ - Model: ElevenLabs v3 (default), multilingual, flash; OpenAI gpt-4o-mini-tts, tts-1
+- `speed` _(number)_ - Speaking speed multiplier
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe generate sound-effect`

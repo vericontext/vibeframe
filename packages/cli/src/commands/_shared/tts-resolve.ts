@@ -19,8 +19,8 @@
  * `{ success, audioBuffer, error?, characterCount? }` result.
  */
 
-import { ElevenLabsProvider, KokoroProvider, OpenAiTtsProvider } from "@vibeframe/ai-providers";
-import type { KokoroLoadEvent } from "@vibeframe/ai-providers";
+import { createSpeechGenerator, isProviderError } from "@vibeframe/ai-providers";
+import type { KokoroLoadEvent, ProviderErrorKind } from "@vibeframe/ai-providers";
 import { getApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
 
 /** TTS providers VibeFrame can route to. `"auto"` picks based on key availability. */
@@ -39,6 +39,8 @@ export interface TtsCallOptions {
   voice?: string;
   /** Speaking speed multiplier (Kokoro: 0.5–2; ElevenLabs: 0.7–1.2). */
   speed?: number;
+  /** Catalog model ID or alias for the resolved provider. */
+  model?: string;
   /** Cold-start progress callback (Kokoro only — fires on first ~330MB load). */
   onProgress?: (event: KokoroLoadEvent) => void;
 }
@@ -48,7 +50,11 @@ export interface TtsCallResult {
   success: boolean;
   audioBuffer?: Buffer;
   error?: string;
+  /** Why the provider failed (`auth`, `quota`, `invalid-request`, ...). */
+  errorKind?: ProviderErrorKind;
   characterCount?: number;
+  /** The catalog model that spoke it. */
+  model?: string;
 }
 
 /** Synthesise speech from text. Provider-specific implementation lives behind this. */
@@ -100,46 +106,44 @@ export async function resolveTtsProvider(
 
 async function buildElevenLabs(): Promise<TtsResolution> {
   const key = await getApiKey("ELEVENLABS_API_KEY", "ElevenLabs");
-  if (!key) {
-    throw new TtsKeyMissingError("elevenlabs");
-  }
-  const provider = new ElevenLabsProvider();
-  await provider.initialize({ apiKey: key });
-  const call: TtsCallable = async (text, opts) =>
-    provider.textToSpeech(text, {
-      voiceId: opts?.voice,
-      speed: opts?.speed,
-    });
-  return { provider: "elevenlabs", audioExtension: "mp3", call };
+  if (!key) throw new TtsKeyMissingError("elevenlabs");
+  return build("elevenlabs", key);
 }
 
 async function buildOpenAi(): Promise<TtsResolution> {
   const key = await getApiKey("OPENAI_API_KEY", "OpenAI");
-  if (!key) {
-    throw new TtsKeyMissingError("openai");
-  }
-  const provider = new OpenAiTtsProvider();
-  await provider.initialize({ apiKey: key });
-  const call: TtsCallable = async (text, opts) =>
-    provider.textToSpeech(text, {
-      voice: opts?.voice,
-      speed: opts?.speed,
-    });
-  return { provider: "openai", audioExtension: "mp3", call };
+  if (!key) throw new TtsKeyMissingError("openai");
+  return build("openai", key);
 }
 
 async function buildKokoro(): Promise<TtsResolution> {
-  const provider = new KokoroProvider();
-  // No-op initialize — Kokoro doesn't take a config but we keep parity with
-  // the AIProvider lifecycle for future audit checks.
-  await provider.initialize({});
-  const call: TtsCallable = async (text, opts) =>
-    provider.textToSpeech(text, {
-      voice: opts?.voice,
-      speed: opts?.speed,
-      onProgress: opts?.onProgress,
-    });
-  return { provider: "kokoro", audioExtension: "wav", call };
+  return build("kokoro");
+}
+
+/** A TTS callable over the speech contract; provider errors come back as data with their kind. */
+async function build(provider: ResolvedTtsProvider, key?: string): Promise<TtsResolution> {
+  const generator = await createSpeechGenerator(provider, key);
+  const call: TtsCallable = async (text, opts) => {
+    try {
+      const result = await generator.synthesize(
+        { text, voice: opts?.voice, speed: opts?.speed, model: opts?.model },
+        { onProgress: opts?.onProgress }
+      );
+      return {
+        success: true,
+        audioBuffer: Buffer.from(result.bytes),
+        characterCount: result.characters,
+        model: result.model,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        errorKind: isProviderError(error) ? error.kind : undefined,
+      };
+    }
+  };
+  return { provider, audioExtension: provider === "kokoro" ? "wav" : "mp3", call };
 }
 
 /**

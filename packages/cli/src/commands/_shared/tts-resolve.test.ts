@@ -9,30 +9,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // from vi.hoisted (which is also hoisted) rather than module-scope variables.
 const mocks = vi.hoisted(() => {
   return {
-    elevenLabsTextToSpeech: vi.fn(),
-    elevenLabsInitialize: vi.fn(),
-    openAiTextToSpeech: vi.fn(),
-    openAiInitialize: vi.fn(),
-    kokoroTextToSpeech: vi.fn(),
-    kokoroInitialize: vi.fn(),
+    createSpeechGenerator: vi.fn(),
+    synthesize: vi.fn(),
     getConfiguredApiKey: vi.fn(),
     getApiKey: vi.fn(),
   };
 });
 
 vi.mock("@vibeframe/ai-providers", () => ({
-  ElevenLabsProvider: class {
-    initialize = mocks.elevenLabsInitialize;
-    textToSpeech = mocks.elevenLabsTextToSpeech;
-  },
-  OpenAiTtsProvider: class {
-    initialize = mocks.openAiInitialize;
-    textToSpeech = mocks.openAiTextToSpeech;
-  },
-  KokoroProvider: class {
-    initialize = mocks.kokoroInitialize;
-    textToSpeech = mocks.kokoroTextToSpeech;
-  },
+  createSpeechGenerator: (...args: unknown[]) => mocks.createSpeechGenerator(...args),
+  isProviderError: () => false,
 }));
 
 vi.mock("../../utils/api-key.js", () => ({
@@ -40,16 +26,7 @@ vi.mock("../../utils/api-key.js", () => ({
   getApiKey: (...args: unknown[]) => mocks.getApiKey(...args),
 }));
 
-const {
-  elevenLabsTextToSpeech,
-  elevenLabsInitialize,
-  openAiTextToSpeech,
-  openAiInitialize,
-  kokoroTextToSpeech,
-  kokoroInitialize,
-  getConfiguredApiKey,
-  getApiKey,
-} = mocks;
+const { createSpeechGenerator, synthesize, getConfiguredApiKey, getApiKey } = mocks;
 
 import {
   parseTtsProviderName,
@@ -78,14 +55,12 @@ describe("parseTtsProviderName", () => {
 
 describe("resolveTtsProvider", () => {
   beforeEach(() => {
-    elevenLabsTextToSpeech.mockReset();
-    elevenLabsInitialize.mockReset();
-    openAiTextToSpeech.mockReset();
-    openAiInitialize.mockReset();
-    kokoroTextToSpeech.mockReset();
-    kokoroInitialize.mockReset();
+    createSpeechGenerator.mockReset();
+    synthesize.mockReset();
     getConfiguredApiKey.mockReset();
     getApiKey.mockReset();
+    createSpeechGenerator.mockImplementation(async (provider: string) => ({ speechProvider: provider, synthesize }));
+    synthesize.mockResolvedValue({ bytes: new Uint8Array([1]), mimeType: "audio/mpeg", extension: "mp3", model: "m", characters: 6 });
   });
 
   afterEach(() => {
@@ -102,7 +77,7 @@ describe("resolveTtsProvider", () => {
       expect(r.provider).toBe("elevenlabs");
       expect(r.audioExtension).toBe("mp3");
       expect(getConfiguredApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
-      expect(elevenLabsInitialize).toHaveBeenCalledWith({ apiKey: "sk-test" });
+      expect(createSpeechGenerator).toHaveBeenCalledWith("elevenlabs", "sk-test");
     });
 
     it("picks OpenAI when only OPENAI_API_KEY is set", async () => {
@@ -117,7 +92,7 @@ describe("resolveTtsProvider", () => {
       expect(r.audioExtension).toBe("mp3");
       expect(getConfiguredApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
       expect(getConfiguredApiKey).toHaveBeenCalledWith("OPENAI_API_KEY");
-      expect(openAiInitialize).toHaveBeenCalledWith({ apiKey: "sk-openai" });
+      expect(createSpeechGenerator).toHaveBeenCalledWith("openai", "sk-openai");
     });
 
     it("prefers ElevenLabs over OpenAI when both keys are set", async () => {
@@ -127,7 +102,7 @@ describe("resolveTtsProvider", () => {
       const r = await resolveTtsProvider("auto");
 
       expect(r.provider).toBe("elevenlabs");
-      expect(openAiInitialize).not.toHaveBeenCalled();
+      expect(createSpeechGenerator).not.toHaveBeenCalledWith("openai", expect.anything());
     });
 
     it("falls back to Kokoro when no key is set", async () => {
@@ -137,7 +112,7 @@ describe("resolveTtsProvider", () => {
 
       expect(r.provider).toBe("kokoro");
       expect(r.audioExtension).toBe("wav");
-      expect(kokoroInitialize).toHaveBeenCalled();
+      expect(createSpeechGenerator).toHaveBeenCalledWith("kokoro", undefined);
       expect(getApiKey).not.toHaveBeenCalled();
     });
 
@@ -158,7 +133,7 @@ describe("resolveTtsProvider", () => {
 
       expect(r.provider).toBe("openai");
       expect(r.audioExtension).toBe("mp3");
-      expect(openAiInitialize).toHaveBeenCalledWith({ apiKey: "sk-real" });
+      expect(createSpeechGenerator).toHaveBeenCalledWith("openai", "sk-real");
       expect(getConfiguredApiKey).not.toHaveBeenCalled();
     });
 
@@ -168,7 +143,7 @@ describe("resolveTtsProvider", () => {
       await expect(resolveTtsProvider("openai")).rejects.toBeInstanceOf(
         TtsKeyMissingError,
       );
-      expect(kokoroInitialize).not.toHaveBeenCalled();
+      expect(createSpeechGenerator).not.toHaveBeenCalled();
     });
   });
 
@@ -179,7 +154,7 @@ describe("resolveTtsProvider", () => {
       const r = await resolveTtsProvider("elevenlabs");
 
       expect(r.provider).toBe("elevenlabs");
-      expect(elevenLabsInitialize).toHaveBeenCalledWith({ apiKey: "sk-real" });
+      expect(createSpeechGenerator).toHaveBeenCalledWith("elevenlabs", "sk-real");
     });
 
     it("throws TtsKeyMissingError when key is absent", async () => {
@@ -188,7 +163,7 @@ describe("resolveTtsProvider", () => {
       await expect(resolveTtsProvider("elevenlabs")).rejects.toBeInstanceOf(
         TtsKeyMissingError,
       );
-      expect(kokoroInitialize).not.toHaveBeenCalled();
+      expect(createSpeechGenerator).not.toHaveBeenCalled();
     });
   });
 
@@ -198,52 +173,40 @@ describe("resolveTtsProvider", () => {
 
       expect(r.provider).toBe("kokoro");
       expect(r.audioExtension).toBe("wav");
-      expect(kokoroInitialize).toHaveBeenCalled();
+      expect(createSpeechGenerator).toHaveBeenCalledWith("kokoro", undefined);
       expect(getApiKey).not.toHaveBeenCalled();
       expect(getConfiguredApiKey).not.toHaveBeenCalled();
     });
   });
 
   describe("call dispatch", () => {
-    it("forwards voice + speed to ElevenLabs as voiceId/speed", async () => {
-      getConfiguredApiKey.mockResolvedValue("sk-test");
+    it.each([
+      ["elevenlabs", "rachel", 1.1],
+      ["openai", "marin", 1.05],
+    ] as const)("forwards voice + speed to %s through the speech contract", async (provider, voice, speed) => {
       getApiKey.mockResolvedValue("sk-test");
-      elevenLabsTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("x") });
 
-      const r = await resolveTtsProvider("elevenlabs");
-      await r.call("Hello.", { voice: "rachel", speed: 1.1 });
+      const r = await resolveTtsProvider(provider);
+      const result = await r.call("Hello.", { voice, speed });
 
-      expect(elevenLabsTextToSpeech).toHaveBeenCalledWith("Hello.", {
-        voiceId: "rachel",
-        speed: 1.1,
-      });
-    });
-
-    it("forwards voice + speed to OpenAI", async () => {
-      getApiKey.mockResolvedValue("sk-test");
-      openAiTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("z") });
-
-      const r = await resolveTtsProvider("openai");
-      await r.call("Hello.", { voice: "marin", speed: 1.05 });
-
-      expect(openAiTextToSpeech).toHaveBeenCalledWith("Hello.", {
-        voice: "marin",
-        speed: 1.05,
-      });
+      expect(synthesize).toHaveBeenCalledWith({ text: "Hello.", voice, speed, model: undefined }, { onProgress: undefined });
+      expect(result).toMatchObject({ success: true, characterCount: 6, model: "m" });
+      expect(Buffer.isBuffer(result.audioBuffer)).toBe(true);
     });
 
     it("forwards voice + speed + onProgress to Kokoro", async () => {
-      kokoroTextToSpeech.mockResolvedValue({ success: true, audioBuffer: Buffer.from("y") });
-
       const r = await resolveTtsProvider("kokoro");
       const onProgress = vi.fn();
       await r.call("Hello.", { voice: "af_heart", speed: 1.0, onProgress });
 
-      expect(kokoroTextToSpeech).toHaveBeenCalledWith("Hello.", {
-        voice: "af_heart",
-        speed: 1.0,
-        onProgress,
-      });
+      expect(synthesize).toHaveBeenCalledWith({ text: "Hello.", voice: "af_heart", speed: 1.0, model: undefined }, { onProgress });
+    });
+
+    it("returns a provider failure as data instead of throwing", async () => {
+      synthesize.mockRejectedValue(new Error("quota exceeded"));
+      const r = await resolveTtsProvider("kokoro");
+
+      await expect(r.call("Hello.")).resolves.toMatchObject({ success: false, error: "quota exceeded" });
     });
   });
 });
