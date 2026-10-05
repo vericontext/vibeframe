@@ -24,18 +24,11 @@
  */
 
 import { Command } from "commander";
-import { resolve, dirname } from "node:path";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  WhisperProvider,
-  ClaudeProvider,
-  GeminiProvider,
-  OpenAIImageProvider,
-  GrokProvider,
-  resolveGrokImageModel,
-} from "@vibeframe/ai-providers";
+import { WhisperProvider, ClaudeProvider, findModel, modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
@@ -43,10 +36,11 @@ import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
 import { registerMotionOverlayCommand } from "./edit/motion-overlay.js";
-import { isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError } from "./output.js";
+import { isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError, providerFailure } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
-import { writeImageFile } from "../utils/image-file.js";
+import { executeImageEdit } from "./ai-image.js";
+import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 
 export const editCommand = new Command("edit")
   .alias("ed")
@@ -689,7 +683,7 @@ editCommand
     }
   });
 
-// ── edit image (Gemini multi-image editing) ─────────────────────────────
+// ── edit image (multi-image editing on any image provider) ──────────────
 
 editCommand
   .command("image")
@@ -698,157 +692,76 @@ editCommand
   .option("-p, --provider <provider>", "Provider: gemini (default), openai, grok", "gemini")
   .option("-k, --api-key <key>", "API key (or set env variable)")
   .option("-o, --output <path>", "Output file path", "edited.png")
-  .option("-m, --model <model>", "Model: flash, lite, pro (Gemini); pro (Grok)", "flash")
+  .option("-m, --model <model>", "Model: flash (default), lite, pro (Gemini); 2.5, flare, 2 (OpenAI); pro (Grok)")
   .option("-r, --ratio <ratio>", "Output aspect ratio")
   .option("--size <resolution>", "Resolution: 1K, 2K, 4K (Gemini Pro only)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (args: string[], options) => {
     const startedAt = Date.now();
-    try {
-      // Last argument is the prompt, rest are image paths
-      if (args.length < 2) {
-        exitWithError(usageError("Need at least one image and a prompt"));
-      }
-
-      const prompt = args[args.length - 1];
-      rejectControlChars(prompt);
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
-      const imagePaths = args.slice(0, -1);
-      const provider = options.provider as string;
-
-      // Grok only supports 1 image
-      if (provider === "grok" && imagePaths.length > 1) {
-        exitWithError(usageError("Grok supports only 1 input image for editing.", "Use -p gemini (up to 14 images) or -p openai (up to 16 images) for multi-image editing."));
-      }
-
-      if (options.dryRun) {
-        outputSuccess({
-          command: "edit image",
-          startedAt,
-          dryRun: true,
-          data: {
-            params: {
-              imagePaths: imagePaths.map((p: string) => resolve(process.cwd(), p)),
-              prompt,
-              provider,
-              model: options.model,
-              ratio: options.ratio,
-              size: options.size,
-            },
-          },
-        });
-        return;
-      }
-
-      // Provider-specific API key resolution
-      const apiKeyMap: Record<string, { envVar: string; label: string }> = {
-        gemini: { envVar: "GOOGLE_API_KEY", label: "Google" },
-        openai: { envVar: "OPENAI_API_KEY", label: "OpenAI" },
-        grok: { envVar: "XAI_API_KEY", label: "xAI" },
-      };
-      const keyInfo = apiKeyMap[provider] || apiKeyMap.gemini;
-      const apiKey = await requireApiKey(keyInfo.envVar, keyInfo.label, options.apiKey);
-
-      const spinner = ora(`Reading ${imagePaths.length} image(s)...`).start();
-
-      // Load all images
-      const imageBuffers: Buffer[] = [];
-      for (const imagePath of imagePaths) {
-        const absPath = resolve(process.cwd(), imagePath);
-        const buffer = await readFile(absPath);
-        imageBuffers.push(buffer);
-      }
-
-      let result: import("@vibeframe/ai-providers").ImageResult;
-
-      if (provider === "openai") {
-        spinner.text = "Editing with GPT Image 1.5...";
-        const openaiImage = new OpenAIImageProvider();
-        await openaiImage.initialize({ apiKey });
-        result = await openaiImage.editImage(imageBuffers, prompt);
-      } else if (provider === "grok") {
-        spinner.text = "Editing with Grok Imagine...";
-        const grok = new GrokProvider();
-        await grok.initialize({ apiKey });
-        result = await grok.editImage(imageBuffers[0], prompt, {
-          ...resolveGrokImageModel(options.model),
-          aspectRatio: options.ratio,
-        });
-      } else {
-        // Gemini (default)
-        const editModelNames: Record<string, string> = {
-          flash: "gemini-3.1-flash-image",
-          "3.1-flash": "gemini-3.1-flash-image",
-          latest: "gemini-3.1-flash-image",
-          lite: "gemini-3.1-flash-lite-image",
-          pro: "gemini-3-pro-image",
-        };
-        const editModelName = editModelNames[options.model] || editModelNames.flash;
-        spinner.text = `Editing with ${editModelName}...`;
-
-        const gemini = new GeminiProvider();
-        await gemini.initialize({ apiKey });
-
-        result = await gemini.editImage(imageBuffers, prompt, {
-          model: options.model,
-          aspectRatio: options.ratio,
-          resolution: options.size,
-        });
-
-      }
-
-      if (!result.success || !result.images || result.images.length === 0) {
-        spinner.fail(result.error || "Image editing failed");
-        exitWithError(apiError(result.error || "Image editing failed", true));
-      }
-
-      spinner.succeed(chalk.green("Image edited"));
-
-      // Save image — handle both base64 and URL responses
-      const img = result.images[0];
-      const outputPath = resolve(process.cwd(), options.output);
-
-      const saveImage = async () => {
-        await mkdir(dirname(outputPath), { recursive: true });
-        if (img.base64) {
-          const buffer = Buffer.from(img.base64, "base64");
-          await writeImageFile(outputPath, buffer);
-        } else if (img.url) {
-          const resp = await fetch(img.url);
-          const arrayBuf = await resp.arrayBuffer();
-          await writeImageFile(outputPath, Buffer.from(arrayBuf));
-        }
-      };
-
-      // Gemini results may include a `model` field
-      const resultModel = (result as { model?: string }).model;
-
-      if (isJsonMode()) {
-        outputSuccess({
-          command: "edit image",
-          startedAt,
-          data: {
-            provider,
-            model: resultModel || options.model,
-            outputPath,
-          },
-        });
-        await saveImage();
-        return;
-      }
-
-      if (resultModel) {
-        console.log(chalk.dim(`Model: ${resultModel}`));
-      }
-
-      await saveImage();
-      console.log(chalk.green(`Saved to: ${outputPath}`));
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(apiError(`Image editing failed: ${msg}`, true));
+    // Last argument is the prompt, the rest are image paths
+    if (args.length < 2) {
+      exitWithError(usageError("Need at least one image and a prompt"));
     }
+    const prompt = args[args.length - 1];
+    rejectControlChars(prompt);
+    if (options.output) validateOutputPath(options.output);
+    const imagePaths = args.slice(0, -1);
+    const provider = String(options.provider || "gemini").toLowerCase();
+    if (!IMAGE_PROVIDER_ENV[provider]) {
+      exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${Object.keys(IMAGE_PROVIDER_ENV).join(", ")}`));
+    }
+    const modelSpec = findModel(provider, "image", options.model);
+    if (!modelSpec) {
+      exitWithError(usageError(`Unknown ${provider} image model "${options.model}". Valid: ${modelAliases(provider, "image").join(", ")}.`));
+    }
+
+    if (options.dryRun) {
+      outputSuccess({
+        command: "edit image",
+        startedAt,
+        dryRun: true,
+        data: {
+          params: {
+            imagePaths: imagePaths.map((p: string) => resolve(process.cwd(), p)),
+            prompt,
+            provider,
+            model: modelSpec.id,
+            ratio: options.ratio,
+            size: options.size,
+          },
+        },
+      });
+      return;
+    }
+
+    const label = IMAGE_PROVIDER_LABELS[provider];
+    const apiKey = await requireApiKey(IMAGE_PROVIDER_ENV[provider], label, options.apiKey);
+    const spinner = isJsonMode() ? null : ora(`Editing ${imagePaths.length} image(s) with ${label} ${modelSpec.label}...`).start();
+    const result = await executeImageEdit({
+      imagePaths,
+      prompt,
+      provider,
+      model: options.model,
+      ratio: options.ratio,
+      resolution: options.size,
+      output: options.output,
+      apiKey,
+    });
+    if (!result.success) {
+      spinner?.fail(result.error ?? "Image editing failed");
+      exitWithError(providerFailure(result.error ?? "Image editing failed", result.errorKind));
+    }
+
+    if (isJsonMode()) {
+      outputSuccess({
+        command: "edit image",
+        startedAt,
+        data: { provider, model: result.model, outputPath: result.outputPath },
+      });
+      return;
+    }
+    spinner?.succeed(chalk.green("Image edited"));
+    console.log(chalk.green(`Saved to: ${result.outputPath}`));
   });
 
 // ── edit interpolate (frame interpolation / slow motion) ────────────────

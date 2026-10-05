@@ -23,7 +23,7 @@ import { mkdir, readFile, writeFile, access, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { GeminiProvider, OpenAIImageProvider } from "@vibeframe/ai-providers";
+import { createImageGenerator } from "@vibeframe/ai-providers";
 import {
   resolveTtsProvider,
   TtsKeyMissingError,
@@ -56,6 +56,8 @@ import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/sc
 // commands and the manifest tools.
 import { exitWithError, generalError, usageError, outputSuccess, isJsonMode } from "./output.js";
 import { getApiKey } from "../utils/api-key.js";
+import { writeImageFile } from "../utils/image-file.js";
+import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 import { getAudioDuration } from "../utils/audio.js";
 import {
   installHyperframesSkill,
@@ -471,7 +473,7 @@ sceneCommand
     "--no-storyboard",
     "Do not sync STORYBOARD.md; insert this scene directly into the root composition only"
   )
-  .option("--image-provider <name>", "Image provider: gemini, openai", "gemini")
+  .option("--image-provider <name>", "Image provider: gemini, openai, grok", "gemini")
   .option(
     "--tts <provider>",
     "TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)",
@@ -801,14 +803,6 @@ async function resolveNarrationText(value: string | undefined): Promise<string |
 }
 
 /** Map a project aspect to the OpenAI image API size string. */
-function openAiSizeForAspect(
-  width: number,
-  height: number
-): "1024x1024" | "1536x1024" | "1024x1536" {
-  if (width === height) return "1024x1024";
-  return width > height ? "1536x1024" : "1024x1536";
-}
-
 /** Best-effort aspect-ratio string for the image provider. */
 function aspectStringFromDims(width: number, height: number): string {
   if (width === height) return "1:1";
@@ -966,64 +960,29 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
 
   if (opts.visuals && !opts.skipImage) {
     const provider = (opts.imageProvider ?? "gemini").toLowerCase();
-    if (provider !== "gemini" && provider !== "openai") {
-      return errResult(`Unsupported --image-provider: ${provider}. Valid: gemini, openai.`);
+    if (!IMAGE_PROVIDER_ENV[provider]) {
+      return errResult(`Unsupported --image-provider: ${provider}. Valid: ${Object.keys(IMAGE_PROVIDER_ENV).join(", ")}.`);
+    }
+    const label = IMAGE_PROVIDER_LABELS[provider];
+    const apiKey = await getApiKey(IMAGE_PROVIDER_ENV[provider], label);
+    if (!apiKey) {
+      return errResult(`${label} API key required for --visuals --image-provider ${provider}. Set ${IMAGE_PROVIDER_ENV[provider]} or pass --no-image.`);
     }
     opts.onProgress?.(`Generating image with ${provider}...`);
-
-    if (provider === "openai") {
-      const openaiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiKey) {
-        return errResult(
-          "OpenAI API key required for --visuals --image-provider openai. Set OPENAI_API_KEY or pass --no-image."
-        );
-      }
-      const openai = new OpenAIImageProvider();
-      await openai.initialize({ apiKey: openaiKey });
-      const imageResult = await openai.generateImage(opts.visuals, {
-        size: openAiSizeForAspect(dims.width, dims.height),
-        quality: "standard",
+    try {
+      const generator = await createImageGenerator(provider, apiKey);
+      const result = await generator.createImage({
+        prompt: opts.visuals,
+        aspectRatio: aspectStringFromDims(dims.width, dims.height),
+        quality: "medium",
       });
-      if (!imageResult.success || !imageResult.images?.[0]) {
-        return errResult(`OpenAI image generation failed: ${imageResult.error ?? "unknown error"}`);
-      }
-      const img = imageResult.images[0];
       imageRelPath = `assets/scene-${id}.png`;
       imageAbsPath = resolve(projectDir, imageRelPath);
       await mkdir(dirname(imageAbsPath), { recursive: true });
-      let buffer: Buffer;
-      if (img.base64) {
-        buffer = Buffer.from(img.base64, "base64");
-      } else if (img.url) {
-        const response = await fetch(img.url);
-        buffer = Buffer.from(await response.arrayBuffer());
-      } else {
-        return errResult("OpenAI returned no image data");
-      }
-      await writeFile(imageAbsPath, buffer);
-    } else {
-      const googleKey = await getApiKey("GOOGLE_API_KEY", "Google");
-      if (!googleKey) {
-        return errResult(
-          "Google API key required for Gemini image generation. Set GOOGLE_API_KEY or pass --no-image."
-        );
-      }
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey: googleKey });
-      const aspectRatio = aspectStringFromDims(dims.width, dims.height) as
-        | "1:1"
-        | "16:9"
-        | "9:16"
-        | "4:5";
-      const imageResult = await gemini.generateImage(opts.visuals, { aspectRatio });
-      if (!imageResult.success || !imageResult.images?.[0]?.base64) {
-        return errResult(`Gemini image generation failed: ${imageResult.error ?? "unknown error"}`);
-      }
-      imageRelPath = `assets/scene-${id}.png`;
-      imageAbsPath = resolve(projectDir, imageRelPath);
-      await mkdir(dirname(imageAbsPath), { recursive: true });
-      const buffer = Buffer.from(imageResult.images[0].base64!, "base64");
-      await writeFile(imageAbsPath, buffer);
+      // writeImageFile converts when the provider returned JPEG for a .png path.
+      await writeImageFile(imageAbsPath, Buffer.from(result.images[0].bytes));
+    } catch (error) {
+      return errResult(`${label} image generation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

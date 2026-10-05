@@ -208,7 +208,7 @@ const sceneAddSchema = z.object({
       "Sync STORYBOARD.md when present, then rebuild root refs from it. Default true; set false for root-only insertion."
     ),
   imageProvider: z
-    .enum(["gemini", "openai"])
+    .enum(["gemini", "openai", "grok"])
     .optional()
     .describe("Image provider for visuals. Default 'gemini'."),
   voice: z.string().optional().describe("ElevenLabs voice id or name."),
@@ -587,9 +587,9 @@ const sceneBuildSchema = z.object({
     ),
   voice: z.string().optional().describe("TTS voice id (provider-specific)."),
   imageProvider: z
-    .enum(["openai"])
+    .enum(["openai", "gemini", "grok"])
     .optional()
-    .describe("Image provider for backdrops. Default 'openai' (gpt-image-2.5-sunburst)."),
+    .describe("Image provider for backdrops and keyframes. Default 'openai' (gpt-image-2.5-sunburst)."),
   videoProvider: z
     .enum(BUILD_VIDEO_PROVIDERS)
     .optional()

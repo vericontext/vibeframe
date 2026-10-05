@@ -28,7 +28,7 @@ import {
   executeUpscale,
 } from "../../commands/edit-cmd.js";
 import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
-import { executeGeminiEdit } from "../../commands/ai-image.js";
+import { executeImageEdit } from "../../commands/ai-image.js";
 import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 import { executeMotionOverlay } from "../../commands/edit/motion-overlay.js";
 
@@ -469,17 +469,18 @@ export const editImageTool = defineTool({
   title: "Edit Image with AI",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Edit image(s) using Gemini (Nano Banana). Provide image paths and an edit prompt. Requires GOOGLE_API_KEY.",
+    "Edit or combine image(s) with an instruction using Gemini (Nano Banana, default), OpenAI GPT Image, or Grok Imagine. Requires GOOGLE_API_KEY, OPENAI_API_KEY, or XAI_API_KEY.",
   schema: z.object({
-    imagePaths: z.array(z.string()).describe("Input image file path(s)"),
+    imagePaths: z.array(z.string()).describe("Input image file path(s): up to 3 for Gemini (14 for Pro), 16 for OpenAI, 1 for Grok"),
     prompt: z.string().describe("Edit instruction"),
+    provider: z.enum(["gemini", "openai", "grok"]).optional().describe("Image provider (default: gemini)"),
     output: z.string().optional().describe("Output file path (default: edited.png)"),
-    model: z.enum(["flash", "3.1-flash", "latest", "lite", "pro"]).optional().describe("Gemini model (default: flash = Nano Banana 2)"),
+    model: z.string().optional().describe("Model alias. Gemini: flash (default), lite, pro. OpenAI: 2.5, flare, 2. Grok: pro"),
     ratio: z.string().optional().describe("Output aspect ratio"),
     resolution: z.string().optional().describe("Resolution: 1K, 2K, 4K (Pro only)"),
   }),
   async execute(args) {
-    const result = await executeGeminiEdit(args);
+    const result = await executeImageEdit(args);
     if (!result.success) return { success: false, error: result.error ?? "Image edit failed" };
     return {
       success: true,

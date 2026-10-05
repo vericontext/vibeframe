@@ -20,6 +20,10 @@ import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { errorMessage, fetchJson, sleep } from "../shared/http.js";
 import { assertModelServed, defaultModel, findModel, listModels } from "../catalog/catalog.js";
+import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
+import { ProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * Gemini model types for image generation
@@ -210,13 +214,14 @@ export interface GeminiImageAnalysisResult {
  * - Video: Veo 3.1 Fast / Veo 3.1 (text-to-video, image-to-video)
  * - Image: Nano Banana 2 (gemini-3.1-flash-image) / Nano Banana Pro (gemini-3-pro-image)
  */
-export class GeminiProvider implements AIProvider {
+export class GeminiProvider implements AIProvider, ImageGenerator {
   id = "gemini";
   name = "Google Gemini";
   description = "AI video (Veo 3.1) and image (Nano Banana) generation";
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "text-to-image", "auto-edit", "vision"];
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
+  readonly imageProvider = "gemini";
 
   private apiKey?: string;
   private baseUrl = "https://generativelanguage.googleapis.com/v1beta";
@@ -585,335 +590,135 @@ export class GeminiProvider implements AIProvider {
     return false;
   }
 
-  /**
-   * Resolve model alias to full model ID
-   */
-  private resolveModel(model?: GeminiImageModel): string {
-    // Aliases and full IDs come from the model catalog; unknown values fall
-    // back to the default Nano Banana model.
-    return (findModel("gemini", "image", model) ?? defaultModel("gemini", "image")).id;
+  // ── ImageGenerator ────────────────────────────────────────────────────
+
+  /** Nano Banana edits take up to 3 input images, Pro up to 14. */
+  maxEditImages(model?: string): number {
+    return resolveCatalogModel("gemini", "image", model).id.includes("pro") ? 14 : 3;
   }
 
-  /**
-   * Check if model is Pro
-   */
-  private isProModel(modelId: string): boolean {
-    return modelId.includes("pro");
-  }
-
-  /**
-   * Generate images using Gemini (Nano Banana)
-   * Uses generateContent with responseModalities: ["TEXT", "IMAGE"]
-   */
-  async generateImage(
-    prompt: string,
-    options: GeminiImageOptions = {}
-  ): Promise<GeminiImageResult> {
+  async createImage(request: ImageRequest): Promise<ImageResultSet> {
     if (!this.apiKey) {
-      return {
-        success: false,
-        error: "Google API key not configured",
-      };
+      throw new ProviderError({ kind: "auth", provider: this.imageProvider, message: "Google API key not configured" });
+    }
+    const modelId = resolveCatalogModel(this.imageProvider, "image", request.model).id;
+    const isPro = modelId.includes("pro");
+    const inputs = request.images ?? [];
+    if (inputs.length > this.maxEditImages(modelId)) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.imageProvider,
+        message: `${modelId} edits take up to ${this.maxEditImages(modelId)} images, not ${inputs.length}.`,
+      });
     }
 
-    try {
-      const modelId = this.resolveModel(options.model);
-      const isPro = this.isProModel(modelId);
+    const imageConfig: Record<string, string> = {};
+    if (request.aspectRatio) imageConfig.aspectRatio = request.aspectRatio;
+    else if (inputs.length === 0) imageConfig.aspectRatio = "1:1";
+    // 512px and 1K work on every model; 2K and 4K need Pro.
+    if (request.resolution && (request.resolution === "512px" || request.resolution === "1K" || isPro)) {
+      imageConfig.imageSize = request.resolution;
+    }
+    const generationConfig: Record<string, unknown> = { responseModalities: ["TEXT", "IMAGE"] };
+    if (Object.keys(imageConfig).length > 0) generationConfig.imageConfig = imageConfig;
+    if (request.providerOptions?.thinkingConfig) generationConfig.thinkingConfig = request.providerOptions.thinkingConfig;
 
-      // Build image config
-      const imageConfig: Record<string, string> = {};
-      if (options.aspectRatio) {
-        imageConfig.aspectRatio = options.aspectRatio;
-      } else {
-        imageConfig.aspectRatio = "1:1";
-      }
-
-      // Resolution: 512px available for all models, 2K/4K for Pro only
-      if (options.resolution) {
-        if (options.resolution === "512px" || options.resolution === "1K" || isPro) {
-          imageConfig.imageSize = options.resolution;
-        }
-      }
-
-      // Build generation config
-      const generationConfig: Record<string, unknown> = {
-        responseModalities: ["TEXT", "IMAGE"],
-        imageConfig,
-      };
-
-      // Add thinking config if specified
-      if (options.thinkingConfig) {
-        generationConfig.thinkingConfig = options.thinkingConfig;
-      }
-
-      // Build payload
-      const payload: Record<string, unknown> = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig,
-      };
-
-      // Add Google Search grounding
-      const is31Flash = modelId.startsWith("gemini-3.1-flash-image");
-      if (options.imageSearchGrounding && is31Flash) {
-        // 3.1 Flash supports Image Search grounding
-        payload.tools = [{ googleSearch: { searchTypes: { webSearch: {}, imageSearch: {} } } }];
-      } else if (options.grounding && isPro) {
-        payload.tools = [{ googleSearch: {} }];
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
+    const payload: Record<string, unknown> = {
+      contents: [
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+          parts: [
+            { text: request.prompt },
+            ...inputs.map((img) => ({ inlineData: { mimeType: img.mimeType, data: Buffer.from(img.bytes).toString("base64") } })),
+          ],
+        },
+      ],
+      generationConfig,
+    };
+    if (request.providerOptions?.imageSearchGrounding && modelId.startsWith("gemini-3.1-flash-image")) {
+      payload.tools = [{ googleSearch: { searchTypes: { webSearch: {}, imageSearch: {} } } }];
+    } else if (request.providerOptions?.grounding && isPro) {
+      payload.tools = [{ googleSearch: {} }];
+    }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
+    // The key goes in a header so it never lands in a URL, log, or error message.
+    const response = await providerRequest(this.imageProvider, `${this.baseUrl}/models/${modelId}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
+      body: JSON.stringify(payload),
+    });
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string; thought?: boolean; inlineData?: { mimeType: string; data: string } }> };
+        finishReason?: string;
+      }>;
+      promptFeedback?: { blockReason?: string };
+    };
 
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{
-              text?: string;
-              thought?: boolean;
-              inlineData?: {
-                mimeType: string;
-                data: string;
-              };
-            }>;
-          };
-          finishReason?: string;
-        }>;
-        promptFeedback?: { blockReason?: string };
-      };
-
-      const parts = data.candidates?.[0]?.content?.parts;
-      if (!parts || parts.length === 0) {
-        const finishReason = data.candidates?.[0]?.finishReason;
-        const blockReason = data.promptFeedback?.blockReason;
-        const detail = blockReason
+    const parts = (data.candidates?.[0]?.content?.parts ?? []).filter((part) => !part.thought);
+    const images = parts
+      .filter((part) => part.inlineData)
+      .map((part) => ({ bytes: fromBase64(part.inlineData!.data), mimeType: part.inlineData!.mimeType }));
+    if (images.length === 0) {
+      const blockReason = data.promptFeedback?.blockReason;
+      const finishReason = data.candidates?.[0]?.finishReason;
+      throw new ProviderError({
+        kind: blockReason || finishReason === "SAFETY" || finishReason === "IMAGE_SAFETY" ? "moderation" : "provider",
+        provider: this.imageProvider,
+        message: blockReason
           ? `Blocked by safety filter: ${blockReason}`
-          : finishReason
-            ? `Model returned no image (finishReason: ${finishReason})`
-            : "No content in response";
-        return {
-          success: false,
-          error: detail,
-        };
-      }
+          : `Model returned no image${finishReason ? ` (finishReason: ${finishReason})` : ""}`,
+      });
+    }
+    return { images, model: modelId, text: parts.find((part) => part.text)?.text };
+  }
 
-      // Extract images from parts (skip thought images from Pro model)
-      const images: Array<{ base64: string; mimeType: string }> = [];
-      let description: string | undefined;
+  // ── Older interface, kept until every caller uses the contract ────────
 
-      for (const part of parts) {
-        // Skip thought images (Pro model thinking process)
-        if (part.thought) continue;
+  /**
+   * Generate images using Gemini (Nano Banana).
+   */
+  async generateImage(prompt: string, options: GeminiImageOptions = {}): Promise<GeminiImageResult> {
+    return this.legacyImage(() =>
+      this.createImage({
+        prompt,
+        model: options.model,
+        aspectRatio: options.aspectRatio,
+        resolution: options.resolution,
+        providerOptions: {
+          grounding: options.grounding,
+          imageSearchGrounding: options.imageSearchGrounding,
+          thinkingConfig: options.thinkingConfig,
+        },
+      })
+    );
+  }
 
-        if (part.inlineData) {
-          images.push({
-            base64: part.inlineData.data,
-            mimeType: part.inlineData.mimeType,
-          });
-        } else if (part.text) {
-          description = part.text;
-        }
-      }
+  /**
+   * Edit image(s) using Gemini (Nano Banana).
+   */
+  async editImage(imageBuffers: Buffer[], prompt: string, options: GeminiEditOptions = {}): Promise<GeminiImageResult> {
+    return this.legacyImage(() =>
+      this.createImage({
+        prompt,
+        model: options.model,
+        aspectRatio: options.aspectRatio,
+        resolution: options.resolution,
+        images: imageBuffers.map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
+      })
+    );
+  }
 
-      if (images.length === 0) {
-        return {
-          success: false,
-          error: "No images in response",
-        };
-      }
-
+  private async legacyImage(run: () => Promise<ImageResultSet>): Promise<GeminiImageResult> {
+    try {
+      const result = await run();
       return {
         success: true,
-        images,
-        description,
-        model: modelId,
+        images: result.images.map((img) => ({ base64: Buffer.from(img.bytes).toString("base64"), mimeType: img.mimeType })),
+        description: result.text,
+        model: result.model,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  }
-
-  /**
-   * Edit image(s) using Gemini (Nano Banana)
-   * Provide input image(s) with a text prompt to edit/transform/compose
-   */
-  async editImage(
-    imageBuffers: Buffer[],
-    prompt: string,
-    options: GeminiEditOptions = {}
-  ): Promise<GeminiImageResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "Google API key not configured",
-      };
-    }
-
-    const modelId = this.resolveModel(options.model);
-    const isPro = this.isProModel(modelId);
-
-    // Validate image count
-    const maxImages = isPro ? 14 : 3;
-    if (imageBuffers.length > maxImages) {
-      return {
-        success: false,
-        error: `Too many input images. ${modelId} supports up to ${maxImages} images.`,
-      };
-    }
-
-    try {
-      // Build parts: text prompt first, then images
-      const parts: Array<Record<string, unknown>> = [{ text: prompt }];
-
-      for (const buffer of imageBuffers) {
-        parts.push({
-          inlineData: {
-            mimeType: "image/png",
-            data: buffer.toString("base64"),
-          },
-        });
-      }
-
-      // Build image config
-      const imageConfig: Record<string, string> = {};
-      if (options.aspectRatio) {
-        imageConfig.aspectRatio = options.aspectRatio;
-      }
-      if (options.resolution && isPro) {
-        imageConfig.imageSize = options.resolution;
-      }
-
-      // Build generation config
-      const generationConfig: Record<string, unknown> = {
-        responseModalities: ["TEXT", "IMAGE"],
-      };
-      if (Object.keys(imageConfig).length > 0) {
-        generationConfig.imageConfig = imageConfig;
-      }
-
-      const payload = {
-        contents: [{ parts }],
-        generationConfig,
-      };
-
-      const response = await fetch(
-        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
-
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{
-              text?: string;
-              thought?: boolean;
-              inlineData?: {
-                mimeType: string;
-                data: string;
-              };
-            }>;
-          };
-          finishReason?: string;
-        }>;
-        promptFeedback?: { blockReason?: string };
-      };
-
-      const responseParts = data.candidates?.[0]?.content?.parts;
-      if (!responseParts || responseParts.length === 0) {
-        const finishReason = data.candidates?.[0]?.finishReason;
-        const blockReason = data.promptFeedback?.blockReason;
-        const detail = blockReason
-          ? `Blocked by safety filter: ${blockReason}`
-          : finishReason
-            ? `Model returned no image (finishReason: ${finishReason})`
-            : "No content in response";
-        return {
-          success: false,
-          error: detail,
-        };
-      }
-
-      // Extract images (skip thought images)
-      const images: Array<{ base64: string; mimeType: string }> = [];
-      let description: string | undefined;
-
-      for (const part of responseParts) {
-        if (part.thought) continue;
-
-        if (part.inlineData) {
-          images.push({
-            base64: part.inlineData.data,
-            mimeType: part.inlineData.mimeType,
-          });
-        } else if (part.text) {
-          description = part.text;
-        }
-      }
-
-      if (images.length === 0) {
-        return {
-          success: false,
-          error: "No images in response",
-        };
-      }
-
-      return {
-        success: true,
-        images,
-        description,
-        model: modelId,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { success: false, error: errorMessage(error) };
     }
   }
 

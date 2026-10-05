@@ -13,18 +13,17 @@
  * @see MODELS.md for AI model configuration
  */
 
-import { resolve, dirname } from "node:path";
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import {
   GeminiProvider,
-  GrokProvider,
-  OpenAIImageProvider,
+  isProviderError,
   resolveGeminiTextModel,
-  resolveGrokImageModel,
+  type ProviderErrorKind,
 } from "@vibeframe/ai-providers";
+import { resolveProvider } from "../utils/provider-resolver.js";
+import { contractQuality, openImageGenerator, readImageInput, saveImage } from "./_shared/image-jobs.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
-import { writeImageFile } from "../utils/image-file.js";
 
 // ============================================================================
 // Image Generate
@@ -32,12 +31,15 @@ import { writeImageFile } from "../utils/image-file.js";
 
 export interface ImageGenerateOptions {
   prompt: string;
+  /** Default: the configured or first available image provider. */
   provider?: string;
   output?: string;
+  /** Explicit OpenAI size; otherwise the ratio picks one. */
   size?: string;
   ratio?: string;
   quality?: string;
-  style?: string;
+  /** Gemini "1K"/"2K"/"4K", Grok "1k"/"2k". */
+  resolution?: string;
   count?: number;
   model?: string;
   apiKey?: string;
@@ -45,248 +47,118 @@ export interface ImageGenerateOptions {
 
 export interface ImageGenerateResult {
   success: boolean;
+  /** Where the first image was saved. */
   outputPath?: string;
-  images?: Array<{ url?: string; base64?: string; mimeType?: string; revisedPrompt?: string }>;
+  /** Every saved image: `out.png`, then `out-2.png`, `out-3.png`, ... */
+  outputPaths?: string[];
+  images?: Array<{ base64: string; mimeType: string; revisedPrompt?: string }>;
   provider?: string;
   model?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
+}
+
+/** `out.png` → `out-2.png`. */
+function numberedPath(path: string, n: number): string {
+  const dot = path.lastIndexOf(".");
+  return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)}-${n}${path.slice(dot)}` : `${path}-${n}`;
+}
+
+function imageFailure(error: unknown, prefix: string, provider?: string): ImageGenerateResult {
+  if (isProviderError(error)) return { success: false, error: error.message, errorKind: error.kind, provider };
+  return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}`, provider };
 }
 
 export async function executeImageGenerate(options: ImageGenerateOptions): Promise<ImageGenerateResult> {
-  const {
-    prompt,
-    provider = "gemini",
-    output,
-    size = "1024x1024",
-    ratio = "1:1",
-    quality = "standard",
-    style = "vivid",
-    count = 1,
-    model,
-    apiKey,
-  } = options;
-
+  const provider = options.provider ?? resolveProvider("image")?.name ?? "gemini";
   try {
-    if (provider === "openai") {
-      const key = apiKey || process.env.OPENAI_API_KEY;
-      if (!key) return { success: false, error: "OPENAI_API_KEY required" };
-
-      const openaiImage = new OpenAIImageProvider();
-      await openaiImage.initialize({ apiKey: key });
-
-      const result = await openaiImage.generateImage(prompt, {
-        size: size as "1024x1024" | "1536x1024" | "1024x1536" | "auto" | undefined,
-        quality: quality as "standard" | "hd" | undefined,
-        style: style as "vivid" | "natural" | undefined,
-        n: count,
-      });
-
-      if (!result.success || !result.images) {
-        return { success: false, error: result.error || "Image generation failed" };
+    const generator = await openImageGenerator(provider, options.apiKey);
+    const result = await generator.createImage({
+      prompt: options.prompt,
+      model: options.model,
+      aspectRatio: options.ratio,
+      resolution: options.resolution,
+      quality: contractQuality(options.quality),
+      count: options.count,
+      providerOptions: options.size ? { size: options.size } : undefined,
+    });
+    const outputPaths: string[] = [];
+    if (options.output) {
+      for (const [i, img] of result.images.entries()) {
+        outputPaths.push(await saveImage(i === 0 ? options.output : numberedPath(options.output, i + 1), img.bytes));
       }
-
-      let outputPath: string | undefined;
-      if (output && result.images.length > 0) {
-        const img = result.images[0];
-        let buffer: Buffer;
-        if (img.url) {
-          const response = await fetch(img.url);
-          buffer = Buffer.from(await response.arrayBuffer());
-        } else if (img.base64) {
-          buffer = Buffer.from(img.base64, "base64");
-        } else {
-          return { success: false, error: "No image data available" };
-        }
-        outputPath = resolve(process.cwd(), output);
-        await mkdir(dirname(outputPath), { recursive: true });
-        await writeImageFile(outputPath, buffer);
-      }
-
-      return {
-        success: true,
-        outputPath,
-        images: result.images.map(img => ({ url: img.url, base64: img.base64, revisedPrompt: img.revisedPrompt })),
-        provider: "openai",
-      };
-    } else if (provider === "gemini") {
-      const key = apiKey || process.env.GOOGLE_API_KEY;
-      if (!key) return { success: false, error: "GOOGLE_API_KEY required" };
-
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey: key });
-
-      const modelMap: Record<string, string> = { latest: "3.1-flash" };
-      const mappedModel = model ? (modelMap[model] || model) : undefined;
-
-      let result = await gemini.generateImage(prompt, {
-        model: mappedModel as "flash" | "3.1-flash" | "pro" | undefined,
-        aspectRatio: ratio as "1:1" | "16:9" | "9:16" | "4:3" | "3:4",
-      });
-
-      const fallbackModels = ["3.1-flash"];
-      if (!result.success && mappedModel && fallbackModels.includes(mappedModel)) {
-        result = await gemini.generateImage(prompt, {
-          model: "flash",
-          aspectRatio: ratio as "1:1" | "16:9" | "9:16" | "4:3" | "3:4",
-        });
-      }
-
-      if (!result.success || !result.images) {
-        return { success: false, error: result.error || "Image generation failed" };
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.images.length > 0) {
-        const img = result.images[0];
-        if (img.base64) {
-          outputPath = resolve(process.cwd(), output);
-          await mkdir(dirname(outputPath), { recursive: true });
-          await writeImageFile(outputPath, Buffer.from(img.base64, "base64"));
-        }
-      }
-
-      return {
-        success: true,
-        outputPath,
-        images: result.images.map(img => ({ base64: img.base64, mimeType: img.mimeType })),
-        provider: "gemini",
-        model: result.model,
-      };
-    } else if (provider === "grok") {
-      const key = apiKey || process.env.XAI_API_KEY;
-      if (!key) return { success: false, error: "XAI_API_KEY required" };
-
-      const grok = new GrokProvider();
-      await grok.initialize({ apiKey: key });
-
-      const result = await grok.generateImage(prompt, {
-        ...resolveGrokImageModel(model),
-        aspectRatio: ratio,
-        n: count,
-      });
-
-      if (!result.success || !result.images) {
-        return { success: false, error: result.error || "Image generation failed" };
-      }
-
-      let outputPath: string | undefined;
-      if (output && result.images.length > 0) {
-        const img = result.images[0];
-        let buffer: Buffer;
-        if (img.url) {
-          const response = await fetch(img.url);
-          buffer = Buffer.from(await response.arrayBuffer());
-        } else if (img.base64) {
-          buffer = Buffer.from(img.base64, "base64");
-        } else {
-          return { success: false, error: "No image data available" };
-        }
-        outputPath = resolve(process.cwd(), output);
-        await mkdir(dirname(outputPath), { recursive: true });
-        await writeImageFile(outputPath, buffer);
-      }
-
-      return {
-        success: true,
-        outputPath,
-        images: result.images.map(img => ({ url: img.url, base64: img.base64, revisedPrompt: img.revisedPrompt })),
-        provider: "grok",
-      };
     }
-
-    return { success: false, error: `Unsupported provider: ${provider}` };
+    return {
+      success: true,
+      outputPath: outputPaths[0],
+      outputPaths: outputPaths.length > 0 ? outputPaths : undefined,
+      images: result.images.map((img) => ({
+        base64: Buffer.from(img.bytes).toString("base64"),
+        mimeType: img.mimeType,
+        revisedPrompt: img.revisedPrompt,
+      })),
+      provider,
+      model: result.model,
+    };
   } catch (error) {
-    return { success: false, error: `Image generation failed: ${error instanceof Error ? error.message : String(error)}` };
+    return imageFailure(error, "Image generation failed", provider);
   }
 }
 
 // ============================================================================
-// Gemini Image Edit
+// Image Edit
 // ============================================================================
 
-export interface GeminiEditOptions {
+export interface ImageEditOptions {
   imagePaths: string[];
   prompt: string;
+  /** Default: gemini. */
+  provider?: string;
   output?: string;
   model?: string;
   ratio?: string;
   resolution?: string;
+  quality?: string;
   apiKey?: string;
 }
 
-export interface GeminiEditResult {
+export interface ImageEditResult {
   success: boolean;
   outputPath?: string;
+  provider?: string;
   model?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
-export async function executeGeminiEdit(options: GeminiEditOptions): Promise<GeminiEditResult> {
-  const {
-    imagePaths,
-    prompt,
-    output = "edited.png",
-    model = "flash",
-    ratio,
-    resolution,
-    apiKey,
-  } = options;
-
+export async function executeImageEdit(options: ImageEditOptions): Promise<ImageEditResult> {
+  const provider = options.provider ?? "gemini";
   try {
-    const key = apiKey || process.env.GOOGLE_API_KEY;
-    if (!key) return { success: false, error: "GOOGLE_API_KEY required" };
-
-    const imageBuffers: Buffer[] = [];
-    for (const imagePath of imagePaths) {
-      const absPath = resolve(process.cwd(), imagePath);
-      if (!existsSync(absPath)) {
-        return { success: false, error: `Image not found: ${absPath}` };
-      }
-      const buffer = await readFile(absPath);
-      imageBuffers.push(buffer);
-    }
-
-    const gemini = new GeminiProvider();
-    await gemini.initialize({ apiKey: key });
-
-    type GeminiAspectRatio = "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1" | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9";
-    type GeminiRes = "512px" | "1K" | "2K" | "4K";
-
-    let result = await gemini.editImage(imageBuffers, prompt, {
-      model: model as "flash" | "3.1-flash" | "pro" | undefined,
-      aspectRatio: ratio as GeminiAspectRatio | undefined,
-      resolution: resolution as GeminiRes | undefined,
+    const generator = await openImageGenerator(provider, options.apiKey);
+    const images = await Promise.all(options.imagePaths.map((path) => readImageInput(path)));
+    const result = await generator.createImage({
+      prompt: options.prompt,
+      model: options.model,
+      aspectRatio: options.ratio,
+      resolution: options.resolution,
+      quality: contractQuality(options.quality),
+      images,
     });
-
-    const fallbackModels = ["latest", "3.1-flash"];
-    if (!result.success && fallbackModels.includes(model)) {
-      result = await gemini.editImage(imageBuffers, prompt, {
-        model: "flash",
-        aspectRatio: ratio as GeminiAspectRatio | undefined,
-        resolution: resolution as GeminiRes | undefined,
-      });
-    }
-
-    if (!result.success || !result.images || result.images.length === 0) {
-      return { success: false, error: result.error || "Image editing failed" };
-    }
-
-    const img = result.images[0];
-    let outputPath: string | undefined;
-    if (img.base64) {
-      outputPath = resolve(process.cwd(), output);
-      await mkdir(dirname(outputPath), { recursive: true });
-      await writeImageFile(outputPath, Buffer.from(img.base64, "base64"));
-    }
-
-    return {
-      success: true,
-      outputPath,
-      model: result.model,
-    };
+    const outputPath = await saveImage(options.output ?? "edited.png", result.images[0].bytes);
+    return { success: true, outputPath, provider, model: result.model };
   } catch (error) {
-    return { success: false, error: `Image editing failed: ${error instanceof Error ? error.message : String(error)}` };
+    const failed = imageFailure(error, "Image editing failed", provider);
+    return { success: false, error: failed.error, errorKind: failed.errorKind, provider };
   }
+}
+
+/** @deprecated Use `executeImageEdit`; kept for callers that predate other edit providers. */
+export type GeminiEditOptions = Omit<ImageEditOptions, "provider">;
+/** @deprecated Use `executeImageEdit`. */
+export type GeminiEditResult = ImageEditResult;
+/** @deprecated Use `executeImageEdit`. */
+export function executeGeminiEdit(options: GeminiEditOptions): Promise<ImageEditResult> {
+  return executeImageEdit({ ...options, provider: "gemini" });
 }
 
 // ============================================================================

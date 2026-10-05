@@ -25,13 +25,8 @@ import { dirname, join, resolve } from "node:path";
 
 import { config as loadDotenv } from "dotenv";
 import {
-  GeminiProvider,
-  GrokProvider,
-  OPENAI_IMAGE_DEFAULT_MODEL,
-  OpenAIImageProvider,
+  createImageGenerator,
   estimateSeedanceVideoCostUsd,
-  type GPTImageModel,
-  type GeminiImageModel,
   type ImageOptions,
   type VideoJob,
 } from "@vibeframe/ai-providers";
@@ -104,6 +99,7 @@ import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
 import { executeVideoGenerate } from "../ai-video.js";
 import { executeMusic } from "../generate/music.js";
 import { createAndWriteJobRecord, writeJobRecord, type JobRecord } from "./status-jobs.js";
+import { contractQuality } from "./image-jobs.js";
 import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
@@ -1930,11 +1926,6 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
   };
 }
 
-interface GeneratedImageData {
-  base64?: string;
-  url?: string;
-}
-
 type GeneratedBackdropResult =
   | { success: true; buffer: Buffer }
   | { success: false; error: string };
@@ -1953,61 +1944,30 @@ async function generateBackdropImage(
   ctx: ImageGenContext,
   ratio: string
 ): Promise<GeneratedBackdropResult> {
-  loadSceneBuildEnv(ctx.projectDir);
-  const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
-  const apiKey =
-    (await getApiKeyFromConfig(keyInfo.configKey, { cwd: ctx.projectDir })) ??
-    process.env[keyInfo.envVar] ??
-    "";
-  if (!apiKey) {
-    return {
-      success: false,
-      error: `${keyInfo.envVar} not set — cannot dispatch backdrop with ${ctx.imageProvider}`,
-    };
-  }
-
-  if (ctx.imageProvider === "openai") {
-    const provider = new OpenAIImageProvider();
-    await provider.initialize({ apiKey });
-    const result = await provider.generateImage(prompt, {
-      // CLI input is free-form; an alias the provider doesn't know fails the
-      // API call and surfaces as a beat-scoped backdrop/keyframe error.
-      model: (ctx.imageModel as GPTImageModel | undefined) ?? OPENAI_IMAGE_DEFAULT_MODEL,
-      size: ctx.imageSize,
-      quality: ctx.imageQuality,
-    });
-    return imageBufferFromResult(result);
-  }
-
-  if (ctx.imageProvider === "gemini") {
-    const provider = new GeminiProvider();
-    await provider.initialize({ apiKey });
-    const result = await provider.generateImage(prompt, {
-      model: (ctx.imageModel as GeminiImageModel | undefined) ?? "flash",
-      aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
-    });
-    return imageBufferFromResult(result);
-  }
-
-  const provider = new GrokProvider();
-  await provider.initialize({ apiKey });
-  const result = await provider.generateImage(prompt, {
-    aspectRatio: ratio,
-    n: 1,
-  });
-  return imageBufferFromResult(result);
+  return buildImage(prompt, ctx, ratio);
 }
 
 /**
  * Generate a keyframe still by editing the character sheet(s) with the
- * keyframe prompt (so the character stays consistent). Mirrors
- * `generateBackdropImage` but uses each provider's `editImage`.
+ * keyframe prompt (so the character stays consistent). Providers that take
+ * fewer input images than there are sheets get the first ones they accept
+ * (Grok edits one image).
  */
 async function editKeyframeImage(
   prompt: string,
   sheetBuffers: Buffer[],
   ctx: ImageGenContext,
   ratio: string
+): Promise<GeneratedBackdropResult> {
+  return buildImage(prompt, ctx, ratio, sheetBuffers);
+}
+
+/** One image through the image contract, with the build's project-scoped key. */
+async function buildImage(
+  prompt: string,
+  ctx: ImageGenContext,
+  ratio: string,
+  sheetBuffers?: Buffer[]
 ): Promise<GeneratedBackdropResult> {
   loadSceneBuildEnv(ctx.projectDir);
   const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
@@ -2018,32 +1978,24 @@ async function editKeyframeImage(
   if (!apiKey) {
     return {
       success: false,
-      error: `${keyInfo.envVar} not set — cannot generate keyframe with ${ctx.imageProvider}`,
+      error: `${keyInfo.envVar} not set — cannot generate ${sheetBuffers ? "keyframe" : "backdrop"} with ${ctx.imageProvider}`,
     };
   }
-
-  if (ctx.imageProvider === "openai") {
-    const provider = new OpenAIImageProvider();
-    await provider.initialize({ apiKey });
-    const result = await provider.editImage(sheetBuffers, prompt);
-    return imageBufferFromResult(result);
-  }
-
-  if (ctx.imageProvider === "gemini") {
-    const provider = new GeminiProvider();
-    await provider.initialize({ apiKey });
-    const result = await provider.editImage(sheetBuffers, prompt, {
-      model: (ctx.imageModel as GeminiImageModel | undefined) ?? "flash",
-      aspectRatio: ratio as "1:1" | "2:3" | "3:2" | "16:9",
+  try {
+    const generator = await createImageGenerator(ctx.imageProvider, apiKey);
+    const maxInputs = sheetBuffers ? generator.maxEditImages(ctx.imageModel) : 0;
+    const result = await generator.createImage({
+      prompt,
+      model: ctx.imageModel,
+      aspectRatio: ratio,
+      quality: contractQuality(ctx.imageQuality),
+      providerOptions: ctx.imageSize ? { size: ctx.imageSize } : undefined,
+      images: sheetBuffers?.slice(0, maxInputs).map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
     });
-    return imageBufferFromResult(result);
+    return { success: true, buffer: Buffer.from(result.images[0].bytes) };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
-
-  const provider = new GrokProvider();
-  await provider.initialize({ apiKey });
-  // Grok edits a single input image.
-  const result = await provider.editImage(sheetBuffers[0], prompt, { aspectRatio: ratio });
-  return imageBufferFromResult(result);
 }
 
 /**
@@ -2147,26 +2099,6 @@ async function ensureKeyframe(
     cachePath: cache.path,
   });
   return { status: "generated", rel };
-}
-
-async function imageBufferFromResult(result: {
-  success: boolean;
-  error?: string;
-  images?: GeneratedImageData[];
-}): Promise<GeneratedBackdropResult> {
-  const image = result.images?.[0];
-  if (!result.success || !image) {
-    return { success: false, error: result.error ?? "no image data returned" };
-  }
-  if (image.base64) return { success: true, buffer: Buffer.from(image.base64, "base64") };
-  if (image.url) {
-    const response = await fetch(image.url);
-    if (!response.ok) {
-      return { success: false, error: `failed to download image: HTTP ${response.status}` };
-    }
-    return { success: true, buffer: Buffer.from(await response.arrayBuffer()) };
-  }
-  return { success: false, error: "no image data returned" };
 }
 
 function imageProviderKeyInfo(provider: BuildImageProvider): { configKey: string; envVar: string } {

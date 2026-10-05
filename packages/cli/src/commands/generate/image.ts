@@ -1,58 +1,50 @@
 /**
  * @module generate/image
- * @description `vibe generate image` (alias `img`) — multi-provider image
- * generation. OpenAI gpt-image-2.5, Gemini Nano Banana, Grok, Runway. Split
- * out of `generate.ts` in v0.69 (Plan G Phase 2).
+ * @description `vibe generate image` (alias `img`) — image generation on
+ * OpenAI GPT Image, Gemini Nano Banana, or Grok Imagine. Validation,
+ * provider choice, and the dry run live here; generation is
+ * `executeImageGenerate`, the same executor the MCP tool and pipelines use.
  */
 
 import type { Command } from "commander";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  GeminiProvider,
-  GrokProvider,
-  getProvidersFor,
-  resolveGrokImageModel,
-} from "@vibeframe/ai-providers";
+import { findModel, getProvidersFor, modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
-import { isJsonMode, outputSuccess, log, exitWithError, apiError, usageError } from "../output.js";
+import { checkModelLifecycle } from "../../utils/model-lifecycle.js";
+import {
+  isJsonMode,
+  outputSuccess,
+  printWarnings,
+  log,
+  exitWithError,
+  providerFailure,
+  usageError,
+} from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
-import { executeOpenAIImageGenerate } from "../_shared/openai-image.js";
 import { estimateImageCostUsd } from "../_shared/image-cost.js";
-import { writeImageFile } from "../../utils/image-file.js";
+import { executeImageGenerate } from "../ai-image.js";
+import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS, imageModelLabel } from "../_shared/image-jobs.js";
 
 export function registerImageCommand(parent: Command): void {
   parent
     .command("image")
     .alias("img")
-    .description("Generate image using AI (Gemini, OpenAI gpt-image, Grok, or Runway)")
+    .description("Generate image using AI (OpenAI GPT Image, Gemini, or Grok)")
     .argument("[prompt]", "Image description prompt (interactive if omitted)")
-    .option(
-      "-p, --provider <provider>",
-      "Provider: openai (default when OPENAI_API_KEY set), gemini, grok, runway"
-    )
-    .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY)")
-    .option("-o, --output <path>", "Output file path (downloads image)")
-    .option("--size <size>", "Image size (openai: 1024x1024, 1536x1024, 1024x1536)", "1024x1024")
-    .option(
-      "-r, --ratio <ratio>",
-      "Aspect ratio (gemini: 1:1, 1:4, 1:8, 4:1, 8:1, 16:9, 9:16, 3:4, 4:3, etc.)",
-      "1:1"
-    )
+    .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok")
+    .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY)")
+    .option("-o, --output <path>", "Output file path")
+    .option("-r, --ratio <ratio>", "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)", "1:1")
+    .option("--size <size>", "Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)")
     // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`,
     // which previously ate the value silently and dropped the prompt positional.
-    .option("--quality <quality>", "Quality: standard, hd (openai only)", "standard")
-    .option("--style <style>", "Style: vivid, natural (openai only)", "vivid")
+    .option("--quality <quality>", "Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)")
+    .option("--resolution <res>", "Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k")
     .option("--count <n>", "Number of images to generate", "1")
-    .option(
-      "-m, --model <model>",
-      "Model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"
-    )
+    .option("-m, --model <model>", "Model. OpenAI: 2.5 (default), flare, 2. Gemini: flash (default), lite, pro. Grok: pro")
     .option("--dry-run", "Preview parameters without executing")
     .addHelpText(
       "after",
@@ -66,523 +58,128 @@ Examples:
     )
     .action(async (prompt: string | undefined, options) => {
       const startedAt = Date.now();
-      try {
-        // Interactive prompt if no argument provided
-        if (!prompt) {
-          if (hasTTY()) {
-            prompt = await promptText(chalk.cyan("What would you like to generate? "));
-            if (!prompt?.trim()) {
-              exitWithError(usageError("Prompt is required."));
-            }
-          } else {
-            exitWithError(
-              usageError("Prompt argument is required.", "Usage: vibe generate image <prompt>")
-            );
-          }
-        }
-        rejectControlChars(prompt);
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
-        await loadProviderDefaults();
-
-        // Validate count up-front so dry-run rejects nonsense values
-        // before they're echoed as a "plan" the user might copy and run.
-        if (options.count !== undefined) {
-          const n = parseInt(options.count, 10);
-          if (!Number.isFinite(n) || n < 1 || n > 10) {
-            exitWithError(
-              usageError(
-                `Invalid --count: ${options.count}`,
-                "Must be an integer between 1 and 10."
-              )
-            );
-          }
-        }
-
-        // Resolve provider:
-        //  - explicit -p flag wins (validated, then key-presence checked)
-        //  - no flag → image registry priority list (openai > gemini > grok)
-        //  - if no keys at all → keep gemini as last-resort default so the
-        //    later requireApiKey() prints a friendly Gemini-specific message
-        //
-        // The registry (`@vibeframe/ai-providers`) is the source of truth for
-        // image-kind providers. `runway` is accepted by the CLI as an image
-        // variant but isn't part of the auto-resolver; everything else flows
-        // from the registry, so adding a new image provider auto-propagates.
-        const imageRegistry = getProvidersFor("image");
-        const validProviders = [...imageRegistry.map((p) => p.name), "runway"];
-        const providerEnvMap: Record<string, string> = Object.fromEntries(
-          imageRegistry
-            .filter((p): p is typeof p & { envVar: string } => p.envVar !== null)
-            .map((p) => [p.name, p.envVar])
-        );
-        const envKeyMap: Record<string, string> = {
-          ...providerEnvMap,
-          runway: "RUNWAY_API_SECRET",
-        };
-        const providerNameMap: Record<string, string> = {
-          ...Object.fromEntries(imageRegistry.map((p) => [p.name, p.label])),
-          gemini: "Google",
-          grok: "xAI Grok",
-          runway: "Runway",
-        };
-        let provider: string;
-        if (options.provider) {
-          provider = options.provider.toLowerCase();
-          if (!validProviders.includes(provider)) {
-            exitWithError(
-              usageError(
-                `Invalid provider: ${provider}`,
-                `Available providers: ${imageRegistry.map((p) => p.name).join(", ")}, runway`
-              )
-            );
-          }
-          // Explicit choice's key missing → fall back via resolver
-          if (
-            providerEnvMap[provider] &&
-            !(await hasConfiguredApiKey(providerEnvMap[provider], options.apiKey))
-          ) {
-            const resolved = resolveProvider("image");
-            if (resolved) {
-              log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
-              provider = resolved.name;
-            }
-          }
+      // Interactive prompt if no argument provided
+      if (!prompt) {
+        if (hasTTY()) {
+          prompt = await promptText(chalk.cyan("What would you like to generate? "));
+          if (!prompt?.trim()) exitWithError(usageError("Prompt is required."));
         } else {
+          exitWithError(usageError("Prompt argument is required.", "Usage: vibe generate image <prompt>"));
+        }
+      }
+      rejectControlChars(prompt);
+      if (options.output) validateOutputPath(options.output);
+      await loadProviderDefaults();
+
+      // Validate before the dry run, so a plan never echoes values a real run would reject.
+      const count = parseInt(options.count, 10);
+      if (!Number.isFinite(count) || count < 1 || count > 10) {
+        exitWithError(usageError(`Invalid --count: ${options.count}`, "Must be an integer between 1 and 10."));
+      }
+      if (options.ratio && !/^\d+:\d+$/.test(options.ratio)) {
+        exitWithError(usageError(`Invalid --ratio "${options.ratio}". Use W:H, e.g. 16:9.`));
+      }
+
+      // Provider: an explicit -p wins (falling back when its key is missing);
+      // otherwise the image registry's priority order.
+      const imageRegistry = getProvidersFor("image");
+      const validProviders = imageRegistry.map((p) => p.name).filter((name) => IMAGE_PROVIDER_ENV[name]);
+      let provider: string;
+      if (options.provider) {
+        provider = String(options.provider).toLowerCase();
+        if (!validProviders.includes(provider)) {
+          exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
+        }
+        if (!(await hasConfiguredApiKey(IMAGE_PROVIDER_ENV[provider], options.apiKey))) {
           const resolved = resolveProvider("image");
-          provider = resolved?.name ?? "gemini";
+          if (resolved && resolved.name !== provider) {
+            log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
+            provider = resolved.name;
+          }
         }
+      } else {
+        provider = resolveProvider("image")?.name ?? "gemini";
+      }
 
-        // Dry-run check
-        if (options.dryRun) {
-          outputSuccess({
-            command: "generate image",
-            startedAt,
-            dryRun: true,
-            ...estimateImageCostUsd(provider, options.model, parseInt(options.count) || 1),
-            data: {
-              params: {
-                prompt,
-                provider,
-                model: options.model,
-                ratio: options.ratio,
-                size: options.size,
-                quality: options.quality,
-                count: options.count,
-                output: options.output,
-              },
-            },
-          });
-          return;
-        }
+      const modelSpec = findModel(provider, "image", options.model);
+      if (!modelSpec) {
+        exitWithError(usageError(`Unknown ${provider} image model "${options.model}". Valid: ${modelAliases(provider, "image").join(", ")}.`));
+      }
+      const lifecycleWarnings = checkModelLifecycle(modelSpec);
+      const params = {
+        prompt,
+        provider,
+        model: modelSpec.id,
+        ratio: options.ratio,
+        size: options.size,
+        quality: options.quality,
+        resolution: options.resolution,
+        count,
+        output: options.output,
+      };
 
-        const envKey = envKeyMap[provider];
-        const providerName = providerNameMap[provider];
+      if (options.dryRun) {
+        const estimate = estimateImageCostUsd(provider, options.model, count);
+        outputSuccess({
+          command: "generate image",
+          startedAt,
+          dryRun: true,
+          costUsd: estimate.costUsd,
+          warnings: [...lifecycleWarnings, ...estimate.warnings],
+          data: { params },
+        });
+        return;
+      }
+      printWarnings(lifecycleWarnings);
 
-        const apiKey = await requireApiKey(envKey, providerName, options.apiKey);
+      const label = IMAGE_PROVIDER_LABELS[provider] ?? provider;
+      const apiKey = await requireApiKey(IMAGE_PROVIDER_ENV[provider], label, options.apiKey);
+      const spinner = isJsonMode() ? null : ora(`Generating image with ${label} ${modelSpec.label}...`).start();
+      const result = await executeImageGenerate({
+        prompt,
+        provider,
+        model: options.model,
+        ratio: options.ratio,
+        size: options.size,
+        quality: options.quality,
+        resolution: options.resolution,
+        count,
+        output: options.output,
+        apiKey,
+      });
+      if (!result.success || !result.images) {
+        spinner?.fail(result.error ?? "Image generation failed");
+        exitWithError(providerFailure(result.error ?? "Image generation failed", result.errorKind));
+      }
 
-        const spinner = ora(`Generating image with ${providerName}...`).start();
+      const modelId = result.model ?? modelSpec.id;
+      const cost = estimateImageCostUsd(provider, options.model, result.images.length);
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "generate image",
+          startedAt,
+          costUsd: cost.costUsd,
+          warnings: [...lifecycleWarnings, ...cost.warnings],
+          data: {
+            provider,
+            model: imageModelLabel(provider, modelId),
+            modelId,
+            images: result.images.map((img) => ({ mimeType: img.mimeType, revisedPrompt: img.revisedPrompt })),
+            outputPath: result.outputPath,
+            outputPaths: result.outputPaths,
+          },
+        });
+        return;
+      }
 
-        if (provider === "openai") {
-          const { result, modelLabel, openaiModel } = await executeOpenAIImageGenerate(prompt, options, {
-            apiKey,
-          });
-
-          if (!result.success || !result.images) {
-            spinner.fail(result.error || "Image generation failed");
-            exitWithError(apiError(result.error || "Image generation failed", true));
-          }
-
-          spinner.succeed(
-            chalk.green(`Generated ${result.images.length} image(s) with OpenAI ${modelLabel}`)
-          );
-
-          if (isJsonMode()) {
-            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
-            if (outputPath && result.images.length > 0) {
-              const img = result.images[0];
-              let buffer: Buffer;
-              if (img.url) {
-                const response = await fetch(img.url);
-                buffer = Buffer.from(await response.arrayBuffer());
-              } else if (img.base64) {
-                buffer = Buffer.from(img.base64, "base64");
-              } else {
-                throw new Error("No image data available");
-              }
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-            }
-            outputSuccess({
-              command: "generate image",
-              startedAt,
-              ...estimateImageCostUsd("openai", options.model, result.images.length),
-              data: {
-                provider: "openai",
-                model: modelLabel,
-                modelId: openaiModel,
-                images: result.images.map((img) => ({
-                  url: img.url,
-                  revisedPrompt: img.revisedPrompt,
-                })),
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          console.log(chalk.bold.cyan("Generated Images"));
-          console.log(chalk.dim("─".repeat(60)));
-
-          for (let i = 0; i < result.images.length; i++) {
-            const img = result.images[i];
-            console.log();
-            if (img.url) {
-              console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
-            } else if (img.base64) {
-              console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image data)`);
-            }
-            if (img.revisedPrompt) {
-              console.log(chalk.dim(`    Revised: ${img.revisedPrompt.slice(0, 100)}...`));
-            }
-          }
-          console.log();
-
-          // Save if output specified
-          if (options.output && result.images.length > 0) {
-            const img = result.images[0];
-            const saveSpinner = ora("Saving image...").start();
-            try {
-              let buffer: Buffer;
-              if (img.url) {
-                const response = await fetch(img.url);
-                buffer = Buffer.from(await response.arrayBuffer());
-              } else if (img.base64) {
-                buffer = Buffer.from(img.base64, "base64");
-              } else {
-                throw new Error("No image data available");
-              }
-              const outputPath = resolve(process.cwd(), options.output);
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-              saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-            } catch (err) {
-              saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
-              );
-            }
-          }
-        } else if (provider === "gemini") {
-          // Validate model name
-          const validGeminiModels = ["flash", "3.1-flash", "latest", "lite", "pro"];
-          if (options.model && !validGeminiModels.includes(options.model)) {
-            console.warn(
-              chalk.yellow(
-                `Unknown model "${options.model}", using flash. Valid: ${validGeminiModels.join(", ")}`
-              )
-            );
-            options.model = "flash";
-          }
-
-          // Validate aspect ratio
-          const validRatios = [
-            "1:1",
-            "1:4",
-            "1:8",
-            "2:3",
-            "3:2",
-            "3:4",
-            "4:1",
-            "4:3",
-            "4:5",
-            "5:4",
-            "8:1",
-            "9:16",
-            "16:9",
-            "21:9",
-          ];
-          if (options.ratio && !validRatios.includes(options.ratio)) {
-            exitWithError(
-              usageError(`Invalid ratio "${options.ratio}". Valid: ${validRatios.join(", ")}`)
-            );
-          }
-
-          const gemini = new GeminiProvider();
-          await gemini.initialize({ apiKey });
-
-          const geminiModelNames: Record<string, string> = {
-            flash: "Nano Banana 2",
-            "3.1-flash": "Nano Banana 2",
-            latest: "Nano Banana 2",
-            lite: "Nano Banana 2 Lite",
-            pro: "Nano Banana Pro",
-          };
-          const usedLabel = geminiModelNames[options.model] || "Nano Banana 2";
-
-          const result = await gemini.generateImage(prompt, {
-            model: options.model,
-            aspectRatio: options.ratio as
-              | "1:1"
-              | "1:4"
-              | "1:8"
-              | "2:3"
-              | "3:2"
-              | "3:4"
-              | "4:1"
-              | "4:3"
-              | "4:5"
-              | "5:4"
-              | "8:1"
-              | "9:16"
-              | "16:9"
-              | "21:9",
-          });
-
-          if (!result.success || !result.images) {
-            spinner.fail(result.error || "Image generation failed");
-            exitWithError(apiError(result.error || "Image generation failed", true));
-          }
-
-          spinner.succeed(
-            chalk.green(`Generated ${result.images.length} image(s) with Gemini (${usedLabel})`)
-          );
-
-          if (isJsonMode()) {
-            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
-            if (outputPath && result.images.length > 0) {
-              const img = result.images[0];
-              const buffer = Buffer.from(img.base64, "base64");
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-            }
-            outputSuccess({
-              command: "generate image",
-              startedAt,
-              ...estimateImageCostUsd("gemini", options.model, result.images.length),
-              data: {
-                provider: "gemini",
-                model: usedLabel,
-                modelId: result.model,
-                images: result.images.map((img: { mimeType?: string }) => ({
-                  mimeType: img.mimeType,
-                })),
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          console.log(chalk.bold.cyan("Generated Images"));
-          console.log(chalk.dim("─".repeat(60)));
-
-          for (let i = 0; i < result.images.length; i++) {
-            const img = result.images[i];
-            console.log();
-            console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image, ${img.mimeType})`);
-          }
-          console.log();
-
-          // Save if output specified
-          if (options.output && result.images.length > 0) {
-            const saveSpinner = ora("Saving image...").start();
-            try {
-              const img = result.images[0];
-              const buffer = Buffer.from(img.base64, "base64");
-              const outputPath = resolve(process.cwd(), options.output);
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-              saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-            } catch (err) {
-              saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
-              );
-            }
-          } else {
-            console.log(chalk.yellow("Use -o to save the generated image to a file"));
-          }
-        } else if (provider === "grok") {
-          const grok = new GrokProvider();
-          await grok.initialize({ apiKey });
-
-          // Validate aspect ratio for Grok
-          const validGrokRatios = [
-            "1:1",
-            "16:9",
-            "9:16",
-            "4:3",
-            "3:4",
-            "3:2",
-            "2:3",
-            "2:1",
-            "1:2",
-            "19.5:9",
-            "9:19.5",
-            "20:9",
-            "9:20",
-            "auto",
-          ];
-          if (options.ratio && !validGrokRatios.includes(options.ratio)) {
-            console.warn(
-              chalk.yellow(
-                `Unknown ratio "${options.ratio}" for Grok, using 1:1. Valid: ${validGrokRatios.join(", ")}`
-              )
-            );
-            options.ratio = "1:1";
-          }
-
-          const result = await grok.generateImage(prompt, {
-            ...resolveGrokImageModel(options.model),
-            aspectRatio: options.ratio || "1:1",
-            n: parseInt(options.count),
-          });
-
-          if (!result.success || !result.images) {
-            spinner.fail(result.error || "Image generation failed");
-            exitWithError(apiError(result.error || "Image generation failed", true));
-          }
-
-          spinner.succeed(chalk.green(`Generated ${result.images.length} image(s) with xAI Grok`));
-
-          if (isJsonMode()) {
-            const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
-            if (outputPath && result.images.length > 0) {
-              const img = result.images[0];
-              let buffer: Buffer;
-              if (img.url) {
-                const response = await fetch(img.url);
-                buffer = Buffer.from(await response.arrayBuffer());
-              } else if (img.base64) {
-                buffer = Buffer.from(img.base64, "base64");
-              } else {
-                throw new Error("No image data available");
-              }
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-            }
-            outputSuccess({
-              command: "generate image",
-              startedAt,
-              ...estimateImageCostUsd("grok", options.model, result.images.length),
-              data: {
-                provider: "grok",
-                modelId: resolveGrokImageModel(options.model).model,
-                images: result.images.map((img) => ({ url: img.url })),
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          console.log(chalk.bold.cyan("Generated Images"));
-          console.log(chalk.dim("─".repeat(60)));
-
-          for (let i = 0; i < result.images.length; i++) {
-            const img = result.images[i];
-            console.log();
-            if (img.url) {
-              console.log(`${chalk.yellow(`[${i + 1}]`)} ${img.url}`);
-            } else if (img.base64) {
-              console.log(`${chalk.yellow(`[${i + 1}]`)} (base64 image data)`);
-            }
-          }
-          console.log();
-
-          // Save if output specified
-          if (options.output && result.images.length > 0) {
-            const img = result.images[0];
-            const saveSpinner = ora("Saving image...").start();
-            try {
-              let buffer: Buffer;
-              if (img.url) {
-                const response = await fetch(img.url);
-                buffer = Buffer.from(await response.arrayBuffer());
-              } else if (img.base64) {
-                buffer = Buffer.from(img.base64, "base64");
-              } else {
-                throw new Error("No image data available");
-              }
-              const outputPath = resolve(process.cwd(), options.output);
-              await mkdir(dirname(outputPath), { recursive: true });
-              await writeImageFile(outputPath, buffer);
-              saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-            } catch (err) {
-              saveSpinner.fail(
-                chalk.red(`Failed to save image: ${err instanceof Error ? err.message : err}`)
-              );
-            }
-          }
-        } else if (provider === "runway") {
-          const { spawn } = await import("child_process");
-          const __filename = fileURLToPath(import.meta.url);
-          const __dirname = dirname(__filename);
-          const scriptPath = resolve(
-            __dirname,
-            "../../../../.claude/skills/runway-video/scripts/image.py"
-          );
-
-          if (!options.output) {
-            spinner.fail("Output path required for Runway");
-            exitWithError(usageError("Output path required for Runway. Use -o option."));
-          }
-
-          const outputPath = resolve(process.cwd(), options.output);
-          const args = [scriptPath, prompt, "-o", outputPath, "-r", options.ratio || "16:9"];
-
-          spinner.text = "Generating image with Runway (gemini_2.5_flash)...";
-
-          await new Promise<void>((resolvePromise, reject) => {
-            const proc = spawn("python3", args, {
-              env: { ...process.env, RUNWAY_API_SECRET: apiKey },
-              stdio: ["ignore", "pipe", "pipe"],
-            });
-
-            let stdout = "";
-            let stderr = "";
-
-            proc.stdout.on("data", (data) => {
-              stdout += data.toString();
-            });
-
-            proc.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-
-            proc.on("close", (code) => {
-              if (code === 0) {
-                if (isJsonMode()) {
-                  outputSuccess({
-                    command: "generate image",
-                    startedAt,
-                    data: {
-                      provider: "runway",
-                      images: [{ format: "file" }],
-                      outputPath,
-                    },
-                  });
-                } else {
-                  spinner.succeed(chalk.green("Generated image with Runway"));
-                  console.log(chalk.dim(stdout.trim()));
-                }
-                resolvePromise();
-              } else {
-                spinner.fail(chalk.red("Runway image generation failed"));
-                console.error(chalk.red(stderr || stdout));
-                reject(new Error("Runway generation failed"));
-              }
-            });
-
-            proc.on("error", (err) => {
-              spinner.fail(chalk.red("Failed to run Runway script"));
-              reject(err);
-            });
-          });
-        }
-      } catch (error) {
-        exitWithError(apiError(`Image generation failed: ${(error as Error).message}`));
+      spinner?.succeed(chalk.green(`Generated ${result.images.length} image(s) with ${label} ${imageModelLabel(provider, modelId)}`));
+      for (const [i, img] of result.images.entries()) {
+        if (img.revisedPrompt) console.log(chalk.dim(`  [${i + 1}] Revised prompt: ${img.revisedPrompt.slice(0, 100)}`));
+      }
+      if (result.outputPaths?.length) {
+        for (const path of result.outputPaths) console.log(chalk.green(`Saved to: ${path}`));
+      } else {
+        console.log(chalk.yellow("Use -o to save the generated image to a file"));
       }
     });
 }

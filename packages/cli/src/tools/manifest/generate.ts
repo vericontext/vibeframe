@@ -218,19 +218,20 @@ export const generateImageTool = defineTool({
         "Image provider (default: openai when OPENAI_API_KEY is configured, otherwise first configured provider)"
       ),
     output: z.string().optional().describe("Output file path"),
-    size: z.string().optional().describe("Image size for OpenAI (1024x1024, 1536x1024, 1024x1536)"),
+    size: z.string().optional().describe("Explicit OpenAI size (1024x1024, 1536x1024, 1024x1536); otherwise the ratio picks one"),
     ratio: z
       .string()
       .optional()
-      .describe("Aspect ratio for Gemini (1:1, 16:9, 9:16, 4:3, 3:4, etc.)"),
-    quality: z.string().optional().describe("Quality for OpenAI: standard, hd"),
+      .describe("Aspect ratio for any provider (1:1, 16:9, 9:16, 4:3, 3:4, ...)"),
+    quality: z.string().optional().describe("Quality: low, medium, high (OpenAI and Grok)"),
+    resolution: z.string().optional().describe("Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k"),
     count: z.number().optional().describe("Number of images (default: 1)"),
     model: z.string().optional().describe("Image model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"),
   }),
   async execute(args) {
     const result = await executeImageGenerate(args);
     if (!result.success)
-      return { success: false, error: result.error ?? "Image generation failed" };
+      return { success: false, error: result.error ?? "Image generation failed", errorKind: result.errorKind };
     return {
       success: true,
       data: {

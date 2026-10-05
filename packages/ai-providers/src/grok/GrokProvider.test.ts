@@ -50,7 +50,7 @@ describe("GrokProvider", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          data: [{ url: "https://imgen.x.ai/test.jpg" }],
+          data: [{ b64_json: "aW1n" }],
         }),
       });
 
@@ -69,6 +69,8 @@ describe("GrokProvider", () => {
       const body = JSON.parse(options.body);
       expect(body.prompt).toBe("a blue cat");
       expect(body.model).toBe("grok-imagine-image");
+      // Base64 back, so callers never download an expiring URL.
+      expect(body.response_format).toBe("b64_json");
     });
 
     it("should handle API error gracefully", async () => {

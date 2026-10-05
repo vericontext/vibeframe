@@ -8,6 +8,8 @@ import type {
 import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
 import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
+import { resolveCatalogModel } from "../video/models.js";
 import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
@@ -151,8 +153,9 @@ interface GrokStatusResponse {
  * xAI Grok Imagine provider for video generation
  * Supports text-to-video and image-to-video with native audio
  */
-export class GrokProvider implements AIProvider, VideoGenerator {
+export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator {
   id = "grok";
+  readonly imageProvider = "grok";
   readonly imageInput = "either" as const;
   name = "xAI Grok Imagine";
   description = "AI video generation with Grok Imagine (native audio, 1-15 sec)";
@@ -175,171 +178,99 @@ export class GrokProvider implements AIProvider, VideoGenerator {
     return !!this.apiKey;
   }
 
-  /**
-   * Generate image using Grok Imagine
-   */
-  async generateImage(
-    prompt: string,
-    options: GrokImageOptions = {}
-  ): Promise<ImageResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "xAI API key not configured. Set XAI_API_KEY environment variable.",
-      };
-    }
+  // ── ImageGenerator ────────────────────────────────────────────────────
 
-    try {
-      const body: Record<string, unknown> = {
-        model: options.model || "grok-imagine-image",
-        ...(options.quality ? { quality: options.quality } : {}),
-        prompt,
-        n: options.n || 1,
-        response_format: options.responseFormat || "url",
-      };
+  /** Grok Imagine edits one image at a time. */
+  maxEditImages(): number {
+    return 1;
+  }
 
-      if (options.aspectRatio) {
-        body.aspect_ratio = options.aspectRatio;
-      }
-
-      if (options.resolution) {
-        body.resolution = options.resolution;
-      }
-
-      const response = await fetch(`${this.baseUrl}/images/generations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
+  async createImage(request: ImageRequest): Promise<ImageResultSet> {
+    const apiKey = this.requireKey();
+    const model = resolveCatalogModel(this.imageProvider, "image", request.model).id as GrokImageModel;
+    const inputs = request.images ?? [];
+    if (inputs.length > 1) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.imageProvider,
+        message: `Grok Imagine edits one image at a time, not ${inputs.length}.`,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `API error: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error?.message) {
-            errorMessage = errorJson.error.message;
-          }
-        } catch {
-          if (errorText) {
-            errorMessage = errorText.substring(0, 200);
-          }
-        }
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      }
-
-      const data = (await response.json()) as {
-        data: Array<{
-          url?: string;
-          b64_json?: string;
-        }>;
-      };
-
-      return {
-        success: true,
-        images: data.data.map((img) => ({
-          url: img.url,
-          base64: img.b64_json,
-        })),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
     }
+    // Grok takes quality low/medium/auto; the 2.0 model defaults to medium.
+    const quality =
+      request.quality === "low" || request.quality === "medium"
+        ? request.quality
+        : model === "grok-imagine-image-2.0"
+          ? "medium"
+          : undefined;
+    const body: Record<string, unknown> = {
+      model,
+      prompt: request.prompt,
+      n: inputs.length ? 1 : (request.count ?? 1),
+      response_format: "b64_json",
+      ...(quality ? { quality } : {}),
+      ...(request.aspectRatio ? { aspect_ratio: request.aspectRatio } : {}),
+    };
+    if (inputs.length) {
+      const [img] = inputs;
+      body.image = { url: `data:${img.mimeType};base64,${Buffer.from(img.bytes).toString("base64")}`, type: "image_url" };
+    } else if (request.resolution) {
+      body.resolution = request.resolution.toLowerCase();
+    }
+    const response = await providerRequest(this.imageProvider, `${this.baseUrl}/images/${inputs.length ? "edits" : "generations"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
+    const data = (await response.json()) as { data?: Array<{ b64_json?: string }> };
+    const images = (data.data ?? [])
+      .filter((img) => img.b64_json)
+      .map((img) => ({ bytes: fromBase64(img.b64_json!), mimeType: "image/jpeg" }));
+    if (images.length === 0) {
+      throw new ProviderError({ kind: "provider", provider: this.imageProvider, message: "Grok returned no image." });
+    }
+    return { images, model };
+  }
+
+  // ── Older interface, kept until every caller uses the contract ────────
+
+  /**
+   * Generate image using Grok Imagine.
+   */
+  async generateImage(prompt: string, options: GrokImageOptions = {}): Promise<ImageResult> {
+    return this.legacyImage(() =>
+      this.createImage({
+        prompt,
+        model: options.model,
+        count: options.n,
+        aspectRatio: options.aspectRatio,
+        resolution: options.resolution,
+        quality: options.quality === "auto" ? undefined : options.quality,
+      })
+    );
   }
 
   /**
-   * Edit image using Grok Imagine
-   * Supports single image input with text instruction-based editing
+   * Edit one image using Grok Imagine.
    */
-  async editImage(
-    imageBuffer: Buffer,
-    prompt: string,
-    options: GrokEditOptions = {}
-  ): Promise<ImageResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "xAI API key not configured. Set XAI_API_KEY environment variable.",
-      };
-    }
-
-    try {
-      // Convert buffer to base64 data URI
-      const base64 = imageBuffer.toString("base64");
-      const dataUri = `data:image/png;base64,${base64}`;
-
-      const body: Record<string, unknown> = {
-        model: options.model || "grok-imagine-image",
-        ...(options.quality ? { quality: options.quality } : {}),
+  async editImage(imageBuffer: Buffer, prompt: string, options: GrokEditOptions = {}): Promise<ImageResult> {
+    return this.legacyImage(() =>
+      this.createImage({
         prompt,
-        image: {
-          url: dataUri,
-          type: "image_url",
-        },
-        n: 1,
-        response_format: options.responseFormat || "url",
-      };
+        model: options.model,
+        aspectRatio: options.aspectRatio,
+        quality: options.quality === "auto" ? undefined : options.quality,
+        images: [{ bytes: new Uint8Array(imageBuffer), mimeType: "image/png" }],
+      })
+    );
+  }
 
-      if (options.aspectRatio) {
-        body.aspect_ratio = options.aspectRatio;
-      }
-
-      const response = await fetch(`${this.baseUrl}/images/edits`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `API error: ${response.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error?.message) {
-            errorMessage = errorJson.error.message;
-          }
-        } catch {
-          if (errorText) {
-            errorMessage = errorText.substring(0, 200);
-          }
-        }
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      }
-
-      const data = (await response.json()) as {
-        data: Array<{
-          url?: string;
-          b64_json?: string;
-        }>;
-      };
-
-      return {
-        success: true,
-        images: data.data.map((img) => ({
-          url: img.url,
-          base64: img.b64_json,
-        })),
-      };
+  private async legacyImage(run: () => Promise<ImageResultSet>): Promise<ImageResult> {
+    try {
+      const result = await run();
+      return { success: true, images: result.images.map((img) => ({ base64: Buffer.from(img.bytes).toString("base64") })) };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { success: false, error: this.legacyMessage(error) };
     }
   }
 
