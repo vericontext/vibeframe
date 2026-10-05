@@ -6,6 +6,10 @@ import type {
   TranscriptResult,
   TranscriptWord,
 } from "../interface/types.js";
+import { audioFilename, type Transcriber, type Transcript, type TranscriptionRequest } from "../transcription/contract.js";
+import { ProviderError } from "../shared/errors.js";
+import { providerRequest } from "../shared/http.js";
+import { resolveCatalogModel } from "../video/models.js";
 
 /**
  * OpenAI Whisper provider for speech-to-text.
@@ -15,8 +19,9 @@ import type {
  * endpoint. Word-level output mirrors the Hyperframes `transcript.json`
  * shape (`{text, start, end}`) so it can drive scene HTML GSAP timelines.
  */
-export class WhisperProvider implements AIProvider {
+export class WhisperProvider implements AIProvider, Transcriber {
   id = "whisper";
+  readonly transcriptionProvider = "openai";
   name = "OpenAI Whisper";
   description = "Speech-to-text transcription using OpenAI Whisper API";
   capabilities: AICapability[] = ["speech-to-text"];
@@ -37,96 +42,83 @@ export class WhisperProvider implements AIProvider {
     return !!this.apiKey;
   }
 
-  async transcribe(
-    audio: Blob,
-    language?: string,
-    options?: TranscribeOptions,
-  ): Promise<TranscriptResult> {
+  /** Whisper takes uploads up to 25 MB (docs). */
+  private static readonly MAX_BYTES = 25 * 1024 * 1024;
+
+  // ── Transcriber ───────────────────────────────────────────────────────
+
+  async transcribeAudio(request: TranscriptionRequest): Promise<Transcript> {
     if (!this.apiKey) {
-      return {
-        id: "",
-        status: "failed",
-        error: "Whisper API key not configured",
-      };
+      throw new ProviderError({ kind: "auth", provider: this.transcriptionProvider, message: "OpenAI API key not configured for Whisper" });
     }
-
-    const granularity = options?.granularity ?? "segment";
-
-    try {
-      const formData = new FormData();
-      formData.append("file", audio, "audio.webm");
-      formData.append("model", "whisper-1");
-      formData.append("response_format", "verbose_json");
-
-      // Whisper API accepts multiple `timestamp_granularities[]` values.
-      if (granularity === "segment" || granularity === "both") {
-        formData.append("timestamp_granularities[]", "segment");
-      }
-      if (granularity === "word" || granularity === "both") {
-        formData.append("timestamp_granularities[]", "word");
-      }
-
-      const lang = language ?? options?.language;
-      if (lang) {
-        formData.append("language", lang);
-      }
-
-      const response = await fetch(`${this.baseUrl}/audio/transcriptions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: formData,
+    if (request.audio.byteLength > WhisperProvider.MAX_BYTES) {
+      throw new ProviderError({
+        kind: "invalid-request",
+        provider: this.transcriptionProvider,
+        message: `Whisper takes audio up to 25 MB, not ${(request.audio.byteLength / 1024 / 1024).toFixed(1)} MB. Extract a lower-bitrate audio track first.`,
       });
+    }
+    const model = resolveCatalogModel(this.transcriptionProvider, "transcription", request.model).id;
+    const granularity = request.granularity ?? "segment";
+    const form = new FormData();
+    // Whisper reads the format from the filename's extension.
+    form.append("file", new Blob([new Uint8Array(request.audio)]), request.filename ?? audioFilename(request.audio));
+    form.append("model", model);
+    form.append("response_format", "verbose_json");
+    if (granularity === "segment" || granularity === "both") form.append("timestamp_granularities[]", "segment");
+    if (granularity === "word" || granularity === "both") form.append("timestamp_granularities[]", "word");
+    if (request.language) form.append("language", request.language);
 
-      if (!response.ok) {
-        const error = await response.text();
-        return {
-          id: "",
-          status: "failed",
-          error: `Transcription failed: ${error}`,
-        };
-      }
+    const response = await providerRequest(this.transcriptionProvider, `${this.baseUrl}/audio/transcriptions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+      body: form,
+    }, { timeoutMs: 10 * 60_000 });
+    const data = (await response.json()) as {
+      text: string;
+      language?: string;
+      segments?: Array<{ id: number; start: number; end: number; text: string }>;
+      words?: Array<{ word: string; start: number; end: number }>;
+    };
+    return {
+      text: data.text,
+      language: data.language,
+      model,
+      segments:
+        granularity === "segment" || granularity === "both"
+          ? data.segments?.map((seg, index) => ({
+              id: `segment-${index}`,
+              startTime: seg.start,
+              endTime: seg.end,
+              text: seg.text.trim(),
+              confidence: 1, // Whisper doesn't provide per-segment confidence
+            }))
+          : undefined,
+      words:
+        granularity === "word" || granularity === "both"
+          ? data.words?.map((w): TranscriptWord => ({ text: w.word, start: w.start, end: w.end }))
+          : undefined,
+    };
+  }
 
-      const data = await response.json() as {
-        text: string;
-        language?: string;
-        segments?: Array<{ id: number; start: number; end: number; text: string }>;
-        words?: Array<{ word: string; start: number; end: number }>;
-      };
-
-      const result: TranscriptResult = {
+  /** Older interface; `transcribeAudio` is the contract. */
+  async transcribe(audio: Blob, language?: string, options?: TranscribeOptions): Promise<TranscriptResult> {
+    try {
+      const transcript = await this.transcribeAudio({
+        audio: new Uint8Array(await audio.arrayBuffer()),
+        language: language ?? options?.language,
+        granularity: options?.granularity,
+      });
+      return {
         id: crypto.randomUUID(),
         status: "completed",
-        fullText: data.text,
-        detectedLanguage: data.language,
+        fullText: transcript.text,
+        detectedLanguage: transcript.language,
+        segments: transcript.segments,
+        words: transcript.words,
       };
-
-      if (granularity === "segment" || granularity === "both") {
-        result.segments = data.segments?.map((seg, index) => ({
-          id: `segment-${index}`,
-          startTime: seg.start,
-          endTime: seg.end,
-          text: seg.text.trim(),
-          confidence: 1, // Whisper doesn't provide per-segment confidence
-        }));
-      }
-
-      if (granularity === "word" || granularity === "both") {
-        result.words = data.words?.map((w): TranscriptWord => ({
-          text: w.word,
-          start: w.start,
-          end: w.end,
-        }));
-      }
-
-      return result;
     } catch (error) {
-      return {
-        id: "",
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      return { id: "", status: "failed", error: error instanceof Error ? error.message : "Unknown error" };
     }
   }
 }

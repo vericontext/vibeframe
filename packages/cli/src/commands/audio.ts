@@ -20,7 +20,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import { WhisperProvider, ElevenLabsProvider, ClaudeProvider } from "@vibeframe/ai-providers";
+import { ElevenLabsProvider, ClaudeProvider } from "@vibeframe/ai-providers";
 import { getApiKey, requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists, execSafeSync } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
@@ -36,6 +36,7 @@ import {
   generalError,
 } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
+import { transcribeAudioFile } from "./_shared/transcription.js";
 
 export const audioCommand = new Command("audio")
   .alias("au")
@@ -81,21 +82,20 @@ audioCommand
       if (options.output) {
         validateOutputPath(options.output);
       }
+      if (!existsSync(resolve(process.cwd(), audioPath))) {
+        exitWithError(notFoundError(resolve(process.cwd(), audioPath)));
+      }
 
       const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
 
       const spinner = ora("Initializing Whisper...").start();
 
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey });
 
       spinner.text = "Reading audio file...";
       const absPath = resolve(process.cwd(), audioPath);
-      const audioBuffer = await readFile(absPath);
-      const audioBlob = new Blob([audioBuffer]);
 
       spinner.text = "Transcribing...";
-      const result = await whisper.transcribe(audioBlob, options.language);
+      const result = await transcribeAudioFile(absPath, { apiKey, language: options.language });
 
       if (result.status === "failed") {
         spinner.fail("Transcription failed");
@@ -463,13 +463,9 @@ audioCommand
 
       // Step 2: Transcribe with Whisper
       spinner.text = "Transcribing audio...";
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiKey });
 
-      const audioBuffer = await readFile(audioPath);
-      const audioBlob = new Blob([audioBuffer]);
 
-      const transcriptResult = await whisper.transcribe(audioBlob, options.source);
+      const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: options.source });
 
       if (transcriptResult.status === "failed" || !transcriptResult.segments) {
         spinner.fail("Transcription failed");

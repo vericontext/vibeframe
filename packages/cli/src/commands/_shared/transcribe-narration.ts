@@ -15,9 +15,9 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { WhisperProvider } from "@vibeframe/ai-providers";
 
 import type { SceneTranscriptWord } from "./scene-html-emit.js";
+import { transcribeAudioFile } from "./transcription.js";
 
 export interface TranscribeNarrationOptions {
   /** OpenAI API key for Whisper. */
@@ -36,14 +36,7 @@ export async function transcribeNarrationWords(
   opts: TranscribeNarrationOptions
 ): Promise<SceneTranscriptWord[]> {
   try {
-    const whisper = new WhisperProvider();
-    await whisper.initialize({ apiKey: opts.apiKey });
-    const audioBytes = await readFile(audioAbsPath);
-    const audioBlob = new Blob([new Uint8Array(audioBytes)]);
-    const transcript = await whisper.transcribe(audioBlob, undefined, {
-      granularity: "word",
-      language: opts.language,
-    });
+    const transcript = await transcribeAudioFile(audioAbsPath, { apiKey: opts.apiKey, granularity: "word", language: opts.language });
     if (transcript.status === "completed" && transcript.words?.length) {
       return transcript.words.map((w) => ({ text: w.text, start: w.start, end: w.end }));
     }

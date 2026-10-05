@@ -8,10 +8,11 @@
  */
 
 import { existsSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
+import { transcribeAudioFile } from "../transcription.js";
 
 /** A detected filler word with its time range. */
 export interface FillerWord {
@@ -66,48 +67,21 @@ export const DEFAULT_FILLER_WORDS = [
 ];
 
 /**
- * Transcribe audio with word-level timestamps using Whisper API directly.
- * Uses timestamp_granularities[]=word for filler detection.
+ * Transcribe audio with word-level timestamps (Whisper through the
+ * transcription contract) for filler detection. Throws on failure.
  */
 export async function transcribeWithWords(
   audioPath: string,
   apiKey: string,
   language?: string,
 ): Promise<{ words: { word: string; start: number; end: number }[]; text: string }> {
-  const audioBuffer = await readFile(audioPath);
-  const audioBlob = new Blob([audioBuffer]);
-
-  const formData = new FormData();
-  formData.append("file", audioBlob, "audio.wav");
-  formData.append("model", "whisper-1");
-  formData.append("response_format", "verbose_json");
-  formData.append("timestamp_granularities[]", "word");
-
-  if (language) {
-    formData.append("language", language);
+  const result = await transcribeAudioFile(audioPath, { apiKey, language, granularity: "word" });
+  if (result.status !== "completed") {
+    throw new Error(`Whisper transcription failed: ${result.error ?? "unknown error"}`);
   }
-
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Whisper transcription failed: ${error}`);
-  }
-
-  const data = (await response.json()) as {
-    text: string;
-    words?: Array<{ word: string; start: number; end: number }>;
-  };
-
   return {
-    words: data.words || [],
-    text: data.text,
+    words: (result.words ?? []).map((w) => ({ word: w.text, start: w.start, end: w.end })),
+    text: result.fullText ?? "",
   };
 }
 

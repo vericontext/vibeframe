@@ -28,7 +28,7 @@ import { resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { WhisperProvider, ClaudeProvider, findModel, modelAliases } from "@vibeframe/ai-providers";
+import { ClaudeProvider, findModel, modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
@@ -41,6 +41,7 @@ import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { executeImageEdit } from "./ai-image.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
+import { transcribeAudioFile } from "./_shared/transcription.js";
 
 export const editCommand = new Command("edit")
   .alias("ed")
@@ -376,12 +377,8 @@ editCommand
       // Step 2: Transcribe
       spinner.text = "Transcribing audio...";
 
-      const whisper = new WhisperProvider();
-      await whisper.initialize({ apiKey: openaiApiKey });
 
-      const audioBuffer = await readFile(tempAudio);
-      const audioBlob = new Blob([audioBuffer]);
-      const transcript = await whisper.transcribe(audioBlob, options.language);
+      const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
       if (!transcript.segments || transcript.segments.length === 0) {
         spinner.fail("No transcript segments found");
@@ -1108,10 +1105,7 @@ export async function executeSpeedRamp(options: SpeedRampOptions): Promise<Speed
     await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
     // Transcribe
-    const whisper = new WhisperProvider();
-    await whisper.initialize({ apiKey: openaiKey });
-    const audioBuffer = await readFile(tempAudio);
-    const transcript = await whisper.transcribe(new Blob([audioBuffer]), language);
+    const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiKey, language: language });
 
     // Cleanup temp
     try { const { unlink } = await import("node:fs/promises"); await unlink(tempAudio); } catch { /* best-effort */ }

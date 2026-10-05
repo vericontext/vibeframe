@@ -160,12 +160,18 @@ describe("WhisperProvider", () => {
       expect(result.error).toContain("rate limit exceeded");
     });
 
-    it("returns failed result on network error", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("network down"));
+    it("returns failed result on network error, after the shared layer's retries", async () => {
+      vi.useFakeTimers();
+      mockFetch.mockRejectedValue(new Error("network down"));
 
-      const result = await provider.transcribe(audio);
+      const pending = provider.transcribe(audio);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const result = await pending;
+      vi.useRealTimers();
+
       expect(result.status).toBe("failed");
-      expect(result.error).toBe("network down");
+      expect(result.error).toContain("network down");
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 });
