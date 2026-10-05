@@ -15,16 +15,10 @@ import {
   ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,
   ReplicateProvider,
+  type ProviderErrorKind,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
-import {
-  isJsonMode,
-  outputSuccess,
-  exitWithError,
-  apiError,
-  notFoundError,
-  usageError,
-} from "../output.js";
+import { isJsonMode, outputSuccess, exitWithError, notFoundError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { createAndWriteJobRecord, type JobRecord } from "../_shared/status-jobs.js";
 
@@ -37,6 +31,9 @@ export interface ExecuteMusicOptions {
   provider?: "elevenlabs" | "replicate";
   instrumental?: boolean;
   wait?: boolean;
+  /** Replicate MusicGen variant: large, stereo-large, melody-large, stereo-melody-large. */
+  model?: string;
+  apiKey?: string;
 }
 export interface ExecuteMusicResult {
   success: boolean;
@@ -47,6 +44,7 @@ export interface ExecuteMusicResult {
   status?: string;
   audioUrl?: string;
   error?: string;
+  errorKind?: ProviderErrorKind;
 }
 
 export async function executeMusic(
@@ -56,7 +54,7 @@ export async function executeMusic(
     const provider = options.provider || "elevenlabs";
 
     if (provider === "elevenlabs") {
-      const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY");
+      const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY", options.apiKey);
       if (!apiKey)
         return {
           success: false,
@@ -73,7 +71,7 @@ export async function executeMusic(
       });
 
       if (!result.success || !result.audioBuffer) {
-        return { success: false, error: result.error || "Music generation failed" };
+        return { success: false, error: result.error || "Music generation failed", errorKind: result.errorKind };
       }
 
       const outputPath = resolve(process.cwd(), options.output || "music.mp3");
@@ -83,7 +81,7 @@ export async function executeMusic(
     }
 
     // Replicate MusicGen
-    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN");
+    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN", options.apiKey);
     if (!apiKey)
       return {
         success: false,
@@ -94,7 +92,10 @@ export async function executeMusic(
     await replicate.initialize({ apiKey });
 
     const duration = Math.max(1, Math.min(30, options.duration || 8));
-    const result = await replicate.generateMusic(options.prompt, { duration });
+    const result = await replicate.generateMusic(options.prompt, {
+      duration,
+      model: options.model as "large" | "stereo-large" | "melody-large" | "stereo-melody-large" | undefined,
+    });
 
     if (!result.success || !result.taskId) {
       return { success: false, error: result.error || "Music generation failed" };
@@ -150,206 +151,80 @@ export function registerMusicCommand(parent: Command): void {
     .option("--dry-run", "Preview parameters without executing")
     .action(async (prompt: string, options) => {
       const startedAt = Date.now();
-      try {
-        rejectControlChars(prompt);
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
+      rejectControlChars(prompt);
+      if (options.output) validateOutputPath(options.output);
+      // Validate before the dry run, so a plan never echoes values a real run would reject.
+      const requested = parseFloat(options.duration);
+      if (!Number.isFinite(requested) || requested <= 0 || requested > 600) {
+        exitWithError(usageError(`Invalid --duration: ${options.duration}`, "Must be a positive number ≤ 600s (ElevenLabs 3-600, Replicate 1-30)."));
+      }
+      const provider = String(options.provider || "elevenlabs").toLowerCase();
+      if (provider !== "elevenlabs" && provider !== "replicate") {
+        exitWithError(usageError(`Invalid provider: ${provider}`, "Available providers: elevenlabs, replicate"));
+      }
+      if (options.melody) {
+        if (!existsSync(resolve(process.cwd(), options.melody))) exitWithError(notFoundError(options.melody));
+        exitWithError(usageError("Melody conditioning requires a publicly accessible URL", "Please upload your melody file and provide the URL."));
+      }
 
-        // Validate duration up-front so dry-run rejects nonsense values
-        // before they're echoed as a "plan" the user could copy and run.
-        if (options.duration !== undefined) {
-          const d = parseFloat(options.duration);
-          if (!Number.isFinite(d) || d <= 0 || d > 600) {
-            exitWithError(usageError(
-              `Invalid --duration: ${options.duration}`,
-              "Must be a positive number ≤ 600s (ElevenLabs 3-600, Replicate 1-30).",
-            ));
-          }
-        }
+      if (options.dryRun) {
+        outputSuccess({
+          command: "generate music",
+          startedAt,
+          dryRun: true,
+          data: {
+            params: { prompt, provider, duration: options.duration, model: options.model, output: options.output, instrumental: options.instrumental },
+          },
+        });
+        return;
+      }
 
-        const provider = (options.provider || "elevenlabs").toLowerCase();
+      const apiKey =
+        provider === "elevenlabs"
+          ? await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey)
+          : await requireApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
+      const label = provider === "elevenlabs" ? "ElevenLabs" : "Replicate MusicGen";
+      const spinner = isJsonMode() ? null : ora(`Generating music with ${label}...`).start();
+      const result = await executeMusic({
+        prompt,
+        provider,
+        duration: requested,
+        instrumental: options.instrumental,
+        model: options.model,
+        output: options.output,
+        wait: options.wait,
+        apiKey,
+      });
+      if (!result.success) {
+        spinner?.fail(result.error ?? "Music generation failed");
+        exitWithError(providerFailure(result.error ?? "Music generation failed", result.errorKind));
+      }
 
-        if (options.dryRun) {
-          outputSuccess({
-            command: "generate music",
-            startedAt,
-            dryRun: true,
-            data: {
-              params: {
-                prompt,
-                provider,
-                duration: options.duration,
-                model: options.model,
-                output: options.output,
-                instrumental: options.instrumental,
-              },
-            },
-          });
+      // Replicate --no-wait: record the job so `vibe status job` can finish it.
+      if (result.taskId && !result.outputPath) {
+        const job = await recordMusicNoWaitJob({ provider: "replicate", providerTaskId: result.taskId, prompt });
+        if (isJsonMode()) {
+          outputSuccess({ command: "generate music", startedAt, data: noWaitMusicData("replicate", result.taskId, job) });
           return;
         }
-
-        if (provider === "elevenlabs") {
-          // ElevenLabs Music API — synchronous, up to 10 minutes
-          const apiKey = await requireApiKey(
-            "ELEVENLABS_API_KEY",
-            "ElevenLabs",
-            options.apiKey,
-          );
-
-          const elevenlabs = new ElevenLabsProvider();
-          await elevenlabs.initialize({ apiKey });
-
-          const duration = Math.max(3, Math.min(600, parseFloat(options.duration)));
-          const spinner = ora(`Generating music (${duration}s)...`).start();
-
-          const result = await elevenlabs.generateMusic(prompt, {
-            duration,
-            forceInstrumental: options.instrumental || false,
-          });
-
-          if (!result.success || !result.audioBuffer) {
-            spinner.fail(result.error || "Music generation failed");
-            exitWithError(apiError(result.error || "Music generation failed", true));
-          }
-
-          const outputPath = resolve(process.cwd(), options.output);
-          await writeFile(outputPath, result.audioBuffer);
-
-          spinner.succeed(chalk.green("Music generated successfully"));
-
-          if (isJsonMode()) {
-            outputSuccess({
-              command: "generate music",
-              startedAt,
-              data: {
-                provider: "elevenlabs",
-                outputPath,
-                duration,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          console.log(`Saved to: ${chalk.bold(outputPath)}`);
-          console.log(`Duration: ${duration}s`);
-          console.log(`Provider: ElevenLabs (${ELEVENLABS_MUSIC_MODEL})`);
-          if (options.instrumental) console.log(`Mode: Instrumental`);
-          console.log();
-        } else {
-          // Replicate MusicGen — async, max 30 seconds
-          const apiKey = await requireApiKey(
-            "REPLICATE_API_TOKEN",
-            "Replicate",
-            options.apiKey,
-          );
-
-          const replicate = new ReplicateProvider();
-          await replicate.initialize({ apiKey });
-
-          const spinner = ora("Starting music generation...").start();
-
-          const duration = Math.max(1, Math.min(30, parseFloat(options.duration)));
-
-          // If melody file provided, upload it first
-          if (options.melody) {
-            spinner.text = "Uploading melody reference...";
-            const absPath = resolve(process.cwd(), options.melody);
-            if (!existsSync(absPath)) {
-              spinner.fail(`Melody file not found: ${options.melody}`);
-              exitWithError(notFoundError(options.melody));
-            }
-            exitWithError(
-              usageError(
-                "Melody conditioning requires a publicly accessible URL",
-                "Please upload your melody file and provide the URL.",
-              ),
-            );
-          }
-
-          const result = await replicate.generateMusic(prompt, {
-            duration,
-            model: options.model as
-              | "large"
-              | "stereo-large"
-              | "melody-large"
-              | "stereo-melody-large",
-          });
-
-          if (!result.success || !result.taskId) {
-            spinner.fail(result.error || "Music generation failed");
-            exitWithError(apiError(result.error || "Music generation failed", true));
-          }
-
-          if (!options.wait) {
-            const job = await recordMusicNoWaitJob({
-              provider: "replicate",
-              providerTaskId: result.taskId,
-              prompt,
-            });
-            spinner.succeed(chalk.green("Music generation started"));
-            if (isJsonMode()) {
-              outputSuccess({
-                command: "generate music",
-                startedAt,
-                data: noWaitMusicData("replicate", result.taskId, job),
-              });
-              return;
-            }
-            console.log();
-            console.log(`Task ID: ${chalk.bold(result.taskId)}`);
-            console.log(chalk.dim(`Check status with: vibe status job ${job.id} --json`));
-            return;
-          }
-
-          spinner.text = "Generating music (this may take a few minutes)...";
-
-          const finalResult = await replicate.waitForMusic(result.taskId);
-
-          if (!finalResult.success || !finalResult.audioUrl) {
-            spinner.fail(finalResult.error || "Music generation failed");
-            exitWithError(apiError(finalResult.error || "Music generation failed", true));
-          }
-
-          spinner.text = "Downloading generated audio...";
-
-          const response = await fetch(finalResult.audioUrl);
-          if (!response.ok) {
-            spinner.fail("Failed to download generated audio");
-            exitWithError(apiError("Failed to download generated audio", true));
-          }
-
-          const audioBuffer = Buffer.from(await response.arrayBuffer());
-          const outputPath = resolve(process.cwd(), options.output);
-          await writeFile(outputPath, audioBuffer);
-
-          spinner.succeed(chalk.green("Music generated successfully"));
-
-          if (isJsonMode()) {
-            outputSuccess({
-              command: "generate music",
-              startedAt,
-              data: {
-                provider: "replicate",
-                taskId: result.taskId,
-                audioUrl: finalResult.audioUrl,
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log();
-          console.log(`Saved to: ${chalk.bold(outputPath)}`);
-          console.log(`Duration: ${duration}s`);
-          console.log(`Model: ${options.model}`);
-          console.log();
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        exitWithError(apiError(`Music generation failed: ${msg}`, true));
+        spinner?.succeed(chalk.green(`Music generation started (task ${result.taskId})`));
+        console.log(chalk.dim(`Check status with: ${job.retryWith[0]}`));
+        return;
       }
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "generate music",
+          startedAt,
+          data: { provider: result.provider, outputPath: result.outputPath, duration: result.duration },
+        });
+        return;
+      }
+      spinner?.succeed(chalk.green("Music generated successfully"));
+      console.log(`Saved to: ${chalk.bold(result.outputPath)}`);
+      console.log(`Duration: ${result.duration}s`);
+      console.log(provider === "elevenlabs" ? `Provider: ElevenLabs (${ELEVENLABS_MUSIC_MODEL})` : `Provider: Replicate MusicGen (${options.model})`);
+      if (options.instrumental && provider === "elevenlabs") console.log("Mode: Instrumental");
     });
 }
 
@@ -374,7 +249,6 @@ function noWaitMusicData(provider: string, taskId: string, job: JobRecord): Reco
     taskId,
     status: job.status,
     jobId: job.id,
-    statusCommand: `vibe status job ${job.id} --project ${job.projectDir} --json`,
-    providerStatusCommand: job.retryWith.find((item) => item.startsWith("vibe generate music-status")),
+    statusCommand: job.retryWith[0],
   };
 }

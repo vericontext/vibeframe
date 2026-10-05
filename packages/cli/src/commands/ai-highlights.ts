@@ -274,7 +274,6 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         sourceDuration = await ffprobeDuration(absPath);
       }
 
-
       const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
 
       if (tempAudioPath && existsSync(tempAudioPath)) {
@@ -546,7 +545,6 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
       await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
-
 
       const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
@@ -882,7 +880,6 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
 
-
           const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
 
           if (transcriptResult.status === "failed" || !transcriptResult.segments) {
@@ -1202,7 +1199,6 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
           spinner.text = "Transcribing audio...";
-
 
           const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
 
