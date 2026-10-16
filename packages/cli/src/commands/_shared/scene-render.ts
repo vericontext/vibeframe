@@ -2,11 +2,8 @@
  * @module _shared/scene-render
  *
  * Render a VibeFrame scene project to MP4/WebM/MOV using the Hyperframes
- * producer directly. Unlike the FFmpeg-bridge backend in
- * `pipeline/renderers/hyperframes.ts` which has to convert a `TimelineState`
- * into a temp Hyperframes project, scene projects already ARE Hyperframes
- * projects — so we hand the producer the user's project dir and entry file
- * verbatim.
+ * producer directly. Scene projects already ARE Hyperframes projects, so
+ * we hand the producer the user's project dir and entry file verbatim.
  *
  * `executeSceneRender()` is decoupled from CLI flags so that the C6 agent
  * tool and the C5 `--format scenes` pipeline can call it the same way. It
@@ -212,10 +209,7 @@ export function buildMediaOpenCommand(
 }
 
 /**
- * Render a scene project. Mirrors the contract of the existing Hyperframes
- * backend (preflight → execute → structured result), but skips the
- * `TimelineState` → temp project conversion because the user's project is
- * already a valid Hyperframes project.
+ * Render a scene project: preflight → execute → structured result.
  */
 export async function executeSceneRender(opts: SceneRenderOptions = {}): Promise<SceneRenderResult> {
   const projectDir = resolve(opts.projectDir ?? ".");
