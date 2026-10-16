@@ -77,6 +77,7 @@ export * from "./video/index.js";
 export * from "./image/index.js";
 export * from "./speech/index.js";
 export * from "./transcription/index.js";
+export * from "./text/index.js";
 export { VIDEO_GENERATOR_PROVIDERS, createVideoGenerator, type VideoGeneratorProvider } from "./video/registry.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";

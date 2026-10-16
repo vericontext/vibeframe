@@ -24,6 +24,8 @@ import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
+import { geminiGenerateText } from "./gemini-text.js";
+import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
 /**
  * Gemini model types for image generation
@@ -214,7 +216,7 @@ export interface GeminiImageAnalysisResult {
  * - Video: Veo 3.1 Fast / Veo 3.1 (text-to-video, image-to-video)
  * - Image: Nano Banana 2 (gemini-3.1-flash-image) / Nano Banana Pro (gemini-3-pro-image)
  */
-export class GeminiProvider implements AIProvider, ImageGenerator {
+export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator {
   id = "gemini";
   name = "Google Gemini";
   description = "AI video (Veo 3.1) and image (Nano Banana) generation";
@@ -222,6 +224,7 @@ export class GeminiProvider implements AIProvider, ImageGenerator {
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
   readonly imageProvider = "gemini";
+  readonly textProvider = "gemini";
 
   private apiKey?: string;
   private baseUrl = "https://generativelanguage.googleapis.com/v1beta";
@@ -235,6 +238,11 @@ export class GeminiProvider implements AIProvider, ImageGenerator {
 
   isConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  /** One bounded model call; see the text contract. Throws `ProviderError`. */
+  async generateText(request: TextRequest): Promise<TextResult> {
+    return geminiGenerateText({ apiKey: this.apiKey, baseUrl: this.baseUrl }, request);
   }
 
   /**

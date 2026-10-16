@@ -84,6 +84,7 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 
 ## In our code
 
+- `packages/ai-providers/src/openai/openai-text.ts` - the text contract (`generateText`, used by `storyboard revise`) on `POST /responses`: `instructions`, `input`, `max_output_tokens`, `store: false`, `text.format` `json_schema` with `strict: true`; reads `output[].content[]` `output_text`, treats a `refusal` part or `content_filter` as moderation and `status: "incomplete"` as a cut-off reply. Live on `gpt-5.4-mini` 2026-10-16 (probe).
 - `packages/ai-providers/src/openai/OpenAIProvider.ts:24-25` base URL and `gpt-5-mini`; `:117-130` `parseCommand` (Chat Completions, `json_object`, no token cap); `:397-407` narration script (`max_completion_tokens: 16384`, `json_object`).
 - `packages/ai-providers/src/openai/openai-storyboard.ts:27-48` storyboard with `json_object` and a `{"segments": [...]}` wrapper.
 - `packages/cli/src/agent/adapters/openai.ts:18` default `gpt-5-mini`; `:82-87` `chat.completions.create` with `tools` and `tool_choice: "auto"`.

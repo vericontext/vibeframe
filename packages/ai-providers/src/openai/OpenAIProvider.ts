@@ -9,17 +9,20 @@ import type {
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./openai-storyboard.js";
 import { defaultModel } from "../catalog/catalog.js";
+import { openaiGenerateText } from "./openai-text.js";
+import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
 /**
  * OpenAI GPT provider for natural language timeline commands
  */
-export class OpenAIProvider implements AIProvider {
+export class OpenAIProvider implements AIProvider, TextGenerator {
   id = "openai-gpt";
   name = "OpenAI GPT";
   description = "Natural language timeline control using GPT-4";
   capabilities: AICapability[] = ["natural-language-command"];
   iconUrl = "/icons/openai.svg";
   isAvailable = true;
+  readonly textProvider = "openai";
 
   private apiKey?: string;
   private baseUrl = "https://api.openai.com/v1";
@@ -34,6 +37,11 @@ export class OpenAIProvider implements AIProvider {
 
   isConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  /** One bounded model call; see the text contract. Throws `ProviderError`. */
+  async generateText(request: TextRequest): Promise<TextResult> {
+    return openaiGenerateText({ apiKey: this.apiKey, baseUrl: this.baseUrl }, request);
   }
 
   async parseCommand(
