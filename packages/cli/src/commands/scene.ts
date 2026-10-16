@@ -44,10 +44,12 @@ import {
   SCENE_PRESETS,
   SCENE_OVERLAP_SECONDS,
   LOTTIE_POSITIONS,
+  LOTTIE_RUNTIME_DIR,
   type ScenePreset,
   type LottiePosition,
   type LottieOverlayInput,
 } from "./_shared/scene-html-emit.js";
+import { checkLottieAsset, copyDotLottieRuntime } from "./_shared/lottie.js";
 import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/scene-lint.js";
 // `executeSceneRender` and `executeSceneBuild` are no longer wired into
 // the `scene` Commander group in v0.75 — the canonical entry points are
@@ -1000,10 +1002,13 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     if (ext !== "json" && ext !== "lottie") {
       return errResult(`Unsupported Lottie file extension: .${ext}. Use .json or .lottie.`);
     }
+    const assetProblem = await checkLottieAsset(sourceAbs);
+    if (assetProblem) return errResult(assetProblem);
     lottieRelPath = `assets/lottie-${id}.${ext}`;
     lottieAbsPath = resolve(projectDir, lottieRelPath);
     await mkdir(dirname(lottieAbsPath), { recursive: true });
     await copyFile(sourceAbs, lottieAbsPath);
+    await copyDotLottieRuntime(resolve(projectDir, LOTTIE_RUNTIME_DIR));
     lottieInput = {
       src: lottieRelPath,
       position: opts.lottie.position,

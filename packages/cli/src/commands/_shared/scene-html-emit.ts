@@ -15,6 +15,13 @@
  * Pure functions only — no I/O. The orchestrating command (`scene add`) wires
  * these to the filesystem.
  */
+import {
+  DOTLOTTIE_BROWSER_HELPERS,
+  LOTTIE_POSITIONS,
+  overlayBox,
+  type LottiePosition,
+} from "./lottie.js";
+
 export type ScenePreset =
   | "simple"
   | "announcement"
@@ -41,26 +48,10 @@ export interface SceneTranscriptWord {
   end: number;
 }
 
-/**
- * Position value for Lottie overlays. Mirrors the vocabulary used by
- * `vibe edit motion-overlay --position`.
- */
-export type LottiePosition =
-  | "full"
-  | "center"
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
+export { LOTTIE_POSITIONS, type LottiePosition };
 
-export const LOTTIE_POSITIONS: readonly LottiePosition[] = [
-  "full",
-  "center",
-  "top-left",
-  "top-right",
-  "bottom-left",
-  "bottom-right",
-] as const;
+/** Project-relative directory `vibe scene add --lottie` copies the dotLottie runtime into. */
+export const LOTTIE_RUNTIME_DIR = "assets/vendor/dotlottie";
 
 export interface LottieOverlayInput {
   /** Project-relative path to the `.json` or `.lottie` file (e.g. "assets/logo.lottie"). */
@@ -104,9 +95,10 @@ export interface EmitSceneInput {
    */
   transcript?: SceneTranscriptWord[];
   /**
-   * Optional Lottie animation overlay. When supplied, a `<dotlottie-wc>`
-   * element is layered on top of the preset's content. Uses the same
-   * position/scale/opacity vocabulary as `vibe edit motion-overlay`.
+   * Optional Lottie animation overlay, drawn on a canvas above the preset's
+   * content. Uses the same position/scale/opacity vocabulary as
+   * `vibe edit motion-overlay`. Needs the dotLottie runtime in
+   * {@link LOTTIE_RUNTIME_DIR}.
    */
   lottie?: LottieOverlayInput;
 }
@@ -603,89 +595,70 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
 // Lottie overlay layer
 // ---------------------------------------------------------------------------
 
-// `@lottiefiles/dotlottie-wc` is the dotLottie web component.
-// The scene-emit path can't vendor the runtime into the project dir without
-// adding an asset-copy step to `executeSceneAdd`, so we load it from
-// jsdelivr the same way we load GSAP. The WASM URL must be set explicitly
-// because dotLottie's web component otherwise tries to fetch the WASM
-// from a path relative to the importing module — which would 404 on the
-// jsdelivr CDN (the WASM lives in the sibling `@lottiefiles/dotlottie-web`
-// package, not in `dotlottie-wc/dist/`).
-const DOTLOTTIE_WC_VERSION = "0.9.12";
-const DOTLOTTIE_WEB_VERSION = "0.71.0";
-const DOTLOTTIE_WC_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-wc@${DOTLOTTIE_WC_VERSION}/dist/index.js`;
-const DOTLOTTIE_WASM_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web@${DOTLOTTIE_WEB_VERSION}/dist/dotlottie-player.wasm`;
-
-/**
- * Build inline style for a positioned Lottie overlay. Uses the same
- * placement rules as `vibe edit motion-overlay` (`edit/lottie-overlay.ts`).
- *
- * Defaults:
- *   - scale defaults to 1 for `full`, 0.25 for any other position
- *   - opacity defaults to 1
- *   - scale is clamped to [0.01, 2], opacity to [0, 1]
- */
-function lottieOverlayStyle(input: LottieOverlayInput): string {
-  const pos = input.position ?? "full";
-  const rawScale = input.scale ?? (pos === "full" ? 1 : 0.25);
-  const scale = Math.max(0.01, Math.min(2, rawScale));
-  const opacity = Math.max(0, Math.min(1, input.opacity ?? 1));
-
-  const base = [
-    "position:absolute",
-    "pointer-events:none",
-    `opacity:${opacity}`,
-  ];
-
-  if (pos === "full") {
-    base.push("inset:0", "width:100%", "height:100%");
-  } else {
-    const pct = scale * 100;
-    base.push(`width:${pct}%`, `height:${pct}%`);
-    switch (pos) {
-      case "center":
-        base.push("top:50%", "left:50%", "transform:translate(-50%,-50%)");
-        break;
-      case "top-left":
-        base.push("top:4%", "left:4%");
-        break;
-      case "top-right":
-        base.push("top:4%", "right:4%");
-        break;
-      case "bottom-left":
-        base.push("bottom:4%", "left:4%");
-        break;
-      case "bottom-right":
-        base.push("bottom:4%", "right:4%");
-        break;
-    }
-  }
-  return base.join(";");
+/** A JS string literal that is safe inside an inline `<script>`. */
+function jsString(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 /**
- * Build the `<dotlottie-wc>` markup + module script for a Lottie overlay
- * layer. Returns `{ markup, script }` to splice into the scene template.
+ * Build the canvas and loader script for a Lottie overlay.
  *
- * The script imports the web component module and calls `setWasmUrl(...)`
- * with an explicit CDN URL so the dotLottie runtime can locate its WASM
- * player. Without this call, the WASM fetch fails and the overlay never
- * paints.
+ * The scene's GSAP timeline drives the player: a tween over the whole scene
+ * calls a setter with the scene-local time on every seek, so the captured
+ * frame always matches the render time and later scenes start their
+ * animation at frame 0. Hyperframes' own Lottie adapter does not fit here,
+ * because it seeks every animation to the global time.
+ *
+ * The timeline is registered only once the animation has loaded, because
+ * the renderer waits for every scene timeline before it captures the first
+ * frame. If loading fails the timeline is still registered, so the rest of
+ * the scene renders and the error shows in the browser console.
  */
 function buildLottieOverlay(
   input: LottieOverlayInput,
+  canvas: { width: number; height: number },
   sceneId: string,
-): { markup: string; script: string } {
-  const loop = (input.loop ?? true) ? " loop" : "";
-  const style = lottieOverlayStyle(input);
+  duration: number,
+): { markup: string; register: string } {
+  const pos = input.position ?? "full";
+  const scale = Math.max(0.01, Math.min(2, input.scale ?? (pos === "full" ? 1 : 0.25)));
+  const opacity = Math.max(0, Math.min(1, input.opacity ?? 1));
+  const box = overlayBox(canvas, pos, scale);
   // Per-scene id avoids DOM-id collisions when multiple scenes carry overlays.
   const overlayId = `lottie-overlay-${sceneId}`;
-  const markup = `<dotlottie-wc id="${overlayId}" src="${esc(input.src)}" autoplay${loop} style="${style}"></dotlottie-wc>`;
-  const script = `<script type="module">
-      import { setWasmUrl } from "${DOTLOTTIE_WC_CDN}";
-      setWasmUrl("${DOTLOTTIE_WASM_CDN}");
-    </script>`;
-  return { markup, script };
+  const markup =
+    `<canvas id="${overlayId}" class="lottie-overlay" width="${box.width}" height="${box.height}" ` +
+    `style="position:absolute;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;` +
+    `pointer-events:none;opacity:${opacity}"></canvas>`;
+  const register = `${DOTLOTTIE_BROWSER_HELPERS}
+      (async () => {
+        const DotLottie = await loadDotLottie(${jsString(LOTTIE_RUNTIME_DIR)});
+        const player = new DotLottie({
+          canvas: document.getElementById(${jsString(overlayId)}),
+          src: ${jsString(input.src)},
+          autoplay: false,
+          loop: false,
+          renderConfig: { devicePixelRatio: 1, autoResize: false, freezeOnOffscreen: false },
+        });
+        await new Promise((resolve, reject) => {
+          player.addEventListener("load", resolve);
+          player.addEventListener("loadError", (event) => reject(event && event.error));
+        });
+        let sceneTime = 0;
+        const lottieClock = {
+          time(t) {
+            if (t === undefined) return sceneTime;
+            sceneTime = t;
+            setLottieTime(player, t, ${input.loop ?? true});
+          },
+        };
+        tl.fromTo(lottieClock, { time: 0 }, { time: ${duration}, duration: ${duration}, ease: "none" }, 0);
+      })()
+        .catch((error) => console.error("[vibe] Lottie overlay failed to load:", ${jsString(input.src)}, error))
+        .finally(() => {
+          window.__timelines["${sceneId}"] = tl;
+        });`;
+  return { markup, register };
 }
 
 /**
@@ -716,9 +689,9 @@ export function emitSceneHtml(input: EmitSceneInput): string {
     ></audio>\n`
     : "";
 
-  const lottieLayer = input.lottie ? buildLottieOverlay(input.lottie, id) : null;
+  const lottieLayer = input.lottie ? buildLottieOverlay(input.lottie, input, id, dur) : null;
   const lottieMarkup = lottieLayer ? `\n    ${lottieLayer.markup}` : "";
-  const lottieScript = lottieLayer ? `\n    ${lottieLayer.script}` : "";
+  const register = lottieLayer?.register ?? `window.__timelines["${id}"] = tl;`;
 
   return `<template id="${id}-template">
   <div data-composition-id="${id}" data-start="0" data-duration="${dur}" data-width="${input.width}" data-height="${input.height}">
@@ -728,14 +701,14 @@ export function emitSceneHtml(input: EmitSceneInput): string {
 
     ${parts.body}${lottieMarkup}
 ${audioBlock}
-    <script src="${GSAP_CDN}"></script>${lottieScript}
+    <script src="${GSAP_CDN}"></script>
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
       ${parts.timeline}
 
-      window.__timelines["${id}"] = tl;
+      ${register}
     </script>
   </div>
 </template>

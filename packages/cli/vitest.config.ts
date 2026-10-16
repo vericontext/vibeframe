@@ -8,6 +8,7 @@ import { configDefaults, defineConfig } from "vitest/config";
  */
 const INTEGRATION_TESTS = [
   "src/commands/edit/lottie-overlay.integration.test.ts",
+  "src/commands/_shared/scene-lottie.integration.test.ts",
   "src/commands/_shared/scene-render.test.ts",
   "src/commands/ai.test.ts",
   "src/commands/timeline.test.ts",

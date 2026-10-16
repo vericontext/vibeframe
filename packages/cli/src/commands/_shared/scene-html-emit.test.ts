@@ -9,6 +9,7 @@ import {
   renderTranscriptSpans,
   slugifySceneName,
   SCENE_PRESETS,
+  LOTTIE_RUNTIME_DIR,
   type SceneTranscriptWord,
   type ScenePreset,
 } from "./scene-html-emit.js";
@@ -633,13 +634,12 @@ describe("emitSceneHtml — robust defaults across input variability", () => {
 
 // ── Lottie overlay layer ────────────────────────────────────────────────────
 //
-// Regression coverage for the bug where the emit path pointed at a
-// non-existent CDN package (`@nicepkg/dotlottie-wc`), so `<dotlottie-wc>`
-// never registered and the overlay silently did not render. These tests
-// pin the loader to the real package (`@lottiefiles/dotlottie-wc`),
-// require an explicit `setWasmUrl(...)` call (the runtime needs its
-// WASM player or it 404s), and lock in the per-scene id so multiple
-// scenes with overlays don't collide.
+// The overlay used to be a `<dotlottie-wc autoplay>` loaded by a module
+// script from a CDN. Hyperframes hoists scene scripts into one classic
+// script, so the `import` never ran and nothing painted; and autoplay would
+// have followed the wall clock, not the render time. The scene timeline now
+// drives a dotLottie player from vendored files. The pixel-level check lives
+// in scene-lottie.integration.test.ts.
 
 describe("emitSceneHtml — Lottie overlay layer", () => {
   const lottieBase = {
@@ -653,27 +653,28 @@ describe("emitSceneHtml — Lottie overlay layer", () => {
 
   it("renders nothing Lottie-related when no overlay is provided", () => {
     const html = emitSceneHtml({ ...baseInput, preset: "simple" });
-    expect(html).not.toContain("dotlottie-wc");
-    expect(html).not.toContain("setWasmUrl");
+    expect(html).not.toContain("lottie");
+    expect(html).toContain('window.__timelines["scene-intro"] = tl;');
   });
 
-  it("loads the runtime from the real @lottiefiles/dotlottie-wc package on jsdelivr", () => {
+  it("loads the vendored runtime, never a CDN or a module script", () => {
     const html = emitSceneHtml(lottieBase);
-    // The custom element + a module script that registers it must both ship.
-    expect(html).toContain("<dotlottie-wc");
-    expect(html).toContain('src="assets/lottie-intro.json"');
-    expect(html).toContain("@lottiefiles/dotlottie-wc");
-    // Guard against regression to the broken package name.
-    expect(html).not.toContain("@nicepkg/dotlottie-wc");
-    // Pinned version must track packages/cli/package.json (^0.9.12).
-    expect(html).toMatch(/@lottiefiles\/dotlottie-wc@0\.9\.\d+/);
+    expect(html).toContain(`loadDotLottie("${LOTTIE_RUNTIME_DIR}")`);
+    expect(html).toContain('src: "assets/lottie-intro.json"');
+    expect(html).not.toMatch(/dotlottie-wc|jsdelivr\.net\/npm\/@lottiefiles|type="module"/);
   });
 
-  it("calls setWasmUrl with the dotlottie-web WASM URL so the player can render", () => {
+  it("drives the player from the scene timeline instead of autoplay", () => {
     const html = emitSceneHtml(lottieBase);
-    expect(html).toContain("setWasmUrl");
-    expect(html).toContain("@lottiefiles/dotlottie-web");
-    expect(html).toMatch(/dotlottie-web@0\.71\.\d+\/dist\/dotlottie-player\.wasm/);
+    expect(html).toContain("autoplay: false");
+    expect(html).toContain('tl.fromTo(lottieClock, { time: 0 }, { time: 4, duration: 4, ease: "none" }, 0);');
+  });
+
+  it("registers the scene timeline only after the animation has loaded", () => {
+    const html = emitSceneHtml(lottieBase);
+    const registrations = html.match(/window\.__timelines\["scene-intro"\] = tl;/g) ?? [];
+    expect(registrations).toHaveLength(1);
+    expect(html.indexOf('window.__timelines["scene-intro"] = tl;')).toBeGreaterThan(html.indexOf(".finally("));
   });
 
   it("scopes the overlay id per scene to avoid collisions between scenes", () => {
@@ -681,64 +682,46 @@ describe("emitSceneHtml — Lottie overlay layer", () => {
     const b = emitSceneHtml({ ...lottieBase, id: "outro" });
     expect(a).toContain('id="lottie-overlay-scene-intro"');
     expect(b).toContain('id="lottie-overlay-scene-outro"');
-    // No leftover unscoped id from the original implementation.
-    expect(a).not.toContain('id="lottie-overlay"');
   });
 
-  it("emits autoplay + loop by default and drops loop when loop:false", () => {
-    const looping = emitSceneHtml(lottieBase);
-    expect(looping).toMatch(/<dotlottie-wc[^>]*\sautoplay\s+loop\b/);
-
-    const oneShot = emitSceneHtml({
-      ...lottieBase,
-      lottie: { ...lottieBase.lottie, loop: false },
-    });
-    expect(oneShot).toMatch(/<dotlottie-wc[^>]*\sautoplay\b/);
-    expect(oneShot).not.toMatch(/<dotlottie-wc[^>]*\sloop\b/);
+  it("loops by default and holds the last frame when loop:false", () => {
+    expect(emitSceneHtml(lottieBase)).toContain("setLottieTime(player, t, true)");
+    const oneShot = emitSceneHtml({ ...lottieBase, lottie: { ...lottieBase.lottie, loop: false } });
+    expect(oneShot).toContain("setLottieTime(player, t, false)");
   });
 
-  it("defaults non-full positions to scale 0.25 (matches edit motion-overlay)", () => {
-    const html = emitSceneHtml({
-      ...lottieBase,
-      lottie: { src: "assets/x.json", position: "bottom-right" },
-    });
-    // Default corner scale is 0.25 → 25% width/height (not 100% as the prior bug emitted).
-    expect(html).toContain("width:25%");
-    expect(html).toContain("height:25%");
-  });
+  it("places the canvas in scene pixels, like edit motion-overlay", () => {
+    const corner = emitSceneHtml({ ...lottieBase, lottie: { src: "assets/x.json", position: "bottom-right" } });
+    // Default corner scale 0.25 of 1920x1080, inset 4%.
+    expect(corner).toContain('width="480" height="270"');
+    expect(corner).toContain("left:1363px;top:767px;width:480px;height:270px");
 
-  it("full position ignores scale and fills the scene", () => {
-    const html = emitSceneHtml({
-      ...lottieBase,
-      lottie: { src: "assets/x.json", position: "full", scale: 0.5 },
-    });
-    expect(html).toContain("inset:0");
-    expect(html).toContain("width:100%");
-    expect(html).toContain("height:100%");
+    const full = emitSceneHtml({ ...lottieBase, lottie: { src: "assets/x.json", position: "full", scale: 0.5 } });
+    expect(full).toContain("left:0px;top:0px;width:1920px;height:1080px");
   });
 
   it("clamps scale to [0.01, 2] and opacity to [0, 1]", () => {
-    const overscale = emitSceneHtml({
+    const over = emitSceneHtml({
       ...lottieBase,
       lottie: { src: "assets/x.json", position: "top-left", scale: 5, opacity: 5 },
     });
-    expect(overscale).toContain("width:200%");
-    expect(overscale).toContain("opacity:1");
+    expect(over).toContain('width="3840" height="2160"');
+    expect(over).toContain("opacity:1\"");
 
-    const underscale = emitSceneHtml({
+    const under = emitSceneHtml({
       ...lottieBase,
       lottie: { src: "assets/x.json", position: "top-left", scale: -1, opacity: -1 },
     });
-    expect(underscale).toContain("width:1%");
-    expect(underscale).toContain("opacity:0");
+    expect(under).toContain('width="19" height="11"');
+    expect(under).toContain("opacity:0\"");
   });
 
-  it("escapes the lottie src to prevent HTML injection via the file path", () => {
+  it("keeps a hostile file path from closing the script", () => {
     const html = emitSceneHtml({
       ...lottieBase,
-      lottie: { src: 'evil"><script>alert(1)</script>', position: "full" },
+      lottie: { src: 'evil"</script><script>alert(1)</script>', position: "full" },
     });
     expect(html).not.toContain("<script>alert(1)");
-    expect(html).toContain("&quot;");
+    expect(html).toContain("\\u003c/script>");
   });
 });

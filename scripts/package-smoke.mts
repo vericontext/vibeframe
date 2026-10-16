@@ -212,7 +212,13 @@ assertPackFiles(packDryRun(cliDir), [
 ]);
 assertExportTargets(cliDir);
 
-assertPackFiles(packDryRun(mcpDir), ["dist/index.js", "package.json"]);
+assertPackFiles(packDryRun(mcpDir), [
+  "dist/index.js",
+  "dist/hyperframe.manifest.json",
+  "dist/dotlottie/index.js",
+  "dist/dotlottie/dotlottie-player.wasm",
+  "package.json",
+]);
 assertExportTargets(mcpDir);
 
 await smokeImport("@vibeframe/cli/engine", resolve(cliDir, "dist/engine/index.js"));

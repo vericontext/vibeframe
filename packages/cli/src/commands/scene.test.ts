@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { scaffoldSceneProject } from "./_shared/scene-project.js";
 import { executeSceneAdd, resolveSceneRepairTarget } from "./scene.js";
+import { LOTTIE_RUNTIME_DIR } from "./_shared/scene-html-emit.js";
 import { parseStoryboard } from "./_shared/storyboard-parse.js";
 import { loadStoryboard } from "./_shared/storyboard-source.js";
 
@@ -270,6 +271,51 @@ describe("executeSceneAdd — offline (--no-audio --no-image)", () => {
     const html = await readFile(resolve(dir, "compositions/scene-hook.html"), "utf-8");
     expect(html).toContain('data-width="1080"');
     expect(html).toContain('data-height="1920"');
+  });
+});
+
+describe("executeSceneAdd — Lottie overlay", () => {
+  it("copies the animation and the dotLottie runtime into the project", async () => {
+    const projectDir = await makeProject("vibe-scene-lottie-");
+    const source = join(projectDir, "spin.json");
+    await writeFile(source, JSON.stringify({ v: "5.7.0", fr: 30, ip: 0, op: 30, w: 100, h: 100, layers: [] }));
+
+    const result = await executeSceneAdd({
+      name: "spin",
+      preset: "simple",
+      duration: 2,
+      projectDir,
+      skipAudio: true,
+      skipImage: true,
+      lottie: { src: source, position: "center" },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.lottiePath).toMatch(/assets\/lottie-spin\.json$/);
+    expect(await pathExists(resolve(projectDir, LOTTIE_RUNTIME_DIR, "dotlottie-web.js"))).toBe(true);
+    expect(await pathExists(resolve(projectDir, LOTTIE_RUNTIME_DIR, "dotlottie-player.wasm"))).toBe(true);
+    const html = await readFile(resolve(projectDir, "compositions/scene-spin.html"), "utf-8");
+    expect(html).toContain('src: "assets/lottie-spin.json"');
+  });
+
+  it("rejects a file that is not a Lottie animation before writing the scene", async () => {
+    const projectDir = await makeProject("vibe-scene-lottie-bad-");
+    const bogus = join(projectDir, "bogus.json");
+    await writeFile(bogus, JSON.stringify({ hello: "world" }));
+
+    const result = await executeSceneAdd({
+      name: "bad",
+      preset: "simple",
+      duration: 2,
+      projectDir,
+      skipAudio: true,
+      skipImage: true,
+      lottie: { src: bogus },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not a Lottie animation/);
+    expect(await pathExists(resolve(projectDir, "compositions/scene-bad.html"))).toBe(false);
   });
 });
 
