@@ -82,18 +82,24 @@ export async function runWithMcpPromotion(
   let lastRecordWriteAt = 0;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
 
-  const writeRecord = async (patch: Partial<JobRecord>): Promise<void> => {
-    if (!record) return;
+  // Writes are chained so they land in call order. Otherwise a heartbeat
+  // write that started before completion can rename over the completed
+  // record and leave the job "running" forever.
+  let writes: Promise<void> = Promise.resolve();
+  const writeRecord = (patch: Partial<JobRecord>): Promise<void> => {
+    if (!record) return writes;
     record = {
       ...record,
       ...patch,
       updatedAt: (opts.now?.() ?? new Date()).toISOString(),
     };
-    try {
-      await writeJobRecord(record);
-    } catch {
-      // A failed status write must never take down the actual work.
-    }
+    const snapshot = record;
+    writes = writes.then(() =>
+      writeJobRecord(snapshot).catch(() => {
+        // A failed status write must never take down the actual work.
+      })
+    );
+    return writes;
   };
 
   const report = (update: LocalJobUpdate): void => {
