@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.8] - 2026-10-16
+
+### Fixed
+
+- render Lottie motion overlays over the source video instead of a black frame (#361)
+- keep MCP-promoted jobs from reverting to running after they finish (#363)
+
+### Maintenance
+
+- remove the unused ui package and dead CLI helpers (#362)
+
 ## [0.115.7] - 2026-10-16
 
 ### Added
