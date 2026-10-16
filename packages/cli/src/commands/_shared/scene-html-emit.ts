@@ -603,8 +603,7 @@ function buildPreset(input: Required<Pick<EmitSceneInput, "id" | "preset" | "dur
 // Lottie overlay layer
 // ---------------------------------------------------------------------------
 
-// `@lottiefiles/dotlottie-wc` is the real package used by the pipeline
-// renderer (see `pipeline/renderers/html-template.ts` + `project-builder.ts`).
+// `@lottiefiles/dotlottie-wc` is the dotLottie web component.
 // The scene-emit path can't vendor the runtime into the project dir without
 // adding an asset-copy step to `executeSceneAdd`, so we load it from
 // jsdelivr the same way we load GSAP. The WASM URL must be set explicitly
@@ -618,11 +617,10 @@ const DOTLOTTIE_WC_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-wc
 const DOTLOTTIE_WASM_CDN = `https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web@${DOTLOTTIE_WEB_VERSION}/dist/dotlottie-player.wasm`;
 
 /**
- * Build inline style for a positioned Lottie overlay. Mirrors the logic
- * in `html-clips.ts → lottieInnerStyle()` so the visual result is
- * identical to `vibe edit motion-overlay`.
+ * Build inline style for a positioned Lottie overlay. Uses the same
+ * placement rules as `vibe edit motion-overlay` (`edit/lottie-overlay.ts`).
  *
- * Defaults match `html-clips.ts`:
+ * Defaults:
  *   - scale defaults to 1 for `full`, 0.25 for any other position
  *   - opacity defaults to 1
  *   - scale is clamped to [0.01, 2], opacity to [0, 1]
@@ -672,9 +670,7 @@ function lottieOverlayStyle(input: LottieOverlayInput): string {
  * The script imports the web component module and calls `setWasmUrl(...)`
  * with an explicit CDN URL so the dotLottie runtime can locate its WASM
  * player. Without this call, the WASM fetch fails and the overlay never
- * paints. See the equivalent setup in
- * `pipeline/renderers/html-template.ts` (which vendors the runtime
- * locally for the producer-served pipeline path).
+ * paints.
  */
 function buildLottieOverlay(
   input: LottieOverlayInput,

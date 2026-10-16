@@ -2,8 +2,8 @@
  * @module pipeline/renderers/chrome
  *
  * Shared Chrome/Chromium discovery + preflight used by every Hyperframes-
- * backed renderer (the FFmpeg-bridge backend in `hyperframes.ts` and the
- * direct scene renderer in `commands/_shared/scene-render.ts`). Centralised
+ * backed renderer (the scene renderer in `commands/_shared/scene-render.ts`
+ * and the Lottie layer in `commands/edit/lottie-overlay.ts`). Centralised
  * so that adding a new candidate path or env var only touches one file.
  */
 
@@ -44,8 +44,7 @@ export function findChrome(): string | undefined {
 
 /**
  * Returns `{ok: true}` when Chrome is available, otherwise a structured
- * `{ok: false, reason}` with installation guidance. Used by both the
- * `RenderBackend.preflight` interface and the standalone scene render path.
+ * `{ok: false, reason}` with installation guidance.
  */
 export async function preflightChrome(): Promise<{ ok: true } | { ok: false; reason: string }> {
   return findChrome() ? { ok: true } : { ok: false, reason: CHROME_NOT_FOUND_REASON };

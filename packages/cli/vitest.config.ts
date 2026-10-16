@@ -7,7 +7,7 @@ import { configDefaults, defineConfig } from "vitest/config";
  * VIBE_TEST_INTEGRATION=1) runs everything.
  */
 const INTEGRATION_TESTS = [
-  "src/pipeline/renderers/__tests__/integration.test.ts",
+  "src/commands/edit/lottie-overlay.integration.test.ts",
   "src/commands/_shared/scene-render.test.ts",
   "src/commands/ai.test.ts",
   "src/commands/timeline.test.ts",

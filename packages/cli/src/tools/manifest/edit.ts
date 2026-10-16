@@ -241,7 +241,10 @@ export const editMotionOverlayTool = defineTool({
   }),
   async execute(args) {
     const result = await executeMotionOverlay(args);
-    if (!result.success) return { success: false, error: result.error ?? "Motion overlay failed" };
+    if (!result.success) {
+      const error = result.error ?? "Motion overlay failed";
+      return { success: false, error: result.suggestion ? `${error} ${result.suggestion}` : error };
+    }
     return {
       success: true,
       data: {

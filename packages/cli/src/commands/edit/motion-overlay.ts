@@ -1,13 +1,12 @@
 import { mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, dirname, extname, resolve } from "node:path";
+import { dirname, extname, resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import type { TimelineState } from "@vibeframe/core";
 import { executeMotion, type MotionCommandOptions } from "../ai-motion.js";
-import { ffprobeDuration, ffprobeVideoSize } from "../../utils/exec-safe.js";
-import { createHyperframesBackend } from "../../pipeline/renderers/hyperframes.js";
+import { ffprobeDuration } from "../../utils/exec-safe.js";
+import { renderLottieOverlay, type LottiePosition } from "./lottie-overlay.js";
 import {
   apiError,
   generalError,
@@ -19,13 +18,7 @@ import {
 import { validateOutputPath } from "../validate.js";
 
 export type MotionOverlayUnderstand = "auto" | "off" | "required";
-export type MotionOverlayPosition =
-  | "full"
-  | "center"
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
+export type MotionOverlayPosition = LottiePosition;
 
 export interface MotionOverlayOptions {
   videoPath: string;
@@ -51,6 +44,10 @@ export interface MotionOverlayResult {
   renderedPath?: string;
   provider?: "remotion" | "lottie";
   error?: string;
+  /** How to fix a failure that a retry will not fix. */
+  suggestion?: string;
+  /** False for deterministic local failures (bad asset, missing Chrome/FFmpeg). */
+  retryable?: boolean;
 }
 
 const VALID_POSITIONS: MotionOverlayPosition[] = [
@@ -98,121 +95,6 @@ function assertValidRequest(options: MotionOverlayOptions): string | undefined {
   return undefined;
 }
 
-function buildLottieTimelineState(opts: {
-  videoPath: string;
-  assetPath: string;
-  duration: number;
-  overlayStart: number;
-  overlayDuration: number;
-  width: number;
-  height: number;
-  position: MotionOverlayPosition;
-  scale: number;
-  opacity: number;
-  loop: boolean;
-}): TimelineState {
-  const now = new Date();
-  const ratio =
-    opts.width === opts.height
-      ? "1:1"
-      : opts.width < opts.height
-        ? "9:16"
-        : "16:9";
-
-  return {
-    project: {
-      id: "motion-overlay",
-      name: "Motion Overlay",
-      createdAt: now,
-      updatedAt: now,
-      aspectRatio: ratio,
-      frameRate: 30,
-      duration: opts.duration,
-    },
-    tracks: [
-      {
-        id: "track-video",
-        name: "Video",
-        type: "video",
-        order: 0,
-        isMuted: false,
-        isLocked: false,
-        isVisible: true,
-      },
-      {
-        id: "track-overlay",
-        name: "Motion Overlay",
-        type: "lottie",
-        order: 1,
-        isMuted: false,
-        isLocked: false,
-        isVisible: true,
-      },
-    ],
-    sources: [
-      {
-        id: "source-video",
-        name: basename(opts.videoPath),
-        type: "video",
-        url: opts.videoPath,
-        duration: opts.duration,
-        width: opts.width,
-        height: opts.height,
-      },
-      {
-        id: "source-lottie",
-        name: basename(opts.assetPath),
-        type: "lottie",
-        url: opts.assetPath,
-        duration: opts.overlayDuration,
-      },
-    ],
-    clips: [
-      {
-        id: "clip-video",
-        sourceId: "source-video",
-        trackId: "track-video",
-        startTime: 0,
-        duration: opts.duration,
-        sourceStartOffset: 0,
-        sourceEndOffset: opts.duration,
-        effects: [],
-      },
-      {
-        id: "clip-lottie",
-        sourceId: "source-lottie",
-        trackId: "track-overlay",
-        startTime: opts.overlayStart,
-        duration: opts.overlayDuration,
-        sourceStartOffset: 0,
-        sourceEndOffset: opts.overlayDuration,
-        effects: [
-          {
-            id: "effect-motion-overlay",
-            type: "custom",
-            startTime: 0,
-            duration: opts.overlayDuration,
-            params: {
-              kind: "motion-overlay",
-              position: opts.position,
-              scale: opts.scale,
-              opacity: opts.opacity,
-              loop: opts.loop,
-            },
-          },
-        ],
-      },
-    ],
-    transitions: [],
-    currentTime: 0,
-    isPlaying: false,
-    zoom: 50,
-    scrollX: 0,
-    selectedClipIds: [],
-    selectedTrackId: null,
-  };
-}
-
 export async function executeMotionOverlay(
   options: MotionOverlayOptions
 ): Promise<MotionOverlayResult> {
@@ -230,42 +112,28 @@ export async function executeMotionOverlay(
     const absAsset = resolve(process.cwd(), options.asset);
     if (!existsSync(absAsset)) return { success: false, error: `Lottie asset not found: ${absAsset}` };
 
-    const [videoDuration, size] = await Promise.all([
-      ffprobeDuration(absVideo),
-      ffprobeVideoSize(absVideo),
-    ]);
+    const videoDuration = await ffprobeDuration(absVideo);
     const start = Math.max(0, options.start ?? 0);
-    const requestedDuration = options.duration ?? Math.max(0.1, videoDuration - start);
-    const overlayDuration = Math.min(requestedDuration, Math.max(0.1, videoDuration - start));
+    if (start >= videoDuration) {
+      return { success: false, error: `--start ${start}s is past the end of the video (${videoDuration.toFixed(2)}s).` };
+    }
+    const remaining = videoDuration - start;
     const position = normalizePosition(options.position);
-    const scale = Math.max(0.01, Math.min(2, numberOption(options.scale, position === "full" ? 1 : 0.25)));
-    const opacity = Math.max(0, Math.min(1, numberOption(options.opacity, 1)));
-    const loop = options.loop ?? true;
-
     await mkdir(dirname(outputPath), { recursive: true });
-    const backend = createHyperframesBackend();
-    const result = await backend.render({
-      projectState: buildLottieTimelineState({
-        videoPath: absVideo,
-        assetPath: absAsset,
-        duration: videoDuration,
-        overlayStart: start,
-        overlayDuration,
-        width: size.width,
-        height: size.height,
-        position,
-        scale,
-        opacity,
-        loop,
-      }),
+    const result = await renderLottieOverlay({
+      videoPath: absVideo,
+      assetPath: absAsset,
       outputPath,
-      fps: 30,
-      quality: "standard",
-      format: "mp4",
-      workers: 1,
+      start,
+      duration: Math.min(options.duration ?? remaining, remaining),
+      position,
+      scale: Math.max(0.01, Math.min(2, numberOption(options.scale, position === "full" ? 1 : 0.25))),
+      opacity: Math.max(0, Math.min(1, numberOption(options.opacity, 1))),
+      loop: options.loop ?? true,
     });
-
-    if (!result.success) return { success: false, error: result.error ?? "Lottie overlay render failed" };
+    if (!result.success) {
+      return { success: false, error: result.error ?? "Lottie overlay failed", suggestion: result.suggestion, retryable: false };
+    }
     return { success: true, outputPath, provider: "lottie" };
   }
 
@@ -366,7 +234,8 @@ export function registerMotionOverlayCommand(parent: Command): void {
         const result = await executeMotionOverlay(parsed);
         if (!result.success) {
           spinner.fail(result.error ?? "Motion overlay failed");
-          exitWithError(apiError(result.error ?? "Motion overlay failed", true));
+          const message = result.error ?? "Motion overlay failed";
+          exitWithError(result.retryable === false ? generalError(message, result.suggestion) : apiError(message, true));
         }
 
         spinner.succeed(chalk.green("Motion overlay applied"));

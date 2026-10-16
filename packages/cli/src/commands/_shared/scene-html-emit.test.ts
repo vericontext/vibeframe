@@ -697,7 +697,7 @@ describe("emitSceneHtml — Lottie overlay layer", () => {
     expect(oneShot).not.toMatch(/<dotlottie-wc[^>]*\sloop\b/);
   });
 
-  it("defaults non-full positions to scale 0.25 (matches html-clips.ts)", () => {
+  it("defaults non-full positions to scale 0.25 (matches edit motion-overlay)", () => {
     const html = emitSceneHtml({
       ...lottieBase,
       lottie: { src: "assets/x.json", position: "bottom-right" },
