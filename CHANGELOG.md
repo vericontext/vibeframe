@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.10] - 2026-10-16
+
+### Added
+
+- add Nano Banana 2.1, Claude Haiku 5.5, Gemini 4 Argon and 3.6 Flash to the model catalog (#370)
+- put text generation on one provider contract and move storyboard revise off the agent adapters (#368)
+
+### Fixed
+
+- draft init --from storyboards from the brief instead of a fixed demo script (#369)
+
 ## [0.115.9] - 2026-10-16
 
 ### Fixed
