@@ -98,3 +98,6 @@ ROADMAP-CLOUD.md
 scripts/DEV_GUIDE.md
 .playwright-mcp/
 /showcase-aurora/
+
+# Claude Code agent worktrees
+.claude/worktrees/
