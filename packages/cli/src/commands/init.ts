@@ -24,7 +24,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 
 import { detectedAgentHosts, type AgentHostId } from "../utils/agent-host-detect.js";
@@ -38,6 +38,8 @@ import {
 } from "./_shared/scene-project.js";
 import { getVisualStyle, visualStyleNames } from "./_shared/visual-styles.js";
 import { draftStoryboardFromBrief } from "./_shared/storyboard-draft.js";
+import { executeStoryboardRevision } from "./_shared/storyboard-revise.js";
+import { resolveComposer } from "./_shared/composer-resolve.js";
 import { rewriteBundleFromMarkdown } from "./_shared/storyboard-source.js";
 import { projectConfigJson, VIBE_CONFIG_FILENAME } from "./_shared/project-config.js";
 import {
@@ -90,8 +92,9 @@ export const initCommand = new Command("init")
   )
   .option(
     "--from <brief>",
-    "Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file"
+    "Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file. Uses the composer model when ANTHROPIC/GOOGLE/OPENAI_API_KEY is set (low cost); otherwise writes an offline skeleton"
   )
+  .option("--offline", "With --from, write the offline skeleton only (no model call)")
   .option("-r, --ratio <ratio>", "Scene aspect ratio: 16:9, 9:16, 1:1, 4:5", "16:9")
   .option("-d, --duration <sec>", "Default scene/root duration in seconds", "10")
   .option("--visual-style <name>", "Seed scene DESIGN.md from a named style")
@@ -385,6 +388,7 @@ async function runSceneInit(
     kind,
   });
   const draftWarnings: string[] = [];
+  let draftSource: { source: "composer" | "offline"; provider?: string } | null = null;
   if (fromBrief) {
     const draft = draftStoryboardFromBrief({
       name: projectName,
@@ -419,7 +423,34 @@ async function runSceneInit(
       await writeFile(designPath, draft.designMd, "utf-8");
       if (!result.created.includes(designPath)) result.created.push(designPath);
     }
-    draftWarnings.push(...draft.warnings);
+    const wroteStoryboard = options.force || result.created.includes(resolve(projectDir, "STORYBOARD.md"));
+    draftSource = { source: "offline" };
+    if (wroteStoryboard && options.offline !== true && composerAvailable()) {
+      if (!isJsonMode()) console.error(chalk.dim("Drafting the storyboard from the brief with the composer model..."));
+      const composed = await executeStoryboardRevision({
+        projectDir,
+        request: fromBrief,
+        durationSec: duration,
+        mode: "draft",
+      });
+      if (composed.success) {
+        draftSource = { source: "composer", provider: composed.provider };
+        // The draft names its own beats, so scenes/ now holds different files.
+        const scenesDir = resolve(projectDir, "scenes");
+        result.created = [
+          ...result.created.filter((path) => !path.startsWith(scenesDir + sep)),
+          ...(await readdir(scenesDir)).filter((file) => file.endsWith(".md")).sort().map((file) => resolve(scenesDir, file)),
+        ];
+        draftWarnings.push(...composed.warnings);
+      } else {
+        draftWarnings.push(
+          `The composer could not draft the storyboard (${composed.message ?? composed.code}); kept the offline skeleton.`,
+          ...draft.warnings
+        );
+      }
+    } else {
+      draftWarnings.push(...draft.warnings);
+    }
   }
   const detectedIds = detectedAgentHosts().map((h) => h.id);
   // The composition rules come from upstream now, and fetching them is a
@@ -455,6 +486,7 @@ async function runSceneInit(
         duration,
         visualStyle: visualStyle?.name ?? null,
         from: fromBrief ? summariseBrief(fromBrief) : null,
+        draft: draftSource,
         created: result.created,
         merged: result.merged,
         skipped: result.skipped,
@@ -473,6 +505,11 @@ async function runSceneInit(
   console.log(`${chalk.dim("Project")}  ${projectDir}`);
   console.log(`${chalk.dim("Profile")}  ${profile} ${chalk.dim(sceneProfileSummary(profile))}`);
   if (fromBrief) console.log(`${chalk.dim("Brief")}    ${summariseBrief(fromBrief)}`);
+  if (draftSource) {
+    console.log(
+      `${chalk.dim("Draft")}    ${draftSource.source === "composer" ? `written by the composer (${draftSource.provider})` : "offline skeleton"}`
+    );
+  }
   for (const warning of draftWarnings) console.log(chalk.yellow(`Warning: ${warning}`));
   console.log();
   console.log(chalk.bold("Edit first"));
@@ -682,5 +719,15 @@ function formatStatusIcon(status: InitFileAction["status"]): string {
       return chalk.cyan("→");
     default:
       return "?";
+  }
+}
+
+/** Whether any composer model key is configured; `init` stays offline without one. */
+function composerAvailable(): boolean {
+  try {
+    resolveComposer();
+    return true;
+  } catch {
+    return false;
   }
 }

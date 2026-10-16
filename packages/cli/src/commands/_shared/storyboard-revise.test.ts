@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,9 @@ import type { TextGenerator, TextRequest } from "@vibeframe/ai-providers";
 
 import { FakeProviderNetwork, jsonResponse } from "../../testing/fake-provider-network.js";
 import { executeStoryboardRevision } from "./storyboard-revise.js";
+import { draftStoryboardFromBrief } from "./storyboard-draft.js";
+import { scaffoldSceneProject } from "./scene-project.js";
+import { rewriteBundleFromMarkdown } from "./storyboard-source.js";
 
 const STORYBOARD = `---
 title: Demo
@@ -198,5 +201,31 @@ describe("executeStoryboardRevision", () => {
       net.uninstall();
       vi.unstubAllEnvs();
     }
+  });
+
+  it("drafts from a brief over the offline skeleton, replacing its scenes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "vibe-storyboard-draft-"));
+    dirs.push(dir);
+    await scaffoldSceneProject({ dir, name: "boats", aspect: "16:9", duration: 10 });
+    const brief = "A 10-second explainer on why paper boats float: hook, buoyancy.";
+    const skeleton = draftStoryboardFromBrief({ name: "boats", brief, durationSec: 10 });
+    await rewriteBundleFromMarkdown(dir, skeleton.storyboardMd);
+    expect((await readdir(join(dir, "scenes"))).sort()).toEqual(["01-hook.md", "02-buoyancy.md"]);
+
+    const drafted = skeleton.storyboardMd
+      .replace(/## Beat hook - Hook[\s\S]*$/, "")
+      .concat(
+        "## Beat question - Question\n\n```yaml\nduration: 4\nnarration: \"Why does paper float?\"\nbackdrop: \"paper boat on a pond\"\n```\n\nAsk.\n\n",
+        "## Beat air - Trapped air\n\n```yaml\nduration: 6\nnarration: \"Trapped air makes it lighter than the water it pushes aside.\"\nbackdrop: \"cutaway of a paper hull\"\n```\n\nExplain.\n"
+      );
+    const fake = generator(JSON.stringify({ storyboardMd: drafted, summary: "Drafted.", changedBeats: ["question", "air"], warnings: [] }));
+
+    const result = await executeStoryboardRevision({ projectDir: dir, request: brief, durationSec: 10, mode: "draft", generator: fake });
+
+    expect(result).toMatchObject({ success: true, wrote: true });
+    expect(fake.requests[0].system).toContain("from a brief");
+    expect(fake.requests[0].messages[0].content).toContain(`Brief:\n${brief}`);
+    expect((await readdir(join(dir, "scenes"))).sort()).toEqual(["01-question.md", "02-air.md"]);
+    expect(await readFile(join(dir, "scenes", "02-air.md"), "utf-8")).toContain("Trapped air");
   });
 });

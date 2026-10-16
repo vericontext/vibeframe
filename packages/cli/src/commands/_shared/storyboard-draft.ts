@@ -1,3 +1,18 @@
+/**
+ * @module _shared/storyboard-draft
+ *
+ * The offline storyboard skeleton `vibe init --from "<brief>"` writes.
+ *
+ * Without a model this cannot know what the video says, so it does not
+ * pretend to: beats come from the brief's own outline when it has one
+ * ("hook, buoyancy, folding tip"), each beat gets a backdrop prompt from
+ * its topic and the brief, and narration is left for the composer
+ * (`storyboard revise`), the host agent, or the user to write. A skeleton
+ * that renders silently is better than one that narrates someone else's
+ * script. When a composer key is set, `init` hands this skeleton to the
+ * composer, which writes the real draft.
+ */
+
 import { buildDesignMd } from "./scene-project.js";
 import type { VisualStyle } from "./visual-styles.js";
 
@@ -6,6 +21,17 @@ export interface StoryboardDraft {
   designMd: string;
   warnings: string[];
 }
+
+interface BeatDraft {
+  id: string;
+  title: string;
+  duration: number;
+  backdrop: string;
+  motion: string;
+  body: string;
+}
+
+const MAX_OUTLINE_BEATS = 8;
 
 export function draftStoryboardFromBrief(opts: {
   name: string;
@@ -18,17 +44,26 @@ export function draftStoryboardFromBrief(opts: {
     ? opts.durationSec
     : 45;
   const brief = opts.brief.trim().replace(/\s+/g, " ");
-  const product = extractProductName(brief) ?? titleizeProjectName(opts.name);
-  const beatCount = total >= 20 ? 4 : 3;
-  const beatDurations = splitDuration(total, beatCount);
-  const theme = describeTheme(brief, product);
-  const beats = beatCount === 4
-    ? fourBeatDraft({ product, brief, theme, durations: beatDurations })
-    : threeBeatDraft({ product, brief, theme, durations: beatDurations });
+  const title = extractProductName(brief) ?? titleizeProjectName(opts.name);
+  const subject = describeSubject(brief);
+  const topics = outlineTopics(brief) ?? defaultTopics(total);
+  const durations = splitDuration(total, topics.length);
+  const beats = topics.map((topic, index): BeatDraft => ({
+    id: uniqueId(topics, index),
+    title: titleize(topic),
+    duration: durations[index],
+    backdrop: clip(`${titleize(topic)}: ${subject}. No readable text, no logos, clean negative space for overlays`),
+    motion: index === 0
+      ? "headline reveal, restrained camera push"
+      : index === topics.length - 1
+        ? "clean final title, slow settle, gentle fade out"
+        : "focused reveal of the beat's one idea, precise transitions",
+    body: `Topic: ${topic}. Write the narration for this beat.`,
+  }));
 
   const storyboardMd = `---
 type: Storyboard
-title: ${JSON.stringify(product)}
+title: ${JSON.stringify(title)}
 duration: ${total}
 aspect: ${opts.aspect ?? "16:9"}
 providers:
@@ -36,7 +71,7 @@ providers:
   image: openai
 ---
 
-# ${product} - Storyboard
+# ${title} - Storyboard
 
 Pacing: keep beats 6-15 seconds. Longer beats render as static, overstuffed
 scenes - split them instead.
@@ -48,123 +83,11 @@ ${beats.map(renderBeatDraft).join("\n\n")}
 
   return {
     storyboardMd,
-    designMd: buildDesignMd({ name: product, style: opts.visualStyle }),
+    designMd: buildDesignMd({ name: title, style: opts.visualStyle }),
     warnings: [
-      "Drafted locally from the brief. Review STORYBOARD.md and DESIGN.md before provider spend.",
+      "Offline skeleton: beats have no narration yet. Run `vibe storyboard revise <project> --from \"<brief>\"` with a composer key, or write the narration in scenes/*.md, before building.",
     ],
   };
-}
-
-interface BeatDraft {
-  id: string;
-  title: string;
-  duration: number;
-  narration: string;
-  backdrop: string;
-  motion: string;
-  body: string;
-}
-
-function fourBeatDraft(opts: {
-  product: string;
-  brief: string;
-  theme: string;
-  durations: number[];
-}): BeatDraft[] {
-  const scenic = isMountainSunriseBrief(opts.brief);
-  return [
-    {
-      id: "hook",
-      title: scenic ? "First light" : "Hook",
-      duration: opts.durations[0],
-      narration: scenic
-        ? `The first light reaches ${opts.product} before the day begins.`
-        : `${opts.product} starts with one clear promise.`,
-      backdrop: scenic
-        ? `misty mountain ridge at sunrise, golden light, fog layers, cinematic ${opts.theme}`
-        : `topic-aligned editorial background plate for ${opts.product}, ${opts.theme}, no readable text, no logos, no unrelated consumer products, clean negative space for HTML overlays`,
-      motion: scenic
-        ? "quiet title reveal, soft parallax, slow camera drift"
-        : "large readable headline, restrained camera push, immediate value reveal",
-      body: scenic
-        ? "Show the mountain identity immediately. Keep text minimal."
-        : "Make the value obvious in the first beat. Avoid setup that delays the payoff.",
-    },
-    {
-      id: "proof",
-      title: scenic ? "The path appears" : "Proof",
-      duration: opts.durations[1],
-      narration: scenic
-        ? "A clear path appears when every step is visible."
-        : "The proof appears when each step is visible.",
-      backdrop: scenic
-        ? "ridge trail emerging through fog, warm sunrise edge light, high contrast"
-        : `topic-aligned proof background plate for ${opts.product}, abstract workflow structure, no readable text, no product photos, no shoes, no unrelated objects`,
-      motion: scenic
-        ? "thin line traces the path, small labels fade in"
-        : "interface panels or proof points slide into place with precise transitions",
-      body: "Connect the visual proof to the promise in one focused moment.",
-    },
-    {
-      id: "mechanism",
-      title: scenic ? "Built from files" : "Mechanism",
-      duration: opts.durations[2],
-      narration: "A storyboard becomes files, reports, scenes, and a render plan.",
-      backdrop: `storyboard markdown, build-report.json, review-report.json, and generated scene cards for ${opts.product}`,
-      motion: "STORYBOARD.md, build-report.json, and review-report.json cards move into a clean timeline",
-      body: "Make the file-based workflow visible without crowding the frame.",
-    },
-    {
-      id: "close",
-      title: scenic ? "Day one" : "Close",
-      duration: opts.durations[3],
-      narration: scenic
-        ? `${opts.product}. Day one begins here.`
-        : `${opts.product} is ready to show.`,
-      backdrop: scenic
-        ? "wide mountain ridge at peak golden hour, valley filled with warm light"
-        : `resolved editorial background plate for ${opts.product}, clean negative space, confident lockup, no readable text, no logos, no unrelated products`,
-      motion: "clean final title, slow settling motion, gentle fade to the final frame",
-      body: "End with a quiet branded title and no new idea.",
-    },
-  ];
-}
-
-function threeBeatDraft(opts: {
-  product: string;
-  brief: string;
-  theme: string;
-  durations: number[];
-}): BeatDraft[] {
-  return [
-    {
-      id: "hook",
-      title: "Hook",
-      duration: opts.durations[0],
-      narration: `${opts.product} starts with one clear promise.`,
-      backdrop: `topic-aligned editorial background plate for ${opts.product}, ${opts.theme}, no readable text, no logos, no unrelated consumer products, clean negative space for HTML overlays`,
-      motion: "large readable headline, restrained camera push, immediate value reveal",
-      body: "Make the value obvious in one beat.",
-    },
-    {
-      id: "proof",
-      title: "Proof",
-      duration: opts.durations[1],
-      narration: "The proof appears when each step is visible.",
-      backdrop: `topic-aligned proof background plate for ${opts.product}, abstract workflow structure, no readable text, no product photos, no shoes, no unrelated objects`,
-      motion: "layered panels, highlighted cause and effect, precise transitions",
-      body: "Show the mechanism, metric, or before/after that makes the promise believable.",
-    },
-    {
-      id: "close",
-      title: "Close",
-      duration: opts.durations[2],
-      narration: `${opts.product} is ready to show.`,
-      backdrop: `resolved editorial background plate for ${opts.product}, clean negative space, confident lockup, no readable text, no logos, no unrelated products`,
-      motion: "clean final title, subtle parallax, gentle fade to the final frame",
-      body: "End on the product name, offer, command, or memorable final line.",
-    },
-  ];
 }
 
 function renderBeatDraft(beat: BeatDraft): string {
@@ -172,12 +95,56 @@ function renderBeatDraft(beat: BeatDraft): string {
 
 \`\`\`yaml
 duration: ${beat.duration}
-narration: "${escapeCue(beat.narration)}"
 backdrop: "${escapeCue(beat.backdrop)}"
 motion: "${escapeCue(beat.motion)}"
 \`\`\`
 
 ${beat.body}`;
+}
+
+/** Where a brief's own outline starts: a numbered list, or a list after a colon. */
+const NUMBERED = /(?:^|\s)1[.)]\s+/;
+
+/**
+ * The beats a brief lists itself, as in "...: hook, buoyancy, folding tip"
+ * or "... 1. what it is 2. the formula". Null when it has no outline.
+ */
+function outlineTopics(brief: string): string[] | null {
+  const numbered = brief.search(NUMBERED);
+  const items = numbered >= 0
+    ? brief.slice(numbered).split(/(?:^|\s)\d+[.)]\s+/)
+    : brief.includes(":")
+      ? brief.slice(brief.indexOf(":") + 1).split(/,|;|\band\b|\bthen\b/i)
+      : [];
+  const topics = items.map((item) => item.trim().replace(/[.;,]+$/, "")).filter(Boolean);
+  if (topics.length < 2 || topics.some((topic) => topic.split(/\s+/).length > 6)) return null;
+  return topics.slice(0, MAX_OUTLINE_BEATS);
+}
+
+function defaultTopics(total: number): string[] {
+  return total >= 20 ? ["hook", "setup", "payoff", "close"] : ["hook", "point", "close"];
+}
+
+/** The brief without its duration or outline, for backdrop prompts. */
+function describeSubject(brief: string): string {
+  const numbered = brief.search(NUMBERED);
+  const end = numbered >= 0 ? numbered : brief.includes(":") ? brief.indexOf(":") : brief.length;
+  const head = brief.slice(0, end).replace(/[\s:-]+$/, "");
+  return head
+    .replace(/\b(an?)\s+\d+(?:\.\d+)?[- ]?(?:seconds?|secs?|s)\b[- ]?/gi, "a ")
+    .replace(/\b\d+(?:\.\d+)?[- ]?(?:seconds?|secs?)\b[- ]?/gi, "")
+    .replace(/\ba ([aeiou])/gi, (_, vowel: string) => `an ${vowel}`)
+    .replace(/\s+/g, " ")
+    .replace(/[.\s]+$/, "")
+    .trim() || "the subject of the brief";
+}
+
+function uniqueId(topics: string[], index: number): string {
+  const slug = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "beat";
+  const id = slug(topics[index]);
+  const earlier = topics.slice(0, index).filter((topic) => slug(topic) === id).length;
+  return earlier === 0 ? id : `${id}-${earlier + 1}`;
 }
 
 function splitDuration(total: number, count: number): number[] {
@@ -188,8 +155,19 @@ function splitDuration(total: number, count: number): number[] {
   return out;
 }
 
+/** Cut at a word boundary so a prompt never ends mid-word. */
+function clip(value: string, max = 180): string {
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max);
+  return cut.slice(0, cut.lastIndexOf(" ")).replace(/[,.;:\s]+$/, "");
+}
+
 function escapeCue(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').slice(0, 180);
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function titleize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function extractProductName(brief: string): string | null {
@@ -210,22 +188,4 @@ function titleizeProjectName(name: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ") || "Video";
-}
-
-function describeTheme(brief: string, product: string): string {
-  const cleaned = brief
-    .replace(/\b\d+[- ]?second\b/gi, "")
-    .replace(new RegExp(`\\bfor\\s+${escapeRegExp(product)}\\b`, "i"), "")
-    .replace(/\blaunch video\b/gi, "launch story")
-    .replace(/\s+/g, " ")
-    .trim();
-  return cleaned || "focused product story";
-}
-
-function isMountainSunriseBrief(brief: string): boolean {
-  return /\b(mountain|ridge|sunrise|fog|peak)\b/i.test(brief);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
