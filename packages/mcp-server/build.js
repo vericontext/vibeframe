@@ -110,7 +110,22 @@ export async function buildServerBundle({ outDir = "dist", bundleHostDeps = fals
   copyFileSync(manifestSrc, join(outDir, "hyperframe.manifest.json"));
   copyFileSync(join(producerDist, iifeName), join(outDir, iifeName));
 
-  console.log(`Bundle complete: ${outDir}/index.js (+ hyperframe runtime siblings)`);
+  // Lottie overlays copy the dotLottie runtime (ESM build + WASM) into the
+  // page they render. The bundle cannot resolve @lottiefiles/dotlottie-web
+  // from node_modules, so ship it next to index.js, where
+  // packages/cli/src/commands/_shared/lottie.ts looks for it.
+  const dotLottieDist = resolve(root, "packages/cli/node_modules/@lottiefiles/dotlottie-web/dist");
+  const dotLottieOut = join(outDir, "dotlottie");
+  mkdirSync(dotLottieOut, { recursive: true });
+  for (const file of ["index.js", "dotlottie-player.wasm"]) {
+    const src = join(dotLottieDist, file);
+    if (!existsSync(src)) {
+      throw new Error(`Missing ${src} — run pnpm install (@lottiefiles/dotlottie-web ships it).`);
+    }
+    copyFileSync(src, join(dotLottieOut, file));
+  }
+
+  console.log(`Bundle complete: ${outDir}/index.js (+ hyperframe and dotLottie runtime siblings)`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

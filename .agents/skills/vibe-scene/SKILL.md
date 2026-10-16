@@ -100,8 +100,9 @@ Run `vibe schema scene.<subcommand>` before using less common flags.
 
 Overlay a Lottie animation (`.json`/`.lottie`) on a scene with `--lottie <path>`,
 tuned by `--lottie-position` (full|center|top-left|top-right|bottom-left|bottom-right),
-`--lottie-scale`, `--lottie-opacity`, and `--lottie-no-loop`. It renders as a
-`<dotlottie-wc>` overlay (no provider call — free).
+`--lottie-scale`, `--lottie-opacity`, and `--lottie-no-loop`. The scene timeline
+drives it frame by frame from a runtime copied into `assets/vendor/dotlottie/`
+(no provider call, free).
 
 ## Narration Word-Sync
 

@@ -36,10 +36,6 @@ const external = [
   "@anthropic-ai/sdk",
   "@google/generative-ai",
   "openai",
-  // Lottie web component — has its own loader pipeline and isn't needed
-  // for the CLI bin entry path; leaving external avoids bundle bloat for
-  // a feature most CLI users don't trigger.
-  "@lottiefiles/dotlottie-wc",
 ];
 
 const banner = {

@@ -13,15 +13,21 @@
  *      keeping the source resolution, frame rate, and audio.
  */
 
-import { createRequire } from "node:module";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { preflightChrome } from "../../pipeline/renderers/chrome.js";
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
 import { withStdoutOnStderr } from "../../utils/stdout-guard.js";
+import {
+  DOTLOTTIE_BROWSER_HELPERS,
+  checkLottieAsset,
+  copyDotLottieRuntime,
+  overlayBox,
+  type LottiePosition,
+} from "../_shared/lottie.js";
 
-export type LottiePosition = "full" | "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export type { LottiePosition };
 
 export interface LottieOverlayOptions {
   videoPath: string;
@@ -90,40 +96,6 @@ export async function probeVideoStream(path: string): Promise<VideoStreamInfo> {
   };
 }
 
-/** Reject files dotLottie cannot open before spending a browser render on them. */
-export async function checkLottieAsset(path: string): Promise<string | undefined> {
-  const bytes = await readFile(path);
-  const isZip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b;
-  if (isZip) return undefined;
-  try {
-    const json = JSON.parse(bytes.toString("utf-8")) as { layers?: unknown };
-    if (Array.isArray(json.layers)) return undefined;
-  } catch {
-    // fall through
-  }
-  return `${basename(path)} is not a Lottie animation (expected Lottie JSON or a .lottie archive).`;
-}
-
-/** CSS box for the overlay canvas, in pixels of the layer. */
-export function overlayBox(
-  layer: { width: number; height: number },
-  position: LottiePosition,
-  scale: number,
-): { left: number; top: number; width: number; height: number } {
-  if (position === "full") return { left: 0, top: 0, width: layer.width, height: layer.height };
-  const width = Math.max(1, Math.round(layer.width * scale));
-  const height = Math.max(1, Math.round(layer.height * scale));
-  const marginX = Math.round(layer.width * 0.04);
-  const marginY = Math.round(layer.height * 0.04);
-  const left = position === "center"
-    ? Math.round((layer.width - width) / 2)
-    : position.endsWith("left") ? marginX : layer.width - marginX - width;
-  const top = position === "center"
-    ? Math.round((layer.height - height) / 2)
-    : position.startsWith("top") ? marginY : layer.height - marginY - height;
-  return { left, top, width, height };
-}
-
 /**
  * The layer page. `window.__hf` is published only after the animation has
  * loaded, because the producer starts capturing once `__hf.duration > 0`.
@@ -148,11 +120,8 @@ export function lottieLayerHtml(opts: {
 </head><body>
 <canvas id="lottie" width="${box.width}" height="${box.height}"></canvas>
 <script type="module">
-  import { DotLottie } from "./vendor/dotlottie-web.js";
-  // The render server sends .wasm without application/wasm, which makes
-  // WebAssembly.instantiateStreaming reject it; a typed Blob URL avoids that.
-  const wasm = await (await fetch("./vendor/dotlottie-player.wasm")).arrayBuffer();
-  DotLottie.setWasmUrl(URL.createObjectURL(new Blob([wasm], { type: "application/wasm" })));
+  ${DOTLOTTIE_BROWSER_HELPERS}
+  const DotLottie = await loadDotLottie("./vendor");
   const LOOP = ${opts.loop};
   const DURATION = ${opts.duration};
   const player = new DotLottie({
@@ -169,12 +138,7 @@ export function lottieLayerHtml(opts: {
     window.__hf = {
       duration: DURATION,
       seek(t) {
-        const length = player.duration;
-        const frames = player.totalFrames;
-        if (!(length > 0) || !(frames > 0)) return;
-        const local = Math.max(0, Number(t) || 0);
-        const at = LOOP ? local % length : Math.min(local, length);
-        player.setFrame(Math.min(frames - 1, (at / length) * frames));
+        setLottieTime(player, t, LOOP);
       },
     };
     window.__hf.seek(0);
@@ -184,25 +148,14 @@ export function lottieLayerHtml(opts: {
 `;
 }
 
-function vendorPaths(): { script: string; wasm: string } {
-  const require = createRequire(import.meta.url);
-  const script = require.resolve("@lottiefiles/dotlottie-web");
-  // The CJS entry sits next to the ESM build and the WASM in dist/.
-  const dist = join(script, "..");
-  return { script: join(dist, "index.js"), wasm: join(dist, "dotlottie-player.wasm") };
-}
-
 async function renderLayer(opts: {
   dir: string;
   info: VideoStreamInfo;
   options: LottieOverlayOptions;
 }): Promise<string> {
   const { dir, info, options } = opts;
-  const vendor = vendorPaths();
-  await mkdir(join(dir, "vendor"), { recursive: true });
+  await copyDotLottieRuntime(join(dir, "vendor"));
   await mkdir(join(dir, "assets"), { recursive: true });
-  await copyFile(vendor.script, join(dir, "vendor", "dotlottie-web.js"));
-  await copyFile(vendor.wasm, join(dir, "vendor", "dotlottie-player.wasm"));
   const assetName = `animation${extname(options.assetPath).toLowerCase()}`;
   await copyFile(options.assetPath, join(dir, "assets", assetName));
 
