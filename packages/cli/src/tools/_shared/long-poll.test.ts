@@ -187,6 +187,36 @@ describe("runWithMcpPromotion", () => {
     expect(record.status).toBe("completed");
   });
 
+  it("writes nothing after the terminal record, even while that write is slow", async () => {
+    let release: (r: ToolExecuteResult) => void = () => undefined;
+    const work = new Promise<ToolExecuteResult>((r) => {
+      release = r;
+    });
+    await runWithMcpPromotion(() => work, {
+      jobType: "render",
+      projectDir,
+      command: "vibe render x",
+      windowMs: 20,
+      heartbeatMs: 5,
+    });
+
+    // Hold the completion write open across several heartbeat intervals.
+    // Heartbeats queued behind it would keep writing after the job is done,
+    // racing whoever cleans the jobs directory up next.
+    const statuses: Array<string | undefined> = [];
+    writeGate.hold = (record) => {
+      statuses.push(record.status);
+      return record.status === "completed" ? sleep(60) : undefined;
+    };
+    release(OK);
+    await readSettledJob();
+    await sleep(60);
+
+    const terminal = statuses.indexOf("completed");
+    expect(terminal).toBeGreaterThanOrEqual(0);
+    expect(statuses.slice(terminal + 1)).toEqual([]);
+  });
+
   it("records failed results and thrown errors after promotion", async () => {
     let reject: (e: Error) => void = () => undefined;
     const work = new Promise<ToolExecuteResult>((_, rej) => {

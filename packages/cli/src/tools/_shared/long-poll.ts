@@ -86,8 +86,11 @@ export async function runWithMcpPromotion(
   // write that started before completion can rename over the completed
   // record and leave the job "running" forever.
   let writes: Promise<void> = Promise.resolve();
+  // Set once the terminal record is queued. Nothing may land after it: a
+  // late heartbeat would keep writing to a finished job's directory.
+  let finished = false;
   const writeRecord = (patch: Partial<JobRecord>): Promise<void> => {
-    if (!record) return writes;
+    if (!record || finished) return writes;
     record = {
       ...record,
       ...patch,
@@ -165,32 +168,34 @@ export async function runWithMcpPromotion(
   }, opts.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
   heartbeat.unref?.();
 
-  void workPromise
-    .then(
-      (result) =>
-        writeRecord(
-          result.success
-            ? {
-                status: "completed",
-                progress: 100,
-                resultPayload: result.data,
-                outputPath: pickOutputPath(result.data),
-              }
-            : {
-                status: "failed",
-                error: result.error ?? "unknown error",
-                resultPayload: result.data,
-              }
-        ),
-      (error) =>
-        writeRecord({
-          status: "failed",
-          error: error instanceof Error ? error.message : String(error),
-        })
-    )
-    .finally(() => {
-      if (heartbeat) clearInterval(heartbeat);
-    });
+  const finish = (patch: Partial<JobRecord>): Promise<void> => {
+    if (heartbeat) clearInterval(heartbeat);
+    const terminal = writeRecord(patch);
+    finished = true;
+    return terminal;
+  };
+  void workPromise.then(
+    (result) =>
+      finish(
+        result.success
+          ? {
+              status: "completed",
+              progress: 100,
+              resultPayload: result.data,
+              outputPath: pickOutputPath(result.data),
+            }
+          : {
+              status: "failed",
+              error: result.error ?? "unknown error",
+              resultPayload: result.data,
+            }
+      ),
+    (error) =>
+      finish({
+        status: "failed",
+        error: error instanceof Error ? error.message : String(error),
+      })
+  );
 
   return {
     success: true,
