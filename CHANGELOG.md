@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.115.7] - 2026-10-16
+
+### Added
+
+- put transcription on one contract and route every Whisper call through it (#357)
+- put text-to-speech providers on one contract and open narration to all of them (#356)
+- put image providers on one contract and drop CLI provider branches (#355)
+
+### Changed
+
+- run audio commands on their executors and the shared HTTP layer (#358)
+
+### Fixed
+
+- dub with a real translation, any TTS provider, and lines placed on time (#359)
+
 ## [0.115.6] - 2026-10-04
 
 ### Added
