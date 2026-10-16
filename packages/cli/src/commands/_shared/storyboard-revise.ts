@@ -2,8 +2,12 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { createAdapter } from "../../agent/adapters/index.js";
-import type { AgentMessage } from "../../agent/types.js";
+import {
+  createTextGenerator,
+  isProviderError,
+  type TextGenerator,
+  type TextRequest,
+} from "@vibeframe/ai-providers";
 import {
   ComposerResolveError,
   resolveComposer,
@@ -18,15 +22,14 @@ import {
   type StoryboardValidationResult,
 } from "./storyboard-edit.js";
 
-export type StoryboardRevisionChat = (messages: AgentMessage[]) => Promise<string>;
-
 export interface StoryboardRevisionOptions {
   projectDir: string;
   request: string;
   durationSec?: number;
   composer?: ComposerProvider;
   dryRun?: boolean;
-  chat?: StoryboardRevisionChat;
+  /** Overrides the composer's text generator (tests). */
+  generator?: TextGenerator;
 }
 
 export interface StoryboardRevisionResult {
@@ -79,17 +82,12 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
   const explicitComposer = opts.composer ?? projectConfig.config.providers.composer ?? undefined;
 
   let provider = explicitComposer ?? "claude";
-  let chat = opts.chat;
-  if (!chat) {
+  let generator = opts.generator;
+  if (!generator) {
     try {
       const resolution = resolveComposer(explicitComposer);
       provider = resolution.provider;
-      const adapter = await createAdapter(resolution.provider);
-      await adapter.initialize(resolution.apiKey);
-      chat = async (messages) => {
-        const response = await adapter.chat(messages, []);
-        return response.content;
-      };
+      generator = await createTextGenerator(resolution.provider, resolution.apiKey);
     } catch (error) {
       if (error instanceof ComposerResolveError) {
         return failureResult({
@@ -115,7 +113,7 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
   }
 
   const context = await readRevisionContext(projectDir);
-  const initial = await requestRevision(chat, {
+  const initial = await requestRevision(generator, {
     provider,
     projectDir,
     request: opts.request,
@@ -130,9 +128,9 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
       projectDir,
       storyboardPath,
       provider,
-      code: "STORYBOARD_REVISION_BAD_RESPONSE",
+      code: initial.code,
       message: initial.message,
-      suggestion: "Retry the revision, or make a smaller request.",
+      suggestion: initial.suggestion,
       retryWith,
     });
   }
@@ -143,7 +141,7 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
 
   if (!validation.ok) {
     warnings.push("Initial storyboard revision failed validation; attempted one self-repair pass.");
-    const repaired = await requestRevision(chat, {
+    const repaired = await requestRevision(generator, {
       provider,
       projectDir,
       request: opts.request,
@@ -208,8 +206,25 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
   });
 }
 
+/** The reply shape, enforced by the provider's structured output. */
+const REVISION_SCHEMA = {
+  type: "object",
+  properties: {
+    storyboardMd: { type: "string" },
+    summary: { type: "string" },
+    changedBeats: { type: "array", items: { type: "string" } },
+    warnings: { type: "array", items: { type: "string" } },
+  },
+  required: ["storyboardMd", "summary", "changedBeats", "warnings"],
+  additionalProperties: false,
+};
+
+type RevisionAttempt =
+  | { success: true; payload: RevisionPayload }
+  | { success: false; code: string; message: string; suggestion: string };
+
 async function requestRevision(
-  chat: StoryboardRevisionChat,
+  generator: TextGenerator,
   opts: {
     provider: ComposerProvider;
     projectDir: string;
@@ -222,18 +237,37 @@ async function requestRevision(
     invalidStoryboard?: string;
     validationIssues?: StoryboardValidationIssue[];
   },
-): Promise<{ success: true; payload: RevisionPayload } | { success: false; message: string }> {
-  const messages = revisionMessages(opts);
+): Promise<RevisionAttempt> {
+  let text: string;
   try {
-    const raw = await chat(messages);
-    const parsed = parseRevisionPayload(raw);
-    return { success: true, payload: parsed };
+    ({ text } = await generator.generateText({ ...revisionRequest(opts), jsonSchema: REVISION_SCHEMA }));
   } catch (error) {
-    return { success: false, message: error instanceof Error ? error.message : String(error) };
+    if (!isProviderError(error)) throw error;
+    return {
+      success: false,
+      code: "STORYBOARD_REVISION_PROVIDER_ERROR",
+      message: error.message,
+      suggestion:
+        error.kind === "auth"
+          ? "Check the composer API key with `vibe setup`."
+          : error.retryable
+            ? "Retry the revision in a moment."
+            : "Retry with a narrower request or a different --composer.",
+    };
+  }
+  try {
+    return { success: true, payload: parseRevisionPayload(text) };
+  } catch (error) {
+    return {
+      success: false,
+      code: "STORYBOARD_REVISION_BAD_RESPONSE",
+      message: error instanceof Error ? error.message : String(error),
+      suggestion: "Retry the revision, or make a smaller request.",
+    };
   }
 }
 
-function revisionMessages(opts: {
+function revisionRequest(opts: {
   provider: ComposerProvider;
   projectDir: string;
   request: string;
@@ -244,18 +278,17 @@ function revisionMessages(opts: {
   buildReportJson: string | null;
   invalidStoryboard?: string;
   validationIssues?: StoryboardValidationIssue[];
-}): AgentMessage[] {
+}): TextRequest {
   const system = [
     "You revise VibeFrame STORYBOARD.md files.",
-    "Return exactly one JSON object, with no markdown fence and no prose outside JSON.",
-    "The JSON object must have: storyboardMd string, summary string, changedBeats string[], warnings string[].",
+    "Reply with the JSON object the schema describes: storyboardMd is the full revised STORYBOARD.md, changedBeats the ids of beats you changed, warnings anything the user should know.",
     "Preserve existing frontmatter, beat ids, cue YAML keys, and useful prose unless the user asks to change structure.",
     // Rendered from the SSOT: this list used to be a hand-typed subset of 8,
     // so a revise pass could silently drop `characters`, `keyframe`, and the
     // lower-third cues it had never been told about.
     `Keep cue YAML valid. Allowed cue keys are ${STORYBOARD_CUE_KEYS.join(", ")}.`,
     "If a target duration is supplied, every beat must have a positive duration cue and durations must sum to that target.",
-  "Aim for 6-15 seconds per beat and never exceed ~15s — long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
+    "Aim for 6-15 seconds per beat and never exceed ~15s — long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
   ].join("\n");
 
   const repairBlock = opts.invalidStoryboard
@@ -279,10 +312,7 @@ function revisionMessages(opts: {
     repairBlock,
   ].filter(Boolean).join("\n\n---\n\n");
 
-  return [
-    { role: "system", content: system },
-    { role: "user", content: user },
-  ];
+  return { system, messages: [{ role: "user", content: user }] };
 }
 
 function parseRevisionPayload(raw: string): RevisionPayload {

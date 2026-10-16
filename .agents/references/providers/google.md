@@ -147,6 +147,7 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 
 ## In our code
 
+- `packages/ai-providers/src/gemini/gemini-text.ts` - the text contract (`generateText`, used by `storyboard revise`): `generationConfig.maxOutputTokens`, `responseMimeType: "application/json"` plus `responseJsonSchema` (plain JSON Schema), no `temperature`; drops `thought` parts; `MAX_TOKENS` is a cut-off reply, `SAFETY`/`blockReason` moderation. `responseJsonSchema` accepted on `gemini-3.8-flash` 2026-10-16 (probe).
 - `packages/ai-providers/src/gemini/gemini-models.ts:9-20` - text defaults: `gemini-3.5-flash` default, `gemini-2.5-flash` agent default, aliases `flash-3` -> `gemini-3-flash-preview`, `pro` -> `gemini-2.5-pro`, `pro-3.1` -> `gemini-3.1-pro-preview`.
 - `packages/ai-providers/src/gemini/gemini-motion.ts:55-66` - motion alias table; `:289` and `:408` call generateContent with `temperature` 0.8 and 0.5.
 - `packages/ai-providers/src/gemini/gemini-storyboard.ts:35-52` - storyboard call with `temperature` 0.7 or 1.0.

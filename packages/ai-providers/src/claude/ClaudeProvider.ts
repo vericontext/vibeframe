@@ -18,6 +18,8 @@ import type {
 } from "../interface/types.js";
 
 import { CLAUDE_MIN_MAX_TOKENS, type ClaudeApiParams } from "./claude-api.js";
+import { claudeGenerateText } from "./claude-text.js";
+import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
 // Import helper functions used by delegate methods
 import { generateMotion, refineMotion, analyzeContent } from "./claude-motion.js";
@@ -122,13 +124,14 @@ export interface StoryboardSegment {
 /**
  * Claude provider for AI-powered content creation
  */
-export class ClaudeProvider implements AIProvider {
+export class ClaudeProvider implements AIProvider, TextGenerator {
   id = "claude";
   name = "Anthropic Claude";
   description = "AI-powered motion graphics, content analysis, storyboarding, highlight detection, B-roll matching, and viral optimization";
   capabilities: AICapability[] = ["auto-edit", "natural-language-command", "highlight-detection", "b-roll-matching", "viral-optimization"];
   iconUrl = "/icons/claude.svg";
   isAvailable = true;
+  readonly textProvider = "claude";
 
   private apiKey?: string;
   private baseUrl = "https://api.anthropic.com/v1";
@@ -151,6 +154,11 @@ export class ClaudeProvider implements AIProvider {
 
   isConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  /** One bounded model call; see the text contract. Throws `ProviderError`. */
+  async generateText(request: TextRequest): Promise<TextResult> {
+    return claudeGenerateText({ apiKey: this.apiKey, baseUrl: this.baseUrl }, request);
   }
 
   /** Get API params for helper functions (null if not configured) */

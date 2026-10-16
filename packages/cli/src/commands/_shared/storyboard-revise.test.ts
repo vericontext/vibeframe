@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  executeStoryboardRevision,
-  type StoryboardRevisionChat,
-} from "./storyboard-revise.js";
+import type { TextGenerator, TextRequest } from "@vibeframe/ai-providers";
+
+import { FakeProviderNetwork, jsonResponse } from "../../testing/fake-provider-network.js";
+import { executeStoryboardRevision } from "./storyboard-revise.js";
 
 const STORYBOARD = `---
 title: Demo
@@ -61,17 +61,29 @@ function response(storyboardMd: string, summary = "Updated hook."): string {
   });
 }
 
+/** A text generator that answers each request with the next reply. */
+function generator(...replies: string[]): TextGenerator & { requests: TextRequest[] } {
+  const requests: TextRequest[] = [];
+  return {
+    textProvider: "fake",
+    requests,
+    async generateText(request) {
+      requests.push(request);
+      return { text: replies[Math.min(requests.length, replies.length) - 1], model: "fake-model" };
+    },
+  };
+}
+
 describe("executeStoryboardRevision", () => {
   it("revises an existing storyboard and writes the validated result", async () => {
     const dir = await project();
     const revised = STORYBOARD.replace("Old hook.", "Sharper hook.");
-    const chat: StoryboardRevisionChat = async () => response(revised);
 
     const result = await executeStoryboardRevision({
       projectDir: dir,
       request: "Make the hook sharper.",
       composer: "claude",
-      chat,
+      generator: generator(response(revised)),
     });
 
     expect(result.success).toBe(true);
@@ -85,14 +97,13 @@ describe("executeStoryboardRevision", () => {
   it("dry-runs without writing and returns the revised storyboard", async () => {
     const dir = await project();
     const revised = STORYBOARD.replace("Old proof.", "Specific proof.");
-    const chat: StoryboardRevisionChat = async () => response(revised, "Updated proof.");
 
     const result = await executeStoryboardRevision({
       projectDir: dir,
       request: "Make proof more specific.",
       composer: "gemini",
       dryRun: true,
-      chat,
+      generator: generator(response(revised, "Updated proof.")),
     });
 
     expect(result.success).toBe(true);
@@ -109,22 +120,18 @@ describe("executeStoryboardRevision", () => {
     const repaired = STORYBOARD
       .replace("Old hook.", "New hook.")
       .replace("Old proof.", "New proof.");
-    const calls: string[] = [];
-    const chat: StoryboardRevisionChat = async (messages) => {
-      calls.push(messages.map((message) => message.content).join("\n"));
-      return calls.length === 1 ? response(invalid) : response(repaired, "Repaired durations.");
-    };
+    const fake = generator(response(invalid), response(repaired, "Repaired durations."));
 
     const result = await executeStoryboardRevision({
       projectDir: dir,
       request: "Revise narration and keep it ten seconds.",
       durationSec: 10,
       composer: "openai",
-      chat,
+      generator: fake,
     });
 
-    expect(calls).toHaveLength(2);
-    expect(calls[1]).toContain("TARGET_DURATION_MISMATCH");
+    expect(fake.requests).toHaveLength(2);
+    expect(fake.requests[1].messages[0].content).toContain("TARGET_DURATION_MISMATCH");
     expect(result.success).toBe(true);
     expect(result.validation.ok).toBe(true);
     expect(result.warnings.join("\n")).toContain("self-repair");
@@ -134,14 +141,13 @@ describe("executeStoryboardRevision", () => {
   it("does not write when the repaired storyboard is still invalid", async () => {
     const dir = await project();
     const invalid = STORYBOARD.replace("duration: 5", "duration: nope");
-    const chat: StoryboardRevisionChat = async () => response(invalid);
 
     const result = await executeStoryboardRevision({
       projectDir: dir,
       request: "Break duration.",
       durationSec: 10,
       composer: "claude",
-      chat,
+      generator: generator(response(invalid)),
     });
 
     expect(result.success).toBe(false);
@@ -149,5 +155,48 @@ describe("executeStoryboardRevision", () => {
     expect(result.wrote).toBe(false);
     expect(result.retryWith).toContain(`vibe storyboard validate ${dir} --json`);
     expect(await readFile(join(dir, "STORYBOARD.md"), "utf-8")).toBe(STORYBOARD);
+  });
+
+  it("asks the composer for the revision schema through the text contract", async () => {
+    const dir = await project();
+    const revised = STORYBOARD.replace("Old hook.", "Sharper hook.");
+    const net = new FakeProviderNetwork();
+    net.on("POST", "api.anthropic.com", /^\/v1\/messages$/, () =>
+      jsonResponse({ content: [{ type: "text", text: response(revised) }], stop_reason: "end_turn" })
+    );
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-anthropic-key");
+    net.install();
+    try {
+      const result = await executeStoryboardRevision({ projectDir: dir, request: "Sharper hook.", composer: "claude" });
+
+      expect(result).toMatchObject({ success: true, provider: "claude", wrote: true });
+      const body = net.requests[0].body as { system: string; output_config: { format: { schema: { required: string[] } } } };
+      expect(body.system).toContain("You revise VibeFrame STORYBOARD.md files.");
+      expect(body.output_config.format.schema.required).toEqual(["storyboardMd", "summary", "changedBeats", "warnings"]);
+      expect(await readFile(join(dir, "STORYBOARD.md"), "utf-8")).toContain("Sharper hook.");
+    } finally {
+      net.uninstall();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("reports a provider failure with its own code and leaves the storyboard alone", async () => {
+    const dir = await project();
+    const net = new FakeProviderNetwork();
+    net.on("POST", "api.anthropic.com", /^\/v1\/messages$/, () =>
+      jsonResponse({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }, 401)
+    );
+    vi.stubEnv("ANTHROPIC_API_KEY", "bad-key");
+    net.install();
+    try {
+      const result = await executeStoryboardRevision({ projectDir: dir, request: "Anything.", composer: "claude" });
+
+      expect(result).toMatchObject({ success: false, code: "STORYBOARD_REVISION_PROVIDER_ERROR", wrote: false });
+      expect(result.suggestion).toContain("vibe setup");
+      expect(await readFile(join(dir, "STORYBOARD.md"), "utf-8")).toBe(STORYBOARD);
+    } finally {
+      net.uninstall();
+      vi.unstubAllEnvs();
+    }
   });
 });

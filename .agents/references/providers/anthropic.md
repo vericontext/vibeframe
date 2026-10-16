@@ -79,6 +79,7 @@ Every model ID from the 4.6 generation on is a dateless pinned snapshot, not a m
 
 ## In our code
 
+- `packages/ai-providers/src/claude/claude-text.ts` - the text contract (`generateText`, used by `storyboard revise`) on `/messages` through `providerRequest`: `max_tokens` 32,000 by default, structured output via `output_config.format` `json_schema`, joins `text` blocks, maps `stop_reason` `refusal` and `max_tokens` to errors. Live on `claude-sonnet-5-5` 2026-10-16 (probe).
 - `packages/ai-providers/src/claude/ClaudeProvider.ts:133` base URL; `:134` default model `claude-sonnet-4-6`; `:137-141` `MOTION_MODELS` (`claude-sonnet-4-6`, `claude-opus-4-7`, `claude-opus-4-6`).
 - `packages/ai-providers/src/claude/ClaudeProvider.ts:245` `parseCommand` and `:326` `autoEdit` call `/messages` directly with `max_tokens: 2048`.
 - `packages/ai-providers/src/claude/claude-api.ts:21` shared `callClaude()`: `anthropic-version: 2023-06-01`, no `thinking`, no `temperature`, returns the first `text` block.
