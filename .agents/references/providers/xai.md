@@ -1,6 +1,6 @@
 ---
 provider: xai
-checked: 2026-10-04
+checked: 2026-10-17
 env: [XAI_API_KEY]
 models_endpoint: xai
 models_in_use:
@@ -36,8 +36,8 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 | `grok-imagine-image-quality` | image | retiring 2026-11-02 | $0.05 / image | After retirement, served by `grok-imagine-image-2.0` at `quality: low` (docs) |
 | `grok-imagine-image-pro` | image | retired 2026-05-15 | as `-quality` | Listed only as an alias of `grok-imagine-image-quality` (probe); follows it to 2.0 low on 2026-11-02 (docs) |
 | `grok-imagine-image` | image | GA | $0.02 / image | Not affected by the Nov 2 retirement (docs, probe) |
-| `grok-imagine-video-1.5` | video | GA | $0.08 / s | Inputs text, image, audio (probe); native 1080p for T2V and I2V, reference-to-video capped at 720p, `last_frame`, `keyframes`, preset voices (docs) |
-| `grok-imagine-video-1.5-lite` | video | GA | $0.02 / s | Inputs text, image only (probe); capability limits not documented beyond the model page |
+| `grok-imagine-video-1.5` | video | GA | $0.08 / s listed; billed $0.14 / s at 720p (probe 2026-10-17: 1 s 720p, `cost_in_usd_ticks` 1,400,000,000) | Inputs text, image, audio (probe); native 1080p for T2V and I2V, reference-to-video capped at 720p, `last_frame`, `keyframes`, preset voices (docs) |
+| `grok-imagine-video-1.5-lite` | video | GA | $0.02 / s listed; billed $0.03 / s at 720p (probe 2026-10-17: 1 s 720p, 300,000,000 ticks) | Inputs text, image only (probe); capability limits not documented beyond the model page |
 | `grok-imagine-video` | video | GA | $0.05 / s | Inputs text, image, video (probe); the only model shown for `/v1/videos/edits` examples (docs) |
 
 ## API shape

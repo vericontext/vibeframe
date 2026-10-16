@@ -1,19 +1,22 @@
 ---
 provider: google
-checked: 2026-10-04
+checked: 2026-10-17
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
   - gemini-3.8-flash            # text default: agent, analysis, review, storyboard, motion `gemini`
   - gemini-3.1-pro-preview      # `pro` alias, motion `gemini-3.1-pro`
-  - gemini-3.5-flash            # `flash-3.5` alias
+  - gemini-4-argon              # `argon` alias, opt-in
+  - gemini-3.6-flash            # `flash-3.6` alias
+  - gemini-3.5-flash            # `flash-3.5` alias; deprecated 2026-10-08, routed to 3.6 Flash
   - gemini-2.5-flash            # `flash-2.5` alias; restricted for new projects since 2026-09-18
   - gemini-2.5-pro              # `pro-2.5` alias, motion `gemini-2.5-pro`
   - gemini-3-flash-preview      # `flash-3` alias
-  - gemini-3.1-flash-image      # image default (`flash`, `latest`, `3.1-flash`)
+  - gemini-nano-banana-2.1      # image default (`flash`, `latest`, `2.1`)
+  - gemini-3.1-flash-image      # image `3.1-flash`; deprecated 2026-10-06, no shutdown date
   - gemini-3.1-flash-lite-image # image `lite`
   - gemini-3-pro-image          # image `pro`
-  - gemini-2.5-flash-image      # explicit pass-through only; past its 2026-10-02 shutdown date
+  - gemini-2.5-flash-image      # explicit pass-through only; shuts down 2027-03-15
   - gemini-3.1-flash-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-3-pro-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-omni-1.1-flash       # Google video default (`-p omni`, auto-resolved)
@@ -36,10 +39,11 @@ Prices are paid tier, Standard, USD.
 
 | ID | Status | Price in / out per 1M | Notes |
 |---|---|---|---|
+| `gemini-4-argon` | GA 2026-10-13 (docs, changelog) | $2.00 / $10.00 until 2026-11-30, then $4.00 / $20.00; paid tier only (docs) | Flagship. Thinking `low` `medium` (default) `high`; 1M context shared by input and output; no explicit caching; `temperature`/`top_p`/`top_k` ignored; Google recommends `max_output_tokens` >= 32,768 and client timeouts >= 15 min (docs). Answered our text contract with `responseJsonSchema` in ~5 s (probe 2026-10-17). |
 | `gemini-3.8-flash` | GA 2026-09-02 (docs) | $0.75 / $3.75 intro until 2026-12-31, then $1.50 / $7.50 (docs) | Default thinking `medium`; levels `low` `medium` `high`; `minimal` returns an error (docs). Agentic video supported (docs). |
 | `gemini-3.7-flash` | GA 2026-08-13 (docs) | same intro pricing as 3.8 (docs) | Same thinking levels as 3.8, `minimal` errors (docs). Agentic video supported (docs). |
 | `gemini-3.6-flash` | GA 2026-07-21 (docs) | same intro pricing as 3.8 (docs) | Levels `minimal` to `high`, default `medium` (docs). Named replacement for `gemini-3-flash-preview` (docs). |
-| `gemini-3.5-flash` | GA 2026-05-19, our default (docs) | $1.50 / $9.00 (docs) | Now the most expensive Flash; pricing page calls it "earlier" (docs). No agentic video (docs). Backs `gemini-flash-latest` since 2026-05-19 (docs). |
+| `gemini-3.5-flash` | deprecated 2026-10-08, no shutdown date; requests route to `gemini-3.6-flash` (changelog) | no longer on the pricing page (docs) | Catalog marks it `legacy` with `--model flash` as the replacement. Still listed (probe 2026-10-17). |
 | `gemini-3.5-flash-lite` | GA 2026-07-21 (docs) | $0.30 / $2.50 (docs) | Default thinking `minimal` (docs). Agentic video supported (docs). |
 | `gemini-3.1-flash-lite` | GA, shutdown 2027-05-07 (docs) | $0.25 / $1.50 (docs) | Replace with 3.5 Flash-Lite (docs). |
 | `gemini-3.1-pro-preview` | preview, no shutdown date (docs) | $2.00 / $12.00 up to 200k prompt (docs) | Levels `low` `medium` `high`, default `high`; no free API tier (docs). |
@@ -53,10 +57,11 @@ All 3.x text models: 1,048,576 input and 65,536 output tokens (docs).
 
 | ID | Status | Price | Notes |
 |---|---|---|---|
-| `gemini-3.1-flash-image` (Nano Banana 2) | GA 2026-05-28 (docs) | $0.045 at 512px, $0.067 1K, $0.101 2K, $0.151 4K (docs) | Sizes `512px` `1K` `2K` `4K`; 14 aspect ratios including `1:4` `4:1` `1:8` `8:1`; thinking `minimal` (default) or `high`; Image Search grounding; accepts video input (docs). |
+| `gemini-nano-banana-2.1` (Nano Banana 2.1) | GA 2026-10-06; replaces 3.1 Flash Image (changelog) | $0.0336 1K, $0.0504 2K, $0.113 4K (docs) | Our image default. Sizes `1K` `2K` `4K`, no 512px; thinking `minimal` `medium` (default) `high`; web and Image Search grounding; up to 14 reference images; 131,072 input / 32,768 output tokens (docs). Works on `generateContent` with our payload (probe 2026-10-17, one 1K image). |
+| `gemini-3.1-flash-image` (Nano Banana 2) | GA 2026-05-28, deprecated 2026-10-06 with no shutdown date (changelog) | $0.045 at 512px, $0.067 1K, $0.101 2K, $0.151 4K (docs) | Sizes `512px` `1K` `2K` `4K`; 14 aspect ratios including `1:4` `4:1` `1:8` `8:1`; thinking `minimal` (default) or `high`; Image Search grounding; accepts video input (docs). |
 | `gemini-3.1-flash-lite-image` (Nano Banana 2 Lite) | GA 2026-06-30 (docs) | $0.0336 per 1K image (docs) | 1K only, 2K/4K unsupported; no Search grounding; thinking `minimal` or `high` (docs). |
 | `gemini-3-pro-image` (Nano Banana Pro) | GA 2026-05-28 (docs) | $0.134 per 1K/2K, $0.24 per 4K (docs) | 10 aspect ratios, sizes `1K` `2K` `4K`; thinking always on; Search grounding; up to 14 reference images (docs). |
-| `gemini-2.5-flash-image` (Nano Banana) | deprecated, shutdown 2026-10-02 (docs) | $0.039 per image (docs) | 1024px class only, 10 aspect ratios, best with 3 or fewer input images (docs). Our default `flash`. Still listed on 2026-10-04 (probe). |
+| `gemini-2.5-flash-image` (Nano Banana) | deprecated, shutdown 2027-03-15, replacement `gemini-3.1-flash-lite-image` (docs, rechecked 2026-10-17; the 2026-10-04 note said 2026-10-02) | $0.039 per image (docs) | 1024px class only, 10 aspect ratios, best with 3 or fewer input images (docs). Still listed (probe). |
 | `gemini-3.1-flash-image-preview` | shutdown 2026-06-25 (docs) | - | Still listed and GET returns 200 (probe). Not called. |
 | `gemini-3-pro-image-preview` | shutdown 2026-06-25 (docs) | - | Still listed (probe). Not called. |
 | `imagen-4.0-*` | shut down 2026-08-17 (docs) | - | GET returns 404 (probe). |

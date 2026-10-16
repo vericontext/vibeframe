@@ -7,9 +7,16 @@ describe("estimateImageCostUsd", () => {
     expect(estimateImageCostUsd("openai", undefined, 1).costUsd).toBe(0.211);
     expect(estimateImageCostUsd("openai", "1.5", 2).costUsd).toBe(0.266);
     expect(estimateImageCostUsd("gemini", "lite", 1).costUsd).toBe(0.034);
-    expect(estimateImageCostUsd("gemini", undefined, 3).costUsd).toBe(0.201);
+    expect(estimateImageCostUsd("gemini", undefined, 3).costUsd).toBe(0.101);
     expect(estimateImageCostUsd("grok", "pro", 1).costUsd).toBe(0.08);
     expect(estimateImageCostUsd("grok", undefined, 1).costUsd).toBe(0.02);
+  });
+
+  it("prices Gemini at the requested size", () => {
+    expect(estimateImageCostUsd("gemini", undefined, 1, "4K").costUsd).toBe(0.113);
+    expect(estimateImageCostUsd("gemini", "3.1-flash", 2, "512px").costUsd).toBe(0.09);
+    expect(estimateImageCostUsd("gemini", "pro", 1, "4K").costUsd).toBe(0.24);
+    expect(estimateImageCostUsd("gemini", "lite", 1, "1K").costUsd).toBe(0.034);
   });
 
   it("labels the figure as an estimate", () => {

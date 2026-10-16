@@ -33,8 +33,9 @@ describe("Gemini image contract", () => {
   };
 
   it.each([
-    [undefined, "gemini-3.1-flash-image"],
-    ["flash", "gemini-3.1-flash-image"],
+    [undefined, "gemini-nano-banana-2.1"],
+    ["flash", "gemini-nano-banana-2.1"],
+    ["3.1-flash", "gemini-3.1-flash-image"],
     ["lite", "gemini-3.1-flash-lite-image"],
     ["pro", "gemini-3-pro-image"],
   ] as const)("model %s calls %s:generateContent", async (alias, modelId) => {

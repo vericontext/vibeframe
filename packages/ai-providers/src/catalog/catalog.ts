@@ -30,6 +30,8 @@ export interface ModelPrice {
   per: "image" | "second" | "minute" | "1K characters" | "1M input tokens";
   /** Conditions the price assumes (quality, resolution, tier). */
   basis?: string;
+  /** Per-output-size prices, keyed by the size the API takes ("1K", "4K"); `usd` is the default size. */
+  bySize?: Readonly<Record<string, number>>;
 }
 
 export interface ModelSpec {
@@ -59,10 +61,13 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "claude-sonnet-5-5", provider: "claude", kind: "llm", label: "Claude Sonnet 5.5", aliases: ["sonnet"], default: true, status: "ga", price: { usd: 2, per: "1M input tokens" }, note: "Agent, storyboard, translate-srt, motion default" },
   { id: "claude-opus-5-5", provider: "claude", kind: "llm", label: "Claude Opus 5.5", aliases: ["opus"], status: "ga", price: { usd: 4, per: "1M input tokens" } },
   { id: "claude-opus-4-6", provider: "claude", kind: "llm", label: "Claude Opus 4.6", aliases: ["opus-4-6"], status: "legacy", price: { usd: 5, per: "1M input tokens" } },
+  { id: "claude-haiku-5-5", provider: "claude", kind: "llm", label: "Claude Haiku 5.5", aliases: ["haiku"], status: "ga", price: { usd: 0.1, per: "1M input tokens", basis: "prompts up to 100K tokens, then $0.50" }, note: "Cheapest Claude; accepts `thinking: disabled`" },
   { id: "gpt-5.4-mini", provider: "openai", kind: "llm", label: "GPT-5.4 mini", default: true, status: "ga", price: { usd: 0.75, per: "1M input tokens" }, note: "Agent and storyboard default (tools on Chat Completions)" },
   { id: "gemini-3.8-flash", provider: "gemini", kind: "llm", label: "Gemini 3.8 Flash", aliases: ["flash", "latest", "flash-3.8", "gemini"], default: true, status: "ga", price: { usd: 0.75, per: "1M input tokens", basis: "until 2026-12-31, then $1.50" } },
-  { id: "gemini-3.5-flash", provider: "gemini", kind: "llm", label: "Gemini 3.5 Flash", aliases: ["flash-3.5"], status: "ga" },
+  { id: "gemini-3.6-flash", provider: "gemini", kind: "llm", label: "Gemini 3.6 Flash", aliases: ["flash-3.6"], status: "ga", price: { usd: 0.75, per: "1M input tokens", basis: "until 2026-12-31, then $1.50" } },
+  { id: "gemini-3.5-flash", provider: "gemini", kind: "llm", label: "Gemini 3.5 Flash", aliases: ["flash-3.5"], status: "legacy", replacement: "`--model flash` (Gemini 3.8 Flash)", note: "Deprecated 2026-10-08 with no shutdown date; Google routes it to gemini-3.6-flash" },
   { id: "gemini-3-flash-preview", provider: "gemini", kind: "llm", label: "Gemini 3 Flash (preview)", aliases: ["flash-3"], status: "preview" },
+  { id: "gemini-4-argon", provider: "gemini", kind: "llm", label: "Gemini 4 Argon", aliases: ["argon"], status: "ga", price: { usd: 2, per: "1M input tokens", basis: "until 2026-11-30, then $4" }, note: "Opt-in flagship; hard prompts can take minutes" },
   { id: "gemini-3.1-pro-preview", provider: "gemini", kind: "llm", label: "Gemini 3.1 Pro (preview)", aliases: ["pro", "pro-3.1", "3.1-pro", "gemini-3.1-pro"], status: "preview" },
   { id: "gemini-2.5-flash", provider: "gemini", kind: "llm", label: "Gemini 2.5 Flash", aliases: ["flash-2.5"], status: "legacy", note: "New projects cannot use 2.5 models since 2026-09-18" },
   { id: "gemini-2.5-pro", provider: "gemini", kind: "llm", label: "Gemini 2.5 Pro", aliases: ["pro-2.5", "2.5-pro"], status: "legacy" },
@@ -74,17 +79,18 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "gpt-image-2.5-flare", provider: "openai", kind: "image", label: "GPT Image 2.5 Flare", aliases: ["flare", "2.5-flare"], status: "ga", price: { usd: 0.211, per: "image", basis: "high, 1024x1024" } },
   { id: "gpt-image-2", provider: "openai", kind: "image", label: "GPT Image 2", aliases: ["2"], status: "ga", price: { usd: 0.211, per: "image", basis: "high, 1024x1024" } },
   { id: "gpt-image-1.5", provider: "openai", kind: "image", label: "GPT Image 1.5", aliases: ["1.5"], status: "deprecated", shutdown: "2026-12-01", price: { usd: 0.133, per: "image", basis: "high, 1024x1024" } },
-  { id: "gemini-3.1-flash-image", provider: "gemini", kind: "image", label: "Nano Banana 2", aliases: ["flash", "3.1-flash", "latest"], default: true, status: "ga", price: { usd: 0.067, per: "image", basis: "1K" } },
+  { id: "gemini-nano-banana-2.1", provider: "gemini", kind: "image", label: "Nano Banana 2.1", aliases: ["flash", "2.1", "latest"], default: true, status: "ga", price: { usd: 0.0336, per: "image", basis: "1K", bySize: { "1K": 0.0336, "2K": 0.0504, "4K": 0.113 } }, note: "1K, 2K, 4K; thinking defaults to medium" },
+  { id: "gemini-3.1-flash-image", provider: "gemini", kind: "image", label: "Nano Banana 2", aliases: ["3.1-flash"], status: "legacy", replacement: "`--model flash` (Nano Banana 2.1)", price: { usd: 0.067, per: "image", basis: "1K", bySize: { "512px": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 } }, note: "Deprecated 2026-10-06 with no shutdown date; the only Gemini image model with 512px" },
   { id: "gemini-3.1-flash-lite-image", provider: "gemini", kind: "image", label: "Nano Banana 2 Lite", aliases: ["lite"], status: "ga", price: { usd: 0.034, per: "image", basis: "1K" } },
-  { id: "gemini-3-pro-image", provider: "gemini", kind: "image", label: "Nano Banana Pro", aliases: ["pro"], status: "ga", price: { usd: 0.134, per: "image", basis: "1K-2K" } },
-  { id: "gemini-2.5-flash-image", provider: "gemini", kind: "image", label: "Nano Banana (2.5 Flash Image)", status: "deprecated", shutdown: "2026-10-02" },
+  { id: "gemini-3-pro-image", provider: "gemini", kind: "image", label: "Nano Banana Pro", aliases: ["pro"], status: "ga", price: { usd: 0.134, per: "image", basis: "1K-2K", bySize: { "1K": 0.134, "2K": 0.134, "4K": 0.24 } } },
+  { id: "gemini-2.5-flash-image", provider: "gemini", kind: "image", label: "Nano Banana (2.5 Flash Image)", status: "deprecated", shutdown: "2027-03-15", replacement: "`--model lite` (Nano Banana 2 Lite)" },
   { id: "gemini-3.1-flash-image-preview", provider: "gemini", kind: "image", label: "Nano Banana 2 (preview)", status: "deprecated", shutdown: "2026-06-25" },
   { id: "gemini-3-pro-image-preview", provider: "gemini", kind: "image", label: "Nano Banana Pro (preview)", status: "deprecated", shutdown: "2026-06-25" },
   { id: "grok-imagine-image", provider: "grok", kind: "image", label: "Grok Imagine Image", default: true, status: "ga", price: { usd: 0.02, per: "image" } },
   { id: "grok-imagine-image-2.0", provider: "grok", kind: "image", label: "Grok Imagine Image 2.0", aliases: ["pro", "2.0", "quality"], status: "ga", price: { usd: 0.08, per: "image", basis: "medium, 2K" } },
 
   // ── Video ─────────────────────────────────────────────────────────────
-  { id: "seedance-2.0", provider: "seedance", kind: "video", label: "Seedance 2.0", aliases: ["quality", "2.0"], default: true, status: "ga", price: { usd: 0.3024, per: "second", basis: "720p 16:9" }, note: "4-15 s, native audio" },
+  { id: "seedance-2.0", provider: "seedance", kind: "video", label: "Seedance 2.0", aliases: ["quality", "2.0"], default: true, status: "ga", price: { usd: 0.3034, per: "second", basis: "720p 16:9" }, note: "4-15 s, native audio" },
   { id: "seedance-2.0-fast", provider: "seedance", kind: "video", label: "Seedance 2.0 Fast", aliases: ["fast"], status: "ga", price: { usd: 0.2419, per: "second", basis: "720p 16:9" }, note: "4-15 s, up to 720p, native audio" },
   { id: "seedance-2.5", provider: "seedance", kind: "video", label: "Seedance 2.5", aliases: ["2.5"], status: "ga", price: { usd: 0.473, per: "second", basis: "720p 16:9" }, note: "Opt-in; 4-30 s, native audio" },
   { id: "gemini-omni-1.1-flash", provider: "omni", kind: "video", label: "Gemini Omni 1.1 Flash", default: true, status: "ga", price: { usd: 0.1, per: "second", basis: "720p" }, note: "Google video default; the model picks 3-10 s; native audio" },

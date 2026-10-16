@@ -222,7 +222,7 @@ export const generateImageTool = defineTool({
       .optional()
       .describe("Aspect ratio for any provider (1:1, 16:9, 9:16, 4:3, 3:4, ...)"),
     quality: z.string().optional().describe("Quality: low, medium, high (OpenAI and Grok)"),
-    resolution: z.string().optional().describe("Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k"),
+    resolution: z.string().optional().describe("Gemini 1K/2K/4K (512px on 3.1 Flash, Lite 1K only) or Grok 1k/2k"),
     count: z.number().optional().describe("Number of images (default: 1)"),
     model: z.string().optional().describe("Image model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"),
   }),

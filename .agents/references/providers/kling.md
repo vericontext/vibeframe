@@ -1,6 +1,6 @@
 ---
 provider: kling
-checked: 2026-10-04
+checked: 2026-10-17
 env: [KLING_API_KEY]
 models_endpoint: none
 models_in_use:

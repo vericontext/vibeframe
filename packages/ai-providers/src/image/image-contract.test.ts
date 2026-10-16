@@ -22,8 +22,8 @@ const ROUTES: Record<string, { host: string; path: RegExp; ok: () => Response; d
     host: "generativelanguage.googleapis.com",
     path: /:generateContent$/,
     ok: () => jsonResponse({ candidates: [{ content: { parts: [{ text: "here" }, { inlineData: { mimeType: "image/png", data: B64 } }] } }] }),
-    defaultModel: "gemini-3.1-flash-image",
-    maxEdit: 3,
+    defaultModel: "gemini-nano-banana-2.1",
+    maxEdit: 14,
   },
   grok: {
     host: "api.x.ai",
@@ -115,6 +115,32 @@ describe("image provider specifics", () => {
   it("Gemini Pro edits up to 14 images", async () => {
     const gemini = await createImageGenerator("gemini", "k");
     expect(gemini.maxEditImages("pro")).toBe(14);
+  });
+
+  it("Gemini sends 2K and 4K to the Flash models and refuses sizes a model lacks", async () => {
+    net.on("POST", ROUTES.gemini.host, ROUTES.gemini.path, ROUTES.gemini.ok);
+    const gemini = await createImageGenerator("gemini", "k");
+    await gemini.createImage({ prompt: "x", resolution: "4K" });
+    expect(net.requests[0].body).toMatchObject({ generationConfig: { imageConfig: { imageSize: "4K" } } });
+    await gemini.createImage({ prompt: "x", model: "3.1-flash", resolution: "512px" });
+    expect(net.requests[1].body).toMatchObject({ generationConfig: { imageConfig: { imageSize: "512px" } } });
+
+    await expect(gemini.createImage({ prompt: "x", resolution: "512px" })).rejects.toMatchObject({
+      kind: "invalid-request",
+      message: "gemini-nano-banana-2.1 renders 1K, 2K, 4K, not 512px.",
+    });
+    await expect(gemini.createImage({ prompt: "x", model: "lite", resolution: "2K" })).rejects.toMatchObject({ kind: "invalid-request" });
+    expect(net.requests).toHaveLength(2);
+  });
+
+  it("Gemini sends Image Search grounding to 2.1 and refuses it on Pro", async () => {
+    net.on("POST", ROUTES.gemini.host, ROUTES.gemini.path, ROUTES.gemini.ok);
+    const gemini = await createImageGenerator("gemini", "k");
+    await gemini.createImage({ prompt: "x", providerOptions: { imageSearchGrounding: true } });
+    expect(net.requests[0].body).toMatchObject({ tools: [{ googleSearch: { searchTypes: { imageSearch: {} } } }] });
+    await expect(
+      gemini.createImage({ prompt: "x", model: "pro", providerOptions: { imageSearchGrounding: true } })
+    ).rejects.toMatchObject({ kind: "unsupported" });
   });
 
   it("Grok asks for base64 and sends quality medium for the 2.0 model", async () => {

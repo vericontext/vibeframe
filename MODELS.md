@@ -17,10 +17,13 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | claude | **Claude Sonnet 5.5** (default) | `claude-sonnet-5-5` | `sonnet` | GA | $2 / 1M input tokens | Agent, storyboard, translate-srt, motion default |
 | claude | Claude Opus 5.5 | `claude-opus-5-5` | `opus` | GA | $4 / 1M input tokens |  |
 | claude | Claude Opus 4.6 | `claude-opus-4-6` | `opus-4-6` | Legacy | $5 / 1M input tokens |  |
+| claude | Claude Haiku 5.5 | `claude-haiku-5-5` | `haiku` | GA | $0.1 / 1M input tokens (prompts up to 100K tokens, then $0.50) | Cheapest Claude; accepts `thinking: disabled` |
 | openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 / 1M input tokens | Agent and storyboard default (tools on Chat Completions) |
 | gemini | **Gemini 3.8 Flash** (default) | `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8`, `gemini` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
-| gemini | Gemini 3.5 Flash | `gemini-3.5-flash` | `flash-3.5` | GA |  |  |
+| gemini | Gemini 3.6 Flash | `gemini-3.6-flash` | `flash-3.6` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
+| gemini | Gemini 3.5 Flash | `gemini-3.5-flash` | `flash-3.5` | Legacy |  | Deprecated 2026-10-08 with no shutdown date; Google routes it to gemini-3.6-flash |
 | gemini | Gemini 3 Flash (preview) | `gemini-3-flash-preview` | `flash-3` | Preview |  |  |
+| gemini | Gemini 4 Argon | `gemini-4-argon` | `argon` | GA | $2 / 1M input tokens (until 2026-11-30, then $4) | Opt-in flagship; hard prompts can take minutes |
 | gemini | Gemini 3.1 Pro (preview) | `gemini-3.1-pro-preview` | `pro`, `pro-3.1`, `3.1-pro`, `gemini-3.1-pro` | Preview |  |  |
 | gemini | Gemini 2.5 Flash | `gemini-2.5-flash` | `flash-2.5` | Legacy |  | New projects cannot use 2.5 models since 2026-09-18 |
 | gemini | Gemini 2.5 Pro | `gemini-2.5-pro` | `pro-2.5`, `2.5-pro` | Legacy |  |  |
@@ -35,10 +38,11 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | openai | GPT Image 2.5 Flare | `gpt-image-2.5-flare` | `flare`, `2.5-flare` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 2 | `gpt-image-2` | `2` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 1.5 | `gpt-image-1.5` | `1.5` | Deprecated, shuts down 2026-12-01 | $0.133 / image (high, 1024x1024) |  |
-| gemini | **Nano Banana 2** (default) | `gemini-3.1-flash-image` | `flash`, `3.1-flash`, `latest` | GA | $0.067 / image (1K) |  |
+| gemini | **Nano Banana 2.1** (default) | `gemini-nano-banana-2.1` | `flash`, `2.1`, `latest` | GA | $0.0336 / image (1K) | 1K, 2K, 4K; thinking defaults to medium |
+| gemini | Nano Banana 2 | `gemini-3.1-flash-image` | `3.1-flash` | Legacy | $0.067 / image (1K) | Deprecated 2026-10-06 with no shutdown date; the only Gemini image model with 512px |
 | gemini | Nano Banana 2 Lite | `gemini-3.1-flash-lite-image` | `lite` | GA | $0.034 / image (1K) |  |
 | gemini | Nano Banana Pro | `gemini-3-pro-image` | `pro` | GA | $0.134 / image (1K-2K) |  |
-| gemini | Nano Banana (2.5 Flash Image) | `gemini-2.5-flash-image` |  | Deprecated, shuts down 2026-10-02 |  |  |
+| gemini | Nano Banana (2.5 Flash Image) | `gemini-2.5-flash-image` |  | Deprecated, shuts down 2027-03-15; use `--model lite` (Nano Banana 2 Lite) |  |  |
 | gemini | Nano Banana 2 (preview) | `gemini-3.1-flash-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
 | gemini | Nano Banana Pro (preview) | `gemini-3-pro-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
 | grok | **Grok Imagine Image** (default) | `grok-imagine-image` |  | GA | $0.02 / image |  |
@@ -48,7 +52,7 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 | Provider | Model | ID | Aliases | Status | Price | Notes |
 |---|---|---|---|---|---|---|
-| seedance | **Seedance 2.0** (default) | `seedance-2.0` | `quality`, `2.0` | GA | $0.3024 / second (720p 16:9) | 4-15 s, native audio |
+| seedance | **Seedance 2.0** (default) | `seedance-2.0` | `quality`, `2.0` | GA | $0.3034 / second (720p 16:9) | 4-15 s, native audio |
 | seedance | Seedance 2.0 Fast | `seedance-2.0-fast` | `fast` | GA | $0.2419 / second (720p 16:9) | 4-15 s, up to 720p, native audio |
 | seedance | Seedance 2.5 | `seedance-2.5` | `2.5` | GA | $0.473 / second (720p 16:9) | Opt-in; 4-30 s, native audio |
 | omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $0.1 / second (720p) | Google video default; the model picks 3-10 s; native audio |

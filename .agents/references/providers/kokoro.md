@@ -1,6 +1,6 @@
 ---
 provider: kokoro
-checked: 2026-10-04
+checked: 2026-10-17
 env: [VIBE_KOKORO_RUNTIME, VIBE_ONNX_DEVICE]
 models_endpoint: none
 models_in_use:
