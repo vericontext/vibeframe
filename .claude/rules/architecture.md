@@ -18,7 +18,6 @@ paths:
   model.
 - **packages/ai-providers** - Provider registry and provider implementations.
 - **packages/mcp-server** - MCP wrapper around the CLI, bundled with esbuild.
-- **packages/ui** - Shared React components.
 - **apps/web** - Next.js public site.
 
 ## Current CLI Shape

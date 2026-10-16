@@ -291,12 +291,3 @@ export function getDisplayLabelForApiKey(configKey: string): string {
 export function getAllProviders(): readonly ProviderMeta[] {
   return [...providerRegistry.values()];
 }
-
-/**
- * Test-only: clears both registries. Production code never needs this — the
- * registries are filled exactly once at module load via side-effect imports.
- */
-export function _resetRegistriesForTesting(): void {
-  apiKeyRegistry.clear();
-  providerRegistry.clear();
-}

@@ -277,50 +277,6 @@ export async function renderMotion(options: RenderMotionOptions): Promise<Render
   }
 }
 
-// ── Pre-render code validator & auto-fixer ────────────────────────────────
-
-/**
- * Validates and auto-fixes common LLM-generated Remotion code bugs before
- * attempting to render. Returns fixed code and a list of applied fixes.
- *
- * Known patterns fixed:
- *  1. interpolate(x, [a,b], scalar, num) → interpolate(x, [a,b], [scalar, num])
- *     Cause: outputRange must be an array, not a bare scalar.
- *  2. interpolate(x, [a,b], scalar) where scalar is a variable name
- *     Cause: same — LLM passes a single number variable instead of [from, to].
- */
-export function validateAndFixMotionCode(code: string): { code: string; fixes: string[] } {
-  const fixes: string[] = [];
-  let fixed = code;
-
-  // Pattern 1: interpolate(expr, [a, b], varName, numericLiteral)
-  // where varName is a JS identifier and numericLiteral is a number
-  // This is the exact bug seen in practice: interpolate(exitEase, [0, 1], barH, 0)
-  const pattern1 = /interpolate\(([^,]+),\s*(\[[^\]]+\]),\s*([a-zA-Z_$][a-zA-Z0-9_$.]*),\s*(-?[\d.]+)\s*\)/g;
-  fixed = fixed.replace(pattern1, (_match, val, inputRange, outVar, outNum) => {
-    const fix = `interpolate(${val}, ${inputRange}, [${outVar}, ${outNum}])`;
-    fixes.push(`Fixed scalar outputRange: interpolate(..., ${outVar}, ${outNum}) → [..., [${outVar}, ${outNum}]]`);
-    return fix;
-  });
-
-  // Pattern 2: interpolate(expr, [a, b], singleIdentifier) — no options arg
-  // e.g. interpolate(frame, [0, 30], progress) where progress is not an array
-  // Heuristic: if the third arg is a plain identifier (not starting with [) and
-  // there's no fourth arg, we can't safely auto-fix without knowing the intent,
-  // so just log a warning in the fixes list for visibility.
-  const pattern2 = /interpolate\(([^,]+),\s*(\[[^\]]+\]),\s*([a-zA-Z_$][a-zA-Z0-9_$.]*)\s*\)/g;
-  let p2match;
-  while ((p2match = pattern2.exec(fixed)) !== null) {
-    // Only warn if the identifier doesn't look like an array variable name
-    const varName = p2match[3];
-    if (!varName.includes("[")) {
-      fixes.push(`Warning: interpolate third arg "${varName}" may not be an array — verify outputRange is [from, to]`);
-    }
-  }
-
-  return { code: fixed, fixes };
-}
-
 // ── Import injection helper ────────────────────────────────────────────────
 
 /**

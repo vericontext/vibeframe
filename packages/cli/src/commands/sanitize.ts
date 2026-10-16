@@ -25,23 +25,6 @@ export function sanitizeLLMResponse(text: string): string {
 }
 
 /**
- * Sanitize a file path returned by an AI model.
- * Prevents path traversal and null byte injection.
- */
-export function sanitizeFilePath(path: string): string {
-  if (!path || typeof path !== "string") return path;
-
-  // Remove null bytes
-  let sanitized = path.replace(/\0/g, "");
-
-  // Remove control characters
-  // eslint-disable-next-line no-control-regex
-  sanitized = sanitized.replace(/[\x00-\x1f\x7f-\x9f]/g, "");
-
-  return sanitized;
-}
-
-/**
  * Sanitize structured data from AI responses (e.g., JSON parsed results).
  * Recursively sanitizes all string values.
  */

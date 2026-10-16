@@ -30,7 +30,6 @@ Please be respectful and considerate of others. We want to foster an inclusive a
 | `@vibeframe/core`         | `packages/core`         | Timeline data structures, effects, FFmpeg export |
 | `@vibeframe/ai-providers` | `packages/ai-providers` | Pluggable AI provider integrations               |
 | `@vibeframe/mcp-server`   | `packages/mcp-server`   | MCP server for Claude Desktop/Cursor             |
-| `@vibeframe/ui`           | `packages/ui`           | Shared React components (Radix UI + Tailwind)    |
 | `@vibeframe/web`          | `apps/web`              | Next.js preview UI                               |
 
 ## Running Tests

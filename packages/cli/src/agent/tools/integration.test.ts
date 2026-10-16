@@ -148,10 +148,6 @@ vi.mock("../../commands/ai-image.js", () => ({
     timestamp: 15.5,
     reason: "Best composed frame",
   }),
-  executeGeminiEdit: vi.fn().mockResolvedValue({
-    success: true,
-    outputPath: "/test/edited.png",
-  }),
 }));
 
 describe("CLI ↔ Agent Tool Synchronization", () => {

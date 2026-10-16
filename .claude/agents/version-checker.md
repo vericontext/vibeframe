@@ -24,7 +24,6 @@ packages/cli/package.json
 packages/core/package.json
 packages/ai-providers/package.json
 packages/mcp-server/package.json
-packages/ui/package.json
 apps/web/package.json
 ```
 

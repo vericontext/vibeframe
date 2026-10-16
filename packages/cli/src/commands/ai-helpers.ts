@@ -16,25 +16,6 @@ import { Project } from "../engine/index.js";
  */
 export type ApplicableSuggestion = Pick<EditSuggestion, "type" | "clipIds" | "params">;
 
-/**
- * Download a video from URL, handling Veo/Google API authentication.
- * Uses x-goog-api-key header (not query param) for Google API URLs.
- *
- * @param url - Video URL to download
- * @param apiKey - Google API key (caller should resolve from env/config)
- */
-export async function downloadVideo(url: string, apiKey?: string): Promise<Buffer> {
-  const headers: Record<string, string> = {};
-  if (url.includes("generativelanguage.googleapis.com") && apiKey) {
-    headers["x-goog-api-key"] = apiKey;
-  }
-  const response = await fetch(url, { headers, redirect: "follow" });
-  if (!response.ok) {
-    throw new Error(`Download failed (${response.status}): ${response.statusText}`);
-  }
-  return Buffer.from(await response.arrayBuffer());
-}
-
 /** Format a duration in seconds to m:ss.s display format */
 export function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);

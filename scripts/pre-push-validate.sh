@@ -12,7 +12,7 @@ WARNINGS=()
 
 # 1. Version sync — all package.json files must have the same version.
 ROOT_VERSION=$(jq -r '.version' "$PROJECT_DIR/package.json")
-for pkg in packages/cli packages/core packages/ai-providers packages/mcp-server packages/ui apps/web; do
+for pkg in packages/cli packages/core packages/ai-providers packages/mcp-server apps/web; do
   PKG_VERSION=$(jq -r '.version' "$PROJECT_DIR/$pkg/package.json" 2>/dev/null)
   if [ -n "$PKG_VERSION" ] && [ "$PKG_VERSION" != "$ROOT_VERSION" ]; then
     ERRORS+=("Version mismatch: $pkg has $PKG_VERSION, root has $ROOT_VERSION. Fix: /release patch")
