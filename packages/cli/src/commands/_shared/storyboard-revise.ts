@@ -28,6 +28,11 @@ export interface StoryboardRevisionOptions {
   durationSec?: number;
   composer?: ComposerProvider;
   dryRun?: boolean;
+  /**
+   * "draft" writes a storyboard for `request` (a brief) on top of the
+   * skeleton `vibe init --from` scaffolds, instead of editing an authored one.
+   */
+  mode?: "revise" | "draft";
   /** Overrides the composer's text generator (tests). */
   generator?: TextGenerator;
 }
@@ -117,6 +122,7 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
     provider,
     projectDir,
     request: opts.request,
+    draft: opts.mode === "draft",
     durationSec: opts.durationSec,
     currentStoryboard,
     designMd: context.designMd,
@@ -145,6 +151,7 @@ export async function executeStoryboardRevision(opts: StoryboardRevisionOptions)
       provider,
       projectDir,
       request: opts.request,
+      draft: opts.mode === "draft",
       durationSec: opts.durationSec,
       currentStoryboard,
       designMd: context.designMd,
@@ -229,6 +236,7 @@ async function requestRevision(
     provider: ComposerProvider;
     projectDir: string;
     request: string;
+    draft: boolean;
     durationSec?: number;
     currentStoryboard: string;
     designMd: string | null;
@@ -271,6 +279,7 @@ function revisionRequest(opts: {
   provider: ComposerProvider;
   projectDir: string;
   request: string;
+  draft: boolean;
   durationSec?: number;
   currentStoryboard: string;
   designMd: string | null;
@@ -279,16 +288,26 @@ function revisionRequest(opts: {
   invalidStoryboard?: string;
   validationIssues?: StoryboardValidationIssue[];
 }): TextRequest {
+  const task = opts.draft
+    ? [
+        "You write VibeFrame STORYBOARD.md files from a brief.",
+        "The current STORYBOARD.md is a skeleton made offline from the brief. Keep its frontmatter (set title to the video's subject) and its format: one `## Beat <id> - <Title>` heading per beat, then one ```yaml cue block, then a line or two of direction.",
+        "Replace the skeleton's beats with the beats this video needs. Every beat needs narration (the words spoken, in the brief's language), a backdrop (an image prompt with no readable text or logos), and motion.",
+        "Reply with the JSON object the schema describes: storyboardMd is the full STORYBOARD.md, changedBeats the ids of every beat, warnings anything the user should check before spending on providers.",
+      ]
+    : [
+        "You revise VibeFrame STORYBOARD.md files.",
+        "Reply with the JSON object the schema describes: storyboardMd is the full revised STORYBOARD.md, changedBeats the ids of beats you changed, warnings anything the user should know.",
+        "Preserve existing frontmatter, beat ids, cue YAML keys, and useful prose unless the user asks to change structure.",
+      ];
   const system = [
-    "You revise VibeFrame STORYBOARD.md files.",
-    "Reply with the JSON object the schema describes: storyboardMd is the full revised STORYBOARD.md, changedBeats the ids of beats you changed, warnings anything the user should know.",
-    "Preserve existing frontmatter, beat ids, cue YAML keys, and useful prose unless the user asks to change structure.",
+    ...task,
     // Rendered from the SSOT: this list used to be a hand-typed subset of 8,
     // so a revise pass could silently drop `characters`, `keyframe`, and the
     // lower-third cues it had never been told about.
     `Keep cue YAML valid. Allowed cue keys are ${STORYBOARD_CUE_KEYS.join(", ")}.`,
     "If a target duration is supplied, every beat must have a positive duration cue and durations must sum to that target.",
-    "Aim for 6-15 seconds per beat and never exceed ~15s — long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
+    "Aim for 6-15 seconds per beat and never exceed ~15s - long beats render as static, overstuffed scenes. A 90-second video should have 6-8 beats.",
   ].join("\n");
 
   const repairBlock = opts.invalidStoryboard
@@ -303,7 +322,7 @@ function revisionRequest(opts: {
 
   const user = [
     `Project directory: ${opts.projectDir}`,
-    `Revision request:\n${opts.request}`,
+    opts.draft ? `Brief:\n${opts.request}` : `Revision request:\n${opts.request}`,
     opts.durationSec ? `Target total duration: ${opts.durationSec} seconds` : "Target total duration: unchanged unless the request requires it",
     `vibe.config.json:\n${opts.configJson}`,
     opts.designMd ? `DESIGN.md:\n${opts.designMd}` : "DESIGN.md: not present",

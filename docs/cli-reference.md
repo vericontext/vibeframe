@@ -353,7 +353,8 @@ Cost tier: _not tagged_
 - `project-dir` _(string)_ - Project directory (defaults to cwd)
 - `type` _(string)_ _(default: `"scene"`)_ - Project type: scene (video project) | agent (agent files only)
 - `profile` _(string)_ _(minimal \| agent \| full)_ _(default: `"agent"`)_ - Scene profile: minimal (storyboard/design only), agent (recommended), full (render scaffold upfront)
-- `from` _(string)_ - Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file
+- `from` _(string)_ - Draft STORYBOARD.md and DESIGN.md from a brief string or text/markdown file. Uses the composer model when ANTHROPIC/GOOGLE/OPENAI_API_KEY is set (low cost); otherwise writes an offline skeleton
+- `offline` _(boolean)_ - With --from, write the offline skeleton only (no model call)
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1 \| 4:5)_ _(default: `"16:9"`)_ - Scene aspect ratio: 16:9, 9:16, 1:1, 4:5
 - `duration` _(number)_ _(default: `10`)_ - Default scene/root duration in seconds
 - `visualStyle` _(string)_ - Seed scene DESIGN.md from a named style
