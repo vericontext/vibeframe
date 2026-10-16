@@ -1,6 +1,6 @@
 ---
 provider: openai
-checked: 2026-10-04
+checked: 2026-10-17
 env: [OPENAI_API_KEY]
 models_endpoint: openai
 models_in_use:

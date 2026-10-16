@@ -32,10 +32,12 @@ import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js
  */
 export type GeminiImageModel =
   | "flash"
+  | "2.1"
   | "3.1-flash"
   | "latest"
   | "lite"
   | "pro"
+  | "gemini-nano-banana-2.1"
   | "gemini-3.1-flash-image"
   | "gemini-3.1-flash-lite-image"
   | "gemini-3-pro-image"
@@ -43,9 +45,7 @@ export type GeminiImageModel =
   | "gemini-3.1-flash-image-preview"
   | "gemini-3-pro-image-preview";
 
-/**
- * Image resolution (Pro model only)
- */
+/** Image size; each model takes a subset (see GEMINI_IMAGE_CAPABILITIES). */
 export type GeminiImageResolution = "512px" | "1K" | "2K" | "4K";
 
 /**
@@ -58,11 +58,11 @@ export interface GeminiImageOptions {
   aspectRatio?: "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1" | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9";
   /** Image resolution: 512px, 1K, 2K, 4K */
   resolution?: GeminiImageResolution;
-  /** Enable Google Search grounding (Pro model only, or 3.1 Flash with imageSearch) */
+  /** Enable Google Search grounding (not on Lite) */
   grounding?: boolean;
   /** Thinking configuration (for models that support it) */
   thinkingConfig?: { thinkingLevel: "minimal" | "High"; includeThoughts?: boolean };
-  /** Enable Image Search grounding (3.1 Flash only) */
+  /** Enable Image Search grounding (Nano Banana 2.1 and 3.1 Flash) */
   imageSearchGrounding?: boolean;
   /** Safety filter level */
   safetyFilterLevel?: "block_low_and_above" | "block_medium_and_above" | "block_only_high";
@@ -214,8 +214,20 @@ export interface GeminiImageAnalysisResult {
 /**
  * Google Gemini provider for AI video generation, image generation, and editing
  * - Video: Veo 3.1 Fast / Veo 3.1 (text-to-video, image-to-video)
- * - Image: Nano Banana 2 (gemini-3.1-flash-image) / Nano Banana Pro (gemini-3-pro-image)
+ * - Image: Nano Banana 2.1 (gemini-nano-banana-2.1) / Nano Banana Pro (gemini-3-pro-image)
  */
+/** What each Gemini image model accepts, from Google's image-generation guide. */
+const GEMINI_IMAGE_CAPABILITIES: Record<string, { sizes: string[]; webSearch: boolean; imageSearch: boolean; maxInputs: number }> = {
+  "gemini-nano-banana-2.1": { sizes: ["1K", "2K", "4K"], webSearch: true, imageSearch: true, maxInputs: 14 },
+  "gemini-3.1-flash-image": { sizes: ["512px", "1K", "2K", "4K"], webSearch: true, imageSearch: true, maxInputs: 14 },
+  "gemini-3.1-flash-lite-image": { sizes: ["1K"], webSearch: false, imageSearch: false, maxInputs: 14 },
+  "gemini-3-pro-image": { sizes: ["1K", "2K", "4K"], webSearch: true, imageSearch: false, maxInputs: 14 },
+};
+
+function geminiImageCapabilities(modelId: string) {
+  return GEMINI_IMAGE_CAPABILITIES[modelId] ?? { sizes: ["1K"], webSearch: false, imageSearch: false, maxInputs: 3 };
+}
+
 export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator {
   id = "gemini";
   name = "Google Gemini";
@@ -602,7 +614,7 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
 
   /** Nano Banana edits take up to 3 input images, Pro up to 14. */
   maxEditImages(model?: string): number {
-    return resolveCatalogModel("gemini", "image", model).id.includes("pro") ? 14 : 3;
+    return geminiImageCapabilities(resolveCatalogModel("gemini", "image", model).id).maxInputs;
   }
 
   async createImage(request: ImageRequest): Promise<ImageResultSet> {
@@ -610,7 +622,7 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
       throw new ProviderError({ kind: "auth", provider: this.imageProvider, message: "Google API key not configured" });
     }
     const modelId = resolveCatalogModel(this.imageProvider, "image", request.model).id;
-    const isPro = modelId.includes("pro");
+    const caps = geminiImageCapabilities(modelId);
     const inputs = request.images ?? [];
     if (inputs.length > this.maxEditImages(modelId)) {
       throw new ProviderError({
@@ -623,8 +635,14 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
     const imageConfig: Record<string, string> = {};
     if (request.aspectRatio) imageConfig.aspectRatio = request.aspectRatio;
     else if (inputs.length === 0) imageConfig.aspectRatio = "1:1";
-    // 512px and 1K work on every model; 2K and 4K need Pro.
-    if (request.resolution && (request.resolution === "512px" || request.resolution === "1K" || isPro)) {
+    if (request.resolution) {
+      if (!caps.sizes.includes(request.resolution)) {
+        throw new ProviderError({
+          kind: "invalid-request",
+          provider: this.imageProvider,
+          message: `${modelId} renders ${caps.sizes.join(", ")}, not ${request.resolution}.`,
+        });
+      }
       imageConfig.imageSize = request.resolution;
     }
     const generationConfig: Record<string, unknown> = { responseModalities: ["TEXT", "IMAGE"] };
@@ -642,9 +660,18 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
       ],
       generationConfig,
     };
-    if (request.providerOptions?.imageSearchGrounding && modelId.startsWith("gemini-3.1-flash-image")) {
+    const wantsImageSearch = request.providerOptions?.imageSearchGrounding === true;
+    const wantsWebSearch = request.providerOptions?.grounding === true;
+    if ((wantsImageSearch && !caps.imageSearch) || (wantsWebSearch && !caps.webSearch)) {
+      throw new ProviderError({
+        kind: "unsupported",
+        provider: this.imageProvider,
+        message: `${modelId} does not support ${wantsImageSearch && !caps.imageSearch ? "Image Search" : "Google Search"} grounding.`,
+      });
+    }
+    if (wantsImageSearch) {
       payload.tools = [{ googleSearch: { searchTypes: { webSearch: {}, imageSearch: {} } } }];
-    } else if (request.providerOptions?.grounding && isPro) {
+    } else if (wantsWebSearch) {
       payload.tools = [{ googleSearch: {} }];
     }
 

@@ -1,6 +1,6 @@
 ---
 provider: elevenlabs
-checked: 2026-10-04
+checked: 2026-10-17
 env: [ELEVENLABS_API_KEY]
 models_endpoint: none
 models_in_use:

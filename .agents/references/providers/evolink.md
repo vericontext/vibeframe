@@ -1,6 +1,6 @@
 ---
 provider: evolink
-checked: 2026-10-04
+checked: 2026-10-17
 env: [EVOLINK_API_KEY]
 models_endpoint: none
 models_in_use:

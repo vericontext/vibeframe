@@ -1,6 +1,6 @@
 ---
 provider: runway
-checked: 2026-10-04
+checked: 2026-10-17
 env: [RUNWAY_API_SECRET]
 models_endpoint: none
 models_in_use:

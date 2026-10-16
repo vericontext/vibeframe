@@ -507,7 +507,7 @@ Cost tier: `high`
 - `ratio` _(string)_ _(default: `"1:1"`)_ - Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)
 - `size` _(string)_ - Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)
 - `quality` _(string)_ _(low \| medium \| high)_ - Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)
-- `resolution` _(string)_ - Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k
+- `resolution` _(string)_ - Gemini 1K/2K/4K (512px on 3.1 Flash, Lite 1K only) or Grok 1k/2k
 - `count` _(number)_ _(default: `1`)_ - Number of images to generate
 - `model` _(string)_ - Model. OpenAI: 2.5 (default), flare, 2. Gemini: flash (default), lite, pro. Grok: pro
 - `dryRun` _(boolean)_ - Preview parameters without executing

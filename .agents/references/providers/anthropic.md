@@ -1,12 +1,13 @@
 ---
 provider: anthropic
-checked: 2026-10-04
+checked: 2026-10-17
 env: [ANTHROPIC_API_KEY]
 models_endpoint: anthropic
 models_in_use:
   - claude-sonnet-5-5           # default: agent, storyboard, translate-srt, motion `sonnet`
   - claude-opus-5-5             # motion `opus`
   - claude-opus-4-6             # motion `opus-4-6` (legacy alias)
+  - claude-haiku-5-5            # `haiku` alias
 models_recommended: []
 ---
 
@@ -22,6 +23,7 @@ Prices are USD per 1M input / output tokens on the Claude API.
 
 | ID | Kind | Status | Price | Notes |
 |---|---|---|---|---|
+| `claude-haiku-5-5` | text+image | GA 2026-10-07, retires >= 2027-10-07 | $0.10 / $0.50 up to 100K-token prompts, $0.50 / $2.50 above (docs) | 1M context, 128K out. Accepts `thinking: disabled` and forced `tool_choice`; rejects `budget_tokens`, assistant prefill, `temperature` other than 1, `top_p` other than 0.99. Newer tokenizer, ~30% more tokens than Haiku 4.5 (docs). Answered our text contract in ~4 s (probe 2026-10-17). |
 | `claude-sonnet-5-5` | text+image | GA, latest, retires >= 2027-09-28 | $2 / $10 | 1M context, 128K out, adaptive thinking on by default, default effort `high` (docs) |
 | `claude-opus-5-5` | text+image | GA, latest, retires >= 2027-09-22 | $4 / $20 | Thinking always on, default effort `medium`, cache read 5% of input (docs) |
 | `claude-fable-5-1` | text+image | GA, latest, retires >= 2027-09-01 | $10 / $50 | Thinking always on, default effort `high`, for long-horizon agentic work (docs) |

@@ -42,7 +42,7 @@ export function registerImageCommand(parent: Command): void {
     // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`,
     // which previously ate the value silently and dropped the prompt positional.
     .option("--quality <quality>", "Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)")
-    .option("--resolution <res>", "Gemini 1K/2K/4K (2K and 4K need Pro) or Grok 1k/2k")
+    .option("--resolution <res>", "Gemini 1K/2K/4K (512px on 3.1 Flash, Lite 1K only) or Grok 1k/2k")
     .option("--count <n>", "Number of images to generate", "1")
     .option("-m, --model <model>", "Model. OpenAI: 2.5 (default), flare, 2. Gemini: flash (default), lite, pro. Grok: pro")
     .option("--dry-run", "Preview parameters without executing")
@@ -119,7 +119,7 @@ Examples:
       };
 
       if (options.dryRun) {
-        const estimate = estimateImageCostUsd(provider, options.model, count);
+        const estimate = estimateImageCostUsd(provider, options.model, count, options.resolution);
         outputSuccess({
           command: "generate image",
           startedAt,
@@ -153,7 +153,7 @@ Examples:
       }
 
       const modelId = result.model ?? modelSpec.id;
-      const cost = estimateImageCostUsd(provider, options.model, result.images.length);
+      const cost = estimateImageCostUsd(provider, options.model, result.images.length, options.resolution);
       if (isJsonMode()) {
         outputSuccess({
           command: "generate image",

@@ -1,6 +1,6 @@
 ---
 provider: fal
-checked: 2026-10-04
+checked: 2026-10-17
 env: [FAL_API_KEY, IMGBB_API_KEY]   # IMGBB only for uploading local i2v images
 models_endpoint: none
 models_in_use:

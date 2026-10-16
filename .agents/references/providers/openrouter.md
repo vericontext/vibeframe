@@ -1,6 +1,6 @@
 ---
 provider: openrouter
-checked: 2026-10-04
+checked: 2026-10-17
 env: [OPENROUTER_API_KEY]
 models_endpoint: openrouter
 models_in_use:
