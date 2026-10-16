@@ -71,7 +71,7 @@ When unsure, use `patch`.
 npm version` for this step because recursive pnpm includes the root package.
 
    ```bash
-   for dir in packages/cli packages/core packages/ai-providers packages/mcp-server packages/ui apps/web; do
+   for dir in packages/cli packages/core packages/ai-providers packages/mcp-server apps/web; do
      (cd "$dir" && npm version "$NEW_VERSION" --no-git-tag-version)
    done
    ```

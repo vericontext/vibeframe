@@ -118,10 +118,6 @@ export function notFoundError(path: string): StructuredError {
   return { success: false, error: `File not found: ${path}`, code: "NOT_FOUND", exitCode: ExitCode.NOT_FOUND, retryable: false };
 }
 
-export function networkError(msg: string): StructuredError {
-  return { success: false, error: msg, code: "NETWORK_ERROR", exitCode: ExitCode.NETWORK, suggestion: "Check your internet connection and retry.", retryable: true };
-}
-
 export function generalError(msg: string, suggestion?: string): StructuredError {
   return { success: false, error: msg, code: "ERROR", exitCode: ExitCode.GENERAL, suggestion, retryable: false };
 }
@@ -436,13 +432,6 @@ export function spinner(text: string): ReturnType<typeof ora> {
     return ora({ text, isSilent: true });
   }
   return ora(text);
-}
-
-/** Suggest next steps - only in human interactive mode */
-export function suggestNext(tip: string): void {
-  if (!isJsonMode() && !isQuietMode() && process.stdout.isTTY) {
-    console.log(chalk.dim(`\n  Tip: ${tip}`));
-  }
 }
 
 /**

@@ -3,7 +3,7 @@
  * Handles stdin fallback to /dev/tty for piped environments
  */
 
-import { createInterface, Interface } from "node:readline";
+import { createInterface } from "node:readline";
 import { ReadStream } from "node:tty";
 import { openUrl } from "./open-url.js";
 
@@ -90,20 +90,6 @@ export function closeTTYStream(): void {
     ttyStream.destroy();
     ttyStream = null;
   }
-}
-
-/**
- * Create a readline interface with TTY support
- */
-export function createTTYInterface(options?: { prompt?: string; historySize?: number }): Interface {
-  const input = getTTYInputStream();
-  return createInterface({
-    input,
-    output: process.stdout,
-    terminal: true,
-    historySize: options?.historySize ?? 100,
-    prompt: options?.prompt ?? "> ",
-  });
 }
 
 /**

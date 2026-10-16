@@ -57,28 +57,3 @@ export function rejectControlChars(input: string): string {
   }
   return input;
 }
-
-/**
- * Validate a media file path and check its extension against an allowlist.
- */
-export function validateMediaFile(
-  path: string,
-  allowedExts: string[]
-): string {
-  rejectControlChars(path);
-  const ext = path.toLowerCase().split(".").pop();
-  if (!ext || !allowedExts.includes(`.${ext}`)) {
-    throw new Error(
-      `Unsupported file type ".${ext}". Allowed: ${allowedExts.join(", ")}`
-    );
-  }
-  return path;
-}
-
-/** Common media file extensions */
-export const MEDIA_EXTS = {
-  video: [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".flv"],
-  audio: [".mp3", ".wav", ".aac", ".ogg", ".m4a", ".flac", ".wma"],
-  image: [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".svg"],
-  subtitle: [".srt", ".vtt", ".ass", ".ssa"],
-};

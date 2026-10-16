@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
 import { validateStoryboardMarkdown } from "./storyboard-edit.js";
 import type { Beat } from "./storyboard-parse.js";
@@ -780,11 +780,4 @@ async function listHtmlBasenames(dir: string): Promise<string[]> {
 
 function isExternalRef(value: string): boolean {
   return /^https?:\/\//i.test(value) || /^data:/i.test(value);
-}
-
-export function displayIssue(issue: ReviewIssue): string {
-  const file = issue.file
-    ? ` ${relative(process.cwd(), resolve(issue.file)) || basename(issue.file)}`
-    : "";
-  return `[${issue.severity}] ${issue.code}${file}: ${issue.message}`;
 }

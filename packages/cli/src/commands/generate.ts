@@ -45,11 +45,6 @@ export type {
   ExecuteSoundEffectOptions,
   ExecuteSoundEffectResult,
 } from "./generate/sound-effect.js";
-export { executeMusicStatus } from "./generate/music-status.js";
-export type {
-  ExecuteMusicStatusOptions,
-  ExecuteMusicStatusResult,
-} from "./generate/music-status.js";
 export { executeStoryboard } from "./generate/storyboard.js";
 export type { ExecuteStoryboardOptions, ExecuteStoryboardResult } from "./generate/storyboard.js";
 export { executeSpeech } from "./generate/speech.js";

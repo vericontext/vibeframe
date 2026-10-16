@@ -42,23 +42,6 @@ exports[`structured error envelope (exitWithError → stderr) > edit translate-s
 }
 `;
 
-exports[`structured error envelope (exitWithError → stderr) > generate image — no API key, hermetic (API_ERROR) 1`] = `
-{
-  "code": "API_ERROR",
-  "error": "Image generation failed: OpenAI API key required.
-  Set OPENAI_API_KEY in .env, or run: vibe setup
-  Get key: https://platform.openai.com/api-keys",
-  "exitCode": 5,
-  "message": "Image generation failed: OpenAI API key required.
-  Set OPENAI_API_KEY in .env, or run: vibe setup
-  Get key: https://platform.openai.com/api-keys",
-  "recoverable": false,
-  "retryWith": [],
-  "retryable": false,
-  "success": false,
-}
-`;
-
 exports[`structured error envelope (exitWithError → stderr) > generate image — no API key, hermetic (API_KEY_MISSING) 1`] = `
 {
   "code": "API_KEY_MISSING",

@@ -99,8 +99,6 @@
     "@types/node": "^20.11.0",
     "@vibeframe/ai-providers": "workspace:*",
     "@vibeframe/core": "workspace:*",
-    "@vitest/coverage-v8": "1",
-    "@webgpu/types": "^0.1.69",
     "esbuild": "^0.24.0",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",

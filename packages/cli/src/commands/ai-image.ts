@@ -152,15 +152,6 @@ export async function executeImageEdit(options: ImageEditOptions): Promise<Image
   }
 }
 
-/** @deprecated Use `executeImageEdit`; kept for callers that predate other edit providers. */
-export type GeminiEditOptions = Omit<ImageEditOptions, "provider">;
-/** @deprecated Use `executeImageEdit`. */
-export type GeminiEditResult = ImageEditResult;
-/** @deprecated Use `executeImageEdit`. */
-export function executeGeminiEdit(options: GeminiEditOptions): Promise<ImageEditResult> {
-  return executeImageEdit({ ...options, provider: "gemini" });
-}
-
 // ============================================================================
 // Thumbnail Best Frame
 // ============================================================================

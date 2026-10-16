@@ -66,21 +66,3 @@ export function validateOutputPath(outputPath: string): string {
   }
   return validateSafePath(outputPath);
 }
-
-/**
- * Validate a user-provided string (prompt text, etc.) for sanity.
- * Rejects control chars and caps length to prevent context abuse.
- */
-export function validateTextInput(
-  value: string,
-  fieldName = "input",
-  maxLength = 10000,
-): string {
-  rejectControlChars(value, fieldName);
-  if (value.length > maxLength) {
-    throw new Error(
-      `${fieldName} exceeds maximum length of ${maxLength} characters (got ${value.length}).`
-    );
-  }
-  return value;
-}

@@ -61,11 +61,6 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   export: { id: "export", title: "Export project", category: "export", outputs: ["video"] },
 };
 
-export function getPipelineActionMetadata(action?: PipelineAction): PipelineActionMetadata[] | PipelineActionMetadata | undefined {
-  if (action) return ACTION_METADATA[action];
-  return Object.values(ACTION_METADATA).filter((m): m is PipelineActionMetadata => Boolean(m));
-}
-
 function maxCostFor(action: PipelineAction): number {
   const cmd = ACTION_METADATA[action]?.command;
   if (!cmd) return 0;

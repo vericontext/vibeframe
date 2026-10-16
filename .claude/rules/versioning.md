@@ -95,7 +95,6 @@ do not dispatch publishing automatically.
 - `packages/core/package.json`
 - `packages/ai-providers/package.json`
 - `packages/mcp-server/package.json`
-- `packages/ui/package.json`
 - `apps/web/package.json`
 
 **Current version:** Check with `jq -r '.version' package.json`

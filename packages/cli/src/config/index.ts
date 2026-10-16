@@ -34,35 +34,12 @@ function resolveEnvPath(name: string): string | null {
   return value ? resolve(value) : null;
 }
 
-function resolveXdgAppDir(opts: {
-  overrideEnv: string;
-  xdgEnv: string;
-  fallbackHomeRel: string;
-}): string {
-  const override = resolveEnvPath(opts.overrideEnv);
-  if (override) return override;
-  const xdgBase = resolveEnvPath(opts.xdgEnv);
-  const base = xdgBase ?? resolve(homedir(), opts.fallbackHomeRel);
-  return resolve(base, "vibeframe");
-}
-
 /** User-scope config directory (~/.vibeframe by default). */
 export const USER_CONFIG_DIR =
   resolveEnvPath("VIBEFRAME_CONFIG_HOME") ?? resolve(homedir(), ".vibeframe");
 
 /** User-scope config file (~/.vibeframe/config.yaml by default). */
 export const USER_CONFIG_PATH = resolve(USER_CONFIG_DIR, "config.yaml");
-
-/** User data directory (~/.local/share/vibeframe by default). */
-export const USER_DATA_DIR = resolveXdgAppDir({
-  overrideEnv: "VIBEFRAME_DATA_HOME",
-  xdgEnv: "XDG_DATA_HOME",
-  fallbackHomeRel: ".local/share",
-});
-
-/** User cache directory (~/.vibeframe/cache by default). */
-export const USER_CACHE_DIR =
-  resolveEnvPath("VIBEFRAME_CACHE_HOME") ?? resolve(USER_CONFIG_DIR, "cache");
 
 /** Legacy user-scope config directory used by pre-XDG installs. */
 export const LEGACY_USER_CONFIG_DIR = resolve(homedir(), ".vibeframe");
@@ -341,23 +318,6 @@ function getEnvValue(envVar: string): string | undefined {
     process.env[envVar] ||
     PROVIDER_ENV_ALIASES[envVar]?.map((alias) => process.env[alias]).find(Boolean)
   );
-}
-
-/**
- * Update a provider key in the active scope (project if present, else user).
- * Pass `{scope}` to force a specific destination.
- */
-export async function updateProviderKey(
-  providerKey: string,
-  apiKey: string,
-  options: SaveConfigOptions = {}
-): Promise<void> {
-  const scope = options.scope ?? (await getActiveScope(options.cwd));
-  let config = await loadConfig({ scope, cwd: options.cwd });
-  if (!config) config = createDefaultConfig();
-
-  config.providers[providerKey as keyof typeof config.providers] = apiKey;
-  await saveConfig(config, { scope, cwd: options.cwd });
 }
 
 // Re-export types

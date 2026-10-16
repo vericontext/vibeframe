@@ -40,13 +40,6 @@ export const resources = [
 const currentProjectPath: string | null = process.env.VIBE_PROJECT_PATH || null;
 
 /**
- * Get the current project path
- */
-export function getCurrentProjectPath(): string | null {
-  return currentProjectPath;
-}
-
-/**
  * Load project from path
  */
 async function loadProject(projectPath: string): Promise<Project> {
