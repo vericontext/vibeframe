@@ -15,30 +15,24 @@ import {
   type VideoJob,
 } from "@vibeframe/ai-providers";
 import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { unknownVideoProviderMessage } from "./build-video-providers.js";
 import { resolveUploadHost } from "../../utils/upload-host.js";
 
 /** Env var holding each video provider's key. */
 export const VIDEO_PROVIDER_ENV: Readonly<Record<string, string>> = {
   seedance: "FAL_API_KEY",
-  fal: "FAL_API_KEY",
   grok: "XAI_API_KEY",
   kling: "KLING_API_KEY",
   runway: "RUNWAY_API_SECRET",
   omni: "GOOGLE_API_KEY",
 };
 
-/** `fal` is the old name for `seedance`. */
-export function canonicalVideoProvider(provider: string): string {
-  const id = provider.toLowerCase();
-  return id === "fal" ? "seedance" : id;
-}
-
 /** A video generator for `provider`, with the given key or the configured one. */
 export async function openVideoGenerator(provider: string, apiKey?: string): Promise<VideoGenerator> {
-  const id = canonicalVideoProvider(provider);
+  const id = provider.toLowerCase();
   const envVar = VIDEO_PROVIDER_ENV[id];
   if (!envVar) {
-    throw new ProviderError({ kind: "invalid-request", provider: id, message: `Unknown video provider "${provider}".` });
+    throw new ProviderError({ kind: "invalid-request", provider: id, message: unknownVideoProviderMessage(provider) });
   }
   const key = await getConfiguredApiKey(envVar, apiKey);
   if (!key) {
@@ -53,7 +47,7 @@ export async function openVideoGenerator(provider: string, apiKey?: string): Pro
  * it themselves: Kling tries both task types, Seedance uses its model's app.
  */
 export function jobFromTaskId(provider: string, taskId: string, opts: { model?: string; taskType?: string } = {}): VideoJob {
-  const id = canonicalVideoProvider(provider);
+  const id = provider.toLowerCase();
   return {
     provider: id,
     id: taskId,

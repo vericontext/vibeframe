@@ -110,7 +110,6 @@ async function resolvePipelineVideoProvider(
   provider: unknown,
 ): Promise<BuildVideoProvider | undefined> {
   const explicit = stringParam(provider)?.toLowerCase();
-  if (explicit === "fal") return "seedance";
   // Unknown names pass through so the executor reports them instead of
   // silently switching providers.
   if (explicit) return explicit as BuildVideoProvider;
@@ -135,7 +134,6 @@ function providerKeyForImage(provider: string | undefined): string | undefined {
 function providerKeyForVideo(provider: string | undefined): string | undefined {
   switch (provider) {
     case "seedance":
-    case "fal":
       return "fal";
     case "grok":
       return "xai";

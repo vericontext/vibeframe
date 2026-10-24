@@ -93,8 +93,6 @@ export interface ProviderMeta {
   displayName?: string;
   /** API gateway or host service, e.g. fal.ai for Seedance. */
   gateway?: string;
-  /** Backward-compatible provider ids accepted by CLI flags. */
-  aliases?: readonly string[];
   /** User-selectable model variants for this provider. */
   models?: readonly string[];
   /** Capability tags used by docs/help; intentionally lightweight for now. */

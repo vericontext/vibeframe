@@ -744,7 +744,7 @@ function resolveRefreshOutput(record: JobRecord, opts: RefreshJobOptions): strin
 function liveSupport(record: JobRecord): { supported: boolean; error?: string } {
   if (
     record.jobType === "generate-video" &&
-    (VIDEO_GENERATOR_PROVIDERS as readonly string[]).includes(record.provider === "fal" ? "seedance" : record.provider)
+    (VIDEO_GENERATOR_PROVIDERS as readonly string[]).includes(record.provider)
   ) {
     return { supported: true };
   }

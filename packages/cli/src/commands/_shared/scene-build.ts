@@ -2742,7 +2742,7 @@ function estimateActualAssetCost(
     if (outcome.keyframeStatus === "generated") cost += backdropCostUsd(imageQuality);
     if (outcome.videoStatus === "generated" || outcome.videoStatus === "pending") {
       cost +=
-        outcome.videoProvider === "seedance" || outcome.videoProvider === "fal"
+        outcome.videoProvider === "seedance"
           ? estimateSeedanceVideoCostUsd({
               durationSec: normalizeVideoDuration(outcome.sceneDurationSec),
               resolution: "720p",

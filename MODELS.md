@@ -159,7 +159,7 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 Models, durations, and prices are in the catalog above.
 Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`, Omni `GOOGLE_API_KEY`, Runway `RUNWAY_API_SECRET`.
 
-> `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed at the 1.0 cut. Use `-p seedance` in new scripts.
+> `-p fal`, the old name for `-p seedance`, was removed in 0.116.0; it now fails with a pointer to `-p seedance`.
 
 > ⚠️ **Seedance rejects image-to-video inputs showing a recognizable face.**
 > This is ByteDance's platform-wide likeness policy, not a fal.ai quirk: the

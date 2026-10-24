@@ -50,7 +50,7 @@ export function registerVideoCommand(parent: Command): void {
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
     .option(
       "-p, --provider <provider>",
-      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
+      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash)"
     )
     .option(
       "-k, --api-key <key>",
@@ -148,11 +148,7 @@ Examples:
         //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > omni > kling > runway)
         //  - if no keys at all → keep grok as last-resort default so the
         //    later requireApiKey() prints a friendly Grok-specific message
-        // `fal` is intentionally still in validProviders so users hitting it
-        // get the deprecation warning (below) instead of "Invalid provider".
-        // It is NOT in videoEnvMap because the warning translates to seedance
-        // before any map lookup runs.
-        const validProviders = ["runway", "kling", "grok", "seedance", "fal", "omni"];
+        const validProviders = ["runway", "kling", "grok", "seedance", "omni"];
         const videoEnvMap: Record<string, string> = {
           grok: "XAI_API_KEY",
           omni: "GOOGLE_API_KEY",
@@ -169,21 +165,11 @@ Examples:
                 `Invalid provider: ${provider}`,
                 provider === "veo"
                   ? "Veo 3.1 shut down on 2026-10-22; use `-p omni` (Gemini Omni) on the same GOOGLE_API_KEY."
-                  : "Available providers: seedance, grok, kling, runway, omni. `fal` is a deprecated alias for seedance."
+                  : provider === "fal"
+                    ? "`fal` was renamed to `seedance`; use `-p seedance` (same FAL_API_KEY)."
+                    : "Available providers: seedance, grok, kling, runway, omni."
               )
             );
-          }
-          // Soft-deprecation: `-p fal` was the v0.x id; canonical is now
-          // `seedance`. Warn once on stderr (not log/spinner — those go to
-          // stdout in JSON mode), translate to canonical, then continue.
-          // Review this alias at the 1.0 cut.
-          if (provider === "fal") {
-            process.stderr.write(
-              chalk.yellow(
-                "Note: `-p fal` is a deprecated alias for `-p seedance` and will be removed in 1.0.\n"
-              )
-            );
-            provider = "seedance";
           }
           if (
             videoEnvMap[provider] &&
@@ -250,7 +236,7 @@ Examples:
           // token-accurate estimate so agents can gate spend precisely. Other
           // providers fall back to the tier bound (costUsd left undefined).
           const costUsd =
-            provider === "seedance" || provider === "fal"
+            provider === "seedance"
               ? realRunCost(provider, options).costUsd
               : undefined;
           outputSuccess({
@@ -409,7 +395,7 @@ export function realRunCost(provider: string, options: {
   seedanceModel?: string;
   refVideos?: string[];
 }): { costUsd: number; warnings: string[] } {
-  if (provider === "seedance" || provider === "fal") {
+  if (provider === "seedance") {
     const variant = resolveSeedanceVariant(options.seedanceModel);
     return {
       costUsd: estimateSeedanceVideoCostUsd({

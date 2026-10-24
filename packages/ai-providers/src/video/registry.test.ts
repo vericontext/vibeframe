@@ -12,8 +12,8 @@ describe("createVideoGenerator", () => {
     }
   });
 
-  it("accepts fal as the old name for seedance and rejects unknown providers", async () => {
-    expect((await createVideoGenerator("fal", "k")).id).toBe("seedance");
+  it("rejects unknown providers, including the retired `fal` alias", async () => {
+    await expect(createVideoGenerator("fal", "k")).rejects.toMatchObject({ kind: "invalid-request" });
     await expect(createVideoGenerator("sora", "k")).rejects.toMatchObject({ kind: "invalid-request" });
   });
 });

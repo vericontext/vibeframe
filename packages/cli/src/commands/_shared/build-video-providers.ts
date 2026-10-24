@@ -15,7 +15,6 @@ export function isBuildVideoProvider(value: string): value is BuildVideoProvider
 /** A requested provider, normalized; null when no build video provider has that name. */
 export function parseBuildVideoProvider(value: string): BuildVideoProvider | null {
   const provider = value.trim().toLowerCase();
-  if (provider === "fal") return "seedance";
   return isBuildVideoProvider(provider) ? provider : null;
 }
 
@@ -31,18 +30,21 @@ export function resolveBuildVideoProvider(value: unknown): BuildVideoProvider {
   return provider;
 }
 
+/** Why a provider name that used to work no longer does, and what replaces it. */
+const RETIRED_VIDEO_PROVIDERS: Readonly<Record<string, string>> = {
+  veo: "Veo 3.1 shut down on 2026-10-22; Gemini Omni (omni) replaces it.",
+  fal: "`fal` was renamed to `seedance` (same FAL_API_KEY).",
+};
+
 export function unknownVideoProviderMessage(value: string): string {
-  const retired = value.trim().toLowerCase() === "veo"
-    ? " Veo 3.1 shut down on 2026-10-22; Gemini Omni (omni) replaces it."
-    : "";
-  return `Unknown video provider "${value}". Available: ${BUILD_VIDEO_PROVIDERS.join(", ")}.${retired}`;
+  const retired = RETIRED_VIDEO_PROVIDERS[value.trim().toLowerCase()];
+  return `Unknown video provider "${value}". Available: ${BUILD_VIDEO_PROVIDERS.join(", ")}.${retired ? ` ${retired}` : ""}`;
 }
 
 /** Config/API-key id that unlocks a video provider. */
 export function videoProviderConfigKey(provider: string): string {
   switch (provider) {
     case "seedance":
-    case "fal":
       return "fal";
     case "grok":
       return "xai";

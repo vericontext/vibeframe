@@ -21,7 +21,7 @@ models_recommended: []
 
 # fal.ai
 
-VibeFrame uses fal.ai as the gateway to ByteDance Seedance, the default video provider (`-p seedance`, alias `-p fal`) when `FAL_API_KEY` is set.
+VibeFrame uses fal.ai as the gateway to ByteDance Seedance, the default video provider (`-p seedance`) when `FAL_API_KEY` is set.
 We call Seedance 2.0 text-to-video, image-to-video, and reference-to-video through the `@fal-ai/client` SDK.
 
 ## Models

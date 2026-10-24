@@ -12,7 +12,7 @@ describe("videoModelSpec", () => {
     expect(videoModelSpec("grok", { grokModel: "lite" })?.id).toBe("grok-imagine-video-1.5-lite");
     expect(videoModelSpec("kling", { klingModel: "v2.6" })?.id).toBe("kling-v2-6");
     expect(videoModelSpec("omni", {})?.id).toBe("gemini-omni-1.1-flash");
-    expect(videoModelSpec("fal", {})?.provider).toBe("seedance");
+    expect(videoModelSpec("seedance", {})?.provider).toBe("seedance");
   });
 });
 

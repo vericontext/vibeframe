@@ -14,9 +14,9 @@ import type { VideoGenerator } from "./contract.js";
 export const VIDEO_GENERATOR_PROVIDERS = ["seedance", "grok", "kling", "runway", "omni"] as const;
 export type VideoGeneratorProvider = (typeof VIDEO_GENERATOR_PROVIDERS)[number];
 
-/** A ready video generator for `provider` (`fal` is the old name for `seedance`). */
+/** A ready video generator for `provider`. */
 export async function createVideoGenerator(provider: string, apiKey: string): Promise<VideoGenerator> {
-  const id = provider === "fal" ? "seedance" : provider;
+  const id = provider;
   const generator =
     id === "seedance"
       ? new FalProvider()
