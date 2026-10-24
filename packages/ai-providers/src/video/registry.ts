@@ -5,14 +5,13 @@
 
 import { FalProvider } from "../fal/FalProvider.js";
 import { OmniProvider } from "../gemini/gemini-omni.js";
-import { VeoGenerator } from "../gemini/veo-generator.js";
 import { GrokProvider } from "../grok/GrokProvider.js";
 import { KlingProvider } from "../kling/KlingProvider.js";
 import { RunwayProvider } from "../runway/RunwayProvider.js";
 import { ProviderError } from "../shared/errors.js";
 import type { VideoGenerator } from "./contract.js";
 
-export const VIDEO_GENERATOR_PROVIDERS = ["seedance", "grok", "kling", "runway", "omni", "veo"] as const;
+export const VIDEO_GENERATOR_PROVIDERS = ["seedance", "grok", "kling", "runway", "omni"] as const;
 export type VideoGeneratorProvider = (typeof VIDEO_GENERATOR_PROVIDERS)[number];
 
 /** A ready video generator for `provider` (`fal` is the old name for `seedance`). */
@@ -29,9 +28,7 @@ export async function createVideoGenerator(provider: string, apiKey: string): Pr
             ? new RunwayProvider()
             : id === "omni"
               ? new OmniProvider()
-              : id === "veo"
-                ? new VeoGenerator()
-                : undefined;
+              : undefined;
   if (!generator) {
     throw new ProviderError({
       kind: "invalid-request",

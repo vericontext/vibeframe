@@ -25,7 +25,6 @@ export const VIDEO_PROVIDER_ENV: Readonly<Record<string, string>> = {
   kling: "KLING_API_KEY",
   runway: "RUNWAY_API_SECRET",
   omni: "GOOGLE_API_KEY",
-  veo: "GOOGLE_API_KEY",
 };
 
 /** `fal` is the old name for `seedance`. */

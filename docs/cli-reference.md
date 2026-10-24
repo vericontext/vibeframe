@@ -258,7 +258,7 @@ Cost tier: _not tagged_
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
 - `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted.
-- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni|veo
+- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ _(default: `"hd"`)_ - Image quality: standard|hd
 - `imageSize` _(string)_ _(default: `"1536x1024"`)_ - Image size: 1024x1024|1536x1024|1024x1536
@@ -386,7 +386,7 @@ Cost tier: _not tagged_
 - `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
-- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni|veo
+- `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni
 - `musicProvider` _(string)_ - Music provider: elevenlabs|replicate
 - `quality` _(string)_ - Image quality: standard|hd
 - `imageSize` _(string)_ - Image size: 1024x1024|1536x1024|1024x1536
@@ -619,7 +619,7 @@ Cost tier: `free`
 
 #### `vibe generate video`
 
-Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)
+Generate video using AI (Seedance, Grok, Kling, Runway, or Gemini Omni)
 
 Product surface: `public`
 
@@ -628,27 +628,25 @@ Cost tier: `very-high`
 **Parameters:**
 
 - `prompt` _(string)_ - Text prompt describing the video (interactive if omitted)
-- `provider` _(string)_ - Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
+- `provider` _(string)_ - Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0.
 - `apiKey` _(string)_ - API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `output` _(string)_ - Output file path (downloads video)
 - `image` _(string)_ - Reference image for image-to-video
-- `duration` _(number)_ _(default: `5`)_ - Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.
+- `duration` _(number)_ _(default: `5`)_ - Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1)_ - Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)
 - `seed` _(number)_ - Random seed for reproducibility (Runway only)
 - `mode` _(string)_ _(default: `"std"`)_ - Generation mode: std or pro (Kling only)
 - `seedanceModel` _(string)_ _(default: `"quality"`)_ - Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)
 - `grokModel` _(string)_ _(default: `"1.5"`)_ - Grok video model: 1.5 (default), lite, classic
 - `klingModel` _(string)_ _(default: `"v3"`)_ - Kling model: v3 (default), v2.6, v2.5-turbo
-- `negative` _(string)_ - Negative prompt - what to avoid (Kling/Veo)
+- `negative` _(string)_ - Negative prompt - what to avoid (Seedance/Kling)
 - `resolution` _(string)_ - Video resolution: 480p, 720p, 1080p, or 4k depending on provider
-- `lastFrame` _(string)_ - Last frame image for frame interpolation (Veo) or Seedance end frame
+- `lastFrame` _(string)_ - Ending frame image for Seedance (same as --end-image)
 - `endImage` _(string)_ - Ending frame image for Seedance image-to-video
-- `refImages` _(string)_ - Reference images for Seedance reference-to-video or Veo character consistency
+- `refImages` _(string)_ - Reference images for Seedance reference-to-video
 - `refVideos` _(string)_ - Reference videos for Seedance reference-to-video
 - `refAudio` _(string)_ - Reference audio for Seedance reference-to-video
 - `noGenerateAudio` _(boolean)_ - Disable native audio when the provider supports it
-- `person` _(string)_ - Person generation: allow_all, allow_adult (Veo only)
-- `veoModel` _(string)_ _(default: `"3.1-fast"`)_ - Veo model: 3.1, 3.1-fast (default: 3.1-fast)
 - `runwayModel` _(string)_ _(default: `"gen4.5"`)_ - Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)
 - `noWait` _(boolean)_ - Start generation and return task ID without waiting
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -670,7 +668,7 @@ Cost tier: `free`
 
 #### `vibe generate video-extend`
 
-Extend a generated video from its last frame (Kling, Grok, Gemini Omni, Veo)
+Extend a generated video from its last frame (Kling, Grok, Gemini Omni)
 
 Product surface: `advanced`
 Note: Provider lifecycle control.
@@ -679,14 +677,13 @@ Cost tier: `very-high`
 
 **Parameters:**
 
-- `task-id` _(string)_ **required** - Task ID the generation returned (Veo: its operation name)
-- `provider` _(string)_ _(kling \| grok \| omni \| veo)_ _(default: `"kling"`)_ - Provider: kling, grok, omni, veo
+- `task-id` _(string)_ **required** - Task ID the generation returned
+- `provider` _(string)_ _(kling \| grok \| omni)_ _(default: `"kling"`)_ - Provider: kling, grok, omni
 - `apiKey` _(string)_ - API key for the provider
 - `output` _(string)_ - Output file path
 - `prompt` _(string)_ - Continuation prompt
-- `duration` _(number)_ _(default: `5`)_ - Seconds to add: 5 or 10 (Kling), 2-10 (Grok), 4/6/8 (Veo); Omni picks its own
+- `duration` _(number)_ _(default: `5`)_ - Seconds to add: 5 or 10 (Kling), 2-10 (Grok); Omni picks its own
 - `negative` _(string)_ - Negative prompt (what to avoid, Kling only)
-- `veoModel` _(string)_ _(default: `"3.1"`)_ - Veo model: 3.1, 3.1-fast
 - `noWait` _(boolean)_ - Start extension and return task ID without waiting
 - `dryRun` _(boolean)_ - Preview parameters without executing
 

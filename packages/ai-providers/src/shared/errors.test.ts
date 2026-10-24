@@ -43,8 +43,8 @@ describe("classifyProviderError", () => {
   });
 
   it("treats a retired model as a provider error of its own kind", () => {
-    const error = new ModelRetiredError("gone", defaultModel("veo", "video"));
+    const error = new ModelRetiredError("gone", defaultModel("omni", "video"));
     expect(error).toBeInstanceOf(ProviderError);
-    expect(error).toMatchObject({ kind: "model-retired", provider: "veo", retryable: false });
+    expect(error).toMatchObject({ kind: "model-retired", provider: "omni", retryable: false });
   });
 });

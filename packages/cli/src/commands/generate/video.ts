@@ -1,8 +1,8 @@
 /**
  * @module generate/video
  * @description `vibe generate video` (alias `vid`) — multi-provider video
- * generation (Seedance via fal.ai, Grok, Kling, Runway, Gemini Omni, and Veo
- * until 2026-10-22). Validation, provider choice, and the dry run live here;
+ * generation (Seedance via fal.ai, Grok, Kling, Runway, and Gemini Omni).
+ * Validation, provider choice, and the dry run live here;
  * generation itself is `executeVideoGenerate`, the same executor the MCP
  * tool and builds use.
  */
@@ -40,18 +40,17 @@ const PROVIDER_LABELS: Readonly<Record<string, string>> = {
   kling: "Kling",
   runway: "Runway",
   omni: "Gemini Omni 1.1 Flash",
-  veo: "Veo 3.1",
 };
 
 export function registerVideoCommand(parent: Command): void {
   parent
     .command("video")
     .alias("vid")
-    .description("Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)")
+    .description("Generate video using AI (Seedance, Grok, Kling, Runway, or Gemini Omni)")
     .argument("[prompt]", "Text prompt describing the video (interactive if omitted)")
     .option(
       "-p, --provider <provider>",
-      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
+      "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash). `fal` is a deprecated v0.x alias for seedance and will be removed in 1.0."
     )
     .option(
       "-k, --api-key <key>",
@@ -61,7 +60,7 @@ export function registerVideoCommand(parent: Command): void {
     .option("-i, --image <path>", "Reference image for image-to-video")
     .option(
       "-d, --duration <sec>",
-      "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
+      "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.",
       "5"
     )
     .option(
@@ -77,19 +76,17 @@ export function registerVideoCommand(parent: Command): void {
     )
     .option("--grok-model <model>", "Grok video model: 1.5 (default), lite, classic", "1.5")
     .option("--kling-model <model>", "Kling model: v3 (default), v2.6, v2.5-turbo", "v3")
-    .option("--negative <prompt>", "Negative prompt - what to avoid (Kling/Veo)")
+    .option("--negative <prompt>", "Negative prompt - what to avoid (Seedance/Kling)")
     .option("--resolution <res>", "Video resolution: 480p, 720p, 1080p, or 4k depending on provider")
-    .option("--last-frame <path>", "Last frame image for frame interpolation (Veo) or Seedance end frame")
+    .option("--last-frame <path>", "Ending frame image for Seedance (same as --end-image)")
     .option("--end-image <path>", "Ending frame image for Seedance image-to-video")
     .option(
       "--ref-images <paths...>",
-      "Reference images for Seedance reference-to-video or Veo character consistency"
+      "Reference images for Seedance reference-to-video"
     )
     .option("--ref-videos <paths...>", "Reference videos for Seedance reference-to-video")
     .option("--ref-audio <paths...>", "Reference audio for Seedance reference-to-video")
     .option("--no-generate-audio", "Disable native audio when the provider supports it")
-    .option("--person <mode>", "Person generation: allow_all, allow_adult (Veo only)")
-    .option("--veo-model <model>", "Veo model: 3.1, 3.1-fast (default: 3.1-fast)", "3.1-fast")
     .option(
       "--runway-model <model>",
       "Runway model: gen4.5 (default, text+image-to-video), gen4_turbo (image-to-video only)",
@@ -105,7 +102,7 @@ Examples:
   $ vibe gen vid "cinematic city timelapse" -o city.mp4 -p seedance   # Seedance via fal.ai
   $ vibe gen vid "city timelapse" -o city.mp4 -p kling                # Kling
   $ vibe gen vid "epic scene" -i frame.png -o out.mp4 -p runway       # Image-to-video
-  $ vibe gen vid "ocean waves" -o waves.mp4 -p veo --resolution 1080p # Veo
+  $ vibe gen vid "ocean waves" -o waves.mp4 -p omni                  # Gemini Omni
   $ vibe gen vid "sunset" -o sun.mp4 -d 10 --dry-run --json`
     )
     .action(async (prompt: string | undefined, options) => {
@@ -148,17 +145,16 @@ Examples:
 
         // Resolve provider:
         //  - explicit -p flag wins (validated, then key-presence checked)
-        //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > veo > kling > runway)
+        //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > omni > kling > runway)
         //  - if no keys at all → keep grok as last-resort default so the
         //    later requireApiKey() prints a friendly Grok-specific message
         // `fal` is intentionally still in validProviders so users hitting it
         // get the deprecation warning (below) instead of "Invalid provider".
         // It is NOT in videoEnvMap because the warning translates to seedance
         // before any map lookup runs.
-        const validProviders = ["runway", "kling", "veo", "grok", "seedance", "fal", "omni"];
+        const validProviders = ["runway", "kling", "grok", "seedance", "fal", "omni"];
         const videoEnvMap: Record<string, string> = {
           grok: "XAI_API_KEY",
-          veo: "GOOGLE_API_KEY",
           omni: "GOOGLE_API_KEY",
           kling: "KLING_API_KEY",
           runway: "RUNWAY_API_SECRET",
@@ -171,7 +167,9 @@ Examples:
             exitWithError(
               usageError(
                 `Invalid provider: ${provider}`,
-                "Available providers: seedance, grok, kling, runway, omni, veo. `fal` is a deprecated alias for seedance."
+                provider === "veo"
+                  ? "Veo 3.1 shut down on 2026-10-22; use `-p omni` (Gemini Omni) on the same GOOGLE_API_KEY."
+                  : "Available providers: seedance, grok, kling, runway, omni. `fal` is a deprecated alias for seedance."
               )
             );
           }
@@ -230,8 +228,8 @@ Examples:
           options.ratio = "16:9";
         }
 
-        // Veo and Runway only support 16:9 and 9:16 — clamp 1:1 to 16:9
-        if ((provider === "veo" || provider === "runway") && options.ratio === "1:1") {
+        // Runway only supports 16:9 and 9:16 - clamp 1:1 to 16:9
+        if (provider === "runway" && options.ratio === "1:1") {
           log(`${provider} does not support 1:1 — falling back to 16:9`);
           options.ratio = "16:9";
         }
@@ -300,13 +298,11 @@ Examples:
           mode: provider === "kling" ? options.mode : undefined,
           negative: options.negative,
           resolution: options.resolution,
-          veoModel: options.veoModel,
           runwayModel: options.runwayModel,
           seedanceModel: options.seedanceModel,
           grokModel: options.grokModel,
           klingModel: options.klingModel,
           generateAudio: options.generateAudio,
-          personGeneration: options.person,
           output: options.output,
           wait: options.wait,
           apiKey,

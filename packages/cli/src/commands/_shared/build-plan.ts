@@ -41,7 +41,12 @@ import { loadStoryboard, strayBeatIssues } from "./storyboard-source.js";
 import { readProjectConfig, type LoadedProjectConfig } from "./project-config.js";
 import { kindAssetPolicy } from "./scene-project.js";
 import { validateStoryboardMarkdown, type StoryboardValidationIssue } from "./storyboard-edit.js";
-import { resolveBuildVideoProvider, videoProviderConfigKey } from "./build-video-providers.js";
+import {
+  isBuildVideoProvider,
+  parseBuildVideoProvider,
+  unknownVideoProviderMessage,
+  videoProviderConfigKey,
+} from "./build-video-providers.js";
 
 export type BuildStage = "assets" | "transcript" | "compose" | "sync" | "render" | "all";
 export type BuildPlanStatus = "ready" | "invalid";
@@ -305,7 +310,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
 
   const warnedProviderKinds = new Set<string>();
   const noteProviderNeed = (resolution: ProviderResolution, commandContext: string) => {
-    if (resolution.configured) return;
+    if (resolution.configured || !resolution.requiresKey) return;
     const key = `${resolution.kind}:${resolution.resolved}`;
     if (warnedProviderKinds.has(key)) return;
     warnedProviderKinds.add(key);
@@ -342,6 +347,11 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     // `video:` cue (the keyframe prompt then supplies the motion prompt too).
     const videoCue = videoPrompt ?? videoReference?.raw ?? keyframePrompt;
     const musicCue = musicPrompt ?? musicReference?.raw;
+    // A `provider:` cue pins this beat's video provider, as it does in the build.
+    const videoProviderCue = stringOrUndefined(cue.provider);
+    const videoProvider = videoProviderCue
+      ? (parseBuildVideoProvider(videoProviderCue) ?? videoProviderCue)
+      : resolved.video.resolved;
     const narrationCost = narrationCostUsd(resolved.narration.resolved);
     const narrationCache =
       narrationText && !narrationReference
@@ -370,7 +380,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
         ? videoCacheDescriptor({
             beatId: beat.id,
             cue: videoPrompt ?? keyframePrompt!,
-            provider: resolved.video.resolved,
+            provider: videoProvider,
             duration: beat.duration,
             keyframe: keyframePrompt,
           })
@@ -454,14 +464,14 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             kind: "video",
             beatId: beat.id,
             cue: videoCue,
-            provider: resolved.video.resolved,
+            provider: videoProvider,
             path: `assets/video-${beat.id}.mp4`,
             cache: videoCache,
             reference: videoReference,
             projectDir,
             force: opts.force,
             cost:
-              resolved.video.resolved === "seedance" || resolved.video.resolved === "fal"
+              videoProvider === "seedance"
                 ? estimateSeedanceVideoCostUsd({
                     durationSec: normalizeVideoDuration(beat.duration),
                     resolution: "720p",
@@ -571,6 +581,19 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       retryWith.push(
         `vibe build ${projectDir}${beatFlag} --stage assets --image-provider openai --json`
       );
+    }
+  }
+  if (includeAssets) {
+    // A build never swaps an unknown video provider for another paid one.
+    for (const beat of beats) {
+      const provider = beat.assets.video?.provider;
+      if (!provider || isBuildVideoProvider(provider)) continue;
+      validationIssues.push({
+        severity: "error",
+        code: "UNKNOWN_BUILD_VIDEO_PROVIDER",
+        beatId: beat.id,
+        message: `Beat "${beat.id}": ${unknownVideoProviderMessage(provider)}`,
+      });
     }
   }
   const validationOk = !validationIssues.some((issue) => issue.severity === "error");
@@ -889,18 +912,28 @@ async function resolvePlanProviders(opts: {
     },
     opts.projectDir
   );
-  const videoProvider = normalizeVideoProvider(videoInput.value);
-  const video = await keyedProviderResolution(
-    {
-      kind: "video",
-      input: {
-        ...videoInput,
-        value: videoProvider,
-      },
-      configKey: videoConfigKey(videoProvider),
-    },
-    opts.projectDir
-  );
+  // An unknown name stays as written so the plan reports it instead of
+  // pricing a different provider.
+  const knownVideoProvider = parseBuildVideoProvider(videoInput.value);
+  const video = knownVideoProvider
+    ? await keyedProviderResolution(
+        {
+          kind: "video",
+          input: { ...videoInput, value: knownVideoProvider },
+          configKey: videoConfigKey(knownVideoProvider),
+        },
+        opts.projectDir
+      )
+    : {
+        // No key to name for a provider that does not exist; validation reports it.
+        kind: "video" as const,
+        requested: videoInput.requested,
+        resolved: videoInput.value,
+        source: videoInput.source,
+        requiresKey: false,
+        configured: false,
+        retryWith: [],
+      };
   const musicProvider = normalizeMusicProvider(musicInput.value);
   const music = await keyedProviderResolution(
     {
@@ -1065,10 +1098,6 @@ function firstExisting(projectDir: string, paths: string[]): string | null {
 function normalizeImageProvider(value: string | null | undefined): string {
   const provider = String(value ?? "openai").toLowerCase();
   return provider || "openai";
-}
-
-function normalizeVideoProvider(value: string | null | undefined): string {
-  return resolveBuildVideoProvider(value);
 }
 
 function normalizeMusicProvider(value: string | null | undefined): string {

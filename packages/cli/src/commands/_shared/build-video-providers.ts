@@ -4,7 +4,7 @@
  * provider is a one-line change instead of a hunt through every command.
  */
 
-export const BUILD_VIDEO_PROVIDERS = ["seedance", "grok", "kling", "runway", "omni", "veo"] as const;
+export const BUILD_VIDEO_PROVIDERS = ["seedance", "grok", "kling", "runway", "omni"] as const;
 
 export type BuildVideoProvider = (typeof BUILD_VIDEO_PROVIDERS)[number];
 
@@ -12,11 +12,30 @@ export function isBuildVideoProvider(value: string): value is BuildVideoProvider
   return (BUILD_VIDEO_PROVIDERS as readonly string[]).includes(value);
 }
 
-/** Normalize user input; `fal` is the deprecated alias for seedance. Unknown values fall back to seedance. */
-export function resolveBuildVideoProvider(value: unknown): BuildVideoProvider {
-  const provider = String(value ?? "seedance").toLowerCase();
+/** A requested provider, normalized; null when no build video provider has that name. */
+export function parseBuildVideoProvider(value: string): BuildVideoProvider | null {
+  const provider = value.trim().toLowerCase();
   if (provider === "fal") return "seedance";
-  return isBuildVideoProvider(provider) ? provider : "seedance";
+  return isBuildVideoProvider(provider) ? provider : null;
+}
+
+/**
+ * Normalize user input; seedance when unset. An unknown name throws rather
+ * than quietly switching to another paid provider (`vibe plan` reports it as
+ * a validation error before a build gets here).
+ */
+export function resolveBuildVideoProvider(value: unknown): BuildVideoProvider {
+  if (value === undefined || value === null || value === "") return "seedance";
+  const provider = parseBuildVideoProvider(String(value));
+  if (!provider) throw new Error(unknownVideoProviderMessage(String(value)));
+  return provider;
+}
+
+export function unknownVideoProviderMessage(value: string): string {
+  const retired = value.trim().toLowerCase() === "veo"
+    ? " Veo 3.1 shut down on 2026-10-22; Gemini Omni (omni) replaces it."
+    : "";
+  return `Unknown video provider "${value}". Available: ${BUILD_VIDEO_PROVIDERS.join(", ")}.${retired}`;
 }
 
 /** Config/API-key id that unlocks a video provider. */
@@ -27,7 +46,6 @@ export function videoProviderConfigKey(provider: string): string {
       return "fal";
     case "grok":
       return "xai";
-    case "veo":
     case "omni":
       return "google";
     default:

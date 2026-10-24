@@ -187,7 +187,7 @@ export interface BeatCues {
    */
   motion?: string;
   /**
-   * Video-provider override for this beat (seedance|runway|kling|veo|grok).
+   * Video-provider override for this beat (seedance|grok|kling|runway|omni).
    * Use to pin a face-visible keyframe to a provider that accepts it (e.g.
    * `provider: runway` — Seedance's likeness filter rejects face i2v inputs).
    */

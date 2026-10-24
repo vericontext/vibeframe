@@ -143,7 +143,6 @@ function providerKeyForVideo(provider: string | undefined): string | undefined {
       return "kling";
     case "runway":
       return "runway";
-    case "veo":
     case "omni":
       return "google";
     default:
@@ -193,7 +192,6 @@ async function ensureActionsRegistered(): Promise<void> {
       mode: stringParam(params.mode),
       negative: stringParam(params.negative),
       resolution: stringParam(params.resolution),
-      veoModel: stringParam(params.veoModel),
       runwayModel: stringParam(params.runwayModel),
       seedanceModel: stringParam(params.seedanceModel),
       output,

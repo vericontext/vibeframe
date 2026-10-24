@@ -1,6 +1,6 @@
 ---
 provider: google
-checked: 2026-10-17
+checked: 2026-10-24
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
@@ -20,14 +20,12 @@ models_in_use:
   - gemini-3.1-flash-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-3-pro-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-omni-1.1-flash       # Google video default (`-p omni`, auto-resolved)
-  - veo-3.1-fast-generate-preview  # explicit `-p veo` only; shuts down 2026-10-22
-  - veo-3.1-generate-preview    # explicit `-p veo --veo-model 3.1`; shuts down 2026-10-22
 models_recommended: []
 ---
 
 # Google (Gemini API)
 
-VibeFrame uses one `GOOGLE_API_KEY` on the Gemini Developer API for text and vision (storyboards, motion code, video review), Nano Banana image generation and editing, Veo 3.1 video generation and extension, and experimental Gemini Omni video.
+VibeFrame uses one `GOOGLE_API_KEY` on the Gemini Developer API for text and vision (storyboards, motion code, video review), Nano Banana image generation and editing, and Gemini Omni video generation, editing, and extension.
 We do not call Lyria, Gemini TTS, or Gemini Transcribe yet; they are listed below because they share the key and are the obvious next integrations.
 
 ## Models
@@ -76,17 +74,8 @@ Image sizes must use an uppercase `K`; lowercase such as `1k` is rejected (docs)
 |---|---|---|---|
 | `gemini-omni-1.1-flash` | GA 2026-08-27, no shutdown date (docs) | $1.50 in, $17.50 per 1M video out, about $0.10/s at 720p (docs) | Interactions API only. 3-10 s clips, 24 fps, `360p` `720p` (default) `1080p` `4k`; 1080p and 4K are upscaled (docs). Paid tier only (docs). |
 | `gemini-omni-flash-preview` | changelog says deprecated 2026-09-30 (docs) | same as GA (docs) | Not in the deprecations table, still listed (probe). Our `-p omni` uses it. |
-| `veo-3.1-generate-preview` | preview, shutdown 2026-10-22, replacement Omni 1.1 Flash (docs) | $0.40/s 720p and 1080p, $0.60/s 4K (docs) | `predictLongRunning`. |
-| `veo-3.1-fast-generate-preview` | preview, shutdown 2026-10-22 (docs) | $0.10/s 720p, $0.12/s 1080p, $0.30/s 4K (docs) | Our default Veo model. |
-| `veo-3.1-lite-generate-preview` | preview, shutdown 2026-10-22 (docs) | $0.05/s 720p, $0.08/s 1080p, no 4K (docs) | No extension, no reference images (docs). |
+| `veo-3.1-*` | shut down 2026-10-22, replacement Omni 1.1 Flash (docs) | - | Gone from `/models` by 2026-10-24 (probe). VibeFrame removed Veo in 0.116.0. |
 | `veo-3.0-*`, `veo-2.0-*` | shut down (previews 2025-11-12, GA 2026-06-30) (docs) | - | `veo-3.0-generate-preview` returns 404 (probe). |
-
-Veo 3.1: durations `4` `6` `8`, but `8` is required with extension, reference images, 1080p, or 4K (docs).
-Aspect ratios are `16:9` and `9:16` only (docs).
-`personGeneration` is `allow_all` only for text-to-video and extension, and `allow_adult` only for image-to-video, interpolation, and reference images; EU, UK, CH, and MENA allow only `allow_adult` (docs).
-Extension: Veo 3.1 and Fast only, 720p input, adds 7 s per call, up to 20 times, output up to 148 s (docs).
-Generated videos are kept on the server for 2 days (docs).
-Latency is 11 s to 6 min (docs).
 
 Omni editing and extension: multi-turn edits chain with `previous_interaction_id` (docs).
 Extension appends 3-10 s per turn, up to 40 s total, using the last 10 s as context (docs).
@@ -119,23 +108,20 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 ## API shape
 
 - Base URL `https://generativelanguage.googleapis.com/v1beta`, auth header `x-goog-api-key` (docs); `?key=` also works (probe).
-- Three request shapes share the key:
+- Two request shapes share the key:
   - `POST /models/{id}:generateContent` for text, vision, and Nano Banana (docs). Google now calls this API legacy and recommends the Interactions API for new work (docs).
-  - `POST /models/{veo-id}:predictLongRunning` with `instances[]` and `parameters`, then poll `GET /v1beta/{operation.name}` until `done: true` (docs).
   - `POST /v1beta/interactions` with `model`, `input`, `generation_config`, `response_format`, and optional `previous_interaction_id`, `store`, `background`, `stream` (docs). Omni, Lyria, TTS, and Transcribe document only this endpoint (docs).
 - Thinking on 3.x: `thinking_level` string enum; sending both `thinking_level` and legacy `thinking_budget` returns 400 (docs).
 - `temperature`, `top_p`, `top_k` were marked deprecated on 2026-07-21 and the migration guides say to remove them (docs). The docs do not say whether they are rejected or ignored on text models; `GET /models/{id}` still reports `temperature: 1` defaults for 3.x (probe). Values below 1.0 can cause looping on 3.x (docs).
 - `candidate_count` is not supported on 3.x (docs).
 - Response fields we read:
   - generateContent: `candidates[0].content.parts[].text` and `.inlineData`, `parts[].thought`, `candidates[0].finishReason`, `promptFeedback.blockReason`, `usageMetadata.{promptTokenCount,candidatesTokenCount,totalTokenCount}` (code).
-  - Veo operation: `name`, `done`, `error`, `response.generateVideoResponse.generatedSamples[0].video.uri` (docs).
   - Interactions REST: output lives in `steps[]` where `type: "model_output"` holds `content[]` items with `type`, `mime_type`, and either base64 `data` or `uri`; `output_video` and `output_text` are SDK-only conveniences (docs). Top level has `id` and `status` (docs).
 - Errors are `{"error": {"code", "message", "status"}}`, for example 404 `NOT_FOUND` for a removed model (probe).
 
 ## Gotchas
 
 - `gemini-2.5-flash-image`, our default image model, passed its announced 2026-10-02 shutdown; the two image previews passed 2026-06-25; all still appear in `/models` (docs, probe). Expect them to vanish without further notice.
-- All Veo 3.1 IDs shut down 2026-10-22, and Google points to `gemini-omni-1.1-flash`, which uses a different endpoint and request shape (docs).
 - New projects cannot use Gemini 2.5 models since 2026-09-18 (docs). The exact error a new key gets was not observed.
 - `minimal` thinking errors on 3.8 Flash, 3.7 Flash, and 3.1 Pro preview but is the default on 3.5 Flash-Lite and the image models (docs).
 - Omni returns the video as base64 `data` inside `steps[]` by default; a URL comes back only with `response_format.delivery: "uri"`, and only in the create response or SSE stream, not on later `GET /interactions/{id}` (docs). Use `uri` above 4 MB (docs).
@@ -143,8 +129,6 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 - Omni accepts `background: true` although the background-execution page lists only text models and agents: create returns `{id, status: "in_progress"}` in about 3 s, `GET /interactions/{id}` moves to `completed` after 20-70 s, and the completed interaction's `steps[]` carries the video `uri`, contrary to the note above (probe, 2026-10-04).
 - A `previous_interaction_id` edit on a background interaction kept the subject and camera and applied the edit ("snowy night"); Omni chose 10 s for both clips (probe, 2026-10-04).
 - Background interactions cancel with `POST /interactions/{id}/cancel` (docs, background execution).
-- Veo extension takes a video object from a previous generation (`instances[].video` as `uri` or `inlineData`), must be 720p, and requires `durationSeconds: 8` (docs).
-- Veo REST examples wrap reference images as `{ image: { inlineData }, referenceType: "asset" }` and frames as `{ inlineData }` (docs). `gcsUri` is not documented for the Gemini API.
 - Gemini 3.x function calling over generateContent needs thought signatures round-tripped and `FunctionResponse` `id` plus `name` matching the call; mismatches return empty responses with `STOP` rather than an error (docs).
 - The JS SDK `@google/generative-ai` has been legacy and unmaintained since 2025-11-30; use `@google/genai` (docs).
 - Model metadata `GET` succeeding (for example `gemini-3-pro-preview`, `gemini-3.1-flash-image-preview`) does not prove generation still works (probe).
@@ -158,10 +142,6 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 - `packages/ai-providers/src/gemini/gemini-storyboard.ts:35-52` - storyboard call with `temperature` 0.7 or 1.0.
 - `packages/ai-providers/src/gemini/GeminiProvider.ts`:
   - `:26`, `:189-197` - image model map; `flash` (default) -> `gemini-2.5-flash-image`, `3.1-flash`/`latest` -> `gemini-3.1-flash-image-preview`, `pro` -> `gemini-3-pro-image-preview`.
-  - `:86-108` - Veo aliases `3.1` and `3.1-fast`.
-  - `:230-376` - `generateVideo` (Veo, default `veo-3.1-fast-generate-preview` at `:247`), image as `bytesBase64Encoded` or `gcsUri`, flat `referenceImages`.
-  - `:383-500` - operation polling every 5 s, 5 min cap.
-  - `:507-573` - `extendVideo` sends `video: { previousOperationName }` with 4-8 s duration, default model `veo-3.1-generate-preview`.
   - `:599-750` - `generateImage`; 2K/4K only sent for Pro, Image Search only for the preview ID (`:647`), `thinkingLevel: "High"` type at `:46`.
   - `:756-910` - `editImage`.
   - `:914-1058` - `analyzeVideo`, inline base64 video, `temperature: 0.4`.
@@ -169,10 +149,6 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
   - `:1170-1270` - `autoEdit`, `temperature: 0.3`.
 - `packages/ai-providers/src/gemini/gemini-omni.ts:24-131` - Omni client on `/v1beta/interactions` with `gemini-omni-flash-preview`, body `inputs` + `generation_config.video_config.{task,aspect_ratio}`, looks for an http URL in the response.
 - `packages/cli/src/agent/adapters/gemini.ts:5`, `:18`, `:58-115` - agent loop on legacy `@google/generative-ai` with `gemini-2.5-flash`; rebuilds history without thought signatures or call ids.
-- `packages/cli/src/commands/ai-video.ts:268-306` (Veo generate, duration snapped to 6 or 8), `:344-368` (Omni), `:567-579` (Veo status), `:720-740` (Veo extend).
-- `packages/cli/src/commands/generate/video.ts:88`, `:247-248`, `:473-551` (Veo), `:688-700` (Omni).
-- `packages/cli/src/commands/generate/video-extend.ts:41`, `:174-238` - Veo extend by operation name.
-- `packages/cli/src/commands/_shared/video-providers.ts:188-194` - storyboard clips hardcode `veo-3.1-fast-generate-preview`.
 - `packages/cli/src/commands/generate/image.ts:301-345` and `packages/cli/src/commands/ai-image.ts:108-121` - image generation with fallback from `latest`/`3.1-flash` to `flash`.
 - `packages/cli/src/commands/edit-cmd.ts:699`, `:777-800` - image edit model names and the same fallback.
 - `packages/cli/src/commands/ai-motion.ts:63-71` - `gemini-2.5-pro` and `gemini-3.1-pro` -> `gemini-3.1-pro-preview`.
@@ -182,13 +158,13 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 ## Recommended changes
 
 1. Move image aliases to GA IDs before the listed-but-retired ones disappear: `flash` -> `gemini-3.1-flash-image` (or `gemini-3.1-flash-lite-image` for cheap 1K), `pro` -> `gemini-3-pro-image`; reverse the fallback so it never lands on `gemini-2.5-flash-image`, and key Image Search and 2K/4K/512px handling on the GA IDs.
-2. Plan the Veo exit before 2026-10-22: make `gemini-omni-1.1-flash` the Google video path and keep Veo only behind an explicit flag until then.
+2. Done: `gemini-omni-1.1-flash` is the Google video path, and Veo was removed in 0.116.0 after its 2026-10-22 shutdown.
 3. Rewrite `gemini-omni.ts` to the documented shape: `input` (typed `image`/`text` items), `response_format: { type: "video", aspect_ratio, resolution, delivery: "uri" }`, read `steps[].content[]` (decode `data` or download `uri`), use `background: true` plus polling, and expose `previous_interaction_id` for edit and 40 s extension.
-4. Fix Veo request details while Veo remains: extension must pass the prior video object at 720p with `durationSeconds: 8`; force 8 s for 1080p, 4K, and reference images; allow 4 s; wrap reference images with `referenceType`; validate `personGeneration` per mode; drop `gcsUri` for http URLs.
+4. Dropped: Veo is gone, so its request fixes no longer apply.
 5. Drop `temperature` from all 3.x text calls and move the default text model off `gemini-3.5-flash` to `gemini-3.7-flash` (cheaper and agentic-video capable) or `gemini-3.8-flash`; replace `pro` -> `gemini-2.5-pro` with `gemini-3.1-pro-preview`.
 6. Move the agent adapter to `@google/genai` and a 3.x default model, preserving thought signatures and function call ids (or use Interactions with `previous_interaction_id`).
 7. Upload videos above 20 MB through the File API in `analyzeVideo`, and try `processing: "agentic"` for long-form review.
-8. Send the key in `x-goog-api-key` instead of `?key=` so it does not land in error strings or logs, and fix the stale Veo Fast price comment ($0.10/s, not $0.15/s).
+8. Send the key in `x-goog-api-key` instead of `?key=` so it does not land in error strings or logs, .
 
 ## Sources
 

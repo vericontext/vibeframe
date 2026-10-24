@@ -5,13 +5,13 @@
  *
  * Commands:
  *   generate image          - Generate image (Gemini, OpenAI, Grok, Runway)
- *   generate video          - Generate video (Seedance, Grok, Kling, Runway, Omni, Veo)
+ *   generate video          - Generate video (Seedance, Grok, Kling, Runway, Omni)
  *   generate sound-effect   - Sound effects (ElevenLabs)
  *   generate music          - Music generation (ElevenLabs default, Replicate MusicGen)
  *   generate motion         - Standalone motion assets (Claude/Gemini + Remotion)
  *   generate thumbnail      - Thumbnail generation/extraction
  *   generate video-cancel   - Cancel video generation (Grok/Runway)
- *   generate video-extend   - Extend video (Kling/Veo)
+ *   generate video-extend   - Extend video (Kling, Grok, Omni)
  *
  * @dependencies OpenAI, Gemini, Runway, Kling, ElevenLabs, Replicate, Claude, FFmpeg
  */

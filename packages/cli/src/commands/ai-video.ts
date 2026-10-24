@@ -71,7 +71,7 @@ async function settle(
 export interface VideoGenerateOptions {
   prompt: string;
   /** Default: the configured or first available video provider. */
-  provider?: "grok" | "runway" | "kling" | "veo" | "seedance" | "fal" | "omni";
+  provider?: "grok" | "runway" | "kling" | "seedance" | "fal" | "omni";
   image?: string;
   /** Ending frame for providers that interpolate between two frames. */
   endImage?: string;
@@ -84,7 +84,6 @@ export interface VideoGenerateOptions {
   mode?: string;
   negative?: string;
   resolution?: string;
-  veoModel?: string;
   runwayModel?: string;
   seedanceModel?: string;
   grokModel?: string;
@@ -101,8 +100,6 @@ export interface VideoGenerateOptions {
   onSubmitted?: (job: VideoJob) => void | Promise<void>;
   /** Called after every poll while waiting. */
   onProgress?: (state: VideoJobState) => void;
-  /** Veo only: `allow_all` or `allow_adult`. */
-  personGeneration?: string;
 }
 
 export interface VideoGenerateResult {
@@ -145,10 +142,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       negativePrompt: options.negative,
       seed: options.seed,
       generateAudio: options.generateAudio,
-      providerOptions:
-        options.mode || options.personGeneration
-          ? { ...(options.mode ? { mode: options.mode } : {}), ...(options.personGeneration ? { personGeneration: options.personGeneration } : {}) }
-          : undefined,
+      providerOptions: options.mode ? { mode: options.mode } : undefined,
     };
 
     const job = await generator.submitVideo(request);
@@ -280,7 +274,7 @@ export async function executeVideoCancel(options: VideoCancelOptions): Promise<V
 // ============================================================================
 
 export interface VideoExtendOptions {
-  /** The task ID of the video to extend (Veo: its operation name). */
+  /** The task ID of the video to extend. */
   videoId: string;
   /** Default: kling. */
   provider?: string;
@@ -288,7 +282,6 @@ export interface VideoExtendOptions {
   prompt?: string;
   duration?: number;
   negative?: string;
-  veoModel?: string;
   output?: string;
   wait?: boolean;
   apiKey?: string;
@@ -312,7 +305,6 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
     const generator = await openVideoGenerator(source.provider, options.apiKey);
     const job = await generator.submitVideo({
       prompt: options.prompt ?? "",
-      model: source.provider === "veo" ? videoModelSpec("veo", { veoModel: options.veoModel ?? "3.1" })?.id : undefined,
       durationSec: options.duration,
       negativePrompt: options.negative,
       from: { job: source, kind: "extend" },

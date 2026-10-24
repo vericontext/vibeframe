@@ -56,8 +56,6 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | seedance | Seedance 2.0 Fast | `seedance-2.0-fast` | `fast` | GA | $0.2419 / second (720p 16:9) | 4-15 s, up to 720p, native audio |
 | seedance | Seedance 2.5 | `seedance-2.5` | `2.5` | GA | $0.473 / second (720p 16:9) | Opt-in; 4-30 s, native audio |
 | omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $0.1 / second (720p) | Google video default; the model picks 3-10 s; native audio |
-| veo | Veo 3.1 | `veo-3.1-generate-preview` | `3.1` | Deprecated, shuts down 2026-10-22; use `-p omni` (Gemini Omni 1.1 Flash) | $0.4 / second (720p/1080p) | 4-8 s, native audio; explicit `-p veo` only |
-| veo | **Veo 3.1 Fast** (default) | `veo-3.1-fast-generate-preview` | `3.1-fast` | Deprecated, shuts down 2026-10-22; use `-p omni` (Gemini Omni 1.1 Flash) | $0.1 / second (720p) | 4-8 s, native audio; explicit `-p veo` only |
 | grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
 | grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
 | grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation; the only Grok model that edits and extends videos |
@@ -109,7 +107,6 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | `vibe generate video -p seedance` | `--seedance-model` | `quality` (default), `fast`, `2.5` |
 | `vibe generate video -p grok` | `--grok-model` | `1.5` (default), `lite`, `classic` |
 | `vibe generate video -p kling` | `--kling-model` | `v3` (default), `v2.6`, `v2.5-turbo` |
-| `vibe generate video -p veo` | `--veo-model` | `3.1-fast` (default), `3.1` |
 | `vibe generate video -p runway` | `--runway-model` | `gen4.5` (default), `gen4_turbo` |
 
 ---
@@ -200,12 +197,12 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 ---
 
-## Text-to-Video (6 providers)
+## Text-to-Video (5 providers)
 
 > Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate speech` / `vibe generate sound-effect`.
 
 Models, durations, and prices are in the catalog above.
-Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`, Omni and Veo `GOOGLE_API_KEY`, Runway `RUNWAY_API_SECRET`.
+Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`, Omni `GOOGLE_API_KEY`, Runway `RUNWAY_API_SECRET`.
 
 > `-p fal` is a deprecated v0.x alias for `-p seedance` and will be removed at the 1.0 cut. Use `-p seedance` in new scripts.
 
@@ -220,18 +217,7 @@ Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`
 > `vibe generate video "<motion>" -p runway -i keyframe.png` directly.
 > Observed 2026-07-26 on `seedance-2.0`.
 
-> **Veo 3.1 previews shut down on 2026-10-22.** Google names Gemini Omni 1.1 Flash as the replacement, so Omni is now the Google video default (`-p omni`, or auto-selected when `GOOGLE_API_KEY` is the only video key) and `vibe build --video-provider omni` works. `-p veo` still works until the shutdown and prints a warning; from 2026-10-22 it fails before any request and points to `-p omni`.
-
-### Veo Advanced Options
-
-| Option | Values | Description |
-|--------|--------|-------------|
-| `--negative-prompt` | text | What to avoid in the generated video |
-| `--resolution` | 720p, 1080p, 4k | Video resolution |
-| `--last-frame` | image path | Frame interpolation (first→last frame) |
-| `--ref-images` | image paths (max 3) | Character consistency (Veo 3.1 only) |
-| `--person` | allow_all, allow_adult | Person generation setting |
-| `veo-extend` | operation-name | Extend a previously generated Veo video |
+> **Veo 3.1 shut down on 2026-10-22, and VibeFrame removed it in 0.116.0.** Gemini Omni 1.1 Flash, Google's named replacement, is the Google video provider (`-p omni`, or auto-selected when `GOOGLE_API_KEY` is the only video key). `-p veo` and `video: veo` in a project now fail before any request and point to Omni.
 
 ### Image-to-Video
 
@@ -242,7 +228,6 @@ All text-to-video providers also support image-to-video. Key differences per pro
 | Seedance via fal.ai | `seedance-2.0` | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) for local image paths. |
 | xAI Grok | `grok-imagine-video-1.5` | Yes | URL or data URI | Same pricing as T2V, plus $0.01 per input image |
 | Kling | all v2.5+ models | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) |
-| Veo | all models | Yes | base64 (first frame) | Supports `--last-frame` for frame interpolation |
 | Runway | `gen4.5` | Yes | URL or data URI | Text+image-to-video |
 | Runway | `gen4_turbo` | **I2V only** | URL or data URI | Cannot do text-only generation |
 | Gemini Omni | `gemini-omni-1.1-flash` | Yes | base64 (first frame; `--last-frame` adds an end frame) | Sent as typed `image` inputs before the text prompt |
@@ -256,7 +241,7 @@ Reference: <https://ai.google.dev/gemini-api/docs/omni>
 | Property | Value |
 |----------|-------|
 | Model ID | `gemini-omni-1.1-flash` |
-| Endpoint | `POST /v1beta/interactions` (not Veo's `:predictLongRunning`) |
+| Endpoint | `POST /v1beta/interactions` |
 | Auth | `GOOGLE_API_KEY` (same key as Gemini) |
 | Input | text, or typed `image` items (first and last frame) followed by the text |
 | Output | `response_format: {type: "video", aspect_ratio, resolution, delivery: "uri"}`; VibeFrame waits for the Files API entry to become ACTIVE, then downloads it with the key in a header |
@@ -290,7 +275,7 @@ Recognizable real people in uploaded images are not supported, so it is no fallb
 # LLM Providers
 export OPENAI_API_KEY="sk-..."        # GPT, Whisper, GPT Image 2.5
 export ANTHROPIC_API_KEY="sk-ant-..." # Claude
-export GOOGLE_API_KEY="AIza..."       # Gemini (image, Veo video)
+export GOOGLE_API_KEY="AIza..."       # Gemini (text, image, Omni video)
 export XAI_API_KEY="xai-..."          # xAI Grok
 export OPENROUTER_API_KEY="sk-or-..." # OpenRouter (300+ models)
 export EVOLINK_API_KEY="el-..."          # Evolink (GPT-5, Claude, Gemini, DeepSeek & more)
@@ -323,7 +308,6 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe generate video -p kling` | `KLING_API_KEY` | Kling v3 |
 | `vibe generate image -p grok` | `XAI_API_KEY` | Grok Imagine |
 | `vibe generate video -p omni` | `GOOGLE_API_KEY` | Gemini Omni 1.1 Flash |
-| `vibe generate video -p veo` | `GOOGLE_API_KEY` | Veo 3.1 (shuts down 2026-10-22) |
 
 ---
 
@@ -336,7 +320,7 @@ demos, prefer explicit provider flags so the required key is obvious:
 vibe generate image "..." -p openai
 vibe generate image "..." -p gemini
 vibe generate video "..." -p seedance
-vibe generate video "..." -p veo
+vibe generate video "..." -p omni
 ```
 
 Use command help as the runtime source of truth for supported flags:

@@ -279,14 +279,14 @@ export const generateVideoTool = defineTool({
   title: "Generate Video",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Generate video using AI. Supports Seedance 2.0 via fal.ai, Grok, Kling, Runway, Gemini Omni, and Veo (shuts down 2026-10-22). Requires FAL_API_KEY, XAI_API_KEY, KLING_API_KEY, RUNWAY_API_SECRET, or GOOGLE_API_KEY.",
+    "Generate video using AI. Supports Seedance 2.0 via fal.ai, Grok, Kling, Runway, and Gemini Omni. Requires FAL_API_KEY, XAI_API_KEY, KLING_API_KEY, RUNWAY_API_SECRET, or GOOGLE_API_KEY.",
   schema: z.object({
     prompt: z.string().describe("Text prompt describing the video"),
     provider: z
-      .enum(["seedance", "grok", "kling", "runway", "veo", "omni"])
+      .enum(["seedance", "grok", "kling", "runway", "omni"])
       .optional()
       .describe(
-        "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider). `omni` = Gemini Omni, experimental/opt-in, uses GOOGLE_API_KEY."
+        "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider). `omni` = Gemini Omni 1.1 Flash, uses GOOGLE_API_KEY."
       ),
     image: z.string().optional().describe("Reference image path for image-to-video"),
     endImage: z.string().optional().describe("Ending frame image path for Seedance image-to-video"),
@@ -308,12 +308,11 @@ export const generateVideoTool = defineTool({
       .describe("Duration in seconds (default: 5; Seedance accepts 4-15)"),
     ratio: z.string().optional().describe("Aspect ratio: 16:9, 9:16, 1:1 (default: 16:9)"),
     mode: z.string().optional().describe("Kling mode: std or pro"),
-    negative: z.string().optional().describe("Negative prompt (Seedance/Kling/Veo)"),
+    negative: z.string().optional().describe("Negative prompt (Seedance/Kling)"),
     resolution: z
       .string()
       .optional()
       .describe("Resolution: 480p, 720p, 1080p, or 4k depending on provider"),
-    veoModel: z.string().optional().describe("Veo model: 3.1, 3.1-fast"),
     runwayModel: z.string().optional().describe("Runway model: gen4.5, gen4_turbo"),
     seedanceModel: z
       .string()
@@ -407,17 +406,16 @@ export const generateVideoExtendTool = defineTool({
   title: "Extend Generated Video",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Extend a generated video from its last frame. Kling, Grok (classic model), Gemini Omni, and Veo (shuts down 2026-10-22) can extend; pass the task ID the generation returned.",
+    "Extend a generated video from its last frame. Kling, Grok (classic model), and Gemini Omni can extend; pass the task ID the generation returned.",
   schema: z.object({
-    videoId: z.string().describe("Task ID of the video to extend (Veo: its operation name)"),
+    videoId: z.string().describe("Task ID of the video to extend"),
     provider: z
-      .enum(["kling", "grok", "omni", "veo"])
+      .enum(["kling", "grok", "omni"])
       .optional()
       .describe("Provider that generated the video (default: kling)"),
     prompt: z.string().optional().describe("Continuation prompt"),
     duration: z.number().optional().describe("Duration in seconds"),
     negative: z.string().optional().describe("Negative prompt (Kling)"),
-    veoModel: z.string().optional().describe("Veo model: 3.1, 3.1-fast"),
     output: z.string().optional().describe("Output file path"),
     wait: z.boolean().optional().describe("Wait for completion (default: true)"),
   }),
