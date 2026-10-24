@@ -12,6 +12,13 @@ describe("estimateImageCostUsd", () => {
     expect(estimateImageCostUsd("grok", undefined, 1).costUsd).toBe(0.02);
   });
 
+  it("scales OpenAI by the pixels of an explicit size, which drive its output tokens", () => {
+    expect(estimateImageCostUsd("openai", undefined, 1, undefined, "1536x1024").costUsd).toBe(0.317);
+    expect(estimateImageCostUsd("openai", undefined, 1, undefined, "1024x1024").costUsd).toBe(0.211);
+    expect(estimateImageCostUsd("openai", undefined, 1, undefined, "auto").costUsd).toBe(0.211);
+    expect(estimateImageCostUsd("gemini", undefined, 1, undefined, "1536x1024").costUsd).toBe(0.034);
+  });
+
   it("prices Gemini at the requested size", () => {
     expect(estimateImageCostUsd("gemini", undefined, 1, "4K").costUsd).toBe(0.113);
     expect(estimateImageCostUsd("gemini", "3.1-flash", 2, "512px").costUsd).toBe(0.09);

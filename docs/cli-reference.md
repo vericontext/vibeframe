@@ -600,7 +600,7 @@ Cost tier: `low`
 
 #### `vibe generate thumbnail`
 
-Generate video thumbnail (DALL-E) or extract best frame from video (Gemini)
+Generate video thumbnail (OpenAI image) or extract best frame from video (Gemini)
 
 Product surface: `public`
 
@@ -608,7 +608,7 @@ Cost tier: `free`
 
 **Parameters:**
 
-- `description` _(string)_ - Thumbnail description (for DALL-E generation)
+- `description` _(string)_ - Thumbnail description (for image generation)
 - `apiKey` _(string)_ - API key (OpenAI for generation, Google for best-frame)
 - `output` _(string)_ - Output file path
 - `style` _(string)_ _(youtube \| instagram \| tiktok \| twitter)_ - Platform style: youtube, instagram, tiktok, twitter

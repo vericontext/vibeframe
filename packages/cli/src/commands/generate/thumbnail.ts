@@ -1,17 +1,15 @@
 /**
  * @module generate/thumbnail
- * @description `vibe generate thumbnail` — DALL-E generation OR
- * best-frame extraction from video via Gemini analysis. Split out of
- * `generate.ts` in v0.69 (Plan G Phase 2).
+ * @description `vibe generate thumbnail` — OpenAI image generation OR
+ * best-frame extraction from video via Gemini analysis.
  */
 
 import type { Command } from "commander";
-import { resolve, dirname, basename, extname } from "node:path";
+import { resolve, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
-import { writeFile, mkdir } from "node:fs/promises";
 import chalk from "chalk";
 import ora from "ora";
-import { OpenAIImageProvider, GEMINI_TEXT_MODEL_HELP } from "@vibeframe/ai-providers";
+import { GEMINI_TEXT_MODEL_HELP } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
 import { commandExists } from "../../utils/exec-safe.js";
 import {
@@ -21,20 +19,31 @@ import {
   apiError,
   notFoundError,
   generalError,
+  providerFailure,
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
-import { executeThumbnailBestFrame } from "../ai-image.js";
+import { executeImageGenerate, executeThumbnailBestFrame } from "../ai-image.js";
+import { estimateImageCostUsd } from "../_shared/image-cost.js";
 
-// (No standalone executeThumbnail library function — the CLI delegates to
-// `executeThumbnailBestFrame` in `../ai-image.ts` for the best-frame mode
-// and to `OpenAIImageProvider.generateThumbnail` directly for DALL-E mode.)
+type ThumbnailStyle = "youtube" | "instagram" | "tiktok" | "twitter";
+
+/** Prompt hint and OpenAI size for each platform style. */
+const THUMBNAIL_STYLES: Record<ThumbnailStyle, { hint: string; size: string }> = {
+  youtube: { hint: "YouTube thumbnail style, bold text overlay area, vibrant colors, high contrast, attention-grabbing", size: "1536x1024" },
+  instagram: { hint: "Instagram post style, clean aesthetic, lifestyle photography feel, square format optimized", size: "1024x1024" },
+  tiktok: { hint: "TikTok cover style, vertical format, trendy, dynamic, youth-oriented", size: "1024x1536" },
+  twitter: { hint: "Twitter/X card style, professional, clean, horizontal format", size: "1536x1024" },
+};
+
+// Best-frame mode delegates to `executeThumbnailBestFrame`; generation mode
+// is `executeImageGenerate` on OpenAI, the same executor `generate image` uses.
 
 export function registerThumbnailCommand(parent: Command): void {
   parent
     .command("thumbnail")
-    .description("Generate video thumbnail (DALL-E) or extract best frame from video (Gemini)")
-    .argument("[description]", "Thumbnail description (for DALL-E generation)")
+    .description("Generate video thumbnail (OpenAI image) or extract best frame from video (Gemini)")
+    .argument("[description]", "Thumbnail description (for image generation)")
     .option("-k, --api-key <key>", "API key (OpenAI for generation, Google for best-frame)")
     .option("-o, --output <path>", "Output file path")
     .option("--style <style>", "Platform style: youtube, instagram, tiktok, twitter")
@@ -110,7 +119,7 @@ export function registerThumbnailCommand(parent: Command): void {
           return;
         }
 
-        // Generation mode: create thumbnail with DALL-E
+        // Generation mode: create the thumbnail with OpenAI image generation
         if (!description) {
           exitWithError(
             usageError(
@@ -119,79 +128,44 @@ export function registerThumbnailCommand(parent: Command): void {
             ),
           );
         }
-
-        const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-
-        const spinner = ora("Generating thumbnail...").start();
-
-        const openaiImage = new OpenAIImageProvider();
-        await openaiImage.initialize({ apiKey });
-
-        const result = await openaiImage.generateThumbnail(description, options.style);
-
-        if (!result.success || !result.images) {
-          spinner.fail(result.error || "Thumbnail generation failed");
-          exitWithError(apiError(result.error || "Thumbnail generation failed", true));
+        const style = options.style as ThumbnailStyle | undefined;
+        if (style && !THUMBNAIL_STYLES[style]) {
+          exitWithError(usageError(`Invalid --style: ${style}`, `Must be one of: ${Object.keys(THUMBNAIL_STYLES).join(", ")}`));
         }
 
-        spinner.succeed(chalk.green("Thumbnail generated"));
+        const size = style ? THUMBNAIL_STYLES[style].size : "1536x1024";
+        const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
+        const spinner = isJsonMode() ? null : ora("Generating thumbnail...").start();
+        const result = await executeImageGenerate({
+          prompt: `Create a video thumbnail: ${description}. Style: ${style ? THUMBNAIL_STYLES[style].hint : "professional video thumbnail"}. No text in the image.`,
+          provider: "openai",
+          size,
+          quality: "high",
+          output: options.output,
+          apiKey,
+        });
+        if (!result.success || !result.images) {
+          spinner?.fail(result.error ?? "Thumbnail generation failed");
+          exitWithError(providerFailure(result.error ?? "Thumbnail generation failed", result.errorKind));
+        }
 
-        const img = result.images[0];
-
+        const cost = estimateImageCostUsd("openai", undefined, result.images.length, undefined, size);
         if (isJsonMode()) {
-          let outputPath: string | undefined;
-          if (options.output) {
-            let buffer: Buffer;
-            if (img.url) {
-              const response = await fetch(img.url);
-              buffer = Buffer.from(await response.arrayBuffer());
-            } else if (img.base64) {
-              buffer = Buffer.from(img.base64, "base64");
-            } else {
-              throw new Error("No image data available");
-            }
-            outputPath = resolve(process.cwd(), options.output);
-            await mkdir(dirname(outputPath), { recursive: true });
-            await writeFile(outputPath, buffer);
-          }
           outputSuccess({
             command: "generate thumbnail",
             startedAt,
-            data: { imageUrl: img.url, outputPath },
+            costUsd: cost.costUsd,
+            warnings: cost.warnings,
+            data: { provider: "openai", model: result.model, outputPath: result.outputPath },
           });
           return;
         }
 
-        console.log();
-        console.log(chalk.bold.cyan("Generated Thumbnail"));
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(`URL: ${img.url}`);
-        if (img.revisedPrompt) {
-          console.log(chalk.dim(`Prompt: ${img.revisedPrompt.slice(0, 100)}...`));
-        }
-        console.log();
-
-        // Save if output specified
-        if (options.output) {
-          const saveSpinner = ora("Saving thumbnail...").start();
-          try {
-            let buffer: Buffer;
-            if (img.url) {
-              const response = await fetch(img.url);
-              buffer = Buffer.from(await response.arrayBuffer());
-            } else if (img.base64) {
-              buffer = Buffer.from(img.base64, "base64");
-            } else {
-              throw new Error("No image data available");
-            }
-            const outputPath = resolve(process.cwd(), options.output);
-            await mkdir(dirname(outputPath), { recursive: true });
-            await writeFile(outputPath, buffer);
-            saveSpinner.succeed(chalk.green(`Saved to: ${outputPath}`));
-          } catch {
-            saveSpinner.fail(chalk.red("Failed to save thumbnail"));
-          }
-        }
+        spinner?.succeed(chalk.green("Thumbnail generated"));
+        const revisedPrompt = result.images[0]?.revisedPrompt;
+        if (revisedPrompt) console.log(chalk.dim(`  Revised prompt: ${revisedPrompt.slice(0, 100)}`));
+        if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
+        else console.log(chalk.yellow("Use -o to save the generated thumbnail to a file"));
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         exitWithError(apiError(`Thumbnail generation failed: ${msg}`, true));
