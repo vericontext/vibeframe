@@ -82,19 +82,19 @@ describe("Config scope", () => {
     });
 
     it("does not treat ~/.vibeframe/config.yaml as a parent project config", async () => {
-      await writeUserConfig({ llm: { provider: "claude" } });
+      await writeUserConfig({ defaults: { aspectRatio: "9:16", exportQuality: "standard" } });
       const nestedCwd = resolve(TEST_HOME, "dev", "project");
       expect(await getActiveScope(nestedCwd)).toBe("user");
       expect(await findProjectConfigPath(nestedCwd)).toBeNull();
     });
 
     it("returns 'project' when a project config exists at cwd", async () => {
-      await writeProjectConfig({ llm: { provider: "openai" } });
+      await writeProjectConfig({ defaults: { aspectRatio: "1:1", exportQuality: "standard" } });
       expect(await getActiveScope(PROJECT_CWD)).toBe("project");
     });
 
     it("returns 'project' when a project config exists in an ancestor", async () => {
-      await writeProjectConfig({ llm: { provider: "openai" } });
+      await writeProjectConfig({ defaults: { aspectRatio: "1:1", exportQuality: "standard" } });
       expect(await getActiveScope(join(PROJECT_CWD, "nested", "scene"))).toBe("project");
     });
   });
@@ -106,23 +106,23 @@ describe("Config scope", () => {
     });
 
     it("falls back to user when no project config exists", async () => {
-      await writeUserConfig({ llm: { provider: "claude" } });
+      await writeUserConfig({ defaults: { aspectRatio: "9:16", exportQuality: "standard" } });
       const cfg = await loadConfig({ cwd: PROJECT_CWD });
-      expect(cfg?.llm.provider).toBe("claude");
+      expect(cfg?.defaults.aspectRatio).toBe("9:16");
     });
 
     it("prefers project when both exist (project-only semantics)", async () => {
       await writeUserConfig({
-        llm: { provider: "claude" },
+        defaults: { aspectRatio: "9:16", exportQuality: "standard" },
         providers: { anthropic: "user-key" },
       });
       await writeProjectConfig({
-        llm: { provider: "openai" },
+        defaults: { aspectRatio: "1:1", exportQuality: "standard" },
         providers: { openai: "project-key" },
       });
 
       const cfg = await loadConfig({ cwd: PROJECT_CWD });
-      expect(cfg?.llm.provider).toBe("openai");
+      expect(cfg?.defaults.aspectRatio).toBe("1:1");
       // user's anthropic key must NOT leak through in auto mode
       expect(cfg?.providers.anthropic).toBeUndefined();
       expect(cfg?.providers.openai).toBe("project-key");
@@ -130,12 +130,12 @@ describe("Config scope", () => {
 
     it("finds project config from nested working directories", async () => {
       await writeProjectConfig({
-        llm: { provider: "openai" },
+        defaults: { aspectRatio: "1:1", exportQuality: "standard" },
         providers: { openai: "project-openai" },
       });
 
       const cfg = await loadConfig({ cwd: join(PROJECT_CWD, "nested", "scene") });
-      expect(cfg?.llm.provider).toBe("openai");
+      expect(cfg?.defaults.aspectRatio).toBe("1:1");
       expect(cfg?.providers.openai).toBe("project-openai");
     });
 
@@ -149,15 +149,15 @@ describe("Config scope", () => {
 
   describe("loadConfig (explicit scope)", () => {
     it("scope:'user' ignores project even when project exists", async () => {
-      await writeUserConfig({ llm: { provider: "claude" } });
-      await writeProjectConfig({ llm: { provider: "openai" } });
+      await writeUserConfig({ defaults: { aspectRatio: "9:16", exportQuality: "standard" } });
+      await writeProjectConfig({ defaults: { aspectRatio: "1:1", exportQuality: "standard" } });
 
       const cfg = await loadConfig({ scope: "user", cwd: PROJECT_CWD });
-      expect(cfg?.llm.provider).toBe("claude");
+      expect(cfg?.defaults.aspectRatio).toBe("9:16");
     });
 
     it("scope:'project' ignores user even when only user exists", async () => {
-      await writeUserConfig({ llm: { provider: "claude" } });
+      await writeUserConfig({ defaults: { aspectRatio: "9:16", exportQuality: "standard" } });
       const cfg = await loadConfig({ scope: "project", cwd: PROJECT_CWD });
       expect(cfg).toBeNull();
     });
@@ -166,7 +166,7 @@ describe("Config scope", () => {
   describe("loadConfig (merge:true)", () => {
     it("overlays project on user, project wins per-key", async () => {
       await writeUserConfig({
-        llm: { provider: "claude" },
+        defaults: { aspectRatio: "9:16", exportQuality: "standard" },
         providers: { anthropic: "user-anthropic", openai: "user-openai" },
       });
       await writeProjectConfig({
@@ -178,10 +178,6 @@ describe("Config scope", () => {
       expect(cfg?.providers.anthropic).toBe("user-anthropic");
       // project overrides shared key
       expect(cfg?.providers.openai).toBe("project-openai");
-      // user llm.provider survives because project didn't set it explicitly
-      // (createDefaultConfig sets claude — both files end up with provider:claude
-      // after applyDefaults; this test asserts merge semantics, not defaults).
-      expect(cfg?.llm.provider).toBe("claude");
     });
 
     it("overlays ancestor project config on user", async () => {
@@ -206,11 +202,11 @@ describe("Config scope", () => {
   describe("saveConfig (scope)", () => {
     it("default scope is 'user' and writes ~/.vibeframe config", async () => {
       const cfg = createDefaultConfig();
-      cfg.llm.provider = "openai";
+      cfg.defaults.aspectRatio = "1:1";
       await saveConfig(cfg);
 
       const back = await loadConfig({ scope: "user" });
-      expect(back?.llm.provider).toBe("openai");
+      expect(back?.defaults.aspectRatio).toBe("1:1");
       const status = await getUserConfigStatus();
       expect(status.configPath).toBe(USER_CONFIG_PATH);
       expect(status.source).toBe("user");
@@ -221,13 +217,13 @@ describe("Config scope", () => {
 
     it("scope:'project' writes to <cwd>/.vibeframe/config.yaml", async () => {
       const cfg = createDefaultConfig();
-      cfg.llm.provider = "gemini";
+      cfg.defaults.aspectRatio = "4:5";
       cfg.providers.google = "g-key";
 
       await saveConfig(cfg, { scope: "project", cwd: PROJECT_CWD });
 
       const back = await loadConfig({ scope: "project", cwd: PROJECT_CWD });
-      expect(back?.llm.provider).toBe("gemini");
+      expect(back?.defaults.aspectRatio).toBe("4:5");
       expect(back?.providers.google).toBe("g-key");
 
       const user = await loadConfig({ scope: "user" });

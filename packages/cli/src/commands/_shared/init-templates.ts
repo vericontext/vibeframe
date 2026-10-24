@@ -376,23 +376,21 @@ export function renderEnvExample(opts: EnvExampleOptions = {}): string {
   return `# VibeFrame API keys - copy this file to \`.env\` and fill in what you need.
 # Free local fallbacks work without any keys. See README for the full list.
 
-${fallback}# ── LLM provider / optional \`vibe agent\` fallback (pick one) ───────────
+${fallback}# ── LLM provider: composition, storyboard drafts, review (pick one) ─────
 ANTHROPIC_API_KEY=                    # Claude - recommended default
 OPENAI_API_KEY=                       # GPT-5.4 mini · Whisper · gpt-image-2.5
 GOOGLE_API_KEY=                       # Gemini · Omni video
 XAI_API_KEY=                          # Grok image+video
-OPENROUTER_API_KEY=                   # multiplexes any provider above
-# OLLAMA_HOST=http://localhost:11434  # offline, no key needed
 
 # ── Media providers ─────────────────────────────────────────────────────
 ELEVENLABS_API_KEY=                   # paid TTS / SFX / music (Kokoro is the free fallback)
-FAL_API_KEY=                              # Seedance 2.0 - default video provider since v0.57
+FAL_API_KEY=                          # Seedance 2.0 - default video provider since v0.57
 IMGBB_API_KEY=                        # image hosting for Seedance/Kling image-to-video
 RUNWAY_API_SECRET=                    # Runway Gen-4.5 video
 KLING_API_KEY=                        # Kling video
 REPLICATE_API_TOKEN=                  # MusicGen, real-esrgan, etc.
 
-# ── Optional private upload host for image-to-video ──────────────────────
+# ── Optional private upload host for image-to-video ─────────────────────
 # Default is ImgBB. Set these only if you want temporary URLs from your own S3 bucket.
 # VIBE_UPLOAD_PROVIDER=s3             # imgbb | s3
 # VIBE_UPLOAD_TTL_SECONDS=3600

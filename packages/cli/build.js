@@ -31,11 +31,6 @@ const external = [
   // Hyperframes producer pulls Chrome via Puppeteer + native FFmpeg — too
   // big and platform-specific to bundle. Stays a runtime dep.
   "@hyperframes/producer",
-  // Optional AI SDKs — declared as peerDependencies so users can pin
-  // versions or omit providers they don't use. Same pattern as mcp-server.
-  "@anthropic-ai/sdk",
-  "@google/generative-ai",
-  "openai",
 ];
 
 const banner = {
@@ -76,7 +71,6 @@ await build({
     "tools/manifest/index": "src/tools/manifest/index.ts",
     "tools/define-tool": "src/tools/define-tool.ts",
     "tools/adapters/mcp": "src/tools/adapters/mcp.ts",
-    "tools/adapters/agent": "src/tools/adapters/agent.ts",
   },
   bundle: true,
   platform: "node",

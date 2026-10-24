@@ -13,7 +13,7 @@ Monorepo: Turborepo + pnpm workspaces. ESM. TypeScript strict mode.
 
 Packages:
 
-- `packages/cli` - CLI, built-in agent mode, command implementations.
+- `packages/cli` - CLI and command implementations.
 - `packages/core` - Timeline/project primitives and FFmpeg-oriented editing model.
 - `packages/ai-providers` - Provider registry and provider implementations.
 - `packages/mcp-server` - MCP wrapper around the CLI, bundled with esbuild.
@@ -22,7 +22,7 @@ Packages:
 Architecture:
 
 ```text
-CLI (Commander.js + Agent) -> Engine (Project state) -> Core (Zustand + FFmpeg) -> AI Providers
+CLI (Commander.js) -> Engine (Project state) -> Core (Zustand + FFmpeg) -> AI Providers
 ```
 
 ## Commands
@@ -44,8 +44,7 @@ Canonical user-facing workflows:
 - Project video flow: `init`, `plan`, `build`, `preview`, `render` (edit beats
   with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
-- Automation: `run`, `schema`, `context`, `guide` (`agent` is deprecated and
-  will be removed before 1.0; do not recommend it)
+- Automation: `run`, `schema`, `context`, `guide`
 - Setup & hosts: `setup`, `doctor`, `host`
 - Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
   `media`, `assemble`
@@ -79,7 +78,7 @@ composition for text, layout, motion, timing, and reviewability.
 
 ## CLI And Tool Sync
 
-When adding CLI commands, expose them as agent tools only when natural-language
+When adding CLI commands, expose them as MCP tools only when natural-language
 invocation is useful.
 
 Naming: `vibe <group> <action>` maps to `<group>_<action>` in snake_case.
@@ -87,8 +86,8 @@ Naming: `vibe <group> <action>` maps to `<group>_<action>` in snake_case.
 Pattern:
 
 1. Extract a testable `execute*()` function from the command module.
-2. Reuse the same executor from CLI, YAML pipeline, and agent/MCP wrappers where practical.
-3. Register an agent tool with a schema that matches the CLI behavior.
+2. Reuse the same executor from the CLI, the YAML pipeline, and the MCP tool where practical.
+3. Add a manifest entry (`packages/cli/src/tools/manifest/`) with a schema that matches the CLI behavior.
 4. Add focused tests for the executor and wrapper.
 
 ## Cost Awareness

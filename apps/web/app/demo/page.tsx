@@ -168,7 +168,7 @@ export default function DemoPage() {
               <span className="text-primary">from your terminal.</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-fade-in-up delay-100">
-              Plain CLI, optional built-in agent, or a host agent - same project files and command
+              Plain CLI, an MCP host, or a coding agent - same project files and command
               contracts. Each surface below is the exact command sequence you run.
             </p>
           </div>

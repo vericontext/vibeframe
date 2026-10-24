@@ -34,7 +34,7 @@ const SECTIONS = [
   "## Recommended changes",
   "## Sources",
 ];
-const ENDPOINTS = ["anthropic", "openai", "gemini", "xai", "openrouter", "none"] as const;
+const ENDPOINTS = ["anthropic", "openai", "gemini", "xai", "none"] as const;
 type Endpoint = (typeof ENDPOINTS)[number];
 
 interface Reference {
@@ -165,12 +165,6 @@ async function listModels(endpoint: Endpoint): Promise<Set<string> | undefined> 
       const body = (await getJson("https://api.x.ai/v1/models", {
         Authorization: `Bearer ${env.XAI_API_KEY}`,
       })) as { data: { id: string }[] };
-      return new Set(body.data.map((m) => m.id));
-    }
-    case "openrouter": {
-      const body = (await getJson("https://openrouter.ai/api/v1/models")) as {
-        data: { id: string }[];
-      };
       return new Set(body.data.map((m) => m.id));
     }
     default:

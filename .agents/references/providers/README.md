@@ -22,7 +22,7 @@ checked: 2026-10-04            # date the facts below were last verified
 env: [ANTHROPIC_API_KEY]       # env vars our code reads for this provider
 models_endpoint: anthropic     # live listing probe used by providers:check, or none
 models_in_use:                 # IDs our source calls today, most important first
-  - claude-sonnet-4-6          # default: agent, storyboard, translate-srt
+  - claude-sonnet-4-6          # default: storyboard, translate-srt
 models_recommended:            # IDs to move to, each noting what it replaces
   - claude-sonnet-5-5          # replaces claude-sonnet-4-6
 ---
@@ -32,7 +32,7 @@ models_recommended:            # IDs to move to, each noting what it replaces
 `models_recommended` is where the code should go; `providers:check` verifies those IDs exist too.
 Use `[]` when a list is empty, and a trailing `# comment` to say what each ID is for.
 
-`models_endpoint` is one of `anthropic`, `openai`, `gemini`, `xai`, `openrouter`, or `none`.
+`models_endpoint` is one of `anthropic`, `openai`, `gemini`, `xai`, or `none`.
 
 Then these sections, in order:
 

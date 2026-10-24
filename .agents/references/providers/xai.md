@@ -4,19 +4,17 @@ checked: 2026-10-17
 env: [XAI_API_KEY]
 models_endpoint: xai
 models_in_use:
-  - grok-4.3                    # agent default
   - grok-imagine-video-1.5      # video default, 720p
   - grok-imagine-video-1.5-lite # video `--grok-model lite`
   - grok-imagine-video          # video `--grok-model classic`
   - grok-imagine-image          # image default
   - grok-imagine-image-2.0      # image `pro`, quality medium
-models_recommended:
-  - grok-4.7                    # quality option for the agent
+models_recommended: []
 ---
 
 # xAI
 
-VibeFrame uses xAI for three things: the `vibe agent -p xai` LLM loop, Grok Imagine image generation and editing, and Grok Imagine video (text-to-video and image-to-video).
+VibeFrame uses xAI for Grok Imagine image generation and editing, and Grok Imagine video (text-to-video and image-to-video).
 Grok video is the fallback default video provider when `FAL_API_KEY` is not set.
 
 ## Models
@@ -77,16 +75,13 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 
 ## In our code
 
-- `packages/cli/src/agent/adapters/xai.ts:18` - default LLM `grok-4-1-fast-reasoning` (retired).
-- `packages/cli/src/agent/adapters/xai.ts:21-24` - OpenAI SDK pointed at `https://api.x.ai/v1`.
-- `packages/cli/src/agent/adapters/xai.ts:85-90` - `chat.completions.create` with tools; no `reasoning_effort`.
 - `packages/ai-providers/src/grok/GrokProvider.ts:12-19` - model type and stale price comments ($4.20/min video, $0.07 pro image).
 - `packages/ai-providers/src/grok/GrokProvider.ts:112-187` - `generateImage` against `/images/generations`.
 - `packages/ai-providers/src/grok/GrokProvider.ts:193-273` - `editImage` against `/images/edits` with a data URI.
 - `packages/ai-providers/src/grok/GrokProvider.ts:292-305` - video body; hardcodes `grok-imagine-video`, never sends `resolution` or `generate_audio`.
 - `packages/ai-providers/src/grok/GrokProvider.ts:370-374` - status map lacks `failed`.
 - `packages/ai-providers/src/grok/GrokProvider.ts:425-439` - `cancelGeneration` uses an undocumented `DELETE /videos/{id}`.
-- `packages/cli/src/commands/ai-image.ts:148-158` - MCP/agent Grok image path reuses `OpenAIImageProvider` with no `model`, so it sends `gpt-image-2` (`OpenAIImageProvider.ts:78`) to xAI.
+- `packages/cli/src/commands/ai-image.ts:148-158` - MCP Grok image path reuses `OpenAIImageProvider` with no `model`, so it sends `gpt-image-2` (`OpenAIImageProvider.ts:78`) to xAI.
 - `packages/cli/src/commands/generate/image.ts:421-455` - CLI Grok image path and its aspect-ratio allowlist.
 - `packages/cli/src/commands/edit-cmd.ts:771-773` - Grok image edit.
 - `packages/cli/src/commands/ai-video.ts:308-345` and `:480-488` - Grok video generate and status.
@@ -98,7 +93,7 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 ## Recommended changes
 
 1. Fix the Grok video status map: treat `failed` as terminal and surface `error.message`, so failed jobs stop polling.
-2. Replace `grok-4-1-fast-reasoning` in the agent adapter with an explicit current model (`grok-4.3` for cost, `grok-4.7` for quality) and pass `reasoning_effort` explicitly.
+2. Dropped: the agent adapter, the only Grok LLM caller, was removed in 0.116.0.
 3. Fix `ai-image.ts` Grok path to call `GrokProvider.generateImage` (or pass a Grok model) instead of sending `gpt-image-2` to xAI.
 4. Drop `grok-imagine-image-pro` from `GrokModel`; offer `grok-imagine-image-2.0` with an explicit `quality` before the 2026-11-02 retirement.
 5. Send `resolution` (at least 720p) and forward `generate_audio`, and let callers pick `grok-imagine-video-1.5` / `-1.5-lite`.

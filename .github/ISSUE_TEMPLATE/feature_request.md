@@ -28,7 +28,7 @@ Which surface should this affect?
 - [ ] `generate` / `edit` / `inspect` / `audio` / `remix`
 - [ ] `init` / `build` / `render`
 - [ ] `run` YAML pipeline
-- [ ] `agent` or MCP integration
+- [ ] MCP or coding-agent integration
 - [ ] docs / demos / website
 
 ## Alternatives Considered

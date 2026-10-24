@@ -91,7 +91,7 @@ Per-second figures below are fal's own 16:9 approximations.
 - `packages/ai-providers/src/fal/FalProvider.ts:287-310` - references: data URIs uploaded via `client.storage.upload` with 1h lifecycle.
 - `packages/ai-providers/src/fal/FalProvider.ts:347-362` - resolution (`4k` to `1080p`) and duration clamps (4-15).
 - `packages/ai-providers/src/fal/index.ts:13` - registry `models` list.
-- `packages/cli/src/commands/ai-video.ts:127-180` - MCP/agent Seedance path; local images uploaded via ImgBB/S3 upload host (137-145).
+- `packages/cli/src/commands/ai-video.ts:127-180` - MCP Seedance path; local images uploaded via ImgBB/S3 upload host (137-145).
 - `packages/cli/src/commands/generate/video.ts:608-697` - CLI Seedance path; upload host for start and end images (622-668).
 - `packages/cli/src/commands/generate/video.ts:259` and `:782` - dry-run cost via `estimateSeedanceVideoCostUsd`.
 - `packages/cli/src/commands/_shared/build-plan.ts:464` - build plan cost estimate.

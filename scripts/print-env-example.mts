@@ -21,7 +21,7 @@ const { getAllApiKeys } = await import(
   "../packages/ai-providers/src/index.js"
 );
 
-const HEADER = `# VibeEdit Environment Variables
+const HEADER = `# VibeFrame Environment Variables
 # Copy this file to .env and fill in your API keys
 `;
 

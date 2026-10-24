@@ -27,8 +27,6 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | gemini | Gemini 3.1 Pro (preview) | `gemini-3.1-pro-preview` | `pro`, `pro-3.1`, `3.1-pro`, `gemini-3.1-pro` | Preview |  |  |
 | gemini | Gemini 2.5 Flash | `gemini-2.5-flash` | `flash-2.5` | Legacy |  | New projects cannot use 2.5 models since 2026-09-18 |
 | gemini | Gemini 2.5 Pro | `gemini-2.5-pro` | `pro-2.5`, `2.5-pro` | Legacy |  |  |
-| grok | **Grok 4.3** (default) | `grok-4.3` |  | GA | $1.25 / 1M input tokens |  |
-| grok | Grok 4.7 | `grok-4.7` |  | GA | $2 / 1M input tokens |  |
 
 ### Image
 
@@ -101,7 +99,6 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 | Command | Flag | Values |
 |---|---|---|
-| `vibe agent -p claude\|openai\|gemini\|xai` | `--model` | Any model ID; default is the provider's catalog default |
 | `vibe generate motion` | `-m` | Claude aliases (`sonnet` default, `opus`, `opus-4-6`) or Gemini aliases (`gemini`, `gemini-3.1-pro`, `gemini-2.5-pro`) |
 | `vibe generate image -p openai\|gemini\|grok`, `vibe edit image` | `-m` | The image aliases above |
 | `vibe generate video -p seedance` | `--seedance-model` | `quality` (default), `fast`, `2.5` |
@@ -111,56 +108,14 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 ---
 
-## Agent LLM Providers (7)
+## Text Models
 
-Used by the built-in agent mode (`vibe agent`), which is deprecated and will be removed before 1.0.
-Let your coding agent or an MCP host drive vibe instead.
+`vibe storyboard revise` and `vibe init --from` (when a key is set) make one bounded model call through the text contract in `@vibeframe/ai-providers`.
+They use the first key found among `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, and `OPENAI_API_KEY`, or the provider named by `--composer`, and call that provider's catalog default text model.
+Replies are JSON Schema structured output, and no request sends `temperature`.
 
-| Provider | Model | API Model ID | Env Key | CLI Option |
-|----------|-------|-------------|---------|------------|
-| OpenAI | GPT-5.4 mini | `gpt-5.4-mini` | `OPENAI_API_KEY` | `-p openai` |
-| Claude | Sonnet 5.5 | `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` | `-p claude` |
-| Gemini | 3.8 Flash | `gemini-3.8-flash` | `GOOGLE_API_KEY` | `-p gemini` |
-| xAI | Grok 4.3 | `grok-4.3` | `XAI_API_KEY` | `-p xai` |
-| OpenRouter | Auto (300+ models) | `openrouter/auto` | `OPENROUTER_API_KEY` | `-p openrouter` |
-| Evolink | GPT-5.2 (via unified API) | `gpt-5.2` | `EVOLINK_API_KEY` | `-p evolink` |
-| Ollama | Local models | user-configured | - | `-p ollama` |
-
-Override the model per session with `vibe agent -p <provider> --model <id>`.
-Claude and Gemini replay their own assistant content (thinking blocks, thought signatures) between tool turns, which current models require.
-
-Claude Opus 4.7 and every 5.x model reject `temperature`, `top_p`, and `top_k`, and Gemini 3.x deprecates them; VibeFrame never sends them.
-GPT-6 Astra and 6.1 Sol reject tool calls on Chat Completions (Responses API only), so they cannot drive Agent mode yet.
-`grok-4-1-fast-reasoning` was retired on 2026-05-15; xAI silently serves `grok-4.3` for it.
-
-**OpenRouter model options:**
-
-`openrouter/auto` is the default and routes to a model per request. OpenRouter slugs use dots in version numbers:
-
-| Model ID | Provider | Notes |
-|----------|----------|-------|
-| `openrouter/auto` | Auto | **Default**. Cost and tool support vary per pick |
-| `anthropic/claude-sonnet-5.5` | Anthropic | Claude Sonnet 5.5 |
-| `openai/gpt-6-luna` | OpenAI | GPT-6 Luna |
-| `google/gemini-3.8-flash` | Google | Gemini 3.8 Flash |
-| `qwen/qwen3.8-flash` | Qwen | Inexpensive, tool-capable |
-| `deepseek/deepseek-v4.1-flash` | DeepSeek | Inexpensive, tool-capable |
-
-To use a specific model: `vibe agent -p openrouter --model anthropic/claude-sonnet-5.5`
-
-> See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
-
-**Evolink model options:**
-
-| Model ID | Provider | Notes |
-|----------|----------|-------|
-| `gpt-5.2` | OpenAI | **Default**. GPT-5.2 via Evolink |
-| `evolink/auto` | Auto | Auto-routing |
-| `gemini-3.8-flash` | Google | Tool calls work on Chat Completions |
-| `claude-sonnet-5-5` | Anthropic | Claude Sonnet 5.5 via Evolink |
-| `doubao-seed-2.0-pro` | ByteDance | Doubao Seed 2.0 Pro via Evolink |
-
-> See [docs.evolink.ai](https://docs.evolink.ai/llms.txt) for the full model catalog.
+VibeFrame has no agent loop of its own: your coding agent or an MCP host drives `vibe`.
+The built-in `vibe agent` and its OpenRouter, Evolink, Ollama, and Grok text adapters were removed in 0.116.0.
 
 ---
 
@@ -277,8 +232,6 @@ export OPENAI_API_KEY="sk-..."        # GPT, Whisper, GPT Image 2.5
 export ANTHROPIC_API_KEY="sk-ant-..." # Claude
 export GOOGLE_API_KEY="AIza..."       # Gemini (text, image, Omni video)
 export XAI_API_KEY="xai-..."          # xAI Grok
-export OPENROUTER_API_KEY="sk-or-..." # OpenRouter (300+ models)
-export EVOLINK_API_KEY="el-..."          # Evolink (GPT-5, Claude, Gemini, DeepSeek & more)
 
 # Media Providers
 export ELEVENLABS_API_KEY="..."       # TTS, SFX
@@ -291,12 +244,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 
 | Command | Required API Key | Model |
 |---------|-----------------|-------|
-| `vibe agent` (default) | `OPENAI_API_KEY` | GPT-5.4 mini (Agent LLM) |
-| `vibe agent -p claude` | `ANTHROPIC_API_KEY` | Claude Sonnet 5.5 (Agent LLM) |
-| `vibe agent -p gemini` | `GOOGLE_API_KEY` | Gemini 3.8 Flash (Agent LLM) |
-| `vibe agent -p xai` | `XAI_API_KEY` | Grok 4.3 (Agent LLM) |
-| `vibe agent -p openrouter` | `OPENROUTER_API_KEY` | OpenRouter Auto (Agent LLM) |
-| `vibe agent -p evolink` | `EVOLINK_API_KEY` | GPT-5.2 via Evolink (Agent LLM) |
+| `vibe storyboard revise` | `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `OPENAI_API_KEY` | The provider's default text model |
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | OpenAI image generation |
 | `vibe generate image -p gemini` | `GOOGLE_API_KEY` | Gemini image generation |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |

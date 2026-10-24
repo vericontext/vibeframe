@@ -133,7 +133,6 @@ describe("renderEnvExample", () => {
       "RUNWAY_API_SECRET",
       "KLING_API_KEY",
       "REPLICATE_API_TOKEN",
-      "OPENROUTER_API_KEY",
     ];
     for (const k of keys) {
       expect(out).toContain(k);

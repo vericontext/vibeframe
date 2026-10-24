@@ -1,21 +1,16 @@
 /**
  * CLI ↔ manifest sync hook (post-v0.65).
  *
- * Pre-v0.65 this file maintained a SYNC_TABLE mapping every CLI subcommand
- * to its MCP and Agent tool names. After C6 (legacy collapse) the manifest
- * is the single source of truth for both MCP and Agent surfaces, so the
- * 3-way mapping collapsed to a 2-way one: CLI ↔ manifest.
+ * The manifest is the single source of truth for MCP tools; this file maps
+ * the CLI onto it.
  *
  * The test still fires when:
  * - A new CLI subcommand is added without a manifest entry → fail (or add to
  *   CLI_ONLY_TOP_LEVEL if it's CLI-ergonomics-only).
  * - A manifest entry's name doesn't match the CLI command's expected
  *   `<group>_<sub>` pattern → fail.
- * - The manifest exposes a tool with no surfaces → fail.
  *
- * MCP↔Agent symmetry is no longer in scope — the manifest's `surfaces`
- * field is the source of truth. The `manifest.test.ts` invariants check
- * adapter consistency.
+ * The `manifest.test.ts` invariants check adapter consistency.
  */
 
 import { describe, expect, it } from "vitest";
@@ -66,7 +61,7 @@ const CLI_TREE: Record<string, string[]> = {
 // (interactive flows, REPLs, schema dumps) that don't fit the
 // "manifest-as-tool" mold.
 const CLI_ONLY_TOP_LEVEL = new Set([
-  "setup", "init", "build", "render", "doctor", "demo", "agent", "run",
+  "setup", "init", "build", "render", "doctor", "demo", "run",
   "batch", "schema", "context", "media", "help", "plan",
 ]);
 
@@ -127,7 +122,7 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   // timeline (v0.77: now 1:1 token-for-token with manifest names)
   "timeline create":          "timeline_create",
   "timeline info":            "timeline_info",
-  "timeline set":             null, // CLI-only settings update; agents can use fs_read/fs_write if needed
+  "timeline set":             null, // CLI-only settings update
   "timeline add-source":      "timeline_add_source",
   "timeline add-clip":        "timeline_add_clip",
   "timeline add-track":       "timeline_add_track",
@@ -187,29 +182,10 @@ describe("CLI ↔ manifest sync", () => {
     expect(broken, `CLI_TO_MANIFEST points at manifest tools that do not exist: ${JSON.stringify(broken)}`).toEqual([]);
   });
 
-  it("every MCP-surfaced manifest entry shows up in mcp-server's tools array", () => {
+  it("every manifest entry shows up in mcp-server's tools array", () => {
     const registered = new Set(tools.map((t) => t.name));
-    const expected = manifest
-      .filter((t) => !t.surfaces || t.surfaces.includes("mcp"))
-      .map((t) => t.name);
-    const missing = expected.filter((n) => !registered.has(n));
-    expect(missing, `MCP-surfaced manifest entries missing from tools array: ${missing.join(", ")}`).toEqual([]);
-  });
-
-  it("every manifest entry has at least one surface", () => {
-    const orphans = manifest.filter((t) => t.surfaces && t.surfaces.length === 0);
-    expect(orphans.map((t) => t.name)).toEqual([]);
-  });
-
-  it("agent-only manifest entries are NOT exposed via MCP", () => {
-    // surfaces=["agent"] entries (fs_*, batch_*) must never end up in
-    // mcp-server's tools array — MCP clients have host-side filesystem
-    // affordances and these would be unsafe / out of scope. Regression
-    // for v0.66 PR3.
-    const registered = new Set(tools.map((t) => t.name));
-    const agentOnly = manifest.filter((t) => t.surfaces && t.surfaces.length === 1 && t.surfaces[0] === "agent");
-    const leaked = agentOnly.map((t) => t.name).filter((n) => registered.has(n));
-    expect(leaked, `agent-only entries leaked into MCP tools array: ${leaked.join(", ")}`).toEqual([]);
+    const missing = manifest.map((t) => t.name).filter((n) => !registered.has(n));
+    expect(missing, `manifest entries missing from tools array: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("CLI_ONLY_TOP_LEVEL has no overlap with CLI_TREE groups", () => {

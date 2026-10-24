@@ -4,7 +4,6 @@ import { rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import {
   createDefaultConfig,
-  PROVIDER_NAMES,
   PROVIDER_ENV_VARS,
   type VibeConfig,
 } from "./schema.js";
@@ -32,7 +31,7 @@ vi.mock("node:os", async () => {
 });
 
 // Import after mock
-const { loadConfig, saveConfig, isConfigured, CONFIG_DIR, CONFIG_PATH } =
+const { loadConfig, saveConfig, CONFIG_DIR, CONFIG_PATH } =
   await import("./index.js");
 
 afterAll(() => {
@@ -54,22 +53,11 @@ describe("Config Schema", () => {
       const config = createDefaultConfig();
 
       expect(config.version).toBe("1.0.0");
-      expect(config.llm.provider).toBe("claude");
       expect(config.providers).toEqual({});
       expect(config.defaults.aspectRatio).toBe("16:9");
       expect(config.defaults.exportQuality).toBe("standard");
       expect(config.upload.provider).toBe("imgbb");
       expect(config.upload.ttlSeconds).toBe(3600);
-      expect(config.repl.autoSave).toBe(true);
-    });
-  });
-
-  describe("PROVIDER_NAMES", () => {
-    it("has display names for all providers", () => {
-      expect(PROVIDER_NAMES.claude).toBe("Claude (Anthropic)");
-      expect(PROVIDER_NAMES.openai).toBe("GPT-4 (OpenAI)");
-      expect(PROVIDER_NAMES.gemini).toBe("Gemini (Google)");
-      expect(PROVIDER_NAMES.ollama).toBe("Ollama (Local)");
     });
   });
 
@@ -117,11 +105,9 @@ describe("Config Loader", () => {
       await mkdir(CONFIG_DIR, { recursive: true });
       const testConfig: VibeConfig = {
         version: "1.0.0",
-        llm: { provider: "openai" },
         providers: { openai: "test-key" },
         defaults: { aspectRatio: "9:16", exportQuality: "high" },
         upload: { provider: "imgbb", ttlSeconds: 3600 },
-        repl: { autoSave: false },
       };
 
       const { writeFile: fsWrite } = await import("node:fs/promises");
@@ -130,20 +116,16 @@ describe("Config Loader", () => {
 
       const loaded = await loadConfig({ cwd: TEST_HOME });
       expect(loaded).not.toBeNull();
-      expect(loaded?.llm.provider).toBe("openai");
       expect(loaded?.providers.openai).toBe("test-key");
       expect(loaded?.defaults.aspectRatio).toBe("9:16");
-      expect(loaded?.repl.autoSave).toBe(false);
     });
 
     it("merges with defaults for missing fields", async () => {
       await mkdir(CONFIG_DIR, { recursive: true });
       const partialConfig = {
         version: "1.0.0",
-        llm: { provider: "gemini" },
-        providers: {},
+        providers: { google: "g-key" },
         defaults: {},
-        repl: {},
       };
 
       const { writeFile: fsWrite } = await import("node:fs/promises");
@@ -151,76 +133,56 @@ describe("Config Loader", () => {
       await fsWrite(CONFIG_PATH, stringify(partialConfig), "utf-8");
 
       const loaded = await loadConfig({ cwd: TEST_HOME });
-      expect(loaded?.llm.provider).toBe("gemini");
+      expect(loaded?.providers.google).toBe("g-key");
       expect(loaded?.defaults.aspectRatio).toBe("16:9"); // Default
-      expect(loaded?.repl.autoSave).toBe(true); // Default
+      expect(loaded?.upload.ttlSeconds).toBe(3600); // Default
+    });
+
+    it("drops the agent settings older versions wrote, so the next save removes them", async () => {
+      await mkdir(CONFIG_DIR, { recursive: true });
+      const { writeFile: fsWrite } = await import("node:fs/promises");
+      const { stringify } = await import("yaml");
+      await fsWrite(
+        CONFIG_PATH,
+        stringify({ version: "1.0.0", llm: { provider: "gemini" }, repl: { autoSave: true }, providers: { google: "g-key" } }),
+        "utf-8"
+      );
+
+      const loaded = await loadConfig({ cwd: TEST_HOME });
+      expect(loaded).not.toHaveProperty("llm");
+      expect(loaded).not.toHaveProperty("repl");
+      expect(loaded?.providers.google).toBe("g-key");
+
+      await saveConfig(loaded!);
+      const content = await readFile(CONFIG_PATH, "utf-8");
+      expect(content).not.toContain("llm:");
+      expect(content).not.toContain("repl:");
     });
   });
 
   describe("saveConfig", () => {
     it("creates config directory and file", async () => {
       const config = createDefaultConfig();
-      config.llm.provider = "openai";
       config.providers.openai = "sk-test-123";
 
       await saveConfig(config);
 
       const content = await readFile(CONFIG_PATH, "utf-8");
-      expect(content).toContain("provider: openai");
       expect(content).toContain("openai: sk-test-123");
     });
 
     it("overwrites existing config", async () => {
       const config1 = createDefaultConfig();
-      config1.llm.provider = "claude";
+      config1.defaults.aspectRatio = "1:1";
       await saveConfig(config1);
 
       const config2 = createDefaultConfig();
-      config2.llm.provider = "gemini";
+      config2.defaults.aspectRatio = "9:16";
       await saveConfig(config2);
 
       const loaded = await loadConfig({ cwd: TEST_HOME });
-      expect(loaded?.llm.provider).toBe("gemini");
+      expect(loaded?.defaults.aspectRatio).toBe("9:16");
     });
   });
 
-  describe("isConfigured", () => {
-    it("returns false when no config exists", async () => {
-      const configured = await isConfigured({ cwd: TEST_HOME });
-      expect(configured).toBe(false);
-    });
-
-    it("returns false when config exists but no API key", async () => {
-      const config = createDefaultConfig();
-      await saveConfig(config);
-
-      const configured = await isConfigured({ cwd: TEST_HOME });
-      expect(configured).toBe(false);
-    });
-
-    it("returns true when API key is in config", async () => {
-      const config = createDefaultConfig();
-      config.llm.provider = "claude";
-      config.providers.anthropic = "test-key";
-      await saveConfig(config);
-
-      const configured = await isConfigured({ cwd: TEST_HOME });
-      expect(configured).toBe(true);
-    });
-
-    it("returns true when API key is in environment", async () => {
-      const config = createDefaultConfig();
-      config.llm.provider = "openai";
-      await saveConfig(config);
-
-      // Set environment variable
-      process.env.OPENAI_API_KEY = "test-env-key";
-
-      const configured = await isConfigured({ cwd: TEST_HOME });
-      expect(configured).toBe(true);
-
-      // Clean up
-      delete process.env.OPENAI_API_KEY;
-    });
-  });
 });

@@ -4,7 +4,7 @@ checked: 2026-10-17
 env: [OPENAI_API_KEY]
 models_endpoint: openai
 models_in_use:
-  - gpt-5.4-mini                # agent default, storyboard, translate-srt
+  - gpt-5.4-mini                # text default: storyboard, translate-srt
   - gpt-image-2.5-sunburst      # image default
   - gpt-image-2.5-flare         # image `flare`
   - gpt-image-2                 # image `2`
@@ -14,12 +14,12 @@ models_in_use:
   - tts-1                       # TTS option; shuts down 2027-01-06
   - tts-1-hd                    # TTS option; shuts down 2027-01-06
 models_recommended:
-  - gpt-6-luna                  # cheaper agent default once tools send reasoning_effort none or use Responses
+  - gpt-6-luna                  # cheaper text default candidate
 ---
 
 # OpenAI
 
-VibeFrame uses OpenAI for the built-in agent loop and text tasks (command parsing, storyboard, narration script, SRT translation) on `gpt-5-mini`, image generation and editing on GPT Image, narration TTS, and Whisper transcription with word timestamps for captions and jump cuts.
+VibeFrame uses OpenAI for text tasks (storyboard drafts and revisions, narration script, SRT translation), image generation and editing on GPT Image, narration TTS, and Whisper transcription with word timestamps for captions and jump cuts.
 Several of these model IDs are already shut down or have shutdown dates inside the next six months.
 
 ## Models
@@ -87,7 +87,6 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 - `packages/ai-providers/src/openai/openai-text.ts` - the text contract (`generateText`, used by `storyboard revise`) on `POST /responses`: `instructions`, `input`, `max_output_tokens`, `store: false`, `text.format` `json_schema` with `strict: true`; reads `output[].content[]` `output_text`, treats a `refusal` part or `content_filter` as moderation and `status: "incomplete"` as a cut-off reply. Live on `gpt-5.4-mini` 2026-10-16 (probe).
 - `packages/ai-providers/src/openai/OpenAIProvider.ts:24-25` base URL and `gpt-5-mini`; `:117-130` `parseCommand` (Chat Completions, `json_object`, no token cap); `:397-407` narration script (`max_completion_tokens: 16384`, `json_object`).
 - `packages/ai-providers/src/openai/openai-storyboard.ts:27-48` storyboard with `json_object` and a `{"segments": [...]}` wrapper.
-- `packages/cli/src/agent/adapters/openai.ts:18` default `gpt-5-mini`; `:82-87` `chat.completions.create` with `tools` and `tool_choice: "auto"`.
 - `packages/cli/src/commands/_shared/edit/translate-srt.ts:96-104` direct Chat Completions call on `gpt-5-mini`.
 - `packages/ai-providers/src/openai-image/OpenAIImageProvider.ts:16` `GPTImageModel` (includes `dall-e-3`); `:20-24` and `:13` stale per-image price comments; `:75-78` default `gpt-image-2`; `:121-146` request body (DALL-E branch sends `response_format`); `:151` generations; `:263-299` multipart edits with `image[]`; `:353-372` `createVariation` on `dall-e-2` via `/images/variations`.
 - `packages/cli/src/commands/_shared/openai-image.ts:34-50` maps `1.5` / `gpt-image-1.5` to `gpt-image-1.5`, anything else to `gpt-image-2`.
@@ -95,12 +94,11 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 - `packages/ai-providers/src/openai-tts/OpenAiTtsProvider.ts:12` model union; `:18-32` voice list; `:37-38` defaults `marin` and `gpt-4o-mini-tts`; `:108-118` `/audio/speech` call.
 - `packages/ai-providers/src/whisper/WhisperProvider.ts:58-74` `whisper-1`, `verbose_json`, `timestamp_granularities[]`.
 - `packages/cli/src/commands/_shared/edit/jump-cut.ts:82-90` `whisper-1` word timestamps for filler detection.
-- `packages/cli/src/agent/adapters/evolink.ts:19` uses `gpt-5.2` through EvoLink's OpenAI-compatible endpoint, not api.openai.com, so it is not listed in `models_in_use`.
 
 ## Recommended changes
 
 1. Remove `dall-e-3` from `GPTImageModel` and the DALL-E request branch, and remove or reimplement `createVariation` (`dall-e-2`); both models have been shut down since 2026-05-12.
-2. Replace `gpt-5-mini` before 2026-12-11 in the provider, storyboard, translate-srt, and agent adapter.
+2. Replace `gpt-5-mini` before 2026-12-11 in the provider, storyboard, and translate-srt (the agent adapter was removed in 0.116.0).
    `gpt-5.6-terra` is the named replacement but costs about 8x more on input; `gpt-5.4-mini` has no shutdown date and keeps Chat Completions tools; `gpt-6-luna` is cheapest but needs `reasoning_effort: "none"` for tools on Chat Completions.
 3. Move the `1.5` image alias to `gpt-image-2.5-flare` or `gpt-image-2.5-sunburst` before 2026-12-01, and evaluate 2.5 as the default; widen `size` and quality types to cover custom sizes and `xhigh`/`max`.
 4. Fix the stale price comments in `OpenAIImageProvider.ts` (GPT Image 1.5 high is $0.133 at 1024x1024, GPT Image 2 high is $0.211, not "~$0.04 vs ~$0.08").

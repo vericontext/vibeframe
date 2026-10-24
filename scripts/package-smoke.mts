@@ -206,8 +206,6 @@ assertPackFiles(packDryRun(cliDir), [
   "dist/tools/define-tool.d.ts",
   "dist/tools/adapters/mcp.js",
   "dist/tools/adapters/mcp.d.ts",
-  "dist/tools/adapters/agent.js",
-  "dist/tools/adapters/agent.d.ts",
   "package.json",
 ]);
 assertExportTargets(cliDir);
@@ -227,10 +225,6 @@ await smokeImport("@vibeframe/cli/tools/define-tool", resolve(cliDir, "dist/tool
 await smokeImport(
   "@vibeframe/cli/tools/adapters/mcp",
   resolve(cliDir, "dist/tools/adapters/mcp.js")
-);
-await smokeImport(
-  "@vibeframe/cli/tools/adapters/agent",
-  resolve(cliDir, "dist/tools/adapters/agent.js")
 );
 await smokeMcpServer(resolve(mcpDir, "dist/index.js"));
 await smokePackedMcpServer(mcpDir);

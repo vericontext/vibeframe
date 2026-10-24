@@ -45,8 +45,6 @@ notes.
 - OpenAI (GPT, gpt-image-2, Whisper)
 - Google Gemini (text, Nano Banana images, Gemini Omni video)
 - xAI Grok / Grok Imagine
-- OpenRouter (300+ models via unified API)
-- Ollama (local LLM runtime)
 - ElevenLabs (TTS, sound effects, voice clone, audio isolation)
 - Kokoro-82M via [`kokoro-js`](https://www.npmjs.com/package/kokoro-js)
   (Apache 2.0; local TTS fallback)
@@ -74,8 +72,8 @@ notes.
 What VibeFrame implements independently (not borrowed from any of the
 above):
 
-- The agent surface — `vibe agent` REPL with BYO LLM, MCP server with
-  61 tools, Claude Code skills (`/vibe-pipeline`, `/vibe-scene`).
+- The agent surface — the MCP server and Claude Code skills
+  (`/vibe-pipeline`, `/vibe-scene`).
 - The YAML pipeline DSL (`vibe run pipeline.yaml`) — `--dry-run` cost
   preview, `--resume` checkpoints, `$step.output` references, budget
   ceilings.

@@ -21,56 +21,35 @@ function countCliCommands() {
   return 93;
 }
 
+// Matches scripts/print-counts.mts; used when the manifest sources are absent.
+const MCP_TOOLS_FALLBACK = 77;
+
 function countManifestTools() {
   const manifestDir = path.resolve(__dirname, "../../packages/cli/src/tools/manifest");
   let total = 0;
-  let agentOnly = 0;
-  let mcpOnly = 0;
   try {
     const files = fs.readdirSync(manifestDir).filter(
-      (f) => f.endsWith(".ts") && f !== "index.ts",
+      (f) => f.endsWith(".ts") && f !== "index.ts" && !f.endsWith(".test.ts"),
     );
     for (const file of files) {
       const content = fs.readFileSync(path.join(manifestDir, file), "utf8");
       total += (content.match(/defineTool\(\{/g) ?? []).length;
-      const lines = content.split(/\r?\n/).map((line) => line.trim());
-      agentOnly += lines.filter((line) => line === 'surfaces: ["agent"],').length;
-      mcpOnly += lines.filter((line) => line === 'surfaces: ["mcp"],').length;
     }
   } catch {
-    return { mcp: 77, agent: 93 };
+    // Fallback below
   }
-  if (total === 0) return { mcp: 77, agent: 93 };
-  return {
-    mcp: total - agentOnly,
-    agent: total - mcpOnly,
-  };
+  return total || MCP_TOOLS_FALLBACK;
 }
 
-const agentTypesFile = path.resolve(__dirname, "../../packages/cli/src/agent/types.ts");
 const aiProvidersDir = path.resolve(__dirname, "../../packages/ai-providers/src");
 
 const cliCommands = countCliCommands();
-const toolCounts = countManifestTools();
-const agentTools = toolCounts.agent;
-const mcpTools = toolCounts.mcp;
-// Count LLM providers from the LLMProvider type union (e.g., "openai" | "claude" | ...)
-let llmProviders = 6;
-try {
-  const typesContent = fs.readFileSync(agentTypesFile, "utf8");
-  const providerLine = typesContent.match(/LLMProvider\s*=\s*(.+)/);
-  if (providerLine) {
-    const matches = providerLine[1].match(/"[a-z]+"/g);
-    if (matches) llmProviders = matches.length;
-  }
-} catch {
-  // Fallback
-}
+const mcpTools = countManifestTools();
 
 // Count AI provider directories: dirs that hold a `*Provider.ts`. Shared
 // code (interface, catalog, shared, video, testing) has none. Match
 // scripts/sync-counts.sh.
-let aiProviders = 14;
+let aiProviders = 13;
 try {
   const entries = fs.readdirSync(aiProvidersDir, { withFileTypes: true });
   aiProviders =
@@ -78,7 +57,7 @@ try {
       (e) =>
         e.isDirectory() &&
         fs.readdirSync(path.join(aiProvidersDir, e.name)).some((f) => f.endsWith("Provider.ts"))
-    ).length || 14;
+    ).length || 13;
 } catch {
   // Fallback
 }
@@ -87,10 +66,8 @@ try {
 const nextConfig = {
   env: {
     NEXT_PUBLIC_VERSION: pkg.version,
-    NEXT_PUBLIC_AGENT_TOOLS: String(agentTools),
     NEXT_PUBLIC_CLI_COMMANDS: String(cliCommands),
     NEXT_PUBLIC_MCP_TOOLS: String(mcpTools),
-    NEXT_PUBLIC_LLM_PROVIDERS: String(llmProviders),
     NEXT_PUBLIC_AI_PROVIDERS: String(aiProviders),
   },
 };

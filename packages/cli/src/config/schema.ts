@@ -3,17 +3,9 @@
  * Stored at ~/.vibeframe/config.yaml by default.
  */
 
-export type LLMProvider = "claude" | "openai" | "gemini" | "ollama" | "xai" | "openrouter" | "evolink";
-
 export interface VibeConfig {
   /** Config file version */
   version: string;
-
-  /** LLM provider settings */
-  llm: {
-    /** Primary LLM provider for AI commands */
-    provider: LLMProvider;
-  };
 
   /** API keys for various providers */
   providers: {
@@ -27,8 +19,6 @@ export interface VibeConfig {
     imgbb?: string;
     replicate?: string;
     xai?: string;
-    openrouter?: string;
-    evolink?: string;
   };
 
   /** Default settings for new projects */
@@ -57,24 +47,7 @@ export interface VibeConfig {
       publicBaseUrl?: string;
     };
   };
-
-  /** REPL settings */
-  repl: {
-    /** Auto-save project after each command */
-    autoSave: boolean;
-  };
 }
-
-/** Provider display names */
-export const PROVIDER_NAMES: Record<LLMProvider, string> = {
-  claude: "Claude (Anthropic)",
-  openai: "GPT-4 (OpenAI)",
-  gemini: "Gemini (Google)",
-  ollama: "Ollama (Local)",
-  xai: "Grok (xAI)",
-  openrouter: "OpenRouter",
-  evolink: "Evolink",
-};
 
 /**
  * Environment variable mappings, derived from the provider registry.
@@ -92,9 +65,6 @@ export const PROVIDER_ENV_ALIASES: Record<string, readonly string[]> = getProvid
 export function createDefaultConfig(): VibeConfig {
   return {
     version: "1.0.0",
-    llm: {
-      provider: "claude",
-    },
     providers: {},
     defaults: {
       aspectRatio: "16:9",
@@ -106,9 +76,6 @@ export function createDefaultConfig(): VibeConfig {
       s3: {
         prefix: "vibeframe/tmp",
       },
-    },
-    repl: {
-      autoSave: true,
     },
   };
 }

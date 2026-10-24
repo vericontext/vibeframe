@@ -11,7 +11,7 @@
 # This script is invoked by `.claude/hooks/pre-push-validate.sh`, so any
 # drift it catches blocks `git push` until fixed. Drift categories:
 #
-#   A. Numeric counts (AI_PROVIDERS / MCP_TOOLS / AGENT_TOOLS) referenced
+#   A. Numeric counts (AI_PROVIDERS / MCP_TOOLS) referenced
 #      verbatim in README / landing / share metadata
 #   B. Provider enumeration completeness — every entry that appears in
 #      provider-resolver.ts must also exist in schema.ts PROVIDER_ENV_VARS,
@@ -40,19 +40,10 @@ fi
 # (interface, catalog, shared, video, testing) has none. Match next.config.js.
 AI_PROVIDERS=$(find packages/ai-providers/src -mindepth 2 -maxdepth 2 -name '*Provider.ts' -exec dirname {} \; | sort -u | wc -l | tr -d ' ')
 
-# MCP + Agent tool counts come from the manifest itself (v0.67 PR3 / C9).
-# Pre-v0.67 PR3 the script grepped `defineTool({` and `surfaces: ["mcp"]`
-# against packages/cli/src/tools/manifest/*.ts — fragile, and broke twice
-# during the v0.66 agent-only migration when the regex didn't match the
-# new shape. `scripts/print-counts.mts` does one `manifest.filter(...)`
-# instead and emits JSON.
+# The MCP tool count comes from the manifest itself via
+# `scripts/print-counts.mts`, which emits JSON.
 COUNTS_JSON=$(pnpm exec tsx scripts/print-counts.mts 2>/dev/null)
 MCP_TOOLS=$(echo "$COUNTS_JSON" | jq -r .mcp 2>/dev/null || echo "?")
-AGENT_TOOLS=$(echo "$COUNTS_JSON" | jq -r .agent 2>/dev/null || echo "?")
-
-# LLM providers (LLMProvider type union)
-LLM_PROVIDERS=$(grep 'LLMProvider = ' packages/cli/src/agent/types.ts 2>/dev/null \
-  | grep -oE '"[a-z]+"' | wc -l | tr -d ' ')
 
 VERSION=$(jq -r '.version' package.json)
 
@@ -69,10 +60,8 @@ if ! $CHECK_MODE; then
   echo "=== VibeFrame SSOT Counts ==="
   echo "Version:          $VERSION"
   echo "CLI commands:     $CLI_COMMANDS"
-  echo "Agent tools:      $AGENT_TOOLS"
   echo "MCP tools:        $MCP_TOOLS"
   echo "AI providers:     $AI_PROVIDERS"
-  echo "LLM providers:    $LLM_PROVIDERS"
   echo "Tests passing:    $TESTS"
   echo ""
   echo "Run with --check to validate docs, landing copy, and CLI surfaces."
@@ -102,10 +91,6 @@ R_TAGLINE_MCP=$(grep -oE 'AI providers\. [0-9]+ MCP tools' README.md | head -1 |
 R_COMP_AI=$(first_num 'AI providers \| \*\*[0-9]+\*\*' README.md)
 [ -n "$R_COMP_AI" ] && [ "$R_COMP_AI" != "$AI_PROVIDERS" ] && \
   err "README.md comparison row says '${R_COMP_AI}' AI providers but actual = ${AI_PROVIDERS}"
-
-R_AGENT=$(first_num '\*\*Same [0-9]+ tools' README.md)
-[ -n "$R_AGENT" ] && [ "$R_AGENT" != "$AGENT_TOOLS" ] && \
-  err "README.md says 'Same ${R_AGENT} tools' but agent tools = ${AGENT_TOOLS}"
 
 R_MCP_BUNDLED=$(first_num '\*\*[0-9]+ MCP tools\*\*' README.md)
 [ -n "$R_MCP_BUNDLED" ] && [ "$R_MCP_BUNDLED" != "$MCP_TOOLS" ] && \
@@ -175,14 +160,6 @@ LAYOUT_MCP_CONST=$(grep -oE 'const MCP_TOOLS = [^;]+' apps/web/app/layout.tsx \
   | grep -oE '"[0-9]+"' | head -1 | tr -d '"')
 if [ -n "$LAYOUT_MCP_CONST" ] && [ "$LAYOUT_MCP_CONST" != "$MCP_TOOLS" ]; then
   err "apps/web/app/layout.tsx const MCP_TOOLS fallback = '${LAYOUT_MCP_CONST}' but actual = ${MCP_TOOLS}"
-fi
-
-# ── A4. apps/web/app/demo/page.tsx tool count ───────────────────────────
-
-if grep -qE 'same [0-9]+ tools' apps/web/app/demo/page.tsx; then
-  D_TOOLS=$(first_num 'same ([0-9]+) tools' apps/web/app/demo/page.tsx)
-  [ "$D_TOOLS" != "$AGENT_TOOLS" ] && \
-    err "apps/web/app/demo/page.tsx: 'same ${D_TOOLS} tools' but agent tools = ${AGENT_TOOLS}"
 fi
 
 # ── B. Provider plugin registry validation ──────────────────────────────
@@ -268,7 +245,7 @@ if [ ${#ERRORS[@]} -gt 0 ]; then
     echo "  - $e" >&2
   done
   echo "" >&2
-  echo "Counts: AI=${AI_PROVIDERS} MCP=${MCP_TOOLS} agent=${AGENT_TOOLS} LLM=${LLM_PROVIDERS}" >&2
+  echo "Counts: AI=${AI_PROVIDERS} MCP=${MCP_TOOLS}" >&2
   exit 1
 fi
 

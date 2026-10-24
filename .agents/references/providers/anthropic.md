@@ -4,7 +4,7 @@ checked: 2026-10-17
 env: [ANTHROPIC_API_KEY]
 models_endpoint: anthropic
 models_in_use:
-  - claude-sonnet-5-5           # default: agent, storyboard, translate-srt, motion `sonnet`
+  - claude-sonnet-5-5           # default: storyboard, translate-srt, motion `sonnet`
   - claude-opus-5-5             # motion `opus`
   - claude-opus-4-6             # motion `opus-4-6` (legacy alias)
   - claude-haiku-5-5            # `haiku` alias
@@ -13,7 +13,7 @@ models_recommended: []
 
 # Anthropic
 
-VibeFrame calls the Claude Messages API for the built-in agent loop, Remotion motion code generation, storyboard and narration analysis, viral/highlight analysis, SRT translation, and single-frame vision analysis (B-roll tagging, reframe, color grade).
+VibeFrame calls the Claude Messages API for Remotion motion code generation, storyboard and narration analysis, viral/highlight analysis, SRT translation, and single-frame vision analysis (B-roll tagging, reframe, color grade).
 Claude reads text and images only; it never sees video, so every video task first extracts frames or transcripts (docs).
 
 ## Models
@@ -87,14 +87,13 @@ Every model ID from the 4.6 generation on is a dateless pinned snapshot, not a m
 - `packages/ai-providers/src/claude/claude-api.ts:21` shared `callClaude()`: `anthropic-version: 2023-06-01`, no `thinking`, no `temperature`, returns the first `text` block.
 - `packages/ai-providers/src/claude/claude-motion.ts:54`, `:138`, `:192` motion and storyboard calls (comment at `:190` explains why `temperature` was removed).
 - `packages/ai-providers/src/claude/claude-analysis.ts:136-145` and `claude-visual-fx.ts:299-308` send base64 `image` blocks (vision); `claude-viral.ts:93`, `:164`, `:221` text-only analysis.
-- `packages/cli/src/agent/adapters/claude.ts:18` default `claude-sonnet-4-6`; `:45-90` rebuilds history from text and `tool_use` only (drops thinking blocks); `:105` `messages.create` with `max_tokens: 4096` and `tool_choice` unset.
 - `packages/cli/src/commands/_shared/edit/translate-srt.ts:126-148` direct fetch with `claude-sonnet-4-6`, `max_tokens: 4096`.
 - `packages/cli/src/commands/ai-motion.ts:66-68` `MODEL_MAP` duplicates the motion model IDs.
 - `packages/cli/src/utils/api-key.ts:10` maps `ANTHROPIC_API_KEY` to the `anthropic` config key.
 
 ## Recommended changes
 
-1. Make `ClaudeAdapter` keep the raw assistant `content` array (including `thinking` and `redacted_thinking` blocks) and replay it verbatim, before anyone points `setModel()` at Sonnet 5.5, Opus 5.5, or Fable 5.1; today it would 400 on the second tool turn.
+1. Dropped: the agent adapter (`ClaudeAdapter`) was removed in 0.116.0.
 2. Before moving the default off `claude-sonnet-4-6`, raise `max_tokens` (or set `output_config.effort` to `low`/`medium`, or `between_tools` on Sonnet 5.5) so thinking cannot starve the text block, and handle `stop_reason: "refusal"`.
 3. Then move the default to `claude-sonnet-5-5`: it is cheaper than Sonnet 4.6 ($2/$10 vs $3/$15) and retires a year later.
 4. Point the motion `opus` alias at `claude-opus-5-5` ($4/$20, cheaper than Opus 4.7 at $5/$25) once item 2 is done, and drop `opus-4-6`.

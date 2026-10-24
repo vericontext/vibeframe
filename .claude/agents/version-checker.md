@@ -74,7 +74,7 @@ Generated CLI docs must match the built CLI.
 3. Run `pnpm vibe schema --list` and confirm the top-level groups align with
    README:
    `generate`, `edit`, `inspect`, `audio`, `remix`, `init`, `build`,
-   `render`, `run`, `agent`, `scene`, `timeline`, `detect`, `batch`,
+   `render`, `run`, `scene`, `timeline`, `detect`, `batch`,
    `media`, `guide`, `context`, `completion`.
 4. Confirm `README.md` and `docs/` use current commands, not removed
    namespaces such as `vibe ai`, `vibe project`, `vibe export`, or

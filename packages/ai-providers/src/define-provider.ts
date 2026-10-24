@@ -13,12 +13,11 @@
  *     - `openai` apiKey → `openai` (llm/transcribe) + `openai-image` (image) +
  *       `whisper` (transcription)
  *     - `imgbb` apiKey → no provider class (envvar-only, image hosting)
- *     - `openrouter` apiKey → no provider class (OpenAI-compat, LLM-only)
  *
  *   A single declaration that conflates "auth credential" with "service" can't
  *   express any of these without escape hatches. Splitting them keeps each
- *   declaration small and lets virtual providers (openrouter) and envvar-only
- *   credentials (imgbb) coexist with normal cases.
+ *   declaration small and lets providers that share a key (omni) and
+ *   envvar-only credentials (imgbb) coexist with normal cases.
  *
  * Separation from the existing `providerRegistry` in `interface/registry.ts`:
  * that one holds AIProvider class instances for capability-based lookup at
@@ -37,8 +36,8 @@ export type ProviderKind =
 
 /**
  * An API credential. Some apiKeys back multiple providers (google → gemini +
- * omni). Some apiKeys have no provider class at all (imgbb, openrouter — used
- * only as envvar lookups).
+ * omni). Some apiKeys have no provider class at all (imgbb, used
+ * only as an envvar lookup).
  */
 export interface ApiKeyMeta {
   /** Stable identifier used as `VibeConfig.providers[configKey]` and as the
@@ -81,8 +80,8 @@ export interface ApiKeyMeta {
 
 /**
  * A service provider. Maps to a directory under `packages/ai-providers/src/`
- * in most cases, except virtual entries (omni, openrouter) that share a
- * directory or have none.
+ * in most cases, except entries such as omni that share another provider's
+ * directory.
  */
 export interface ProviderMeta {
   /** Stable identifier — used as `-p <id>` flag value, resolver name, and
@@ -100,8 +99,8 @@ export interface ProviderMeta {
   models?: readonly string[];
   /** Capability tags used by docs/help; intentionally lightweight for now. */
   capabilities?: readonly string[];
-  /** ApiKey configKey reference, or `null` for keyless providers (kokoro,
-   *  ollama). Multiple providers may share a configKey. */
+  /** ApiKey configKey reference, or `null` for keyless providers (kokoro).
+   *  Multiple providers may share a configKey. */
   apiKey: string | null;
   /** Service kinds — drives which derived arrays the provider appears in. */
   kinds: readonly ProviderKind[];
