@@ -119,7 +119,7 @@ Examples:
       };
 
       if (options.dryRun) {
-        const estimate = estimateImageCostUsd(provider, options.model, count, options.resolution);
+        const estimate = estimateImageCostUsd(provider, options.model, count, options.resolution, options.size);
         outputSuccess({
           command: "generate image",
           startedAt,
@@ -153,7 +153,7 @@ Examples:
       }
 
       const modelId = result.model ?? modelSpec.id;
-      const cost = estimateImageCostUsd(provider, options.model, result.images.length, options.resolution);
+      const cost = estimateImageCostUsd(provider, options.model, result.images.length, options.resolution, options.size);
       if (isJsonMode()) {
         outputSuccess({
           command: "generate image",

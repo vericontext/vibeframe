@@ -2064,7 +2064,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate sound-effect -
 exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --describe 1`] = `
 {
   "cost": "free",
-  "description": "Generate video thumbnail (DALL-E) or extract best frame from video (Gemini)",
+  "description": "Generate video thumbnail (OpenAI image) or extract best frame from video (Gemini)",
   "name": "generate.thumbnail",
   "parameters": {
     "properties": {
@@ -2077,7 +2077,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
         "type": "string",
       },
       "description": {
-        "description": "Thumbnail description (for DALL-E generation)",
+        "description": "Thumbnail description (for image generation)",
         "type": "string",
       },
       "model": {
