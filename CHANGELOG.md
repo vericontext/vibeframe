@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.116.0] - 2026-10-24
+
+### Breaking
+
+- remove the provider methods that predate the typed contracts (#376)
+- remove the `fal` alias for `seedance` (#374)
+- remove the built-in agent and the LLM adapters only it used (#373)
+- remove Veo now that Google shut it down, and stop builds from swapping in another provider (#372)
+
+### Fixed
+
+- count breaking `type!:` commits as unreleased work in release-status (#377)
+- generate thumbnail prints "URL: undefined", reports $0, and bypasses the image contract (#375)
+
+### Maintenance
+
+- group breaking commits under "Breaking" in the changelog (#378)
+
 ## [0.115.10] - 2026-10-16
 
 ### Added
@@ -790,7 +808,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.94.0] - 2026-05-01
 
-### Added
+### Breaking
 
 - drop FAL_KEY back-compat alias — FAL_API_KEY is the only canonical name *(providers)*
 
@@ -1014,25 +1032,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.78.0] - 2026-04-29
 
-### Added
+### Breaking
 
 - v0.78 polish — critical bug fixes + short flag dedup *(cli)*
 
 ## [0.77.0] - 2026-04-29
 
-### Added
+### Breaking
 
 - v0.77 polish — verb-first leaves + timeline symmetry *(cli)*
 
 ## [0.76.0] - 2026-04-29
 
-### Added
+### Breaking
 
 - align MCP tool names with the v0.74 CLI surface *(mcp)*
 
 ## [0.75.0] - 2026-04-29
 
-### Added
+### Breaking
 
 - drop v0.74 deprecation aliases (v0.75 cleanup) *(cli)*
 
@@ -1088,11 +1106,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GEMINI.md scaffold for Gemini CLI parity (4c, deferred from #184) (#190) *(init)*
+
+### Breaking
+
 - complete envelope migration — scene/timeline/pipeline/analyze (Issue #33 — 2c-sweep-3) (#197) *(cli)*
 - migrate edit/audio/detect/batch/project/export/init to outputSuccess (Issue #33 — 2c-sweep-2) (#196) *(cli)*
 - migrate generate.* to outputSuccess envelope (Issue #33 — 2c-sweep-1) (#195) *(cli)*
 - new --json envelope on generate image (Issue #33 — 2c-canary) (#194) *(cli)*
-- GEMINI.md scaffold for Gemini CLI parity (4c, deferred from #184) (#190) *(init)*
 
 ### Documentation
 
@@ -1850,12 +1871,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add --json output, --dry-run, input validation, and AGENTS.md
-- restructure CLI into 5 semantic command groups
 - add 'latest' model alias for Gemini image generation
 - add Gemini 3.1 Flash image model and Veo video API enhancements
 - add vibe setup --claude-code and CLI reference for Claude Code integration
 - show project .env keys in vibe setup --show
 - support project-scoped .env for API keys
+
+### Breaking
+
+- restructure CLI into 5 semantic command groups
 
 ### Changed
 
