@@ -129,19 +129,6 @@ export interface TTSOptions {
 }
 
 /**
- * TTS generation result
- */
-export interface TTSResult {
-  success: boolean;
-  /** Audio data as Buffer (for saving to file) */
-  audioBuffer?: Buffer;
-  /** Error message if failed */
-  error?: string;
-  /** Character count used */
-  characterCount?: number;
-}
-
-/**
  * Known ElevenLabs voices with their IDs
  * These are the default voices available in ElevenLabs
  */
@@ -208,7 +195,6 @@ export function resolveVoiceId(input: string | undefined): string {
   );
 }
 
-/** One retry absorbs transient concurrent-limit overlap; see textToSpeech. */
 /** Characters per text-to-speech request (docs). */
 const TTS_CHARACTER_LIMITS: Readonly<Record<string, number>> = {
   eleven_v3: 5_000,
@@ -331,18 +317,6 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
       model,
       characters: text.length,
     };
-  }
-
-  /**
-   * Generate speech from text (older interface; `synthesize` is the contract).
-   */
-  async textToSpeech(text: string, options: TTSOptions = {}): Promise<TTSResult> {
-    try {
-      const result = await this.speak(text, options);
-      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
-    } catch (error) {
-      return { success: false, error: errorText(error) };
-    }
   }
 
   /**

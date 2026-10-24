@@ -75,7 +75,7 @@ Pricing is the pay-as-you-go API page; subscription plans convert to credits dif
 - `packages/ai-providers/src/elevenlabs/ElevenLabsProvider.ts`
   - L103 doc comment still names `eleven_monolingual_v1` (removed) and `eleven_multilingual_v2`.
   - L213 base URL; L229-235 `GET /voices`.
-  - L257-303 `textToSpeech`: L277 default `eleven_v3`, L290 `xi-api-key`, L296 `model_id`, L297-302 `voice_settings`, L303 top-level `speed`; L198-199 one retry on 429.
+  - `speak` (behind the `synthesize` speech contract): L277 default `eleven_v3`, L290 `xi-api-key`, L296 `model_id`, L297-302 `voice_settings`, L303 top-level `speed`; L198-199 one retry on 429.
   - L343-351 `GET /user/subscription`.
   - L378-405 `generateSoundEffect`: no `model_id`, L397-399 clamps `duration_seconds` to 0.5-22.
   - L438-472 `generateMusic`: L452 hardcodes `model_id: "music_v1"`, L456-458 clamps to 3-600 s.

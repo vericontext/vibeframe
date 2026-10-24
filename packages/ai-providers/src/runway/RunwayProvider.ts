@@ -1,16 +1,8 @@
-import type {
-  AIProvider,
-  AICapability,
-  ProviderConfig,
-  GenerateOptions,
-  VideoResult,
-} from "../interface/types.js";
-import { defaultModel } from "../catalog/catalog.js";
+import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
-import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
-import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * Runway model versions
@@ -18,29 +10,6 @@ import { waitForVideoJob } from "../video/wait.js";
  * - gen4_turbo: Previous model (image-to-video only)
  */
 export type RunwayModel = "gen4_turbo" | "gen4.5";
-
-/** Default model - Gen-4.5 */
-const DEFAULT_MODEL = defaultModel("runway", "video").id as RunwayModel;
-
-/**
- * Runway video generation options
- */
-export interface RunwayVideoOptions {
-  /** Text prompt describing the video */
-  promptText?: string;
-  /** Reference image URL or base64 data URI for image-to-video */
-  promptImage?: string;
-  /** Random seed for reproducibility (0-4294967295) */
-  seed?: number;
-  /** Model to use */
-  model?: RunwayModel;
-  /** Duration in seconds (2-10 for gen4.5, 5 or 10 for gen4_turbo) */
-  duration?: number;
-  /** Aspect ratio */
-  ratio?: "16:9" | "9:16";
-  /** Enable watermark */
-  watermark?: boolean;
-}
 
 interface RunwayTaskResponse {
   id: string;
@@ -71,11 +40,8 @@ const STATUS: Record<RunwayTaskResponse["status"], VideoJobState["status"]> = {
 };
 
 /**
- * Runway video provider (Gen-4.5 text- and image-to-video).
- *
- * Implements the `VideoGenerator` contract; the older `generateVideo` /
- * `getGenerationStatus` / `waitForCompletion` methods wrap it for callers
- * that have not moved yet.
+ * Runway video provider (Gen-4.5 text- and image-to-video), implementing
+ * the `VideoGenerator` contract.
  */
 export class RunwayProvider implements AIProvider, VideoGenerator {
   id = "runway";
@@ -89,7 +55,6 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
   private static readonly API_VERSION = "2024-11-06";
   private apiKey?: string;
   private baseUrl = "https://api.dev.runwayml.com/v1";
-  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -197,84 +162,6 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    try {
-      const image = options?.referenceImage;
-      const job = await this.submitVideo({
-        prompt,
-        model: options?.model,
-        durationSec: options?.duration,
-        aspectRatio: options?.aspectRatio,
-        seed: options?.seed,
-        image: image === undefined ? undefined : typeof image === "string" ? image : await this.blobToDataUri(image),
-      });
-      return { id: job.id, status: "pending", progress: 0 };
-    } catch (error) {
-      return { id: "", status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  /**
-   * Generate video from image (image-to-video)
-   */
-  async generateFromImage(
-    imageData: string | Blob,
-    promptText: string,
-    options?: Omit<RunwayVideoOptions, "promptImage" | "promptText">
-  ): Promise<VideoResult> {
-    const imageUri = typeof imageData === "string" ? imageData : await this.blobToDataUri(imageData);
-    return this.generateVideo(promptText, {
-      prompt: promptText,
-      referenceImage: imageUri,
-      aspectRatio: options?.ratio,
-      duration: options?.duration,
-      seed: options?.seed,
-    });
-  }
-
-  async getGenerationStatus(id: string): Promise<VideoResult> {
-    try {
-      return this.toVideoResult(id, await this.getVideoJob(this.legacyJob(id)));
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  async cancelGeneration(id: string): Promise<boolean> {
-    return this.deleteTask(id);
-  }
-
-  /**
-   * Cancel a running task, or delete a finished one (`DELETE /v1/tasks/{id}`).
-   */
-  async deleteTask(id: string): Promise<boolean> {
-    try {
-      await this.cancelVideoJob(this.legacyJob(id));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async waitForCompletion(
-    id: string,
-    onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 300000
-  ): Promise<VideoResult> {
-    try {
-      const state = await waitForVideoJob(this, this.legacyJob(id), {
-        timeoutMs: maxWaitMs,
-        intervalMs: this.pollingInterval,
-        onProgress: onProgress && ((s) => onProgress(this.toVideoResult(id, s))),
-      });
-      return this.toVideoResult(id, state);
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
   // ── Helpers ───────────────────────────────────────────────────────────
 
   private requireKey(): string {
@@ -296,24 +183,6 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
     return new ProviderError({ kind: "invalid-request", provider: this.id, message });
   }
 
-  private legacyJob(id: string): VideoJob {
-    return { provider: this.id, id, model: DEFAULT_MODEL, submittedAt: new Date(0).toISOString() };
-  }
-
-  private toVideoResult(id: string, state: VideoJobState): VideoResult {
-    return {
-      id,
-      status: state.status,
-      progress: state.progress,
-      videoUrl: state.videoUrl,
-      ...(state.error ? { error: state.error.message } : {}),
-    };
-  }
-
-  private legacyMessage(error: unknown): string {
-    return isProviderError(error) || error instanceof Error ? error.message : "Unknown error";
-  }
-
   /**
    * Clamp duration to valid range for the given model
    */
@@ -325,13 +194,6 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
     }
     // gen4_turbo supports 5 or 10
     return duration === 10 ? 10 : 5;
-  }
-
-  private async blobToDataUri(blob: Blob): Promise<string> {
-    const buffer = await blob.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    const mimeType = blob.type || "image/png";
-    return `data:${mimeType};base64,${base64}`;
   }
 }
 

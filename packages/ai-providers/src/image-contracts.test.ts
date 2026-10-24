@@ -3,20 +3,20 @@
  * documents, so a model or parameter change shows up here before it reaches
  * a paid call. (Live behaviour was checked on 2026-10-04.)
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { GeminiProvider } from "./gemini/GeminiProvider.js";
 import { OpenAIImageProvider } from "./openai-image/OpenAIImageProvider.js";
+import { FakeProviderNetwork, jsonResponse } from "./testing/fake-provider-network.js";
 
-function stubFetch(body: unknown) {
-  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body)));
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
+let net: FakeProviderNetwork;
 
-afterEach(() => {
-  vi.unstubAllGlobals();
+beforeEach(() => {
+  net = new FakeProviderNetwork();
+  net.install();
 });
+
+afterEach(() => net.uninstall());
 
 describe("Gemini image contract", () => {
   const reply = {
@@ -39,45 +39,39 @@ describe("Gemini image contract", () => {
     ["lite", "gemini-3.1-flash-lite-image"],
     ["pro", "gemini-3-pro-image"],
   ] as const)("model %s calls %s:generateContent", async (alias, modelId) => {
-    const fetchMock = stubFetch(reply);
+    net.on("POST", "generativelanguage.googleapis.com", /:generateContent$/, () => jsonResponse(reply));
     const gemini = new GeminiProvider();
     await gemini.initialize({ apiKey: "key" });
 
-    const result = await gemini.generateImage("apple", { model: alias, aspectRatio: "16:9" });
+    const result = await gemini.createImage({ prompt: "apple", model: alias, aspectRatio: "16:9" });
 
-    expect(fetchMock.mock.calls[0][0]).toContain(`/models/${modelId}:generateContent`);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(net.requests[0].path).toContain(`/models/${modelId}:generateContent`);
+    const body = net.requests[0].body as { generationConfig: Record<string, unknown> & { imageConfig: { aspectRatio: string } } };
     expect(body.generationConfig.responseModalities).toEqual(["TEXT", "IMAGE"]);
     expect(body.generationConfig.imageConfig.aspectRatio).toBe("16:9");
     expect(body.generationConfig).not.toHaveProperty("temperature");
     // Thought images are skipped; the real image keeps its JPEG mime type.
-    expect(result.images).toEqual([{ base64: "aW1hZ2U=", mimeType: "image/jpeg" }]);
+    expect(result.images).toHaveLength(1);
+    expect(result.images[0].mimeType).toBe("image/jpeg");
+    expect(Buffer.from(result.images[0].bytes).toString()).toBe("image");
   });
 });
 
 describe("OpenAI image contract", () => {
   it("defaults to gpt-image-2.5-sunburst with medium quality and no response_format", async () => {
-    const fetchMock = stubFetch({ data: [{ b64_json: "aW1n", revised_prompt: "an apple" }] });
+    net.on("POST", "api.openai.com", /\/images\/generations$/, () =>
+      jsonResponse({ data: [{ b64_json: "aW1n", revised_prompt: "an apple" }] })
+    );
     const openai = new OpenAIImageProvider();
     await openai.initialize({ apiKey: "key" });
 
-    const result = await openai.generateImage("apple", { size: "1024x1024" });
+    const result = await openai.createImage({ prompt: "apple", providerOptions: { size: "1024x1024" } });
 
-    expect(fetchMock.mock.calls[0][0]).toMatch(/\/images\/generations$/);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(net.requests[0].path).toMatch(/\/images\/generations$/);
+    const body = net.requests[0].body;
     expect(body).toMatchObject({ model: "gpt-image-2.5-sunburst", quality: "medium", size: "1024x1024" });
     expect(body).not.toHaveProperty("response_format");
     expect(body).not.toHaveProperty("style");
-    expect(result.images?.[0].base64).toBe("aW1n");
-  });
-
-  it("maps the legacy hd quality name to high", async () => {
-    const fetchMock = stubFetch({ data: [{ b64_json: "aW1n" }] });
-    const openai = new OpenAIImageProvider();
-    await openai.initialize({ apiKey: "key" });
-
-    await openai.generateImage("apple", { quality: "hd" });
-
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).quality).toBe("high");
+    expect(Buffer.from(result.images[0].bytes).toString()).toBe("img");
   });
 });

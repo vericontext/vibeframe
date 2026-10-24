@@ -5,7 +5,7 @@ import type {
 } from "../interface/types.js";
 import { defaultModel } from "../catalog/catalog.js";
 import { fromBase64, openAiImageSize, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
-import { ProviderError, isProviderError } from "../shared/errors.js";
+import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
 
@@ -44,37 +44,6 @@ export interface ImageOptions {
   style?: "vivid" | "natural";
   /** Number of images to generate */
   n?: number;
-}
-
-/**
- * Generated image result
- */
-export interface ImageResult {
-  success: boolean;
-  /** Generated images (URL or base64) */
-  images?: Array<{
-    url?: string;
-    base64?: string;
-    revisedPrompt?: string;
-  }>;
-  /** Error message if failed */
-  error?: string;
-}
-
-/**
- * Image edit options
- */
-export interface ImageEditOptions {
-  /** Mask image (transparent areas will be edited) */
-  mask?: Buffer;
-  /** Size of output */
-  size?: "1024x1024" | "512x512" | "256x256";
-  /** Number of variations */
-  n?: number;
-  /** Model for editing (default: OPENAI_IMAGE_DEFAULT_MODEL) */
-  model?: GPTImageModel;
-  /** Quality tier for editing */
-  quality?: GPTImageQuality;
 }
 
 /** Default text-to-image model. */
@@ -171,105 +140,6 @@ export class OpenAIImageProvider implements AIProvider, ImageGenerator {
     }
     return { images, model };
   }
-
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  async generateImage(prompt: string, options: ImageOptions = {}): Promise<ImageResult> {
-    const quality = options.quality === "standard" ? "medium" : options.quality === "hd" ? "high" : options.quality;
-    return this.legacy(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        count: options.n,
-        quality,
-        providerOptions: options.size && options.size !== "auto" ? { size: options.size } : undefined,
-      })
-    );
-  }
-
-  /**
-   * Generate thumbnail for video content
-   */
-  async generateThumbnail(
-    description: string,
-    style?: "youtube" | "instagram" | "tiktok" | "twitter"
-  ): Promise<ImageResult> {
-    const stylePrompts: Record<string, string> = {
-      youtube: "YouTube thumbnail style, bold text overlay area, vibrant colors, high contrast, attention-grabbing",
-      instagram: "Instagram post style, clean aesthetic, lifestyle photography feel, square format optimized",
-      tiktok: "TikTok cover style, vertical format, trendy, dynamic, youth-oriented",
-      twitter: "Twitter/X card style, professional, clean, horizontal format",
-    };
-
-    const styleHint = style ? stylePrompts[style] : "professional video thumbnail";
-    const prompt = `Create a video thumbnail: ${description}. Style: ${styleHint}. No text in the image.`;
-
-    const sizeMap: Record<string, ImageOptions["size"]> = {
-      youtube: "1536x1024",
-      instagram: "1024x1024",
-      tiktok: "1024x1536",
-      twitter: "1536x1024",
-    };
-
-    return this.generateImage(prompt, {
-      size: style ? sizeMap[style] : "1536x1024",
-      quality: "high",
-    });
-  }
-
-  /**
-   * Generate background image for video
-   */
-  async generateBackground(
-    description: string,
-    aspectRatio: "16:9" | "9:16" | "1:1" = "16:9"
-  ): Promise<ImageResult> {
-    const sizeMap: Record<string, ImageOptions["size"]> = {
-      "16:9": "1536x1024",
-      "9:16": "1024x1536",
-      "1:1": "1024x1024",
-    };
-
-    const prompt = `Create a video background: ${description}. Seamless, suitable for video overlay, no focal point in center, subtle and not distracting.`;
-
-    return this.generateImage(prompt, {
-      size: sizeMap[aspectRatio],
-      quality: "high",
-    });
-  }
-
-  /**
-   * Edit images (up to 16 inputs) with a text instruction.
-   */
-  async editImage(imageBuffers: Buffer[], prompt: string, options: ImageEditOptions = {}): Promise<ImageResult> {
-    return this.legacy(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        quality: options.quality,
-        count: options.n,
-        mask: options.mask,
-        images: imageBuffers.map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
-        providerOptions: options.size ? { size: options.size } : undefined,
-      })
-    );
-  }
-
-  private async legacy(run: () => Promise<ImageResultSet>): Promise<ImageResult> {
-    try {
-      const result = await run();
-      return {
-        success: true,
-        images: result.images.map((img) => ({
-          base64: Buffer.from(img.bytes).toString("base64"),
-          revisedPrompt: img.revisedPrompt,
-        })),
-      };
-    } catch (error) {
-      return { success: false, error: isProviderError(error) || error instanceof Error ? error.message : "Unknown error" };
-    }
-  }
-
 }
 
 export const openaiImageProvider = new OpenAIImageProvider();

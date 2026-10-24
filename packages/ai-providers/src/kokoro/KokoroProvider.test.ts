@@ -101,23 +101,21 @@ describe("KokoroProvider", () => {
     const { factory, calls } = makeFakeFactory();
     __setKokoroFactoryForTests(factory);
 
-    const result = await provider.textToSpeech("   ");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Empty text");
+    await expect(provider.synthesize({ text: "   " })).rejects.toMatchObject({
+      kind: "invalid-request",
+      message: "Empty text",
+    });
     expect(calls.loadCount).toBe(0);
   });
 
-  it("synthesises speech with default voice + speed and returns a Buffer", async () => {
+  it("synthesises speech with default voice + speed and returns WAV bytes", async () => {
     const { factory, calls } = makeFakeFactory();
     __setKokoroFactoryForTests(factory);
 
-    const result = await provider.textToSpeech("Hello world.");
+    const result = await provider.synthesize({ text: "Hello world." });
 
-    expect(result.success).toBe(true);
-    expect(result.audioBuffer).toBeInstanceOf(Buffer);
-    expect(result.audioBuffer?.length).toBeGreaterThan(0);
-    expect(result.characterCount).toBe("Hello world.".length);
+    expect(result.bytes.length).toBeGreaterThan(0);
+    expect(result).toMatchObject({ mimeType: "audio/wav", extension: "wav", characters: "Hello world.".length });
 
     expect(calls.generateCalls).toEqual([
       { text: "Hello world.", voice: KOKORO_DEFAULT_VOICE, speed: 1 },
@@ -128,12 +126,8 @@ describe("KokoroProvider", () => {
     const { factory, calls } = makeFakeFactory();
     __setKokoroFactoryForTests(factory);
 
-    const result = await provider.textToSpeech("Test.", {
-      voice: "am_michael",
-      speed: 1.2,
-    });
+    await provider.synthesize({ text: "Test.", voice: "am_michael", speed: 1.2 });
 
-    expect(result.success).toBe(true);
     expect(calls.generateCalls[0]).toMatchObject({ voice: "am_michael", speed: 1.2 });
   });
 
@@ -142,11 +136,11 @@ describe("KokoroProvider", () => {
     __setKokoroFactoryForTests(factory);
 
     const events: Array<{ status: string; progress?: number }> = [];
-    const result = await provider.textToSpeech("Hello.", {
-      onProgress: (e) => events.push({ status: e.status, progress: e.progress }),
-    });
+    await provider.synthesize(
+      { text: "Hello." },
+      { onProgress: (e) => events.push({ status: e.status, progress: e.progress }) }
+    );
 
-    expect(result.success).toBe(true);
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]).toMatchObject({ status: "download", progress: 50 });
     expect(events[events.length - 1].status).toBe("done");
@@ -156,43 +150,43 @@ describe("KokoroProvider", () => {
     const { factory, calls } = makeFakeFactory();
     __setKokoroFactoryForTests(factory);
 
-    await provider.textToSpeech("first");
-    await provider.textToSpeech("second");
-    await provider.textToSpeech("third");
+    await provider.synthesize({ text: "first" });
+    await provider.synthesize({ text: "second" });
+    await provider.synthesize({ text: "third" });
 
     expect(calls.loadCount).toBe(1);
     expect(calls.generateCalls.map((c) => c.text)).toEqual(["first", "second", "third"]);
   });
 
-  it("returns failure result when model load fails", async () => {
+  it("throws a provider error when model load fails", async () => {
     const { factory, calls } = makeFakeFactory({ failLoad: true });
     __setKokoroFactoryForTests(factory);
 
-    const result = await provider.textToSpeech("Hello.");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("model download failed");
+    await expect(provider.synthesize({ text: "Hello." })).rejects.toMatchObject({
+      kind: "provider",
+      message: expect.stringContaining("model download failed"),
+    });
     // Failure must not leave a poisoned singleton — next call should retry.
     expect(calls.loadCount).toBe(1);
-    await provider.textToSpeech("retry").catch(() => {});
+    await provider.synthesize({ text: "retry" }).catch(() => {});
     expect(calls.loadCount).toBe(2);
   });
 
-  it("returns failure result when generate() throws", async () => {
+  it("throws a provider error when generate() throws", async () => {
     const { factory } = makeFakeFactory({ failGenerate: true });
     __setKokoroFactoryForTests(factory);
 
-    const result = await provider.textToSpeech("Hello.");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("inference crashed");
+    await expect(provider.synthesize({ text: "Hello." })).rejects.toMatchObject({
+      kind: "provider",
+      message: expect.stringContaining("inference crashed"),
+    });
   });
 
   it("loads model with q8 dtype + cpu device (Node-friendly defaults)", async () => {
     const { factory, calls } = makeFakeFactory();
     __setKokoroFactoryForTests(factory);
 
-    await provider.textToSpeech("Hello.");
+    await provider.synthesize({ text: "Hello." });
 
     expect(calls.loadOptions[0]).toMatchObject({ dtype: "q8", device: "cpu" });
   });
@@ -360,13 +354,12 @@ describe("KokoroProvider — long text", () => {
     const sentence = "The keeper climbed the stairs and lit the lamp before the storm arrived.";
     const text = Array.from({ length: 12 }, () => sentence).join(" ");
 
-    const result = await new KokoroProvider().textToSpeech(text);
+    const result = await new KokoroProvider().synthesize({ text });
 
-    expect(result.success).toBe(true);
     expect(calls.generateCalls.length).toBeGreaterThan(1);
     expect(calls.generateCalls.map((c) => c.text).join(" ")).toBe(text);
     // 44-byte header + 10 float samples per chunk.
-    expect(result.audioBuffer?.length).toBe(44 + calls.generateCalls.length * 10 * 4);
+    expect(result.bytes.length).toBe(44 + calls.generateCalls.length * 10 * 4);
   });
 });
 

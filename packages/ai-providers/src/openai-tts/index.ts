@@ -4,8 +4,6 @@ export {
   OPENAI_TTS_VOICES,
   type OpenAiTtsModel,
   type OpenAiTtsVoice,
-  type OpenAiTtsOptions,
-  type OpenAiTtsResult,
 } from "./OpenAiTtsProvider.js";
 
 // No defineProvider call here — this directory is an implementation

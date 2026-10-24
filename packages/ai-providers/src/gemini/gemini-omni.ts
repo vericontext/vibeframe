@@ -23,14 +23,12 @@
  * (3-10 s); there is no duration field.
  */
 
-import type { GenerateOptions, VideoResult } from "../interface/types.js";
 import type { ProviderConfig } from "../interface/index.js";
 import { defaultModel } from "../catalog/catalog.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
-import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
-import { waitForVideoJob } from "../video/wait.js";
 
 export const OMNI_MODEL = defaultModel("omni", "video").id;
 const API_ROOT = "https://generativelanguage.googleapis.com";
@@ -89,7 +87,6 @@ export class OmniProvider implements VideoGenerator {
   readonly imageInput = "data-uri" as const;
   label = "Gemini Omni 1.1 Flash";
   private apiKey?: string;
-  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -213,36 +210,6 @@ export class OmniProvider implements VideoGenerator {
     }
     const response = await providerRequest(this.id, state.videoUrl, { headers: { "x-goog-api-key": this.requireKey() } });
     return new Uint8Array(await response.arrayBuffer());
-  }
-
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  /** Submit and wait for the finished video, as the CLI expects today. */
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    let job: VideoJob | undefined;
-    try {
-      const frame = options?.referenceImages?.[0]?.base64
-        ? `data:${options.referenceImages[0].mimeType};base64,${options.referenceImages[0].base64}`
-        : typeof options?.referenceImage === "string" && options.referenceImage
-          ? options.referenceImage
-          : undefined;
-      job = await this.submitVideo({
-        prompt,
-        aspectRatio: options?.aspectRatio,
-        resolution: options?.resolution,
-        image: frame,
-        lastFrame: frame ? options?.lastFrame : undefined,
-      });
-      const state = await waitForVideoJob(this, job, { intervalMs: this.pollingInterval, timeoutMs: 15 * 60_000 });
-      return {
-        id: job.id,
-        status: state.status,
-        videoUrl: state.videoUrl,
-        ...(state.error ? { error: state.error.message } : {}),
-      };
-    } catch (error) {
-      return { id: job?.id ?? "", status: "failed", error: isProviderError(error) || error instanceof Error ? error.message : String(error) };
-    }
   }
 
   private requireKey(): string {

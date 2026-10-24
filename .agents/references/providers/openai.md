@@ -85,7 +85,7 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 ## In our code
 
 - `packages/ai-providers/src/openai/openai-text.ts` - the text contract (`generateText`, used by `storyboard revise`) on `POST /responses`: `instructions`, `input`, `max_output_tokens`, `store: false`, `text.format` `json_schema` with `strict: true`; reads `output[].content[]` `output_text`, treats a `refusal` part or `content_filter` as moderation and `status: "incomplete"` as a cut-off reply. Live on `gpt-5.4-mini` 2026-10-16 (probe).
-- `packages/ai-providers/src/openai/OpenAIProvider.ts:24-25` base URL and `gpt-5-mini`; `:117-130` `parseCommand` (Chat Completions, `json_object`, no token cap); `:397-407` narration script (`max_completion_tokens: 16384`, `json_object`).
+- `packages/ai-providers/src/openai/OpenAIProvider.ts:24-25` base URL and `gpt-5-mini`; `:397-407` narration script (`max_completion_tokens: 16384`, `json_object`).
 - `packages/ai-providers/src/openai/openai-storyboard.ts:27-48` storyboard with `json_object` and a `{"segments": [...]}` wrapper.
 - `packages/cli/src/commands/_shared/edit/translate-srt.ts:96-104` direct Chat Completions call on `gpt-5-mini`.
 - `packages/ai-providers/src/openai-image/OpenAIImageProvider.ts:16` `GPTImageModel` (includes `dall-e-3`); `:20-24` and `:13` stale per-image price comments; `:75-78` default `gpt-image-2`; `:121-146` request body (DALL-E branch sends `response_format`); `:151` generations; `:263-299` multipart edits with `image[]`; `:353-372` `createVariation` on `dall-e-2` via `/images/variations`.

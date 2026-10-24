@@ -66,7 +66,7 @@ Local library, no HTTP API.
   - L117-131 `loadKokoroRuntime`: dynamic `import("kokoro-js")` at L123, then workspace and bundled MCPB fallbacks.
   - L190 reads `VIBE_KOKORO_RUNTIME` (MCPB bundled runtime dir).
   - L276-290 `loadModel`: L280 reads `VIBE_ONNX_DEVICE` (`cpu` or `wasm`), L282-283 `from_pretrained(..., {dtype: "q8"})`, cached as a module singleton.
-  - L343-366 `textToSpeech`: one `model.generate(text, ...)` call at L353 with no chunking, returns WAV.
+  - `synthesize` (the speech contract): splits long text into sentence chunks (`splitForKokoro`), one `model.generate` call per chunk, returns WAV.
 - `packages/cli/src/commands/_shared/tts-resolve.ts` L14 (doc), L82-91 auto order, L131-142 `buildKokoro`.
 - `packages/cli/src/commands/scene.ts` L480, L696: `--voice` help names Kokoro IDs.
 - Dependency `"kokoro-js": "^1.2.1"` in `packages/ai-providers/package.json` L64, `packages/cli/package.json` L95, `packages/mcp-server/package.json` L56.

@@ -1,21 +1,25 @@
 /**
- * GrokProvider unit tests (mock-based, no API calls)
+ * GrokProvider unit tests over the fake provider network (no API calls)
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { FAKE_PNG, FakeProviderNetwork, jsonResponse } from "../testing/fake-provider-network.js";
 import { GrokProvider } from "./GrokProvider.js";
 
-// Mock global fetch
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+const HOST = "api.x.ai";
 
 describe("GrokProvider", () => {
   let provider: GrokProvider;
+  let net: FakeProviderNetwork;
 
   beforeEach(() => {
     provider = new GrokProvider();
-    mockFetch.mockReset();
+    net = new FakeProviderNetwork();
+    net.install();
   });
+
+  afterEach(() => net.uninstall());
 
   describe("initialization", () => {
     it("should have correct id and capabilities", () => {
@@ -41,166 +45,57 @@ describe("GrokProvider", () => {
     });
   });
 
-  describe("generateImage", () => {
+  describe("createImage", () => {
     beforeEach(async () => {
       await provider.initialize({ apiKey: "test-key" });
     });
 
     it("should call xAI API with correct parameters", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [{ b64_json: "aW1n" }],
-        }),
+      net.on("POST", HOST, /^\/v1\/images\/generations$/, () =>
+        jsonResponse({ data: [{ b64_json: FAKE_PNG.toString("base64") }] })
+      );
+
+      const result = await provider.createImage({ prompt: "a blue cat", count: 1, aspectRatio: "16:9" });
+
+      expect(result.images).toHaveLength(1);
+      expect(net.requests).toHaveLength(1);
+      expect(net.requests[0].url).toBe("https://api.x.ai/v1/images/generations");
+      expect(net.requests[0].body).toMatchObject({
+        prompt: "a blue cat",
+        model: "grok-imagine-image",
+        aspect_ratio: "16:9",
+        // Base64 back, so callers never download an expiring URL.
+        response_format: "b64_json",
       });
-
-      const result = await provider.generateImage("a blue cat", {
-        n: 1,
-        aspectRatio: "16:9",
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.images).toBeDefined();
-      expect(result.images!.length).toBeGreaterThan(0);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe("https://api.x.ai/v1/images/generations");
-      const body = JSON.parse(options.body);
-      expect(body.prompt).toBe("a blue cat");
-      expect(body.model).toBe("grok-imagine-image");
-      // Base64 back, so callers never download an expiring URL.
-      expect(body.response_format).toBe("b64_json");
-    });
-
-    it("should handle API error gracefully", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => "Unauthorized",
-      });
-
-      const result = await provider.generateImage("test");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
     });
   });
 
-  describe("generateVideo", () => {
+  describe("submitVideo", () => {
     beforeEach(async () => {
       await provider.initialize({ apiKey: "test-key" });
-    });
-
-    it("should start video generation and return task ID", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          request_id: "task-123",
-          status: "pending",
-        }),
-      });
-
-      const result = await provider.generateVideo("dancing robot", {
-        prompt: "dancing robot",
-        duration: 5,
-        aspectRatio: "16:9",
-      });
-
-      expect(result.id).toBe("task-123");
-      expect(result.status).toBe("pending");
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      net.on("POST", HOST, /^\/v1\/videos\/generations$/, () => jsonResponse({ request_id: "task-1" }));
     });
 
     it("rounds float duration to integer (xAI rejects floats with 422)", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ request_id: "task-float", status: "pending" }),
-      });
+      await provider.submitVideo({ prompt: "test", durationSec: 3.44, aspectRatio: "16:9" });
 
-      await provider.generateVideo("test", {
-        prompt: "test",
-        duration: 3.44,
-        aspectRatio: "16:9",
-      });
-
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const body = net.requests[0].body as { duration: number };
       expect(body.duration).toBe(3);
       expect(Number.isInteger(body.duration)).toBe(true);
     });
 
     it("clamps duration above 15 to 15 (with integer cast)", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ request_id: "task-clamp", status: "pending" }),
-      });
+      await provider.submitVideo({ prompt: "test", durationSec: 100.7, aspectRatio: "16:9" });
 
-      await provider.generateVideo("test", {
-        prompt: "test",
-        duration: 100.7,
-        aspectRatio: "16:9",
-      });
-
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.duration).toBe(15);
+      expect(net.requests[0].body).toMatchObject({ duration: 15 });
     });
 
-    it("should handle image-to-video with data URI", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          request_id: "task-456",
-          status: "pending",
-        }),
-      });
+    it("sends a data URI image as xAI's image object", async () => {
+      const image = "data:image/png;base64,iVBOR...";
+      const job = await provider.submitVideo({ prompt: "animate this", image, durationSec: 5, aspectRatio: "16:9" });
 
-      const result = await provider.generateVideo("animate this", {
-        prompt: "animate this",
-        referenceImage: "data:image/png;base64,iVBOR...",
-        duration: 5,
-        aspectRatio: "16:9",
-      });
-
-      expect(result.id).toBe("task-456");
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.image).toBeDefined();
-    });
-  });
-
-  describe("getGenerationStatus", () => {
-    beforeEach(async () => {
-      await provider.initialize({ apiKey: "test-key" });
-    });
-
-    it("should return completed status with video URL", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          request_id: "task-123",
-          status: "done",
-          video: { url: "https://cdn.x.ai/video.mp4" },
-        }),
-      });
-
-      const result = await provider.getGenerationStatus("task-123");
-
-      expect(result.status).toBe("completed");
-      expect(result.videoUrl).toBe("https://cdn.x.ai/video.mp4");
-    });
-
-    it("should handle expired status as failed", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          request_id: "task-123",
-          status: "expired",
-        }),
-      });
-
-      const result = await provider.getGenerationStatus("task-123");
-
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("expired");
+      expect(job.id).toBe("task-1");
+      expect(net.requests[0].body).toMatchObject({ image: { url: image } });
     });
   });
 });

@@ -43,25 +43,6 @@ const DEFAULT_VOICE: OpenAiTtsVoice = "marin";
 /** `tts-1` and `tts-1-hd` support only the nine original voices (docs). */
 const TTS_1_VOICES = ["alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"] as const;
 
-export interface OpenAiTtsOptions {
-  /** Voice name (see {@link OPENAI_TTS_VOICES}). Defaults to "marin". */
-  voice?: string;
-  /** Model override. Defaults to gpt-4o-mini-tts. */
-  model?: OpenAiTtsModel;
-  /** Speaking speed multiplier (0.25–4.0). */
-  speed?: number;
-  /** Free-form delivery directions (gpt-4o-mini-tts only), e.g. "calm documentary narrator". */
-  instructions?: string;
-}
-
-export interface OpenAiTtsResult {
-  success: boolean;
-  /** MP3 audio data. */
-  audioBuffer?: Buffer;
-  error?: string;
-  characterCount?: number;
-}
-
 /**
  * OpenAI text-to-speech (`POST /v1/audio/speech`). Backs the user-facing
  * "openai" provider id for the `speech` kind — the metadata declaration
@@ -125,22 +106,6 @@ export class OpenAiTtsProvider implements AIProvider, SpeechGenerator {
       model,
       characters: request.text.length,
     };
-  }
-
-  /** Older interface; `synthesize` is the contract. */
-  async textToSpeech(text: string, options: OpenAiTtsOptions = {}): Promise<OpenAiTtsResult> {
-    try {
-      const result = await this.synthesize({
-        text,
-        voice: options.voice,
-        model: options.model,
-        speed: options.speed,
-        instructions: options.instructions,
-      });
-      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-    }
   }
 }
 

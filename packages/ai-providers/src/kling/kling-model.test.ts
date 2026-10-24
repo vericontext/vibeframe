@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { FakeProviderNetwork, jsonResponse } from "../testing/fake-provider-network.js";
 import { KlingProvider, klingDuration, resolveKlingModel } from "./KlingProvider.js";
 
 describe("resolveKlingModel", () => {
@@ -31,16 +32,18 @@ describe("klingDuration", () => {
 
 describe("KlingProvider auth", () => {
   async function authHeaderFor(apiKey: string) {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ code: 0, data: { task_id: "t1" } }))
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const kling = new KlingProvider();
-    await kling.initialize({ apiKey });
-    expect(kling.isConfigured()).toBe(true);
-    await kling.generateVideo("p", { prompt: "p" });
-    vi.unstubAllGlobals();
-    return fetchMock.mock.calls[0][1].headers.Authorization as string;
+    const net = new FakeProviderNetwork();
+    net.on("POST", "api.klingai.com", /^\/v1\/videos\/text2video$/, () => jsonResponse({ code: 0, data: { task_id: "t1" } }));
+    net.install();
+    try {
+      const kling = new KlingProvider();
+      await kling.initialize({ apiKey });
+      expect(kling.isConfigured()).toBe(true);
+      await kling.submitVideo({ prompt: "p" });
+      return net.requests[0].headers.authorization;
+    } finally {
+      net.uninstall();
+    }
   }
 
   it("sends a single console API key as the Bearer token", async () => {

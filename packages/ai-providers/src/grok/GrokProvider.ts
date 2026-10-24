@@ -1,19 +1,11 @@
-import type {
-  AIProvider,
-  AICapability,
-  ProviderConfig,
-  GenerateOptions,
-  VideoResult,
-} from "../interface/types.js";
-import type { ImageResult } from "../openai-image/OpenAIImageProvider.js";
+import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
-import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
+import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
-import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * Grok Imagine model versions
@@ -61,9 +53,6 @@ export function resolveGrokImageModel(alias?: string): {
   return model === "grok-imagine-image-2.0" ? { model, quality: "medium" } : { model };
 }
 
-/** Default model */
-const DEFAULT_MODEL = defaultModel("grok", "video").id as GrokVideoModel;
-
 /**
  * Edits and extensions run on classic `grok-imagine-video` only: `-1.5` and
  * `-1.5-lite` answer 400 "Video extension is not supported for this model"
@@ -74,52 +63,6 @@ const CONTINUATION_MODEL: GrokVideoModel = "grok-imagine-video";
 /** xAI defaults video to 480p when `resolution` is omitted; ask for 720p instead. */
 const DEFAULT_VIDEO_RESOLUTION = "720p";
 const GROK_VIDEO_RESOLUTIONS = ["480p", "720p", "1080p"];
-
-/**
- * Grok video generation options
- */
-export interface GrokVideoOptions {
-  /** Duration in seconds (1-15) */
-  duration?: number;
-  /** Aspect ratio */
-  aspectRatio?: "16:9" | "9:16" | "1:1";
-  /** Reference image URL for image-to-video */
-  referenceImage?: string;
-  /** Enable audio generation */
-  audio?: boolean;
-}
-
-/**
- * Grok image generation options
- */
-export interface GrokImageOptions {
-  /** Model to use (default: grok-imagine-image) */
-  model?: GrokImageModel;
-  /** Quality tier (grok-imagine-image-2.0 only) */
-  quality?: GrokImageQuality;
-  /** Number of images (1-10, default: 1) */
-  n?: number;
-  /** Aspect ratio */
-  aspectRatio?: string;
-  /** Resolution: 1k or 2k */
-  resolution?: "1k" | "2k";
-  /** Response format */
-  responseFormat?: "url" | "b64_json";
-}
-
-/**
- * Grok image edit options
- */
-export interface GrokEditOptions {
-  /** Model to use (default: grok-imagine-image) */
-  model?: GrokImageModel;
-  /** Quality tier (grok-imagine-image-2.0 only) */
-  quality?: GrokImageQuality;
-  /** Aspect ratio */
-  aspectRatio?: string;
-  /** Response format */
-  responseFormat?: "url" | "b64_json";
-}
 
 /**
  * Grok video creation response
@@ -165,7 +108,6 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
 
   private apiKey?: string;
   private baseUrl = "https://api.x.ai/v1";
-  private pollingInterval = 3000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -230,48 +172,6 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
       throw new ProviderError({ kind: "provider", provider: this.imageProvider, message: "Grok returned no image." });
     }
     return { images, model };
-  }
-
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  /**
-   * Generate image using Grok Imagine.
-   */
-  async generateImage(prompt: string, options: GrokImageOptions = {}): Promise<ImageResult> {
-    return this.legacyImage(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        count: options.n,
-        aspectRatio: options.aspectRatio,
-        resolution: options.resolution,
-        quality: options.quality === "auto" ? undefined : options.quality,
-      })
-    );
-  }
-
-  /**
-   * Edit one image using Grok Imagine.
-   */
-  async editImage(imageBuffer: Buffer, prompt: string, options: GrokEditOptions = {}): Promise<ImageResult> {
-    return this.legacyImage(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        aspectRatio: options.aspectRatio,
-        quality: options.quality === "auto" ? undefined : options.quality,
-        images: [{ bytes: new Uint8Array(imageBuffer), mimeType: "image/png" }],
-      })
-    );
-  }
-
-  private async legacyImage(run: () => Promise<ImageResultSet>): Promise<ImageResult> {
-    try {
-      const result = await run();
-      return { success: true, images: result.images.map((img) => ({ base64: Buffer.from(img.bytes).toString("base64") })) };
-    } catch (error) {
-      return { success: false, error: this.legacyMessage(error) };
-    }
   }
 
   // ── VideoGenerator ────────────────────────────────────────────────────
@@ -376,67 +276,6 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
     return state.videoUrl;
   }
 
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    try {
-      const job = await this.submitVideo({
-        prompt,
-        model: options?.model,
-        durationSec: options?.duration,
-        aspectRatio: options?.aspectRatio,
-        resolution: options?.resolution,
-        generateAudio: options?.generateAudio,
-        image: options?.referenceImage as string | undefined,
-      });
-      return { id: job.id, status: "pending" };
-    } catch (error) {
-      return { id: "", status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  async getGenerationStatus(id: string): Promise<VideoResult> {
-    try {
-      return this.toVideoResult(id, await this.getVideoJob(this.legacyJob(id)));
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  async waitForCompletion(
-    id: string,
-    onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 300000
-  ): Promise<VideoResult> {
-    try {
-      const state = await waitForVideoJob(this, this.legacyJob(id), {
-        timeoutMs: maxWaitMs,
-        intervalMs: this.pollingInterval,
-        onProgress: onProgress && ((s) => onProgress(this.toVideoResult(id, s))),
-      });
-      return this.toVideoResult(id, state);
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  /**
-   * Best-effort cancel. xAI does not document a video cancel endpoint, so
-   * this is not part of the `VideoGenerator` contract for Grok.
-   */
-  async cancelGeneration(id: string): Promise<boolean> {
-    if (!this.apiKey) return false;
-    try {
-      const response = await fetch(`${this.baseUrl}/videos/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
   private requireKey(): string {
     if (!this.apiKey) {
       throw new ProviderError({
@@ -446,24 +285,6 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
       });
     }
     return this.apiKey;
-  }
-
-  private legacyJob(id: string): VideoJob {
-    return { provider: this.id, id, model: DEFAULT_MODEL, submittedAt: new Date(0).toISOString() };
-  }
-
-  private toVideoResult(id: string, state: VideoJobState): VideoResult {
-    return {
-      id,
-      status: state.status,
-      videoUrl: state.videoUrl,
-      progress: state.progress,
-      ...(state.error ? { error: state.error.message } : {}),
-    };
-  }
-
-  private legacyMessage(error: unknown): string {
-    return isProviderError(error) || error instanceof Error ? error.message : "Unknown error";
   }
 }
 
