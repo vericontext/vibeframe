@@ -9,9 +9,8 @@
  * When adding new providers, update MODELS.md FIRST.
  */
 
-// Interface and registry
+// Interface
 export * from "./interface/index.js";
-export { providerRegistry, getBestProviderForCapability } from "./interface/registry.js";
 
 // Plugin metadata registry — must be imported before any provider's index.ts
 // since `defineProvider` calls assert their referenced apiKey was registered.
@@ -49,7 +48,6 @@ export {
   omniProvider,
   isGeminiTextModelAlias,
   resolveGeminiTextModel,
-  type GeminiImageModel,
   type GeminiTextModel,
   type GeminiTextModelAlias,
 } from "./gemini/index.js";
@@ -84,7 +82,7 @@ export {
   KNOWN_VOICES,
   resolveVoiceId,
 } from "./elevenlabs/index.js";
-export type { Voice, TTSOptions, TTSResult, MusicOptions, MusicResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
+export type { Voice, TTSOptions, MusicOptions, MusicResult, SoundEffectOptions, SoundEffectResult, AudioIsolationResult, VoiceCloneOptions, VoiceCloneResult } from "./elevenlabs/index.js";
 export {
   KokoroProvider,
   kokoroProvider,
@@ -93,21 +91,20 @@ export {
   loadKokoroFromWorkspace,
   loadBundledKokoroRuntime,
 } from "./kokoro/index.js";
-export type { KokoroTTSOptions, KokoroTTSResult, KokoroLoadEvent } from "./kokoro/index.js";
+export type { KokoroLoadEvent } from "./kokoro/index.js";
 export {
   OPENAI_IMAGE_DEFAULT_MODEL,
   OpenAIImageProvider,
   openaiImageProvider,
 } from "./openai-image/index.js";
-export type { ImageOptions, ImageResult, ImageEditOptions, GPTImageModel } from "./openai-image/index.js";
+export type { ImageOptions, GPTImageModel } from "./openai-image/index.js";
 export { OpenAiTtsProvider, openaiTtsProvider, OPENAI_TTS_VOICES } from "./openai-tts/index.js";
-export type { OpenAiTtsModel, OpenAiTtsVoice, OpenAiTtsOptions, OpenAiTtsResult } from "./openai-tts/index.js";
+export type { OpenAiTtsModel, OpenAiTtsVoice } from "./openai-tts/index.js";
 export { RunwayProvider, runwayProvider } from "./runway/index.js";
 export { KlingProvider, klingProvider, klingDuration, resolveKlingModel } from "./kling/index.js";
 export type { KlingModel } from "./kling/index.js";
-export type { KlingVideoExtendOptions } from "./kling/index.js";
 export { GrokProvider, grokProvider, resolveGrokImageModel, resolveGrokVideoModel } from "./grok/index.js";
-export type { GrokImageModel, GrokImageQuality, GrokModel, GrokVideoModel, GrokVideoOptions, GrokImageOptions, GrokEditOptions } from "./grok/index.js";
+export type { GrokImageModel, GrokImageQuality, GrokModel, GrokVideoModel } from "./grok/index.js";
 export { FalProvider, falProvider, estimateSeedanceVideoCostUsd, resolveSeedanceVariant } from "./fal/index.js";
 export type { SeedanceVariant } from "./fal/index.js";
 export { ReplicateProvider, replicateProvider } from "./replicate/index.js";
@@ -117,17 +114,13 @@ export type {
   AIProvider,
   AICapability,
   ProviderConfig,
-  GenerateOptions,
   MediaReference,
   VideoResult,
-  TranscribeOptions,
   TranscriptGranularity,
   TranscriptResult,
   TranscriptSegment,
   TranscriptWord,
   EditSuggestion,
-  TimelineCommand,
-  CommandParseResult,
   Highlight,
   HighlightCriteria,
   HighlightsResult,

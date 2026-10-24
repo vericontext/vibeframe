@@ -5,8 +5,6 @@ export {
   type GPTImageModel,
   type GPTImageQuality,
   type ImageOptions,
-  type ImageResult,
-  type ImageEditOptions,
 } from "./OpenAIImageProvider.js";
 
 // No defineProvider call here — this directory is an implementation

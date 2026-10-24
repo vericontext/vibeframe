@@ -2,8 +2,6 @@ import type {
   AIProvider,
   AICapability,
   ProviderConfig,
-  TranscribeOptions,
-  TranscriptResult,
   TranscriptWord,
 } from "../interface/types.js";
 import { audioFilename, type Transcriber, type Transcript, type TranscriptionRequest } from "../transcription/contract.js";
@@ -99,27 +97,6 @@ export class WhisperProvider implements AIProvider, Transcriber {
           ? data.words?.map((w): TranscriptWord => ({ text: w.word, start: w.start, end: w.end }))
           : undefined,
     };
-  }
-
-  /** Older interface; `transcribeAudio` is the contract. */
-  async transcribe(audio: Blob, language?: string, options?: TranscribeOptions): Promise<TranscriptResult> {
-    try {
-      const transcript = await this.transcribeAudio({
-        audio: new Uint8Array(await audio.arrayBuffer()),
-        language: language ?? options?.language,
-        granularity: options?.granularity,
-      });
-      return {
-        id: crypto.randomUUID(),
-        status: "completed",
-        fullText: transcript.text,
-        detectedLanguage: transcript.language,
-        segments: transcript.segments,
-        words: transcript.words,
-      };
-    } catch (error) {
-      return { id: "", status: "failed", error: error instanceof Error ? error.message : "Unknown error" };
-    }
   }
 }
 

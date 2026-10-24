@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { FakeProviderNetwork, jsonResponse } from "../testing/fake-provider-network.js";
 import { GrokProvider, resolveGrokVideoModel } from "./GrokProvider.js";
+
+const HOST = "api.x.ai";
 
 describe("resolveGrokVideoModel", () => {
   it("defaults to grok-imagine-video-1.5 and maps aliases", () => {
@@ -15,34 +18,33 @@ describe("resolveGrokVideoModel", () => {
 });
 
 describe("GrokProvider video", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  let net: FakeProviderNetwork;
+
+  beforeEach(() => {
+    net = new FakeProviderNetwork();
+    net.install();
   });
 
-  it("asks for 720p by default since xAI otherwise renders 480p", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ request_id: "r1" })));
-    vi.stubGlobal("fetch", fetchMock);
+  afterEach(() => net.uninstall());
+
+  async function create() {
     const grok = new GrokProvider();
     await grok.initialize({ apiKey: "key" });
+    return grok;
+  }
 
-    await grok.generateVideo("p", { prompt: "p", resolution: "4k" });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.model).toBe("grok-imagine-video-1.5");
-    expect(body.resolution).toBe("720p");
+  it("asks for 720p by default since xAI otherwise renders 480p", async () => {
+    net.on("POST", HOST, /^\/v1\/videos\/generations$/, () => jsonResponse({ request_id: "r1" }));
+    await (await create()).submitVideo({ prompt: "p", resolution: "4k" });
+    expect(net.requests[0].body).toMatchObject({ model: "grok-imagine-video-1.5", resolution: "720p" });
   });
 
   it("treats a failed job as terminal with the provider's message", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ status: "failed", error: { code: "moderation", message: "blocked" } }))
-      )
+    net.on("GET", HOST, /^\/v1\/videos\/r1$/, () =>
+      jsonResponse({ status: "failed", error: { code: "moderation", message: "blocked" } })
     );
-    const grok = new GrokProvider();
-    await grok.initialize({ apiKey: "key" });
-
-    const result = await grok.getGenerationStatus("r1");
-    expect(result.status).toBe("failed");
-    expect(result.error).toContain("blocked");
+    const state = await (await create()).getVideoJob({ provider: "grok", id: "r1", model: "m", submittedAt: "" });
+    expect(state.status).toBe("failed");
+    expect(state.error?.message).toContain("blocked");
   });
 });

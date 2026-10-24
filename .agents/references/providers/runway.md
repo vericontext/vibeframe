@@ -76,10 +76,10 @@ Credit rates are per second of output unless noted (docs).
 
 - `packages/ai-providers/src/runway/RunwayProvider.ts:14-17` - `gen4_turbo | gen4.5`, default `gen4.5`.
 - `packages/ai-providers/src/runway/RunwayProvider.ts:69-72` - API version `2024-11-06` and base URL.
-- `packages/ai-providers/src/runway/RunwayProvider.ts` `generateVideo` - ratio map; `1:1` text-to-video is rejected before the request (square needs an image).
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `submitVideo` - ratio map; `1:1` text-to-video is rejected before the request (square needs an image).
 - `packages/ai-providers/src/runway/RunwayProvider.ts:114-139` - gen4_turbo image guard and request body.
-- `packages/ai-providers/src/runway/RunwayProvider.ts` `getGenerationStatus` - `THROTTLED` maps to `pending`; `FAILED` errors carry the `failureCode`.
-- `packages/ai-providers/src/runway/RunwayProvider.ts` `cancelGeneration` / `deleteTask` - both use the documented `DELETE /tasks/{id}` (verified 204 on a THROTTLED task, 2026-10-04).
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `getVideoJob` - `THROTTLED` maps to `pending`; `FAILED` errors carry the `failureCode`.
+- `packages/ai-providers/src/runway/RunwayProvider.ts` `cancelVideoJob` - uses the documented `DELETE /tasks/{id}` (verified 204 on a THROTTLED task, 2026-10-04).
 - `packages/ai-providers/src/runway/RunwayProvider.ts:354-368` - retries only 429 and 503, without jitter.
 - `packages/ai-providers/src/runway/RunwayProvider.ts:373-381` - gen4_turbo duration forced to 5 or 10.
 - `packages/cli/src/commands/ai-video.ts` - MCP Runway path; forwards `runwayModel`.

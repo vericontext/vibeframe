@@ -22,24 +22,6 @@ export const KOKORO_DEFAULT_VOICE = "af_heart";
 export const KOKORO_MODEL_ID = defaultModel("kokoro", "speech").id;
 
 /**
- * Options accepted by {@link KokoroProvider.textToSpeech}. Mirrors the
- * subset of {@link import("../elevenlabs/ElevenLabsProvider.js").TTSOptions}
- * that makes sense for a local model — voice + speed only.
- */
-export interface KokoroTTSOptions {
-  /** Kokoro voice id (e.g. `"af_heart"`, `"am_michael"`). Defaults to `"af_heart"`. */
-  voice?: string;
-  /** Speaking speed multiplier (default `1`). */
-  speed?: number;
-  /**
-   * Called with model-load progress events on the first call (cold start
-   * downloads a ~90MB quantized model). Subsequent calls reuse the cached
-   * singleton and do not invoke this callback.
-   */
-  onProgress?: (event: KokoroLoadEvent) => void;
-}
-
-/**
  * Subset of the `@huggingface/transformers` progress callback shape we surface.
  * We accept the upstream union but normalise to this minimal record.
  */
@@ -54,21 +36,6 @@ export interface KokoroLoadEvent {
   loaded?: number;
   /** Total bytes. */
   total?: number;
-}
-
-/**
- * Result returned by {@link KokoroProvider.textToSpeech}. Same shape as
- * `TTSResult` from the ElevenLabs provider so callers can treat the two
- * providers interchangeably.
- */
-export interface KokoroTTSResult {
-  success: boolean;
-  /** WAV audio data (when `success === true`). */
-  audioBuffer?: Buffer;
-  /** Error message (when `success === false`). */
-  error?: string;
-  /** Length of the input text (same field name ElevenLabs uses). */
-  characterCount?: number;
 }
 
 /**
@@ -189,7 +156,7 @@ async function loadKokoroRuntime(): Promise<KokoroRuntime> {
   if (factoryOverride) return { factory: factoryOverride, device: "cpu" };
   // Dynamic import keeps the heavy `kokoro-js` graph (transformers.js +
   // onnxruntime-node, ~150MB combined) out of cold-path requires. Anything
-  // that doesn't actually call `textToSpeech` pays zero cost.
+  // that doesn't actually call `synthesize` pays zero cost.
   try {
     const mod = (await import("kokoro-js")) as unknown as { KokoroTTS: KokoroFactory };
     return { factory: mod.KokoroTTS, device: "cpu" };
@@ -388,8 +355,8 @@ function normaliseEvent(raw: unknown): KokoroLoadEvent {
  * Subsequent calls reuse a module-scope singleton and add only ~1-2s of
  * inference per scene (longer on the WASM backend).
  *
- * The `textToSpeech()` shape matches `ElevenLabsProvider.textToSpeech` so a
- * future TTS router can pick between providers without per-callsite branches.
+ * Implements the same `SpeechGenerator` contract as ElevenLabs and OpenAI TTS,
+ * so callers pick a provider without per-callsite branches.
  */
 export class KokoroProvider implements AIProvider, SpeechGenerator {
   id = "kokoro";
@@ -408,10 +375,6 @@ export class KokoroProvider implements AIProvider, SpeechGenerator {
     return true;
   }
 
-  /**
-   * Synthesise speech from text. Returns a WAV buffer matching
-   * `ElevenLabsProvider.textToSpeech`'s `TTSResult` shape.
-   */
   // ── SpeechGenerator ───────────────────────────────────────────────────
 
   /** Local synthesis; failures (model download, runtime) read as provider errors. */
@@ -452,19 +415,6 @@ export class KokoroProvider implements AIProvider, SpeechGenerator {
         provider: this.speechProvider,
         message: error instanceof Error ? error.message : String(error),
       });
-    }
-  }
-
-  /** Older interface; `synthesize` is the contract. */
-  async textToSpeech(text: string, options: KokoroTTSOptions = {}): Promise<KokoroTTSResult> {
-    try {
-      const result = await this.synthesize(
-        { text, voice: options.voice, speed: options.speed },
-        { onProgress: options.onProgress }
-      );
-      return { success: true, audioBuffer: Buffer.from(result.bytes), characterCount: result.characters };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
   }
 }

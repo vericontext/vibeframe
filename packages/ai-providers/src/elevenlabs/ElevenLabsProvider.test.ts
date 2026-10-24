@@ -14,15 +14,15 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("ElevenLabsProvider.textToSpeech 429 retry", () => {
+describe("ElevenLabsProvider.synthesize 429 retry", () => {
   it("succeeds first try with a single fetch", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => ttsResponse(200, AUDIO));
     vi.stubGlobal("fetch", fetchMock);
     const provider = new ElevenLabsProvider();
     await provider.initialize({ apiKey: "test-key" });
 
-    const result = await provider.textToSpeech("Hello.");
-    expect(result.success).toBe(true);
+    const result = await provider.synthesize({ text: "Hello." });
+    expect(Array.from(result.bytes)).toEqual([1, 2, 3]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -38,12 +38,11 @@ describe("ElevenLabsProvider.textToSpeech 429 retry", () => {
     const provider = new ElevenLabsProvider();
     await provider.initialize({ apiKey: "test-key" });
 
-    const pending = provider.textToSpeech("Hello again.");
+    const pending = provider.synthesize({ text: "Hello again." });
     await vi.advanceTimersByTimeAsync(5000);
     const result = await pending;
 
-    expect(result.success).toBe(true);
-    expect(result.audioBuffer).toBeInstanceOf(Buffer);
+    expect(Array.from(result.bytes)).toEqual([1, 2, 3]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -55,12 +54,13 @@ describe("ElevenLabsProvider.textToSpeech 429 retry", () => {
     const provider = new ElevenLabsProvider();
     await provider.initialize({ apiKey: "test-key" });
 
-    const pending = provider.textToSpeech("Still busy.");
+    const pending = expect(provider.synthesize({ text: "Still busy." })).rejects.toMatchObject({
+      status: 429,
+      message: expect.stringContaining("concurrent_limit_exceeded"),
+    });
     await vi.advanceTimersByTimeAsync(5000);
-    const result = await pending;
+    await pending;
 
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("concurrent_limit_exceeded");
     // The shared HTTP layer makes three attempts on 429 before giving up.
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
@@ -71,8 +71,7 @@ describe("ElevenLabsProvider.textToSpeech 429 retry", () => {
     const provider = new ElevenLabsProvider();
     await provider.initialize({ apiKey: "test-key" });
 
-    const result = await provider.textToSpeech("Nope.");
-    expect(result.success).toBe(false);
+    await expect(provider.synthesize({ text: "Nope." })).rejects.toMatchObject({ kind: "auth", status: 401 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
@@ -88,7 +87,7 @@ describe("ElevenLabsProvider request bodies", () => {
   }
 
   it("sends speed inside voice_settings, where the API reads it", async () => {
-    const body = await bodyOf((p) => p.textToSpeech("hi", { speed: 1.2 }));
+    const body = await bodyOf((p) => p.synthesize({ text: "hi", speed: 1.2 }));
     expect(body.voice_settings.speed).toBe(1.2);
     expect(body).not.toHaveProperty("speed");
   });

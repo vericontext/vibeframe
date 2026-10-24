@@ -1,17 +1,10 @@
 import { createHmac } from "node:crypto";
-import type {
-  AIProvider,
-  AICapability,
-  ProviderConfig,
-  GenerateOptions,
-  VideoResult,
-} from "../interface/types.js";
-import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
+import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
+import { findModel, modelAliases } from "../catalog/catalog.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { ProviderError, classifyProviderError, isProviderError, type ProviderErrorKind } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
-import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * Kling model versions on the text2video / image2video endpoints
@@ -45,40 +38,6 @@ export function klingDuration(model: KlingModel, seconds?: number): string {
 }
 
 /**
- * Kling video generation options
- */
-export interface KlingVideoOptions {
-  /** Text prompt */
-  prompt: string;
-  /** Negative prompt (what to avoid) */
-  negativePrompt?: string;
-  /** Model name */
-  model?: KlingModel;
-  /** Config for generation (0-1, controls prompt adherence) */
-  cfg?: number;
-  /** Generation mode: std (standard, faster) or pro (professional, higher quality) */
-  mode?: "std" | "pro";
-  /** Aspect ratio */
-  aspectRatio?: "16:9" | "9:16" | "1:1";
-  /** Duration in seconds: 5 or 10 */
-  duration?: "5" | "10";
-  /** Reference image URL or base64 for image-to-video */
-  imageUrl?: string;
-  /** Image tail for end frame */
-  imageTail?: string;
-  /** Camera control settings */
-  cameraControl?: {
-    type?: "simple" | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
-    horizontal?: number;
-    vertical?: number;
-    pan?: number;
-    tilt?: number;
-    roll?: number;
-    zoom?: number;
-  };
-}
-
-/**
  * Kling task response
  */
 interface KlingTaskResponse {
@@ -100,32 +59,6 @@ interface KlingTaskResponse {
     };
   };
 }
-
-/**
- * Kling AI provider for high-quality video generation
- *
- * Supported models (v2.5+):
- * - kling-v3: default (3-15 sec, multi-shot)
- * - kling-v2-6: High quality (5 or 10 sec)
- * - kling-v2-5-turbo: Fastest, cheapest (5 or 10 sec)
- *
- * Note: image2video requires image URL (not base64) for all supported models.
- * Use ImgBB or similar service to upload base64 images before passing to Kling.
- */
-/**
- * Options for video extension
- */
-export interface KlingVideoExtendOptions {
-  /** Text prompt for continuation */
-  prompt?: string;
-  /** Negative prompt (what to avoid) */
-  negativePrompt?: string;
-  /** Duration in seconds: 5 or 10 */
-  duration?: "5" | "10";
-}
-
-/** Default model for Kling - v2.5 turbo is fastest */
-const DEFAULT_MODEL = defaultModel("kling", "video").id as KlingModel;
 
 /** All v2.5+ models support std mode */
 const STD_MODE_MODELS: KlingModel[] = ["kling-v2-5-turbo", "kling-v2-6", "kling-v3"];
@@ -158,6 +91,17 @@ export function klingErrorKind(code: string | number | undefined): ProviderError
   return undefined;
 }
 
+/**
+ * Kling AI provider for high-quality video generation
+ *
+ * Supported models (v2.5+):
+ * - kling-v3: default (3-15 sec, multi-shot)
+ * - kling-v2-6: High quality (5 or 10 sec)
+ * - kling-v2-5-turbo: Fastest, cheapest (5 or 10 sec)
+ *
+ * Note: image2video requires image URL (not base64) for all supported models.
+ * Use ImgBB or similar service to upload base64 images before passing to Kling.
+ */
 export class KlingProvider implements AIProvider, VideoGenerator {
   id = "kling";
   name = "Kling AI";
@@ -172,7 +116,6 @@ export class KlingProvider implements AIProvider, VideoGenerator {
   private accessKey?: string;
   private secretKey?: string;
   private baseUrl = "https://api.klingai.com/v1";
-  private pollingInterval = 3000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     // Either a single API key, or the legacy "access_key:secret_key" pair.
@@ -282,91 +225,6 @@ export class KlingProvider implements AIProvider, VideoGenerator {
     return { provider: this.id, id: taskId, model: source.model, submittedAt: new Date().toISOString(), meta: { type: "video-extend" } };
   }
 
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    try {
-      const image = options?.referenceImage;
-      if (image !== undefined && typeof image !== "string") {
-        throw this.invalid("Kling needs an image URL for image-to-video, not a Blob. Upload the image first.");
-      }
-      const job = await this.submitVideo({
-        prompt,
-        model: options?.model,
-        durationSec: options?.duration,
-        aspectRatio: options?.aspectRatio,
-        negativePrompt: options?.negativePrompt,
-        image,
-        providerOptions: { mode: options?.mode, cfg: options?.cfg },
-      });
-      return { id: job.id, status: "pending", progress: 0 };
-    } catch (error) {
-      return { id: "", status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  /**
-   * Generate video from image (image-to-video)
-   */
-  async generateFromImage(
-    imageData: string | Blob,
-    prompt: string,
-    options?: Omit<KlingVideoOptions, "prompt" | "imageUrl">
-  ): Promise<VideoResult> {
-    return this.generateVideo(prompt, {
-      prompt,
-      referenceImage: imageData,
-      aspectRatio: options?.aspectRatio as GenerateOptions["aspectRatio"],
-      duration: options?.duration ? parseInt(options.duration) : undefined,
-      negativePrompt: options?.negativePrompt,
-    });
-  }
-
-  async getGenerationStatus(id: string, type: "text2video" | "image2video" = "text2video"): Promise<VideoResult> {
-    return this.legacyStatus(id, type);
-  }
-
-  async waitForCompletion(
-    id: string,
-    type: "text2video" | "image2video" = "text2video",
-    onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 600000
-  ): Promise<VideoResult> {
-    return this.legacyWait(id, type, onProgress, maxWaitMs);
-  }
-
-  /**
-   * Extend an existing video by its Kling video ID (`VideoResult.videoId`).
-   */
-  async extendVideo(videoId: string, options?: KlingVideoExtendOptions): Promise<VideoResult> {
-    try {
-      const body: Record<string, unknown> = { video_id: videoId, duration: options?.duration || "5" };
-      if (options?.prompt) body.prompt = options.prompt;
-      if (options?.negativePrompt) body.negative_prompt = options.negativePrompt;
-      const taskId = await this.post("/videos/video-extend", body, this.token());
-      return { id: taskId, status: "pending", progress: 0 };
-    } catch (error) {
-      return { id: "", status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  async getExtendStatus(id: string): Promise<VideoResult> {
-    return this.legacyStatus(id, "video-extend");
-  }
-
-  async waitForExtendCompletion(
-    id: string,
-    onProgress?: (result: VideoResult) => void,
-    maxWaitMs: number = 600000
-  ): Promise<VideoResult> {
-    return this.legacyWait(id, "video-extend", onProgress, maxWaitMs);
-  }
-
-  /** Kling's API has no cancel endpoint. */
-  async cancelGeneration(_id: string): Promise<boolean> {
-    return false;
-  }
-
   // ── Helpers ───────────────────────────────────────────────────────────
 
   private token(): string {
@@ -420,51 +278,6 @@ export class KlingProvider implements AIProvider, VideoGenerator {
 
   private invalid(message: string): ProviderError {
     return new ProviderError({ kind: "invalid-request", provider: this.id, message });
-  }
-
-  private legacyJob(id: string, type: KlingTaskType): VideoJob {
-    return { provider: this.id, id, model: DEFAULT_MODEL, submittedAt: new Date(0).toISOString(), meta: { type } };
-  }
-
-  private toVideoResult(id: string, state: VideoJobState): VideoResult {
-    return {
-      id,
-      status: state.status,
-      videoUrl: state.videoUrl,
-      videoId: state.outputId,
-      duration: state.durationSec,
-      ...(state.error ? { error: state.error.message } : {}),
-    };
-  }
-
-  private async legacyStatus(id: string, type: KlingTaskType): Promise<VideoResult> {
-    try {
-      return this.toVideoResult(id, await this.getVideoJob(this.legacyJob(id, type)));
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  private async legacyWait(
-    id: string,
-    type: KlingTaskType,
-    onProgress: ((result: VideoResult) => void) | undefined,
-    maxWaitMs: number
-  ): Promise<VideoResult> {
-    try {
-      const state = await waitForVideoJob(this, this.legacyJob(id, type), {
-        timeoutMs: maxWaitMs,
-        intervalMs: this.pollingInterval,
-        onProgress: onProgress && ((s) => onProgress(this.toVideoResult(id, s))),
-      });
-      return this.toVideoResult(id, state);
-    } catch (error) {
-      return { id, status: "failed", error: this.legacyMessage(error) };
-    }
-  }
-
-  private legacyMessage(error: unknown): string {
-    return isProviderError(error) || error instanceof Error ? error.message : "Unknown error";
   }
 }
 

@@ -69,7 +69,7 @@ So one default 5 s std clip costs about $0.21 (docs).
 - `cfg_scale` and `camera_control` do not appear in the v2.5+ legacy parameter docs (docs); we send `cfg_scale` when callers pass `cfg`.
 - `mode` default differs per endpoint: `std` on text2video/image2video, `pro` on omni-video (docs).
 - First+last frame on the new 2.5 Turbo endpoint is 1080p only; 3.0 Turbo supports first frame only (docs).
-- No cancel endpoint; `cancelGeneration()` correctly returns false.
+- No cancel endpoint; `KlingProvider` has no `cancelVideoJob`.
 - `video-extend` support per model was not verified; the capability map does not list it for v2.5+ models.
 
 ## In our code

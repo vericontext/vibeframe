@@ -76,11 +76,10 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 ## In our code
 
 - `packages/ai-providers/src/grok/GrokProvider.ts:12-19` - model type and stale price comments ($4.20/min video, $0.07 pro image).
-- `packages/ai-providers/src/grok/GrokProvider.ts:112-187` - `generateImage` against `/images/generations`.
-- `packages/ai-providers/src/grok/GrokProvider.ts:193-273` - `editImage` against `/images/edits` with a data URI.
+- `packages/ai-providers/src/grok/GrokProvider.ts` `createImage` - the image contract: `/images/generations`, or `/images/edits` with a data URI when input images are given.
 - `packages/ai-providers/src/grok/GrokProvider.ts:292-305` - video body; hardcodes `grok-imagine-video`, never sends `resolution` or `generate_audio`.
 - `packages/ai-providers/src/grok/GrokProvider.ts:370-374` - status map lacks `failed`.
-- `packages/ai-providers/src/grok/GrokProvider.ts:425-439` - `cancelGeneration` uses an undocumented `DELETE /videos/{id}`.
+- `packages/ai-providers/src/grok/GrokProvider.ts` - no `cancelVideoJob`; xAI documents no cancel endpoint.
 - `packages/cli/src/commands/ai-image.ts:148-158` - MCP Grok image path reuses `OpenAIImageProvider` with no `model`, so it sends `gpt-image-2` (`OpenAIImageProvider.ts:78`) to xAI.
 - `packages/cli/src/commands/generate/image.ts:421-455` - CLI Grok image path and its aspect-ratio allowlist.
 - `packages/cli/src/commands/edit-cmd.ts:771-773` - Grok image edit.

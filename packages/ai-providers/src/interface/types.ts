@@ -3,21 +3,18 @@
  * @description Shared types for the AI provider system.
  *
  * Defines capability enums, generation options and results, transcription types,
- * edit suggestions, natural language command parsing, highlight detection,
- * B-roll matching, viral optimization, and the core {@link AIProvider} and
- * {@link AIProviderRegistry} interfaces.
+ * edit suggestions, highlight detection, B-roll matching, viral optimization,
+ * and the core {@link AIProvider} interface.
  */
 
-import type { Clip, TimeSeconds } from "@vibeframe/core";
+import type { TimeSeconds } from "@vibeframe/core";
 
 /** Re-export TimeSeconds for use by consumers. */
 export type { TimeSeconds } from "@vibeframe/core";
 
 /**
- * Capabilities that an AI provider can declare support for.
- *
- * Used by the {@link AIProviderRegistry} to find providers that match
- * a requested operation (e.g., `"text-to-video"`, `"vision"`).
+ * Capabilities that an AI provider can declare support for
+ * (e.g., `"text-to-video"`, `"vision"`).
  */
 export type AICapability =
   | "text-to-video"
@@ -72,50 +69,6 @@ export type GenerationStatus =
   | "cancelled";
 
 /**
- * Common options passed to {@link AIProvider.generateVideo}.
- *
- * All fields except `prompt` are optional; providers ignore unsupported options.
- */
-export interface GenerateOptions {
-  /** Prompt for generation */
-  prompt: string;
-  /** Negative prompt (what to avoid) */
-  negativePrompt?: string;
-  /** Duration in seconds */
-  duration?: TimeSeconds;
-  /** Aspect ratio */
-  aspectRatio?: "16:9" | "9:16" | "1:1" | "4:5";
-  /** Seed for reproducibility */
-  seed?: number;
-  /** Style preset */
-  style?: string;
-  /** Generation mode (Kling: std or pro) */
-  mode?: "std" | "pro";
-  /** Model name/version (provider-specific) */
-  model?: string;
-  /** CFG scale (0-1, controls prompt adherence) */
-  cfg?: number;
-  /** Reference image for image-to-video */
-  referenceImage?: Blob | string;
-  /** Reference video for video-to-video */
-  referenceVideo?: Blob | string;
-  /** Multimodal references for providers that support explicit prompt labels */
-  references?: MediaReference[];
-  /** Video resolution, such as 720p or 1080p */
-  resolution?: string;
-  /** Last frame / ending image URL for providers that support frame interpolation */
-  lastFrame?: string;
-  /** Inline reference images */
-  referenceImages?: Array<{ base64: string; mimeType: string }>;
-  /** Model-specific options */
-  modelOptions?: Record<string, unknown>;
-  /** Generate native/synchronized audio when supported by the provider */
-  generateAudio?: boolean;
-  /** End-customer identifier for B2B/provider compliance when required */
-  endUserId?: string;
-}
-
-/**
  * Multimodal reference input for video generation.
  *
  * Providers that support labeled reference prompting map these in order to
@@ -130,7 +83,9 @@ export interface MediaReference {
 }
 
 /**
- * Result returned by {@link AIProvider.generateVideo} or {@link AIProvider.getGenerationStatus}.
+ * Status of an asynchronous video job on the older Replicate prediction
+ * endpoints (upscale, inpaint, style transfer). Contract video providers
+ * report `VideoJobState` instead.
  *
  * Contains the generated video URL (when complete), progress information,
  * and optional metadata such as dimensions and duration.
@@ -142,8 +97,6 @@ export interface VideoResult {
   status: GenerationStatus;
   /** URL to the generated video */
   videoUrl?: string;
-  /** Video ID for extensions (Kling) */
-  videoId?: string;
   /** Thumbnail URL */
   thumbnailUrl?: string;
   /** Duration in seconds */
@@ -208,19 +161,8 @@ export interface TranscriptWord {
 export type TranscriptGranularity = "segment" | "word" | "both";
 
 /**
- * Optional parameters for {@link AIProvider.transcribe}.
- *
- * Providers ignore unsupported options.
- */
-export interface TranscribeOptions {
-  /** BCP-47 language code hint (e.g. `"en"`, `"ko"`). */
-  language?: string;
-  /** Timestamp granularity. Defaults to `"segment"` for back-compat. */
-  granularity?: TranscriptGranularity;
-}
-
-/**
- * Result returned by {@link AIProvider.transcribe}.
+ * A transcription in the shape CLI commands consume (see the transcription
+ * contract for the provider-facing `Transcript`).
  *
  * Contains the full transcript text, individual time-aligned segments,
  * optional word-level timings, and the detected language.
@@ -243,7 +185,7 @@ export interface TranscriptResult {
 }
 
 /**
- * An AI-suggested edit operation returned by {@link AIProvider.autoEdit}.
+ * An AI-suggested edit operation returned by `GeminiProvider.autoEdit`.
  *
  * Each suggestion targets one or more clips and includes a confidence score
  * indicating how strongly the AI recommends the edit.
@@ -263,56 +205,6 @@ export interface EditSuggestion {
   confidence: number;
   /** Preview URL if available */
   previewUrl?: string;
-}
-
-/**
- * A single timeline operation parsed from a natural language instruction.
- *
- * Returned within {@link CommandParseResult.commands} by
- * {@link AIProvider.parseCommand}.
- */
-export interface TimelineCommand {
-  /** Command type */
-  action:
-    | "add-clip"
-    | "remove-clip"
-    | "trim"
-    | "split"
-    | "move"
-    | "duplicate"
-    | "add-effect"
-    | "remove-effect"
-    | "set-volume"
-    | "add-transition"
-    | "add-track"
-    | "export"
-    | "speed-change"
-    | "reverse"
-    | "crop"
-    | "position";
-  /** Target clip IDs (empty for global commands) */
-  clipIds: string[];
-  /** Command parameters */
-  params: Record<string, unknown>;
-  /** Human-readable description of what this command does */
-  description: string;
-}
-
-/**
- * Result of parsing a natural language command via {@link AIProvider.parseCommand}.
- *
- * On success, contains one or more {@link TimelineCommand} objects to execute.
- * On failure or ambiguity, provides an error or clarification question.
- */
-export interface CommandParseResult {
-  /** Whether parsing was successful */
-  success: boolean;
-  /** Parsed commands to execute */
-  commands: TimelineCommand[];
-  /** Error message if parsing failed */
-  error?: string;
-  /** Clarification question if command is ambiguous */
-  clarification?: string;
 }
 
 /**
@@ -612,10 +504,8 @@ export interface ProviderConfig {
 /**
  * Main AI Provider interface that all VibeFrame providers must implement.
  *
- * A provider declares its {@link capabilities} and implements the corresponding
- * optional methods (e.g., `generateVideo` for `"text-to-video"`).
- * Providers are registered in the {@link AIProviderRegistry} and looked up
- * by capability at runtime.
+ * Generation itself goes through the typed contracts (`VideoGenerator`,
+ * `ImageGenerator`, `SpeechGenerator`, `Transcriber`, `TextGenerator`).
  */
 export interface AIProvider {
   /** Unique identifier for this provider */
@@ -643,118 +533,4 @@ export interface AIProvider {
    * @returns `true` if the provider can accept requests.
    */
   isConfigured(): boolean;
-
-  /**
-   * Generate a video from a text prompt (capability: `"text-to-video"`).
-   * @param prompt - Descriptive text prompt for the video.
-   * @param options - Additional generation options (duration, aspect ratio, seed, etc.).
-   * @returns The generation result with status and video URL when complete.
-   */
-  generateVideo?(prompt: string, options?: GenerateOptions): Promise<VideoResult>;
-
-  /**
-   * Poll the status of an ongoing generation job.
-   * @param id - The generation job ID returned by {@link generateVideo}.
-   * @returns Current status, progress, and video URL when complete.
-   */
-  getGenerationStatus?(id: string): Promise<VideoResult>;
-
-  /**
-   * Cancel an ongoing generation job.
-   * @param id - The generation job ID to cancel.
-   * @returns `true` if the cancellation succeeded.
-   */
-  cancelGeneration?(id: string): Promise<boolean>;
-
-  /**
-   * Transcribe audio to text (capability: `"speech-to-text"`).
-   *
-   * The third parameter accepts {@link TranscribeOptions} for granularity
-   * control. The legacy `language: string` form is still accepted as the
-   * second argument for back-compat.
-   *
-   * @param audio - Audio data as a Blob.
-   * @param language - Optional BCP-47 language code hint (e.g., `"en"`, `"ko"`).
-   * @param options - Additional transcription options (granularity, etc.).
-   * @returns Transcription result with full text, segments, and optionally word-level timings.
-   */
-  transcribe?(audio: Blob, language?: string, options?: TranscribeOptions): Promise<TranscriptResult>;
-
-  /**
-   * Get AI-generated edit suggestions based on clips and a natural language instruction
-   * (capability: `"auto-edit"`).
-   * @param clips - The clips to analyze.
-   * @param instruction - Natural language editing instruction (e.g., "make it shorter").
-   * @returns Array of suggested edit operations ranked by confidence.
-   */
-  autoEdit?(clips: Clip[], instruction: string): Promise<EditSuggestion[]>;
-
-  /**
-   * Apply a visual style transfer to a video (capability: `"style-transfer"`).
-   * @param video - Source video data as a Blob.
-   * @param style - Style preset name or description.
-   * @returns The styled video result.
-   */
-  applyStyle?(video: Blob, style: string): Promise<VideoResult>;
-
-  /**
-   * Upscale video to a higher resolution (capability: `"upscale"`).
-   * @param video - Source video data as a Blob.
-   * @param targetResolution - Target resolution string (e.g., `"4k"`, `"1080p"`).
-   * @returns The upscaled video result.
-   */
-  upscale?(video: Blob, targetResolution: string): Promise<VideoResult>;
-
-  /**
-   * Parse a natural language command into executable timeline operations
-   * (capability: `"natural-language-command"`).
-   * @param instruction - Free-form text instruction (e.g., "trim the first clip to 10 seconds").
-   * @param context - Current timeline context including available clips and track IDs.
-   * @returns Parsed commands or a clarification question if the instruction is ambiguous.
-   */
-  parseCommand?(
-    instruction: string,
-    context: { clips: Clip[]; tracks: string[] }
-  ): Promise<CommandParseResult>;
-}
-
-/**
- * Registry for managing multiple {@link AIProvider} instances.
- *
- * Allows registration, lookup by ID, and capability-based discovery
- * of providers at runtime.
- */
-export interface AIProviderRegistry {
-  /**
-   * Register a new provider (overwrites if the same ID already exists).
-   * @param provider - The provider instance to register.
-   */
-  register(provider: AIProvider): void;
-
-  /**
-   * Get a provider by its unique identifier.
-   * @param id - Provider ID (e.g., `"openai"`, `"runway"`).
-   * @returns The matching provider, or `undefined` if not found.
-   */
-  get(id: string): AIProvider | undefined;
-
-  /**
-   * Get all registered providers.
-   * @returns Array of all provider instances.
-   */
-  getAll(): AIProvider[];
-
-  /**
-   * Get providers that declare a specific capability.
-   * @param capability - The capability to filter by.
-   * @returns Array of providers that support the given capability.
-   */
-  getByCapability(capability: AICapability): AIProvider[];
-
-  /**
-   * Remove a provider from the registry.
-   * @param id - Provider ID to remove.
-   * @returns `true` if the provider was found and removed.
-   */
-  unregister(id: string): boolean;
 }

@@ -19,11 +19,10 @@
  *   declaration small and lets providers that share a key (omni) and
  *   envvar-only credentials (imgbb) coexist with normal cases.
  *
- * Separation from the existing `providerRegistry` in `interface/registry.ts`:
- * that one holds AIProvider class instances for capability-based lookup at
- * runtime ("which class handles `text-to-video`?"). This module holds
- * declarative metadata for build-time / startup-time wiring ("which env var
- * does the `fal` provider need?"). They never talk to each other.
+ * This module holds declarative metadata for build-time / startup-time
+ * wiring ("which env var does the `fal` provider need?"); provider classes
+ * are opened through the per-kind contract registries (`createVideoGenerator`,
+ * `createImageGenerator`, ...).
  */
 
 export type ProviderKind =

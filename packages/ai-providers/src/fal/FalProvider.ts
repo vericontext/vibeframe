@@ -3,16 +3,13 @@ import type {
   AIProvider,
   AICapability,
   ProviderConfig,
-  GenerateOptions,
   MediaReference,
-  VideoResult,
 } from "../interface/types.js";
 import { findModel, modelAliases } from "../catalog/catalog.js";
 import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
-import { waitForVideoJob } from "../video/wait.js";
 
 /**
  * fal.ai endpoints for ByteDance Seedance 2.0.
@@ -165,7 +162,6 @@ export class FalProvider implements AIProvider, VideoGenerator {
 
   private client?: FalClient;
   private apiKey?: string;
-  private pollingInterval = 5000;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.apiKey = config.apiKey;
@@ -279,42 +275,6 @@ export class FalProvider implements AIProvider, VideoGenerator {
     }
     const response = await providerRequest(this.id, state.videoUrl);
     return new Uint8Array(await response.arrayBuffer());
-  }
-
-  // ── Older interface, kept until every caller uses the contract ────────
-
-  /**
-   * Submit and wait for the finished video, as the blocking `subscribe`
-   * call used to. New callers should submit and poll so the job survives.
-   */
-  async generateVideo(prompt: string, options?: GenerateOptions): Promise<VideoResult> {
-    let job: VideoJob | undefined;
-    try {
-      job = await this.submitVideo({
-        prompt,
-        model: options?.model,
-        durationSec: options?.duration,
-        aspectRatio: options?.aspectRatio,
-        resolution: options?.resolution,
-        image: typeof options?.referenceImage === "string" ? options.referenceImage : undefined,
-        lastFrame: options?.lastFrame,
-        references: options?.references,
-        negativePrompt: options?.negativePrompt,
-        seed: options?.seed,
-        generateAudio: options?.generateAudio,
-        providerOptions: options?.endUserId ? { endUserId: options.endUserId } : undefined,
-      });
-      const state = await waitForVideoJob(this, job, { intervalMs: this.pollingInterval, timeoutMs: 30 * 60_000 });
-      return {
-        id: job.id,
-        status: state.status,
-        videoUrl: state.videoUrl,
-        progress: state.progress,
-        ...(state.error ? { error: state.error.message } : {}),
-      };
-    } catch (error) {
-      return { id: job?.id ?? "", status: "failed", error: isProviderError(error) || error instanceof Error ? error.message : String(error) };
-    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────

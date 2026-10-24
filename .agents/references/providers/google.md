@@ -142,8 +142,7 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 - `packages/ai-providers/src/gemini/gemini-storyboard.ts:35-52` - storyboard call with `temperature` 0.7 or 1.0.
 - `packages/ai-providers/src/gemini/GeminiProvider.ts`:
   - `:26`, `:189-197` - image model map; `flash` (default) -> `gemini-2.5-flash-image`, `3.1-flash`/`latest` -> `gemini-3.1-flash-image-preview`, `pro` -> `gemini-3-pro-image-preview`.
-  - `:599-750` - `generateImage`; 2K/4K only sent for Pro, Image Search only for the preview ID (`:647`), `thinkingLevel: "High"` type at `:46`.
-  - `:756-910` - `editImage`.
+  - `createImage` - the image contract for generation and edits (input images ride along as inline parts).
   - `:914-1058` - `analyzeVideo`, inline base64 video, `temperature: 0.4`.
   - `:1060-1168` - `analyzeImage`, `temperature: 0.4`.
   - `:1170-1270` - `autoEdit`, `temperature: 0.3`.

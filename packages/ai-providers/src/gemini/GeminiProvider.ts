@@ -18,79 +18,10 @@ import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
 import { ProviderError } from "../shared/errors.js";
-import { errorMessage, providerRequest } from "../shared/http.js";
+import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
 import { geminiGenerateText } from "./gemini-text.js";
 import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
-
-/**
- * Gemini model types for image generation
- */
-export type GeminiImageModel =
-  | "flash"
-  | "2.1"
-  | "3.1-flash"
-  | "latest"
-  | "lite"
-  | "pro"
-  | "gemini-nano-banana-2.1"
-  | "gemini-3.1-flash-image"
-  | "gemini-3.1-flash-lite-image"
-  | "gemini-3-pro-image"
-  | "gemini-2.5-flash-image"
-  | "gemini-3.1-flash-image-preview"
-  | "gemini-3-pro-image-preview";
-
-/** Image size; each model takes a subset (see GEMINI_IMAGE_CAPABILITIES). */
-export type GeminiImageResolution = "512px" | "1K" | "2K" | "4K";
-
-/**
- * Image generation options for Gemini (Nano Banana)
- */
-export interface GeminiImageOptions {
-  /** Model to use: flash (fast) or pro (professional) */
-  model?: GeminiImageModel;
-  /** Aspect ratio */
-  aspectRatio?: "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1" | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9";
-  /** Image resolution: 512px, 1K, 2K, 4K */
-  resolution?: GeminiImageResolution;
-  /** Enable Google Search grounding (not on Lite) */
-  grounding?: boolean;
-  /** Thinking configuration (for models that support it) */
-  thinkingConfig?: { thinkingLevel: "minimal" | "High"; includeThoughts?: boolean };
-  /** Enable Image Search grounding (Nano Banana 2.1 and 3.1 Flash) */
-  imageSearchGrounding?: boolean;
-  /** Safety filter level */
-  safetyFilterLevel?: "block_low_and_above" | "block_medium_and_above" | "block_only_high";
-  /** Person generation setting */
-  personGeneration?: "dont_allow" | "allow_adult";
-}
-
-/**
- * Image editing options for Gemini
- */
-export interface GeminiEditOptions {
-  /** Model to use: flash (max 3 images) or pro (max 14 images) */
-  model?: GeminiImageModel;
-  /** Output aspect ratio */
-  aspectRatio?: "1:1" | "1:4" | "1:8" | "2:3" | "3:2" | "3:4" | "4:1" | "4:3" | "4:5" | "5:4" | "8:1" | "9:16" | "16:9" | "21:9";
-  /** Image resolution: 1K, 2K, 4K (Pro model only) */
-  resolution?: GeminiImageResolution;
-}
-
-/**
- * Image generation result
- */
-export interface GeminiImageResult {
-  success: boolean;
-  images?: Array<{
-    base64: string;
-    mimeType: string;
-  }>;
-  description?: string;
-  model?: string;
-  error?: string;
-}
 
 /**
  * Video analysis options for Gemini
@@ -288,57 +219,7 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
     return { images, model: modelId, text: parts.find((part) => part.text)?.text };
   }
 
-  // ── Older interface, kept until every caller uses the contract ────────
-
   /**
-   * Generate images using Gemini (Nano Banana).
-   */
-  async generateImage(prompt: string, options: GeminiImageOptions = {}): Promise<GeminiImageResult> {
-    return this.legacyImage(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        aspectRatio: options.aspectRatio,
-        resolution: options.resolution,
-        providerOptions: {
-          grounding: options.grounding,
-          imageSearchGrounding: options.imageSearchGrounding,
-          thinkingConfig: options.thinkingConfig,
-        },
-      })
-    );
-  }
-
-  /**
-   * Edit image(s) using Gemini (Nano Banana).
-   */
-  async editImage(imageBuffers: Buffer[], prompt: string, options: GeminiEditOptions = {}): Promise<GeminiImageResult> {
-    return this.legacyImage(() =>
-      this.createImage({
-        prompt,
-        model: options.model,
-        aspectRatio: options.aspectRatio,
-        resolution: options.resolution,
-        images: imageBuffers.map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
-      })
-    );
-  }
-
-  private async legacyImage(run: () => Promise<ImageResultSet>): Promise<GeminiImageResult> {
-    try {
-      const result = await run();
-      return {
-        success: true,
-        images: result.images.map((img) => ({ base64: Buffer.from(img.bytes).toString("base64"), mimeType: img.mimeType })),
-        description: result.text,
-        model: result.model,
-      };
-    } catch (error) {
-      return { success: false, error: errorMessage(error) };
-    }
-  }
-
-/**
    * Video analysis options
    */
   async analyzeVideo(

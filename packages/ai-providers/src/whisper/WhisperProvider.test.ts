@@ -9,9 +9,8 @@ import { WhisperProvider } from "./WhisperProvider.js";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
-vi.stubGlobal("crypto", { randomUUID: () => "test-uuid" });
 
-const audio = new Blob([new Uint8Array([1, 2, 3])]);
+const audio = new Uint8Array([1, 2, 3]);
 
 const segmentResponse = {
   text: "Hello world.",
@@ -64,11 +63,12 @@ describe("WhisperProvider", () => {
       expect(provider.capabilities).toContain("speech-to-text");
     });
 
-    it("returns failed result without API key", async () => {
+    it("throws an auth error without API key", async () => {
       const fresh = new WhisperProvider();
-      const result = await fresh.transcribe(audio);
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("not configured");
+      await expect(fresh.transcribeAudio({ audio })).rejects.toMatchObject({
+        kind: "auth",
+        message: expect.stringContaining("not configured"),
+      });
     });
   });
 
@@ -76,22 +76,22 @@ describe("WhisperProvider", () => {
     it("sends timestamp_granularities[]=segment when no options", async () => {
       mockFetch.mockResolvedValueOnce(okResponse(segmentResponse));
 
-      const result = await provider.transcribe(audio);
+      const result = await provider.transcribeAudio({ audio });
 
       const fd = captureFormData();
       const granularities = fd.getAll("timestamp_granularities[]");
       expect(granularities).toEqual(["segment"]);
 
-      expect(result.status).toBe("completed");
+      expect(result.text).toBe("Hello world.");
       expect(result.segments).toHaveLength(1);
       expect(result.segments?.[0].text).toBe("Hello world.");
       expect(result.words).toBeUndefined();
     });
 
-    it("attaches legacy language argument", async () => {
+    it("attaches the language hint", async () => {
       mockFetch.mockResolvedValueOnce(okResponse(segmentResponse));
 
-      await provider.transcribe(audio, "ko");
+      await provider.transcribeAudio({ audio, language: "ko" });
 
       const fd = captureFormData();
       expect(fd.get("language")).toBe("ko");
@@ -102,15 +102,13 @@ describe("WhisperProvider", () => {
     it("sends timestamp_granularities[]=word and parses words", async () => {
       mockFetch.mockResolvedValueOnce(okResponse(wordResponse));
 
-      const result = await provider.transcribe(audio, undefined, {
-        granularity: "word",
-      });
+      const result = await provider.transcribeAudio({ audio, granularity: "word" });
 
       const fd = captureFormData();
       const granularities = fd.getAll("timestamp_granularities[]");
       expect(granularities).toEqual(["word"]);
 
-      expect(result.status).toBe("completed");
+      expect(result.text).toBe("Hello world.");
       expect(result.words).toEqual([
         { text: "Hello", start: 0.0, end: 0.6 },
         { text: "world.", start: 0.7, end: 1.5 },
@@ -118,13 +116,10 @@ describe("WhisperProvider", () => {
       expect(result.segments).toBeUndefined();
     });
 
-    it("accepts language via options", async () => {
+    it("sends the language hint alongside word granularity", async () => {
       mockFetch.mockResolvedValueOnce(okResponse(wordResponse));
 
-      await provider.transcribe(audio, undefined, {
-        language: "en",
-        granularity: "word",
-      });
+      await provider.transcribeAudio({ audio, language: "en", granularity: "word" });
 
       const fd = captureFormData();
       expect(fd.get("language")).toBe("en");
@@ -135,9 +130,7 @@ describe("WhisperProvider", () => {
     it("sends both granularity values and parses both fields", async () => {
       mockFetch.mockResolvedValueOnce(okResponse(bothResponse));
 
-      const result = await provider.transcribe(audio, undefined, {
-        granularity: "both",
-      });
+      const result = await provider.transcribeAudio({ audio, granularity: "both" });
 
       const fd = captureFormData();
       const granularities = fd.getAll("timestamp_granularities[]");
@@ -149,28 +142,24 @@ describe("WhisperProvider", () => {
   });
 
   describe("error handling", () => {
-    it("returns failed result on non-ok response", async () => {
+    it("throws the API error on a non-ok response", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         text: async () => "rate limit exceeded",
       });
 
-      const result = await provider.transcribe(audio);
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("rate limit exceeded");
+      await expect(provider.transcribeAudio({ audio })).rejects.toThrow(/rate limit exceeded/);
     });
 
-    it("returns failed result on network error, after the shared layer's retries", async () => {
+    it("throws on a network error, after the shared layer's retries", async () => {
       vi.useFakeTimers();
       mockFetch.mockRejectedValue(new Error("network down"));
 
-      const pending = provider.transcribe(audio);
+      const pending = expect(provider.transcribeAudio({ audio })).rejects.toThrow(/network down/);
       await vi.advanceTimersByTimeAsync(5_000);
-      const result = await pending;
+      await pending;
       vi.useRealTimers();
 
-      expect(result.status).toBe("failed");
-      expect(result.error).toContain("network down");
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });

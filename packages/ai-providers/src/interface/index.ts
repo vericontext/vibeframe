@@ -1,13 +1,10 @@
 /**
  * @module interface
- * @description Core AI provider interface, shared types, and provider registry.
+ * @description Core AI provider interface and shared types.
  *
- * This module defines the pluggable AI provider system used by VibeFrame.
- * It exports the {@link AIProvider} interface that all providers must implement,
- * the {@link AIProviderRegistry} for managing multiple providers, capability
- * types, and all shared request/response types for video generation,
+ * This module defines the {@link AIProvider} interface that all providers
+ * implement, capability types, and the shared request/response types for
  * transcription, editing, and content analysis.
  */
 
 export * from "./types.js";
-export * from "./registry.js";

@@ -168,18 +168,11 @@ describe("FalProvider (Seedance) requests", () => {
     expect(await fal.getVideoJob(job)).toEqual({ status: "cancelled" });
   });
 
-  it("keeps the older blocking generateVideo working on top of the queue", async () => {
-    const fal = await create();
-    (fal as unknown as { pollingInterval: number }).pollingInterval = 1;
-    const result = await fal.generateVideo("p", { prompt: "p" });
-
-    expect(result).toMatchObject({ id: "req-1", status: "completed", videoUrl: "https://fake.media/out.mp4" });
-  });
-
   it("fails cleanly before initialize", async () => {
-    const result = await new FalProvider().generateVideo("p", { prompt: "p" });
-    expect(result.status).toBe("failed");
-    expect(result.error).toMatch(/FAL_API_KEY/);
+    await expect(new FalProvider().submitVideo({ prompt: "p" })).rejects.toMatchObject({
+      kind: "auth",
+      message: expect.stringMatching(/FAL_API_KEY/),
+    });
   });
 });
 
