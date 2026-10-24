@@ -11,7 +11,8 @@
 # apart is the exact bug class this script exists to prevent.
 #
 # The question that matters is NOT "has anyone bumped since the last tag?" but
-# "does the current version cover every feat/fix on HEAD?". A bump that landed
+# "does the current version cover every feat/fix on HEAD?" (plus any
+# breaking `type!:` commit, such as `refactor!:`). A bump that landed
 # before further feat/fix commits leaves those commits unreleased and
 # undocumented, which is invisible to a naive version-vs-tag comparison.
 #
@@ -88,7 +89,7 @@ RANGE_START="${LAST_BUMP:-$LATEST_TAG}"
 UNCOVERED=""
 if [ -n "$RANGE_START" ]; then
   UNCOVERED=$(subjects_since "$RANGE_START" \
-    | grep -E '^[0-9a-f]+ (feat|fix)(\(.+\))?:' || true)
+    | grep -E '^[0-9a-f]+ ((feat|fix)(\(.+\))?!?|[a-z]+(\(.+\))?!):' || true)
 fi
 
 UNCOVERED_COUNT=0
