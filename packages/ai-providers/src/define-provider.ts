@@ -9,7 +9,7 @@
  * Why two registries (apiKey + provider):
  *
  *   provider ↔ apiKey is many-to-one. Examples:
- *     - `google` apiKey → `gemini` (image/llm) + `veo` (video, virtual)
+ *     - `google` apiKey → `gemini` (image/llm) + `omni` (video)
  *     - `openai` apiKey → `openai` (llm/transcribe) + `openai-image` (image) +
  *       `whisper` (transcription)
  *     - `imgbb` apiKey → no provider class (envvar-only, image hosting)
@@ -17,7 +17,7 @@
  *
  *   A single declaration that conflates "auth credential" with "service" can't
  *   express any of these without escape hatches. Splitting them keeps each
- *   declaration small and lets virtual providers (veo) and envvar-only
+ *   declaration small and lets virtual providers (openrouter) and envvar-only
  *   credentials (imgbb) coexist with normal cases.
  *
  * Separation from the existing `providerRegistry` in `interface/registry.ts`:
@@ -37,7 +37,7 @@ export type ProviderKind =
 
 /**
  * An API credential. Some apiKeys back multiple providers (google → gemini +
- * veo). Some apiKeys have no provider class at all (imgbb, openrouter — used
+ * omni). Some apiKeys have no provider class at all (imgbb, openrouter — used
  * only as envvar lookups).
  */
 export interface ApiKeyMeta {
@@ -81,12 +81,12 @@ export interface ApiKeyMeta {
 
 /**
  * A service provider. Maps to a directory under `packages/ai-providers/src/`
- * in most cases, except virtual entries (veo, openrouter) that share a
+ * in most cases, except virtual entries (omni, openrouter) that share a
  * directory or have none.
  */
 export interface ProviderMeta {
   /** Stable identifier — used as `-p <id>` flag value, resolver name, and
-   *  doctor diagnostics. Examples: `gemini`, `veo`, `openai-image`, `kokoro`. */
+   *  doctor diagnostics. Examples: `gemini`, `omni`, `openai-image`, `kokoro`. */
   id: string;
   /** Human-readable label (resolver UI, doctor output). */
   label: string;

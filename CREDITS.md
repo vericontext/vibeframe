@@ -43,7 +43,7 @@ notes.
 
 - Anthropic Claude (Opus / Sonnet / Haiku families)
 - OpenAI (GPT, gpt-image-2, Whisper)
-- Google Gemini
+- Google Gemini (text, Nano Banana images, Gemini Omni video)
 - xAI Grok / Grok Imagine
 - OpenRouter (300+ models via unified API)
 - Ollama (local LLM runtime)
@@ -53,7 +53,6 @@ notes.
 - fal.ai (Seedance video models)
 - Runway (Gen-4.5 video)
 - Kling (v2.5/v3 video)
-- Veo (3.1 video)
 - Replicate (MusicGen and other models)
 
 ### Tooling

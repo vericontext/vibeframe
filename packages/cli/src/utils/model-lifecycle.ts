@@ -16,7 +16,6 @@ export interface VideoModelFlags {
   seedanceModel?: string;
   grokModel?: string;
   klingModel?: string;
-  veoModel?: string;
   runwayModel?: string;
 }
 
@@ -24,7 +23,6 @@ const VIDEO_MODEL_FLAG: Record<string, keyof VideoModelFlags> = {
   seedance: "seedanceModel",
   grok: "grokModel",
   kling: "klingModel",
-  veo: "veoModel",
   runway: "runwayModel",
 };
 

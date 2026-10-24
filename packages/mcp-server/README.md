@@ -195,7 +195,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | ----------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
 | `generate_image`                                | Text-to-image                                 | OpenAI, Google, Stability                            |
 | `generate_background`                           | Cinematic backdrop image (video-tuned prompt) | OpenAI                                               |
-| `generate_video`                                | Text/image-to-video (long-running)            | Seedance via fal.ai, Grok, Kling, Runway, Google Veo |
+| `generate_video`                                | Text/image-to-video (long-running)            | Seedance via fal.ai, Grok, Kling, Runway, Gemini Omni |
 | `generate_video_status` / `_cancel` / `_extend` | Manage long-running video jobs                | (provider-specific)                                  |
 | `generate_motion`                               | Generate standalone designed motion graphics  | Claude or Gemini + Remotion                          |
 | `generate_speech`                               | Text-to-speech                                | ElevenLabs                                           |

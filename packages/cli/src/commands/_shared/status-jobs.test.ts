@@ -420,20 +420,20 @@ describe("status job records", () => {
     });
   });
 
-  it("refreshes supported Veo video jobs through the shared video status executor", async () => {
+  it("refreshes supported Gemini Omni video jobs through the shared video status executor", async () => {
     const dir = await tempProject();
     const record = await createAndWriteJobRecord({
-      id: "job_veo",
+      id: "job_omni",
       jobType: "generate-video",
-      provider: "veo",
-      providerTaskId: "operations/veo_1",
+      provider: "omni",
+      providerTaskId: "interaction_1",
       projectDir: dir,
       command: "generate video --no-wait",
     });
 
     vi.mocked(executeVideoStatus).mockResolvedValueOnce({
       success: true,
-      taskId: "operations/veo_1",
+      taskId: "interaction_1",
       status: "processing",
       progress: 50,
     });

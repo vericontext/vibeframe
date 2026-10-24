@@ -42,10 +42,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       { name: "omni", envVar: "GOOGLE_API_KEY", label: "Gemini Omni" },
       { name: "kling", envVar: "KLING_API_KEY", label: "Kling" },
       { name: "runway", envVar: "RUNWAY_API_SECRET", label: "Runway" },
-      // The Veo 3.1 previews shut down on 2026-10-22, so Veo declares no
-      // resolverPriority: it sorts last and is never auto-selected. Omni wins
-      // GOOGLE_API_KEY resolution; Veo is opt-in via `-p veo` only.
-      { name: "veo", envVar: "GOOGLE_API_KEY", label: "Veo" },
     ]);
   });
 
@@ -88,7 +84,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
     const original: Record<string, string[]> = {
       GOOGLE_API_KEY: [
         "generate image",
-        "generate video -p veo",
         "generate video -p omni",
         "edit image",
         "analyze media",

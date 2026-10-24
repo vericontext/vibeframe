@@ -637,7 +637,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "videoProvider": {
-        "description": "Video provider: seedance|grok|kling|runway|omni|veo",
+        "description": "Video provider: seedance|grok|kling|runway|omni",
         "type": "string",
       },
       "voice": {
@@ -2113,7 +2113,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
 exports[`CLI --describe schemas (drift detection) > vibe generate video --describe 1`] = `
 {
   "cost": "very-high",
-  "description": "Generate video using AI (Seedance, Grok, Kling, Runway, Veo, or Gemini Omni)",
+  "description": "Generate video using AI (Seedance, Grok, Kling, Runway, or Gemini Omni)",
   "name": "generate.video",
   "parameters": {
     "properties": {
@@ -2127,7 +2127,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "duration": {
         "default": 5,
-        "description": "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10; Veo maps to 6 or 8.",
+        "description": "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.",
         "type": "number",
       },
       "endImage": {
@@ -2149,7 +2149,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "lastFrame": {
-        "description": "Last frame image for frame interpolation (Veo) or Seedance end frame",
+        "description": "Ending frame image for Seedance (same as --end-image)",
         "type": "string",
       },
       "mode": {
@@ -2158,7 +2158,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "negative": {
-        "description": "Negative prompt - what to avoid (Kling/Veo)",
+        "description": "Negative prompt - what to avoid (Seedance/Kling)",
         "type": "string",
       },
       "noGenerateAudio": {
@@ -2173,16 +2173,12 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "description": "Output file path (downloads video)",
         "type": "string",
       },
-      "person": {
-        "description": "Person generation: allow_all, allow_adult (Veo only)",
-        "type": "string",
-      },
       "prompt": {
         "description": "Text prompt describing the video (interactive if omitted)",
         "type": "string",
       },
       "provider": {
-        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash; Google default), veo (Veo 3.1 preview, shuts down 2026-10-22). \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
+        "description": "Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash). \`fal\` is a deprecated v0.x alias for seedance and will be removed in 1.0.",
         "type": "string",
       },
       "ratio": {
@@ -2199,7 +2195,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "string",
       },
       "refImages": {
-        "description": "Reference images for Seedance reference-to-video or Veo character consistency",
+        "description": "Reference images for Seedance reference-to-video",
         "type": "string",
       },
       "refVideos": {
@@ -2222,11 +2218,6 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       "seedanceModel": {
         "default": "quality",
         "description": "Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)",
-        "type": "string",
-      },
-      "veoModel": {
-        "default": "3.1-fast",
-        "description": "Veo model: 3.1, 3.1-fast (default: 3.1-fast)",
         "type": "string",
       },
     },
@@ -2275,7 +2266,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-cancel -
 exports[`CLI --describe schemas (drift detection) > vibe generate video-extend --describe 1`] = `
 {
   "cost": "very-high",
-  "description": "Extend a generated video from its last frame (Kling, Grok, Gemini Omni, Veo)",
+  "description": "Extend a generated video from its last frame (Kling, Grok, Gemini Omni)",
   "name": "generate.video-extend",
   "note": "Provider lifecycle control.",
   "parameters": {
@@ -2290,7 +2281,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
       },
       "duration": {
         "default": 5,
-        "description": "Seconds to add: 5 or 10 (Kling), 2-10 (Grok), 4/6/8 (Veo); Omni picks its own",
+        "description": "Seconds to add: 5 or 10 (Kling), 2-10 (Grok); Omni picks its own",
         "type": "number",
       },
       "negative": {
@@ -2311,22 +2302,16 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
       },
       "provider": {
         "default": "kling",
-        "description": "Provider: kling, grok, omni, veo",
+        "description": "Provider: kling, grok, omni",
         "enum": [
           "kling",
           "grok",
           "omni",
-          "veo",
         ],
         "type": "string",
       },
       "task-id": {
-        "description": "Task ID the generation returned (Veo: its operation name)",
-        "type": "string",
-      },
-      "veoModel": {
-        "default": "3.1",
-        "description": "Veo model: 3.1, 3.1-fast",
+        "description": "Task ID the generation returned",
         "type": "string",
       },
     },
@@ -2814,7 +2799,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "type": "string",
       },
       "videoProvider": {
-        "description": "Video provider: seedance|grok|kling|runway|omni|veo",
+        "description": "Video provider: seedance|grok|kling|runway|omni",
         "type": "string",
       },
       "voice": {

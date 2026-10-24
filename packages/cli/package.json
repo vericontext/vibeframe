@@ -1,7 +1,7 @@
 {
   "name": "@vibeframe/cli",
   "version": "0.115.10",
-  "description": "Frontier AI video generation for coding agents - Seedance, Runway, Veo, and Kling on your own keys, behind a hard cost cap",
+  "description": "Frontier AI video generation for coding agents - Seedance, Runway, Kling, and Gemini Omni on your own keys, behind a hard cost cap",
   "private": false,
   "license": "MIT",
   "repository": {
@@ -22,7 +22,6 @@
     "image-to-video",
     "seedance",
     "runway",
-    "veo",
     "kling",
     "ai-agent",
     "mcp",

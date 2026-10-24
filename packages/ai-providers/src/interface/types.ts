@@ -101,14 +101,12 @@ export interface GenerateOptions {
   referenceVideo?: Blob | string;
   /** Multimodal references for providers that support explicit prompt labels */
   references?: MediaReference[];
-  /** Video resolution (Veo: 720p, 1080p, 4k) */
+  /** Video resolution, such as 720p or 1080p */
   resolution?: string;
   /** Last frame / ending image URL for providers that support frame interpolation */
   lastFrame?: string;
-  /** Reference images for character consistency (Veo 3.1, max 3) */
+  /** Inline reference images */
   referenceImages?: Array<{ base64: string; mimeType: string }>;
-  /** Person generation setting (Veo) */
-  personGeneration?: string;
   /** Model-specific options */
   modelOptions?: Record<string, unknown>;
   /** Generate native/synchronized audio when supported by the provider */

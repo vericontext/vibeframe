@@ -263,7 +263,6 @@ if (!offline) {
     claude: "anthropic",
     openai: "openai",
     gemini: "gemini",
-    veo: "gemini",
     omni: "gemini",
     grok: "xai",
   };

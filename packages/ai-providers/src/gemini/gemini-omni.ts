@@ -3,7 +3,7 @@
  *
  * Google Gemini Omni 1.1 Flash (`gemini-omni-1.1-flash`) text- and
  * image-to-video, plus multi-turn edits and extensions. GA since 2026-08-27
- * and Google's named replacement for the Veo 3.1 previews that shut down on
+ * and Google's replacement for the Veo 3.1 previews, which shut down on
  * 2026-10-22.
  *
  * Omni runs on the Interactions API (`/v1beta/interactions`) with the same

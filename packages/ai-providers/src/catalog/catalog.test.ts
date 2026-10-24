@@ -51,7 +51,7 @@ describe("model catalog", () => {
     expect(findModel("gemini", "image", "PRO")?.id).toBe("gemini-3-pro-image");
     expect(findModel("gemini", "image", undefined)?.id).toBe(defaultModel("gemini", "image").id);
     expect(findModel("kling", "video", "v9")).toBeUndefined();
-    expect(modelAliases("veo", "video")).toEqual(["3.1", "3.1-fast"]);
+    expect(modelAliases("grok", "video")).toEqual(["1.5", "lite", "1.5-lite", "classic"]);
     expect(listModels({ kind: "transcription" }).map((m) => m.id)).toEqual(["whisper-1"]);
   });
 

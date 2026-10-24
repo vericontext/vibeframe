@@ -10,7 +10,7 @@ describe("realRunCost", () => {
   });
 
   it("reports the tier upper bound for providers without an estimator", () => {
-    for (const provider of ["runway", "veo", "kling", "grok"]) {
+    for (const provider of ["runway", "omni", "kling", "grok"]) {
       const { costUsd, warnings } = realRunCost(provider, { duration: "5" });
       // Never 0: a paid run reporting $0 reads as "free" to an agent budget
       // loop - the bug this guards against (hybrid-brew dogfood, 2026-07-26).

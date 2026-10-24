@@ -471,6 +471,67 @@ music: "Minimal confident pulse."
     expect(plan.estimatedCostUsd).toBe(5.5);
   });
 
+  it("plans a beat's video with the provider its `provider:` cue pins, as the build does", async () => {
+    const dir = await makeProject();
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Promo
+
+## Beat hook - Hook
+
+\`\`\`yaml
+provider: kling
+video: "Slow product camera push."
+\`\`\`
+
+## Beat close - Close
+
+\`\`\`yaml
+video: "Logo settles."
+\`\`\`
+`,
+      "utf-8"
+    );
+
+    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", videoProvider: "runway" });
+
+    expect(plan.validation.ok).toBe(true);
+    expect(plan.beats.map((beat) => beat.assets.video?.provider)).toEqual(["kling", "runway"]);
+  });
+
+  it.each([
+    ["the build", { videoProvider: "veo" }, ""],
+    ["a beat's `provider:` cue", {}, "provider: veo\n"],
+  ])("refuses an unknown video provider from %s instead of pricing seedance", async (_from, opts, cue) => {
+    const dir = await makeProject();
+    await writeFile(
+      resolve(dir, "STORYBOARD.md"),
+      `# Promo
+
+## Beat hook - Hook
+
+\`\`\`yaml
+${cue}video: "Slow product camera push."
+\`\`\`
+`,
+      "utf-8"
+    );
+
+    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", ...opts });
+
+    expect(plan.status).toBe("invalid");
+    expect(plan.beats[0].assets.video?.provider).toBe("veo");
+    expect(plan.warnings.join(" ")).not.toContain("VEO_API_KEY");
+    expect(plan.validation.issues).toContainEqual(
+      expect.objectContaining({
+        severity: "error",
+        code: "UNKNOWN_BUILD_VIDEO_PROVIDER",
+        beatId: "hook",
+        message: expect.stringContaining("Veo 3.1 shut down on 2026-10-22; Gemini Omni (omni) replaces it."),
+      })
+    );
+  });
+
   it("returns an invalid plan with validation recovery commands", async () => {
     const dir = await makeProject();
     await writeFile(

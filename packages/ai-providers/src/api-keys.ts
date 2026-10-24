@@ -14,8 +14,8 @@
  *
  * Virtual providers (no directory): declare `defineProvider` here too.
  * OpenRouter and Evolink are LLM-only virtual providers whose agent adapters
- * use OpenAI-compatible HTTP. `veo` is virtual but lives in `gemini/index.ts`
- * since it shares that directory.
+ * use OpenAI-compatible HTTP. `omni` lives in `gemini/index.ts` since it
+ * shares that directory.
  */
 
 import { defineApiKey, defineProvider } from "./define-provider.js";
