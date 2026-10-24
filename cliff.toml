@@ -32,6 +32,9 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_parsers = [
+    # Breaking changes of any type (`feat!:`, `refactor!:`) get their own group
+    # so removals do not read as additions.
+    { message = "^[a-z]+(\\(.+\\))?!:", group = "Breaking" },
     { message = "^feat", group = "Added" },
     { message = "^fix", group = "Fixed" },
     { message = "^docs", group = "Documentation" },
