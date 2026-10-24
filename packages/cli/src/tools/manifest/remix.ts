@@ -100,14 +100,13 @@ export const pipelineAutoShortsTool = defineTool({
   },
 });
 
-// MCP-only by design — wraps top-level `vibe run <pipeline>`. CLI is hand-written.
+// Wraps top-level `vibe run <pipeline>`. The CLI command is hand-written.
 export const pipelineRunTool = defineTool({
   name: "run",
   category: "pipeline",
   cost: "very-high",
   title: "Run YAML Pipeline",
   annotations: { readOnly: false, openWorld: true },
-  surfaces: ["mcp"],
   description:
     "Execute a declarative YAML pipeline (Video as Code). Accepts either a file path or inline YAML. Supports dry-run, resume-from-checkpoint, and budget limits. Cost depends on the steps — use dryRun: true first to preview.",
   schema: z.object({

@@ -6,10 +6,9 @@ defineProvider({
   id: "grok",
   label: "Grok",
   apiKey: "xai",
-  kinds: ["image", "video", "llm"],
+  kinds: ["image", "video"],
   resolverPriority: { image: 3, video: 2 },
   commandsUnlocked: [
-    "agent -p xai",
     "generate image -p grok",
     "generate video -p grok",
     "edit image -p grok",

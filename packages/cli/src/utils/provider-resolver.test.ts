@@ -70,8 +70,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       imgbb: "IMGBB_API_KEY",
       replicate: "REPLICATE_API_TOKEN",
       xai: "XAI_API_KEY",
-      openrouter: "OPENROUTER_API_KEY",
-      evolink: "EVOLINK_API_KEY",
     });
   });
 
@@ -91,7 +89,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "analyze review",
       ],
       OPENAI_API_KEY: [
-        "agent -p openai",
         "generate image -p openai",
         "edit image -p openai",
         "audio transcribe",
@@ -99,7 +96,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "edit jump-cut",
       ],
       ANTHROPIC_API_KEY: [
-        "agent -p claude",
         "generate storyboard",
         "generate motion",
         "edit grade",
@@ -107,7 +103,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "edit speed-ramp",
       ],
       XAI_API_KEY: [
-        "agent -p xai",
         "generate image -p grok",
         "generate video -p grok",
         "edit image -p grok",
@@ -138,9 +133,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
       expect(new Set(actual)).toEqual(new Set(expected));
     }
 
-    // No extra env vars beyond the original (intentional — preserves
-    // doctor display behavior; OPENROUTER_API_KEY is in PROVIDER_ENV_VARS
-    // but never appeared in COMMAND_KEY_MAP).
+    // No extra env vars beyond the original.
     expect(new Set(Object.keys(map))).toEqual(new Set(Object.keys(original)));
   });
 
@@ -158,8 +151,6 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "runway",
         "kling",
         "imgbb",
-        "openrouter",
-        "evolink",
         "replicate",
       ])
     );
@@ -174,7 +165,6 @@ describe("resolveProvider — config-aware defaults", () => {
 
     loadProviderDefaultsFromConfig({
       version: "1.0.0",
-      llm: { provider: "claude" },
       providers: { openai: "sk-proj-config-openai" },
       defaults: {
         aspectRatio: "16:9",
@@ -182,7 +172,6 @@ describe("resolveProvider — config-aware defaults", () => {
         imageProvider: "openai",
       },
       upload: { provider: "imgbb", ttlSeconds: 3600 },
-      repl: { autoSave: true },
     });
 
     expect(resolveProvider("image")).toEqual({ name: "openai", label: "OpenAI" });
@@ -197,7 +186,6 @@ describe("resolveProvider — config-aware defaults", () => {
 
     loadProviderDefaultsFromConfig({
       version: "1.0.0",
-      llm: { provider: "claude" },
       providers: { fal: "fal-id:fal-secret" },
       defaults: {
         aspectRatio: "16:9",
@@ -205,7 +193,6 @@ describe("resolveProvider — config-aware defaults", () => {
         videoProvider: "seedance",
       },
       upload: { provider: "imgbb", ttlSeconds: 3600 },
-      repl: { autoSave: true },
     });
 
     expect(resolveProvider("video")).toEqual({ name: "seedance", label: "Seedance 2.0" });

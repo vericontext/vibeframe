@@ -342,8 +342,7 @@ function printBuildDryRun(
   console.log(`  Regenerate:    ${chalk.bold(params.force ? "yes" : "cache when possible")}`);
 
   // Pre-render cost rollup. Counts beats from STORYBOARD.md and applies
-  // the same per-primitive midpoints we use for `vibe agent --budget-usd`.
-  // Conservative — overestimates so a $5 budget doesn't blow past $5.
+  // per-primitive midpoints. Conservative — overestimates so a $5 budget doesn't blow past $5.
   const estimate = estimateBuildCost(params);
   if (plan) {
     console.log();

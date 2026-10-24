@@ -71,8 +71,6 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "gemini-3.1-pro-preview", provider: "gemini", kind: "llm", label: "Gemini 3.1 Pro (preview)", aliases: ["pro", "pro-3.1", "3.1-pro", "gemini-3.1-pro"], status: "preview" },
   { id: "gemini-2.5-flash", provider: "gemini", kind: "llm", label: "Gemini 2.5 Flash", aliases: ["flash-2.5"], status: "legacy", note: "New projects cannot use 2.5 models since 2026-09-18" },
   { id: "gemini-2.5-pro", provider: "gemini", kind: "llm", label: "Gemini 2.5 Pro", aliases: ["pro-2.5", "2.5-pro"], status: "legacy" },
-  { id: "grok-4.3", provider: "grok", kind: "llm", label: "Grok 4.3", default: true, status: "ga", price: { usd: 1.25, per: "1M input tokens" } },
-  { id: "grok-4.7", provider: "grok", kind: "llm", label: "Grok 4.7", status: "ga", price: { usd: 2, per: "1M input tokens" } },
 
   // ── Images ────────────────────────────────────────────────────────────
   { id: "gpt-image-2.5-sunburst", provider: "openai", kind: "image", label: "GPT Image 2.5 Sunburst", aliases: ["2.5", "sunburst"], default: true, status: "ga", price: { usd: 0.211, per: "image", basis: "high, 1024x1024" } },

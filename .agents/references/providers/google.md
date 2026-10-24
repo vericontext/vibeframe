@@ -4,7 +4,7 @@ checked: 2026-10-24
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
-  - gemini-3.8-flash            # text default: agent, analysis, review, storyboard, motion `gemini`
+  - gemini-3.8-flash            # text default: analysis, review, storyboard, motion `gemini`
   - gemini-3.1-pro-preview      # `pro` alias, motion `gemini-3.1-pro`
   - gemini-4-argon              # `argon` alias, opt-in
   - gemini-3.6-flash            # `flash-3.6` alias
@@ -148,7 +148,6 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
   - `:1060-1168` - `analyzeImage`, `temperature: 0.4`.
   - `:1170-1270` - `autoEdit`, `temperature: 0.3`.
 - `packages/ai-providers/src/gemini/gemini-omni.ts:24-131` - Omni client on `/v1beta/interactions` with `gemini-omni-flash-preview`, body `inputs` + `generation_config.video_config.{task,aspect_ratio}`, looks for an http URL in the response.
-- `packages/cli/src/agent/adapters/gemini.ts:5`, `:18`, `:58-115` - agent loop on legacy `@google/generative-ai` with `gemini-2.5-flash`; rebuilds history without thought signatures or call ids.
 - `packages/cli/src/commands/generate/image.ts:301-345` and `packages/cli/src/commands/ai-image.ts:108-121` - image generation with fallback from `latest`/`3.1-flash` to `flash`.
 - `packages/cli/src/commands/edit-cmd.ts:699`, `:777-800` - image edit model names and the same fallback.
 - `packages/cli/src/commands/ai-motion.ts:63-71` - `gemini-2.5-pro` and `gemini-3.1-pro` -> `gemini-3.1-pro-preview`.
@@ -162,7 +161,7 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 3. Rewrite `gemini-omni.ts` to the documented shape: `input` (typed `image`/`text` items), `response_format: { type: "video", aspect_ratio, resolution, delivery: "uri" }`, read `steps[].content[]` (decode `data` or download `uri`), use `background: true` plus polling, and expose `previous_interaction_id` for edit and 40 s extension.
 4. Dropped: Veo is gone, so its request fixes no longer apply.
 5. Drop `temperature` from all 3.x text calls and move the default text model off `gemini-3.5-flash` to `gemini-3.7-flash` (cheaper and agentic-video capable) or `gemini-3.8-flash`; replace `pro` -> `gemini-2.5-pro` with `gemini-3.1-pro-preview`.
-6. Move the agent adapter to `@google/genai` and a 3.x default model, preserving thought signatures and function call ids (or use Interactions with `previous_interaction_id`).
+6. Dropped: the agent adapter was removed in 0.116.0.
 7. Upload videos above 20 MB through the File API in `analyzeVideo`, and try `processing: "agentic"` for long-form review.
 8. Send the key in `x-goog-api-key` instead of `?key=` so it does not land in error strings or logs, .
 

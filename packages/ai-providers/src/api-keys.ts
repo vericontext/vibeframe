@@ -1,7 +1,6 @@
 /**
  * @module api-keys
- * @description Centralized declarations for API credentials and virtual
- * providers (those without a dedicated directory under `src/<id>/`).
+ * @description Centralized declarations for API credentials.
  *
  * This file MUST be imported before any provider's `index.ts` — the provider
  * `defineProvider` calls assert that the referenced apiKey configKey was
@@ -12,13 +11,11 @@
  * `index.ts` adds a `defineProvider` — see `define-provider.ts` for the
  * shape.
  *
- * Virtual providers (no directory): declare `defineProvider` here too.
- * OpenRouter and Evolink are LLM-only virtual providers whose agent adapters
- * use OpenAI-compatible HTTP. `omni` lives in `gemini/index.ts` since it
- * shares that directory.
+ * A provider without a directory would declare its `defineProvider` here
+ * too; there are none today.
  */
 
-import { defineApiKey, defineProvider } from "./define-provider.js";
+import { defineApiKey } from "./define-provider.js";
 
 // ─── API keys ───────────────────────────────────────────────────────────────
 
@@ -129,28 +126,6 @@ defineApiKey({
 });
 
 defineApiKey({
-  configKey: "openrouter",
-  envVar: "OPENROUTER_API_KEY",
-  label: "OpenRouter",
-  showInSetup: true,
-  setupDescription: "300+ models via one key — Agent only (pay per model)",
-  envExampleComment: "OpenRouter API Key (300+ AI models via unified API, used by `vibe agent`)",
-  envExampleUrl: "https://openrouter.ai/keys",
-  keyFormat: { prefix: /^sk-or-/, example: "sk-or-..." },
-});
-
-defineApiKey({
-  configKey: "evolink",
-  envVar: "EVOLINK_API_KEY",
-  label: "Evolink",
-  showInSetup: true,
-  setupDescription: "GPT-5, Claude, Gemini, DeepSeek & more via one key — Agent only (pay per model)",
-  envExampleComment: "Evolink API Key (GPT-5, Claude, Gemini, DeepSeek & more via unified API, used by `vibe agent`)",
-  envExampleUrl: "https://evolink.ai/dashboard/keys",
-  keyFormat: { prefix: /^el-/, example: "el-..." },
-});
-
-defineApiKey({
   configKey: "imgbb",
   envVar: "IMGBB_API_KEY",
   label: "ImgBB",
@@ -166,25 +141,4 @@ defineApiKey({
   // ImgBB has no provider class (envvar-only); doctor still shows what it
   // unlocks at the apiKey level.
   commandsUnlocked: ["generate video -p kling/seedance (image-to-video upload host)"],
-});
-
-// ─── Virtual providers (no directory under src/) ───────────────────────────
-
-// Note: original COMMAND_KEY_MAP intentionally omits OPENROUTER_API_KEY
-// from doctor output. We preserve that behavior by leaving
-// `commandsUnlocked` empty here (not adding "agent -p openrouter"). If
-// we later want to surface it, drop a single line below — the rest of
-// the chain auto-derives.
-defineProvider({
-  id: "openrouter",
-  label: "OpenRouter",
-  apiKey: "openrouter",
-  kinds: ["llm"],
-});
-
-defineProvider({
-  id: "evolink",
-  label: "Evolink",
-  apiKey: "evolink",
-  kinds: ["llm"],
 });

@@ -15,7 +15,6 @@ defineProvider({
   apiKey: "anthropic",
   kinds: ["llm"],
   commandsUnlocked: [
-    "agent -p claude",
     "generate storyboard",
     "generate motion",
     "edit grade",

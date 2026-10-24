@@ -167,12 +167,19 @@ export async function getActiveScope(cwd?: string): Promise<Scope> {
   return (await findProjectConfigPath(cwd)) ? "project" : "user";
 }
 
+/**
+ * Fields older versions wrote for the built-in agent, removed in 0.116.0.
+ * Dropping them on read removes them from the file on the next save.
+ */
+const RETIRED_FIELDS = ["llm", "repl"];
+
 function applyDefaults(parsed: VibeConfig): VibeConfig {
   const defaults = createDefaultConfig();
+  const current: Record<string, unknown> = { ...parsed };
+  for (const field of RETIRED_FIELDS) delete current[field];
   return {
     ...defaults,
-    ...parsed,
-    llm: { ...defaults.llm, ...parsed.llm },
+    ...(current as Partial<VibeConfig>),
     providers: { ...defaults.providers, ...parsed.providers },
     defaults: { ...defaults.defaults, ...parsed.defaults },
     upload: {
@@ -180,7 +187,6 @@ function applyDefaults(parsed: VibeConfig): VibeConfig {
       ...parsed.upload,
       s3: { ...defaults.upload.s3, ...parsed.upload?.s3 },
     },
-    repl: { ...defaults.repl, ...parsed.repl },
   };
 }
 
@@ -226,7 +232,6 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
     return {
       ...user,
       ...project,
-      llm: { ...user.llm, ...project.llm },
       providers: { ...user.providers, ...project.providers },
       defaults: { ...user.defaults, ...project.defaults },
       upload: {
@@ -234,7 +239,6 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<VibeC
         ...project.upload,
         s3: { ...user.upload.s3, ...project.upload.s3 },
       },
-      repl: { ...user.repl, ...project.repl },
     };
   }
 
@@ -272,30 +276,6 @@ export async function saveConfig(
 }
 
 /**
- * Check if any configuration is present and the primary LLM provider has a
- * key (in the active scope or the environment).
- */
-export async function isConfigured(options: Pick<LoadConfigOptions, "cwd"> = {}): Promise<boolean> {
-  const config = await loadConfig({ cwd: options.cwd });
-  if (!config) return false;
-
-  const provider = config.llm.provider;
-  const providerKey =
-    provider === "gemini" ? "google" : provider === "claude" ? "anthropic" : provider;
-
-  if (config.providers[providerKey as keyof typeof config.providers]) {
-    return true;
-  }
-
-  const envVar = PROVIDER_ENV_VARS[providerKey];
-  if (envVar && getEnvValue(envVar)) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * Get an API key. Auto-detects scope (project > user) and falls through to
  * the provider's environment variable if neither config has it.
  */
@@ -321,10 +301,9 @@ function getEnvValue(envVar: string): string | undefined {
 }
 
 // Re-export types
-export type { VibeConfig, LLMProvider } from "./schema.js";
+export type { VibeConfig } from "./schema.js";
 export {
   createDefaultConfig,
-  PROVIDER_NAMES,
   PROVIDER_ENV_ALIASES,
   PROVIDER_ENV_VARS,
 } from "./schema.js";

@@ -14,7 +14,6 @@ defineProvider({
   kinds: ["llm", "image", "transcription", "speech"],
   resolverPriority: { image: 1, speech: 2 },
   commandsUnlocked: [
-    "agent -p openai",
     "generate image -p openai",
     "edit image -p openai",
     "audio transcribe",

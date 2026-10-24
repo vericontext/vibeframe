@@ -468,7 +468,7 @@ Cost tier: _not tagged_
 
 #### `vibe setup`
 
-Configure VibeFrame (video/image provider keys, LLM provider)
+Configure VibeFrame provider keys
 
 Product surface: `public`
 Note: Initial configuration helper.
@@ -483,7 +483,6 @@ Cost tier: _not tagged_
 - `verbose` _(boolean)_ - With --show: include unset providers + Resolution order + Defaults block
 - `claudeCode` _(boolean)_ - Show Claude Code integration guide
 - `yes` _(boolean)_ - Non-interactive: write config without prompting (CI / devcontainer)
-- `provider` _(string)_ - Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)
 - `importEnv` _(boolean)_ - Promote API keys from .env / shell env into config.yaml
 - `test` _(boolean)_ - After save, live-test each configured key (exits 7 if any FAIL)
 - `scope` _(string)_ _(default: `"user"`)_ - Where to save: 'user' (~/.vibeframe/config.yaml, shared) or 'project' (./.vibeframe/config.yaml, gitignored, this project only)

@@ -6,20 +6,14 @@
  *
  * - Name uniqueness + snake_case form
  * - Schema is a ZodObject (so adapters can derive properties/required)
- * - MCP adapter round-trip: every entry tagged `mcp` produces a valid
- *   inputSchema
- * - Agent adapter round-trip: every entry tagged `agent` registers cleanly
+ * - MCP adapter round-trip: every entry produces a valid inputSchema
  */
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { manifest } from "./manifest/index.js";
 import { buildMcpDispatcher, manifestToMcpTools } from "./adapters/mcp.js";
-import {
-  registerManifestIntoAgent,
-} from "./adapters/agent.js";
 import { defineTool, type AnyTool } from "./define-tool.js";
-import { ToolRegistry } from "../agent/tools/index.js";
 
 describe("tool manifest invariants", () => {
   it("manifest is non-empty during the v0.65 migration", () => {
@@ -52,13 +46,10 @@ describe("tool manifest invariants", () => {
     }
   });
 
-  it("MCP adapter round-trips every mcp-surfaced entry", () => {
+  it("MCP adapter round-trips every entry", () => {
     const mcp = manifestToMcpTools(manifest);
-    const expected = manifest.filter(
-      (t) => !t.surfaces || t.surfaces.includes("mcp"),
-    );
     expect(mcp.map((t) => t.name).sort()).toEqual(
-      expected.map((t) => t.name).sort(),
+      manifest.map((t) => t.name).sort(),
     );
     for (const tool of mcp) {
       expect(tool.inputSchema.type).toBe("object");
@@ -88,7 +79,6 @@ describe("tool manifest invariants", () => {
         cost: "free",
         title: "Noisy Tool",
         annotations: { readOnly: true, openWorld: false },
-        surfaces: ["mcp"],
         description: "Test tool that writes logs while returning JSON.",
         schema: z.object({}),
         async execute() {
@@ -124,16 +114,6 @@ describe("tool manifest invariants", () => {
     const understand = tool.inputSchema.properties?.understand as { enum?: string[] } | undefined;
     expect(understand?.enum).toEqual(["auto", "off", "required"]);
     expect(tool.inputSchema.properties).toHaveProperty("understandingPrompt");
-  });
-
-  it("Agent adapter registers every agent-surfaced entry", () => {
-    const registry = new ToolRegistry();
-    registerManifestIntoAgent(registry, manifest);
-    const expected = manifest.filter(
-      (t) => !t.surfaces || t.surfaces.includes("agent"),
-    );
-    const registered = registry.getDefinitions().map((d) => d.name).sort();
-    expect(registered).toEqual(expected.map((t) => t.name).sort());
   });
 
 });

@@ -15,7 +15,7 @@ export { providerRegistry, getBestProviderForCapability } from "./interface/regi
 
 // Plugin metadata registry — must be imported before any provider's index.ts
 // since `defineProvider` calls assert their referenced apiKey was registered.
-// `api-keys.ts` declares all 11 apiKeys + 1 virtual provider (openrouter).
+// `api-keys.ts` declares every apiKey.
 import "./api-keys.js";
 export {
   defineApiKey,
@@ -77,7 +77,6 @@ export { VIDEO_GENERATOR_PROVIDERS, createVideoGenerator, type VideoGeneratorPro
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
 export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";
-export { OllamaProvider, ollamaProvider } from "./ollama/index.js";
 export {
   ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,

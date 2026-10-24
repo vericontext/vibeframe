@@ -69,7 +69,6 @@ export const COMMAND_GROUPS: ReadonlyArray<{
       "context",
       "guide",
       "run",
-      "agent",
       "completion",
     ],
   },

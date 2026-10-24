@@ -82,7 +82,7 @@ Credit rates are per second of output unless noted (docs).
 - `packages/ai-providers/src/runway/RunwayProvider.ts` `cancelGeneration` / `deleteTask` - both use the documented `DELETE /tasks/{id}` (verified 204 on a THROTTLED task, 2026-10-04).
 - `packages/ai-providers/src/runway/RunwayProvider.ts:354-368` - retries only 429 and 503, without jitter.
 - `packages/ai-providers/src/runway/RunwayProvider.ts:373-381` - gen4_turbo duration forced to 5 or 10.
-- `packages/cli/src/commands/ai-video.ts` - MCP/agent Runway path; forwards `runwayModel`.
+- `packages/cli/src/commands/ai-video.ts` - MCP Runway path; forwards `runwayModel`.
 - `packages/cli/src/commands/ai-video.ts:507` - Runway status polling; `:627-633` cancel.
 - `packages/cli/src/commands/generate/video.ts:89-93`, `:315-345` - `--runway-model` option, guard, and call.
 - `packages/cli/src/commands/generate/video-cancel.ts:57-66` - Runway cancel command.

@@ -1,7 +1,7 @@
 /**
  * @module manifest
  * @description Aggregated tool manifest. Concatenation of all category files.
- * MCP server and Agent registry both consume this single export.
+ * The MCP server consumes this single export.
  */
 
 import type { AnyTool } from "../define-tool.js";
@@ -17,7 +17,6 @@ import { detectTools } from "./detect.js";
 import { timelineTools } from "./timeline.js";
 import { projectTools } from "./project.js";
 import { exportTools } from "./export.js";
-import { agentOnlyTools } from "./agent-only.js";
 import { guideTools } from "./walkthrough.js";
 import { statusTools } from "./status.js";
 
@@ -34,7 +33,6 @@ export const manifest: readonly AnyTool[] = [
   ...timelineTools,
   ...projectTools,
   ...exportTools,
-  ...agentOnlyTools,
   ...guideTools,
   ...statusTools,
 ];
@@ -52,7 +50,6 @@ export {
   timelineTools,
   projectTools,
   exportTools,
-  agentOnlyTools,
   guideTools,
   statusTools,
 };

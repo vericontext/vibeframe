@@ -54,22 +54,6 @@
   "optionalDependencies": {
     "kokoro-js": "^1.2.1"
   },
-  "peerDependencies": {
-    "@anthropic-ai/sdk": ">=0.39.0",
-    "@google/generative-ai": ">=0.21.0",
-    "openai": ">=4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "@google/generative-ai": {
-      "optional": true
-    },
-    "openai": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@vibeframe/cli": "workspace:*",

@@ -16,9 +16,7 @@ import {
   getUserConfigStatus,
   getConfigPath,
   getActiveScope,
-  type LLMProvider,
   type Scope,
-  PROVIDER_NAMES,
 } from "../config/index.js";
 import { exitWithError, generalError } from "./output.js";
 import {
@@ -36,16 +34,6 @@ import { copyToClipboard } from "../utils/clipboard.js";
 import { detectedAgentHosts, summariseAgentHosts } from "../utils/agent-host-detect.js";
 import { getSetupProviders, getAllApiKeys, type ApiKeyMeta } from "@vibeframe/ai-providers";
 import { listWalkthroughs } from "./_shared/walkthroughs/walkthroughs.js";
-
-const VALID_LLM_PROVIDERS: readonly LLMProvider[] = [
-  "claude",
-  "openai",
-  "gemini",
-  "ollama",
-  "xai",
-  "openrouter",
-  "evolink",
-];
 
 const VALID_SCOPES: readonly Scope[] = ["user", "project"];
 
@@ -71,7 +59,7 @@ function parseScope(raw: unknown): Scope {
 }
 
 export const setupCommand = new Command("setup")
-  .description("Configure VibeFrame (video/image provider keys, LLM provider)")
+  .description("Configure VibeFrame provider keys")
   .option("--reset", "Reset configuration to defaults")
   .option("--full", "Run full setup with all optional providers")
   .option("--show", "Show current configuration (for debugging)")
@@ -81,10 +69,6 @@ export const setupCommand = new Command("setup")
   )
   .option("--claude-code", "Show Claude Code integration guide")
   .option("-y, --yes", "Non-interactive: write config without prompting (CI / devcontainer)")
-  .option(
-    "--provider <id>",
-    "Set the Agent LLM provider (claude | openai | gemini | xai | openrouter | evolink | ollama)"
-  )
   .option("--import-env", "Promote API keys from .env / shell env into config.yaml")
   .option("--test", "After save, live-test each configured key (exits 7 if any FAIL)")
   .option(
@@ -96,9 +80,8 @@ export const setupCommand = new Command("setup")
     "after",
     `
 Non-interactive examples (no TTY required):
-  vibe setup --yes --provider claude --import-env         Bootstrap CI / devcontainer
+  vibe setup --yes --import-env                           Bootstrap CI / devcontainer
   vibe setup --yes --import-env --test                    Persist .env keys + verify each one
-  vibe setup --yes --provider openai                      Just switch the agent provider
   vibe setup --scope project --yes --import-env           Project-only setup (./.vibeframe/config.yaml)
 
 Scopes:
@@ -132,12 +115,10 @@ Exit codes (non-interactive):
       return;
     }
 
-    // Non-interactive path: --yes (or no-TTY combined with --provider/--import-env)
-    const wantsNonInteractive =
-      Boolean(options.yes) || (!hasTTY() && (options.provider || options.importEnv));
+    // Non-interactive path: --yes (or no-TTY combined with --import-env)
+    const wantsNonInteractive = Boolean(options.yes) || (!hasTTY() && options.importEnv);
     if (wantsNonInteractive) {
       await runNonInteractiveSetup({
-        provider: options.provider,
         importEnv: Boolean(options.importEnv),
         test: Boolean(options.test),
         scope,
@@ -610,7 +591,6 @@ function mergeSelectedFeatures(current: AIFeature[], next: AIFeature[]): AIFeatu
  * to `git init`. Prints a one-line summary so callers can grep for it.
  */
 interface NonInteractiveOptions {
-  provider?: string;
   importEnv?: boolean;
   test?: boolean;
   scope?: Scope;
@@ -625,21 +605,6 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
   }
 
   const changes: string[] = [];
-
-  if (opts.provider) {
-    if (!VALID_LLM_PROVIDERS.includes(opts.provider as LLMProvider)) {
-      exitWithError(
-        generalError(
-          `Invalid --provider: ${opts.provider}`,
-          `Must be one of: ${VALID_LLM_PROVIDERS.join(", ")}`
-        )
-      );
-    }
-    if (config.llm.provider !== opts.provider) {
-      config.llm.provider = opts.provider as LLMProvider;
-      changes.push(`provider=${opts.provider}`);
-    }
-  }
 
   const warnings: string[] = [];
   let importedCount = 0;
@@ -811,7 +776,6 @@ async function runSetupWizard(fullSetup = false, scope: Scope = "user"): Promise
 
   // ── Generate AI video (full pipeline) ──────────────────────────────
   if (topIndex === 0) {
-    config.llm.provider = "claude";
     const pipelineKeys: AIFeatureKey[] = [
       {
         configKey: "anthropic",
@@ -1203,43 +1167,8 @@ async function runCustomSetup(
   scope: Scope = "user",
   opts: { showComplete?: boolean } = {}
 ): Promise<void> {
-  // LLM Provider selection (for optional built-in agent mode)
-  console.log(
-    chalk.bold("1. LLM Provider") + chalk.dim(" (only for the deprecated vibe agent)")
-  );
-  console.log(
-    chalk.dim(
-      "   Most Claude Code/Codex/Cursor users can skip this and let the host agent drive vibe directly."
-    )
-  );
-  console.log();
-
-  const providers: LLMProvider[] = ["claude", "openai", "gemini", "xai", "openrouter", "evolink", "ollama"];
-  const providerDescriptions: Record<LLMProvider, string> = {
-    claude: "Best reasoning, most capable for complex tasks",
-    openai: "GPT-5.4 mini, reliable and fast, good default",
-    gemini: "Google AI, strong multimodal understanding",
-    xai: "Grok 4.3, 1M context, inexpensive tool calling",
-    openrouter: "300+ models via one API key (Claude, GPT, Gemini, Llama, etc.)",
-    evolink: "GPT-5, Claude, Gemini, DeepSeek & more via one key",
-    ollama: "Free, local, no API key - offline capable (default: llama3.2)",
-  };
-  const providerLabels = providers.map((p) => {
-    const rec = p === "claude" ? chalk.dim(" (recommended)") : "";
-    return `${PROVIDER_NAMES[p]}${rec} ${chalk.dim(`- ${providerDescriptions[p]}`)}`;
-  });
-
-  const currentIndex = providers.indexOf(config.llm.provider);
-  const providerIndex = await promptSelect(
-    chalk.cyan("   Select [1-7]: "),
-    providerLabels,
-    currentIndex >= 0 ? currentIndex : 0
-  );
-  config.llm.provider = providers[providerIndex];
-  console.log();
-
   // Collect all provider keys
-  console.log(chalk.bold("2. API Keys"));
+  console.log(chalk.bold("API Keys"));
   console.log(chalk.dim("   Press Enter to skip any provider you don't need."));
   console.log();
 
@@ -1434,7 +1363,7 @@ function maskApiKey(key: string): string {
 /**
  * Show current configuration for debugging.
  *
- * Default mode lists only set keys + the LLM provider + config path.
+ * Default mode lists only set keys + config path.
  * `--verbose` re-adds unset rows, the Defaults block, and the
  * Resolution order - useful when troubleshooting why a key isn't being
  * picked up. The default keeps a returning user's status check to
@@ -1510,13 +1439,6 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     return;
   }
 
-  // Show LLM provider
-  if (config) {
-    console.log(chalk.bold("LLM Provider:"));
-    console.log(`  ${PROVIDER_NAMES[config.llm.provider]}`);
-    console.log();
-  }
-
   // Show API keys (masked) with accurate source detection
   console.log(chalk.bold("API Keys:"));
   const providerKeys = [
@@ -1530,8 +1452,6 @@ async function showConfig(opts: { verbose: boolean } = { verbose: false }): Prom
     { key: "kling", name: "Kling", env: "KLING_API_KEY" },
     { key: "imgbb", name: "ImgBB", env: "IMGBB_API_KEY" },
     { key: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN" },
-    { key: "openrouter", name: "OpenRouter", env: "OPENROUTER_API_KEY" },
-    { key: "evolink", name: "Evolink", env: "EVOLINK_API_KEY" },
   ];
 
   let unsetCount = 0;

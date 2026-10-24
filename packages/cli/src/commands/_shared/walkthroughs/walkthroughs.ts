@@ -275,28 +275,27 @@ The \`compose\` action is the catch-all assembly step (audio mux, video
 overlay, etc.) - useful at the tail of a pipeline.
 `;
 
-const ARCHITECTURE_WALKTHROUGH = `# vibe agent / build / run - when to pick which
+const ARCHITECTURE_WALKTHROUGH = `# Host agents / build / run - when to pick which
 
-The CLI has three orchestrating commands that coordinate other primitives:
-\`vibe agent\`, \`vibe build\`, \`vibe run\`. New users routinely ask which one
-they want for a given task. This guide is the operator-facing summary.
+VibeFrame has no agent loop of its own. Your coding agent or MCP host is the
+outer loop, and two commands orchestrate other primitives: \`vibe build\`
+and \`vibe run\`. This guide is the operator-facing summary.
 
 If you already use Claude Code, Codex, Cursor, Aider, Gemini CLI, OpenCode,
 or another coding agent, let that host drive \`vibe\` directly through shell
 commands plus \`AGENTS.md\` / \`CLAUDE.md\`. Without a coding agent, connect
 the MCP server to Claude Desktop or ChatGPT (\`vibe host setup\`).
-\`vibe agent\` is deprecated and will be removed before 1.0.
 
 ## TL;DR
 
-| | \`vibe agent\` | \`vibe build\` | \`vibe run\` |
+| | Host agent or MCP host | \`vibe build\` | \`vibe run\` |
 |---|---|---|---|
-| **Driving input** | natural-language prompt | \`STORYBOARD.md\` | YAML pipeline file |
-| **Interactivity** | REPL or one-shot | one-shot | one-shot |
-| **Reproducibility** | none | high (idempotent) | highest (checkpointed) |
-| **Budget caps** | per-session max-turns | none | \`--budget-usd\`, \`--budget-tokens\`, \`--max-errors\` |
-| **Resume after crash** | no | re-invoke | \`--resume\` |
-| **Best for** | deprecated; use a host agent | finished script | repeatable workflows |
+| **Driving input** | natural-language request | \`STORYBOARD.md\` | YAML pipeline file |
+| **Interactivity** | conversation | one-shot | one-shot |
+| **Reproducibility** | as good as the commands it runs | high (idempotent) | highest (checkpointed) |
+| **Budget caps** | dry runs and per-command cost tiers | \`--max-cost\` | \`--budget-usd\`, \`--budget-tokens\`, \`--max-errors\` |
+| **Resume after crash** | re-run the command | re-invoke | \`--resume\` |
+| **Best for** | exploring and editing | finished script | repeatable workflows |
 
 ## Decision tree
 
@@ -317,18 +316,19 @@ a single bad key wastes time and money.
 
 ## Cross-command primitives
 
-All three commands ultimately call the same primitives:
-\`generate\` / \`edit\` / \`audio\` / \`inspect\` / \`detect\` / \`remix\`. The
-agent calls them through a tool manifest; \`build\` calls a curated subset
-(TTS + image + compose + render); \`run\` exposes 55+ actions one per primitive.
+All three paths ultimately call the same primitives:
+\`generate\` / \`edit\` / \`audio\` / \`inspect\` / \`detect\` / \`remix\`. A host
+agent runs them as shell commands or MCP tools; \`build\` calls a curated
+subset (TTS + image + compose + render); \`run\` exposes 55+ actions one per
+primitive.
 
 ## Known overlap
 
 - \`vibe build\` is conceptually a 4-step pipeline; \`vibe run\` could express
   the same flow but build's STORYBOARD.md input + opinionated defaults are
   the value-add.
-- \`vibe run --resume\` has no analog in build/agent; build's idempotent
-  re-invoke covers the common case.
+- \`vibe run --resume\` has no analog in build; build's idempotent re-invoke
+  covers the common case.
 `;
 
 const MOTION_WALKTHROUGH = `# Motion graphics with vibe
@@ -434,11 +434,11 @@ const META: Record<WalkthroughTopic, Pick<WalkthroughResult, "title" | "summary"
     ],
   },
   architecture: {
-    title: "external agents / vibe agent / build / run",
+    title: "host agents / build / run",
     summary: "Choose between host-agent shell use, MCP hosts, storyboard builds, and YAML pipelines",
     steps: [
       "If you are already in Claude Code/Codex/Cursor/etc., let that host drive normal `vibe` shell commands using `AGENTS.md`, `vibe guide`, and `vibe schema`.",
-      "Without a coding agent, connect the MCP server to Claude Desktop or ChatGPT with `vibe host setup`; `vibe agent` is deprecated.",
+      "Without a coding agent, connect the MCP server to Claude Desktop or ChatGPT with `vibe host setup`.",
       "Pick build for STORYBOARD.md → MP4 with opinionated defaults.",
       "Pick run for repeatable, budget-capped, checkpointed YAML pipelines.",
       "Run `vibe doctor --test-keys` before any high-cost orchestrator to validate keys upfront.",

@@ -231,10 +231,9 @@ function formatZodError(err: ZodError): string {
     .join("; ");
 }
 
-/** Filter manifest by `surfaces.mcp` (default: included) and project to MCP tool shape. */
+/** Project the manifest to MCP tool shape. */
 export function manifestToMcpTools(manifest: readonly ToolDefinition[]): McpTool[] {
   return manifest
-    .filter((t) => !t.surfaces || t.surfaces.includes("mcp"))
     .map((t) => {
       const inputSchema = zodToJsonSchema(t.schema);
       // zodToJsonSchema always emits properties/required for top-level
@@ -277,11 +276,7 @@ function toMcpAnnotations(a: ToolDefinition["annotations"]): McpToolAnnotations 
 /** Build the dispatcher used by `handleToolCall` in the MCP server. */
 export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDispatcher {
   const byName = new Map<string, ToolDefinition>();
-  for (const t of manifest) {
-    if (!t.surfaces || t.surfaces.includes("mcp")) {
-      byName.set(t.name, t);
-    }
-  }
+  for (const t of manifest) byName.set(t.name, t);
 
   return async (name, args, extra) => {
     const tool = byName.get(name);

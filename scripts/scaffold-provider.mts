@@ -121,7 +121,7 @@ defineProvider({
   // TODO: reference an existing apiKey configKey from api-keys.ts (e.g.
   //   "openai", "google", "fal"), OR add a new defineApiKey call there
   //   first and reference it here. Keep as \`null\` if this provider runs
-  //   locally with no credential (like kokoro/ollama).
+  //   locally with no credential (like kokoro).
   apiKey: null,
   kinds: [
     // TODO: which surfaces does this provider serve?

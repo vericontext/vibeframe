@@ -12,7 +12,7 @@ paths:
 
 ## Package Structure
 
-- **packages/cli** - CLI, built-in agent mode, command implementations.
+- **packages/cli** - CLI and command implementations.
   Entry: `src/index.ts`.
 - **packages/core** - Timeline/project primitives and FFmpeg-oriented editing
   model.
@@ -27,7 +27,7 @@ The canonical user-facing workflow commands are:
 - Project video flow: `init`, `plan`, `build`, `preview`, `render` (edit beats
   with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
-- Automation: `run`, `agent`, `schema`, `context`, `guide`
+- Automation: `run`, `schema`, `context`, `guide`
 - Setup & hosts: `setup`, `doctor`, `host`
 - Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
   `media`, `assemble`
@@ -38,9 +38,9 @@ as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
 Use `vibe schema --list` and `vibe schema <command>` as the source of truth for
 command availability and parameters.
 
-## CLI <-> Agent Tool Sync
+## CLI <-> MCP Tool Sync
 
-When adding CLI commands, expose them as agent tools only when natural-language
+When adding CLI commands, expose them as MCP tools only when natural-language
 invocation is useful.
 
 Naming: `vibe <group> <action>` -> `<group>_<action>` in snake_case.
@@ -48,9 +48,10 @@ Naming: `vibe <group> <action>` -> `<group>_<action>` in snake_case.
 Pattern:
 
 1. Extract a testable `execute*()` function from the command module.
-2. Reuse the same executor from CLI, YAML pipeline, and agent/MCP wrappers where
-   practical.
-3. Register an agent tool with a schema that matches the CLI command's behavior.
+2. Reuse the same executor from the CLI, the YAML pipeline, and the MCP tool
+   where practical.
+3. Add a manifest entry (`packages/cli/src/tools/manifest/`) with a schema that
+   matches the CLI command's behavior.
 4. Add focused tests for the executor and wrapper.
 
 ## Agent Invariants

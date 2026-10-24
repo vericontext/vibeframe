@@ -119,35 +119,8 @@ describe("vibe setup --yes (non-interactive)", () => {
     expect(stdout).toContain("No changes (config already up to date)");
     expect(existsSync(configPath)).toBe(true);
     const cfg = parseYaml(readFileSync(configPath, "utf-8"));
-    expect(cfg.llm.provider).toBeDefined();
     expect(cfg.providers).toBeDefined();
-  });
-
-  it("--provider switches the agent provider", () => {
-    const { stdout, configPath } = runSetup(["--yes", "--provider", "openai"]);
-    expect(stdout).toContain("provider=openai");
-    const cfg = parseYaml(readFileSync(configPath, "utf-8"));
-    expect(cfg.llm.provider).toBe("openai");
-  });
-
-  it("rejects an invalid --provider value", () => {
-    let threw = false;
-    try {
-      execFileSync(process.execPath, [CLI, "setup", "--yes", "--provider", "bogus"], {
-        cwd: projectDir,
-        env: testEnv(),
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (err) {
-      threw = true;
-      const msg =
-        (err as { stderr?: string; stdout?: string }).stderr ??
-        (err as { stdout?: string }).stdout ??
-        "";
-      expect(msg).toMatch(/Invalid --provider/);
-    }
-    expect(threw).toBe(true);
+    expect(cfg).not.toHaveProperty("llm");
   });
 
   it("--import-env promotes shell env keys into config", () => {
@@ -193,7 +166,7 @@ describe("vibe setup --yes (non-interactive)", () => {
 
 describe("vibe setup --scope project", () => {
   it("writes to ./.vibeframe/config.yaml, not user-scope config", () => {
-    const { stdout } = runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
+    const { stdout } = runSetup(["--yes", "--scope", "project", "--import-env"], { OPENAI_API_KEY: "sk-proj-scoped" });
     expect(stdout).toContain("project scope");
 
     const projectConfigPath = join(projectDir, ".vibeframe", "config.yaml");
@@ -203,7 +176,7 @@ describe("vibe setup --scope project", () => {
     expect(existsSync(userPath)).toBe(false);
 
     const cfg = parseYaml(readFileSync(projectConfigPath, "utf-8"));
-    expect(cfg.llm.provider).toBe("openai");
+    expect(cfg.providers.openai).toBe("sk-proj-scoped");
   });
 
   it("project-scope --import-env reads .env from cwd", () => {
@@ -236,13 +209,13 @@ describe("vibe setup --scope project", () => {
   });
 
   it("user scope is unaffected when project scope writes", () => {
-    runSetup(["--yes", "--provider", "claude"]);
-    runSetup(["--yes", "--scope", "project", "--provider", "openai"]);
+    runSetup(["--yes", "--import-env"], { ANTHROPIC_API_KEY: "sk-ant-user" });
+    runSetup(["--yes", "--scope", "project", "--import-env"], { OPENAI_API_KEY: "sk-proj-project" });
 
     const userCfg = parseYaml(readFileSync(userConfigPath(), "utf-8"));
     const projCfg = parseYaml(readFileSync(join(projectDir, ".vibeframe", "config.yaml"), "utf-8"));
 
-    expect(userCfg.llm.provider).toBe("claude");
-    expect(projCfg.llm.provider).toBe("openai");
+    expect(userCfg.providers).toEqual({ anthropic: "sk-ant-user" });
+    expect(projCfg.providers).toEqual({ openai: "sk-proj-project" });
   });
 });

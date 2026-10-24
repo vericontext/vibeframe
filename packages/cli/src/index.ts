@@ -42,7 +42,6 @@ import { hostCommand } from "./commands/host.js";
 import { demoCommand } from "./commands/demo.js";
 import { contextCommand } from "./commands/context.js";
 import { runCommand } from "./commands/run.js";
-import { agentCommand } from "./commands/agent.js";
 import { guideCommand, legacyGuideAliasCommand } from "./commands/walkthrough.js";
 import { completionCommand } from "./commands/completion.js";
 import { ApiKeyError } from "./utils/api-key.js";
@@ -122,17 +121,7 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf-8").trim();
 }
 
-export { startAgent } from "./commands/agent.js";
-export { loadConfig, saveConfig, isConfigured, type VibeConfig } from "./config/index.js";
-export { AgentExecutor, ToolRegistry, ConversationMemory } from "./agent/index.js";
-export type {
-  AgentConfig,
-  AgentContext,
-  AgentMessage,
-  ToolCall,
-  ToolResult,
-  LLMAdapter,
-} from "./agent/index.js";
+export { loadConfig, saveConfig, type VibeConfig } from "./config/index.js";
 
 const program = new Command();
 
@@ -319,8 +308,6 @@ program.addCommand(doctorCommand);
 program.addCommand(hostCommand);
 program.addCommand(demoCommand, { hidden: true });
 program.addCommand(runCommand);
-// Deprecated, removed before 1.0: still runs, but no longer advertised.
-program.addCommand(agentCommand, { hidden: true });
 
 // Workflow commands
 //

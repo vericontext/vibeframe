@@ -24,11 +24,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   context: { surface: "agent", note: "Host-agent integration contract." },
   schema: { surface: "agent", note: "Machine-readable command discovery." },
   completion: { surface: "advanced", note: "Shell ergonomics helper." },
-  agent: {
-    surface: "legacy",
-    replacement: "a host agent (Claude Code, Codex, Cursor) or the MCP server via `vibe host setup`",
-    note: "Deprecated built-in REPL, removed before 1.0.",
-  },
 
   "design.validate": { surface: "public", note: "Validate the DESIGN.md visual contract." },
 
@@ -144,15 +139,11 @@ export function productSurfaceForCommandPath(path: string): ProductSurfaceMetada
   if (path.startsWith("export.")) {
     return { surface: "advanced", note: "Lower-level export helper." };
   }
-  if (path.startsWith("fs.")) {
-    return { surface: "internal", note: "In-process agent filesystem helper." };
-  }
   return { surface: "advanced" };
 }
 
 export function commandPathFromToolName(name: string): string {
   if (["init", "plan", "build", "render", "guide"].includes(name)) return name;
-  if (name.startsWith("fs_")) return name.replace("_", ".");
   const firstUnderscore = name.indexOf("_");
   if (firstUnderscore === -1) return name;
   const group = name.slice(0, firstUnderscore);

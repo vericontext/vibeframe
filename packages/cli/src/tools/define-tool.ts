@@ -4,9 +4,7 @@
  *
  * Each tool is declared once via `defineTool({...})` with a Zod schema, an
  * `execute` function, and metadata. The MCP server (`packages/mcp-server`)
- * and the in-process Agent (`packages/cli/src/agent/tools`) both consume the
- * manifest via thin adapters — no tool definition is ever duplicated across
- * surfaces.
+ * consumes the manifest through a thin adapter.
  *
  * The CLI Commander tree (`packages/cli/src/commands/*.ts`) is intentionally
  * left hand-written. Its short flags, `--no-foo` negations, variadic args,
@@ -14,9 +12,6 @@
  * Commander chains call the same `executeXxx` engine functions that the
  * manifest entries call, so the CLI stays in sync via the existing
  * `cli-sync.test.ts` invariant.
- *
- * See `/Users/kiyeonjeon/.claude/plans/logical-wibbling-sonnet.md` for the
- * full v0.65 migration plan.
  */
 
 import { z, type ZodTypeAny } from "zod";
@@ -26,34 +21,23 @@ import {
 } from "../commands/_shared/product-surface.js";
 
 export type CostTier = "free" | "low" | "medium" | "high" | "very-high";
-export type Surface = "mcp" | "agent";
 
 export interface ExecuteContext {
-  /** Resolves relative paths in tool args (`process.cwd()` for MCP/CLI; `AgentContext.workingDirectory` for Agent). */
+  /** Resolves relative paths in tool args (`process.cwd()` for MCP and the CLI). */
   workingDirectory: string;
   /** The surface invoking the tool. Lets executes branch on JSON vs human output if needed. */
-  surface: "cli" | Surface;
-  /**
-   * Agent-only mutable state. Populated when invoked via the in-process agent
-   * REPL; `undefined` for MCP/CLI. Tools that read or set the "current
-   * project" pointer (e.g. project_open/project_save) declare
-   * `surfaces: ["agent"]` and access this via `ctx.agent?`.
-   */
-  agent?: {
-    projectPath: string | null;
-    setProjectPath(path: string): void;
-  };
+  surface: "cli" | "mcp";
   /**
    * Optional progress sink. The MCP adapter wires this to MCP
    * `notifications/progress` when the client supplied a progressToken;
-   * CLI/Agent surfaces leave it undefined. Omitting `progress` advances an
+   * the CLI leaves it undefined. Omitting `progress` advances an
    * internal monotonic counter; the adapter also throttles and enforces
    * monotonicity defensively.
    */
   onProgress?: (update: { progress?: number; total?: number; message?: string }) => void;
   /**
    * Optional MCP elicitation channel. Present only when the connected MCP
-   * client advertises the elicitation capability; CLI/Agent surfaces leave
+   * client advertises the elicitation capability; the CLI leaves
    * it undefined, so CLI behavior never changes. See adapters/mcp.ts for
    * the structural types.
    */
@@ -76,13 +60,13 @@ export interface ToolExecuteResult {
 }
 
 export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {
-  /** snake_case canonical name (used by MCP `tools/list` and Agent registry). */
+  /** snake_case canonical name (used by MCP `tools/list`). */
   name: string;
   /** Group this tool belongs to ("scene" | "audio" | "edit" | …). Drives skill regen + sync-counts. */
   category: string;
   /** Cost tier from `.claude/rules/architecture.md` cost table. */
   cost: CostTier;
-  /** Product-facing command classification. Transport surfaces use `surfaces`. */
+  /** Product-facing command classification. */
   productSurface?: ProductSurface;
   /** Preferred replacement when `productSurface` is legacy. */
   replacement?: string;
@@ -108,12 +92,10 @@ export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {
   annotations:
     | { readOnly: true; openWorld: boolean }
     | { readOnly: false; destructive?: boolean; idempotent?: boolean; openWorld: boolean };
-  /** Identical for MCP description and Agent description. One paragraph. */
+  /** The MCP tool description. One paragraph. */
   description: string;
   /** Single source of truth for argument shape. Must be a `z.object({...})`. */
   schema: S;
-  /** Surfaces the tool lives on. Defaults to `["mcp", "agent"]` when omitted. */
-  surfaces?: readonly Surface[];
   /** Engine fn. Receives Zod-validated args. */
   execute: (args: z.infer<S>, ctx: ExecuteContext) => Promise<ToolExecuteResult>;
 }
@@ -148,11 +130,6 @@ function validateToolDefinition<S extends ZodTypeAny>(t: ToolDefinition<S>): voi
   const schemaTypeName = (t.schema as { _def?: { typeName?: string } })._def?.typeName;
   if (schemaTypeName !== "ZodObject") {
     throw new Error(`Tool "${t.name}" schema must be a z.object({...}); got ${schemaTypeName}`);
-  }
-  if (t.surfaces && t.surfaces.length === 0) {
-    throw new Error(
-      `Tool "${t.name}" has empty surfaces array; use [] only via explicit type override`
-    );
   }
 }
 
