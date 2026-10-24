@@ -8,16 +8,16 @@ import {
 } from "./build-video-providers.js";
 
 describe("build video providers", () => {
-  it("accepts every listed provider and maps the fal alias", () => {
+  it("accepts every listed provider, and seedance when none is given", () => {
     for (const provider of BUILD_VIDEO_PROVIDERS) {
       expect(resolveBuildVideoProvider(provider.toUpperCase())).toBe(provider);
     }
-    expect(resolveBuildVideoProvider("fal")).toBe("seedance");
     expect(resolveBuildVideoProvider(undefined)).toBe("seedance");
   });
 
   it("refuses an unknown provider instead of switching to seedance", () => {
     expect(parseBuildVideoProvider("veo")).toBeNull();
+    expect(() => resolveBuildVideoProvider("fal")).toThrow("`fal` was renamed to `seedance` (same FAL_API_KEY).");
     expect(() => resolveBuildVideoProvider("veo")).toThrow(/Veo 3\.1 shut down on 2026-10-22; Gemini Omni \(omni\)/);
     expect(() => resolveBuildVideoProvider("bogus")).toThrow('Unknown video provider "bogus". Available: seedance, grok, kling, runway, omni.');
   });

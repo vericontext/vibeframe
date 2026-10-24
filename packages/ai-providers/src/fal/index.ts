@@ -7,9 +7,6 @@ defineProvider({
   label: "Seedance 2.0",
   displayName: "Seedance 2.0",
   gateway: "fal.ai",
-  // `fal` is a deprecated v0.x alias kept so existing scripts keep working.
-  // Review this alias at the 1.0 cut.
-  aliases: ["fal"],
   models: ["seedance-2.0", "seedance-2.0-fast"],
   capabilities: ["text-to-video", "image-to-video", "reference-to-video", "native-audio"],
   apiKey: "fal",

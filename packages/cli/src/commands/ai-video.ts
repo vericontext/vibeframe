@@ -24,7 +24,6 @@ import {
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { videoModelSpec } from "../utils/model-lifecycle.js";
 import {
-  canonicalVideoProvider,
   fileToUrlOrDataUri,
   jobFromTaskId,
   openVideoGenerator,
@@ -71,7 +70,7 @@ async function settle(
 export interface VideoGenerateOptions {
   prompt: string;
   /** Default: the configured or first available video provider. */
-  provider?: "grok" | "runway" | "kling" | "seedance" | "fal" | "omni";
+  provider?: "grok" | "runway" | "kling" | "seedance" | "omni";
   image?: string;
   /** Ending frame for providers that interpolate between two frames. */
   endImage?: string;
@@ -117,7 +116,7 @@ export interface VideoGenerateResult {
 }
 
 export async function executeVideoGenerate(options: VideoGenerateOptions): Promise<VideoGenerateResult> {
-  const provider = canonicalVideoProvider(options.provider ?? resolveProvider("video")?.name ?? "seedance");
+  const provider = (options.provider ?? resolveProvider("video")?.name ?? "seedance").toLowerCase();
   try {
     const generator = await openVideoGenerator(provider, options.apiKey);
     const references: MediaReference[] = [];

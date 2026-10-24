@@ -19,8 +19,4 @@ describe("realRunCost", () => {
       expect(warnings.join(" ")).toContain("upper bound");
     }
   });
-
-  it("treats the deprecated fal alias like seedance", () => {
-    expect(realRunCost("fal", { duration: "5" }).warnings).toEqual([]);
-  });
 });

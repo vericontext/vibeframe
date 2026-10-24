@@ -27,8 +27,8 @@ export interface VibeConfig {
     exportQuality: "draft" | "standard" | "high" | "ultra";
     /** Default provider for image generation */
     imageProvider?: "gemini" | "openai" | "grok";
-    /** Default provider for video generation. `fal` is a deprecated v0.x alias for `seedance` and will be removed at 1.0. */
-    videoProvider?: "seedance" | "fal" | "grok" | "kling" | "runway" | "omni";
+    /** Default provider for video generation */
+    videoProvider?: "seedance" | "grok" | "kling" | "runway" | "omni";
     /** Default provider for storyboard analysis */
     storyboardProvider?: "claude" | "openai" | "gemini";
     /** Default voice for TTS */

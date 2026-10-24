@@ -28,9 +28,8 @@ const VIDEO_MODEL_FLAG: Record<string, keyof VideoModelFlags> = {
 
 /** The catalog model a video provider will call, given the command's model flags. */
 export function videoModelSpec(provider: string, flags: VideoModelFlags): ModelSpec | undefined {
-  const catalogProvider = provider === "fal" ? "seedance" : provider;
-  const flag = VIDEO_MODEL_FLAG[catalogProvider];
-  return findModel(catalogProvider, "video", flag ? flags[flag] : undefined);
+  const flag = VIDEO_MODEL_FLAG[provider];
+  return findModel(provider, "video", flag ? flags[flag] : undefined);
 }
 
 /**
