@@ -22,6 +22,7 @@ import {
   type ProviderErrorKind,
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
+import { ApiKeyError, requireConfiguredApiKey } from "../utils/api-key.js";
 import { contractQuality, openImageGenerator, readImageInput, saveImage } from "./_shared/image-jobs.js";
 import { numberedPath } from "./_shared/default-output.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
@@ -60,6 +61,8 @@ export interface ImageGenerateResult {
 }
 
 function imageFailure(error: unknown, prefix: string, provider?: string): ImageGenerateResult {
+  // A missing key is not a provider failure; the caller reports it as API_KEY_MISSING.
+  if (error instanceof ApiKeyError) throw error;
   if (isProviderError(error)) return { success: false, error: error.message, errorKind: error.kind, provider };
   return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}`, provider };
 }
@@ -184,10 +187,7 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
     return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
   }
 
-  const googleKey = apiKey || process.env.GOOGLE_API_KEY;
-  if (!googleKey) {
-    return { success: false, error: "Google API key required for Gemini video analysis. Run 'vibe setup' or set GOOGLE_API_KEY in .env" };
-  }
+  const googleKey = await requireConfiguredApiKey("GOOGLE_API_KEY", "Google", apiKey);
 
   try {
     const gemini = new GeminiProvider();

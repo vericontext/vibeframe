@@ -15,7 +15,7 @@ import { writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { transcribeWithWords } from "./ai-edit.js";
-import { getApiKey } from "../utils/api-key.js";
+import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, ffprobeVideoSize, ffprobeDuration } from "../utils/exec-safe.js";
 import {
   generateAnimatedCaptionComponent,
@@ -256,6 +256,8 @@ export async function executeAnimatedCaption(
   const isASSTier = fast || ASS_STYLES.includes(style);
   const effectiveStyle = isASSTier && !ASS_STYLES.includes(style) ? "karaoke-sweep" : style;
   const tier = isASSTier ? "ass" : "remotion";
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
 
   try {
     // 1. Get video info
@@ -295,12 +297,6 @@ export async function executeAnimatedCaption(
     ], { timeout: 120_000 });
 
     // 3. Transcribe with word-level timestamps
-    const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-    if (!apiKey) {
-      await rm(tmpAudioDir, { recursive: true, force: true }).catch(() => {});
-      return { success: false, error: "OPENAI_API_KEY required for Whisper transcription. Run 'vibe setup' or set OPENAI_API_KEY in .env" };
-    }
-
     const transcript = await transcribeWithWords(audioPath, apiKey, language);
     if (!transcript.words || transcript.words.length === 0) {
       await rm(tmpAudioDir, { recursive: true, force: true }).catch(() => {});

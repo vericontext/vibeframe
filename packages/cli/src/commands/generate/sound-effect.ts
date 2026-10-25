@@ -9,10 +9,9 @@ import type { Command } from "commander";
 import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
-import ora from "ora";
 import { ElevenLabsProvider, type ProviderErrorKind } from "@vibeframe/ai-providers";
-import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
-import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { requireApiKey, requireConfiguredApiKey } from "../../utils/api-key.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 
 // ── Library: executeSoundEffect (used by pipeline executor + manifest) ──
@@ -35,11 +34,9 @@ export interface ExecuteSoundEffectResult {
 }
 
 export async function executeSoundEffect(options: ExecuteSoundEffectOptions): Promise<ExecuteSoundEffectResult> {
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
   try {
-    const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY", options.apiKey);
-    if (!apiKey) {
-      return { success: false, error: "ElevenLabs API key required. Set ELEVENLABS_API_KEY or run: vibe setup", errorKind: "auth" };
-    }
     const elevenlabs = new ElevenLabsProvider();
     await elevenlabs.initialize({ apiKey });
     const result = await elevenlabs.generateSoundEffect(options.prompt, {
@@ -93,7 +90,7 @@ export function registerSoundEffectCommand(parent: Command): void {
       }
 
       const apiKey = await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
-      const spinner = isJsonMode() ? null : ora("Generating sound effect...").start();
+      const spinner = isJsonMode() ? null : createSpinner("Generating sound effect...").start();
       const result = await executeSoundEffect({ prompt, output: options.output, duration, promptInfluence, apiKey });
       if (!result.success) {
         spinner?.fail(result.error ?? "Sound effect generation failed");

@@ -3,11 +3,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, basename, extname } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
 import { validateResourceId } from "./validate.js";
 import {
+  spinner as createSpinner,
   exitWithError,
   generalError,
   isJsonMode,
@@ -85,7 +85,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, mediaPath: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Adding source...").start();
+    const spinner = createSpinner("Adding source...").start();
 
     try {
       if (options.dryRun) {
@@ -167,7 +167,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, sourceId: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Adding clip...").start();
+    const spinner = createSpinner("Adding clip...").start();
 
     try {
       validateResourceId(sourceId);
@@ -270,7 +270,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, type: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Adding track...").start();
+    const spinner = createSpinner("Adding track...").start();
 
     try {
       if (options.dryRun) {
@@ -352,7 +352,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, effectType: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Adding effect...").start();
+    const spinner = createSpinner("Adding effect...").start();
 
     try {
       validateResourceId(clipId);
@@ -445,7 +445,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Trimming clip...").start();
+    const spinner = createSpinner("Trimming clip...").start();
 
     try {
       validateResourceId(clipId);
@@ -646,7 +646,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Splitting clip...").start();
+    const spinner = createSpinner("Splitting clip...").start();
 
     try {
       validateResourceId(clipId);
@@ -727,7 +727,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Duplicating clip...").start();
+    const spinner = createSpinner("Duplicating clip...").start();
 
     try {
       validateResourceId(clipId);
@@ -804,7 +804,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options: { dryRun?: boolean }) => {
     const startedAt = Date.now();
-    const spinner = ora("Deleting clip...").start();
+    const spinner = createSpinner("Deleting clip...").start();
 
     try {
       validateResourceId(clipId);
@@ -874,7 +874,7 @@ timelineCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipId: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Moving clip...").start();
+    const spinner = createSpinner("Moving clip...").start();
 
     try {
       validateResourceId(clipId);

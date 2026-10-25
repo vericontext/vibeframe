@@ -15,7 +15,7 @@ import { readFile, rename } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
-import { getApiKey } from "../utils/api-key.js";
+import { requireApiKey } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
 
@@ -101,14 +101,7 @@ export async function executeReview(options: ReviewOptions): Promise<ReviewResul
     return { success: false, error: `Video not found: ${absVideoPath}` };
   }
 
-  const apiKey = process.env.GOOGLE_API_KEY || (await getApiKey("GOOGLE_API_KEY", "Google"));
-  if (!apiKey) {
-    return {
-      success: false,
-      error:
-        "Google API key required for Gemini video review. Run 'vibe setup' or set GOOGLE_API_KEY in .env",
-    };
-  }
+  const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
   let storyboardContext = "";
   if (storyboardPath) {

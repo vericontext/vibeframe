@@ -10,15 +10,14 @@ import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
 import {
   ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,
   ReplicateProvider,
   type ProviderErrorKind,
 } from "@vibeframe/ai-providers";
-import { requireApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
-import { isJsonMode, outputSuccess, exitWithError, notFoundError, providerFailure, usageError } from "../output.js";
+import { requireApiKey, requireConfiguredApiKey } from "../../utils/api-key.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, notFoundError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { createAndWriteJobRecord, type JobRecord } from "../_shared/status-jobs.js";
 
@@ -50,17 +49,15 @@ export interface ExecuteMusicResult {
 export async function executeMusic(
   options: ExecuteMusicOptions,
 ): Promise<ExecuteMusicResult> {
+  const provider = options.provider || "elevenlabs";
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey =
+    provider === "elevenlabs"
+      ? await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey)
+      : await requireConfiguredApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
+
   try {
-    const provider = options.provider || "elevenlabs";
-
     if (provider === "elevenlabs") {
-      const apiKey = await getConfiguredApiKey("ELEVENLABS_API_KEY", options.apiKey);
-      if (!apiKey)
-        return {
-          success: false,
-          error: "ElevenLabs API key required. Set ELEVENLABS_API_KEY or run: vibe setup",
-        };
-
       const elevenlabs = new ElevenLabsProvider();
       await elevenlabs.initialize({ apiKey });
 
@@ -81,13 +78,6 @@ export async function executeMusic(
     }
 
     // Replicate MusicGen
-    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN", options.apiKey);
-    if (!apiKey)
-      return {
-        success: false,
-        error: "Replicate API token required. Set REPLICATE_API_TOKEN or run: vibe setup",
-      };
-
     const replicate = new ReplicateProvider();
     await replicate.initialize({ apiKey });
 
@@ -184,7 +174,7 @@ export function registerMusicCommand(parent: Command): void {
           ? await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey)
           : await requireApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
       const label = provider === "elevenlabs" ? "ElevenLabs" : "Replicate MusicGen";
-      const spinner = isJsonMode() ? null : ora(`Generating music with ${label}...`).start();
+      const spinner = isJsonMode() ? null : createSpinner(`Generating music with ${label}...`).start();
       const result = await executeMusic({
         prompt,
         provider,

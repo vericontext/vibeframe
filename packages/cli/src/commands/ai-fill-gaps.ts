@@ -14,8 +14,7 @@
 
 import { type Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
-import { exitWithError, apiError } from "./output.js";
+import { failureFromError, spinner as createSpinner, exitWithError, apiError, providerFailure } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { executeFillGaps } from "./_shared/execute-fill-gaps.js";
 
@@ -37,7 +36,7 @@ export function registerFillGapsCommand(aiCommand: Command): void {
           validateOutputPath(options.output);
         }
 
-        const spinner = ora("Loading project...").start();
+        const spinner = createSpinner("Loading project...").start();
         let lastProgressMessage = "";
 
         const result = await executeFillGaps({
@@ -59,7 +58,8 @@ export function registerFillGapsCommand(aiCommand: Command): void {
           spinner.succeed(chalk.green(lastProgressMessage || "Done"));
         } else {
           spinner.fail(chalk.red(result.error || "Fill gaps failed"));
-          exitWithError(apiError(result.error || "Fill gaps failed", true));
+          const message = result.error || "Fill gaps failed";
+          exitWithError(result.errorKind ? providerFailure(message, result.errorKind) : apiError(message, true));
         }
 
         // Print humanLines (the action body's previous console.log output).
@@ -67,12 +67,7 @@ export function registerFillGapsCommand(aiCommand: Command): void {
           console.log(line);
         }
       } catch (error) {
-        exitWithError(
-          apiError(
-            `Fill gaps failed: ${error instanceof Error ? error.message : String(error)}`,
-            true,
-          ),
-        );
+        exitWithError(failureFromError(error, "Fill gaps failed", { retryable: true }));
       }
     });
 }

@@ -6,6 +6,7 @@ vi.mock("../../utils/api-key.js", () => ({
 }));
 
 import { FakeProviderNetwork, jsonResponse } from "../../testing/fake-provider-network.js";
+import { ApiKeyError } from "../../utils/api-key-error.js";
 import { languageName, translateTexts } from "./translate-texts.js";
 
 let net: FakeProviderNetwork;
@@ -46,8 +47,16 @@ describe("translateTexts", () => {
     await expect(translateTexts(["Hello"], { targetLanguage: "es" })).resolves.toMatchObject({ success: true, provider: "openai", texts: ["Hola"] });
   });
 
-  it("batches long lists and reports a missing key as auth", async () => {
-    await expect(translateTexts(["x"], { targetLanguage: "ko" })).resolves.toMatchObject({ success: false, errorKind: "auth" });
+  it("throws ApiKeyError for a missing key, before any request", async () => {
+    await expect(translateTexts(["x"], { targetLanguage: "ko" })).rejects.toBeInstanceOf(ApiKeyError);
+    await expect(translateTexts(["x"], { targetLanguage: "ko" })).rejects.toMatchObject({ envVar: "OPENAI_API_KEY" });
+    await expect(translateTexts(["x"], { targetLanguage: "ko", provider: "claude" })).rejects.toMatchObject({
+      envVar: "ANTHROPIC_API_KEY",
+    });
+    expect(net.requests).toHaveLength(0);
+  });
+
+  it("batches long lists", async () => {
 
     process.env.ANTHROPIC_API_KEY = "k";
     net.on("POST", "api.anthropic.com", /\/v1\/messages$/, () => jsonResponse({ content: [{ type: "text", text: "[0] a\n[1] b" }] }));

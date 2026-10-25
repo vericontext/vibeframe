@@ -1,12 +1,69 @@
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it, beforeEach, afterEach, vi, type MockInstance } from "vitest";
 
+import { ProviderError } from "@vibeframe/ai-providers";
+import { ApiKeyError } from "../utils/api-key-error.js";
 import {
   apiError,
   emitDeprecationWarning,
+  ExitCode,
+  failureFromError,
   outputSuccess,
   _resetDeprecationMemoryForTesting,
 } from "./output.js";
+
+describe("failureFromError", () => {
+  it("reports a missing key as API_KEY_MISSING with the key's own message, never prefixed", () => {
+    const err = failureFromError(new ApiKeyError("ANTHROPIC_API_KEY", "Anthropic"), "Color grading failed", {
+      fallback: "general",
+    });
+    expect(err).toEqual(new ApiKeyError("ANTHROPIC_API_KEY", "Anthropic").toStructured());
+    expect(err).toMatchObject({
+      code: "API_KEY_MISSING",
+      exitCode: ExitCode.AUTH,
+      error: "Anthropic API key required.",
+      retryable: false,
+    });
+    expect(err.suggestion).toContain("Set ANTHROPIC_API_KEY in .env, or run: vibe setup");
+  });
+
+  it("maps a ProviderError by its kind, not its wording", () => {
+    const rejected = failureFromError(
+      new ProviderError({ kind: "auth", provider: "kling", message: "token is fine, really" }),
+      "Video generation failed"
+    );
+    expect(rejected).toMatchObject({
+      code: "AUTH_ERROR",
+      exitCode: ExitCode.AUTH,
+      errorKind: "auth",
+      error: "Video generation failed: token is fine, really",
+    });
+
+    const badRequest = failureFromError(
+      new ProviderError({ kind: "invalid-request", provider: "fal", message: "bad ratio" }),
+      "Video generation failed"
+    );
+    expect(badRequest).toMatchObject({ code: "USAGE_ERROR", exitCode: ExitCode.USAGE, errorKind: "invalid-request" });
+  });
+
+  it("wraps anything else as API_ERROR with the prefix and retryability", () => {
+    expect(failureFromError(new Error("socket closed"), "Caption failed", { retryable: true })).toMatchObject({
+      code: "API_ERROR",
+      exitCode: ExitCode.API_ERROR,
+      error: "Caption failed: socket closed",
+      retryable: true,
+    });
+    expect(failureFromError("plain string")).toMatchObject({ code: "API_ERROR", error: "plain string", retryable: false });
+  });
+
+  it("uses GENERAL for local failures when asked", () => {
+    expect(failureFromError(new Error("ffmpeg exited 1"), "Reframe failed", { fallback: "general" })).toMatchObject({
+      code: "ERROR",
+      exitCode: ExitCode.GENERAL,
+      error: "Reframe failed: ffmpeg exited 1",
+    });
+  });
+});
 
 describe("apiError provider hints", () => {
   it("matches the documented provider-specific patterns", () => {

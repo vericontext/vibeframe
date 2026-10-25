@@ -15,8 +15,7 @@ import { resolve, extname, basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { commandExists } from '../utils/exec-safe.js';
 import chalk from 'chalk';
-import ora from 'ora';
-import { getApiKey } from '../utils/api-key.js';
+import { requireApiKey } from '../utils/api-key.js';
 import {
   executeSilenceCut,
   executeCaption,
@@ -26,7 +25,7 @@ import {
   executeJumpCut,
   type CaptionStyle,
 } from './ai-edit.js';
-import { isJsonMode, outputSuccess, exitWithError, authError, notFoundError, apiError, usageError, generalError } from "./output.js";
+import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, notFoundError, apiError, usageError, generalError } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 
 // ── Command registrations ───────────────────────────────────────────────────
@@ -114,7 +113,7 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
       const spinnerText = useGemini
         ? "Analyzing video with Gemini (visual + audio)..."
         : "Detecting silence...";
-      const spinner = ora(spinnerText).start();
+      const spinner = createSpinner(spinnerText).start();
 
       const result = await executeSilenceCut({
         videoPath: absVideoPath,
@@ -175,7 +174,7 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
       }
       console.log();
     } catch (error) {
-      exitWithError(apiError(`Silence cut failed: ${error instanceof Error ? error.message : String(error)}`, true));
+      exitWithError(failureFromError(error, "Silence cut failed", { retryable: true }));
     }
   });
 
@@ -241,16 +240,13 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
         return;
       }
 
-      const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-      if (!apiKey) {
-        exitWithError(authError("OPENAI_API_KEY", "OpenAI"));
-      }
+      const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
 
       const ext = extname(videoPath);
       const name = basename(videoPath, ext);
       const outputPath = options.output || `${name}-captioned${ext}`;
 
-      const spinner = ora("Starting caption process...").start();
+      const spinner = createSpinner("Starting caption process...").start();
 
       const result = await executeCaption({
         videoPath: absVideoPath,
@@ -295,7 +291,7 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
       }
       console.log();
     } catch (error) {
-      exitWithError(apiError(`Caption failed: ${error instanceof Error ? error.message : String(error)}`, true));
+      exitWithError(failureFromError(error, "Caption failed", { retryable: true }));
     }
   });
 
@@ -347,7 +343,7 @@ aiCommand
       const name = basename(inputPath, ext);
       const outputPath = options.output || `${name}-denoised${ext}`;
 
-      const spinner = ora("Applying noise reduction...").start();
+      const spinner = createSpinner("Applying noise reduction...").start();
 
       const result = await executeNoiseReduce({
         inputPath: absInputPath,
@@ -440,7 +436,7 @@ aiCommand
       const name = basename(videoPath, ext);
       const outputPath = options.output || `${name}-faded${ext}`;
 
-      const spinner = ora("Applying fade effects...").start();
+      const spinner = createSpinner("Applying fade effects...").start();
 
       const result = await executeFade({
         videoPath: absVideoPath,
@@ -536,16 +532,13 @@ aiCommand
       const envKey = provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
       const providerName = provider === "openai" ? "OpenAI" : "Anthropic";
 
-      const apiKey = await getApiKey(envKey, providerName, options.apiKey);
-      if (!apiKey) {
-        exitWithError(authError(envKey, providerName));
-      }
+      const apiKey = await requireApiKey(envKey, providerName, options.apiKey);
 
       const ext = extname(srtPath);
       const name = basename(srtPath, ext);
       const outputPath = options.output || `${name}-${options.target}${ext}`;
 
-      const spinner = ora(`Translating to ${options.target}...`).start();
+      const spinner = createSpinner(`Translating to ${options.target}...`).start();
 
       const result = await executeTranslateSrt({
         srtPath: absSrtPath,
@@ -586,7 +579,7 @@ aiCommand
       console.log(`Output: ${chalk.green(result.outputPath!)}`);
       console.log();
     } catch (error) {
-      exitWithError(apiError(`Translation failed: ${error instanceof Error ? error.message : String(error)}`, true));
+      exitWithError(failureFromError(error, "Translation failed", { retryable: true }));
     }
   });
 
@@ -644,10 +637,7 @@ aiCommand
         return;
       }
 
-      const apiKey = await getApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-      if (!apiKey) {
-        exitWithError(authError("OPENAI_API_KEY", "OpenAI"));
-      }
+      const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
 
       const ext = extname(videoPath);
       const name = basename(videoPath, ext);
@@ -657,7 +647,7 @@ aiCommand
         ? options.fillers.split(",").map((f: string) => f.trim())
         : undefined;
 
-      const spinner = ora("Transcribing with word-level timestamps...").start();
+      const spinner = createSpinner("Transcribing with word-level timestamps...").start();
 
       const result = await executeJumpCut({
         videoPath: absVideoPath,
@@ -714,7 +704,7 @@ aiCommand
       }
       console.log();
     } catch (error) {
-      exitWithError(apiError(`Jump cut failed: ${error instanceof Error ? error.message : String(error)}`, true));
+      exitWithError(failureFromError(error, "Jump cut failed", { retryable: true }));
     }
   });
 

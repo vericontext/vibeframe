@@ -8,6 +8,7 @@
 
 import { defaultModel, isProviderError, providerRequest, type ProviderErrorKind } from "@vibeframe/ai-providers";
 import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { ApiKeyError } from "../../utils/api-key-error.js";
 
 export interface TranslateTextsOptions {
   /** Target language name or code ("Korean", "ko"). */
@@ -39,8 +40,10 @@ export async function translateTexts(texts: string[], options: TranslateTextsOpt
   const provider = options.provider ?? (claudeKey ? "claude" : "openai");
   const key = provider === "claude" ? claudeKey : await getConfiguredApiKey("OPENAI_API_KEY", options.apiKey);
   if (!key) {
-    const envVar = provider === "claude" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
-    return { success: false, error: `${envVar} required for translation. Run 'vibe setup' or set it in .env`, errorKind: "auth" };
+    // Not a translation failure: the caller reports it as API_KEY_MISSING.
+    throw provider === "claude"
+      ? new ApiKeyError("ANTHROPIC_API_KEY", "Anthropic")
+      : new ApiKeyError("OPENAI_API_KEY", "OpenAI");
   }
 
   const target = languageName(options.targetLanguage);

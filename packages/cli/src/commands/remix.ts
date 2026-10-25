@@ -21,17 +21,17 @@ import { Command } from "commander";
 import { resolve, basename } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
 import {
+  failureFromError,
+  spinner as createSpinner,
   isJsonMode,
   outputSuccess,
   exitWithError,
   notFoundError,
   usageError,
   apiError,
-  generalError,
 } from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
@@ -168,7 +168,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
       console.log(`  Mode:  ${chalk.bold(options.fast ? "ASS (fast)" : "Remotion")}`);
       console.log();
 
-      const spinner = ora("Processing animated captions...").start();
+      const spinner = createSpinner("Processing animated captions...").start();
 
       const result = await executeAnimatedCaption({
         videoPath: absVideoPath,
@@ -215,8 +215,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
       console.log(`  Tier:    ${result.tier}`);
       console.log();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Animated caption failed: ${msg}`));
+      exitWithError(failureFromError(error, "Animated caption failed", { fallback: "general" }));
     }
   });
 

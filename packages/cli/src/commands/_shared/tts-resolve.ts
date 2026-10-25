@@ -22,6 +22,7 @@
 import { createSpeechGenerator, isProviderError } from "@vibeframe/ai-providers";
 import type { KokoroLoadEvent, ProviderErrorKind } from "@vibeframe/ai-providers";
 import { getApiKey, getConfiguredApiKey } from "../../utils/api-key.js";
+import { ApiKeyError } from "../../utils/api-key-error.js";
 
 /** TTS providers VibeFrame can route to. `"auto"` picks based on key availability. */
 export type TtsProviderName = "auto" | "elevenlabs" | "openai" | "kokoro";
@@ -147,19 +148,23 @@ async function build(provider: ResolvedTtsProvider, key?: string): Promise<TtsRe
 }
 
 /**
- * Thrown when the caller asked for a specific provider whose key/runtime is
- * unavailable. Carries the provider id so the caller can format a clean
- * `usageError`/`exitWithError`.
+ * Thrown when the caller asked for a specific provider whose key is not
+ * configured. It is an {@link ApiKeyError}, so commands report it as
+ * `API_KEY_MISSING` (exit 4) like every other missing key; the message adds
+ * the free local fallback for human output.
  */
-export class TtsKeyMissingError extends Error {
+export class TtsKeyMissingError extends ApiKeyError {
   constructor(public readonly provider: ResolvedTtsProvider) {
     super(
+      provider === "elevenlabs" ? "ELEVENLABS_API_KEY" : "OPENAI_API_KEY",
+      provider === "elevenlabs" ? "ElevenLabs" : "OpenAI",
+    );
+    this.message =
       provider === "elevenlabs"
         ? "ElevenLabs API key required (ELEVENLABS_API_KEY). Run 'vibe setup', set ELEVENLABS_API_KEY in .env, or pass --tts kokoro for local synthesis."
         : provider === "openai"
           ? "OpenAI API key required (OPENAI_API_KEY). Run 'vibe setup', set OPENAI_API_KEY in .env, or pass --tts kokoro for local synthesis."
-          : `Provider ${provider} is unavailable.`,
-    );
+          : `Provider ${provider} is unavailable.`;
     this.name = "TtsKeyMissingError";
   }
 }

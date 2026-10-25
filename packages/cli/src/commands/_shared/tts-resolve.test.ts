@@ -28,6 +28,7 @@ vi.mock("../../utils/api-key.js", () => ({
 
 const { createSpeechGenerator, synthesize, getConfiguredApiKey, getApiKey } = mocks;
 
+import { ApiKeyError } from "../../utils/api-key-error.js";
 import {
   parseTtsProviderName,
   resolveTtsProvider,
@@ -231,5 +232,12 @@ describe("TtsKeyMissingError", () => {
     expect(err).toBeInstanceOf(TtsKeyMissingError);
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("TtsKeyMissingError");
+  });
+
+  it("is an ApiKeyError, so commands report it as API_KEY_MISSING", () => {
+    const err = new TtsKeyMissingError("openai");
+    expect(err).toBeInstanceOf(ApiKeyError);
+    expect(err.envVar).toBe("OPENAI_API_KEY");
+    expect(err.toStructured()).toMatchObject({ code: "API_KEY_MISSING", exitCode: 4, error: "OpenAI API key required." });
   });
 });

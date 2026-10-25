@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { ProviderError, createImageGenerator, findModel, type ImageGenerator, type ImageInput } from "@vibeframe/ai-providers";
-import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { requireConfiguredApiKey } from "../../utils/api-key.js";
 import { writeImageFile } from "../../utils/image-file.js";
 import { mimeTypeForPath } from "./video-jobs.js";
 
@@ -37,8 +37,9 @@ export async function openImageGenerator(provider: string, apiKey?: string): Pro
       message: `Unknown image provider "${provider}". Available: ${Object.keys(IMAGE_PROVIDER_ENV).join(", ")}.`,
     });
   }
-  const key = await getConfiguredApiKey(envVar, apiKey);
-  if (!key) throw new ProviderError({ kind: "auth", provider, message: `${envVar} required for ${provider}.` });
+  // No key is a setup problem, not a provider rejection: ApiKeyError
+  // (API_KEY_MISSING), never ProviderError "auth".
+  const key = await requireConfiguredApiKey(envVar, IMAGE_PROVIDER_LABELS[provider] ?? provider, apiKey);
   return createImageGenerator(provider, key);
 }
 

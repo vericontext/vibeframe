@@ -6,9 +6,8 @@
 
 import type { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
 import { executeVideoCancel } from "../ai-video.js";
-import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 
 const CANCEL_PROVIDERS = ["runway", "seedance", "omni"];
 
@@ -30,7 +29,7 @@ export function registerVideoCancelCommand(parent: Command): void {
           )
         );
       }
-      const spinner = isJsonMode() ? null : ora("Cancelling generation...").start();
+      const spinner = isJsonMode() ? null : createSpinner("Cancelling generation...").start();
       const result = await executeVideoCancel({ taskId, provider, apiKey: options.apiKey });
       if (!result.success) {
         spinner?.fail("Failed to cancel generation");

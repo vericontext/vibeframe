@@ -2,9 +2,8 @@ import { Command } from "commander";
 import { stat } from "node:fs/promises";
 import { resolve, extname, basename } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import * as musicMetadata from "music-metadata";
-import { exitWithError, generalError } from "./output.js";
+import { spinner as createSpinner, exitWithError, generalError } from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
 export const mediaCommand = new Command("media")
@@ -15,7 +14,7 @@ mediaCommand
   .description("Get media file information")
   .argument("<file>", "Media file path")
   .action(async (file: string) => {
-    const spinner = ora("Analyzing media...").start();
+    const spinner = createSpinner("Analyzing media...").start();
 
     try {
       const filePath = resolve(process.cwd(), file);

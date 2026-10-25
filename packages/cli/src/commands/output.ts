@@ -5,6 +5,8 @@
 
 import chalk from "chalk";
 import ora from "ora";
+import { isProviderError } from "@vibeframe/ai-providers";
+import { ApiKeyError } from "../utils/api-key-error.js";
 
 // ── Exit Codes ───────────────────────────────────────────────────────────
 
@@ -42,17 +44,6 @@ export interface StructuredError {
 
 export function usageError(msg: string, suggestion?: string): StructuredError {
   return { success: false, error: msg, code: "USAGE_ERROR", exitCode: ExitCode.USAGE, suggestion, retryable: false };
-}
-
-export function authError(envVar: string, provider: string): StructuredError {
-  return {
-    success: false,
-    error: `${provider} API key required.`,
-    code: "API_KEY_MISSING",
-    exitCode: ExitCode.AUTH,
-    suggestion: `Set ${envVar} in .env, or run: vibe setup`,
-    retryable: false,
-  };
 }
 
 /** Provider-specific error hints based on error message patterns.
@@ -114,6 +105,32 @@ export function providerFailure(message: string, kind?: string): StructuredError
   return { ...apiError(message, retryable), ...(kind ? { errorKind: kind } : {}) };
 }
 
+/**
+ * The structured error for an exception caught by a command's catch-all,
+ * chosen by the error's type, never its wording:
+ *
+ * - `ApiKeyError` (a provider key is not configured) → `API_KEY_MISSING`,
+ *   exit 4, with the "Set X in .env, or run: vibe setup" suggestion.
+ * - `ProviderError` → {@link providerFailure} by its `kind`.
+ * - anything else → `apiError` (default) or `generalError` (`fallback: "general"`
+ *   for local work such as FFmpeg).
+ *
+ * `prefix` names the failed step ("Video generation failed") and is put in
+ * front of the message for the last two cases; a missing key keeps its own
+ * message so every command reports it identically.
+ */
+export function failureFromError(
+  error: unknown,
+  prefix?: string,
+  options: { retryable?: boolean; fallback?: "api" | "general" } = {}
+): StructuredError {
+  if (error instanceof ApiKeyError) return error.toStructured();
+  const message = error instanceof Error ? error.message : String(error);
+  const text = prefix ? `${prefix}: ${message}` : message;
+  if (isProviderError(error)) return providerFailure(text, error.kind);
+  return options.fallback === "general" ? generalError(text) : apiError(text, options.retryable ?? false);
+}
+
 export function notFoundError(path: string): StructuredError {
   return { success: false, error: `File not found: ${path}`, code: "NOT_FOUND", exitCode: ExitCode.NOT_FOUND, retryable: false };
 }
@@ -150,8 +167,19 @@ export function costCapError(opts: {
   };
 }
 
+/**
+ * Spinners made by {@link spinner}, so {@link exitWithError} can clear one
+ * that is still spinning when a step throws (for example a missing key
+ * raised inside an executor) instead of leaving a stale frame above the
+ * error message.
+ */
+const liveSpinners = new Set<ReturnType<typeof ora>>();
+
 /** Output structured error then exit */
 export function exitWithError(err: StructuredError): never {
+  for (const live of liveSpinners) {
+    if (live.isSpinning) live.stop();
+  }
   if (isJsonMode()) {
     console.error(JSON.stringify({
       ...err,
@@ -431,7 +459,9 @@ export function spinner(text: string): ReturnType<typeof ora> {
   if (isJsonMode() || isQuietMode()) {
     return ora({ text, isSilent: true });
   }
-  return ora(text);
+  const created = ora(text);
+  liveSpinners.add(created);
+  return created;
 }
 
 /**

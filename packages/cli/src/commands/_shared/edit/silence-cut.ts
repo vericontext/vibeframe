@@ -9,7 +9,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
-import { getApiKey } from "../../../utils/api-key.js";
+import { requireApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
 
@@ -120,16 +120,10 @@ async function detectSilencePeriods(
 async function detectSilencePeriodsWithGemini(
   videoPath: string,
   minDuration: number,
-  options: { model?: string; lowRes?: boolean; apiKey?: string },
+  options: { model?: string; lowRes?: boolean; apiKey: string },
 ): Promise<{ periods: SilencePeriod[]; totalDuration: number }> {
   const totalDuration = await getVideoDuration(videoPath);
-
-  const geminiApiKey = options.apiKey || (await getApiKey("GOOGLE_API_KEY", "Google"));
-  if (!geminiApiKey) {
-    throw new Error(
-      "Google API key required for Gemini Video Understanding. Run 'vibe setup' or set GOOGLE_API_KEY in .env",
-    );
-  }
+  const geminiApiKey = options.apiKey;
 
   const gemini = new GeminiProvider();
   await gemini.initialize({ apiKey: geminiApiKey });
@@ -245,13 +239,17 @@ export async function executeSilenceCut(
   }
 
   const method = useGemini ? "gemini" : "ffmpeg";
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const geminiApiKey = useGemini
+    ? await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey)
+    : undefined;
 
   try {
-    const { periods, totalDuration } = useGemini
+    const { periods, totalDuration } = geminiApiKey
       ? await detectSilencePeriodsWithGemini(videoPath, minDuration, {
           model: options.model,
           lowRes: options.lowRes,
-          apiKey: options.apiKey,
+          apiKey: geminiApiKey,
         })
       : await detectSilencePeriods(videoPath, noiseThreshold, minDuration);
     const silentDuration = periods.reduce((sum, p) => sum + p.duration, 0);

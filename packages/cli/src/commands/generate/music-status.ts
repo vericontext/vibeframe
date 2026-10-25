@@ -6,7 +6,7 @@
  */
 
 import { ReplicateProvider } from "@vibeframe/ai-providers";
-import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { requireConfiguredApiKey } from "../../utils/api-key.js";
 
 // ── Library: executeMusicStatus ─────────────────────────────────────────
 
@@ -25,10 +25,9 @@ export interface ExecuteMusicStatusResult {
 export async function executeMusicStatus(
   options: ExecuteMusicStatusOptions,
 ): Promise<ExecuteMusicStatusResult> {
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireConfiguredApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
   try {
-    const apiKey = await getConfiguredApiKey("REPLICATE_API_TOKEN", options.apiKey);
-    if (!apiKey)
-      return { success: false, error: "REPLICATE_API_TOKEN required for music status" };
 
     const replicate = new ReplicateProvider();
     await replicate.initialize({ apiKey });

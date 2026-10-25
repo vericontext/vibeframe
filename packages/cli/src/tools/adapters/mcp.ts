@@ -7,6 +7,7 @@
 import type { ZodError } from "zod";
 import { zodToJsonSchema, type JsonSchema } from "../zod-to-json-schema.js";
 import type { ToolDefinition } from "../define-tool.js";
+import { ApiKeyError } from "../../utils/api-key-error.js";
 
 /**
  * Top-level MCP tool inputSchema. We always emit `{ type:"object", properties,
@@ -310,6 +311,12 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
           : `${name} failed: ${result.error ?? "unknown error"}`;
       return { content: [{ type: "text", text }] };
     } catch (error) {
+      // A missing provider key is a setup problem, not a crash: hand back the
+      // same API_KEY_MISSING envelope the CLI prints, so the agent can tell
+      // the user which key to set instead of retrying.
+      if (error instanceof ApiKeyError) {
+        return { content: [{ type: "text", text: JSON.stringify(error.toStructured()) }] };
+      }
       const msg = error instanceof Error ? error.message : String(error);
       return { content: [{ type: "text", text: `${name} threw: ${msg}` }] };
     } finally {

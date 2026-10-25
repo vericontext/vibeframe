@@ -15,7 +15,6 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
-import ora from "ora";
 import {
   ClaudeProvider,
   defaultModel,
@@ -23,9 +22,9 @@ import {
   GeminiProvider,
   GEMINI_DEFAULT_TEXT_MODEL,
 } from "@vibeframe/ai-providers";
-import { getApiKey, loadEnv } from "../utils/api-key.js";
+import { loadEnv, requireApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
-import { exitWithError, outputSuccess, apiError, generalError, usageError } from "./output.js";
+import { failureFromError, spinner as createSpinner, exitWithError, outputSuccess, apiError, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ── Motion: exported function for Agent tool ────────────────────────────────
@@ -104,25 +103,11 @@ export async function executeMotion(options: MotionCommandOptions): Promise<Moti
   const fps = options.fps || 30;
   const duration = options.duration || 5;
 
-  // Resolve API key based on provider
-  let apiKey: string | null;
-  if (useGemini) {
-    apiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-    if (!apiKey)
-      return {
-        success: false,
-        error:
-          "GOOGLE_API_KEY required for Gemini motion generation. Run 'vibe setup' or set GOOGLE_API_KEY in .env",
-      };
-  } else {
-    apiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-    if (!apiKey)
-      return {
-        success: false,
-        error:
-          "ANTHROPIC_API_KEY required for Claude motion generation. Run 'vibe setup' or set ANTHROPIC_API_KEY in .env",
-      };
-  }
+  // Resolve API key based on provider. A missing key throws ApiKeyError
+  // (API_KEY_MISSING) before any provider call.
+  const apiKey = useGemini
+    ? await requireApiKey("GOOGLE_API_KEY", "Google")
+    : await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
   // Step 0 (optional): Analyze reference media with Gemini, inject into description.
   // Image analysis is explicit and required when --image is passed. Video
@@ -130,14 +115,7 @@ export async function executeMotion(options: MotionCommandOptions): Promise<Moti
   // for Anthropic-only users; use --understand required to make it mandatory.
   let enrichedDescription = options.description;
   if (options.image) {
-    const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-    if (!geminiApiKey) {
-      return {
-        success: false,
-        error:
-          "GOOGLE_API_KEY required for image analysis (--image). Run 'vibe setup' or set GOOGLE_API_KEY in .env",
-      };
-    }
+    const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
     const imagePath = resolve(process.cwd(), options.image);
     const imageBuffer = await readFile(imagePath);
@@ -171,15 +149,7 @@ Use this image analysis to inform the color palette, typography placement, and o
   if (options.video && understand !== "off") {
     let geminiApiKey = await getOptionalGoogleApiKey();
     if (!geminiApiKey && understand === "required") {
-      geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-    }
-
-    if (!geminiApiKey && understand === "required") {
-      return {
-        success: false,
-        error:
-          "GOOGLE_API_KEY required for video understanding (--understand required). Run 'vibe setup' or set GOOGLE_API_KEY in .env",
-      };
+      geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
     }
 
     if (geminiApiKey) {
@@ -502,7 +472,7 @@ export function registerMotionCommand(aiCommand: Command): void {
 
         const shouldRender = options.render || !!options.video || !!options.image;
 
-        const spinner = ora("Generating motion graphic...").start();
+        const spinner = createSpinner("Generating motion graphic...").start();
         if (options.image) {
           spinner.text = "Analyzing image with Gemini...";
         } else if (options.video && options.understand !== "off") {
@@ -564,9 +534,7 @@ export function registerMotionCommand(aiCommand: Command): void {
 
         console.log();
       } catch (error) {
-        exitWithError(
-          generalError(error instanceof Error ? error.message : "Motion generation failed")
-        );
+        exitWithError(failureFromError(error, undefined, { fallback: "general" }));
       }
     });
 }

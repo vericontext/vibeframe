@@ -3,11 +3,12 @@ import { existsSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
 import { executeMotion, type MotionCommandOptions } from "../ai-motion.js";
 import { ffprobeDuration } from "../../utils/exec-safe.js";
 import { renderLottieOverlay, type LottiePosition } from "./lottie-overlay.js";
 import {
+  failureFromError,
+  spinner as createSpinner,
   apiError,
   generalError,
   isJsonMode,
@@ -230,7 +231,7 @@ export function registerMotionOverlayCommand(parent: Command): void {
           return;
         }
 
-        const spinner = ora(parsed.asset ? "Applying Lottie motion overlay..." : "Generating motion overlay...").start();
+        const spinner = createSpinner(parsed.asset ? "Applying Lottie motion overlay..." : "Generating motion overlay...").start();
         const result = await executeMotionOverlay(parsed);
         if (!result.success) {
           spinner.fail(result.error ?? "Motion overlay failed");
@@ -259,7 +260,7 @@ export function registerMotionOverlayCommand(parent: Command): void {
         if (result.outputPath) console.log(chalk.green(`  Output: ${result.outputPath}`));
         console.log();
       } catch (error) {
-        exitWithError(generalError(error instanceof Error ? error.message : "Motion overlay failed"));
+        exitWithError(failureFromError(error, undefined, { fallback: "general" }));
       }
     });
 }

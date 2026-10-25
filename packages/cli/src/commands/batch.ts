@@ -2,10 +2,9 @@ import { Command } from "commander";
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import { resolve, basename, extname, join } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-import { exitWithError, generalError, outputSuccess, usageError } from "./output.js";
+import { spinner as createSpinner, exitWithError, generalError, outputSuccess, usageError } from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
 export const batchCommand = new Command("batch")
@@ -52,7 +51,7 @@ batchCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, directory: string, options) => {
     const startedAt = Date.now();
-    const spinner = ora("Scanning directory...").start();
+    const spinner = createSpinner("Scanning directory...").start();
 
     try {
       if (options.dryRun) {
@@ -167,7 +166,7 @@ batchCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, sourceIds: string[], options) => {
     const startedAt = Date.now();
-    const spinner = ora("Creating clips...").start();
+    const spinner = createSpinner("Creating clips...").start();
 
     try {
       if (options.dryRun) {
@@ -285,7 +284,7 @@ batchCommand
       options
     ) => {
       const startedAt = Date.now();
-      const spinner = ora("Applying effects...").start();
+      const spinner = createSpinner("Applying effects...").start();
 
       try {
         if (options.dryRun) {
@@ -382,7 +381,7 @@ batchCommand
   .option("--dry-run", "Preview parameters without executing")
   .action(async (projectPath: string, clipIds: string[], options) => {
     const startedAt = Date.now();
-    const spinner = ora("Removing clips...").start();
+    const spinner = createSpinner("Removing clips...").start();
 
     try {
       if (options.dryRun) {
@@ -458,7 +457,7 @@ batchCommand
   .description("Show batch processing statistics")
   .argument("<project>", "Timeline file or directory")
   .action(async (projectPath: string) => {
-    const spinner = ora("Loading project...").start();
+    const spinner = createSpinner("Loading project...").start();
 
     try {
       const filePath = resolve(process.cwd(), projectPath);

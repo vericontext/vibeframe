@@ -10,6 +10,7 @@
 import { existsSync } from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { requireConfiguredApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
 import { transcribeAudioFile } from "../transcription.js";
@@ -149,14 +150,8 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
     };
   }
 
-  const openaiKey = apiKey || process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    return {
-      success: false,
-      error:
-        "OpenAI API key required for Whisper transcription. Run 'vibe setup' or set OPENAI_API_KEY in .env",
-    };
-  }
+  // A missing key throws ApiKeyError (API_KEY_MISSING) before any work.
+  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI", apiKey);
 
   try {
     const tmpDir = `/tmp/vibe_jumpcut_${Date.now()}`;

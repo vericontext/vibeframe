@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { loadConfig, getApiKeyFromConfig } from "../config/index.js";
+import { ApiKeyError } from "./api-key-error.js";
 
 export type UploadHostProvider = "imgbb" | "s3";
 
@@ -241,7 +242,7 @@ export async function resolveUploadHost(): Promise<UploadHost> {
     async uploadImage(imageBuffer) {
       const imgbbKey = (await getApiKeyFromConfig("imgbb")) || process.env.IMGBB_API_KEY;
       if (!imgbbKey) {
-        throw new Error("IMGBB_API_KEY required for image-to-video uploads.");
+        throw new ApiKeyError("IMGBB_API_KEY", "ImgBB");
       }
       // ImgBB keeps uploads forever unless told otherwise; expire them with
       // the configured TTL.
