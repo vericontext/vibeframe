@@ -23,6 +23,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { contractQuality, openImageGenerator, readImageInput, saveImage } from "./_shared/image-jobs.js";
+import { numberedPath } from "./_shared/default-output.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 
 // ============================================================================
@@ -56,12 +57,6 @@ export interface ImageGenerateResult {
   model?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
-}
-
-/** `out.png` → `out-2.png`. */
-function numberedPath(path: string, n: number): string {
-  const dot = path.lastIndexOf(".");
-  return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)}-${n}${path.slice(dot)}` : `${path}-${n}`;
 }
 
 function imageFailure(error: unknown, prefix: string, provider?: string): ImageGenerateResult {

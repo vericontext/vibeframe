@@ -502,7 +502,7 @@ Cost tier: `high`
 - `prompt` _(string)_ - Image description prompt (interactive if omitted)
 - `provider` _(string)_ _(openai \| gemini \| grok)_ - Provider: openai (default when OPENAI_API_KEY set), gemini, grok
 - `apiKey` _(string)_ - API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY)
-- `output` _(string)_ - Output file path
+- `output` _(string)_ - Output file path (default: image.png, or the next free image-N.png)
 - `ratio` _(string)_ _(default: `"1:1"`)_ - Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)
 - `size` _(string)_ - Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)
 - `quality` _(string)_ _(low \| medium \| high)_ - Quality: low, medium, high (OpenAI and Grok; standard/hd still accepted)
@@ -610,7 +610,7 @@ Cost tier: `free`
 
 - `description` _(string)_ - Thumbnail description (for image generation)
 - `apiKey` _(string)_ - API key (OpenAI for generation, Google for best-frame)
-- `output` _(string)_ - Output file path
+- `output` _(string)_ - Output file path (default: thumbnail.png or the next free thumbnail-N.png; <video>-thumbnail.png with --best-frame)
 - `style` _(string)_ _(youtube \| instagram \| tiktok \| twitter)_ - Platform style: youtube, instagram, tiktok, twitter
 - `bestFrame` _(string)_ - Extract best thumbnail frame from video using Gemini AI
 - `prompt` _(string)_ - Custom prompt for best-frame analysis
@@ -629,7 +629,7 @@ Cost tier: `very-high`
 - `prompt` _(string)_ - Text prompt describing the video (interactive if omitted)
 - `provider` _(string)_ _(seedance \| grok \| kling \| runway \| omni)_ - Provider: seedance (ByteDance Seedance 2.0 via fal.ai), grok, kling, runway, omni (Gemini Omni 1.1 Flash)
 - `apiKey` _(string)_ - API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
-- `output` _(string)_ - Output file path (downloads video)
+- `output` _(string)_ - Output file path (default: video.mp4, or the next free video-N.mp4)
 - `image` _(string)_ - Reference image for image-to-video
 - `duration` _(number)_ _(default: `5`)_ - Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1)_ - Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)
@@ -679,7 +679,7 @@ Cost tier: `very-high`
 - `task-id` _(string)_ **required** - Task ID the generation returned
 - `provider` _(string)_ _(kling \| grok \| omni)_ _(default: `"kling"`)_ - Provider: kling, grok, omni
 - `apiKey` _(string)_ - API key for the provider
-- `output` _(string)_ - Output file path
+- `output` _(string)_ - Output file path (default: video-extended.mp4, or the next free video-extended-N.mp4)
 - `prompt` _(string)_ - Continuation prompt
 - `duration` _(number)_ _(default: `5`)_ - Seconds to add: 5 or 10 (Kling), 2-10 (Grok); Omni picks its own
 - `negative` _(string)_ - Negative prompt (what to avoid, Kling only)
