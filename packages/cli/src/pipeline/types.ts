@@ -44,16 +44,12 @@ export type PipelineAction =
   | "analyze-media"
   // Review
   | "review-video"
-  // Scene composition (v0.59+)
-  | "compose-scenes-with-skills"
-  // Scene end-to-end (v0.62+) — STORYBOARD frontmatter cues drive
+  // Scene end-to-end (v0.62+) - STORYBOARD frontmatter cues drive
   // primitive dispatch, then compose, then render to MP4 in one action.
   | "scene-build"
-  // Scene render-only (v0.62+) — for pipelines that compose elsewhere
+  // Scene render-only (v0.62+) - for pipelines that compose elsewhere
   // and just need the Hyperframes producer pass at the end.
-  | "scene-render"
-  // Meta
-  | "export";
+  | "scene-render";
 
 /** A single step in the pipeline */
 export interface PipelineStep {

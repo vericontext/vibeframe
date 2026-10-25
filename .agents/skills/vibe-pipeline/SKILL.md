@@ -91,10 +91,15 @@ Keep this in sync with `packages/cli/src/pipeline/types.ts` and
 - Detect: `detect-scenes`, `detect-silence`, `detect-beats`
 - Analyze/review: `analyze-video`, `analyze-media`, `review-video`
 - Scene: `scene-build`, `scene-render`
-- Legacy/meta: `export`
 
-If unsure, read the executor source. There is no public `vibe run
---list-actions` command.
+Each step names its main input `input` and its file `output` (relative to
+the output directory); other parameters follow the matching `vibe` command
+or MCP tool. If unsure, read the executor source. There is no public
+`vibe run --list-actions` command.
+
+`vibe run` refuses an unknown action before any step runs (exit 2). A run
+with a failed step exits 1 with the per-step report in the error's `data`;
+fix the step and rerun with `--resume`.
 
 ## Running
 
