@@ -20,7 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       # `contents: write` lets the gh-release step create the GitHub
-      # Release. `id-token: write` is preserved for npm provenance.
+      # Release. `id-token: write` is the npm Trusted Publishing credential:
+      # npm exchanges this workflow's OIDC token for a one-time publish
+      # token, so there is no long-lived NPM_TOKEN, and provenance is
+      # attached automatically.
       contents: write
       id-token: write
 
@@ -76,6 +79,10 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      # Trusted Publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -106,27 +113,30 @@ jobs:
           pnpm -F @vibeframe/mcp-server build:mcpb
           cp packages/mcp-server/dist-mcpb/vibeframe-*.mcpb packages/mcp-server/dist-mcpb/vibeframe.mcpb
 
+      # pnpm packs (it rewrites `workspace:*` to real versions), npm
+      # publishes: pnpm 9 cannot do the Trusted Publishing OIDC exchange.
+      - name: Pack packages
+        run: |
+          mkdir -p /tmp/packs
+          (cd packages/mcp-server && pnpm pack --pack-destination /tmp/packs)
+          (cd packages/cli && pnpm pack --pack-destination /tmp/packs)
+          ls -l /tmp/packs
+
       # Dry-run both packages first to catch errors before any real publish
       - name: Validate publish (dry-run)
         run: |
-          pnpm -F @vibeframe/mcp-server publish --access public --no-git-checks --dry-run
-          pnpm -F @vibeframe/cli publish --access public --no-git-checks --dry-run
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish /tmp/packs/vibeframe-mcp-server-*.tgz --access public --dry-run
+          npm publish /tmp/packs/vibeframe-cli-*.tgz --access public --dry-run
 
-      # Publish both — if one fails, the other may have succeeded.
+      # Publish both - if one fails, the other may have succeeded.
       # Re-running the workflow is safe: npm ignores already-published versions.
       - name: Publish @vibeframe/mcp-server
         if: ${{ !inputs.dry-run }}
-        run: pnpm -F @vibeframe/mcp-server publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish /tmp/packs/vibeframe-mcp-server-*.tgz --access public
 
       - name: Publish @vibeframe/cli
         if: ${{ !inputs.dry-run }}
-        run: pnpm -F @vibeframe/cli publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish /tmp/packs/vibeframe-cli-*.tgz --access public
 
       # ── GitHub Release ─────────────────────────────────────────────────
       # Auto-creates a GitHub Release for every pushed tag, with the
