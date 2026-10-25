@@ -17,7 +17,6 @@
 import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import type { AspectRatio } from "@vibeframe/core/timeline";
 
 import { Project, type ProjectFile } from "../../engine/index.js";
@@ -28,6 +27,7 @@ import {
   LEGACY_TIMELINE_FILENAME,
 } from "../../utils/project-resolver.js";
 import {
+  spinner as createSpinner,
   exitWithError,
   generalError,
   isJsonMode,
@@ -101,7 +101,7 @@ export async function executeTimelineCreate(
   defaultFilename: string = TIMELINE_FILENAME,
   createDirectoryByDefault: boolean = true,
 ): Promise<void> {
-  const spinner = ora("Creating timeline...").start();
+  const spinner = createSpinner("Creating timeline...").start();
 
   try {
     if (options.output) {
@@ -179,7 +179,7 @@ export async function executeTimelineInfo(
   commandName: string,
   startedAt: number,
 ): Promise<void> {
-  const spinner = ora("Loading timeline...").start();
+  const spinner = createSpinner("Loading timeline...").start();
 
   try {
     const { project } = await loadProject(file);
@@ -235,7 +235,7 @@ export async function executeTimelineSet(
   commandName: string,
   startedAt: number,
 ): Promise<void> {
-  const spinner = ora("Updating timeline...").start();
+  const spinner = createSpinner("Updating timeline...").start();
 
   try {
     if (options.dryRun) {

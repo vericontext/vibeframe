@@ -22,6 +22,7 @@ import {
   type VideoRequest,
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
+import { ApiKeyError } from "../utils/api-key.js";
 import { videoModelSpec } from "../utils/model-lifecycle.js";
 import {
   fileToUrlOrDataUri,
@@ -43,6 +44,8 @@ async function saveOutput(output: string, bytes: Uint8Array): Promise<string> {
 
 /** A failed result from a thrown error, keeping the provider error kind. */
 function failure(error: unknown, prefix: string): { success: false; error: string; errorKind?: ProviderErrorKind } {
+  // A missing key is not a provider failure; the caller reports it as API_KEY_MISSING.
+  if (error instanceof ApiKeyError) throw error;
   if (isProviderError(error)) return { success: false, error: error.message, errorKind: error.kind };
   return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}` };
 }

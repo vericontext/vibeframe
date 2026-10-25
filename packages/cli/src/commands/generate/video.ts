@@ -11,20 +11,20 @@ import type { Command } from "commander";
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import chalk from "chalk";
-import ora from "ora";
 import imageSize from "image-size";
 import { estimateSeedanceVideoCostUsd, modelAliases, resolveSeedanceVariant } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { checkModelLifecycle, videoModelSpec } from "../../utils/model-lifecycle.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
+  spinner as createSpinner,
+  failureFromError,
   isJsonMode,
   lookupCostEstimateUpperBound,
   outputSuccess,
   printWarnings,
   log,
   exitWithError,
-  apiError,
   providerFailure,
   usageError,
 } from "../output.js";
@@ -33,15 +33,7 @@ import { defaultOutputPath } from "../_shared/default-output.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeVideoGenerate, type VideoGenerateOptions } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
-import { VIDEO_PROVIDER_ENV } from "../_shared/video-jobs.js";
-
-const PROVIDER_LABELS: Readonly<Record<string, string>> = {
-  seedance: "Seedance via fal.ai",
-  grok: "Grok Imagine",
-  kling: "Kling",
-  runway: "Runway",
-  omni: "Gemini Omni 1.1 Flash",
-};
+import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS } from "../_shared/video-jobs.js";
 
 export function registerVideoCommand(parent: Command): void {
   parent
@@ -263,7 +255,7 @@ Examples:
         // ...): provider URLs expire, and a --no-wait job downloads here too.
         const output: string = options.output ?? defaultOutputPath("video.mp4");
         const apiKey = await requireApiKey(VIDEO_PROVIDER_ENV[provider], providerLabel, options.apiKey);
-        const spinner = isJsonMode() ? null : ora(`Starting ${providerLabel} video generation...`).start();
+        const spinner = isJsonMode() ? null : createSpinner(`Starting ${providerLabel} video generation...`).start();
 
         const result = await executeVideoGenerate({
           prompt,
@@ -366,7 +358,7 @@ Examples:
         if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
         console.log();
       } catch (error) {
-        exitWithError(apiError(`Video generation failed: ${(error as Error).message}`));
+        exitWithError(failureFromError(error, "Video generation failed"));
       }
     });
 }

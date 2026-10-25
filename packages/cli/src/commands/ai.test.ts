@@ -213,24 +213,10 @@ describe("CLI command groups", () => {
       expect(output).toContain("--no-wait");
     });
 
-    it("requires API key or shows error", () => {
-      try {
-        const output = execSync(`${CLI} generate music "upbeat electronic" --no-wait`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          env: { ...process.env, REPLICATE_API_TOKEN: undefined },
-          // 30s rather than 10s — the CLI spawn cold-starts the entire ESM
-          // dependency graph (puppeteer, ffmpeg helpers, Anthropic SDK, etc.)
-          // which can exceed 10s under full-suite parallel load.
-          timeout: 30000,
-        });
-        expect(output).toBeTruthy();
-      } catch (error: unknown) {
-        const execError = error as { stderr?: string; stdout?: string };
-        const errorOutput = execError.stderr || execError.stdout || "";
-        expect(errorOutput.toLowerCase()).toMatch(/api|key|token|replicate/i);
-      }
-    });
+    // The missing-key path is covered with an isolated HOME and cwd in
+    // missing-key-cli.test.ts. A run from the repo picks up the developer's
+    // .env, and with an ElevenLabs key this used to generate (and pay for)
+    // real music on every local integration run.
   });
 
   describe("audio dub", () => {

@@ -8,12 +8,12 @@
 
 import type { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
 import { findModel, getProvidersFor, modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { checkModelLifecycle } from "../../utils/model-lifecycle.js";
 import {
+  spinner as createSpinner,
   isJsonMode,
   outputSuccess,
   printWarnings,
@@ -135,7 +135,7 @@ Examples:
 
       const label = IMAGE_PROVIDER_LABELS[provider] ?? provider;
       const apiKey = await requireApiKey(IMAGE_PROVIDER_ENV[provider], label, options.apiKey);
-      const spinner = isJsonMode() ? null : ora(`Generating image with ${label} ${modelSpec.label}...`).start();
+      const spinner = isJsonMode() ? null : createSpinner(`Generating image with ${label} ${modelSpec.label}...`).start();
       const result = await executeImageGenerate({
         prompt,
         provider,

@@ -18,19 +18,19 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
 import { ElevenLabsProvider } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { formatTime } from "./ai-helpers.js";
 import {
+  spinner as createSpinner,
+  failureFromError,
   isJsonMode,
   outputSuccess,
   exitWithError,
   notFoundError,
   usageError,
-  apiError,
   generalError,
   providerFailure,
 } from "./output.js";
@@ -82,7 +82,7 @@ audioCommand
       exitWithError(notFoundError(resolve(process.cwd(), audioPath)));
     }
     const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-    const spinner = isJsonMode() ? null : ora("Transcribing...").start();
+    const spinner = isJsonMode() ? null : createSpinner("Transcribing...").start();
     const result = await executeTranscribe({
       audioPath,
       language: options.language,
@@ -142,7 +142,7 @@ audioCommand
     try {
       const apiKey = await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
 
-      const spinner = ora("Fetching voices...").start();
+      const spinner = createSpinner("Fetching voices...").start();
       const elevenlabs = new ElevenLabsProvider();
       await elevenlabs.initialize({ apiKey });
 
@@ -176,8 +176,7 @@ audioCommand
       }
       console.log();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(apiError(`Failed to fetch voices: ${msg}`, true));
+      exitWithError(failureFromError(error, "Failed to fetch voices", { retryable: true }));
     }
   });
 
@@ -201,7 +200,7 @@ audioCommand
       exitWithError(notFoundError(resolve(process.cwd(), audioPath)));
     }
     const apiKey = await requireApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
-    const spinner = isJsonMode() ? null : ora("Isolating vocals...").start();
+    const spinner = isJsonMode() ? null : createSpinner("Isolating vocals...").start();
     const result = await executeIsolate({ audioPath, output: options.output, apiKey });
     if (!result.success) {
       spinner?.fail(result.error ?? "Audio isolation failed");
@@ -246,7 +245,7 @@ audioCommand
     if (options.list) {
       const elevenlabs = new ElevenLabsProvider();
       await elevenlabs.initialize({ apiKey });
-      const spinner = ora("Fetching voices...").start();
+      const spinner = createSpinner("Fetching voices...").start();
       const voices = await elevenlabs.getVoices();
       spinner.succeed(chalk.green(`Found ${voices.length} voices`));
       console.log();
@@ -276,7 +275,7 @@ audioCommand
       exitWithError(usageError(`--labels is not valid JSON: ${options.labels}`));
     }
 
-    const spinner = isJsonMode() ? null : ora(`Cloning voice from ${samples.length} sample(s)...`).start();
+    const spinner = isJsonMode() ? null : createSpinner(`Cloning voice from ${samples.length} sample(s)...`).start();
     const result = await executeVoiceClone({
       samplePaths: samples,
       name: options.name,
@@ -334,7 +333,7 @@ audioCommand
     // Whisper needs OpenAI; translation uses Claude when its key is set, else OpenAI.
     await requireApiKey("OPENAI_API_KEY", "OpenAI");
 
-    const spinner = isJsonMode() ? null : ora("Transcribing, translating, and dubbing...").start();
+    const spinner = isJsonMode() ? null : createSpinner("Transcribing, translating, and dubbing...").start();
     const result = await executeDub({
       mediaPath,
       language: options.language,
@@ -434,7 +433,7 @@ audioCommand
         );
       }
 
-      const spinner = ora("Processing audio ducking...").start();
+      const spinner = createSpinner("Processing audio ducking...").start();
 
       const absMusic = resolve(process.cwd(), musicPath);
       const absVoice = resolve(process.cwd(), options.voice);

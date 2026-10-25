@@ -5,6 +5,9 @@ import { dirname, resolve } from "node:path";
 import { config } from "dotenv";
 import chalk from "chalk";
 import { getApiKeyFromConfig, PROVIDER_ENV_ALIASES } from "../config/index.js";
+import { ApiKeyError } from "./api-key-error.js";
+
+export { ApiKeyError };
 
 const PROVIDER_KEY_BY_ENV_VAR: Record<string, string> = {
   ANTHROPIC_API_KEY: "anthropic",
@@ -188,6 +191,23 @@ export async function getConfiguredApiKey(
   return getEnvValue(envVar);
 }
 
+/**
+ * Like {@link getConfiguredApiKey}, but a missing key throws
+ * {@link ApiKeyError} (`API_KEY_MISSING`). Never prompts, so executors shared
+ * by the CLI, MCP tools, and pipelines use it to fail the same way on every
+ * surface before any provider spend.
+ */
+export async function requireConfiguredApiKey(
+  envVar: string,
+  providerName: string,
+  optionValue?: string,
+  options: { cwd?: string } = {}
+): Promise<string> {
+  const key = await getConfiguredApiKey(envVar, optionValue, options);
+  if (!key) throw new ApiKeyError(envVar, providerName);
+  return key;
+}
+
 /** True when a key exists in CLI override, config.yaml, .env, or env. */
 export async function hasConfiguredApiKey(
   envVar: string,
@@ -195,60 +215,6 @@ export async function hasConfiguredApiKey(
   options: { cwd?: string } = {}
 ): Promise<boolean> {
   return Boolean(await getConfiguredApiKey(envVar, optionValue, options));
-}
-
-/**
- * Error thrown when a required API key is missing (non-interactive mode)
- */
-/** URLs where users can obtain API keys */
-const API_KEY_URLS: Record<string, string> = {
-  GOOGLE_API_KEY: "https://aistudio.google.com/apikey",
-  OPENAI_API_KEY: "https://platform.openai.com/api-keys",
-  ANTHROPIC_API_KEY: "https://console.anthropic.com/settings/keys",
-  XAI_API_KEY: "https://console.x.ai",
-  ELEVENLABS_API_KEY: "https://elevenlabs.io/app/settings/api-keys",
-  FAL_API_KEY: "https://fal.ai/dashboard/keys",
-  RUNWAY_API_SECRET: "https://app.runwayml.com/settings/api-keys",
-  KLING_API_KEY: "https://klingai.com/dev",
-  REPLICATE_API_TOKEN: "https://replicate.com/account/api-tokens",
-  IMGBB_API_KEY: "https://api.imgbb.com/",
-};
-
-export class ApiKeyError extends Error {
-  public envVar: string;
-  public providerName: string;
-
-  constructor(envVar: string, providerName: string) {
-    const keyUrl = API_KEY_URLS[envVar];
-    const urlHint = keyUrl ? `\n  Get key: ${keyUrl}` : "";
-    super(
-      `${providerName} API key required.\n` +
-        `  Set ${envVar} in .env, or run: vibe setup${urlHint}`
-    );
-    this.name = "ApiKeyError";
-    this.envVar = envVar;
-    this.providerName = providerName;
-  }
-
-  toStructured(): {
-    success: false;
-    error: string;
-    code: string;
-    exitCode: number;
-    suggestion: string;
-    retryable: false;
-  } {
-    const keyUrl = API_KEY_URLS[this.envVar];
-    const urlHint = keyUrl ? ` Get key: ${keyUrl}` : "";
-    return {
-      success: false as const,
-      error: `${this.providerName} API key required.`,
-      code: "API_KEY_MISSING",
-      exitCode: 4,
-      suggestion: `Set ${this.envVar} in .env, or run: vibe setup. Check available features: vibe doctor --json.${urlHint}`,
-      retryable: false as const,
-    };
-  }
 }
 
 /**

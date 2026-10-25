@@ -16,7 +16,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
-import { getApiKey } from "../utils/api-key.js";
+import { requireApiKey } from "../utils/api-key.js";
 
 /** Options for {@link executeGeminiVideo}. */
 export interface GeminiVideoOptions {
@@ -66,11 +66,9 @@ export interface GeminiVideoResult {
 export async function executeGeminiVideo(
   options: GeminiVideoOptions
 ): Promise<GeminiVideoResult> {
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
   try {
-    const apiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-    if (!apiKey) {
-      return { success: false, error: "Google API key required. Run 'vibe setup' or set GOOGLE_API_KEY in .env" };
-    }
 
     const isYouTube = options.source.includes("youtube.com") || options.source.includes("youtu.be");
 
@@ -168,11 +166,9 @@ export interface AnalyzeResult {
 export async function executeAnalyze(
   options: AnalyzeOptions
 ): Promise<AnalyzeResult> {
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
   try {
-    const apiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-    if (!apiKey) {
-      return { success: false, error: "Google API key required. Run 'vibe setup' or set GOOGLE_API_KEY in .env" };
-    }
 
     const source = options.source;
 

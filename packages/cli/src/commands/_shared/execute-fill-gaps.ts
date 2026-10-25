@@ -13,9 +13,9 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile, mkdir, rename as renameFs } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
-import { waitForVideoJob, type VideoGenerator, type VideoRequest } from "@vibeframe/ai-providers";
+import { waitForVideoJob, type ProviderErrorKind, type VideoGenerator, type VideoRequest } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../../engine/index.js";
-import { getApiKey } from "../../utils/api-key.js";
+import { ApiKeyError, requireApiKey } from "../../utils/api-key.js";
 import { resolveUploadHost, type UploadHost } from "../../utils/upload-host.js";
 import { execSafe, ffprobeDuration } from "../../utils/exec-safe.js";
 import { resolveTimelineFile } from "../../utils/project-resolver.js";
@@ -59,6 +59,8 @@ export interface ExecuteFillGapsResult {
   success: boolean;
   /** Error message on failure. */
   error?: string;
+  /** Why it failed, when known (`invalid-request`: the input is not a timeline). */
+  errorKind?: ProviderErrorKind;
   /** Human-readable status lines (CLI prints; manifest joins). */
   humanLines: string[];
   /** Per-gap analysis (always populated when success=true). */
@@ -224,7 +226,18 @@ export async function executeFillGaps(
     }
 
     const content = await readFile(filePath, "utf-8");
-    const data: ProjectFile = JSON.parse(content);
+    let data: ProjectFile;
+    try {
+      data = JSON.parse(content);
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      return {
+        success: false,
+        error: `Not a timeline project: ${filePath}. Pass a timeline.json file or a directory that contains one.`,
+        errorKind: "invalid-request",
+        humanLines,
+      };
+    }
     const project = Project.fromJSON(data);
 
     const clips = project.getClips().sort((a, b) => a.startTime - b.startTime);
@@ -357,15 +370,8 @@ export async function executeFillGaps(
       };
     }
 
-    // Get Kling API key
-    const apiKey = options.apiKey || (await getApiKey("KLING_API_KEY", "Kling", undefined));
-    if (!apiKey) {
-      return {
-        success: false,
-        error: "KLING_API_KEY required for AI video generation",
-        humanLines,
-      };
-    }
+    // Get Kling API key (a missing key throws ApiKeyError: API_KEY_MISSING)
+    const apiKey = await requireApiKey("KLING_API_KEY", "Kling", options.apiKey);
 
     const kling = await openVideoGenerator("kling", apiKey);
 
@@ -616,6 +622,8 @@ export async function executeFillGaps(
       outputPath,
     };
   } catch (error) {
+    // A missing key is not a fill-gaps failure; let the caller report it.
+    if (error instanceof ApiKeyError) throw error;
     return {
       success: false,
       error: `Fill gaps failed: ${error instanceof Error ? error.message : String(error)}`,

@@ -27,16 +27,15 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
-import ora from "ora";
 import { ClaudeProvider, findModel, modelAliases } from "@vibeframe/ai-providers";
-import { requireApiKey } from "../utils/api-key.js";
+import { requireApiKey, requireConfiguredApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
 import { registerMotionOverlayCommand } from "./edit/motion-overlay.js";
-import { isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError, providerFailure } from "./output.js";
+import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError, providerFailure } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { executeImageEdit } from "./ai-image.js";
@@ -132,22 +131,20 @@ editCommand
         return;
       }
 
-      const spinner = ora("Analyzing color grade...").start();
+      // A custom style needs Claude; presets are built in. Resolve the key
+      // before any work so a missing key fails fast with API_KEY_MISSING.
+      const apiKey = options.preset
+        ? undefined
+        : await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
-      // Get API key if using style (not preset)
+      const spinner = createSpinner("Analyzing color grade...").start();
+
       let gradeResult: { ffmpegFilter: string; description: string };
 
-      if (options.preset) {
+      if (!apiKey) {
         const claude = new ClaudeProvider();
         gradeResult = await claude.analyzeColorGrade("", options.preset);
       } else {
-        let apiKey: string;
-        try {
-          apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
-        } catch (err) {
-          spinner.fail((err as Error).message);
-          return;
-        }
         const claude = new ClaudeProvider();
         await claude.initialize({ apiKey });
         gradeResult = await claude.analyzeColorGrade(options.style);
@@ -201,7 +198,7 @@ editCommand
       console.log(chalk.green(`Output: ${outputPath}`));
       console.log();
     } catch (error) {
-      exitWithError(apiError(`Color grading failed: ${(error as Error).message}`));
+      exitWithError(failureFromError(error, "Color grading failed"));
     }
   });
 
@@ -263,7 +260,7 @@ editCommand
         ? resolve(process.cwd(), options.output)
         : absPath.replace(/(\.[^.]+)$/, "-overlay$1");
 
-      const spinner = ora("Applying text overlays...").start();
+      const spinner = createSpinner("Applying text overlays...").start();
 
       const result = await applyTextOverlays({
         videoPath: absPath,
@@ -360,7 +357,7 @@ editCommand
       const absPath = resolve(process.cwd(), videoPath);
 
       // Step 1: Check for audio stream
-      const spinner = ora("Extracting audio...").start();
+      const spinner = createSpinner("Extracting audio...").start();
 
       const { stdout: speedRampProbe } = await execSafe("ffprobe", [
         "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
@@ -470,8 +467,7 @@ editCommand
       console.log(chalk.dim(`Average speed: ${avgSpeed.toFixed(2)}x`));
       console.log();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Speed ramping failed: ${msg}`));
+      exitWithError(failureFromError(error, "Speed ramping failed", { fallback: "general" }));
     }
   });
 
@@ -517,10 +513,11 @@ editCommand
         return;
       }
 
+      const apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
       const absPath = resolve(process.cwd(), videoPath);
 
       // Get video dimensions
-      const spinner = ora("Analyzing video...").start();
+      const spinner = createSpinner("Analyzing video...").start();
 
       const { stdout: probeOut } = await execSafe("ffprobe", [
         "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0", absPath,
@@ -541,14 +538,6 @@ editCommand
 
       await execSafe("ffmpeg", ["-i", absPath, "-vf", `fps=1/${keyframeInterval}`, "-frame_pts", "1", `${tempDir}/frame-%04d.jpg`, "-y"]);
 
-      // Get API key
-      let apiKey: string;
-      try {
-        apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
-      } catch (err) {
-        spinner.fail((err as Error).message);
-        return;
-      }
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });
 
@@ -673,9 +662,7 @@ editCommand
       console.log(chalk.dim(`Crop: ${cropWidth}x${cropHeight} at (${avgCropX}, ${avgCropY})`));
       console.log();
     } catch (error) {
-      console.error(chalk.red("Reframe failed"));
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Reframe failed: ${msg}`));
+      exitWithError(failureFromError(error, "Reframe failed", { fallback: "general" }));
     }
   });
 
@@ -732,7 +719,7 @@ editCommand
 
     const label = IMAGE_PROVIDER_LABELS[provider];
     const apiKey = await requireApiKey(IMAGE_PROVIDER_ENV[provider], label, options.apiKey);
-    const spinner = isJsonMode() ? null : ora(`Editing ${imagePaths.length} image(s) with ${label} ${modelSpec.label}...`).start();
+    const spinner = isJsonMode() ? null : createSpinner(`Editing ${imagePaths.length} image(s) with ${label} ${modelSpec.label}...`).start();
     const result = await executeImageEdit({
       imagePaths,
       prompt,
@@ -810,7 +797,7 @@ editCommand
         ? resolve(process.cwd(), options.output)
         : absPath.replace(/(\.[^.]+)$/, `-slow${factor}x$1`);
 
-      const spinner = ora(`Creating ${factor}x slow motion...`).start();
+      const spinner = createSpinner(`Creating ${factor}x slow motion...`).start();
 
       try {
         // Get original FPS
@@ -919,7 +906,7 @@ editCommand
           ? resolve(process.cwd(), options.output)
           : absPath.replace(/(\.[^.]+)$/, `-upscaled-${scale}x$1`);
 
-        const spinner = ora(`Upscaling video with FFmpeg (${scale}x)...`).start();
+        const spinner = createSpinner(`Upscaling video with FFmpeg (${scale}x)...`).start();
 
         try {
           // Get original dimensions
@@ -959,7 +946,7 @@ editCommand
       // Use Replicate API
       const apiKey = await requireApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
 
-      const spinner = ora("Initializing Replicate...").start();
+      const spinner = createSpinner("Initializing Replicate...").start();
 
       const { ReplicateProvider } = await import("@vibeframe/ai-providers");
       const replicate = new ReplicateProvider();
@@ -972,8 +959,7 @@ editCommand
       spinner.fail("Replicate requires a video URL");
       exitWithError(usageError("Replicate requires a video URL", "Use --ffmpeg for local processing, or upload video to a URL."));
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Video upscaling failed: ${msg}`));
+      exitWithError(failureFromError(error, "Video upscaling failed", { fallback: "general" }));
     }
   });
 
@@ -1028,20 +1014,20 @@ export interface GradeResult {
 
 export async function executeGrade(options: GradeOptions): Promise<GradeResult> {
   const { videoPath, style, preset, output, analyzeOnly, apiKey } = options;
+  if (!style && !preset) return { success: false, error: "Either style or preset is required" };
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const key = preset ? undefined : await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", apiKey);
 
   try {
-    if (!style && !preset) return { success: false, error: "Either style or preset is required" };
     if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
 
     const absPath = resolve(process.cwd(), videoPath);
     let gradeResult: { ffmpegFilter: string; description: string };
 
-    if (preset) {
+    if (!key) {
       const claude = new ClaudeProvider();
       gradeResult = await claude.analyzeColorGrade("", preset);
     } else {
-      const key = apiKey || process.env.ANTHROPIC_API_KEY;
-      if (!key) return { success: false, error: "ANTHROPIC_API_KEY required for custom style grading" };
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey: key });
       gradeResult = await claude.analyzeColorGrade(style!);
@@ -1085,14 +1071,12 @@ export interface SpeedRampResult {
 
 export async function executeSpeedRamp(options: SpeedRampOptions): Promise<SpeedRampResult> {
   const { videoPath, output, style = "dramatic", minSpeed = 0.25, maxSpeed = 4.0, analyzeOnly, language, apiKey } = options;
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI");
+  const claudeKey = await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", apiKey);
 
   try {
     if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const claudeKey = apiKey || process.env.ANTHROPIC_API_KEY;
-    if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription" };
-    if (!claudeKey) return { success: false, error: "ANTHROPIC_API_KEY required for Claude analysis" };
 
     const absPath = resolve(process.cwd(), videoPath);
 

@@ -17,7 +17,6 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
 import {
   GeminiProvider,
   ClaudeProvider,
@@ -26,10 +25,10 @@ import {
   type HighlightsResult,
 } from "@vibeframe/ai-providers";
 import { Project } from "../engine/index.js";
-import { getApiKey } from "../utils/api-key.js";
+import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, outputSuccess, authError, notFoundError, apiError, generalError } from "./output.js";
+import { failureFromError, spinner as createSpinner, exitWithError, outputSuccess, notFoundError, apiError, generalError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
 
@@ -159,10 +158,7 @@ export async function executeHighlights(
     let sourceDuration = 0;
 
     if (options.useGemini && isVideo) {
-      const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-      if (!geminiApiKey) {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "Google API key required for Gemini Video Understanding. Run 'vibe setup' or set GOOGLE_API_KEY in .env" };
-      }
+      const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
       sourceDuration = await ffprobeDuration(absPath);
 
@@ -247,15 +243,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "Failed to parse Gemini response" };
       }
     } else {
-      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiApiKey) {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "OpenAI API key required for Whisper transcription. Run 'vibe setup' or set OPENAI_API_KEY in .env" };
-      }
-
-      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-      if (!claudeApiKey) {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "Anthropic API key required for highlight analysis. Run 'vibe setup' or set ANTHROPIC_API_KEY in .env" };
-      }
+      const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+      const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
       let audioPath = absPath;
       let tempAudioPath: string | null = null;
@@ -359,6 +348,8 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
     return extractResult;
   } catch (error) {
+    // A missing key is not a highlight failure; let the caller report it.
+    if (error instanceof ApiKeyError) throw error;
     return {
       success: false,
       highlights: [],
@@ -448,10 +439,7 @@ export async function executeAutoShorts(
     let highlights: Highlight[] = [];
 
     if (options.useGemini) {
-      const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-      if (!geminiApiKey) {
-        return { success: false, shorts: [], error: "Google API key required for Gemini Video Understanding. Run 'vibe setup' or set GOOGLE_API_KEY in .env" };
-      }
+      const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: geminiApiKey });
@@ -533,15 +521,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         return { success: false, shorts: [], error: "Failed to parse Gemini response" };
       }
     } else {
-      const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-      if (!openaiApiKey) {
-        return { success: false, shorts: [], error: "OpenAI API key required for transcription. Run 'vibe setup' or set OPENAI_API_KEY in .env" };
-      }
-
-      const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-      if (!claudeApiKey) {
-        return { success: false, shorts: [], error: "Anthropic API key required for highlight detection. Run 'vibe setup' or set ANTHROPIC_API_KEY in .env" };
-      }
+      const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+      const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
       await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
@@ -649,6 +630,8 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
     return result;
   } catch (error) {
+    // A missing key is not an auto-shorts failure; let the caller report it.
+    if (error instanceof ApiKeyError) throw error;
     return {
       success: false,
       shorts: [],
@@ -732,12 +715,9 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         let sourceDuration = 0;
 
         if (options.useGemini && isVideo) {
-          const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-          if (!geminiApiKey) {
-            exitWithError(authError("GOOGLE_API_KEY", "Google"));
-          }
+          const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
-          const durationSpinner = ora("📊 Analyzing video metadata...").start();
+          const durationSpinner = createSpinner("📊 Analyzing video metadata...").start();
           try {
             sourceDuration = await ffprobeDuration(absPath);
             durationSpinner.succeed(chalk.green(`Video duration: ${formatTime(sourceDuration)}`));
@@ -746,7 +726,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
             exitWithError(generalError("Failed to get video duration"));
           }
 
-          const geminiSpinner = ora("🎬 Analyzing video with Gemini (visual + audio)...").start();
+          const geminiSpinner = createSpinner("🎬 Analyzing video with Gemini (visual + audio)...").start();
 
           const gemini = new GeminiProvider();
           await gemini.initialize({ apiKey: geminiApiKey });
@@ -830,21 +810,15 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           geminiSpinner.succeed(chalk.green(`Found ${allHighlights.length} highlights via visual+audio analysis`));
         } else {
-          const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-          if (!openaiApiKey) {
-            exitWithError(authError("OPENAI_API_KEY", "OpenAI"));
-          }
+          const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
 
-          const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-          if (!claudeApiKey) {
-            exitWithError(authError("ANTHROPIC_API_KEY", "Anthropic"));
-          }
+          const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
           let audioPath = absPath;
           let tempAudioPath: string | null = null;
 
           if (isVideo) {
-            const audioSpinner = ora("🎵 Extracting audio from video...").start();
+            const audioSpinner = createSpinner("🎵 Extracting audio from video...").start();
             try {
               if (!commandExists("ffmpeg")) {
                 audioSpinner.fail("FFmpeg not found");
@@ -878,7 +852,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             }
           }
 
-          const transcribeSpinner = ora("📝 Transcribing with Whisper...").start();
+          const transcribeSpinner = createSpinner("📝 Transcribing with Whisper...").start();
 
           const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
 
@@ -902,7 +876,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             sourceDuration = transcriptResult.segments[transcriptResult.segments.length - 1].endTime;
           }
 
-          const analyzeSpinner = ora("🔍 Analyzing highlights with Claude...").start();
+          const analyzeSpinner = createSpinner("🔍 Analyzing highlights with Claude...").start();
 
           const claude = new ClaudeProvider();
           await claude.initialize({ apiKey: claudeApiKey });
@@ -926,7 +900,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           return;
         }
 
-        const filterSpinner = ora("📊 Filtering and ranking...").start();
+        const filterSpinner = createSpinner("📊 Filtering and ranking...").start();
         const threshold = parseFloat(options.threshold);
         const filteredHighlights = filterHighlights(allHighlights, { threshold, targetDuration, maxCount });
         const totalHighlightDuration = filteredHighlights.reduce((sum, h) => sum + h.duration, 0);
@@ -971,7 +945,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         }
 
         if (options.project) {
-          const projectSpinner = ora("📦 Creating project...").start();
+          const projectSpinner = createSpinner("📦 Creating project...").start();
           const project = new Project("Highlight Reel");
 
           const source = project.addSource({
@@ -1009,7 +983,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         console.log(chalk.bold.green("✅ Highlight extraction complete!"));
         console.log();
       } catch (error) {
-        exitWithError(apiError(`Highlight extraction failed: ${error instanceof Error ? error.message : String(error)}`, true));
+        exitWithError(failureFromError(error, "Highlight extraction failed", { retryable: true }));
       }
     });
 
@@ -1087,12 +1061,9 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         let highlights: Highlight[] = [];
 
         if (options.useGemini) {
-          const geminiApiKey = await getApiKey("GOOGLE_API_KEY", "Google");
-          if (!geminiApiKey) {
-            exitWithError(authError("GOOGLE_API_KEY", "Google"));
-          }
+          const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
-          const spinner = ora("🎬 Analyzing video with Gemini (visual + audio)...").start();
+          const spinner = createSpinner("🎬 Analyzing video with Gemini (visual + audio)...").start();
           const gemini = new GeminiProvider();
           await gemini.initialize({ apiKey: geminiApiKey });
           const videoBuffer = await readFile(absPath);
@@ -1175,17 +1146,11 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
           spinner.succeed(chalk.green(`Found ${highlights.length} potential shorts via visual+audio analysis`));
         } else {
-          const openaiApiKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-          if (!openaiApiKey) {
-            exitWithError(authError("OPENAI_API_KEY", "OpenAI"));
-          }
+          const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
 
-          const claudeApiKey = await getApiKey("ANTHROPIC_API_KEY", "Anthropic");
-          if (!claudeApiKey) {
-            exitWithError(authError("ANTHROPIC_API_KEY", "Anthropic"));
-          }
+          const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
-          const spinner = ora("Extracting audio...").start();
+          const spinner = createSpinner("Extracting audio...").start();
 
           const { stdout: autoShortsProbe } = await execSafe("ffprobe", [
             "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
@@ -1264,7 +1229,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
         for (let i = 0; i < selectedHighlights.length; i++) {
           const h = selectedHighlights[i];
-          const shortSpinner = ora(`Generating short ${i + 1}/${selectedHighlights.length}...`).start();
+          const shortSpinner = createSpinner(`Generating short ${i + 1}/${selectedHighlights.length}...`).start();
 
           let outputPath: string;
           if (shortCount === 1 && options.output) {
@@ -1316,7 +1281,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         console.log(chalk.bold.green(`Generated ${selectedHighlights.length} short(s)`));
         console.log();
       } catch (error) {
-        exitWithError(apiError(`Auto shorts failed: ${error instanceof Error ? error.message : String(error)}`, true));
+        exitWithError(failureFromError(error, "Auto shorts failed", { retryable: true }));
       }
     });
 }

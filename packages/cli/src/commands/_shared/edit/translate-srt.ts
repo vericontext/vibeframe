@@ -8,6 +8,7 @@
 
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
+import { ApiKeyError } from "../../../utils/api-key-error.js";
 import { formatSRT, parseSRT } from "../../../utils/subtitle.js";
 import { translateTexts } from "../translate-texts.js";
 
@@ -92,6 +93,8 @@ export async function executeTranslateSrt(
       targetLanguage,
     };
   } catch (error) {
+    // A missing key is not a translation failure; let the caller report it.
+    if (error instanceof ApiKeyError) throw error;
     return {
       success: false,
       error: `Translation failed: ${error instanceof Error ? error.message : String(error)}`,

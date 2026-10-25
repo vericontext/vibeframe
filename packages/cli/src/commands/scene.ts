@@ -26,7 +26,6 @@ import ora from "ora";
 import { createImageGenerator } from "@vibeframe/ai-providers";
 import {
   resolveTtsProvider,
-  TtsKeyMissingError,
   parseTtsProviderName,
   type TtsProviderName,
 } from "./_shared/tts-resolve.js";
@@ -56,8 +55,8 @@ import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/sc
 // `vibe render` and `vibe build` (top-level). The execute functions
 // themselves live in _shared/ and are still consumed by the top-level
 // commands and the manifest tools.
-import { exitWithError, generalError, usageError, outputSuccess, isJsonMode } from "./output.js";
-import { getApiKey } from "../utils/api-key.js";
+import { exitWithError, failureFromError, generalError, usageError, outputSuccess, isJsonMode } from "./output.js";
+import { getApiKey, requireApiKey } from "../utils/api-key.js";
 import { writeImageFile } from "../utils/image-file.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 import { getAudioDuration } from "../utils/audio.js";
@@ -656,8 +655,7 @@ sceneCommand
       console.log(`  ${chalk.cyan("vibe scene render")}    ${chalk.dim("# render to MP4")}`);
     } catch (error) {
       spinner?.fail(`Failed to add scene "${name}"`);
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(msg));
+      exitWithError(failureFromError(error, undefined, { fallback: "general" }));
     }
   });
 
@@ -883,15 +881,8 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
       narrationDuration = undefined;
     }
   } else if (narrationText && !opts.skipAudio) {
-    let resolution;
-    try {
-      resolution = await resolveTtsProvider(opts.tts ?? "auto");
-    } catch (error) {
-      if (error instanceof TtsKeyMissingError) {
-        return errResult(error.message);
-      }
-      throw error;
-    }
+    // A missing key throws TtsKeyMissingError (an ApiKeyError): API_KEY_MISSING.
+    const resolution = await resolveTtsProvider(opts.tts ?? "auto");
     opts.onProgress?.(
       resolution.provider === "kokoro"
         ? "Generating narration with Kokoro (local — first run downloads a ~90MB model)..."
@@ -966,10 +957,7 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
       return errResult(`Unsupported --image-provider: ${provider}. Valid: ${Object.keys(IMAGE_PROVIDER_ENV).join(", ")}.`);
     }
     const label = IMAGE_PROVIDER_LABELS[provider];
-    const apiKey = await getApiKey(IMAGE_PROVIDER_ENV[provider], label);
-    if (!apiKey) {
-      return errResult(`${label} API key required for --visuals --image-provider ${provider}. Set ${IMAGE_PROVIDER_ENV[provider]} or pass --no-image.`);
-    }
+    const apiKey = await requireApiKey(IMAGE_PROVIDER_ENV[provider], label);
     opts.onProgress?.(`Generating image with ${provider}...`);
     try {
       const generator = await createImageGenerator(provider, apiKey);

@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
 import { ClaudeProvider } from "@vibeframe/ai-providers";
 import { sanitizeLLMResponse } from "../sanitize.js";
+import { requireConfiguredApiKey } from "../../utils/api-key.js";
 
 // ── Library: executeStoryboard ──────────────────────────────────────────
 
@@ -37,9 +38,9 @@ export async function executeStoryboard(
 ): Promise<ExecuteStoryboardResult> {
   const { content, duration, creativity = "low", output, apiKey } = options;
 
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const key = await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", apiKey);
   try {
-    const key = apiKey || process.env.ANTHROPIC_API_KEY;
-    if (!key) return { success: false, error: "ANTHROPIC_API_KEY required" };
 
     const claude = new ClaudeProvider();
     await claude.initialize({ apiKey: key });

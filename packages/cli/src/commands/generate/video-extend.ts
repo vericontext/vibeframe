@@ -7,10 +7,9 @@
 
 import type { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
 import { executeVideoExtend } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
-import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 import { validateOutputPath } from "../validate.js";
 import { defaultOutputPath } from "../_shared/default-output.js";
 
@@ -51,7 +50,7 @@ export function registerVideoExtendCommand(parent: Command): void {
       }
 
       const output: string = options.output ?? defaultOutputPath("video-extended.mp4");
-      const spinner = isJsonMode() ? null : ora(`Extending ${provider} video (this may take a few minutes)...`).start();
+      const spinner = isJsonMode() ? null : createSpinner(`Extending ${provider} video (this may take a few minutes)...`).start();
       const result = await executeVideoExtend({
         videoId: id,
         provider,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildMcpDispatcher, makeProgressSink, manifestToMcpTools } from "./mcp.js";
 import { defineTool, type AnyTool, type ExecuteContext } from "../define-tool.js";
+import { ApiKeyError } from "../../utils/api-key-error.js";
 
 describe("manifestToMcpTools annotations projection", () => {
   const base = {
@@ -192,5 +193,34 @@ describe("buildMcpDispatcher progress threading", () => {
     await dispatcher("stub_tool", {}, { onProgress: raw });
     leakedProgress?.({ progress: 99 });
     expect(raw).not.toHaveBeenCalledWith(expect.objectContaining({ progress: 99 }));
+  });
+});
+
+describe("buildMcpDispatcher missing provider keys", () => {
+  it("returns the API_KEY_MISSING envelope instead of a crash string", async () => {
+    const dispatcher = buildMcpDispatcher([
+      stubTool(async () => {
+        throw new ApiKeyError("KLING_API_KEY", "Kling");
+      }),
+    ]);
+    const response = await dispatcher("stub_tool", {});
+    expect(JSON.parse(response.content[0].text)).toEqual({
+      success: false,
+      error: "Kling API key required.",
+      code: "API_KEY_MISSING",
+      exitCode: 4,
+      suggestion: expect.stringContaining("Set KLING_API_KEY in .env, or run: vibe setup"),
+      retryable: false,
+    });
+  });
+
+  it("still reports other thrown errors as text", async () => {
+    const dispatcher = buildMcpDispatcher([
+      stubTool(async () => {
+        throw new Error("boom");
+      }),
+    ]);
+    const response = await dispatcher("stub_tool", {});
+    expect(response.content[0].text).toBe("stub_tool threw: boom");
   });
 });

@@ -8,13 +8,13 @@
 import type { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import type { ProviderErrorKind } from "@vibeframe/ai-providers";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { writeAudioFile } from "../../utils/audio-file.js";
-import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
-import { parseTtsProviderName, resolveTtsProvider, TtsKeyMissingError } from "../_shared/tts-resolve.js";
+import { parseTtsProviderName, resolveTtsProvider } from "../_shared/tts-resolve.js";
+import { ApiKeyError } from "../../utils/api-key.js";
 
 // ── Library: executeSpeech ──────────────────────────────────────────────
 
@@ -44,10 +44,13 @@ export async function executeSpeech(options: ExecuteSpeechOptions): Promise<Exec
   try {
     tts = await resolveTtsProvider(parseTtsProviderName(options.provider));
   } catch (error) {
+    // A missing key (TtsKeyMissingError is an ApiKeyError) is reported by the
+    // caller as API_KEY_MISSING, not as a provider auth rejection.
+    if (error instanceof ApiKeyError) throw error;
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
-      errorKind: error instanceof TtsKeyMissingError ? "auth" : "invalid-request",
+      errorKind: "invalid-request",
     };
   }
   const result = await tts.call(options.text, { voice: options.voice, speed: options.speed, model: options.model });
@@ -106,7 +109,7 @@ export function registerNarrationCommand(parent: Command): void {
       if (options.apiKey && provider !== "auto" && provider !== "kokoro") {
         process.env[provider === "openai" ? "OPENAI_API_KEY" : "ELEVENLABS_API_KEY"] = options.apiKey;
       }
-      const spinner = isJsonMode() ? null : ora("Generating narration...").start();
+      const spinner = isJsonMode() ? null : createSpinner("Generating narration...").start();
       const result = await executeSpeech({ text, provider, output: options.output, voice: options.voice, model: options.model, speed });
       if (!result.success) {
         spinner?.fail(result.error ?? "Narration generation failed");

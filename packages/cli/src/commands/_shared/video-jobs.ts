@@ -14,7 +14,7 @@ import {
   type VideoGenerator,
   type VideoJob,
 } from "@vibeframe/ai-providers";
-import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { requireConfiguredApiKey } from "../../utils/api-key.js";
 import { unknownVideoProviderMessage } from "./build-video-providers.js";
 import { resolveUploadHost } from "../../utils/upload-host.js";
 
@@ -27,6 +27,15 @@ export const VIDEO_PROVIDER_ENV: Readonly<Record<string, string>> = {
   omni: "GOOGLE_API_KEY",
 };
 
+/** Display names for spinners and missing-key messages ("Kling API key required."). */
+export const VIDEO_PROVIDER_LABELS: Readonly<Record<string, string>> = {
+  seedance: "Seedance via fal.ai",
+  grok: "Grok Imagine",
+  kling: "Kling",
+  runway: "Runway",
+  omni: "Gemini Omni 1.1 Flash",
+};
+
 /** A video generator for `provider`, with the given key or the configured one. */
 export async function openVideoGenerator(provider: string, apiKey?: string): Promise<VideoGenerator> {
   const id = provider.toLowerCase();
@@ -34,10 +43,9 @@ export async function openVideoGenerator(provider: string, apiKey?: string): Pro
   if (!envVar) {
     throw new ProviderError({ kind: "invalid-request", provider: id, message: unknownVideoProviderMessage(provider) });
   }
-  const key = await getConfiguredApiKey(envVar, apiKey);
-  if (!key) {
-    throw new ProviderError({ kind: "auth", provider: id, message: `${envVar} required for ${id}.` });
-  }
+  // No key is a setup problem, not a provider rejection: ApiKeyError
+  // (API_KEY_MISSING), never ProviderError "auth".
+  const key = await requireConfiguredApiKey(envVar, VIDEO_PROVIDER_LABELS[id] ?? id, apiKey);
   return createVideoGenerator(id, key);
 }
 

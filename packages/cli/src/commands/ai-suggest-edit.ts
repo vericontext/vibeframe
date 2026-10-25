@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { GeminiProvider, type EditSuggestion } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { applySuggestion } from "./ai-helpers.js";
+import { requireConfiguredApiKey } from "../utils/api-key.js";
 
 export interface ExecuteSuggestEditOptions {
   projectPath: string;
@@ -40,9 +41,9 @@ export interface ExecuteSuggestEditResult {
 export async function executeSuggestEdit(
   options: ExecuteSuggestEditOptions
 ): Promise<ExecuteSuggestEditResult> {
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const apiKey = await requireConfiguredApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
   try {
-    const apiKey = options.apiKey ?? process.env.GOOGLE_API_KEY;
-    if (!apiKey) return { success: false, error: "GOOGLE_API_KEY required for suggest" };
 
     const filePath = resolve(process.cwd(), options.projectPath);
     const content = await readFile(filePath, "utf-8");

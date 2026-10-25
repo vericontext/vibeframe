@@ -21,7 +21,7 @@ import { ElevenLabsProvider } from "@vibeframe/ai-providers";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { detectFormat, formatTranscript } from "../utils/subtitle.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
-import { getConfiguredApiKey } from "../utils/api-key.js";
+import { ApiKeyError, requireConfiguredApiKey } from "../utils/api-key.js";
 import { getAudioDuration } from "../utils/audio.js";
 import { translateTexts } from "./_shared/translate-texts.js";
 import { parseTtsProviderName, resolveTtsProvider } from "./_shared/tts-resolve.js";
@@ -54,12 +54,12 @@ export interface TranscribeResult {
 export async function executeTranscribe(options: TranscribeOptions): Promise<TranscribeResult> {
   const { audioPath, language, output, format, apiKey } = options;
 
-  try {
-    const absPath = resolve(process.cwd(), audioPath);
-    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
-    const key = await getConfiguredApiKey("OPENAI_API_KEY", apiKey);
-    if (!key) return { success: false, error: "OPENAI_API_KEY required", errorKind: "auth" };
+  const absPath = resolve(process.cwd(), audioPath);
+  if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const key = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI", apiKey);
 
+  try {
     const result = await transcribeAudioFile(absPath, { apiKey: key, language });
 
     if (result.status === "failed") {
@@ -107,12 +107,12 @@ export interface IsolateResult {
 export async function executeIsolate(options: IsolateOptions): Promise<IsolateResult> {
   const { audioPath, output = "vocals.mp3", apiKey } = options;
 
-  try {
-    const absPath = resolve(process.cwd(), audioPath);
-    if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
-    const key = await getConfiguredApiKey("ELEVENLABS_API_KEY", apiKey);
-    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required", errorKind: "auth" };
+  const absPath = resolve(process.cwd(), audioPath);
+  if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const key = await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", apiKey);
 
+  try {
     const audioBuffer = await readFile(absPath);
     const elevenlabs = new ElevenLabsProvider();
     await elevenlabs.initialize({ apiKey: key });
@@ -155,10 +155,10 @@ export interface VoiceCloneResult {
 export async function executeVoiceClone(options: VoiceCloneOptions): Promise<VoiceCloneResult> {
   const { samplePaths, name, description, labels, removeNoise, apiKey } = options;
 
-  try {
-    const key = await getConfiguredApiKey("ELEVENLABS_API_KEY", apiKey);
-    if (!key) return { success: false, error: "ELEVENLABS_API_KEY required", errorKind: "auth" };
+  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  const key = await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", apiKey);
 
+  try {
     if (!samplePaths || samplePaths.length === 0) {
       return { success: false, error: "At least one audio sample is required" };
     }
@@ -231,8 +231,11 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
   const { mediaPath, language, source, voice, analyzeOnly, output } = options;
   const absPath = resolve(process.cwd(), mediaPath);
   if (!existsSync(absPath)) return { success: false, error: `File not found: ${absPath}`, errorKind: "not-found" };
-  const openaiKey = await getConfiguredApiKey("OPENAI_API_KEY");
-  if (!openaiKey) return { success: false, error: "OPENAI_API_KEY required for Whisper transcription", errorKind: "auth" };
+  // Resolve every key before the first paid call (Whisper), so a missing
+  // TTS key cannot surface only after transcription and translation ran.
+  // Missing keys throw ApiKeyError (API_KEY_MISSING).
+  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI");
+  const tts = analyzeOnly ? undefined : await resolveTtsProvider(parseTtsProviderName(options.tts));
 
   const workDir = await mkdtemp(join(tmpdir(), "vibe-dub-"));
   try {
@@ -278,7 +281,7 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
       return { ...base, outputPath: timingPath };
     }
 
-    const tts = await resolveTtsProvider(parseTtsProviderName(options.tts));
+    if (!tts) throw new Error("TTS provider was not resolved");
     const clips: Array<{ path: string; startTime: number; tempo: number }> = [];
     for (const [i, seg] of report.entries()) {
       const spoken = await tts.call(seg.translated, { voice });
@@ -300,6 +303,7 @@ export async function executeDub(options: DubOptions): Promise<DubResult> {
     await mixAtOffsets(clips, finalOutputPath);
     return { ...base, outputPath: finalOutputPath };
   } catch (error) {
+    if (error instanceof ApiKeyError) throw error;
     return { success: false, error: `Dubbing failed: ${error instanceof Error ? error.message : String(error)}` };
   } finally {
     await rm(workDir, { recursive: true, force: true });

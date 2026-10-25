@@ -8,11 +8,12 @@ import type { Command } from "commander";
 import { resolve, basename, extname } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
 import { GEMINI_TEXT_MODEL_HELP } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../../utils/api-key.js";
 import { commandExists } from "../../utils/exec-safe.js";
 import {
+  failureFromError,
+  spinner as createSpinner,
   isJsonMode,
   outputSuccess,
   exitWithError,
@@ -80,7 +81,7 @@ export function registerThumbnailCommand(parent: Command): void {
           const name = basename(options.bestFrame, extname(options.bestFrame));
           const outputPath = options.output || `${name}-thumbnail.png`;
 
-          const spinner = ora("Analyzing video for best frame...").start();
+          const spinner = createSpinner("Analyzing video for best frame...").start();
 
           const result = await executeThumbnailBestFrame({
             videoPath: absVideoPath,
@@ -136,7 +137,7 @@ export function registerThumbnailCommand(parent: Command): void {
 
         const size = style ? THUMBNAIL_STYLES[style].size : "1536x1024";
         const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-        const spinner = isJsonMode() ? null : ora("Generating thumbnail...").start();
+        const spinner = isJsonMode() ? null : createSpinner("Generating thumbnail...").start();
         const result = await executeImageGenerate({
           prompt: `Create a video thumbnail: ${description}. Style: ${style ? THUMBNAIL_STYLES[style].hint : "professional video thumbnail"}. No text in the image.`,
           provider: "openai",
@@ -167,8 +168,7 @@ export function registerThumbnailCommand(parent: Command): void {
         if (revisedPrompt) console.log(chalk.dim(`  Revised prompt: ${revisedPrompt.slice(0, 100)}`));
         if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        exitWithError(apiError(`Thumbnail generation failed: ${msg}`, true));
+        exitWithError(failureFromError(error, "Thumbnail generation failed", { retryable: true }));
       }
     });
 }

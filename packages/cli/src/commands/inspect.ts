@@ -19,13 +19,14 @@ import { Command } from "commander";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
 import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, isGeminiTextModelAlias } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { requireApiKey } from "../utils/api-key.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze } from "./ai-analyze.js";
 import {
+  failureFromError,
+  spinner as createSpinner,
   isJsonMode,
   outputSuccess,
   exitWithError,
@@ -258,7 +259,7 @@ inspectCommand
         await requireApiKey("GOOGLE_API_KEY", "Google");
       }
 
-      const spinner = ora("Analyzing source...").start();
+      const spinner = createSpinner("Analyzing source...").start();
       const result = await executeAnalyze({
         source,
         prompt,
@@ -314,7 +315,7 @@ inspectCommand
         console.log(chalk.dim(`Total tokens: ${result.totalTokens.toLocaleString()}`));
       }
     } catch (error) {
-      exitWithError(apiError(`Analysis failed: ${(error as Error).message}`));
+      exitWithError(failureFromError(error, "Analysis failed"));
     }
   });
 applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");
@@ -400,7 +401,7 @@ inspectCommand
 
       const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
 
-      const spinner = ora("Initializing Gemini...").start();
+      const spinner = createSpinner("Initializing Gemini...").start();
 
       const filePath = resolve(process.cwd(), projectPath);
       const content = await readFile(filePath, "utf-8");
@@ -464,7 +465,7 @@ inspectCommand
 
       console.log();
     } catch (error) {
-      exitWithError(apiError(`AI suggestion failed: ${(error as Error).message}`));
+      exitWithError(failureFromError(error, "AI suggestion failed"));
     }
   });
 applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");
