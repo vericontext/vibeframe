@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.116.1] - 2026-10-25
+
+### Fixed
+
+- report a missing provider key as API_KEY_MISSING on every paid command (#384)
+- paid images and videos land on disk even without `-o` (#381)
+- an explicit `-p` provider is never swapped for another paid provider (#380)
+
+### Maintenance
+
+- publish to npm through Trusted Publishing instead of NPM_TOKEN (#383)
+- run the provider model check daily and its offline half in CI (#382)
+
 ## [0.116.0] - 2026-10-24
 
 ### Breaking
