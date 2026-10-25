@@ -29,6 +29,7 @@ import {
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
+import { defaultOutputPath } from "../_shared/default-output.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeVideoGenerate, type VideoGenerateOptions } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
@@ -56,7 +57,7 @@ export function registerVideoCommand(parent: Command): void {
       "-k, --api-key <key>",
       "API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)"
     )
-    .option("-o, --output <path>", "Output file path (downloads video)")
+    .option("-o, --output <path>", "Output file path (default: video.mp4, or the next free video-N.mp4)")
     .option("-i, --image <path>", "Reference image for image-to-video")
     .option(
       "-d, --duration <sec>",
@@ -258,6 +259,9 @@ Examples:
         }
 
         const providerLabel = PROVIDER_LABELS[provider] ?? provider;
+        // Without -o the video still lands on disk (video.mp4, video-2.mp4,
+        // ...): provider URLs expire, and a --no-wait job downloads here too.
+        const output: string = options.output ?? defaultOutputPath("video.mp4");
         const apiKey = await requireApiKey(VIDEO_PROVIDER_ENV[provider], providerLabel, options.apiKey);
         const spinner = isJsonMode() ? null : ora(`Starting ${providerLabel} video generation...`).start();
 
@@ -280,7 +284,7 @@ Examples:
           grokModel: options.grokModel,
           klingModel: options.klingModel,
           generateAudio: options.generateAudio,
-          output: options.output,
+          output,
           wait: options.wait,
           apiKey,
           onSubmitted: (job) => {
@@ -292,9 +296,7 @@ Examples:
             if (!spinner) return;
             spinner.text =
               state.status === "completed"
-                ? options.output
-                  ? "Downloading video..."
-                  : "Video ready"
+                ? "Downloading video..."
                 : state.progress !== undefined
                   ? `Generating video... ${Math.round(state.progress)}%`
                   : `Generating video... ${state.status}`;
@@ -318,7 +320,7 @@ Examples:
             status: "running",
             command: "generate video --no-wait",
             prompt,
-            outputPath: options.output,
+            outputPath: output,
           });
           spinner?.succeed(chalk.green(`Generation started: ${providerLabel} task ${result.taskId}`));
           if (isJsonMode()) {

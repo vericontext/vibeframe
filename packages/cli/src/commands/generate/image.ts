@@ -22,6 +22,7 @@ import {
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
+import { defaultOutputPath } from "../_shared/default-output.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { estimateImageCostUsd } from "../_shared/image-cost.js";
 import { executeImageGenerate } from "../ai-image.js";
@@ -35,7 +36,7 @@ export function registerImageCommand(parent: Command): void {
     .argument("[prompt]", "Image description prompt (interactive if omitted)")
     .option("-p, --provider <provider>", "Provider: openai (default when OPENAI_API_KEY set), gemini, grok")
     .option("-k, --api-key <key>", "API key (or set env: OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY)")
-    .option("-o, --output <path>", "Output file path")
+    .option("-o, --output <path>", "Output file path (default: image.png, or the next free image-N.png)")
     .option("-r, --ratio <ratio>", "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, ... (OpenAI maps it to its nearest size)", "1:1")
     .option("--size <size>", "Explicit OpenAI size: 1024x1024, 1536x1024, 1024x1536 (overrides --ratio)")
     // `-q` shorthand intentionally omitted: collides with global `vibe -q,--quiet`,
@@ -98,6 +99,9 @@ Examples:
         exitWithError(usageError(`Unknown ${provider} image model "${options.model}". Valid: ${modelAliases(provider, "image").join(", ")}.`));
       }
       const lifecycleWarnings = checkModelLifecycle(modelSpec);
+      // A paid image is never dropped: without -o it goes to the first free
+      // image.png, image-2.png, ... in the working directory.
+      const output: string = options.output ?? defaultOutputPath("image.png", count);
       const params = {
         prompt,
         provider,
@@ -107,7 +111,7 @@ Examples:
         quality: options.quality,
         resolution: options.resolution,
         count,
-        output: options.output,
+        output,
       };
 
       if (options.dryRun) {
@@ -141,7 +145,7 @@ Examples:
         quality: options.quality,
         resolution: options.resolution,
         count,
-        output: options.output,
+        output,
         apiKey,
       });
       if (!result.success || !result.images) {
@@ -173,10 +177,6 @@ Examples:
       for (const [i, img] of result.images.entries()) {
         if (img.revisedPrompt) console.log(chalk.dim(`  [${i + 1}] Revised prompt: ${img.revisedPrompt.slice(0, 100)}`));
       }
-      if (result.outputPaths?.length) {
-        for (const path of result.outputPaths) console.log(chalk.green(`Saved to: ${path}`));
-      } else {
-        console.log(chalk.yellow("Use -o to save the generated image to a file"));
-      }
+      for (const path of result.outputPaths ?? []) console.log(chalk.green(`Saved to: ${path}`));
     });
 }

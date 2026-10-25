@@ -7,6 +7,7 @@
  *   generate_background.
  */
 
+import { resolve } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool } from "../define-tool.js";
 import { executeMotion } from "../../commands/ai-motion.js";
@@ -22,6 +23,10 @@ import {
   executeVideoExtend,
 } from "../../commands/ai-video.js";
 import { createAndWriteJobRecord } from "../../commands/_shared/status-jobs.js";
+import { defaultOutputPath } from "../../commands/_shared/default-output.js";
+
+/** Without an `output`, a paid result is saved under the working directory. */
+const defaultOutputIn = (cwd: string, name: string, count = 1) => resolve(cwd, defaultOutputPath(name, count, cwd));
 
 // ── generate_motion ─────────────────────────────────────────────────────────
 
@@ -215,7 +220,7 @@ export const generateImageTool = defineTool({
       .describe(
         "Image provider (default: openai when OPENAI_API_KEY is configured, otherwise first configured provider)"
       ),
-    output: z.string().optional().describe("Output file path"),
+    output: z.string().optional().describe("Output file path (default: image.png, or the next free image-N.png)"),
     size: z.string().optional().describe("Explicit OpenAI size (1024x1024, 1536x1024, 1024x1536); otherwise the ratio picks one"),
     ratio: z
       .string()
@@ -226,8 +231,9 @@ export const generateImageTool = defineTool({
     count: z.number().optional().describe("Number of images (default: 1)"),
     model: z.string().optional().describe("Image model. Gemini: flash (default), lite, pro. OpenAI: 2.5 (default), flare, 2, 1.5. Grok: pro"),
   }),
-  async execute(args) {
-    const result = await executeImageGenerate(args);
+  async execute(args, ctx) {
+    const output = args.output ?? defaultOutputIn(ctx.workingDirectory, "image.png", args.count ?? 1);
+    const result = await executeImageGenerate({ ...args, output });
     if (!result.success)
       return { success: false, error: result.error ?? "Image generation failed", errorKind: result.errorKind };
     return {
@@ -324,11 +330,12 @@ export const generateVideoTool = defineTool({
       .boolean()
       .optional()
       .describe("Generate native synchronized audio when supported"),
-    output: z.string().optional().describe("Output file path (downloads video)"),
+    output: z.string().optional().describe("Output file path (default: video.mp4, or the next free video-N.mp4)"),
     wait: z.boolean().optional().describe("Wait for completion (default: true)"),
   }),
   async execute(args, ctx) {
-    const result = await executeVideoGenerate(args);
+    const output = args.output ?? defaultOutputIn(ctx.workingDirectory, "video.mp4");
+    const result = await executeVideoGenerate({ ...args, output });
     if (!result.success) {
       // Keep the job ID: a job that failed or timed out after submission may
       // still have been billed, or may still finish.
@@ -346,6 +353,7 @@ export const generateVideoTool = defineTool({
         workingDirectory: ctx.workingDirectory,
         command: "generate_video wait=false",
         prompt: args.prompt,
+        outputPath: output,
       });
     }
     return {
@@ -416,11 +424,14 @@ export const generateVideoExtendTool = defineTool({
     prompt: z.string().optional().describe("Continuation prompt"),
     duration: z.number().optional().describe("Duration in seconds"),
     negative: z.string().optional().describe("Negative prompt (Kling)"),
-    output: z.string().optional().describe("Output file path"),
+    output: z.string().optional().describe("Output file path (default: video-extended.mp4, or the next free video-extended-N.mp4)"),
     wait: z.boolean().optional().describe("Wait for completion (default: true)"),
   }),
-  async execute(args) {
-    const result = await executeVideoExtend(args);
+  async execute(args, ctx) {
+    const result = await executeVideoExtend({
+      ...args,
+      output: args.output ?? defaultOutputIn(ctx.workingDirectory, "video-extended.mp4"),
+    });
     if (!result.success) return { success: false, error: result.error ?? "Extend failed" };
     return {
       success: true,

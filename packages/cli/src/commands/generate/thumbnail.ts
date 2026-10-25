@@ -23,6 +23,7 @@ import {
   usageError,
 } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
+import { defaultOutputPath } from "../_shared/default-output.js";
 import { executeImageGenerate, executeThumbnailBestFrame } from "../ai-image.js";
 import { estimateImageCostUsd } from "../_shared/image-cost.js";
 
@@ -45,7 +46,7 @@ export function registerThumbnailCommand(parent: Command): void {
     .description("Generate video thumbnail (OpenAI image) or extract best frame from video (Gemini)")
     .argument("[description]", "Thumbnail description (for image generation)")
     .option("-k, --api-key <key>", "API key (OpenAI for generation, Google for best-frame)")
-    .option("-o, --output <path>", "Output file path")
+    .option("-o, --output <path>", "Output file path (default: thumbnail.png or the next free thumbnail-N.png; <video>-thumbnail.png with --best-frame)")
     .option("--style <style>", "Platform style: youtube, instagram, tiktok, twitter")
     .option("--best-frame <video>", "Extract best thumbnail frame from video using Gemini AI")
     .option("--prompt <prompt>", "Custom prompt for best-frame analysis")
@@ -141,7 +142,7 @@ export function registerThumbnailCommand(parent: Command): void {
           provider: "openai",
           size,
           quality: "high",
-          output: options.output,
+          output: options.output ?? defaultOutputPath("thumbnail.png"),
           apiKey,
         });
         if (!result.success || !result.images) {
@@ -165,7 +166,6 @@ export function registerThumbnailCommand(parent: Command): void {
         const revisedPrompt = result.images[0]?.revisedPrompt;
         if (revisedPrompt) console.log(chalk.dim(`  Revised prompt: ${revisedPrompt.slice(0, 100)}`));
         if (result.outputPath) console.log(chalk.green(`Saved to: ${result.outputPath}`));
-        else console.log(chalk.yellow("Use -o to save the generated thumbnail to a file"));
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         exitWithError(apiError(`Thumbnail generation failed: ${msg}`, true));

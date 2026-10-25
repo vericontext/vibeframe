@@ -1759,7 +1759,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate image --descri
         "type": "string",
       },
       "output": {
-        "description": "Output file path",
+        "description": "Output file path (default: image.png, or the next free image-N.png)",
         "type": "string",
       },
       "prompt": {
@@ -2086,7 +2086,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate thumbnail --de
         "type": "string",
       },
       "output": {
-        "description": "Output file path",
+        "description": "Output file path (default: thumbnail.png or the next free thumbnail-N.png; <video>-thumbnail.png with --best-frame)",
         "type": "string",
       },
       "prompt": {
@@ -2170,7 +2170,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
         "type": "boolean",
       },
       "output": {
-        "description": "Output file path (downloads video)",
+        "description": "Output file path (default: video.mp4, or the next free video-N.mp4)",
         "type": "string",
       },
       "prompt": {
@@ -2300,7 +2300,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video-extend -
         "type": "boolean",
       },
       "output": {
-        "description": "Output file path",
+        "description": "Output file path (default: video-extended.mp4, or the next free video-extended-N.mp4)",
         "type": "string",
       },
       "prompt": {
@@ -4377,6 +4377,7 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
     "params": {
       "count": 1,
       "model": "gpt-image-2.5-sunburst",
+      "output": "image.png",
       "prompt": "test prompt",
       "provider": "openai",
       "ratio": "1:1",

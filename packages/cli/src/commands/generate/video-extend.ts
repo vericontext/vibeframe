@@ -12,6 +12,7 @@ import { executeVideoExtend } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
 import { isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 import { validateOutputPath } from "../validate.js";
+import { defaultOutputPath } from "../_shared/default-output.js";
 
 const EXTEND_PROVIDERS = ["kling", "grok", "omni"];
 
@@ -22,7 +23,7 @@ export function registerVideoExtendCommand(parent: Command): void {
     .argument("<task-id>", "Task ID the generation returned")
     .option("-p, --provider <provider>", `Provider: ${EXTEND_PROVIDERS.join(", ")}`, "kling")
     .option("-k, --api-key <key>", "API key for the provider")
-    .option("-o, --output <path>", "Output file path")
+    .option("-o, --output <path>", "Output file path (default: video-extended.mp4, or the next free video-extended-N.mp4)")
     .option("--prompt <text>", "Continuation prompt")
     .option("-d, --duration <sec>", "Seconds to add: 5 or 10 (Kling), 2-10 (Grok); Omni picks its own", "5")
     .option("--negative <prompt>", "Negative prompt (what to avoid, Kling only)")
@@ -49,6 +50,7 @@ export function registerVideoExtendCommand(parent: Command): void {
         return;
       }
 
+      const output: string = options.output ?? defaultOutputPath("video-extended.mp4");
       const spinner = isJsonMode() ? null : ora(`Extending ${provider} video (this may take a few minutes)...`).start();
       const result = await executeVideoExtend({
         videoId: id,
@@ -56,7 +58,7 @@ export function registerVideoExtendCommand(parent: Command): void {
         prompt: options.prompt,
         duration: Number(options.duration),
         negative: options.negative,
-        output: options.output,
+        output,
         wait: options.wait,
         apiKey: options.apiKey,
       });
@@ -79,7 +81,7 @@ export function registerVideoExtendCommand(parent: Command): void {
               status: "running",
               command: "vibe generate video-extend",
               prompt: options.prompt,
-              outputPath: options.output,
+              outputPath: output,
             })
           : undefined;
 
