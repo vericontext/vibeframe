@@ -1,6 +1,6 @@
 {
   "name": "@vibeframe/cli",
-  "version": "0.116.0",
+  "version": "0.116.1",
   "description": "Frontier AI video generation for coding agents - Seedance, Runway, Kling, and Gemini Omni on your own keys, behind a hard cost cap",
   "private": false,
   "license": "MIT",
