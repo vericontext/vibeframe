@@ -225,9 +225,8 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "edit silence-cut": { min: 0, max: 0, unit: "free" },
   "edit fade": { min: 0, max: 0, unit: "free" },
   "edit noise-reduce": { min: 0, max: 0, unit: "free" },
-  "edit reframe": { min: 0, max: 0, unit: "free" },
   "edit interpolate": { min: 0, max: 0, unit: "free" },
-  "edit upscale-video": { min: 0, max: 0, unit: "free" },
+  "edit upscale": { min: 0, max: 0, unit: "free" },
   // Low
   "analyze media": { min: 0.01, max: 0.05, unit: "per call" },
   "analyze video": { min: 0.01, max: 0.10, unit: "per video" },
@@ -248,6 +247,8 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "generate motion": { min: 0.01, max: 0.10, unit: "per generation" },
   "edit grade": { min: 0.01, max: 0.05, unit: "per video" },
   "edit speed-ramp": { min: 0.05, max: 0.15, unit: "per video" },
+  // Claude Vision on up to 30 frames; `--focus center` is free (callers pass costUsd: 0).
+  "edit reframe": { min: 0, max: 0.30, unit: "per video" },
   "edit text-overlay": { min: 0, max: 0.05, unit: "per video" },
   "edit motion-overlay": { min: 0, max: 0.10, unit: "per video" },
   // High

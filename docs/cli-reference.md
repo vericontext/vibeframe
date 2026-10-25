@@ -133,9 +133,9 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    49 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `generate.thumbnail` · `inspect.project` · +41 more          | FFmpeg only, no API call                                                                          |
+| **Free**       |    50 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +42 more             | FFmpeg only, no API call                                                                          |
 | **Low**        |    19 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +11 more | $0.01–$0.10 per call                                                                              |
-| **High**       |     8 | `audio.dub` · `edit.reframe` · `edit.upscale` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                              | $1–$5 per call                                                                                    |
+| **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
 | **Very High**  |     3 | `generate.video` · `edit.fill-gaps` · `generate.video-extend`                                                                                                               | $5–$50+ per call                                                                                  |
 | **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
@@ -863,7 +863,7 @@ Cost tier: `free`
 
 #### `vibe edit reframe`
 
-Auto-reframe video to different aspect ratio (Claude Vision + FFmpeg)
+Reframe video to a different aspect ratio (Claude Vision + FFmpeg; --focus center is free)
 
 Product surface: `public`
 
@@ -873,7 +873,7 @@ Cost tier: `high`
 
 - `video` _(string)_ **required** - Video file path
 - `aspect` _(string)_ _(9:16 \| 1:1 \| 4:5)_ _(default: `"9:16"`)_ - Target aspect ratio: 9:16, 1:1, 4:5
-- `focus` _(string)_ _(auto \| face \| center \| action)_ _(default: `"auto"`)_ - Focus mode: auto, face, center, action
+- `focus` _(string)_ _(auto \| face \| center \| action)_ _(default: `"auto"`)_ - Focus mode: auto, face, center, action (center is a free FFmpeg crop; the others use Claude Vision)
 - `output` _(string)_ - Output video file path
 - `analyzeOnly` _(boolean)_ - Show crop regions without applying
 - `keyframes` _(string)_ - Export keyframes to JSON file
@@ -963,21 +963,18 @@ Cost tier: `low`
 
 #### `vibe edit upscale`
 
-Upscale video resolution using AI or FFmpeg
+Upscale video resolution (FFmpeg Lanczos, free)
 
 Product surface: `public`
 
-Cost tier: `high`
+Cost tier: `free`
 
 **Parameters:**
 
 - `video` _(string)_ **required** - Video file path
 - `output` _(string)_ - Output file path
 - `scale` _(string)_ _(default: `"2"`)_ - Scale factor: 2 or 4
-- `model` _(string)_ _(real-esrgan \| topaz)_ _(default: `"real-esrgan"`)_ - Model: real-esrgan, topaz
-- `ffmpeg` _(boolean)_ - Use FFmpeg lanczos (free, no API)
-- `apiKey` _(string)_ - Replicate API token (or set REPLICATE_API_TOKEN env)
-- `noWait` _(boolean)_ - Start processing and return task ID without waiting
+- `ffmpeg` _(boolean)_ - (deprecated) no-op: FFmpeg is the only upscale engine
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 ### `inspect`

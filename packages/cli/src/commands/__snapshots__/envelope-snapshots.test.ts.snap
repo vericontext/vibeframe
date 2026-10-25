@@ -1378,7 +1378,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit noise-reduce --des
 exports[`CLI --describe schemas (drift detection) > vibe edit reframe --describe 1`] = `
 {
   "cost": "high",
-  "description": "Auto-reframe video to different aspect ratio (Claude Vision + FFmpeg)",
+  "description": "Reframe video to a different aspect ratio (Claude Vision + FFmpeg; --focus center is free)",
   "name": "edit.reframe",
   "parameters": {
     "properties": {
@@ -1406,7 +1406,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit reframe --describe
       },
       "focus": {
         "default": "auto",
-        "description": "Focus mode: auto, face, center, action",
+        "description": "Focus mode: auto, face, center, action (center is a free FFmpeg crop; the others use Claude Vision)",
         "enum": [
           "auto",
           "face",
@@ -1681,34 +1681,17 @@ exports[`CLI --describe schemas (drift detection) > vibe edit translate-srt --de
 
 exports[`CLI --describe schemas (drift detection) > vibe edit upscale --describe 1`] = `
 {
-  "cost": "high",
-  "description": "Upscale video resolution using AI or FFmpeg",
+  "cost": "free",
+  "description": "Upscale video resolution (FFmpeg Lanczos, free)",
   "name": "edit.upscale",
   "parameters": {
     "properties": {
-      "apiKey": {
-        "description": "Replicate API token (or set REPLICATE_API_TOKEN env)",
-        "type": "string",
-      },
       "dryRun": {
         "description": "Preview parameters without executing",
         "type": "boolean",
       },
       "ffmpeg": {
-        "description": "Use FFmpeg lanczos (free, no API)",
-        "type": "boolean",
-      },
-      "model": {
-        "default": "real-esrgan",
-        "description": "Model: real-esrgan, topaz",
-        "enum": [
-          "real-esrgan",
-          "topaz",
-        ],
-        "type": "string",
-      },
-      "noWait": {
-        "description": "Start processing and return task ID without waiting",
+        "description": "(deprecated) no-op: FFmpeg is the only upscale engine",
         "type": "boolean",
       },
       "output": {

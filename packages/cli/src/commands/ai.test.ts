@@ -123,8 +123,10 @@ describe("CLI command groups", () => {
       expect(output).toContain("Upscale video resolution");
       expect(output).toContain("--output");
       expect(output).toContain("--scale");
-      expect(output).toContain("--model");
-      expect(output).toContain("--ffmpeg");
+      // FFmpeg is the only engine: no Replicate model choice, and the old
+      // `--ffmpeg` switch is a hidden no-op.
+      expect(output).not.toContain("--model");
+      expect(output).not.toContain("--ffmpeg");
     });
 
     it("validates scale option", () => {

@@ -67,7 +67,7 @@ Official-model prices on Replicate are rendered by JavaScript; only Stable Audio
   `lucataco/resemble-enhance` is a community model, so it also needs an explicit version.
 - `sczhou/propainter` and `facebookresearch/co-tracker` return 404 (probe), so `inpaintVideo` and co-tracker tracking cannot work.
 - The style transfer hash `cd0a3bf6b7ee1ff12cfb6e1f16e3c4c1a2dc57b8d8b8c4b7a7e9f8b5c7a9d8e1` looks like a placeholder (repeating pattern) and is used for both styles; not verifiable without a model slug (unverified).
-- `upscaleVideo` points at `nightmareai/real-esrgan`, an image model, and the CLI upscale path exits before calling it.
+- `upscaleVideo` points at `nightmareai/real-esrgan`, an image model, and needs a hosted video URL; nothing calls it, since `vibe edit upscale` is FFmpeg only.
 - Our `MusicGenerationOptions.model` is never sent as `model_version`, so every call uses `stereo-melody-large`.
 - MusicGen's page quotes an approximate per-run cost that "varies depending on your inputs" (GPU time), while Stable Audio 2.5 is a flat price per output file (docs).
 
@@ -85,7 +85,7 @@ Official-model prices on Replicate are rendered by JavaScript; only Stable Audio
   - L777-833 `trackObject`: L807 co-tracker, L811/L815 SAM 2, L831-833 `model` vs `version` branch.
 - `packages/cli/src/commands/generate/music.ts` L83-96 and L242-270: Replicate music path, duration clamp 1-30.
 - `packages/cli/src/commands/generate/music-status.ts` L29-33: polls a stored prediction ID.
-- `packages/cli/src/commands/edit-cmd.ts` L1057-1068: upscale path that always exits with "Replicate requires a video URL".
+- `packages/cli/src/commands/_shared/edit/upscale.ts`: `vibe edit upscale` and `edit_upscale` are FFmpeg only and do not use Replicate.
 - `packages/cli/src/tools/manifest/generate.ts` L146: describes Replicate MusicGen as max 30 s.
 - `packages/cli/src/utils/key-live-test.ts` L96: key check via `GET /v1/account`.
 
@@ -95,7 +95,7 @@ Official-model prices on Replicate are rendered by JavaScript; only Stable Audio
 2. Replace MusicGen with an official model such as `stability-ai/stable-audio-2.5` (flat $0.20 per file, no version pin) or drop Replicate music, since ElevenLabs music already covers the use case.
 3. If MusicGen stays, pin `meta/musicgen:671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb` with the slug, and wire `model` to `model_version`.
 4. Download music output immediately, or warn in `music-status` that Replicate deletes outputs after an hour.
-5. Remove or fix the dead helpers: ProPainter and co-tracker (404), the placeholder style transfer hash, and the `model` field bodies (use `/v1/models/{owner}/{name}/predictions` or a pinned version).
+5. Remove or fix the dead helpers: the unused `upscaleVideo`, ProPainter and co-tracker (404), the placeholder style transfer hash, and the `model` field bodies (use `/v1/models/{owner}/{name}/predictions` or a pinned version).
 6. Consider `Prefer: wait` for short jobs to save a poll round trip.
 
 ## Sources
