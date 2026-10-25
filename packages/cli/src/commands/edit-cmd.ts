@@ -14,33 +14,36 @@
  *   edit text-overlay   - Simple static text overlays (FFmpeg drawtext)
  *   edit motion-overlay - Designed motion graphics overlays (Remotion/Lottie)
  *   edit speed-ramp     - Speed ramping (Whisper + Claude + FFmpeg)
- *   edit reframe        - Reframe aspect ratio (Claude Vision + FFmpeg)
+ *   edit reframe        - Reframe aspect ratio (Claude Vision + FFmpeg, or a free center crop)
  *   edit image          - Image editing (Gemini, OpenAI, or Grok)
  *   edit interpolate    - Frame interpolation / slow motion (FFmpeg)
- *   edit upscale       - Video upscaling (FFmpeg or Replicate)
+ *   edit upscale        - Video upscaling (FFmpeg)
  *   edit fill-gaps      - Fill timeline gaps with AI video (Kling)
  *
- * @dependencies Whisper, Claude, Gemini, Kling, Replicate, FFmpeg
+ * @dependencies Whisper, Claude, Gemini, Kling, FFmpeg
  */
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { resolve } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
-import { ClaudeProvider, findModel, modelAliases } from "@vibeframe/ai-providers";
-import { requireApiKey, requireConfiguredApiKey } from "../utils/api-key.js";
+import { findModel, modelAliases } from "@vibeframe/ai-providers";
+import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
 import { registerFillGapsCommand } from "./ai-fill-gaps.js";
 import { registerMotionOverlayCommand } from "./edit/motion-overlay.js";
-import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, usageError, notFoundError, apiError, generalError, providerFailure } from "./output.js";
+import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, usageError, apiError, generalError, providerFailure } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { executeImageEdit } from "./ai-image.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
-import { transcribeAudioFile } from "./_shared/transcription.js";
+import { executeGrade, GRADE_PRESETS } from "./_shared/edit/grade.js";
+import { executeSpeedRamp } from "./_shared/edit/speed-ramp.js";
+import { executeReframe, REFRAME_FOCUS_MODES, type ReframeFocus } from "./_shared/edit/reframe.js";
+import { executeUpscale } from "./_shared/edit/upscale.js";
 
 export const editCommand = new Command("edit")
   .alias("ed")
@@ -62,9 +65,10 @@ Examples:
   $ vibe edit fade video.mp4 -o faded.mp4 --fade-in 1 --fade-out 1
 
 API Keys (varies by subcommand):
-  No key needed       silence-cut, noise-reduce, fade, interpolate, text-overlay
+  No key needed       silence-cut, noise-reduce, fade, interpolate, text-overlay,
+                      upscale, grade --preset, reframe --focus center
   OPENAI_API_KEY      caption, jump-cut (Whisper transcription)
-  ANTHROPIC_API_KEY   grade, speed-ramp, reframe (Claude analysis)
+  ANTHROPIC_API_KEY   grade --style, speed-ramp, reframe (Claude analysis)
   GOOGLE_API_KEY      image editing (Gemini, default)
 
 Run 'vibe schema edit.<command>' for structured parameter info.
@@ -90,7 +94,7 @@ editCommand
   .description("Apply AI-generated color grading (Claude + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("--style <prompt>", "Style description (e.g., 'cinematic warm')")
-  .option("--preset <name>", "Built-in preset: film-noir, vintage, cinematic-warm, cool-tones, high-contrast, pastel, cyberpunk, horror")
+  .option("--preset <name>", `Built-in preset: ${GRADE_PRESETS.join(", ")}`)
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show filter without applying")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
@@ -99,20 +103,13 @@ editCommand
     const startedAt = Date.now();
     try {
       if (options.style) rejectControlChars(options.style);
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
+      if (options.output) validateOutputPath(options.output);
 
       if (!options.style && !options.preset) {
         exitWithError(usageError(
           "Either --style or --preset is required",
           'Examples: vibe edit grade video.mp4 --style "warm sunset" or --preset cinematic-warm',
         ));
-      }
-
-      // Check FFmpeg
-      if (!commandExists("ffmpeg")) {
-        exitWithError(notFoundError("FFmpeg not found. Install with: brew install ffmpeg"));
       }
 
       if (options.dryRun) {
@@ -132,39 +129,34 @@ editCommand
       }
 
       // A custom style needs Claude; presets are built in. Resolve the key
-      // before any work so a missing key fails fast with API_KEY_MISSING.
+      // up front (interactively in a terminal) so a missing key fails fast
+      // with API_KEY_MISSING.
       const apiKey = options.preset
         ? undefined
         : await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
       const spinner = createSpinner("Analyzing color grade...").start();
-
-      let gradeResult: { ffmpegFilter: string; description: string };
-
-      if (!apiKey) {
-        const claude = new ClaudeProvider();
-        gradeResult = await claude.analyzeColorGrade("", options.preset);
-      } else {
-        const claude = new ClaudeProvider();
-        await claude.initialize({ apiKey });
-        gradeResult = await claude.analyzeColorGrade(options.style);
-      }
-
-      spinner.succeed(chalk.green("Color grade analyzed"));
+      const result = await executeGrade({
+        videoPath,
+        style: options.style,
+        preset: options.preset,
+        output: options.output,
+        analyzeOnly: options.analyzeOnly,
+        apiKey,
+        onProgress: (message) => { spinner.text = message; },
+      });
+      if (!result.success) exitWithError(result.failure);
+      spinner.succeed(chalk.green(result.outputPath ? "Color grade applied" : "Color grade analyzed"));
 
       if (isJsonMode()) {
-        const absPath = resolve(process.cwd(), videoPath);
-        const gradeOutputPath = options.output
-          ? resolve(process.cwd(), options.output)
-          : absPath.replace(/(\.[^.]+)$/, "-graded$1");
         outputSuccess({
           command: "edit grade",
           startedAt,
           data: {
-            style: options.preset || options.style,
-            description: gradeResult.description,
-            ffmpegFilter: gradeResult.ffmpegFilter,
-            outputPath: options.analyzeOnly ? undefined : gradeOutputPath,
+            style: result.style,
+            description: result.description,
+            ffmpegFilter: result.ffmpegFilter,
+            ...(result.outputPath ? { outputPath: result.outputPath } : {}),
           },
         });
         return;
@@ -173,29 +165,17 @@ editCommand
       console.log();
       console.log(chalk.bold.cyan("Color Grade"));
       console.log(chalk.dim("─".repeat(60)));
-      console.log(`Style: ${options.preset || options.style}`);
-      console.log(`Description: ${gradeResult.description}`);
+      console.log(`Style: ${result.style}`);
+      console.log(`Description: ${result.description}`);
       console.log();
       console.log(chalk.dim("FFmpeg filter:"));
-      console.log(chalk.cyan(gradeResult.ffmpegFilter));
+      console.log(chalk.cyan(result.ffmpegFilter));
       console.log();
-
-      if (options.analyzeOnly) {
+      if (result.outputPath) {
+        console.log(chalk.green(`Output: ${result.outputPath}`));
+      } else {
         console.log(chalk.dim("Use without --analyze-only to apply the grade."));
-        return;
       }
-
-      const absPath = resolve(process.cwd(), videoPath);
-      const outputPath = options.output
-        ? resolve(process.cwd(), options.output)
-        : absPath.replace(/(\.[^.]+)$/, "-graded$1");
-
-      spinner.start("Applying color grade...");
-
-      await execSafe("ffmpeg", ["-i", absPath, "-vf", gradeResult.ffmpegFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
-
-      spinner.succeed(chalk.green("Color grade applied"));
-      console.log(chalk.green(`Output: ${outputPath}`));
       console.log();
     } catch (error) {
       exitWithError(failureFromError(error, "Color grading failed"));
@@ -324,14 +304,7 @@ editCommand
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
     try {
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
-
-      // Check FFmpeg
-      if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"));
-      }
+      if (options.output) validateOutputPath(options.output);
 
       if (options.dryRun) {
         outputSuccess({
@@ -351,68 +324,35 @@ editCommand
         return;
       }
 
+      // Resolve both keys up front (interactively in a terminal) so a missing
+      // key fails fast with API_KEY_MISSING.
       const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
-      const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
+      const apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
-      const absPath = resolve(process.cwd(), videoPath);
-
-      // Step 1: Check for audio stream
-      const spinner = createSpinner("Extracting audio...").start();
-
-      const { stdout: speedRampProbe } = await execSafe("ffprobe", [
-        "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", absPath,
-      ]);
-      if (!speedRampProbe.trim()) {
-        spinner.fail("Video has no audio track");
-        exitWithError(usageError("Video has no audio stream. Speed ramping requires audio for content-aware analysis.", "Please use a video with an audio track."));
-      }
-
-      const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-
-      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
-
-      // Step 2: Transcribe
-      spinner.text = "Transcribing audio...";
-
-      const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
-
-      if (!transcript.segments || transcript.segments.length === 0) {
-        spinner.fail("No transcript segments found");
-        exitWithError(apiError("No transcript segments found", true));
-      }
-
-      // Step 3: Analyze with Claude
-      spinner.text = "Analyzing for speed ramping...";
-
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey: claudeApiKey });
-
-      const speedResult = await claude.analyzeForSpeedRamp(transcript.segments, {
-        style: options.style as "dramatic" | "smooth" | "action",
+      const spinner = createSpinner("Checking audio...").start();
+      const result = await executeSpeedRamp({
+        videoPath,
+        output: options.output,
+        style: options.style,
         minSpeed: parseFloat(options.minSpeed),
         maxSpeed: parseFloat(options.maxSpeed),
+        analyzeOnly: options.analyzeOnly,
+        language: options.language,
+        apiKey,
+        openaiApiKey,
+        onProgress: (message) => { spinner.text = message; },
       });
-
-      // Clean up temp file
-      try {
-        const { unlink } = await import("node:fs/promises");
-        await unlink(tempAudio);
-      } catch { /* ignore cleanup errors */ }
-
-      spinner.succeed(chalk.green(`Found ${speedResult.keyframes.length} speed keyframes`));
+      if (!result.success) exitWithError(result.failure);
+      spinner.succeed(chalk.green(result.outputPath ? "Speed ramp applied" : `Found ${result.keyframes.length} speed keyframes`));
 
       if (isJsonMode()) {
-        const avgSpeed = speedResult.keyframes.reduce((sum, kf) => sum + kf.speed, 0) / speedResult.keyframes.length;
-        const speedRampOutputPath = options.output
-          ? resolve(process.cwd(), options.output)
-          : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
         outputSuccess({
           command: "edit speed-ramp",
           startedAt,
           data: {
-            keyframes: speedResult.keyframes,
-            avgSpeed,
-            outputPath: options.analyzeOnly ? undefined : speedRampOutputPath,
+            keyframes: result.keyframes,
+            avgSpeed: result.avgSpeed,
+            ...(result.outputPath ? { outputPath: result.outputPath } : {}),
           },
         });
         return;
@@ -421,50 +361,17 @@ editCommand
       console.log();
       console.log(chalk.bold.cyan("Speed Ramp Keyframes"));
       console.log(chalk.dim("─".repeat(60)));
-
-      for (const kf of speedResult.keyframes) {
+      for (const kf of result.keyframes) {
         const speedColor = kf.speed < 1 ? chalk.blue : kf.speed > 1 ? chalk.yellow : chalk.white;
         console.log(`  ${formatTime(kf.time)} → ${speedColor(`${kf.speed.toFixed(2)}x`)} - ${kf.reason}`);
       }
       console.log();
-
-      if (options.analyzeOnly) {
-        console.log(chalk.dim("Use without --analyze-only to apply speed ramps."));
-        return;
-      }
-
-      if (speedResult.keyframes.length < 2) {
-        console.log(chalk.yellow("Not enough keyframes for speed ramping."));
-        return;
-      }
-
-      spinner.start("Applying speed ramps...");
-
-      // Build FFmpeg filter for speed ramping (segment-based)
-      const outputPath = options.output
-        ? resolve(process.cwd(), options.output)
-        : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
-
-      // For simplicity, we'll create segments and concatenate
-      // A full implementation would use complex filter expressions
-      // Here we use setpts with a simple approach
-
-      // For demo, apply average speed or first segment's speed
-      const avgSpeed = speedResult.keyframes.reduce((sum, kf) => sum + kf.speed, 0) / speedResult.keyframes.length;
-
-      // Use setpts for speed change (1/speed for setpts)
-      const setpts = `setpts=${(1 / avgSpeed).toFixed(3)}*PTS`;
-      const atempo = avgSpeed >= 0.5 && avgSpeed <= 2.0 ? `atempo=${avgSpeed.toFixed(3)}` : "";
-
-      if (atempo) {
-        await execSafe("ffmpeg", ["-i", absPath, "-filter_complex", `[0:v]${setpts}[v];[0:a]${atempo}[a]`, "-map", "[v]", "-map", "[a]", outputPath, "-y"], { timeout: 600000 });
+      if (result.outputPath) {
+        console.log(chalk.green(`Output: ${result.outputPath}`));
+        console.log(chalk.dim(`Average speed: ${result.avgSpeed.toFixed(2)}x`));
       } else {
-        await execSafe("ffmpeg", ["-i", absPath, "-vf", setpts, "-an", outputPath, "-y"], { timeout: 600000 });
+        console.log(chalk.dim("Use without --analyze-only to apply speed ramps."));
       }
-
-      spinner.succeed(chalk.green("Speed ramp applied"));
-      console.log(chalk.green(`Output: ${outputPath}`));
-      console.log(chalk.dim(`Average speed: ${avgSpeed.toFixed(2)}x`));
       console.log();
     } catch (error) {
       exitWithError(failureFromError(error, "Speed ramping failed", { fallback: "general" }));
@@ -475,10 +382,10 @@ editCommand
 
 editCommand
   .command("reframe")
-  .description("Auto-reframe video to different aspect ratio (Claude Vision + FFmpeg)")
+  .description("Reframe video to a different aspect ratio (Claude Vision + FFmpeg; --focus center is free)")
   .argument("<video>", "Video file path")
   .option("-a, --aspect <ratio>", "Target aspect ratio: 9:16, 1:1, 4:5", "9:16")
-  .option("--focus <mode>", "Focus mode: auto, face, center, action", "auto")
+  .option("--focus <mode>", "Focus mode: auto, face, center, action (center is a free FFmpeg crop; the others use Claude Vision)", "auto")
   .option("-o, --output <path>", "Output video file path")
   .option("--analyze-only", "Show crop regions without applying")
   .option("--keyframes <path>", "Export keyframes to JSON file")
@@ -487,25 +394,25 @@ editCommand
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
     try {
-      if (options.output) {
-        validateOutputPath(options.output);
+      if (options.output) validateOutputPath(options.output);
+      if (options.keyframes) validateOutputPath(options.keyframes);
+      if (!(REFRAME_FOCUS_MODES as readonly string[]).includes(options.focus)) {
+        exitWithError(usageError(`Invalid focus mode: ${options.focus}`, `Available modes: ${REFRAME_FOCUS_MODES.join(", ")}`));
       }
-
-      // Check FFmpeg
-      if (!commandExists("ffmpeg")) {
-        exitWithError(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"));
-      }
+      const focus = options.focus as ReframeFocus;
 
       if (options.dryRun) {
         outputSuccess({
           command: "edit reframe",
           startedAt,
           dryRun: true,
+          // The center crop is FFmpeg only; the vision modes cost up to the estimate.
+          ...(focus === "center" ? { costUsd: 0 } : {}),
           data: {
             params: {
               videoPath: resolve(process.cwd(), videoPath),
               aspect: options.aspect,
-              focus: options.focus,
+              focus,
               analyzeOnly: options.analyzeOnly || false,
             },
           },
@@ -513,153 +420,72 @@ editCommand
         return;
       }
 
-      const apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
-      const absPath = resolve(process.cwd(), videoPath);
+      // The vision modes need Claude. Resolve the key up front (interactively
+      // in a terminal) so a missing key fails fast with API_KEY_MISSING.
+      const apiKey = focus === "center"
+        ? undefined
+        : await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
-      // Get video dimensions
       const spinner = createSpinner("Analyzing video...").start();
+      const result = await executeReframe({
+        videoPath,
+        aspect: options.aspect,
+        focus,
+        output: options.output,
+        analyzeOnly: options.analyzeOnly,
+        apiKey,
+        onProgress: (message) => { spinner.text = message; },
+      });
+      if (!result.success) exitWithError(result.failure);
+      spinner.succeed(chalk.green(result.outputPath ? "Reframe applied" : `Analyzed ${result.keyframeCount} keyframe(s)`));
 
-      const { stdout: probeOut } = await execSafe("ffprobe", [
-        "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0", absPath,
-      ]);
-      const [width, height, durationStr] = probeOut.trim().split(",");
-      const sourceWidth = parseInt(width);
-      const sourceHeight = parseInt(height);
-      const duration = parseFloat(durationStr);
-
-      spinner.text = "Extracting keyframes...";
-
-      // Extract keyframes every 2 seconds for analysis
-      const keyframeInterval = 2;
-      const numKeyframes = Math.ceil(duration / keyframeInterval);
-      const tempDir = `/tmp/vibe-reframe-${Date.now()}`;
-      const { mkdir: mkdirFs } = await import("node:fs/promises");
-      await mkdirFs(tempDir, { recursive: true });
-
-      await execSafe("ffmpeg", ["-i", absPath, "-vf", `fps=1/${keyframeInterval}`, "-frame_pts", "1", `${tempDir}/frame-%04d.jpg`, "-y"]);
-
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey });
-
-      // Analyze keyframes
-      spinner.text = "Analyzing frames for subject tracking...";
-
-      const cropKeyframes: Array<{
-        time: number;
-        cropX: number;
-        cropY: number;
-        cropWidth: number;
-        cropHeight: number;
-        confidence: number;
-        subjectDescription: string;
-      }> = [];
-
-      for (let i = 1; i <= numKeyframes && i <= 30; i++) {
-        // Limit to 30 frames
-        const framePath = `${tempDir}/frame-${i.toString().padStart(4, "0")}.jpg`;
-
-        try {
-          const frameBuffer = await readFile(framePath);
-          const frameBase64 = frameBuffer.toString("base64");
-
-          const result = await claude.analyzeFrameForReframe(frameBase64, options.aspect, {
-            focusMode: options.focus,
-            sourceWidth,
-            sourceHeight,
-            mimeType: "image/jpeg",
-          });
-
-          cropKeyframes.push({
-            time: (i - 1) * keyframeInterval,
-            ...result,
-          });
-
-          spinner.text = `Analyzing frames... ${i}/${Math.min(numKeyframes, 30)}`;
-        } catch {
-          // Skip failed frames
-        }
-
-        // Small delay to avoid rate limiting
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
-      // Clean up temp files
-      try {
-        const { rm: rmFs } = await import("node:fs/promises");
-        await rmFs(tempDir, { recursive: true, force: true });
-      } catch { /* ignore cleanup errors */ }
-
-      spinner.succeed(chalk.green(`Analyzed ${cropKeyframes.length} keyframes`));
+      const keyframesPath = options.keyframes ? resolve(process.cwd(), options.keyframes) : undefined;
+      if (keyframesPath) await writeFile(keyframesPath, JSON.stringify(result.cropKeyframes, null, 2));
 
       if (isJsonMode()) {
-        const reframeOutputPath = options.output
-          ? resolve(process.cwd(), options.output)
-          : absPath.replace(/(\.[^.]+)$/, `-${options.aspect.replace(":", "x")}$1`);
         outputSuccess({
           command: "edit reframe",
           startedAt,
           data: {
-            sourceWidth,
-            sourceHeight,
-            aspect: options.aspect,
-            cropKeyframes,
-            outputPath: options.analyzeOnly ? undefined : reframeOutputPath,
+            sourceWidth: result.sourceWidth,
+            sourceHeight: result.sourceHeight,
+            aspect: result.targetAspect,
+            focus: result.focus,
+            crop: result.crop,
+            cropKeyframes: result.cropKeyframes,
+            ...(keyframesPath ? { keyframesPath } : {}),
+            ...(result.outputPath ? { outputPath: result.outputPath } : {}),
           },
         });
         return;
       }
 
       console.log();
-      console.log(chalk.bold.cyan("Reframe Analysis"));
+      console.log(chalk.bold.cyan("Reframe"));
       console.log(chalk.dim("─".repeat(60)));
-      console.log(`Source: ${sourceWidth}x${sourceHeight}`);
-      console.log(`Target: ${options.aspect}`);
-      console.log(`Focus: ${options.focus}`);
-      console.log();
-
-      if (cropKeyframes.length > 0) {
-        const avgConf = cropKeyframes.reduce((sum, kf) => sum + kf.confidence, 0) / cropKeyframes.length;
+      console.log(`Source: ${result.sourceWidth}x${result.sourceHeight}`);
+      console.log(`Target: ${result.targetAspect}`);
+      console.log(`Focus: ${result.focus}`);
+      if (result.focus !== "center") {
+        const avgConf = result.cropKeyframes.reduce((sum, kf) => sum + kf.confidence, 0) / result.cropKeyframes.length;
         console.log(`Average confidence: ${(avgConf * 100).toFixed(0)}%`);
         console.log();
         console.log(chalk.dim("Sample keyframes:"));
-        for (const kf of cropKeyframes.slice(0, 5)) {
+        for (const kf of result.cropKeyframes.slice(0, 5)) {
           console.log(`  ${formatTime(kf.time)} → crop=${kf.cropX},${kf.cropY} (${kf.subjectDescription})`);
         }
-        if (cropKeyframes.length > 5) {
-          console.log(chalk.dim(`  ... and ${cropKeyframes.length - 5} more`));
+        if (result.cropKeyframes.length > 5) {
+          console.log(chalk.dim(`  ... and ${result.cropKeyframes.length - 5} more`));
         }
       }
+      console.log(chalk.dim(`Crop: ${result.crop.width}x${result.crop.height} at (${result.crop.x}, ${result.crop.y})`));
       console.log();
-
-      // Export keyframes if requested
-      if (options.keyframes) {
-        const keyframesPath = resolve(process.cwd(), options.keyframes);
-        await writeFile(keyframesPath, JSON.stringify(cropKeyframes, null, 2));
-        console.log(chalk.green(`Keyframes saved to: ${keyframesPath}`));
-      }
-
-      if (options.analyzeOnly) {
+      if (keyframesPath) console.log(chalk.green(`Keyframes saved to: ${keyframesPath}`));
+      if (result.outputPath) {
+        console.log(chalk.green(`Output: ${result.outputPath}`));
+      } else {
         console.log(chalk.dim("Use without --analyze-only to apply reframe."));
-        return;
       }
-
-      // Apply reframe using average crop position
-      const avgCropX = Math.round(cropKeyframes.reduce((sum, kf) => sum + kf.cropX, 0) / cropKeyframes.length);
-      const avgCropY = Math.round(cropKeyframes.reduce((sum, kf) => sum + kf.cropY, 0) / cropKeyframes.length);
-      const cropWidth = cropKeyframes[0]?.cropWidth || sourceWidth;
-      const cropHeight = cropKeyframes[0]?.cropHeight || sourceHeight;
-
-      const outputPath = options.output
-        ? resolve(process.cwd(), options.output)
-        : absPath.replace(/(\.[^.]+)$/, `-${options.aspect.replace(":", "x")}$1`);
-
-      spinner.start("Applying reframe...");
-
-      await execSafe("ffmpeg", ["-i", absPath, "-vf", `crop=${cropWidth}:${cropHeight}:${avgCropX}:${avgCropY}`, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
-
-      spinner.succeed(chalk.green("Reframe applied"));
-      console.log(chalk.green(`Output: ${outputPath}`));
-      console.log(chalk.dim(`Crop: ${cropWidth}x${cropHeight} at (${avgCropX}, ${avgCropY})`));
       console.log();
     } catch (error) {
       exitWithError(failureFromError(error, "Reframe failed", { fallback: "general" }));
@@ -860,25 +686,19 @@ editCommand
 
 editCommand
   .command("upscale")
-  .description("Upscale video resolution using AI or FFmpeg")
+  .description("Upscale video resolution (FFmpeg Lanczos, free)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path")
   .option("--scale <factor>", "Scale factor: 2 or 4", "2")
-  .option("-m, --model <model>", "Model: real-esrgan, topaz", "real-esrgan")
-  .option("--ffmpeg", "Use FFmpeg lanczos (free, no API)")
-  .option("-k, --api-key <key>", "Replicate API token (or set REPLICATE_API_TOKEN env)")
-  .option("--no-wait", "Start processing and return task ID without waiting")
+  // FFmpeg is the only engine now; kept so existing scripts keep working.
+  .addOption(new Option("--ffmpeg", "(deprecated) no-op: FFmpeg is the only upscale engine").hideHelp())
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
     try {
-      if (options.output) {
-        validateOutputPath(options.output);
-      }
+      if (options.output) validateOutputPath(options.output);
 
-      const absPath = resolve(process.cwd(), videoPath);
-      const scale = parseInt(options.scale);
-
+      const scale = Number(options.scale);
       if (scale !== 2 && scale !== 4) {
         exitWithError(usageError("Scale must be 2 or 4"));
       }
@@ -890,74 +710,38 @@ editCommand
           dryRun: true,
           data: {
             params: {
-              videoPath: absPath,
+              videoPath: resolve(process.cwd(), videoPath),
               scale,
-              model: options.model,
-              ffmpeg: options.ffmpeg || false,
             },
           },
         });
         return;
       }
 
-      // Use FFmpeg if requested (free fallback)
-      if (options.ffmpeg) {
-        const outputPath = options.output
-          ? resolve(process.cwd(), options.output)
-          : absPath.replace(/(\.[^.]+)$/, `-upscaled-${scale}x$1`);
+      const spinner = createSpinner(`Upscaling video (${scale}x)...`).start();
+      const result = await executeUpscale({
+        videoPath,
+        output: options.output,
+        scale,
+        onProgress: (message) => { spinner.text = message; },
+      });
+      if (!result.success) exitWithError(result.failure);
+      spinner.succeed(chalk.green(`Upscaled to ${result.targetRes}`));
 
-        const spinner = createSpinner(`Upscaling video with FFmpeg (${scale}x)...`).start();
-
-        try {
-          // Get original dimensions
-          const { stdout: probeOut } = await execSafe("ffprobe", [
-            "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
-          ]);
-          const [width, height] = probeOut.trim().split(",").map(Number);
-          const newWidth = width * scale;
-          const newHeight = height * scale;
-
-          // Use lanczos scaling
-          await execSafe("ffmpeg", ["-i", absPath, "-vf", `scale=${newWidth}:${newHeight}:flags=lanczos`, "-c:a", "copy", outputPath, "-y"]);
-
-          spinner.succeed(chalk.green(`Upscaled to ${newWidth}x${newHeight}`));
-
-          if (isJsonMode()) {
-            outputSuccess({
-              command: "edit upscale",
-              startedAt,
-              data: {
-                dimensions: `${newWidth}x${newHeight}`,
-                outputPath,
-              },
-            });
-            return;
-          }
-
-          console.log(`Output: ${outputPath}`);
-        } catch (err) {
-          spinner.fail("FFmpeg upscaling failed");
-          const msg = err instanceof Error ? err.message : String(err);
-          exitWithError(generalError(`FFmpeg upscaling failed: ${msg}`));
-        }
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "edit upscale",
+          startedAt,
+          data: {
+            dimensions: result.targetRes,
+            originalDimensions: result.originalRes,
+            outputPath: result.outputPath,
+          },
+        });
         return;
       }
 
-      // Use Replicate API
-      const apiKey = await requireApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
-
-      const spinner = createSpinner("Initializing Replicate...").start();
-
-      const { ReplicateProvider } = await import("@vibeframe/ai-providers");
-      const replicate = new ReplicateProvider();
-      await replicate.initialize({ apiKey });
-
-      // For Replicate, we need a URL. Upload to temporary hosting or require URL
-      spinner.text = "Note: Replicate requires video URL. Reading file...";
-
-      // For now, we'll show an error suggesting URL or ffmpeg
-      spinner.fail("Replicate requires a video URL");
-      exitWithError(usageError("Replicate requires a video URL", "Use --ffmpeg for local processing, or upload video to a URL."));
+      console.log(chalk.green(`Output: ${result.outputPath}`));
     } catch (error) {
       exitWithError(failureFromError(error, "Video upscaling failed", { fallback: "general" }));
     }
@@ -972,6 +756,7 @@ applyTiers(editCommand, {
   "fade": "free",
   "text-overlay": "free",
   "interpolate": "free",
+  "upscale": "free",
   // low — Whisper / single LLM call
   "silence-cut": "low",
   "caption": "low",
@@ -983,220 +768,24 @@ applyTiers(editCommand, {
   // high — vision LLM or image gen
   "reframe": "high",
   "image": "high",
-  "upscale": "high",
   // very-high — video gen per gap
   "fill-gaps": "very-high",
 });
 
 // ── Exported execute functions ─────────────────────────────────────────────
 
-// ============================================================================
-// Color Grade
-// ============================================================================
-
-export interface GradeOptions {
-  videoPath: string;
-  style?: string;
-  preset?: string;
-  output?: string;
-  analyzeOnly?: boolean;
-  apiKey?: string;
-}
-
-export interface GradeResult {
-  success: boolean;
-  outputPath?: string;
-  style?: string;
-  description?: string;
-  ffmpegFilter?: string;
-  error?: string;
-}
-
-export async function executeGrade(options: GradeOptions): Promise<GradeResult> {
-  const { videoPath, style, preset, output, analyzeOnly, apiKey } = options;
-  if (!style && !preset) return { success: false, error: "Either style or preset is required" };
-  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
-  const key = preset ? undefined : await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", apiKey);
-
-  try {
-    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-
-    const absPath = resolve(process.cwd(), videoPath);
-    let gradeResult: { ffmpegFilter: string; description: string };
-
-    if (!key) {
-      const claude = new ClaudeProvider();
-      gradeResult = await claude.analyzeColorGrade("", preset);
-    } else {
-      const claude = new ClaudeProvider();
-      await claude.initialize({ apiKey: key });
-      gradeResult = await claude.analyzeColorGrade(style!);
-    }
-
-    if (analyzeOnly) {
-      return { success: true, style: preset || style, description: gradeResult.description, ffmpegFilter: gradeResult.ffmpegFilter };
-    }
-
-    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, "-graded$1");
-    await execSafe("ffmpeg", ["-i", absPath, "-vf", gradeResult.ffmpegFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
-
-    return { success: true, outputPath, style: preset || style, description: gradeResult.description, ffmpegFilter: gradeResult.ffmpegFilter };
-  } catch (error) {
-    return { success: false, error: `Color grading failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
-
-// ============================================================================
-// Speed Ramp
-// ============================================================================
-
-export interface SpeedRampOptions {
-  videoPath: string;
-  output?: string;
-  style?: "dramatic" | "smooth" | "action";
-  minSpeed?: number;
-  maxSpeed?: number;
-  analyzeOnly?: boolean;
-  language?: string;
-  apiKey?: string;
-}
-
-export interface SpeedRampResult {
-  success: boolean;
-  outputPath?: string;
-  keyframes?: Array<{ time: number; speed: number; reason: string }>;
-  avgSpeed?: number;
-  error?: string;
-}
-
-export async function executeSpeedRamp(options: SpeedRampOptions): Promise<SpeedRampResult> {
-  const { videoPath, output, style = "dramatic", minSpeed = 0.25, maxSpeed = 4.0, analyzeOnly, language, apiKey } = options;
-  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
-  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI");
-  const claudeKey = await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", apiKey);
-
-  try {
-    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-
-    const absPath = resolve(process.cwd(), videoPath);
-
-    // Extract audio
-    const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-    await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
-
-    // Transcribe
-    const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiKey, language: language });
-
-    // Cleanup temp
-    try { const { unlink } = await import("node:fs/promises"); await unlink(tempAudio); } catch { /* best-effort */ }
-
-    if (!transcript.segments || transcript.segments.length === 0) {
-      return { success: false, error: "No transcript segments found" };
-    }
-
-    // Analyze with Claude
-    const claude = new ClaudeProvider();
-    await claude.initialize({ apiKey: claudeKey });
-    const speedResult = await claude.analyzeForSpeedRamp(transcript.segments, { style, minSpeed, maxSpeed });
-
-    const avgSpeed = speedResult.keyframes.reduce((sum: number, kf: { speed: number }) => sum + kf.speed, 0) / speedResult.keyframes.length;
-
-    if (analyzeOnly) {
-      return { success: true, keyframes: speedResult.keyframes, avgSpeed };
-    }
-
-    if (speedResult.keyframes.length < 2) {
-      return { success: false, error: "Not enough keyframes for speed ramping" };
-    }
-
-    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, "-ramped$1");
-    const setpts = `setpts=${(1 / avgSpeed).toFixed(3)}*PTS`;
-    const atempo = avgSpeed >= 0.5 && avgSpeed <= 2.0 ? `atempo=${avgSpeed.toFixed(3)}` : "";
-
-    if (atempo) {
-      await execSafe("ffmpeg", ["-i", absPath, "-filter_complex", `[0:v]${setpts}[v];[0:a]${atempo}[a]`, "-map", "[v]", "-map", "[a]", outputPath, "-y"], { timeout: 600000 });
-    } else {
-      await execSafe("ffmpeg", ["-i", absPath, "-vf", setpts, "-an", outputPath, "-y"], { timeout: 600000 });
-    }
-
-    return { success: true, outputPath, keyframes: speedResult.keyframes, avgSpeed };
-  } catch (error) {
-    return { success: false, error: `Speed ramping failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
-
-// ============================================================================
-// Reframe
-// ============================================================================
-
-export interface ReframeOptions {
-  videoPath: string;
-  aspect?: string;
-  focus?: "auto" | "face" | "center" | "action";
-  output?: string;
-  analyzeOnly?: boolean;
-  apiKey?: string;
-}
-
-export interface ReframeResult {
-  success: boolean;
-  outputPath?: string;
-  sourceAspect?: string;
-  targetAspect?: string;
-  keyframeCount?: number;
-  error?: string;
-}
-
-export async function executeReframe(options: ReframeOptions): Promise<ReframeResult> {
-  const { videoPath, aspect = "9:16", output, analyzeOnly } = options;
-
-  try {
-    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-
-    const absPath = resolve(process.cwd(), videoPath);
-
-    // Get video dimensions
-    const { stdout: probeOut } = await execSafe("ffprobe", [
-      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0", absPath,
-    ]);
-    const [widthStr, heightStr] = probeOut.trim().split(",");
-    const sourceWidth = parseInt(widthStr);
-    const sourceHeight = parseInt(heightStr);
-
-    // Parse target aspect ratio
-    const [tw, th] = aspect.split(":").map(Number);
-    const targetRatio = tw / th;
-    let cropWidth: number, cropHeight: number;
-
-    if (targetRatio > sourceWidth / sourceHeight) {
-      cropWidth = sourceWidth;
-      cropHeight = Math.round(sourceWidth / targetRatio);
-    } else {
-      cropHeight = sourceHeight;
-      cropWidth = Math.round(sourceHeight * targetRatio);
-    }
-
-    // Center crop (simple reframe without AI for MCP — Claude Vision analysis is expensive per frame)
-    const cropX = Math.round((sourceWidth - cropWidth) / 2);
-    const cropY = Math.round((sourceHeight - cropHeight) / 2);
-
-    if (analyzeOnly) {
-      return {
-        success: true,
-        sourceAspect: `${sourceWidth}:${sourceHeight}`,
-        targetAspect: aspect,
-        keyframeCount: 1,
-      };
-    }
-
-    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-${aspect.replace(":", "x")}$1`);
-    await execSafe("ffmpeg", ["-i", absPath, "-vf", `crop=${cropWidth}:${cropHeight}:${cropX}:${cropY}`, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
-
-    return { success: true, outputPath, sourceAspect: `${sourceWidth}:${sourceHeight}`, targetAspect: aspect };
-  } catch (error) {
-    return { success: false, error: `Reframe failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
+// The grade, speed-ramp, reframe, and upscale executors live in
+// `_shared/edit/` next to the other edit executors; the CLI actions above
+// call them, and they are re-exported here for the MCP manifest and the
+// YAML pipeline.
+export { executeGrade, GRADE_PRESETS } from "./_shared/edit/grade.js";
+export type { GradeOptions, GradeResult, GradePreset } from "./_shared/edit/grade.js";
+export { executeSpeedRamp, SPEED_RAMP_STYLES } from "./_shared/edit/speed-ramp.js";
+export type { SpeedRampOptions, SpeedRampResult, SpeedRampStyle, SpeedKeyframe } from "./_shared/edit/speed-ramp.js";
+export { executeReframe, REFRAME_FOCUS_MODES } from "./_shared/edit/reframe.js";
+export type { ReframeOptions, ReframeResult, ReframeFocus, ReframeCrop, ReframeCropKeyframe } from "./_shared/edit/reframe.js";
+export { executeUpscale } from "./_shared/edit/upscale.js";
+export type { UpscaleOptions, UpscaleResult } from "./_shared/edit/upscale.js";
 
 // ============================================================================
 // Interpolate (Slow Motion)
@@ -1243,50 +832,5 @@ export async function executeInterpolate(options: InterpolateOptions): Promise<I
     return { success: true, outputPath, originalFps, targetFps, factor };
   } catch (error) {
     return { success: false, error: `Frame interpolation failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
-
-// ============================================================================
-// Upscale Video
-// ============================================================================
-
-export interface UpscaleOptions {
-  videoPath: string;
-  output?: string;
-  scale?: number;
-  quality?: "fast" | "quality";
-}
-
-export interface UpscaleResult {
-  success: boolean;
-  outputPath?: string;
-  originalRes?: string;
-  targetRes?: string;
-  error?: string;
-}
-
-export async function executeUpscale(options: UpscaleOptions): Promise<UpscaleResult> {
-  const { videoPath, output, scale = 2, quality = "quality" } = options;
-
-  try {
-    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-
-    const absPath = resolve(process.cwd(), videoPath);
-
-    const { stdout: probeOut } = await execSafe("ffprobe", [
-      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", absPath,
-    ]);
-    const [w, h] = probeOut.trim().split(",").map(Number);
-    const targetW = w * scale;
-    const targetH = h * scale;
-
-    const scaleFilter = quality === "quality" ? `scale=${targetW}:${targetH}:flags=lanczos` : `scale=${targetW}:${targetH}`;
-    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-${scale}x$1`);
-
-    await execSafe("ffmpeg", ["-i", absPath, "-vf", scaleFilter, "-c:a", "copy", outputPath, "-y"], { timeout: 600000 });
-
-    return { success: true, outputPath, originalRes: `${w}x${h}`, targetRes: `${targetW}x${targetH}` };
-  } catch (error) {
-    return { success: false, error: `Upscale failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }

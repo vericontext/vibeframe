@@ -26,6 +26,9 @@ import {
   executeReframe,
   executeInterpolate,
   executeUpscale,
+  GRADE_PRESETS,
+  REFRAME_FOCUS_MODES,
+  SPEED_RAMP_STYLES,
 } from "../../commands/edit-cmd.js";
 import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
 import { executeImageEdit } from "../../commands/ai-image.js";
@@ -299,7 +302,7 @@ export const editGradeTool = defineTool({
   schema: z.object({
     videoPath: z.string().describe("Input video file path"),
     style: z.string().optional().describe("Custom style description (e.g., 'cinematic warm sunset')"),
-    preset: z.enum(["film-noir", "vintage", "cinematic-warm", "cool-tones", "high-contrast", "pastel", "cyberpunk", "horror"]).optional().describe("Built-in preset (no API key needed)"),
+    preset: z.enum(GRADE_PRESETS).optional().describe("Built-in preset (no API key needed)"),
     output: z.string().optional().describe("Output video file path"),
     analyzeOnly: z.boolean().optional().describe("Show FFmpeg filter without applying"),
   }),
@@ -327,7 +330,7 @@ export const editSpeedRampTool = defineTool({
   schema: z.object({
     videoPath: z.string().describe("Input video file path (must have audio)"),
     output: z.string().optional().describe("Output video file path"),
-    style: z.enum(["dramatic", "smooth", "action"]).optional().describe("Speed ramp style (default: dramatic)"),
+    style: z.enum(SPEED_RAMP_STYLES).optional().describe("Speed ramp style (default: dramatic)"),
     minSpeed: z.number().optional().describe("Minimum speed factor (default: 0.25)"),
     maxSpeed: z.number().optional().describe("Maximum speed factor (default: 4.0)"),
     analyzeOnly: z.boolean().optional().describe("Show keyframes without applying"),
@@ -349,24 +352,33 @@ export const editSpeedRampTool = defineTool({
 export const editReframeTool = defineTool({
   name: "edit_reframe",
   category: "edit",
-  cost: "free",
+  // Worst case, matching the CLI tier: the vision focus modes call Claude per frame.
+  cost: "high",
   title: "Reframe Video Aspect Ratio",
-  annotations: { readOnly: false, openWorld: false },
-  description: "Auto-reframe video to a different aspect ratio using smart cropping. Free (FFmpeg only).",
+  annotations: { readOnly: false, openWorld: true },
+  description:
+    "Reframe video to a different aspect ratio by cropping. focus=center (the default) is a free FFmpeg center crop. focus=auto|face|action asks Claude Vision where the subject is in up to 30 sampled frames and crops at the average position (needs ANTHROPIC_API_KEY, paid).",
   schema: z.object({
     videoPath: z.string().describe("Input video file path"),
     aspect: z.string().optional().describe("Target aspect ratio: 9:16, 1:1, 4:5 (default: 9:16)"),
-    focus: z.enum(["auto", "face", "center", "action"]).optional().describe("Focus mode (default: auto)"),
+    focus: z.enum(REFRAME_FOCUS_MODES).optional().describe("Focus mode (default: center, free). auto|face|action use Claude Vision (paid)."),
     output: z.string().optional().describe("Output video file path"),
     analyzeOnly: z.boolean().optional().describe("Show crop region without applying"),
   }),
   async execute(args) {
-    const result = await executeReframe(args);
-    if (!result.success) return { success: false, error: result.error ?? "Reframe failed" };
+    const result = await executeReframe({ ...args, focus: args.focus ?? "center" });
+    if (!result.success) return { success: false, error: result.error };
     return {
       success: true,
-      data: { outputPath: result.outputPath, sourceAspect: result.sourceAspect, targetAspect: result.targetAspect },
-      humanLines: [`✅ Reframed ${result.sourceAspect}→${result.targetAspect} → ${result.outputPath ?? "(analyze-only)"}`],
+      data: {
+        outputPath: result.outputPath,
+        sourceAspect: result.sourceAspect,
+        targetAspect: result.targetAspect,
+        focus: result.focus,
+        crop: result.crop,
+        keyframeCount: result.keyframeCount,
+      },
+      humanLines: [`✅ Reframed ${result.sourceAspect}→${result.targetAspect} (${result.focus}) → ${result.outputPath ?? "(analyze-only)"}`],
     };
   },
 });

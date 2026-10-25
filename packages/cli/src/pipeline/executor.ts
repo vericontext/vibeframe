@@ -44,7 +44,7 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   "edit-speed-ramp": { id: "edit-speed-ramp", title: "Speed ramp", category: "edit", command: "edit speed-ramp", outputs: ["video"] },
   "edit-reframe": { id: "edit-reframe", title: "Reframe video", category: "edit", command: "edit reframe", outputs: ["video"] },
   "edit-interpolate": { id: "edit-interpolate", title: "Interpolate frames", category: "edit", command: "edit interpolate", outputs: ["video"] },
-  "edit-upscale": { id: "edit-upscale", title: "Upscale video", category: "edit", command: "edit upscale-video", outputs: ["video"] },
+  "edit-upscale": { id: "edit-upscale", title: "Upscale video", category: "edit", command: "edit upscale", outputs: ["video"] },
   "edit-image": { id: "edit-image", title: "Edit image", category: "edit", command: "edit image", outputs: ["image"] },
   "audio-transcribe": { id: "audio-transcribe", title: "Transcribe audio", category: "audio", command: "audio transcribe", outputs: ["transcript", "srt"] },
   "audio-isolate": { id: "audio-isolate", title: "Isolate audio", category: "audio", outputs: ["audio"] },
@@ -61,8 +61,15 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   export: { id: "export", title: "Export project", category: "export", outputs: ["video"] },
 };
 
-function maxCostFor(action: PipelineAction): number {
-  const cmd = ACTION_METADATA[action]?.command;
+/** Steps whose cost depends on a parameter: free when this returns true. */
+const FREE_WHEN: Partial<Record<PipelineAction, (step: Record<string, unknown>) => boolean>> = {
+  // The default center crop is FFmpeg only; the vision focus modes call Claude.
+  "edit-reframe": (step) => (step.focus ?? "center") === "center",
+};
+
+function maxCostFor(step: { action: PipelineAction } & Record<string, unknown>): number {
+  if (FREE_WHEN[step.action]?.(step)) return 0;
+  const cmd = ACTION_METADATA[step.action]?.command;
   if (!cmd) return 0;
   return COST_ESTIMATES[cmd]?.max ?? 0;
 }
@@ -273,7 +280,31 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeGrade } = await import("../commands/edit-cmd.js");
     const output = getOutput(params, outputDir, "graded.mp4");
     const r = await executeGrade({ videoPath: params.input as string, style: params.style as string | undefined, preset: params.preset as string | undefined, output });
-    return { id: "", action: "edit-grade", success: r.success, output: r.outputPath, data: { description: r.description }, error: r.error };
+    if (!r.success) return { id: "", action: "edit-grade", success: false, error: r.error };
+    return { id: "", action: "edit-grade", success: true, output: r.outputPath, data: { description: r.description } };
+  });
+
+  registerAction("edit-speed-ramp", async (params, outputDir) => {
+    const { executeSpeedRamp } = await import("../commands/edit-cmd.js");
+    const output = getOutput(params, outputDir, "ramped.mp4");
+    const r = await executeSpeedRamp({
+      videoPath: params.input as string,
+      output,
+      style: params.style as "dramatic" | "smooth" | "action" | undefined,
+      minSpeed: params.minSpeed as number | undefined,
+      maxSpeed: params.maxSpeed as number | undefined,
+      language: params.language as string | undefined,
+    });
+    if (!r.success) return { id: "", action: "edit-speed-ramp", success: false, error: r.error };
+    return { id: "", action: "edit-speed-ramp", success: true, output: r.outputPath, data: { avgSpeed: r.avgSpeed, keyframeCount: r.keyframes.length } };
+  });
+
+  registerAction("edit-upscale", async (params, outputDir) => {
+    const { executeUpscale } = await import("../commands/edit-cmd.js");
+    const output = getOutput(params, outputDir, "upscaled.mp4");
+    const r = await executeUpscale({ videoPath: params.input as string, output, scale: params.scale as number | undefined });
+    if (!r.success) return { id: "", action: "edit-upscale", success: false, error: r.error };
+    return { id: "", action: "edit-upscale", success: true, output: r.outputPath, data: { originalRes: r.originalRes, targetRes: r.targetRes } };
   });
 
   registerAction("edit-motion-overlay", async (params, outputDir) => {
@@ -301,8 +332,15 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("edit-reframe", async (params, outputDir) => {
     const { executeReframe } = await import("../commands/edit-cmd.js");
     const output = getOutput(params, outputDir, "reframed.mp4");
-    const r = await executeReframe({ videoPath: params.input as string, aspect: params.aspect as string | undefined, output });
-    return { id: "", action: "edit-reframe", success: r.success, output: r.outputPath, error: r.error };
+    // `focus` defaults to the free center crop; auto|face|action use Claude Vision.
+    const r = await executeReframe({
+      videoPath: params.input as string,
+      aspect: params.aspect as string | undefined,
+      focus: params.focus as "auto" | "face" | "center" | "action" | undefined,
+      output,
+    });
+    if (!r.success) return { id: "", action: "edit-reframe", success: false, error: r.error };
+    return { id: "", action: "edit-reframe", success: true, output: r.outputPath, data: { focus: r.focus, crop: r.crop } };
   });
 
   // Audio
@@ -507,7 +545,7 @@ export async function executePipeline(
     for (const step of manifest.steps) {
       const handler = ACTION_HANDLERS[step.action];
       const unresolvedRefs = findUnresolvedRefs(step as unknown as Record<string, unknown>, availableIds);
-      const max = maxCostFor(step.action);
+      const max = maxCostFor(step);
       totalMaxCost += max;
 
       plan.push({
@@ -549,7 +587,7 @@ export async function executePipeline(
   // pipeline-wide budget (not just this-run budget).
   const budgetUsage: BudgetUsage = { estimatedCostUsd: 0, tokensUsed: 0, toolErrors: 0 };
   for (const cs of completedSteps.values()) {
-    budgetUsage.estimatedCostUsd += maxCostFor(cs.action);
+    budgetUsage.estimatedCostUsd += maxCostFor(manifest.steps.find((s) => s.id === cs.id) ?? { action: cs.action });
   }
 
   // Execute steps
@@ -562,7 +600,7 @@ export async function executePipeline(
 
     // Budget pre-check: cost ceiling
     if (effectiveBudget?.costUsd !== undefined) {
-      const projected = budgetUsage.estimatedCostUsd + maxCostFor(step.action);
+      const projected = budgetUsage.estimatedCostUsd + maxCostFor(step);
       if (projected > effectiveBudget.costUsd) {
         budgetUsage.abortedBy = "costUsd";
         return {
@@ -615,7 +653,7 @@ export async function executePipeline(
 
     if (result.success) {
       completedSteps.set(step.id, result);
-      budgetUsage.estimatedCostUsd += maxCostFor(step.action);
+      budgetUsage.estimatedCostUsd += maxCostFor(step);
 
       // Save checkpoint
       const checkpoint: CheckpointState = {

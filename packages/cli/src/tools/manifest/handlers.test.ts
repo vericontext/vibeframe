@@ -56,6 +56,22 @@ vi.mock("../../commands/ai-analyze.js", () => ({
   executeGeminiVideo: vi.fn(),
 }));
 
+vi.mock("../../commands/edit-cmd.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../commands/edit-cmd.js")>()),
+  executeReframe: vi.fn().mockImplementation(async (options: { focus: string }) => ({
+    success: true,
+    outputPath: "/test/out-9x16.mp4",
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    sourceAspect: "1920:1080",
+    targetAspect: "9:16",
+    focus: options.focus,
+    crop: { x: 657, y: 0, width: 606, height: 1080 },
+    cropKeyframes: [],
+    keyframeCount: 1,
+  })),
+}));
+
 async function runTool(name: string, args: Record<string, unknown>, cwd = "/test/workdir"): Promise<ToolExecuteResult> {
   const tool = manifest.find((entry) => entry.name === name);
   if (!tool) throw new Error(`No manifest tool named ${name}`);
@@ -108,6 +124,30 @@ describe("provider-backed handlers pass their arguments through", () => {
 
     await runTool("inspect_media", { source: "https://youtube.com/watch?v=test", prompt: "Summarize" });
     expect(executeAnalyze).toHaveBeenCalledWith(expect.objectContaining({ source: "https://youtube.com/watch?v=test" }));
+  });
+});
+
+describe("edit_reframe focus", () => {
+  it("defaults to the free center crop, so a call naming no focus never spends", async () => {
+    const { executeReframe } = await import("../../commands/edit-cmd.js");
+    vi.mocked(executeReframe).mockClear();
+    const result = await runTool("edit_reframe", { videoPath: "video.mp4", aspect: "9:16" });
+    expect(executeReframe).toHaveBeenCalledWith(expect.objectContaining({ videoPath: "video.mp4", aspect: "9:16", focus: "center" }));
+    expect(result).toMatchObject({ success: true, data: { focus: "center", outputPath: "/test/out-9x16.mp4" } });
+  });
+
+  it("honors an explicit vision focus instead of silently center-cropping", async () => {
+    const { executeReframe } = await import("../../commands/edit-cmd.js");
+    vi.mocked(executeReframe).mockClear();
+    const result = await runTool("edit_reframe", { videoPath: "video.mp4", focus: "face" });
+    expect(executeReframe).toHaveBeenCalledWith(expect.objectContaining({ focus: "face" }));
+    expect(result).toMatchObject({ success: true, data: { focus: "face" } });
+  });
+
+  it("declares the CLI's cost tier and that it can reach a provider", () => {
+    const tool = manifest.find((entry) => entry.name === "edit_reframe")!;
+    expect(tool.cost).toBe("high");
+    expect(tool.annotations.openWorld).toBe(true);
   });
 });
 
