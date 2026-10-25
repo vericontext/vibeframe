@@ -1,6 +1,6 @@
 ---
 provider: openai
-checked: 2026-10-17
+checked: 2026-10-25
 env: [OPENAI_API_KEY]
 models_endpoint: openai
 models_in_use:
@@ -33,13 +33,13 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 | `gpt-6-sol` | text+image, reasoning | GA | $2 / $10 | Chat Completions tools only with `reasoning_effort: "none"` (docs) |
 | `gpt-6-luna` | text+image, reasoning | GA | $0.10 / $0.50 | Same Chat Completions tool rule as 6 Sol (docs) |
 | `gpt-5.6-sol` / `-terra` / `-luna` | text+image, reasoning | GA | $4/$20, $2/$12, $0.20/$1.20 | Terra is the "mini" tier and the named replacement for `gpt-5-mini` (docs) |
-| `gpt-5.4-mini` | text+image, reasoning | GA, no shutdown listed | $0.75 / $4.50 | 400K context, default effort `none` (docs) |
-| `gpt-5-mini` | text+image, reasoning | **Shuts down 2026-12-11** | $0.25 / $2 | **In use.** Alias resolves to `gpt-5-mini-2025-08-07`, which is on the deprecation list (docs) |
-| `gpt-image-2.5-sunburst` | image gen/edit | GA, newest | $8 in / $30 out (image tokens) | Quality `low`..`max`, `auto`; best for edit precision (docs) |
+| `gpt-5.4-mini` | text+image, reasoning | GA, no shutdown listed | $0.75 / $4.50 | **In use, our text default.** 400K context, default effort `none` (docs) |
+| `gpt-5-mini` | text+image, reasoning | **Shuts down 2026-12-11** | $0.25 / $2 | No longer used; every text call reads `defaultModel("openai", "llm")`. Alias resolves to `gpt-5-mini-2025-08-07`, which is on the deprecation list (docs) |
+| `gpt-image-2.5-sunburst` | image gen/edit | GA, newest | $8 in / $30 out (image tokens) | **In use, our default.** Quality `low`..`max`, `auto`; best for edit precision (docs) |
 | `gpt-image-2.5-flare` | image gen/edit | GA, newest | $8 / $30 (image tokens) | Fastest everyday generation (docs) |
-| `gpt-image-2` | image gen/edit | GA | $8 / $30 (image tokens) | **In use, our default.** 1024x1024: $0.006 low, $0.053 medium, $0.211 high (docs) |
+| `gpt-image-2` | image gen/edit | GA | $8 / $30 (image tokens) | **In use** (`--model 2`). 1024x1024: $0.006 low, $0.053 medium, $0.211 high (docs) |
 | `gpt-image-1.5` | image gen/edit | **Shuts down 2026-12-01** | $8 / $32 (image tokens) | **In use** (`--model 1.5`). 1024x1024: $0.009 / $0.034 / $0.133 (docs) |
-| `dall-e-3`, `dall-e-2` | image | **Shut down 2026-05-12** | - | **Still referenced.** Absent from `/v1/models` (probe, docs) |
+| `dall-e-3`, `dall-e-2` | image | **Shut down 2026-05-12** | - | No longer referenced. Absent from `/v1/models` (probe, docs) |
 | `gpt-4o-mini-tts` | TTS | **Snapshots shut down 2027-01-06** | $0.60 text in, $12 audio out | **In use, default.** Max 2000 input tokens (docs) |
 | `tts-1` / `tts-1-hd` | TTS | **Shut down 2027-01-06** | $15 / $30 per 1M chars | **In use** (opt-in) (docs) |
 | `gpt-transcribe` | STT | GA | $0.0045 / min | Recommended file transcription model; no word timestamps documented (docs) |
@@ -84,28 +84,23 @@ Prices are USD per 1M input / output tokens on Standard processing unless noted.
 
 ## In our code
 
+Every model ID comes from the catalog (`packages/ai-providers/src/catalog/catalog.ts`) through `defaultModel()` / `findModel()`; none is hardcoded at a call site.
+
 - `packages/ai-providers/src/openai/openai-text.ts` - the text contract (`generateText`, used by `storyboard revise`) on `POST /responses`: `instructions`, `input`, `max_output_tokens`, `store: false`, `text.format` `json_schema` with `strict: true`; reads `output[].content[]` `output_text`, treats a `refusal` part or `content_filter` as moderation and `status: "incomplete"` as a cut-off reply. Live on `gpt-5.4-mini` 2026-10-16 (probe).
-- `packages/ai-providers/src/openai/OpenAIProvider.ts:24-25` base URL and `gpt-5-mini`; `:397-407` narration script (`max_completion_tokens: 16384`, `json_object`).
-- `packages/ai-providers/src/openai/openai-storyboard.ts:27-48` storyboard with `json_object` and a `{"segments": [...]}` wrapper.
-- `packages/cli/src/commands/_shared/edit/translate-srt.ts:96-104` direct Chat Completions call on `gpt-5-mini`.
-- `packages/ai-providers/src/openai-image/OpenAIImageProvider.ts:16` `GPTImageModel` (includes `dall-e-3`); `:20-24` and `:13` stale per-image price comments; `:75-78` default `gpt-image-2`; `:121-146` request body (DALL-E branch sends `response_format`); `:151` generations; `:263-299` multipart edits with `image[]`; `:353-372` `createVariation` on `dall-e-2` via `/images/variations`.
-- `packages/cli/src/commands/_shared/openai-image.ts:34-50` maps `1.5` / `gpt-image-1.5` to `gpt-image-1.5`, anything else to `gpt-image-2`.
-- `packages/cli/src/commands/_shared/scene-build.ts:281`, `:1967` scene backdrops default to `gpt-image-2`.
-- `packages/ai-providers/src/openai-tts/OpenAiTtsProvider.ts:12` model union; `:18-32` voice list; `:37-38` defaults `marin` and `gpt-4o-mini-tts`; `:108-118` `/audio/speech` call.
-- `packages/ai-providers/src/whisper/WhisperProvider.ts:58-74` `whisper-1`, `verbose_json`, `timestamp_granularities[]`.
-- `packages/cli/src/commands/_shared/edit/jump-cut.ts:82-90` `whisper-1` word timestamps for filler detection.
+- `packages/ai-providers/src/openai/OpenAIProvider.ts` - `generateNarrationScript` on Chat Completions (`max_completion_tokens: 16384`, `json_object`).
+- `packages/ai-providers/src/openai/openai-storyboard.ts` - storyboard draft on Chat Completions with `json_object` and a `{"segments": [...]}` wrapper.
+- `packages/cli/src/commands/_shared/translate-texts.ts` - SRT and scene text translation on Chat Completions (`edit translate-srt`).
+- `packages/ai-providers/src/openai-image/OpenAIImageProvider.ts` - `GPTImageModel` (2.5 Sunburst, 2.5 Flare, 2, 1.5); default from the catalog (`gpt-image-2.5-sunburst`); JSON `/images/generations` and multipart `/images/edits` with `image[]`; quality `low`/`medium`/`high` only.
+- `packages/cli/src/commands/_shared/openai-image.ts` - CLI aliases to catalog IDs for cost estimates; unknown aliases resolve to the default.
+- `packages/ai-providers/src/openai-tts/OpenAiTtsProvider.ts` - `gpt-4o-mini-tts` default, `tts-1`/`tts-1-hd` opt-in; rejects voices `tts-1` does not support.
+- `packages/ai-providers/src/whisper/WhisperProvider.ts` - `whisper-1`, `verbose_json`, `timestamp_granularities[]`; captions and `edit jump-cut` get word timings through it.
 
 ## Recommended changes
 
-1. Remove `dall-e-3` from `GPTImageModel` and the DALL-E request branch, and remove or reimplement `createVariation` (`dall-e-2`); both models have been shut down since 2026-05-12.
-2. Replace `gpt-5-mini` before 2026-12-11 in the provider, storyboard, and translate-srt (the agent adapter was removed in 0.116.0).
-   `gpt-5.6-terra` is the named replacement but costs about 8x more on input; `gpt-5.4-mini` has no shutdown date and keeps Chat Completions tools; `gpt-6-luna` is cheapest but needs `reasoning_effort: "none"` for tools on Chat Completions.
-3. Move the `1.5` image alias to `gpt-image-2.5-flare` or `gpt-image-2.5-sunburst` before 2026-12-01, and evaluate 2.5 as the default; widen `size` and quality types to cover custom sizes and `xhigh`/`max`.
-4. Fix the stale price comments in `OpenAIImageProvider.ts` (GPT Image 1.5 high is $0.133 at 1024x1024, GPT Image 2 high is $0.211, not "~$0.04 vs ~$0.08").
-5. Plan the TTS exit before 2027-01-06: no documented model will serve `/audio/speech`, so either port to the Realtime API with `gpt-realtime-2.1-mini` or drop OpenAI TTS in favor of Kokoro/ElevenLabs. Meanwhile, reject `ballad`, `verse`, `marin`, `cedar` when the model is `tts-1`/`tts-1-hd`.
-6. Plan a word-timing source before 2027-02-26, since `whisper-1` is the only documented word-timestamp model; check `gpt-transcribe` live for `verbose_json` support before assuming either way.
-7. Switch storyboard and narration from `json_object` to `json_schema` with `strict: true` to drop the wrapper prompt hack.
-8. Guard `OpenAIAdapter.setModel()` against GPT-6 models on Chat Completions with tools, or move the adapter to the Responses API.
+1. `gpt-image-1.5` (`--model 1.5`) shuts down 2026-12-01; the catalog points it at `--model flare`, so the CLI warns until then and refuses after. Widen the quality type to the 2.5 models' `xhigh`/`max` and custom `WxH` sizes.
+2. Plan the TTS exit before 2027-01-06: no documented model will serve `/audio/speech`, so either port to the Realtime API with `gpt-realtime-2.1-mini` or drop OpenAI TTS in favor of Kokoro/ElevenLabs.
+3. Plan a word-timing source before 2027-02-26, since `whisper-1` is the only documented word-timestamp model; check `gpt-transcribe` live for `verbose_json` support before assuming either way.
+4. Move narration script and storyboard drafts from Chat Completions `json_object` to the Responses text contract with `json_schema` (`strict: true`), as `storyboard revise` already does, and drop the `segments` wrapper prompt.
 
 ## Sources
 

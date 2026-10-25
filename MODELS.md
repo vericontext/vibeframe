@@ -18,7 +18,7 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | claude | Claude Opus 5.5 | `claude-opus-5-5` | `opus` | GA | $4 / 1M input tokens |  |
 | claude | Claude Opus 4.6 | `claude-opus-4-6` | `opus-4-6` | Legacy | $5 / 1M input tokens |  |
 | claude | Claude Haiku 5.5 | `claude-haiku-5-5` | `haiku` | GA | $0.1 / 1M input tokens (prompts up to 100K tokens, then $0.50) | Cheapest Claude; accepts `thinking: disabled` |
-| openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 / 1M input tokens | Agent and storyboard default (tools on Chat Completions) |
+| openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 / 1M input tokens | Text default: storyboard, narration script, translation |
 | gemini | **Gemini 3.8 Flash** (default) | `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8`, `gemini` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
 | gemini | Gemini 3.6 Flash | `gemini-3.6-flash` | `flash-3.6` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
 | gemini | Gemini 3.5 Flash | `gemini-3.5-flash` | `flash-3.5` | Legacy |  | Deprecated 2026-10-08 with no shutdown date; Google routes it to gemini-3.6-flash |
@@ -35,7 +35,7 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | openai | **GPT Image 2.5 Sunburst** (default) | `gpt-image-2.5-sunburst` | `2.5`, `sunburst` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 2.5 Flare | `gpt-image-2.5-flare` | `flare`, `2.5-flare` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 2 | `gpt-image-2` | `2` | GA | $0.211 / image (high, 1024x1024) |  |
-| openai | GPT Image 1.5 | `gpt-image-1.5` | `1.5` | Deprecated, shuts down 2026-12-01 | $0.133 / image (high, 1024x1024) |  |
+| openai | GPT Image 1.5 | `gpt-image-1.5` | `1.5` | Deprecated, shuts down 2026-12-01; use `--model flare` (GPT Image 2.5 Flare) | $0.133 / image (high, 1024x1024) |  |
 | gemini | **Nano Banana 2.1** (default) | `gemini-nano-banana-2.1` | `flash`, `2.1`, `latest` | GA | $0.0336 / image (1K) | 1K, 2K, 4K; thinking defaults to medium |
 | gemini | Nano Banana 2 | `gemini-3.1-flash-image` | `3.1-flash` | Legacy | $0.067 / image (1K) | Deprecated 2026-10-06 with no shutdown date; the only Gemini image model with 512px |
 | gemini | Nano Banana 2 Lite | `gemini-3.1-flash-lite-image` | `lite` | GA | $0.034 / image (1K) |  |
