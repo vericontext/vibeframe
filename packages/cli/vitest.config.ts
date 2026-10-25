@@ -17,6 +17,7 @@ const INTEGRATION_TESTS = [
 
 export default defineConfig({
   test: {
+    setupFiles: ["../../scripts/vitest-hermetic-env.mts"],
     exclude: process.env.VIBE_TEST_INTEGRATION
       ? configDefaults.exclude
       : [...configDefaults.exclude, ...INTEGRATION_TESTS],

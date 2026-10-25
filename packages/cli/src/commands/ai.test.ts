@@ -1,16 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { execSync } from "child_process";
-import { resolve } from "path";
+import { mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
 import { detectFillerRanges, DEFAULT_FILLER_WORDS } from "./ai-edit.js";
 
 const CLI = `npx tsx ${resolve(__dirname, "../index.ts")}`;
+
+// Run outside the repo: the CLI's upward .env walk must never reach the
+// developer's real keys, even with VIBE_NO_DOTENV unset.
+const WORK = mkdtempSync(join(tmpdir(), "vibe-ai-test-"));
 
 describe("CLI command groups", () => {
   describe("audio transcribe", () => {
     it("fails without API key", () => {
       expect(() => {
         execSync(`${CLI} audio transcribe /tmp/nonexistent.mp3`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: undefined },
         });
@@ -22,7 +28,7 @@ describe("CLI command groups", () => {
     it("fails without API key", () => {
       expect(() => {
         execSync(`${CLI} inspect suggest /tmp/nonexistent.json "trim clip"`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, GOOGLE_API_KEY: undefined },
         });
@@ -33,7 +39,7 @@ describe("CLI command groups", () => {
   describe("remix highlights", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} remix highlights --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -49,7 +55,7 @@ describe("CLI command groups", () => {
     it("fails without API keys", () => {
       expect(() => {
         execSync(`${CLI} remix highlights /tmp/nonexistent.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
         });
@@ -59,7 +65,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} remix highlights /tmp/nonexistent_video_12345.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
         });
@@ -80,7 +86,7 @@ describe("CLI command groups", () => {
         // VibeFrame's error handler exits 0 so check stdout/stderr text
         // rather than the exit code.
         const output = execSync(`${CLI} remix ${sub} 2>&1 || true`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
         });
         expect(output).toContain(`unknown command '${sub}'`);
@@ -91,7 +97,7 @@ describe("CLI command groups", () => {
   describe("generate video-extend", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} generate video-extend --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -105,7 +111,7 @@ describe("CLI command groups", () => {
     it("fails without API key", () => {
       expect(() => {
         execSync(`${CLI} generate video-extend /tmp/video.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, KLING_API_KEY: undefined },
         });
@@ -116,7 +122,7 @@ describe("CLI command groups", () => {
   describe("edit upscale", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit upscale --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -132,7 +138,7 @@ describe("CLI command groups", () => {
     it("validates scale option", () => {
       expect(() => {
         execSync(`${CLI} edit upscale /tmp/video.mp4 --scale 3 --ffmpeg`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
         });
       }).toThrow();
@@ -142,7 +148,7 @@ describe("CLI command groups", () => {
   describe("edit interpolate", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit interpolate --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -156,7 +162,7 @@ describe("CLI command groups", () => {
     it("validates factor option", () => {
       expect(() => {
         execSync(`${CLI} edit interpolate /tmp/video.mp4 --factor 3`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
         });
       }).toThrow();
@@ -167,7 +173,7 @@ describe("CLI command groups", () => {
   describe("audio clone-voice", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} audio clone-voice --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -182,7 +188,7 @@ describe("CLI command groups", () => {
     it("requires name option when cloning", () => {
       expect(() => {
         execSync(`${CLI} audio clone-voice sample.mp3`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, ELEVENLABS_API_KEY: "test" },
         });
@@ -192,7 +198,7 @@ describe("CLI command groups", () => {
     it("fails without API key", () => {
       expect(() => {
         execSync(`${CLI} audio clone-voice sample.mp3 --name "TestVoice"`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, ELEVENLABS_API_KEY: undefined },
         });
@@ -203,7 +209,7 @@ describe("CLI command groups", () => {
   describe("generate music", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} generate music --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -224,7 +230,7 @@ describe("CLI command groups", () => {
   describe("audio dub", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} audio dub --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -239,7 +245,7 @@ describe("CLI command groups", () => {
     it("requires language option", () => {
       expect(() => {
         execSync(`${CLI} audio dub /tmp/video.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test" },
         });
@@ -249,7 +255,7 @@ describe("CLI command groups", () => {
     it("fails without API keys", () => {
       expect(() => {
         execSync(`${CLI} audio dub /tmp/video.mp4 -l es`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: undefined, ANTHROPIC_API_KEY: undefined },
         });
@@ -259,7 +265,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} audio dub /tmp/nonexistent_video_12345.mp4 -l es`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: "test", ANTHROPIC_API_KEY: "test", ELEVENLABS_API_KEY: "test" },
         });
@@ -270,7 +276,7 @@ describe("CLI command groups", () => {
   describe("edit jump-cut", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit jump-cut --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -286,7 +292,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} edit jump-cut /tmp/nonexistent_video_12345.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: "test" },
         });
@@ -296,7 +302,7 @@ describe("CLI command groups", () => {
     it("fails without API key", () => {
       expect(() => {
         execSync(`${CLI} edit jump-cut /tmp/nonexistent.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, OPENAI_API_KEY: undefined },
         });
@@ -420,7 +426,7 @@ describe("CLI command groups", () => {
   describe("edit noise-reduce", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit noise-reduce --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -433,7 +439,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} edit noise-reduce /tmp/nonexistent_audio_12345.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
         });
       }).toThrow();
@@ -443,7 +449,7 @@ describe("CLI command groups", () => {
   describe("edit fade", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit fade --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -458,7 +464,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} edit fade /tmp/nonexistent_video_12345.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
         });
       }).toThrow();
@@ -468,7 +474,7 @@ describe("CLI command groups", () => {
   describe("generate thumbnail --best-frame", () => {
     it("shows help with best-frame option", () => {
       const output = execSync(`${CLI} generate thumbnail --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -481,7 +487,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent video for best-frame", () => {
       expect(() => {
         execSync(`${CLI} generate thumbnail --best-frame /tmp/nonexistent_video_12345.mp4`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, GOOGLE_API_KEY: "test" },
         });
@@ -492,7 +498,7 @@ describe("CLI command groups", () => {
   describe("edit translate-srt", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} edit translate-srt --help`, {
-        cwd: process.cwd(),
+        cwd: WORK,
         encoding: "utf-8",
       });
 
@@ -507,7 +513,7 @@ describe("CLI command groups", () => {
     it("fails without target language", () => {
       expect(() => {
         execSync(`${CLI} edit translate-srt /tmp/test.srt`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, ANTHROPIC_API_KEY: "test" },
         });
@@ -517,7 +523,7 @@ describe("CLI command groups", () => {
     it("fails with nonexistent file", () => {
       expect(() => {
         execSync(`${CLI} edit translate-srt /tmp/nonexistent_12345.srt -t ko`, {
-          cwd: process.cwd(),
+          cwd: WORK,
           encoding: "utf-8",
           env: { ...process.env, ANTHROPIC_API_KEY: "test" },
         });

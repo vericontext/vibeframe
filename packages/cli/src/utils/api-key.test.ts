@@ -14,6 +14,8 @@ describe("api-key utilities", () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    // These tests exercise the .env walk the suite-wide setup turns off.
+    delete process.env.VIBE_NO_DOTENV;
   });
 
   afterEach(() => {

@@ -368,12 +368,20 @@ describe("executeSceneBuild", () => {
   it("loads OPENAI_API_KEY from the current project's .env for backdrop dispatch", async () => {
     delete process.env.OPENAI_API_KEY;
     writeFileSync(join(projectDir, ".env"), "OPENAI_API_KEY=test-key-from-dotenv\n");
+    // Opt back into .env loading, with the cwd inside the temp project so the
+    // upward walk never reaches the repo's real .env.
+    delete process.env.VIBE_NO_DOTENV;
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(projectDir);
+    try {
+      const r = await executeSceneBuild({ projectDir });
 
-    const r = await executeSceneBuild({ projectDir });
-
-    expect(r.success).toBe(true);
-    expect(r.beats[0].backdropStatus).toBe("generated");
-    expect(createImageGenerator).toHaveBeenCalledWith("openai", "test-key-from-dotenv");
+      expect(r.success).toBe(true);
+      expect(r.beats[0].backdropStatus).toBe("generated");
+      expect(createImageGenerator).toHaveBeenCalledWith("openai", "test-key-from-dotenv");
+    } finally {
+      cwd.mockRestore();
+      process.env.VIBE_NO_DOTENV = "1";
+    }
   });
 
   it.each([

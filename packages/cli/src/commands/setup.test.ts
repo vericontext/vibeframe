@@ -58,6 +58,9 @@ function testEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     XDG_CACHE_HOME: join(fakeHome, ".cache"),
     XDG_DATA_HOME: join(fakeHome, ".local", "share"),
     NO_COLOR: "1",
+    // --import-env reads .env; every run here has a temp cwd and HOME, so the
+    // suite-wide VIBE_NO_DOTENV guard is not needed.
+    VIBE_NO_DOTENV: "",
     ...extra,
   };
 }

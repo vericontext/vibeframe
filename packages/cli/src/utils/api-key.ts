@@ -38,13 +38,20 @@ const MAX_ENV_WALK_LEVELS = 10;
 
 /**
  * Load environment variables from .env files.
- * Priority: CWD .env (project-scoped) > ancestor .env files (nearest wins,
- * walking up to $HOME / fs root / {@link MAX_ENV_WALK_LEVELS}) > monorepo
- * root .env (development). dotenv never overrides already-set vars, so load
- * order IS precedence. The upward walk is what lets a project run from
- * `<workspace>/<project>/` pick up the keys in `<workspace>/.env`.
+ * Priority: `projectDir` .env (when given) > CWD .env > ancestor .env files
+ * (nearest wins, walking up to $HOME / fs root / {@link MAX_ENV_WALK_LEVELS})
+ * > monorepo root .env (development). dotenv never overrides already-set
+ * vars, so load order IS precedence. The upward walk is what lets a project
+ * run from `<workspace>/<project>/` pick up the keys in `<workspace>/.env`.
+ *
+ * `VIBE_NO_DOTENV=1` skips every .env file, so only the process environment
+ * and config.yaml supply keys. The test suites set it (see
+ * scripts/vitest-hermetic-env.mts) so a developer's real keys never reach a
+ * test.
  */
-export function loadEnv(): void {
+export function loadEnv(projectDir?: string): void {
+  if (process.env.VIBE_NO_DOTENV === "1") return;
+  if (projectDir) config({ path: resolve(projectDir, ".env"), debug: false, quiet: true });
   const home = homedir();
   let dir = process.cwd();
   for (let level = 0; level < MAX_ENV_WALK_LEVELS; level++) {

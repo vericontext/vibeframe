@@ -1,10 +1,9 @@
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-
-import { config as loadDotenv } from "dotenv";
+import { join, resolve } from "node:path";
 
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { PROVIDER_ENV_VARS } from "../../config/schema.js";
+import { loadEnv } from "../../utils/api-key.js";
 import {
   isReadyAssetReference,
   resolveGenericAssetReference,
@@ -212,7 +211,7 @@ const SUPPORTED_BUILD_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 
 export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<BuildPlanResult> {
   const projectDir = resolve(opts.projectDir);
-  loadPlanEnv(projectDir);
+  loadEnv(projectDir);
   const stage = opts.stage ?? "all";
   const config = await readProjectConfig(projectDir);
   // Project kind forces per-kind asset skips (e.g. product/motion have no i2v),
@@ -1131,16 +1130,3 @@ function unique(items: string[]): string[] {
   return [...new Set(items.filter((item) => item.length > 0))];
 }
 
-function loadPlanEnv(projectDir: string): void {
-  loadDotenv({ path: join(projectDir, ".env"), quiet: true });
-  loadDotenv({ path: resolve(process.cwd(), ".env"), quiet: true });
-
-  let dir = process.cwd();
-  while (dir !== dirname(dir)) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-      loadDotenv({ path: join(dir, ".env"), quiet: true });
-      return;
-    }
-    dir = dirname(dir);
-  }
-}
