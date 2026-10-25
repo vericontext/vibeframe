@@ -96,7 +96,7 @@ describe("an explicit provider whose key is missing", () => {
       expect(json.warnings).toEqual(expect.arrayContaining([expect.stringContaining(`${envVar} is not set`)]));
     });
 
-    it(`generate ${command} -p ${provider} fails on the missing key instead of spending elsewhere`, () => {
+    it(`generate ${command} -p ${provider} fails with API_KEY_MISSING instead of spending elsewhere`, () => {
       const { scene, env } = makeProject();
       let stderr = "";
       let status: number | null = 0;
@@ -110,8 +110,8 @@ describe("an explicit provider whose key is missing", () => {
       } catch (error) {
         ({ stderr, status } = error as { stderr: string; status: number | null });
       }
-      expect(status).not.toBe(0);
-      expect(JSON.parse(stderr)).toMatchObject({ success: false, error: expect.stringContaining("API key required") });
+      expect(status).toBe(4);
+      expect(JSON.parse(stderr)).toMatchObject({ success: false, code: "API_KEY_MISSING" });
     });
   }
 });
