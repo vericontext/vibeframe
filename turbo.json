@@ -16,7 +16,8 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["VIBE_TEST_INTEGRATION"]
+      "env": ["VIBE_TEST_INTEGRATION"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/vitest-hermetic-env.mts"]
     },
     "clean": {
       "cache": false

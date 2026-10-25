@@ -23,7 +23,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { config as loadDotenv } from "dotenv";
 import {
   createImageGenerator,
   estimateSeedanceVideoCostUsd,
@@ -45,7 +44,7 @@ import {
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-import { getConfiguredApiKey } from "../../utils/api-key.js";
+import { getConfiguredApiKey, loadEnv } from "../../utils/api-key.js";
 import { transcribeNarrationWords, beatTranscriptRelPath } from "./transcribe-narration.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import {
@@ -1969,7 +1968,7 @@ async function buildImage(
   ratio: string,
   sheetBuffers?: Buffer[]
 ): Promise<GeneratedBackdropResult> {
-  loadSceneBuildEnv(ctx.projectDir);
+  loadEnv(ctx.projectDir);
   const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
   const apiKey =
     (await getApiKeyFromConfig(keyInfo.configKey, { cwd: ctx.projectDir })) ??
@@ -2245,7 +2244,7 @@ async function dispatchVideo(
   }
   const keyframeImageAbs = keyframeImageRel ? join(ctx.projectDir, keyframeImageRel) : undefined;
 
-  loadSceneBuildEnv(ctx.projectDir);
+  loadEnv(ctx.projectDir);
   // The job is recorded the moment the provider accepts it, then waited on
   // inline. A crash or a wait that runs out leaves a record `vibe status job`
   // can still poll, download, and cache.
@@ -2457,7 +2456,7 @@ async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     };
   }
 
-  loadSceneBuildEnv(ctx.projectDir);
+  loadEnv(ctx.projectDir);
   const result = await executeMusic({
     prompt,
     provider: ctx.musicProvider,
@@ -2547,19 +2546,6 @@ async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
   };
 }
 
-function loadSceneBuildEnv(projectDir: string): void {
-  loadDotenv({ path: join(projectDir, ".env"), quiet: true });
-  loadDotenv({ path: resolve(process.cwd(), ".env"), quiet: true });
-
-  let dir = process.cwd();
-  while (dir !== dirname(dir)) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-      loadDotenv({ path: join(dir, ".env"), quiet: true });
-      return;
-    }
-    dir = dirname(dir);
-  }
-}
 
 async function skipped(
   kind: "narration" | "backdrop" | "keyframe" | "video" | "music",
