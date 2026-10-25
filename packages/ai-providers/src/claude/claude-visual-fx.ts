@@ -7,7 +7,7 @@
 
 import type { TranscriptSegment } from "../interface/types.js";
 import type { ClaudeApiParams } from "./claude-api.js";
-import { callClaude, extractJsonObject } from "./claude-api.js";
+import { callClaude, isFiniteNumber, isText, parseClaudeJson } from "./claude-api.js";
 
 // ---------------------------------------------------------------------------
 // analyzeColorGrade
@@ -95,26 +95,21 @@ Respond with JSON only:
   "description": "Brief description of the look"
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Create an FFmpeg color grading filter for this style: "${style}"`,
-      }],
-      maxTokens: 1024,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Create an FFmpeg color grading filter for this style: "${style}"`,
+    }],
+    maxTokens: 1024,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) {
-      return { ffmpegFilter: "eq=contrast=1.1", description: "Default grade" };
-    }
-
-    return JSON.parse(jsonStr) as { ffmpegFilter: string; description: string };
-  } catch (error) {
-    console.error("Error analyzing color grade:", error);
-    return { ffmpegFilter: "eq=contrast=1.1", description: "Default grade (error)" };
-  }
+  const grade = parseClaudeJson<{ ffmpegFilter: string; description?: string }>(text, {
+    task: "color grade",
+    shape: "object",
+    isValid: (value) => isText(value.ffmpegFilter),
+  });
+  return { ffmpegFilter: grade.ffmpegFilter, description: isText(grade.description) ? grade.description : style };
 }
 
 // ---------------------------------------------------------------------------
@@ -172,26 +167,20 @@ Respond with JSON only:
   ]
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Analyze this transcript and create speed ramp keyframes:\n\n${transcriptWithTimestamps}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Analyze this transcript and create speed ramp keyframes:\n\n${transcriptWithTimestamps}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) return { keyframes: [] };
-
-    return JSON.parse(jsonStr) as {
-      keyframes: Array<{ time: number; speed: number; reason: string }>;
-    };
-  } catch (error) {
-    console.error("Error analyzing for speed ramp:", error);
-    return { keyframes: [] };
-  }
+  return parseClaudeJson<{ keyframes: Array<{ time: number; speed: number; reason: string }> }>(text, {
+    task: "speed ramp",
+    shape: "object",
+    isValid: (value) => Array.isArray(value.keyframes),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -295,69 +284,62 @@ Respond with JSON only:
   "subjectDescription": "Person speaking on left side of frame"
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mimeType,
-              data: frameBase64,
-            },
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType,
+            data: frameBase64,
           },
-          {
-            type: "text",
-            text: `Analyze this frame for ${targetAspect} reframe. Where should we crop to best capture the subject?`,
-          },
-        ] as unknown as string,
-      }],
-      maxTokens: 1024,
-    });
+        },
+        {
+          type: "text",
+          text: `Analyze this frame for ${targetAspect} reframe. Where should we crop to best capture the subject?`,
+        },
+      ],
+    }],
+    maxTokens: 1024,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) {
-      return { cropX: defaultCropX, cropY: defaultCropY, cropWidth, cropHeight, confidence: 0.5, subjectDescription: "Default crop" };
-    }
+  const result = parseClaudeJson<{
+    cropX: number;
+    cropY: number;
+    confidence?: number;
+    subjectDescription?: string;
+  }>(text, {
+    task: "reframe",
+    shape: "object",
+    isValid: (value) => isFiniteNumber(value.cropX) && isFiniteNumber(value.cropY),
+  });
 
-    const result = JSON.parse(jsonStr) as {
-      cropX: number;
-      cropY: number;
-      confidence: number;
-      subjectDescription: string;
-    };
+  // Keep the crop inside the source frame.
+  const clampedCropX = Math.max(0, Math.min(result.cropX, sourceWidth - cropWidth));
+  const clampedCropY = Math.max(0, Math.min(result.cropY, sourceHeight - cropHeight));
 
-    // Validate and clamp values
-    const clampedCropX = Math.max(0, Math.min(result.cropX, sourceWidth - cropWidth));
-    const clampedCropY = Math.max(0, Math.min(result.cropY, sourceHeight - cropHeight));
-
-    return {
-      cropX: clampedCropX,
-      cropY: clampedCropY,
-      cropWidth,
-      cropHeight,
-      confidence: result.confidence,
-      subjectDescription: result.subjectDescription,
-    };
-  } catch (error) {
-    console.error("Error analyzing frame for reframe:", error);
-    return {
-      cropX: defaultCropX,
-      cropY: defaultCropY,
-      cropWidth,
-      cropHeight,
-      confidence: 0.5,
-      subjectDescription: "Default crop (error)",
-    };
-  }
+  return {
+    cropX: clampedCropX,
+    cropY: clampedCropY,
+    cropWidth,
+    cropHeight,
+    confidence: isFiniteNumber(result.confidence) ? result.confidence : 0.5,
+    subjectDescription: isText(result.subjectDescription) ? result.subjectDescription : "Subject",
+  };
 }
 
 // ---------------------------------------------------------------------------
 // generateNarrationScript
 // ---------------------------------------------------------------------------
+
+/** A voiceover script, whole and split into timed segments. */
+export interface NarrationScript {
+  script: string;
+  segments: Array<{ startTime: number; endTime: number; text: string }>;
+}
 
 export async function generateNarrationScript(
   api: ClaudeApiParams,
@@ -365,12 +347,7 @@ export async function generateNarrationScript(
   duration: number,
   style: "informative" | "energetic" | "calm" | "dramatic" = "informative",
   language: string = "en"
-): Promise<{
-  success: boolean;
-  script?: string;
-  segments?: Array<{ startTime: number; endTime: number; text: string }>;
-  error?: string;
-}> {
+): Promise<NarrationScript> {
   const styleGuides: Record<string, string> = {
     informative: "Clear, educational, and objective. Focus on facts and explanations. Professional but accessible tone.",
     energetic: "Enthusiastic, dynamic, and engaging. Use active language and build excitement. Great for action content.",
@@ -407,44 +384,18 @@ IMPORTANT: Respond with JSON only:
 The segments should divide the script into natural phrases that align with video scenes.
 Each segment should be 3-10 seconds long.`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Create a narration script for this video:\n\n${videoAnalysis}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Create a narration script for this video:\n\n${videoAnalysis}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    // Extract JSON from response
-    let jsonText = text;
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim();
-    }
-
-    // Try to find JSON object
-    const objectMatch = jsonText.match(/\{[\s\S]*"script"[\s\S]*\}/);
-    if (objectMatch) {
-      jsonText = objectMatch[0];
-    }
-
-    const result = JSON.parse(jsonText) as {
-      script: string;
-      segments?: Array<{ startTime: number; endTime: number; text: string }>;
-    };
-
-    return {
-      success: true,
-      script: result.script,
-      segments: result.segments || [],
-    };
-  } catch (error) {
-    console.error("Claude generateNarrationScript error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to generate narration script",
-    };
-  }
+  const result = parseClaudeJson<{
+    script: string;
+    segments?: Array<{ startTime: number; endTime: number; text: string }>;
+  }>(text, { task: "narration script", shape: "object", isValid: (value) => isText(value.script) });
+  return { script: result.script, segments: Array.isArray(result.segments) ? result.segments : [] };
 }

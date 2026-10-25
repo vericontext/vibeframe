@@ -14,7 +14,7 @@ import type {
   BrollMatch,
 } from "../interface/types.js";
 import type { ClaudeApiParams } from "./claude-api.js";
-import { callClaude, extractJsonArray, extractJsonObject } from "./claude-api.js";
+import { callClaude, parseClaudeJson } from "./claude-api.js";
 
 // ---------------------------------------------------------------------------
 // analyzeForHighlights
@@ -67,43 +67,35 @@ ${options.maxCount ? `- Maximum number of highlights: ${options.maxCount}` : ""}
 Respond with a JSON array ONLY (no other text):
 [{"startTime": 120.5, "endTime": 145.2, "reason": "Key insight about...", "transcript": "The actual text...", "confidence": 0.92, "category": "informative"}]`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Analyze this transcript and identify the most engaging highlights:\n\n${transcriptWithTimestamps}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Analyze this transcript and identify the most engaging highlights:\n\n${transcriptWithTimestamps}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) return [];
+  const rawHighlights = parseClaudeJson<Array<{
+    startTime: number;
+    endTime: number;
+    reason: string;
+    transcript: string;
+    confidence: number;
+    category: "emotional" | "informative" | "funny";
+  }>>(text, { task: "highlights", shape: "array" });
 
-    const rawHighlights = JSON.parse(jsonStr) as Array<{
-      startTime: number;
-      endTime: number;
-      reason: string;
-      transcript: string;
-      confidence: number;
-      category: "emotional" | "informative" | "funny";
-    }>;
-
-    // Transform and add index
-    return rawHighlights.map((h, index) => ({
-      index: index + 1,
-      startTime: h.startTime,
-      endTime: h.endTime,
-      duration: h.endTime - h.startTime,
-      reason: h.reason,
-      transcript: h.transcript,
-      confidence: h.confidence,
-      category: h.category,
-    }));
-  } catch (error) {
-    console.error("Error analyzing highlights:", error);
-    return [];
-  }
+  // Transform and add index
+  return rawHighlights.map((h, index) => ({
+    index: index + 1,
+    startTime: h.startTime,
+    endTime: h.endTime,
+    duration: h.endTime - h.startTime,
+    reason: h.reason,
+    transcript: h.transcript,
+    confidence: h.confidence,
+    category: h.category,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -132,39 +124,34 @@ Focus on:
 Respond with JSON only:
 {"description": "Brief description here", "tags": ["tag1", "tag2", "tag3"]}`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mimeType,
-              data: frameBase64,
-            },
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType,
+            data: frameBase64,
           },
-          {
-            type: "text",
-            text: `Analyze this frame from B-roll footage: "${fileName}"`,
-          },
-        ] as unknown as string,
-      }],
-      maxTokens: 1024,
-    });
+        },
+        {
+          type: "text",
+          text: `Analyze this frame from B-roll footage: "${fileName}"`,
+        },
+      ],
+    }],
+    maxTokens: 1024,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) {
-      return { description: `Content from ${fileName}`, tags: [] };
-    }
-
-    return JSON.parse(jsonStr) as { description: string; tags: string[] };
-  } catch (error) {
-    console.error("Error analyzing B-roll content:", error);
-    return { description: `Content from ${fileName}`, tags: [] };
-  }
+  const result = parseClaudeJson<{ description: string; tags?: string[] }>(text, {
+    task: "B-roll analysis",
+    shape: "object",
+    isValid: (value) => typeof value.description === "string",
+  });
+  return { description: result.description, tags: Array.isArray(result.tags) ? result.tags : [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -175,15 +162,6 @@ export async function analyzeNarrationForVisuals(
   api: ClaudeApiParams,
   segments: Array<{ startTime: number; endTime: number; text: string }>
 ): Promise<NarrationSegment[]> {
-  const fallback = segments.map((seg, i) => ({
-    index: i,
-    startTime: seg.startTime,
-    endTime: seg.endTime,
-    text: seg.text,
-    visualDescription: "",
-    suggestedBrollTags: [],
-  }));
-
   const formattedSegments = segments
     .map((seg, i) => `[${i}] [${seg.startTime.toFixed(1)}s - ${seg.endTime.toFixed(1)}s] ${seg.text}`)
     .join("\n");
@@ -203,41 +181,33 @@ Consider:
 Respond with a JSON array only:
 [{"index": 0, "visualDescription": "...", "suggestedBrollTags": ["tag1", "tag2"]}]`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Analyze these narration segments and suggest appropriate B-roll visuals:\n\n${formattedSegments}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Analyze these narration segments and suggest appropriate B-roll visuals:\n\n${formattedSegments}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) return fallback;
+  const analyzed = parseClaudeJson<Array<{
+    index: number;
+    visualDescription: string;
+    suggestedBrollTags: string[];
+  }>>(text, { task: "narration visuals", shape: "array" });
 
-    const analyzed = JSON.parse(jsonStr) as Array<{
-      index: number;
-      visualDescription: string;
-      suggestedBrollTags: string[];
-    }>;
-
-    // Merge with original segments
-    return segments.map((seg, i) => {
-      const analysis = analyzed.find((a) => a.index === i);
-      return {
-        index: i,
-        startTime: seg.startTime,
-        endTime: seg.endTime,
-        text: seg.text,
-        visualDescription: analysis?.visualDescription || "",
-        suggestedBrollTags: analysis?.suggestedBrollTags || [],
-      };
-    });
-  } catch (error) {
-    console.error("Error analyzing narration for visuals:", error);
-    return fallback;
-  }
+  // Merge with original segments
+  return segments.map((seg, i) => {
+    const analysis = analyzed.find((a) => a.index === i);
+    return {
+      index: i,
+      startTime: seg.startTime,
+      endTime: seg.endTime,
+      text: seg.text,
+      visualDescription: analysis?.visualDescription || "",
+      suggestedBrollTags: analysis?.suggestedBrollTags || [],
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -289,22 +259,14 @@ For each match, provide:
 Respond with JSON array only (empty array if no good matches):
 [{"narrationSegmentIndex": 0, "brollClipId": "clip-id", "confidence": 0.85, "reason": "Why this matches", "suggestedStartOffset": 0, "suggestedDuration": 5.5}]`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Match B-roll clips to narration segments.\n\n## Narration Segments:\n${formattedNarration}\n\n## Available B-roll Clips:\n${formattedBroll}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Match B-roll clips to narration segments.\n\n## Narration Segments:\n${formattedNarration}\n\n## Available B-roll Clips:\n${formattedBroll}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) return [];
-
-    return JSON.parse(jsonStr) as BrollMatch[];
-  } catch (error) {
-    console.error("Error matching B-roll to narration:", error);
-    return [];
-  }
+  return parseClaudeJson<BrollMatch[]>(text, { task: "B-roll match", shape: "array" });
 }

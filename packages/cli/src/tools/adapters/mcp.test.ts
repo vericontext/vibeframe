@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildMcpDispatcher, makeProgressSink, manifestToMcpTools } from "./mcp.js";
 import { defineTool, type AnyTool, type ExecuteContext } from "../define-tool.js";
+import { ProviderError } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../../utils/api-key-error.js";
 
 describe("manifestToMcpTools annotations projection", () => {
@@ -210,6 +211,23 @@ describe("buildMcpDispatcher missing provider keys", () => {
       code: "API_KEY_MISSING",
       exitCode: 4,
       suggestion: expect.stringContaining("Set KLING_API_KEY in .env, or run: vibe setup"),
+      retryable: false,
+    });
+  });
+
+  it("returns a thrown provider error as a structured failure with its kind", async () => {
+    const dispatcher = buildMcpDispatcher([
+      stubTool(async () => {
+        throw new ProviderError({ kind: "auth", provider: "claude", status: 401, message: "invalid x-api-key" });
+      }),
+    ]);
+    const response = await dispatcher("stub_tool", {});
+    expect(JSON.parse(response.content[0].text)).toMatchObject({
+      success: false,
+      error: "stub_tool failed: invalid x-api-key",
+      code: "AUTH_ERROR",
+      exitCode: 4,
+      errorKind: "auth",
       retryable: false,
     });
   });

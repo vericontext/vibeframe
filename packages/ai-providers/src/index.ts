@@ -74,7 +74,7 @@ export * from "./text/index.js";
 export { VIDEO_GENERATOR_PROVIDERS, createVideoGenerator, type VideoGeneratorProvider } from "./video/registry.js";
 export { OpenAIProvider, openaiProvider } from "./openai/index.js";
 export { ClaudeProvider, claudeProvider } from "./claude/index.js";
-export type { MotionOptions, MotionResult, RemotionComponent, StoryboardSegment } from "./claude/index.js";
+export type { MotionOptions, RemotionComponent, StoryboardSegment } from "./claude/index.js";
 export {
   ELEVENLABS_MUSIC_MODEL,
   ElevenLabsProvider,

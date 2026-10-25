@@ -5,8 +5,8 @@
  */
 
 import type { ClaudeApiParams } from "./claude-api.js";
-import type { MotionOptions, MotionResult, StoryboardSegment } from "./ClaudeProvider.js";
-import { callClaude, extractJsonObject, extractJsonArray } from "./claude-api.js";
+import type { MotionOptions, RemotionComponent, StoryboardSegment } from "./ClaudeProvider.js";
+import { callClaude, isText, parseClaudeJson } from "./claude-api.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
 
 // ---------------------------------------------------------------------------
@@ -25,11 +25,20 @@ const MOTION_COMPONENT_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Parse a motion reply; a reply without component code is a `ProviderError`. */
+function parseMotionReply(text: string, task: string): { name: string; code: string; description?: string } {
+  return parseClaudeJson<{ name: string; code: string; description?: string }>(text, {
+    task,
+    shape: "object",
+    isValid: (value) => isText(value.name) && isText(value.code),
+  });
+}
+
 export async function generateMotion(
   api: ClaudeApiParams,
   description: string,
   options: MotionOptions = {}
-): Promise<MotionResult> {
+): Promise<RemotionComponent> {
   const width = options.width || 1920;
   const height = options.height || 1080;
   const fps = options.fps || 30;
@@ -60,45 +69,23 @@ MANDATORY ADAPTATION RULES:
 5. CONTENT RELEVANCE: If the analysis identifies specific subjects (e.g., "golden retriever on beach"), incorporate that context into text content, visual motifs, and color choices.`;
   }
 
-  try {
-    const userContent = buildMotionUserPrompt(description, stylePreset);
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{ role: "user", content: buildMotionUserPrompt(description, stylePreset) }],
+    maxTokens: 16000,
+    jsonSchema: MOTION_COMPONENT_SCHEMA,
+  });
 
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{ role: "user", content: userContent }],
-      maxTokens: 16000,
-      jsonSchema: MOTION_COMPONENT_SCHEMA,
-    });
-
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) {
-      return { success: false, error: "Could not parse response" };
-    }
-
-    const result = JSON.parse(jsonStr) as {
-      name: string;
-      code: string;
-      description: string;
-    };
-
-    return {
-      success: true,
-      component: {
-        name: result.name,
-        code: result.code,
-        durationInFrames,
-        fps,
-        width,
-        height,
-        description: result.description,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  const result = parseMotionReply(text, "motion graphic");
+  return {
+    name: result.name,
+    code: result.code,
+    durationInFrames,
+    fps,
+    width,
+    height,
+    description: result.description ?? "",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +97,7 @@ export async function refineMotion(
   existingCode: string,
   instructions: string,
   options: MotionOptions = {}
-): Promise<MotionResult> {
+): Promise<RemotionComponent> {
   const width = options.width || 1920;
   const height = options.height || 1080;
   const fps = options.fps || 30;
@@ -147,44 +134,26 @@ Respond with ONLY valid JSON (no markdown):
   "description": "One sentence describing the changes made"
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Here is the existing Remotion component code:\n\`\`\`tsx\n${existingCode}\n\`\`\`\n\nModification instructions: ${instructions}\n\nReturn the complete modified component as JSON.`,
-      }],
-      maxTokens: 16000,
-      jsonSchema: MOTION_COMPONENT_SCHEMA,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Here is the existing Remotion component code:\n\`\`\`tsx\n${existingCode}\n\`\`\`\n\nModification instructions: ${instructions}\n\nReturn the complete modified component as JSON.`,
+    }],
+    maxTokens: 16000,
+    jsonSchema: MOTION_COMPONENT_SCHEMA,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) return { success: false, error: "Could not parse response" };
-
-    const result = JSON.parse(jsonStr) as {
-      name: string;
-      code: string;
-      description: string;
-    };
-
-    return {
-      success: true,
-      component: {
-        name: result.name,
-        code: result.code,
-        durationInFrames,
-        fps,
-        width,
-        height,
-        description: result.description,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  const result = parseMotionReply(text, "motion refinement");
+  return {
+    name: result.name,
+    code: result.code,
+    durationInFrames,
+    fps,
+    width,
+    height,
+    description: result.description ?? "",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -200,30 +169,18 @@ export async function analyzeContent(
   const creativity = options?.creativity || "low";
   const systemPrompt = buildStoryboardSystemPrompt(targetDuration, creativity);
 
-  try {
-    // Creativity is steered through the system prompt: Claude Opus 4.7 and
-    // every 5.x model reject a non-default `temperature` with a 400.
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: buildStoryboardUserMessage(content),
-      }],
-      maxTokens: 4096,
-    });
+  // Creativity is steered through the system prompt: Claude Opus 4.7 and
+  // every 5.x model reject a non-default `temperature` with a 400.
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: buildStoryboardUserMessage(content),
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) {
-      console.error("[Claude API] No JSON array found in response. Response text:");
-      console.error(text.slice(0, 500));
-      return [];
-    }
-
-    return JSON.parse(jsonStr) as StoryboardSegment[];
-  } catch (err) {
-    console.error(`[Claude API] Storyboard error: ${err instanceof Error ? err.message : err}`);
-    return [];
-  }
+  return parseClaudeJson<StoryboardSegment[]>(text, { task: "storyboard", shape: "array" });
 }
 
 // ---------------------------------------------------------------------------

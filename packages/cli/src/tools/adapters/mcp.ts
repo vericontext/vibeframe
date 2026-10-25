@@ -7,7 +7,9 @@
 import type { ZodError } from "zod";
 import { zodToJsonSchema, type JsonSchema } from "../zod-to-json-schema.js";
 import type { ToolDefinition } from "../define-tool.js";
+import { isProviderError } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../../utils/api-key-error.js";
+import { failureFromError } from "../../commands/output.js";
 
 /**
  * Top-level MCP tool inputSchema. We always emit `{ type:"object", properties,
@@ -316,6 +318,11 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
       // the user which key to set instead of retrying.
       if (error instanceof ApiKeyError) {
         return { content: [{ type: "text", text: JSON.stringify(error.toStructured()) }] };
+      }
+      // A failed provider call keeps its kind (auth, quota, rate-limit, ...)
+      // and the matching error code, so the agent knows whether to retry.
+      if (isProviderError(error)) {
+        return { content: [{ type: "text", text: JSON.stringify(failureFromError(error, `${name} failed`)) }] };
       }
       const msg = error instanceof Error ? error.message : String(error);
       return { content: [{ type: "text", text: `${name} threw: ${msg}` }] };

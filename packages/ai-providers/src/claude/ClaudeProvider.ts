@@ -14,6 +14,7 @@ import type {
   TimeSeconds,
 } from "../interface/types.js";
 
+import { ProviderError } from "../shared/errors.js";
 import type { ClaudeApiParams } from "./claude-api.js";
 import { claudeGenerateText } from "./claude-text.js";
 import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
@@ -36,6 +37,7 @@ import {
   analyzeForSpeedRamp,
   analyzeFrameForReframe,
   generateNarrationScript,
+  type NarrationScript,
 } from "./claude-visual-fx.js";
 import { defaultModel, listModels } from "../catalog/catalog.js";
 
@@ -80,17 +82,6 @@ export interface RemotionComponent {
 }
 
 /**
- * Motion graphic generation result
- */
-export interface MotionResult {
-  success: boolean;
-  /** Generated Remotion component */
-  component?: RemotionComponent;
-  /** Error message if failed */
-  error?: string;
-}
-
-/**
  * Storyboard segment
  */
 export interface StoryboardSegment {
@@ -119,7 +110,11 @@ export interface StoryboardSegment {
 }
 
 /**
- * Claude provider for AI-powered content creation
+ * Claude provider for AI-powered content creation.
+ *
+ * Every method that calls Claude throws a `ProviderError` when the call
+ * fails or the reply cannot be used (kind `auth` when no key is set), so a
+ * failure never comes back looking like an empty or default result.
  */
 export class ClaudeProvider implements AIProvider, TextGenerator {
   id = "claude";
@@ -164,18 +159,23 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     return { apiKey: this.apiKey, baseUrl: this.baseUrl, model: this.model };
   }
 
+  /** API params for a method that cannot work without Claude. */
+  private requireApi(): ClaudeApiParams {
+    const api = this.api;
+    if (!api) throw new ProviderError({ kind: "auth", provider: "claude", message: "Anthropic API key not configured" });
+    return api;
+  }
+
   // ---------------------------------------------------------------------------
   // Delegated methods — Motion (claude-motion.ts)
   // ---------------------------------------------------------------------------
 
-  async generateMotion(description: string, options: MotionOptions = {}): Promise<MotionResult> {
-    if (!this.api) return { success: false, error: "Claude API key not configured" };
-    return generateMotion(this.api, description, options);
+  async generateMotion(description: string, options: MotionOptions = {}): Promise<RemotionComponent> {
+    return generateMotion(this.requireApi(), description, options);
   }
 
-  async refineMotion(existingCode: string, instructions: string, options: MotionOptions = {}): Promise<MotionResult> {
-    if (!this.api) return { success: false, error: "Claude API key not configured" };
-    return refineMotion(this.api, existingCode, instructions, options);
+  async refineMotion(existingCode: string, instructions: string, options: MotionOptions = {}): Promise<RemotionComponent> {
+    return refineMotion(this.requireApi(), existingCode, instructions, options);
   }
 
   async analyzeContent(
@@ -183,8 +183,7 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     targetDuration?: number,
     options?: { creativity?: "low" | "high" }
   ): Promise<StoryboardSegment[]> {
-    if (!this.api) return [];
-    return analyzeContent(this.api, content, targetDuration, options);
+    return analyzeContent(this.requireApi(), content, targetDuration, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -195,8 +194,7 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     segments: TranscriptSegment[],
     options: { criteria?: HighlightCriteria; targetDuration?: number; maxCount?: number } = {}
   ): Promise<Highlight[]> {
-    if (!this.api) return [];
-    return analyzeForHighlights(this.api, segments, options);
+    return analyzeForHighlights(this.requireApi(), segments, options);
   }
 
   async analyzeBrollContent(
@@ -204,32 +202,20 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     fileName: string,
     mimeType: string = "image/jpeg"
   ): Promise<{ description: string; tags: string[] }> {
-    if (!this.api) return { description: "Unknown content", tags: [] };
-    return analyzeBrollContent(this.api, frameBase64, fileName, mimeType);
+    return analyzeBrollContent(this.requireApi(), frameBase64, fileName, mimeType);
   }
 
   async analyzeNarrationForVisuals(
     segments: Array<{ startTime: number; endTime: number; text: string }>
   ): Promise<NarrationSegment[]> {
-    if (!this.api) {
-      return segments.map((seg, i) => ({
-        index: i,
-        startTime: seg.startTime,
-        endTime: seg.endTime,
-        text: seg.text,
-        visualDescription: "",
-        suggestedBrollTags: [],
-      }));
-    }
-    return analyzeNarrationForVisuals(this.api, segments);
+    return analyzeNarrationForVisuals(this.requireApi(), segments);
   }
 
   async matchBrollToNarration(
     narrationSegments: NarrationSegment[],
     brollClips: BrollClipInfo[]
   ): Promise<BrollMatch[]> {
-    if (!this.api) return [];
-    return matchBrollToNarration(this.api, narrationSegments, brollClips);
+    return matchBrollToNarration(this.requireApi(), narrationSegments, brollClips);
   }
 
   // ---------------------------------------------------------------------------
@@ -241,18 +227,7 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     projectMeta: { duration: number; clipCount: number },
     targetPlatforms: string[]
   ): Promise<ViralAnalysis> {
-    if (!this.api) {
-      return {
-        overallScore: 0,
-        hookStrength: 0,
-        pacing: "moderate",
-        emotionalPeaks: [],
-        suggestedCuts: [],
-        platforms: {},
-        hookRecommendation: { suggestedStartTime: 0, reason: "API key not configured" },
-      };
-    }
-    return analyzeViralPotential(this.api, transcriptSegments, projectMeta, targetPlatforms);
+    return analyzeViralPotential(this.requireApi(), transcriptSegments, projectMeta, targetPlatforms);
   }
 
   async suggestPlatformCuts(
@@ -261,22 +236,21 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     platform: PlatformSpec,
     clips: Array<{ id: string; startTime: number; duration: number }>
   ): Promise<PlatformCut> {
-    if (!this.api) return { platform: platform.id, segments: [], totalDuration: 0 };
-    return suggestPlatformCuts(this.api, transcriptSegments, viralAnalysis, platform, clips);
+    return suggestPlatformCuts(this.requireApi(), transcriptSegments, viralAnalysis, platform, clips);
   }
 
   async generateViralCaptions(
     transcriptSegments: TranscriptSegment[],
     style: "minimal" | "bold" | "animated"
   ): Promise<Array<{ startTime: TimeSeconds; endTime: TimeSeconds; text: string; style: string }>> {
-    if (!this.api) return [];
-    return generateViralCaptions(this.api, transcriptSegments, style);
+    return generateViralCaptions(this.requireApi(), transcriptSegments, style);
   }
 
   // ---------------------------------------------------------------------------
   // Delegated methods — Visual FX (claude-visual-fx.ts)
   // ---------------------------------------------------------------------------
 
+  /** A preset (or, without a key, a style that names one) needs no call. */
   async analyzeColorGrade(
     style: string,
     preset?: string
@@ -288,10 +262,10 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     segments: TranscriptSegment[],
     options: { style?: "dramatic" | "smooth" | "action"; minSpeed?: number; maxSpeed?: number } = {}
   ): Promise<{ keyframes: Array<{ time: number; speed: number; reason: string }> }> {
-    if (!this.api) return { keyframes: [] };
-    return analyzeForSpeedRamp(this.api, segments, options);
+    return analyzeForSpeedRamp(this.requireApi(), segments, options);
   }
 
+  /** `focusMode: "center"` (or no key) is a center crop with no call. */
   async analyzeFrameForReframe(
     frameBase64: string,
     targetAspect: string,
@@ -317,14 +291,8 @@ export class ClaudeProvider implements AIProvider, TextGenerator {
     duration: number,
     style: "informative" | "energetic" | "calm" | "dramatic" = "informative",
     language: string = "en"
-  ): Promise<{
-    success: boolean;
-    script?: string;
-    segments?: Array<{ startTime: number; endTime: number; text: string }>;
-    error?: string;
-  }> {
-    if (!this.api) return { success: false, error: "Claude API key not configured" };
-    return generateNarrationScript(this.api, videoAnalysis, duration, style, language);
+  ): Promise<NarrationScript> {
+    return generateNarrationScript(this.requireApi(), videoAnalysis, duration, style, language);
   }
 }
 
