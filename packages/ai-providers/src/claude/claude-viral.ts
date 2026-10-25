@@ -12,20 +12,7 @@ import type {
   TimeSeconds,
 } from "../interface/types.js";
 import type { ClaudeApiParams } from "./claude-api.js";
-import { callClaude, extractJsonObject, extractJsonArray } from "./claude-api.js";
-
-/** Default empty viral analysis for error/fallback returns */
-function emptyViralAnalysis(reason: string): ViralAnalysis {
-  return {
-    overallScore: 0,
-    hookStrength: 0,
-    pacing: "moderate",
-    emotionalPeaks: [],
-    suggestedCuts: [],
-    platforms: {},
-    hookRecommendation: { suggestedStartTime: 0, reason },
-  };
-}
+import { callClaude, parseClaudeJson } from "./claude-api.js";
 
 // ---------------------------------------------------------------------------
 // analyzeViralPotential
@@ -89,24 +76,21 @@ Respond with JSON only:
   }
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Analyze this transcript for viral potential:\n\n${transcriptWithTimestamps}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Analyze this transcript for viral potential:\n\n${transcriptWithTimestamps}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) return emptyViralAnalysis("Could not parse response");
-
-    return JSON.parse(jsonStr) as ViralAnalysis;
-  } catch (error) {
-    console.error("Error analyzing viral potential:", error);
-    return emptyViralAnalysis("Analysis failed");
-  }
+  return parseClaudeJson<ViralAnalysis>(text, {
+    task: "viral analysis",
+    shape: "object",
+    isValid: (value) =>
+      Array.isArray(value.emotionalPeaks) && typeof value.hookRecommendation === "object" && value.hookRecommendation !== null,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -120,8 +104,6 @@ export async function suggestPlatformCuts(
   platform: PlatformSpec,
   clips: Array<{ id: string; startTime: number; duration: number }>
 ): Promise<PlatformCut> {
-  const emptyResult: PlatformCut = { platform: platform.id, segments: [], totalDuration: 0 };
-
   const transcriptWithTimestamps = transcriptSegments
     .map((seg) => `[${seg.startTime.toFixed(1)}s - ${seg.endTime.toFixed(1)}s] ${seg.text}`)
     .join("\n");
@@ -160,24 +142,20 @@ Respond with JSON only:
   "totalDuration": 45.5
 }`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Optimize this video for ${platform.name}:\n\n## Transcript:\n${transcriptWithTimestamps}\n\n## Available Clips:\n${clipsInfo}`,
-      }],
-      maxTokens: 2048,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Optimize this video for ${platform.name}:\n\n## Transcript:\n${transcriptWithTimestamps}\n\n## Available Clips:\n${clipsInfo}`,
+    }],
+    maxTokens: 2048,
+  });
 
-    const jsonStr = extractJsonObject(text);
-    if (!jsonStr) return emptyResult;
-
-    return JSON.parse(jsonStr) as PlatformCut;
-  } catch (error) {
-    console.error("Error suggesting platform cuts:", error);
-    return emptyResult;
-  }
+  return parseClaudeJson<PlatformCut>(text, {
+    task: "platform cut",
+    shape: "object",
+    isValid: (value) => Array.isArray(value.segments),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -217,27 +195,17 @@ Respond with JSON array only:
   {"startTime": 2.5, "endTime": 4.0, "text": "you need to see this", "style": "normal"}
 ]`;
 
-  try {
-    const text = await callClaude(api, {
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: `Generate ${style} style captions for this transcript:\n\n${transcriptWithTimestamps}`,
-      }],
-      maxTokens: 4096,
-    });
+  const text = await callClaude(api, {
+    system: systemPrompt,
+    messages: [{
+      role: "user",
+      content: `Generate ${style} style captions for this transcript:\n\n${transcriptWithTimestamps}`,
+    }],
+    maxTokens: 4096,
+  });
 
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) return [];
-
-    return JSON.parse(jsonStr) as Array<{
-      startTime: TimeSeconds;
-      endTime: TimeSeconds;
-      text: string;
-      style: string;
-    }>;
-  } catch (error) {
-    console.error("Error generating viral captions:", error);
-    return [];
-  }
+  return parseClaudeJson<Array<{ startTime: TimeSeconds; endTime: TimeSeconds; text: string; style: string }>>(text, {
+    task: "viral captions",
+    shape: "array",
+  });
 }

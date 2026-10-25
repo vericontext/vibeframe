@@ -205,6 +205,8 @@ export async function executeReframe(options: ReframeOptions): Promise<ReframeRe
         } catch (error) {
           // One bad frame does not sink the reframe; all of them failing does (below).
           lastError = error;
+          // A bad key or an empty balance fails every frame the same way.
+          if (isProviderError(error) && (error.kind === "auth" || error.kind === "quota")) break;
         }
         if (frameDelayMs > 0 && index < frames.length - 1) {
           await new Promise((r) => setTimeout(r, frameDelayMs));

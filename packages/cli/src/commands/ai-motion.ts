@@ -21,6 +21,7 @@ import {
   findModel,
   GeminiProvider,
   GEMINI_DEFAULT_TEXT_MODEL,
+  type RemotionComponent,
 } from "@vibeframe/ai-providers";
 import { loadEnv, requireApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
@@ -189,8 +190,9 @@ Use this video understanding to place motion graphics in safe zones, match the c
     }
   }
 
-  type MotionResult = Awaited<ReturnType<InstanceType<typeof ClaudeProvider>["generateMotion"]>>;
-  let result: MotionResult;
+  // Claude throws a classified ProviderError on failure (the command's
+  // catch maps it by kind); Gemini still reports `{ success: false }`.
+  let component: RemotionComponent;
 
   if (options.fromTsx) {
     // Refine mode: modify existing TSX instead of generating from scratch
@@ -203,17 +205,21 @@ Use this video understanding to place motion graphics in safe zones, match the c
     if (useGemini) {
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
-      result = await gemini.refineMotion(existingCode, options.description, {
+      const result = await gemini.refineMotion(existingCode, options.description, {
         duration,
         width,
         height,
         fps,
         model: modelConfig.modelId,
       });
+      if (!result.success || !result.component) {
+        return { success: false, error: result.error || "Motion generation failed" };
+      }
+      component = result.component;
     } else {
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });
-      result = await claude.refineMotion(existingCode, options.description, {
+      component = await claude.refineMotion(existingCode, options.description, {
         duration,
         width,
         height,
@@ -224,7 +230,7 @@ Use this video understanding to place motion graphics in safe zones, match the c
     if (useGemini) {
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
-      result = await gemini.generateMotion(enrichedDescription, {
+      const result = await gemini.generateMotion(enrichedDescription, {
         duration,
         width,
         height,
@@ -232,10 +238,14 @@ Use this video understanding to place motion graphics in safe zones, match the c
         style: options.style,
         model: modelConfig.modelId,
       });
+      if (!result.success || !result.component) {
+        return { success: false, error: result.error || "Motion generation failed" };
+      }
+      component = result.component;
     } else {
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });
-      result = await claude.generateMotion(enrichedDescription, {
+      component = await claude.generateMotion(enrichedDescription, {
         duration,
         width,
         height,
@@ -245,11 +255,6 @@ Use this video understanding to place motion graphics in safe zones, match the c
     }
   }
 
-  if (!result.success || !result.component) {
-    return { success: false, error: result.error || "Motion generation failed" };
-  }
-
-  const { component } = result;
   const defaultOutput =
     options.video || options.image
       ? "motion-output.mp4"
