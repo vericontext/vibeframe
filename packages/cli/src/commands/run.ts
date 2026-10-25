@@ -85,8 +85,10 @@ Run 'vibe schema run' for structured parameter info.
     }
 
     try {
-      // Load and validate pipeline
-      const manifest = await loadPipeline(pipelinePath);
+      // Load and validate pipeline. A bad manifest is the caller's to fix.
+      const manifest = await loadPipeline(pipelinePath).catch((error: unknown) =>
+        exitWithError(usageError(error instanceof Error ? error.message : String(error))),
+      );
       if (options.effort) manifest.effort = options.effort;
 
       if (!isJson) {
@@ -124,9 +126,8 @@ Run 'vibe schema run' for structured parameter info.
           console.log();
           // Sum per-step estimates for the human-readable rollup. The
           // strings come back as `≤$X.XX` from the executor; parse the
-          // numeric part to total. Steps with `UNKNOWN ACTION` or no
-          // estimate contribute 0 - the rollup undercounts when actions
-          // lack metadata, which is the safe direction.
+          // numeric part to total. Free steps have no estimate and
+          // contribute 0.
           let totalMax = 0;
           for (let i = 0; i < result.steps.length; i++) {
             const step = result.steps[i];
@@ -168,29 +169,38 @@ Run 'vibe schema run' for structured parameter info.
 
       spinner?.stop();
 
+      const report = {
+        name: result.name,
+        error: result.error,
+        completedSteps: result.completedSteps,
+        totalSteps: result.totalSteps,
+        totalDuration: result.totalDuration,
+        outputDir: result.outputDir,
+        budget: result.budget,
+        steps: result.steps.map(s => ({
+          id: s.id,
+          action: s.action,
+          success: s.success,
+          output: s.output,
+          duration: s.duration,
+          error: s.error,
+          data: s.data,
+        })),
+      };
+      // A run with a failed step is a failure: structured error, exit 1,
+      // with the per-step report attached so nothing needs a second call.
+      const failure = result.success ? undefined : {
+        ...generalError(
+          result.error ?? `${result.steps.filter(s => !s.success).length} of ${result.totalSteps} steps failed: ${result.steps.find(s => !s.success)?.error ?? "unknown error"}`,
+          "Fix the failed step, then rerun with --resume to skip the steps that finished.",
+        ),
+        retryWith: [`vibe run ${pipelinePath} --resume`],
+        data: report,
+      };
+
       if (isJson) {
-        outputSuccess({
-          command: "run",
-          startedAt,
-          data: {
-            name: result.name,
-            error: result.error,
-            completedSteps: result.completedSteps,
-            totalSteps: result.totalSteps,
-            totalDuration: result.totalDuration,
-            outputDir: result.outputDir,
-            budget: result.budget,
-            steps: result.steps.map(s => ({
-              id: s.id,
-              action: s.action,
-              success: s.success,
-              output: s.output,
-              duration: s.duration,
-              error: s.error,
-              data: s.data,
-            })),
-          },
-        });
+        if (failure) exitWithError(failure);
+        outputSuccess({ command: "run", startedAt, data: report });
       } else {
         console.log();
         for (const step of result.steps) {
@@ -223,10 +233,7 @@ Run 'vibe schema run' for structured parameter info.
         }
         console.log();
 
-        if (!result.success) {
-          console.log(chalk.dim("  Use --resume to retry failed steps."));
-          console.log();
-        }
+        if (failure) exitWithError(failure);
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

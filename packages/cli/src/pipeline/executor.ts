@@ -18,13 +18,13 @@ import { resolveBuildVideoProvider, type BuildVideoProvider } from "../commands/
 export interface PipelineActionMetadata {
   id: PipelineAction;
   title: string;
-  category: "generate" | "edit" | "audio" | "detect" | "analyze" | "scene" | "export";
+  category: "generate" | "edit" | "audio" | "detect" | "analyze" | "scene";
   command?: string;
   outputs: readonly string[];
   requiredKeys?: readonly string[];
 }
 
-const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> = {
+const ACTION_METADATA: Record<PipelineAction, PipelineActionMetadata> = {
   "generate-image": { id: "generate-image", title: "Generate image", category: "generate", command: "generate image", outputs: ["image"] },
   "generate-video": { id: "generate-video", title: "Generate video", category: "generate", command: "generate video", outputs: ["video"], requiredKeys: ["provider-dependent"] },
   "generate-tts": { id: "generate-tts", title: "Generate speech", category: "generate", command: "generate speech", outputs: ["audio"] },
@@ -47,8 +47,8 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   "edit-upscale": { id: "edit-upscale", title: "Upscale video", category: "edit", command: "edit upscale", outputs: ["video"] },
   "edit-image": { id: "edit-image", title: "Edit image", category: "edit", command: "edit image", outputs: ["image"] },
   "audio-transcribe": { id: "audio-transcribe", title: "Transcribe audio", category: "audio", command: "audio transcribe", outputs: ["transcript", "srt"] },
-  "audio-isolate": { id: "audio-isolate", title: "Isolate audio", category: "audio", outputs: ["audio"] },
-  "audio-dub": { id: "audio-dub", title: "Dub audio", category: "audio", outputs: ["audio", "video"] },
+  "audio-isolate": { id: "audio-isolate", title: "Isolate audio", category: "audio", command: "audio isolate", outputs: ["audio"] },
+  "audio-dub": { id: "audio-dub", title: "Dub audio", category: "audio", command: "audio dub", outputs: ["audio", "json"] },
   "audio-duck": { id: "audio-duck", title: "Duck audio", category: "audio", outputs: ["video"] },
   "detect-scenes": { id: "detect-scenes", title: "Detect scenes", category: "detect", command: "detect scenes", outputs: ["json"] },
   "detect-silence": { id: "detect-silence", title: "Detect silence", category: "detect", command: "detect silence", outputs: ["json"] },
@@ -58,7 +58,6 @@ const ACTION_METADATA: Partial<Record<PipelineAction, PipelineActionMetadata>> =
   "review-video": { id: "review-video", title: "Review video", category: "analyze", command: "analyze review", outputs: ["json"] },
   "scene-build": { id: "scene-build", title: "Build scene project", category: "scene", outputs: ["video", "html", "assets"] },
   "scene-render": { id: "scene-render", title: "Render scene project", category: "scene", outputs: ["video"] },
-  export: { id: "export", title: "Export project", category: "export", outputs: ["video"] },
 };
 
 /** Steps whose cost depends on a parameter: free when this returns true. */
@@ -69,9 +68,17 @@ const FREE_WHEN: Partial<Record<PipelineAction, (step: Record<string, unknown>) 
 
 function maxCostFor(step: { action: PipelineAction } & Record<string, unknown>): number {
   if (FREE_WHEN[step.action]?.(step)) return 0;
+  // `?.`: a pre-v0.46.2 checkpoint step can carry no action.
   const cmd = ACTION_METADATA[step.action]?.command;
   if (!cmd) return 0;
   return COST_ESTIMATES[cmd]?.max ?? 0;
+}
+
+/** Every pipeline action, in catalog order. */
+export const PIPELINE_ACTIONS = Object.keys(ACTION_METADATA) as PipelineAction[];
+
+export function isPipelineAction(action: string): action is PipelineAction {
+  return Object.hasOwn(ACTION_METADATA, action);
 }
 
 // ── Action Registry ─────────────────────────────────────────────────────
@@ -82,6 +89,12 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {};
 
 function registerAction(action: PipelineAction, handler: ActionHandler): void {
   ACTION_HANDLERS[action] = handler;
+}
+
+/** The actions that have a handler. Every {@link PipelineAction} must be one (tested). */
+export async function registeredPipelineActions(): Promise<string[]> {
+  await ensureActionsRegistered();
+  return Object.keys(ACTION_HANDLERS);
 }
 
 /** Helper: get output path from params or generate default */
@@ -307,6 +320,79 @@ async function ensureActionsRegistered(): Promise<void> {
     return { id: "", action: "edit-upscale", success: true, output: r.outputPath, data: { originalRes: r.originalRes, targetRes: r.targetRes } };
   });
 
+  registerAction("edit-interpolate", async (params, outputDir) => {
+    const { executeInterpolate } = await import("../commands/edit-cmd.js");
+    const output = getOutput(params, outputDir, "slow-motion.mp4");
+    const r = await executeInterpolate({
+      videoPath: params.input as string,
+      output,
+      factor: numberParam(params.factor),
+      fps: numberParam(params.fps),
+      quality: params.mode as "fast" | "quality" | undefined,
+    });
+    if (!r.success) return { id: "", action: "edit-interpolate", success: false, error: r.error };
+    return { id: "", action: "edit-interpolate", success: true, output: r.outputPath, data: { originalFps: r.originalFps, targetFps: r.targetFps, factor: r.factor } };
+  });
+
+  registerAction("edit-jump-cut", async (params, outputDir) => {
+    const { executeJumpCut } = await import("../commands/ai-edit.js");
+    const output = getOutput(params, outputDir, "jump-cut.mp4");
+    const r = await executeJumpCut({
+      videoPath: params.input as string,
+      outputPath: output,
+      fillers: params.fillers as string[] | undefined,
+      padding: numberParam(params.padding),
+      language: stringParam(params.language),
+      analyzeOnly: params.analyzeOnly as boolean | undefined,
+    });
+    return { id: "", action: "edit-jump-cut", success: r.success, output: r.outputPath, data: { fillerCount: r.fillerCount, fillerDuration: r.fillerDuration, totalDuration: r.totalDuration }, error: r.error };
+  });
+
+  registerAction("edit-text-overlay", async (params, outputDir) => {
+    const { executeTextOverlay } = await import("../commands/ai-edit.js");
+    const output = getOutput(params, outputDir, "text-overlay.mp4");
+    const r = await executeTextOverlay({
+      videoPath: params.input as string,
+      outputPath: output,
+      texts: params.texts as string[],
+      style: params.style as "lower-third" | "center-bold" | "subtitle" | "minimal" | undefined,
+      fontSize: numberParam(params.fontSize),
+      fontColor: stringParam(params.fontColor),
+      fadeDuration: numberParam(params.fadeDuration),
+      startTime: numberParam(params.startTime),
+      endTime: numberParam(params.endTime),
+    });
+    return { id: "", action: "edit-text-overlay", success: r.success, output: r.outputPath, error: r.error };
+  });
+
+  registerAction("edit-translate-srt", async (params, outputDir) => {
+    const { executeTranslateSrt } = await import("../commands/ai-edit.js");
+    const output = getOutput(params, outputDir, "translated.srt");
+    const r = await executeTranslateSrt({
+      srtPath: params.input as string,
+      outputPath: output,
+      targetLanguage: params.target as string,
+      provider: params.provider as "claude" | "openai" | undefined,
+      sourceLanguage: stringParam(params.source),
+    });
+    return { id: "", action: "edit-translate-srt", success: r.success, output: r.outputPath, data: { segmentCount: r.segmentCount, sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage }, error: r.error };
+  });
+
+  registerAction("edit-image", async (params, outputDir) => {
+    const { executeImageEdit } = await import("../commands/ai-image.js");
+    const output = getOutput(params, outputDir, "edited.png");
+    const r = await executeImageEdit({
+      imagePaths: Array.isArray(params.input) ? (params.input as string[]) : [params.input as string],
+      prompt: params.prompt as string,
+      provider: await resolvePipelineImageProvider(params.provider),
+      model: stringParam(params.model),
+      ratio: stringParam(params.ratio),
+      resolution: stringParam(params.resolution),
+      output,
+    });
+    return { id: "", action: "edit-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error };
+  });
+
   registerAction("edit-motion-overlay", async (params, outputDir) => {
     const { executeMotionOverlay } = await import("../commands/edit/motion-overlay.js");
     const output = getOutput(params, outputDir, "motion-overlay.mp4");
@@ -351,6 +437,29 @@ async function ensureActionsRegistered(): Promise<void> {
     return { id: "", action: "audio-transcribe", success: r.success, output: r.outputPath, data: { text: r.text, segmentCount: r.segments?.length }, error: r.error };
   });
 
+  registerAction("audio-isolate", async (params, outputDir) => {
+    const { executeIsolate } = await import("../commands/ai-audio.js");
+    const output = getOutput(params, outputDir, "vocals.mp3");
+    const r = await executeIsolate({ audioPath: params.input as string, output });
+    return { id: "", action: "audio-isolate", success: r.success, output: r.outputPath, error: r.error };
+  });
+
+  registerAction("audio-dub", async (params, outputDir) => {
+    const { executeDub } = await import("../commands/ai-audio.js");
+    const analyzeOnly = params.analyzeOnly as boolean | undefined;
+    const output = getOutput(params, outputDir, analyzeOnly ? "dub-timing.json" : "dubbed.mp3");
+    const r = await executeDub({
+      mediaPath: params.input as string,
+      language: params.language as string,
+      source: stringParam(params.source),
+      voice: stringParam(params.voice),
+      tts: stringParam(params.tts),
+      analyzeOnly,
+      output,
+    });
+    return { id: "", action: "audio-dub", success: r.success, output: r.outputPath, data: { sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage, segmentCount: r.segmentCount }, error: r.error };
+  });
+
   registerAction("audio-duck", async (params, outputDir) => {
     const { executeDuck } = await import("../commands/ai-audio.js");
     const output = getOutput(params, outputDir, "ducked.mp3");
@@ -383,6 +492,20 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeGeminiVideo } = await import("../commands/ai-analyze.js");
     const r = await executeGeminiVideo({ source: params.input as string, prompt: params.prompt as string, model: params.model as "flash" | "flash-2.5" | "pro" | undefined });
     return { id: "", action: "analyze-video", success: r.success, data: { response: r.response, model: r.model }, error: r.error };
+  });
+
+  registerAction("analyze-media", async (params, _outputDir) => {
+    const { executeAnalyze } = await import("../commands/ai-analyze.js");
+    const r = await executeAnalyze({
+      source: params.input as string,
+      prompt: params.prompt as string,
+      model: stringParam(params.model),
+      fps: numberParam(params.fps),
+      start: numberParam(params.start),
+      end: numberParam(params.end),
+      lowRes: params.lowRes as boolean | undefined,
+    });
+    return { id: "", action: "analyze-media", success: r.success, data: { response: r.response, model: r.model, sourceType: r.sourceType }, error: r.error };
   });
 
   // Review
@@ -472,6 +595,12 @@ export async function loadPipeline(filePath: string): Promise<PipelineManifest> 
   for (const step of manifest.steps) {
     if (!step.id) throw new Error("Each step must have an 'id' field");
     if (!step.action) throw new Error(`Step '${step.id}' missing 'action' field`);
+    // Reject an unknown action before any step runs (and spends).
+    if (!isPipelineAction(step.action)) {
+      throw new Error(
+        `Step '${step.id}' has unknown action '${step.action}'. Known actions: ${PIPELINE_ACTIONS.join(", ")}`,
+      );
+    }
     if (ids.has(step.id)) throw new Error(`Duplicate step id: '${step.id}'`);
     ids.add(step.id);
   }
@@ -507,6 +636,19 @@ export async function executePipeline(
   await ensureActionsRegistered();
 
   const outputDir = resolve(process.cwd(), options.outputDir || `${manifest.name}-output`);
+  // loadPipeline() rejects unknown actions; this covers manifests built in code.
+  const unknown = manifest.steps.find((step) => !ACTION_HANDLERS[step.action]);
+  if (unknown) {
+    return {
+      success: false,
+      name: manifest.name,
+      steps: [],
+      completedSteps: 0,
+      totalSteps: manifest.steps.length,
+      outputDir,
+      error: `Step '${unknown.id}' has unknown action '${unknown.action}'`,
+    };
+  }
   await mkdir(outputDir, { recursive: true });
 
   const completedSteps = new Map<string, StepResult>();
@@ -543,7 +685,6 @@ export async function executePipeline(
     let totalMaxCost = 0;
 
     for (const step of manifest.steps) {
-      const handler = ACTION_HANDLERS[step.action];
       const unresolvedRefs = findUnresolvedRefs(step as unknown as Record<string, unknown>, availableIds);
       const max = maxCostFor(step);
       totalMaxCost += max;
@@ -554,10 +695,6 @@ export async function executePipeline(
         estimatedCost: max > 0 ? `≤$${max.toFixed(2)}` : undefined,
         unresolvedRefs: unresolvedRefs.length > 0 ? unresolvedRefs : undefined,
       });
-
-      if (!handler) {
-        plan[plan.length - 1].estimatedCost = "UNKNOWN ACTION";
-      }
 
       availableIds.add(step.id);
     }
@@ -618,15 +755,6 @@ export async function executePipeline(
     }
 
     const handler = ACTION_HANDLERS[step.action];
-    if (!handler) {
-      const result: StepResult = { id: step.id, action: step.action, success: false, error: `Unknown action: ${step.action}` };
-      results.push(result);
-      budgetUsage.toolErrors += 1;
-      if (options.failFast) {
-        return { success: false, name: manifest.name, steps: results, completedSteps: completedSteps.size, totalSteps: manifest.steps.length, outputDir, error: result.error, budget: effectiveBudget ? budgetUsage : undefined };
-      }
-      continue;
-    }
 
     // Resolve variable references
     const resolvedParams = resolveStepParams(step as unknown as Record<string, unknown>, completedSteps);

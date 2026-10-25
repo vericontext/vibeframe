@@ -29,7 +29,7 @@ import { writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import { findModel, modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
-import { execSafe, commandExists } from "../utils/exec-safe.js";
+import { commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
@@ -44,6 +44,7 @@ import { executeGrade, GRADE_PRESETS } from "./_shared/edit/grade.js";
 import { executeSpeedRamp } from "./_shared/edit/speed-ramp.js";
 import { executeReframe, REFRAME_FOCUS_MODES, type ReframeFocus } from "./_shared/edit/reframe.js";
 import { executeUpscale } from "./_shared/edit/upscale.js";
+import { executeInterpolate, INTERPOLATE_FACTORS } from "./_shared/edit/interpolate.js";
 
 export const editCommand = new Command("edit")
   .alias("ed")
@@ -584,7 +585,7 @@ editCommand
   .option("--fps <number>", "Target output FPS")
   // Renamed from `--quality` in v0.78. `--quality` clashed semantically
   // with `generate image --quality standard|hd` and `render --quality
-  // draft|standard|high` — those describe output quality presets, this
+  // draft|standard|high` - those describe output quality presets, this
   // describes a speed/quality tradeoff. `--mode` is unambiguous.
   .option("--mode <mode>", "Speed/quality tradeoff: fast or quality", "quality")
   .option("--dry-run", "Preview parameters without executing")
@@ -595,11 +596,14 @@ editCommand
         validateOutputPath(options.output);
       }
 
-      const absPath = resolve(process.cwd(), videoPath);
-      const factor = parseInt(options.factor);
-
-      if (![2, 4, 8].includes(factor)) {
+      const factor = Number(options.factor);
+      if (!(INTERPOLATE_FACTORS as readonly number[]).includes(factor)) {
         exitWithError(usageError("Factor must be 2, 4, or 8"));
+      }
+      const fps = options.fps !== undefined ? Number(options.fps) : undefined;
+      if (fps !== undefined && !(fps > 0)) exitWithError(usageError("--fps must be a positive number"));
+      if (options.mode !== "fast" && options.mode !== "quality") {
+        exitWithError(usageError(`Invalid --mode: ${options.mode}`, "Use fast or quality"));
       }
 
       if (options.dryRun) {
@@ -609,9 +613,9 @@ editCommand
           dryRun: true,
           data: {
             params: {
-              videoPath: absPath,
+              videoPath: resolve(process.cwd(), videoPath),
               factor,
-              fps: options.fps ? parseInt(options.fps) : undefined,
+              fps,
               mode: options.mode,
             },
           },
@@ -619,66 +623,44 @@ editCommand
         return;
       }
 
-      const outputPath = options.output
-        ? resolve(process.cwd(), options.output)
-        : absPath.replace(/(\.[^.]+)$/, `-slow${factor}x$1`);
-
       const spinner = createSpinner(`Creating ${factor}x slow motion...`).start();
-
-      try {
-        // Get original FPS
-        const { stdout: fpsOut } = await execSafe("ffprobe", [
-          "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "default=noprint_wrappers=1:nokey=1", absPath,
-        ]);
-        const [num, den] = fpsOut.trim().split("/").map(Number);
-        const originalFps = num / (den || 1);
-
-        // Calculate target FPS
-        const targetFps = options.fps ? parseInt(options.fps) : originalFps * factor;
-
-        // Use minterpolate for frame interpolation
-        const mi = options.mode === "fast" ? "mi_mode=mci" : "mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
-
-        spinner.text = `Interpolating frames (${originalFps.toFixed(1)} → ${targetFps}fps)...`;
-
-        // First interpolate frames, then slow down
-        await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS`, "-an", outputPath, "-y"], { timeout: 600000 });
-
-        spinner.succeed(chalk.green(`Created ${factor}x slow motion`));
-
-        if (isJsonMode()) {
-          outputSuccess({
-            command: "edit interpolate",
-            startedAt,
-            data: {
-              originalFps,
-              targetFps,
-              factor,
-              outputPath,
-            },
-          });
-          return;
-        }
-
-        console.log();
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(`Original FPS: ${originalFps.toFixed(1)}`);
-        console.log(`Interpolated FPS: ${targetFps}`);
-        console.log(`Slow factor: ${factor}x`);
-        console.log(`Output: ${outputPath}`);
-        console.log();
-      } catch (err: unknown) {
+      const result = await executeInterpolate({
+        videoPath,
+        output: options.output,
+        factor,
+        fps,
+        quality: options.mode,
+        onProgress: (message) => { spinner.text = message; },
+      });
+      if (!result.success) {
         spinner.fail("Frame interpolation failed");
-        if (err instanceof Error && err.message.includes("timeout")) {
-          exitWithError(generalError("Frame interpolation timed out", "Try with a shorter video or --quality fast"));
-        } else {
-          const msg = err instanceof Error ? err.message : String(err);
-          exitWithError(generalError(`Frame interpolation failed: ${msg}`));
-        }
+        exitWithError(result.failure);
       }
+      spinner.succeed(chalk.green(`Created ${factor}x slow motion`));
+
+      if (isJsonMode()) {
+        outputSuccess({
+          command: "edit interpolate",
+          startedAt,
+          data: {
+            originalFps: result.originalFps,
+            targetFps: result.targetFps,
+            factor: result.factor,
+            outputPath: result.outputPath,
+          },
+        });
+        return;
+      }
+
+      console.log();
+      console.log(chalk.dim("─".repeat(60)));
+      console.log(`Original FPS: ${result.originalFps.toFixed(1)}`);
+      console.log(`Interpolated FPS: ${result.targetFps}`);
+      console.log(`Slow factor: ${factor}x`);
+      console.log(`Output: ${result.outputPath}`);
+      console.log();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Frame interpolation failed: ${msg}`));
+      exitWithError(failureFromError(error, "Frame interpolation failed", { fallback: "general" }));
     }
   });
 
@@ -787,50 +769,5 @@ export type { ReframeOptions, ReframeResult, ReframeFocus, ReframeCrop, ReframeC
 export { executeUpscale } from "./_shared/edit/upscale.js";
 export type { UpscaleOptions, UpscaleResult } from "./_shared/edit/upscale.js";
 
-// ============================================================================
-// Interpolate (Slow Motion)
-// ============================================================================
-
-export interface InterpolateOptions {
-  videoPath: string;
-  output?: string;
-  factor?: number;
-  fps?: number;
-  quality?: "fast" | "quality";
-}
-
-export interface InterpolateResult {
-  success: boolean;
-  outputPath?: string;
-  originalFps?: number;
-  targetFps?: number;
-  factor?: number;
-  error?: string;
-}
-
-export async function executeInterpolate(options: InterpolateOptions): Promise<InterpolateResult> {
-  const { videoPath, output, factor = 2, quality = "quality" } = options;
-
-  try {
-    if (!commandExists("ffmpeg")) return { success: false, error: "FFmpeg not found" };
-    if (![2, 4, 8].includes(factor)) return { success: false, error: "Factor must be 2, 4, or 8" };
-
-    const absPath = resolve(process.cwd(), videoPath);
-
-    const { stdout: fpsOut } = await execSafe("ffprobe", [
-      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "default=noprint_wrappers=1:nokey=1", absPath,
-    ]);
-    const [num, den] = fpsOut.trim().split("/").map(Number);
-    const originalFps = num / (den || 1);
-    const targetFps = options.fps || originalFps * factor;
-
-    const mi = quality === "fast" ? "mi_mode=mci" : "mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
-    const outputPath = output ? resolve(process.cwd(), output) : absPath.replace(/(\.[^.]+)$/, `-slow${factor}x$1`);
-
-    await execSafe("ffmpeg", ["-i", absPath, "-filter:v", `minterpolate='${mi}:fps=${targetFps}',setpts=${factor}*PTS`, "-an", outputPath, "-y"], { timeout: 600000 });
-
-    return { success: true, outputPath, originalFps, targetFps, factor };
-  } catch (error) {
-    return { success: false, error: `Frame interpolation failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
+export { executeInterpolate, INTERPOLATE_FACTORS } from "./_shared/edit/interpolate.js";
+export type { InterpolateOptions, InterpolateResult } from "./_shared/edit/interpolate.js";

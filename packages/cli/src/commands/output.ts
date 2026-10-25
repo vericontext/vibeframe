@@ -240,6 +240,7 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "edit jump-cut": { min: 0.01, max: 0.10, unit: "per video" },
   "edit translate-srt": { min: 0.01, max: 0.05, unit: "per file" },
   "edit animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
+  "audio isolate": { min: 0.01, max: 0.20, unit: "per file" },
   // Medium
   "generate speech": { min: 0.05, max: 0.30, unit: "per request" },
   "generate sound-effect": { min: 0.05, max: 0.20, unit: "per request" },
@@ -254,6 +255,8 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   // High
   "generate video": { min: 0.50, max: 5.00, unit: "per video" },
   "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
+  // Whisper + translation + one TTS call per line.
+  "audio dub": { min: 0.05, max: 1.00, unit: "per file" },
   // Very High
   "pipeline highlights": { min: 0.05, max: 1.00, unit: "per analysis" },
   "pipeline auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
