@@ -17,7 +17,6 @@ import {
   isJsonMode,
   outputSuccess,
   printWarnings,
-  log,
   exitWithError,
   providerFailure,
   usageError,
@@ -80,8 +79,8 @@ Examples:
         exitWithError(usageError(`Invalid --ratio "${options.ratio}". Use W:H, e.g. 16:9.`));
       }
 
-      // Provider: an explicit -p wins (falling back when its key is missing);
-      // otherwise the image registry's priority order.
+      // Provider: an explicit -p wins and is never swapped for another paid
+      // provider; otherwise the image registry's priority order.
       const imageRegistry = getProvidersFor("image");
       const validProviders = imageRegistry.map((p) => p.name).filter((name) => IMAGE_PROVIDER_ENV[name]);
       let provider: string;
@@ -89,13 +88,6 @@ Examples:
         provider = String(options.provider).toLowerCase();
         if (!validProviders.includes(provider)) {
           exitWithError(usageError(`Invalid provider: ${provider}`, `Available providers: ${validProviders.join(", ")}`));
-        }
-        if (!(await hasConfiguredApiKey(IMAGE_PROVIDER_ENV[provider], options.apiKey))) {
-          const resolved = resolveProvider("image");
-          if (resolved && resolved.name !== provider) {
-            log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
-            provider = resolved.name;
-          }
         }
       } else {
         provider = resolveProvider("image")?.name ?? "gemini";
@@ -120,6 +112,11 @@ Examples:
 
       if (options.dryRun) {
         const estimate = estimateImageCostUsd(provider, options.model, count, options.resolution, options.size);
+        if (!(await hasConfiguredApiKey(IMAGE_PROVIDER_ENV[provider], options.apiKey))) {
+          lifecycleWarnings.push(
+            `${IMAGE_PROVIDER_ENV[provider]} is not set; the real run will fail until it is (vibe setup).`
+          );
+        }
         outputSuccess({
           command: "generate image",
           startedAt,

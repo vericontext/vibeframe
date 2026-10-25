@@ -4385,6 +4385,7 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
   "dryRun": true,
   "elapsedMs": "<elapsedMs>",
   "warnings": [
+    "OPENAI_API_KEY is not set; the real run will fail until it is (vibe setup).",
     "costUsd is an upper-bound estimate from openai list prices for 1 image(s) - not metered billing.",
   ],
 }
@@ -4406,7 +4407,9 @@ exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1
   },
   "dryRun": true,
   "elapsedMs": "<elapsedMs>",
-  "warnings": [],
+  "warnings": [
+    "XAI_API_KEY is not set; the real run will fail until it is (vibe setup).",
+  ],
 }
 `;
 

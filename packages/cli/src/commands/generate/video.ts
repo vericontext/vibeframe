@@ -144,18 +144,12 @@ Examples:
         }
 
         // Resolve provider:
-        //  - explicit -p flag wins (validated, then key-presence checked)
+        //  - explicit -p flag wins and is never swapped for another paid
+        //    provider; a missing key fails the real run (API_KEY_MISSING)
         //  - no flag → VIDEO_PROVIDERS priority list (Seedance via fal.ai > grok > omni > kling > runway)
         //  - if no keys at all → keep grok as last-resort default so the
         //    later requireApiKey() prints a friendly Grok-specific message
         const validProviders = ["runway", "kling", "grok", "seedance", "omni"];
-        const videoEnvMap: Record<string, string> = {
-          grok: "XAI_API_KEY",
-          omni: "GOOGLE_API_KEY",
-          kling: "KLING_API_KEY",
-          runway: "RUNWAY_API_SECRET",
-          seedance: "FAL_API_KEY",
-        };
         let provider: string;
         if (options.provider) {
           provider = options.provider.toLowerCase();
@@ -170,16 +164,6 @@ Examples:
                     : "Available providers: seedance, grok, kling, runway, omni."
               )
             );
-          }
-          if (
-            videoEnvMap[provider] &&
-            !(await hasConfiguredApiKey(videoEnvMap[provider], options.apiKey))
-          ) {
-            const resolved = resolveProvider("video");
-            if (resolved) {
-              log(chalk.dim(`  ${provider} key not found. Using ${resolved.label} instead.`));
-              provider = resolved.name;
-            }
           }
         } else {
           const resolved = resolveProvider("video");
@@ -232,6 +216,13 @@ Examples:
         if (!options.dryRun) printWarnings(lifecycleWarnings);
 
         if (options.dryRun) {
+          // An explicit -p is never swapped for another paid provider, so a
+          // missing key fails the real run; say so here, before any spend.
+          if (!(await hasConfiguredApiKey(VIDEO_PROVIDER_ENV[provider], options.apiKey))) {
+            lifecycleWarnings.push(
+              `${VIDEO_PROVIDER_ENV[provider]} is not set; the real run will fail until it is (vibe setup).`
+            );
+          }
           // For Seedance, replace the flat cost-tier upper bound with a
           // token-accurate estimate so agents can gate spend precisely. Other
           // providers fall back to the tier bound (costUsd left undefined).
