@@ -1,0 +1,104 @@
+name: Provider model check
+
+# Daily live run of `pnpm providers:check`: does each provider still serve
+# the model IDs our code and catalog use? Veo 3.1 was shut down on
+# 2026-10-22 and nothing in CI noticed, because this check only ran by hand.
+#
+# It only calls the providers' free model-listing endpoints (no generation,
+# no spend). Keys come from repository secrets; a missing secret skips that
+# provider's live check with a warning instead of failing.
+#
+# It reports; it never changes code.
+
+on:
+  schedule:
+    # Daily at 09:30 UTC, after the release drift check.
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TITLE: "Provider model check: a model in use is no longer served"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check provider model IDs
+        id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: |
+          set +e
+          pnpm --silent providers:check > /tmp/providers.txt 2>&1
+          STATUS=$?
+          set -e
+          cat /tmp/providers.txt
+          {
+            echo '```'
+            cat /tmp/providers.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" -eq 0 ]; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "\`pnpm providers:check\` failed on the daily run."
+              echo "A provider no longer serves a model ID our code or catalog uses, or a reference file is malformed."
+              echo ""
+              echo '```'
+              cat /tmp/providers.txt
+              echo '```'
+              echo ""
+              echo "Update the catalog and \`.agents/references/providers/\`, then rerun the workflow."
+              echo "This issue closes itself once the check passes."
+            } > /tmp/providers-body.md
+          fi
+
+      - name: Open or update the issue
+        if: steps.check.outputs.failed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file /tmp/providers-body.md
+          else
+            gh issue create --title "$TITLE" --body-file /tmp/providers-body.md
+          fi
+          exit 1
+
+      - name: Close the issue once the check passes
+        if: steps.check.outputs.failed == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "The provider model check passes again."
+          fi

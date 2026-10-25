@@ -90,6 +90,12 @@ jobs:
       - name: Agent host configs are generated
         run: pnpm agent-sync:check
 
+      # Format and code-drift half of the provider reference check. The live
+      # half (does the provider still serve these model IDs?) needs keys and
+      # runs daily in provider-models.yml.
+      - name: Provider references are well-formed
+        run: pnpm providers:check --offline
+
       - name: Package smoke
         run: pnpm package:check
 
