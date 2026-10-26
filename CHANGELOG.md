@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.116.2] - 2026-10-26
+
+### Documentation
+
+- give @vibeframe/cli an npm README (#387)
+
+### Fixed
+
+- Claude helper failures propagate as ProviderErrors instead of defaults (#391)
+- every pipeline action runs, and a failed `vibe run` exits non-zero (#390)
+- keep real provider keys out of every test run (#389)
+- edit grade, speed-ramp, reframe, and upscale share one executor each (#388)
+- point GPT Image 1.5 at its replacement and refresh the OpenAI reference (#386)
+
 ## [0.116.1] - 2026-10-25
 
 ### Fixed
