@@ -7,7 +7,8 @@
  * - `focus: "center"` is a free FFmpeg center crop.
  * - `auto`, `face`, and `action` sample up to {@link MAX_ANALYZED_FRAMES}
  *   frames, ask Claude Vision where the subject is in each, and crop at the
- *   average position (needs ANTHROPIC_API_KEY).
+ *   average position (needs ANTHROPIC_API_KEY). Every frame must be
+ *   analyzed: the first one that fails fails the run with its error.
  *
  * The executor defaults to `center`, so a caller that names no focus never
  * spends money; the CLI passes its own `auto` default explicitly.
@@ -16,10 +17,10 @@
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ClaudeProvider, isProviderError } from "@vibeframe/ai-providers";
+import { ClaudeProvider } from "@vibeframe/ai-providers";
 import { requireConfiguredApiKey } from "../../../utils/api-key.js";
 import { execSafe, ffprobeDuration, ffprobeVideoSize } from "../../../utils/exec-safe.js";
-import { apiError, failureFromError, providerFailure, usageError } from "../../output.js";
+import { failureFromError, generalError, providerFailure, usageError } from "../../output.js";
 import { editFailure, editOutputPath, resolveVideoInput, type EditFailure } from "./_helpers.js";
 
 export const REFRAME_FOCUS_MODES = ["auto", "face", "center", "action"] as const;
@@ -182,9 +183,13 @@ export async function executeReframe(options: ReframeOptions): Promise<ReframeRe
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });
 
+      // Every sampled frame must be analyzed. A crop averaged over only the
+      // frames that happened to succeed is not the crop that was asked for,
+      // so the first failure ends the run (and the paid calls) with that
+      // failure's structured error.
       cropKeyframes = [];
-      let lastError: unknown;
       for (const [index, frame] of frames.entries()) {
+        const step = `frame ${index + 1}/${frames.length}`;
         onProgress?.(`Analyzing frames... ${index + 1}/${frames.length}`);
         try {
           const frameBase64 = (await readFile(join(tempDir, frame))).toString("base64");
@@ -194,19 +199,17 @@ export async function executeReframe(options: ReframeOptions): Promise<ReframeRe
             sourceHeight,
             mimeType: "image/jpeg",
           });
-          if (Number.isFinite(result.cropX) && Number.isFinite(result.cropY)) {
-            cropKeyframes.push({
-              time: Number((index * interval).toFixed(3)),
-              ...result,
-              cropWidth: base.width,
-              cropHeight: base.height,
-            });
+          if (!Number.isFinite(result.cropX) || !Number.isFinite(result.cropY)) {
+            return editFailure(providerFailure(`Reframe analysis failed on ${step}: Claude returned no crop position`, "provider"));
           }
+          cropKeyframes.push({
+            time: Number((index * interval).toFixed(3)),
+            ...result,
+            cropWidth: base.width,
+            cropHeight: base.height,
+          });
         } catch (error) {
-          // One bad frame does not sink the reframe; all of them failing does (below).
-          lastError = error;
-          // A bad key or an empty balance fails every frame the same way.
-          if (isProviderError(error) && (error.kind === "auth" || error.kind === "quota")) break;
+          return editFailure(failureFromError(error, `Reframe analysis failed on ${step}`, { retryable: true }));
         }
         if (frameDelayMs > 0 && index < frames.length - 1) {
           await new Promise((r) => setTimeout(r, frameDelayMs));
@@ -215,12 +218,7 @@ export async function executeReframe(options: ReframeOptions): Promise<ReframeRe
 
       const averaged = averageCrop(cropKeyframes, base, sourceWidth, sourceHeight);
       if (!averaged) {
-        const message = `Reframe analysis failed: no frame could be analyzed (${frames.length} extracted)`;
-        if (isProviderError(lastError)) {
-          return editFailure(providerFailure(`${message}: ${lastError.message}`, lastError.kind));
-        }
-        const cause = lastError instanceof Error ? `: ${lastError.message}` : "";
-        return editFailure(apiError(`${message}${cause}`, true));
+        return editFailure(generalError("Reframe analysis failed: FFmpeg extracted no frames from the video"));
       }
       crop = averaged;
     }
