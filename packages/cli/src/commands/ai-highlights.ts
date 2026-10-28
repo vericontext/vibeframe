@@ -28,7 +28,7 @@ import { Project } from "../engine/index.js";
 import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
+import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, log, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
 
@@ -695,15 +695,15 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"];
         const isVideo = videoExtensions.includes(ext);
 
-        console.log();
-        console.log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
-        console.log(chalk.dim("─".repeat(60)));
+        log();
+        log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
+        log(chalk.dim("─".repeat(60)));
         if (options.useGemini) {
-          console.log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
+          log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
         } else {
-          console.log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
+          log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
         }
-        console.log();
+        log();
 
         const targetDuration = options.duration ? parseFloat(options.duration) : undefined;
         const maxCount = options.count ? parseInt(options.count) : undefined;
@@ -881,19 +881,33 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           if (allHighlights.length === 0) {
             analyzeSpinner.warn(chalk.yellow("No highlights detected in the content"));
-            return;
+          } else {
+            analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
           }
-
-          analyzeSpinner.succeed(chalk.green(`Found ${allHighlights.length} potential highlights`));
         }
 
+        const threshold = parseFloat(options.threshold);
+
         if (allHighlights.length === 0) {
-          console.log(chalk.yellow("No highlights detected in the content"));
+          log(chalk.yellow("No highlights detected in the content"));
+          outputSuccess({
+            command: "ai highlights",
+            startedAt,
+            warnings: ["No highlights detected in the content"],
+            data: {
+              sourceFile: absPath,
+              totalDuration: sourceDuration,
+              criteria: options.criteria,
+              threshold,
+              highlightsCount: 0,
+              totalHighlightDuration: 0,
+              highlights: [],
+            },
+          });
           return;
         }
 
         const filterSpinner = createSpinner("📊 Filtering and ranking...").start();
-        const threshold = parseFloat(options.threshold);
         const filteredHighlights = filterHighlights(allHighlights, { threshold, targetDuration, maxCount });
         const totalHighlightDuration = filteredHighlights.reduce((sum, h) => sum + h.duration, 0);
 
@@ -909,9 +923,9 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           highlights: filteredHighlights,
         };
 
-        console.log();
-        console.log(chalk.bold.cyan("Highlights Summary"));
-        console.log(chalk.dim("─".repeat(60)));
+        log();
+        log(chalk.bold.cyan("Highlights Summary"));
+        log(chalk.dim("─".repeat(60)));
 
         for (const highlight of filteredHighlights) {
           const startFormatted = formatTime(highlight.startTime);
@@ -919,23 +933,25 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           const confidencePercent = (highlight.confidence * 100).toFixed(0);
           const categoryColor = getCategoryColor(highlight.category);
 
-          console.log();
-          console.log(`  ${chalk.yellow(`${highlight.index}.`)} [${startFormatted} - ${endFormatted}] ${categoryColor(highlight.category)}, ${chalk.dim(`${confidencePercent}%`)}`);
-          console.log(`     ${chalk.white(highlight.reason)}`);
-          console.log(`     ${chalk.dim(truncate(highlight.transcript, 80))}`);
+          log();
+          log(`  ${chalk.yellow(`${highlight.index}.`)} [${startFormatted} - ${endFormatted}] ${categoryColor(highlight.category)}, ${chalk.dim(`${confidencePercent}%`)}`);
+          log(`     ${chalk.white(highlight.reason)}`);
+          log(`     ${chalk.dim(truncate(highlight.transcript, 80))}`);
         }
 
-        console.log();
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(`Total: ${chalk.bold(filteredHighlights.length)} highlights, ${chalk.bold(totalHighlightDuration.toFixed(1))} seconds`);
-        console.log();
+        log();
+        log(chalk.dim("─".repeat(60)));
+        log(`Total: ${chalk.bold(filteredHighlights.length)} highlights, ${chalk.bold(totalHighlightDuration.toFixed(1))} seconds`);
+        log();
 
+        let outputPath: string | undefined;
         if (options.output) {
-          const outputPath = resolve(process.cwd(), options.output);
+          outputPath = resolve(process.cwd(), options.output);
           await writeFile(outputPath, JSON.stringify(result, null, 2), "utf-8");
-          console.log(chalk.green(`💾 Saved highlights to: ${outputPath}`));
+          log(chalk.green(`💾 Saved highlights to: ${outputPath}`));
         }
 
+        let projectPath: string | undefined;
         if (options.project) {
           const projectSpinner = createSpinner("📦 Creating project...").start();
           const project = new Project("Highlight Reel");
@@ -966,14 +982,24 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             currentTime += highlight.duration;
           }
 
-          const projectPath = resolve(process.cwd(), options.project);
+          projectPath = resolve(process.cwd(), options.project);
           await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
           projectSpinner.succeed(chalk.green(`Created project: ${projectPath}`));
         }
 
-        console.log();
-        console.log(chalk.bold.green("✅ Highlight extraction complete!"));
-        console.log();
+        log();
+        log(chalk.bold.green("✅ Highlight extraction complete!"));
+        log();
+
+        outputSuccess({
+          command: "ai highlights",
+          startedAt,
+          data: {
+            ...result,
+            ...(outputPath ? { outputPath } : {}),
+            ...(projectPath ? { projectPath } : {}),
+          },
+        });
       } catch (error) {
         exitWithError(failureFromError(error, "Highlight extraction failed", { retryable: true }));
       }
@@ -1040,15 +1066,15 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         const targetDuration = parseInt(options.duration);
         const shortCount = parseInt(options.count);
 
-        console.log();
-        console.log(chalk.bold.cyan("🎬 Auto Shorts Generator"));
-        console.log(chalk.dim("─".repeat(60)));
+        log();
+        log(chalk.bold.cyan("🎬 Auto Shorts Generator"));
+        log(chalk.dim("─".repeat(60)));
         if (options.useGemini) {
-          console.log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
+          log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
         } else {
-          console.log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
+          log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
         }
-        console.log();
+        log();
 
         let highlights: Highlight[] = [];
 
@@ -1189,26 +1215,41 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         highlights.sort((a, b) => b.confidence - a.confidence);
         const selectedHighlights = highlights.slice(0, shortCount);
 
-        console.log(chalk.green(`Selected top ${selectedHighlights.length} for short generation`));
-        console.log();
-        console.log(chalk.bold.cyan("Auto Shorts"));
-        console.log(chalk.dim("─".repeat(60)));
-        console.log(`Target duration: ${targetDuration}s`);
-        console.log(`Aspect ratio: ${options.aspect}`);
-        console.log();
+        log(chalk.green(`Selected top ${selectedHighlights.length} for short generation`));
+        log();
+        log(chalk.bold.cyan("Auto Shorts"));
+        log(chalk.dim("─".repeat(60)));
+        log(`Target duration: ${targetDuration}s`);
+        log(`Aspect ratio: ${options.aspect}`);
+        log();
 
         for (let i = 0; i < selectedHighlights.length; i++) {
           const h = selectedHighlights[i];
-          console.log(chalk.yellow(`[Short ${i + 1}] ${formatTime(h.startTime)} - ${formatTime(h.endTime)} (${h.duration.toFixed(1)}s)`));
-          console.log(`  ${h.reason}`);
-          console.log(chalk.dim(`  Confidence: ${(h.confidence * 100).toFixed(0)}%`));
+          log(chalk.yellow(`[Short ${i + 1}] ${formatTime(h.startTime)} - ${formatTime(h.endTime)} (${h.duration.toFixed(1)}s)`));
+          log(`  ${h.reason}`);
+          log(chalk.dim(`  Confidence: ${(h.confidence * 100).toFixed(0)}%`));
         }
-        console.log();
+        log();
+
+        const shortSegments = selectedHighlights.map((h) => ({
+          startTime: h.startTime,
+          endTime: h.endTime,
+          duration: h.duration,
+          confidence: h.confidence,
+          reason: h.reason,
+        }));
 
         if (options.analyzeOnly) {
-          console.log(chalk.dim("Use without --analyze-only to generate shorts."));
+          log(chalk.dim("Use without --analyze-only to generate shorts."));
+          outputSuccess({
+            command: "ai auto-shorts",
+            startedAt,
+            data: { analyzeOnly: true, targetDuration, aspect: options.aspect, shorts: shortSegments },
+          });
           return;
         }
+
+        const generated: Array<(typeof shortSegments)[number] & { outputPath: string }> = [];
 
         const outputDir = options.outputDir
           ? resolve(process.cwd(), options.outputDir)
@@ -1266,11 +1307,23 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
             "-vf", vf, "-c:a", "aac", "-b:a", "128k", outputPath, "-y",
           ], { timeout: 300000 });
           shortSpinner.succeed(chalk.green(`Short ${i + 1}: ${outputPath}`));
+          generated.push({ ...shortSegments[i], outputPath });
         }
 
-        console.log();
-        console.log(chalk.bold.green(`Generated ${selectedHighlights.length} short(s)`));
-        console.log();
+        log();
+        log(chalk.bold.green(`Generated ${selectedHighlights.length} short(s)`));
+        log();
+
+        outputSuccess({
+          command: "ai auto-shorts",
+          startedAt,
+          data: {
+            targetDuration,
+            aspect: options.aspect,
+            shorts: generated,
+            ...(generated.length === 1 ? { outputPath: generated[0].outputPath } : {}),
+          },
+        });
       } catch (error) {
         exitWithError(failureFromError(error, "Auto shorts failed", { retryable: true }));
       }

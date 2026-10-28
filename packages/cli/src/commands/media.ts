@@ -3,108 +3,141 @@ import { stat } from "node:fs/promises";
 import { resolve, extname, basename } from "node:path";
 import chalk from "chalk";
 import * as musicMetadata from "music-metadata";
-import { spinner as createSpinner, exitWithError, generalError } from "./output.js";
+import { spinner as createSpinner, exitWithError, generalError, isJsonMode, isQuietMode, outputSuccess } from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
+import { writeStdout } from "../utils/stdout-guard.js";
 
 export const mediaCommand = new Command("media")
   .description("Media file utilities");
+
+/** What `vibe media info` reports; the JSON envelope's `data` (minus `warnings`). */
+interface MediaInfo {
+  file: string;
+  path: string;
+  sizeBytes: number;
+  type: "video" | "audio" | "image" | "unknown";
+  format?: {
+    container?: string;
+    codec?: string;
+    duration?: number;
+    bitrate?: number;
+    sampleRate?: number;
+    channels?: number;
+  };
+  video?: { width?: number; height?: number; frameRate?: number };
+  tags?: { title?: string; artist?: string; album?: string; year?: number; genre?: string[] };
+  warnings: string[];
+}
+
+async function readMediaInfo(filePath: string): Promise<MediaInfo> {
+  const fileStat = await stat(filePath);
+  const info: MediaInfo = {
+    file: basename(filePath),
+    path: filePath,
+    sizeBytes: fileStat.size,
+    type: detectMediaType(extname(filePath).toLowerCase()),
+    warnings: [],
+  };
+  if (info.type === "image") info.warnings.push("Image metadata parsing not yet supported");
+  if (info.type !== "audio" && info.type !== "video") return info;
+
+  try {
+    const metadata = await musicMetadata.parseFile(filePath);
+    const { format } = metadata;
+    info.format = {
+      container: format.container,
+      codec: format.codec,
+      duration: format.duration,
+      bitrate: format.bitrate,
+      sampleRate: format.sampleRate,
+      channels: format.numberOfChannels,
+    };
+    const videoTrack = format.trackInfo?.find(
+      (t) => (t as Record<string, unknown>).type === "video"
+    ) as Record<string, unknown> | undefined;
+    if (videoTrack) {
+      info.video = {
+        width: videoTrack.width as number | undefined,
+        height: videoTrack.height as number | undefined,
+        frameRate: videoTrack.frameRate as number | undefined,
+      };
+    }
+    const { title, artist, album, year, genre } = metadata.common ?? {};
+    if (title || artist || album) {
+      info.tags = { title, artist, album, year, genre };
+    }
+  } catch {
+    info.warnings.push("Could not parse detailed metadata");
+  }
+  return info;
+}
+
+function printMediaInfo(info: MediaInfo): void {
+  const section = (title: string) => {
+    console.log();
+    console.log(chalk.bold.cyan(title));
+    console.log(chalk.dim("─".repeat(50)));
+  };
+  const row = (label: string, value: unknown) => {
+    if (value !== undefined && value !== null && value !== "") console.log(chalk.dim(`  ${label}:`), value);
+  };
+
+  section("Media Info");
+  row("File", info.file);
+  row("Path", info.path);
+  row("Size", formatFileSize(info.sizeBytes));
+  row("Type", info.type);
+
+  if (info.format) {
+    const { format } = info;
+    section("Format");
+    row("Container", format.container);
+    row("Codec", format.codec);
+    if (format.duration) row("Duration", formatDuration(format.duration));
+    if (format.bitrate) row("Bitrate", formatBitrate(format.bitrate));
+    if (format.sampleRate) row("Sample Rate", `${format.sampleRate} Hz`);
+    row("Channels", format.channels);
+  }
+
+  if (info.video && ((info.video.width && info.video.height) || info.video.frameRate)) {
+    section("Video");
+    if (info.video.width && info.video.height) row("Resolution", `${info.video.width}x${info.video.height}`);
+    if (info.video.frameRate) row("Frame Rate", `${info.video.frameRate} fps`);
+  }
+
+  if (info.tags) {
+    section("Tags");
+    row("Title", info.tags.title);
+    row("Artist", info.tags.artist);
+    row("Album", info.tags.album);
+    row("Year", info.tags.year);
+    if (info.tags.genre && info.tags.genre.length > 0) row("Genre", info.tags.genre.join(", "));
+  }
+
+  for (const warning of info.warnings) {
+    console.log();
+    console.log(chalk.yellow(`  ${warning}`));
+  }
+  console.log();
+}
 
 mediaCommand
   .command("info")
   .description("Get media file information")
   .argument("<file>", "Media file path")
   .action(async (file: string) => {
+    const startedAt = Date.now();
     const spinner = createSpinner("Analyzing media...").start();
 
     try {
-      const filePath = resolve(process.cwd(), file);
-      const ext = extname(filePath).toLowerCase();
-      const fileName = basename(filePath);
-      const fileStat = await stat(filePath);
-
-      const mediaType = detectMediaType(ext);
-
+      const { warnings, ...data } = await readMediaInfo(resolve(process.cwd(), file));
       spinner.stop();
 
-      console.log();
-      console.log(chalk.bold.cyan("Media Info"));
-      console.log(chalk.dim("─".repeat(50)));
-      console.log(chalk.dim("  File:"), fileName);
-      console.log(chalk.dim("  Path:"), filePath);
-      console.log(chalk.dim("  Size:"), formatFileSize(fileStat.size));
-      console.log(chalk.dim("  Type:"), mediaType);
-
-      if (mediaType === "audio" || mediaType === "video") {
-        try {
-          const metadata = await musicMetadata.parseFile(filePath);
-
-          console.log();
-          console.log(chalk.bold.cyan("Format"));
-          console.log(chalk.dim("─".repeat(50)));
-
-          if (metadata.format.container) {
-            console.log(chalk.dim("  Container:"), metadata.format.container);
-          }
-          if (metadata.format.codec) {
-            console.log(chalk.dim("  Codec:"), metadata.format.codec);
-          }
-          if (metadata.format.duration) {
-            console.log(chalk.dim("  Duration:"), formatDuration(metadata.format.duration));
-          }
-          if (metadata.format.bitrate) {
-            console.log(chalk.dim("  Bitrate:"), formatBitrate(metadata.format.bitrate));
-          }
-          if (metadata.format.sampleRate) {
-            console.log(chalk.dim("  Sample Rate:"), `${metadata.format.sampleRate} Hz`);
-          }
-          if (metadata.format.numberOfChannels) {
-            console.log(chalk.dim("  Channels:"), metadata.format.numberOfChannels);
-          }
-
-          // Video-specific info (if available)
-          if (metadata.format.trackInfo && metadata.format.trackInfo.length > 0) {
-            const videoTrack = metadata.format.trackInfo.find(
-              (t) => (t as Record<string, unknown>).type === "video"
-            ) as Record<string, unknown> | undefined;
-            if (videoTrack) {
-              console.log();
-              console.log(chalk.bold.cyan("Video"));
-              console.log(chalk.dim("─".repeat(50)));
-              if (videoTrack.width && videoTrack.height) {
-                console.log(chalk.dim("  Resolution:"), `${videoTrack.width}x${videoTrack.height}`);
-              }
-              if (videoTrack.frameRate) {
-                console.log(chalk.dim("  Frame Rate:"), `${videoTrack.frameRate} fps`);
-              }
-            }
-          }
-
-          // Audio tags
-          if (metadata.common && Object.keys(metadata.common).length > 0) {
-            const { title, artist, album, year, genre } = metadata.common;
-            if (title || artist || album) {
-              console.log();
-              console.log(chalk.bold.cyan("Tags"));
-              console.log(chalk.dim("─".repeat(50)));
-              if (title) console.log(chalk.dim("  Title:"), title);
-              if (artist) console.log(chalk.dim("  Artist:"), artist);
-              if (album) console.log(chalk.dim("  Album:"), album);
-              if (year) console.log(chalk.dim("  Year:"), year);
-              if (genre && genre.length > 0) console.log(chalk.dim("  Genre:"), genre.join(", "));
-            }
-          }
-        } catch (metadataError) {
-          console.log();
-          console.log(chalk.yellow("  Could not parse detailed metadata"));
-        }
+      if (isJsonMode() || isQuietMode()) {
+        outputSuccess({ command: "media info", startedAt, warnings, data });
+        return;
       }
-
-      if (mediaType === "image") {
-        console.log();
-        console.log(chalk.dim("  (Image metadata parsing not yet supported)"));
-      }
-
-      console.log();
+      printMediaInfo({ ...data, warnings });
     } catch (error) {
       spinner.fail("Failed to analyze media");
       const msg = error instanceof Error ? error.message : String(error);
@@ -122,7 +155,8 @@ mediaCommand
       const metadata = await musicMetadata.parseFile(filePath);
 
       if (metadata.format.duration) {
-        console.log(metadata.format.duration.toFixed(3));
+        // The bare number is the product in every mode, and is itself valid JSON.
+        writeStdout(metadata.format.duration.toFixed(3));
       } else {
         exitWithError(generalError("Could not determine duration"));
       }

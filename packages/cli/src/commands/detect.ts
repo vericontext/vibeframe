@@ -4,7 +4,7 @@ import { resolve, basename } from "node:path";
 import chalk from "chalk";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, outputSuccess, spinner as createSpinner } from "./output.js";
+import { exitWithError, generalError, log, outputSuccess, spinner as createSpinner } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
@@ -249,85 +249,37 @@ detectCommand
         return;
       }
 
-      // Check if FFmpeg is available
-      if (!commandExists("ffmpeg")) {
-        spinner.fail("FFmpeg not found");
-        exitWithError(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"));
-      }
+      requireFfmpeg(spinner);
+      spinner.text = "Analyzing video...";
 
       const absPath = resolve(process.cwd(), videoPath);
       const threshold = parseFloat(options.threshold);
-
-      // Use FFmpeg to detect scene changes
-      spinner.text = "Analyzing video...";
-
-      const { stdout: sceneStdout, stderr: sceneStderr } = await execSafe("ffmpeg", [
-        "-i", absPath,
-        "-filter:v", `select='gt(scene,${threshold})',showinfo`,
-        "-f", "null", "-",
-      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
-        // ffmpeg writes filter output to stderr and exits non-zero with -f null
-        if (err.stdout !== undefined || err.stderr !== undefined) {
-          return { stdout: err.stdout || "", stderr: err.stderr || "" };
-        }
-        throw err;
-      });
-      const output = sceneStdout + sceneStderr;
-
-      // Parse scene change timestamps from showinfo output
-      const scenes: { timestamp: number; score: number }[] = [];
-      const regex = /pts_time:(\d+\.?\d*)/g;
-      let match;
-
-      // Always start with 0
-      scenes.push({ timestamp: 0, score: 1 });
-
-      while ((match = regex.exec(output)) !== null) {
-        const timestamp = parseFloat(match[1]);
-        scenes.push({ timestamp, score: threshold });
+      const result = await executeDetectScenes({ videoPath, threshold, outputPath: options.output });
+      if (!result.success || !result.scenes) {
+        spinner.fail("Scene detection failed");
+        exitWithError(generalError(result.error ?? "Scene detection failed"));
       }
-
-      // Get video duration
-      const totalDuration = await ffprobeDuration(absPath);
+      const scenes = result.scenes;
+      const totalDuration = result.totalDuration ?? 0;
 
       spinner.succeed(chalk.green(`Detected ${scenes.length} scenes`));
 
-      console.log();
-      console.log(chalk.bold.cyan("Scene Timestamps"));
-      console.log(chalk.dim("─".repeat(60)));
-
-      for (let i = 0; i < scenes.length; i++) {
-        const start = scenes[i].timestamp;
-        const end = i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration;
-        const duration = end - start;
-        console.log(
-          `${chalk.yellow(`[${i + 1}]`)} ${formatTimestamp(start)} - ${formatTimestamp(end)} ${chalk.dim(`(${duration.toFixed(1)}s)`)}`
+      log();
+      log(chalk.bold.cyan("Scene Timestamps"));
+      log(chalk.dim("─".repeat(60)));
+      for (const scene of scenes) {
+        log(
+          `${chalk.yellow(`[${scene.index + 1}]`)} ${formatTimestamp(scene.startTime)} - ${formatTimestamp(scene.endTime)} ${chalk.dim(`(${scene.duration.toFixed(1)}s)`)}`
         );
       }
-      console.log();
+      log();
 
-      // Save to JSON
-      if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        const result = {
-          source: absPath,
-          totalDuration,
-          threshold,
-          scenes: scenes.map((s, i) => ({
-            index: i,
-            startTime: s.timestamp,
-            endTime: i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration,
-            duration:
-              (i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration) - s.timestamp,
-          })),
-        };
-        await writeFile(outputPath, JSON.stringify(result, null, 2), "utf-8");
-        console.log(chalk.green(`Saved to: ${outputPath}`));
-      }
+      const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+      if (outputPath) log(chalk.green(`Saved to: ${outputPath}`));
 
-      // Add to project
+      let projectPath: string | undefined;
       if (options.project) {
-        const projectPath = resolve(process.cwd(), options.project);
+        projectPath = resolve(process.cwd(), options.project);
         const content = await readFile(projectPath, "utf-8");
         const data: ProjectFile = JSON.parse(content);
         const project = Project.fromJSON(data);
@@ -344,24 +296,34 @@ detectCommand
         }
 
         // Add clips for each scene
-        for (let i = 0; i < scenes.length; i++) {
-          const start = scenes[i].timestamp;
-          const end = i < scenes.length - 1 ? scenes[i + 1].timestamp : totalDuration;
-          const duration = end - start;
-
+        for (const scene of scenes) {
           project.addClip({
             sourceId: source.id,
             trackId: project.getTracks().find((t) => t.type === "video")?.id || "",
-            startTime: start,
-            duration,
-            sourceStartOffset: start,
-            sourceEndOffset: end,
+            startTime: scene.startTime,
+            duration: scene.duration,
+            sourceStartOffset: scene.startTime,
+            sourceEndOffset: scene.endTime,
           });
         }
 
         await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
-        console.log(chalk.green(`Added ${scenes.length} clips to project`));
+        log(chalk.green(`Added ${scenes.length} clips to project`));
       }
+
+      outputSuccess({
+        command: "detect scenes",
+        startedAt,
+        data: {
+          source: absPath,
+          totalDuration,
+          threshold,
+          sceneCount: scenes.length,
+          scenes,
+          ...(outputPath ? { outputPath } : {}),
+          ...(projectPath ? { projectPath } : {}),
+        },
+      });
     } catch (error) {
       spinner.fail("Scene detection failed");
       const msg = error instanceof Error ? error.message : String(error);
@@ -407,69 +369,46 @@ detectCommand
         return;
       }
 
-      const absPath = resolve(process.cwd(), mediaPath);
-      const noise = options.noise;
-      const duration = options.duration;
+      requireFfmpeg(spinner);
 
-      const { stdout: silStdout, stderr: silStderr } = await execSafe("ffmpeg", [
-        "-i", absPath,
-        "-af", `silencedetect=noise=${noise}dB:d=${duration}`,
-        "-f", "null", "-",
-      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
-        if (err.stdout !== undefined || err.stderr !== undefined) {
-          return { stdout: err.stdout || "", stderr: err.stderr || "" };
-        }
-        throw err;
+      const result = await executeDetectSilence({
+        mediaPath,
+        noise: options.noise,
+        duration: options.duration,
+        outputPath: options.output,
       });
-      const output = silStdout + silStderr;
-
-      // Parse silence periods
-      const silences: { start: number; end: number; duration: number }[] = [];
-      const startRegex = /silence_start: (\d+\.?\d*)/g;
-      const endRegex = /silence_end: (\d+\.?\d*) \| silence_duration: (\d+\.?\d*)/g;
-
-      const starts: number[] = [];
-      let match;
-
-      while ((match = startRegex.exec(output)) !== null) {
-        starts.push(parseFloat(match[1]));
+      if (!result.success || !result.silences) {
+        spinner.fail("Silence detection failed");
+        exitWithError(generalError(result.error ?? "Silence detection failed"));
       }
-
-      let i = 0;
-      while ((match = endRegex.exec(output)) !== null) {
-        if (i < starts.length) {
-          silences.push({
-            start: starts[i],
-            end: parseFloat(match[1]),
-            duration: parseFloat(match[2]),
-          });
-          i++;
-        }
-      }
+      const silences = result.silences;
 
       spinner.succeed(chalk.green(`Detected ${silences.length} silence periods`));
 
-      console.log();
-      console.log(chalk.bold.cyan("Silence Periods"));
-      console.log(chalk.dim("─".repeat(60)));
-
+      log();
+      log(chalk.bold.cyan("Silence Periods"));
+      log(chalk.dim("─".repeat(60)));
       for (let i = 0; i < silences.length; i++) {
         const s = silences[i];
-        console.log(
+        log(
           `${chalk.yellow(`[${i + 1}]`)} ${formatTimestamp(s.start)} - ${formatTimestamp(s.end)} ${chalk.dim(`(${s.duration.toFixed(1)}s)`)}`
         );
       }
-      console.log();
+      log();
 
-      if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        await writeFile(
-          outputPath,
-          JSON.stringify({ source: absPath, silences }, null, 2),
-          "utf-8"
-        );
-        console.log(chalk.green(`Saved to: ${outputPath}`));
-      }
+      const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+      if (outputPath) log(chalk.green(`Saved to: ${outputPath}`));
+
+      outputSuccess({
+        command: "detect silence",
+        startedAt,
+        data: {
+          source: resolve(process.cwd(), mediaPath),
+          silenceCount: silences.length,
+          silences,
+          ...(outputPath ? { outputPath } : {}),
+        },
+      });
     } catch (error) {
       spinner.fail("Silence detection failed");
       const msg = error instanceof Error ? error.message : String(error);
@@ -511,88 +450,56 @@ detectCommand
         return;
       }
 
-      const absPath = resolve(process.cwd(), audioPath);
+      requireFfmpeg(spinner);
 
-      // Use FFmpeg's ebur128 filter for loudness analysis
-      // This gives us a rough approximation of beat positions
-      const { stdout: beatStdout, stderr: beatStderr } = await execSafe("ffmpeg", [
-        "-i", absPath,
-        "-af", "aresample=16000,ebur128=peak=true",
-        "-f", "null", "-",
-      ], { maxBuffer: 50 * 1024 * 1024 }).catch((err) => {
-        if (err.stdout !== undefined || err.stderr !== undefined) {
-          return { stdout: err.stdout || "", stderr: err.stderr || "" };
-        }
-        throw err;
-      });
-      const beatOutput = beatStdout + beatStderr;
-
-      // Extract peak moments as approximate beats
-      const beats: number[] = [];
-      const peakRegex = /t:\s*(\d+\.?\d*)\s+M:\s*-?\d+\.?\d*\s+S:\s*-?\d+\.?\d*\s+I:\s*-?\d+\.?\d*\s+LUFS\s+LRA:\s*\d+\.?\d*\s+LU\s+FTPK:\s*(-?\d+\.?\d*)/g;
-
-      let match;
-      let lastBeatTime = -0.5;
-
-      while ((match = peakRegex.exec(beatOutput)) !== null) {
-        const time = parseFloat(match[1]);
-        const peak = parseFloat(match[2]);
-
-        // Consider it a beat if peak is high and enough time has passed
-        if (peak > -10 && time - lastBeatTime > 0.3) {
-          beats.push(time);
-          lastBeatTime = time;
-        }
+      const result = await executeDetectBeats({ audioPath, outputPath: options.output });
+      if (!result.success || !result.beats) {
+        spinner.fail("Beat detection failed");
+        exitWithError(generalError(result.error ?? "Beat detection failed"));
       }
-
-      // Fallback: if no beats detected, use simple interval-based detection
-      if (beats.length === 0) {
-        spinner.text = "Using interval-based detection...";
-
-        // Get duration
-        const totalDuration = await ffprobeDuration(absPath);
-
-        // Estimate BPM from audio length (rough approximation)
-        const estimatedBPM = 120;
-        const beatInterval = 60 / estimatedBPM;
-
-        for (let t = 0; t < totalDuration; t += beatInterval) {
-          beats.push(t);
-        }
-      }
+      const beats = result.beats;
 
       spinner.succeed(chalk.green(`Detected ${beats.length} beats`));
 
-      console.log();
-      console.log(chalk.bold.cyan("Beat Timestamps"));
-      console.log(chalk.dim("─".repeat(60)));
-
+      log();
+      log(chalk.bold.cyan("Beat Timestamps"));
+      log(chalk.dim("─".repeat(60)));
       // Show first 20 beats
       const displayBeats = beats.slice(0, 20);
       for (let i = 0; i < displayBeats.length; i++) {
-        console.log(`${chalk.yellow(`[${i + 1}]`)} ${formatTimestamp(displayBeats[i])}`);
+        log(`${chalk.yellow(`[${i + 1}]`)} ${formatTimestamp(displayBeats[i])}`);
       }
-
       if (beats.length > 20) {
-        console.log(chalk.dim(`... and ${beats.length - 20} more`));
+        log(chalk.dim(`... and ${beats.length - 20} more`));
       }
-      console.log();
+      log();
 
-      if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        await writeFile(
-          outputPath,
-          JSON.stringify({ source: absPath, beatCount: beats.length, beats }, null, 2),
-          "utf-8"
-        );
-        console.log(chalk.green(`Saved to: ${outputPath}`));
-      }
+      const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
+      if (outputPath) log(chalk.green(`Saved to: ${outputPath}`));
+
+      outputSuccess({
+        command: "detect beats",
+        startedAt,
+        data: {
+          source: resolve(process.cwd(), audioPath),
+          beatCount: beats.length,
+          beats,
+          ...(outputPath ? { outputPath } : {}),
+        },
+      });
     } catch (error) {
       spinner.fail("Beat detection failed");
       const msg = error instanceof Error ? error.message : String(error);
       exitWithError(generalError(`Beat detection failed: ${msg}`));
     }
   });
+
+/** Stop with an install hint when FFmpeg is missing; every detector needs it. */
+function requireFfmpeg(spinner: ReturnType<typeof createSpinner>): void {
+  if (commandExists("ffmpeg")) return;
+  spinner.fail("FFmpeg not found");
+  exitWithError(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"));
+}
 
 // Cost-tier annotations — every detect subcommand is FFmpeg-only.
 applyTiers(detectCommand, {

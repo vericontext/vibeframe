@@ -14,7 +14,16 @@
 
 import { type Command } from "commander";
 import chalk from "chalk";
-import { failureFromError, spinner as createSpinner, exitWithError, apiError, providerFailure } from "./output.js";
+import {
+  failureFromError,
+  spinner as createSpinner,
+  exitWithError,
+  apiError,
+  isJsonMode,
+  isQuietMode,
+  outputSuccess,
+  providerFailure,
+} from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { executeFillGaps } from "./_shared/execute-fill-gaps.js";
 
@@ -31,6 +40,7 @@ export function registerFillGapsCommand(aiCommand: Command): void {
     .option("--mode <mode>", "Generation mode: std or pro (Kling)", "std")
     .option("-r, --ratio <ratio>", "Aspect ratio: 16:9, 9:16, or 1:1", "16:9")
     .action(async (projectPath: string, options) => {
+      const startedAt = Date.now();
       try {
         if (options.output) {
           validateOutputPath(options.output);
@@ -60,6 +70,23 @@ export function registerFillGapsCommand(aiCommand: Command): void {
           spinner.fail(chalk.red(result.error || "Fill gaps failed"));
           const message = result.error || "Fill gaps failed";
           exitWithError(result.errorKind ? providerFailure(message, result.errorKind) : apiError(message, true));
+        }
+
+        if (isJsonMode() || isQuietMode()) {
+          outputSuccess({
+            command: "edit fill-gaps",
+            startedAt,
+            dryRun: result.dryRun,
+            data: {
+              outputPath: result.outputPath,
+              gaps: result.gaps ?? [],
+              gapsNeedingAI: result.gapsNeedingAI ?? [],
+              generatedCount: result.generatedCount ?? 0,
+              noGaps: result.noGaps ?? false,
+              allExtendable: result.allExtendable ?? false,
+            },
+          });
+          return;
         }
 
         // Print humanLines (the action body's previous console.log output).

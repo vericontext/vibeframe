@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { withStdoutOnStderr } from "./stdout-guard.js";
+import { releaseStdout, reserveStdout, withStdoutOnStderr, writeStdout } from "./stdout-guard.js";
 
 /** Capture what each stream received while `fn` runs. */
 async function capture(fn: () => Promise<void>): Promise<{ out: string; err: string }> {
@@ -60,5 +60,53 @@ describe("withStdoutOnStderr", () => {
 
   it("returns the callback's value", async () => {
     await expect(withStdoutOnStderr(async () => 42)).resolves.toBe(42);
+  });
+});
+
+describe("reserveStdout", () => {
+  it("lets only writeStdout reach stdout and sends every other line to stderr", async () => {
+    const { out, err } = await capture(async () => {
+      reserveStdout();
+      try {
+        // A command's banner, written the way console.log writes it.
+        process.stdout.write("🎬 Highlight Extraction Pipeline\n");
+        writeStdout(JSON.stringify({ command: "remix highlights" }));
+      } finally {
+        releaseStdout();
+      }
+    });
+
+    expect(JSON.parse(out)).toEqual({ command: "remix highlights" });
+    expect(err).toBe("🎬 Highlight Extraction Pipeline\n");
+  });
+
+  it("still lets writeStdout through inside withStdoutOnStderr", async () => {
+    const { out, err } = await capture(async () => {
+      reserveStdout();
+      try {
+        await withStdoutOnStderr(async () => {
+          process.stdout.write("[BrowserManager] Browser launched\n");
+          writeStdout("{}");
+        });
+        process.stdout.write("after\n");
+      } finally {
+        releaseStdout();
+      }
+    });
+
+    expect(out).toBe("{}\n");
+    expect(err).toBe("[BrowserManager] Browser launched\nafter\n");
+  });
+
+  it("restores the real writer on release", async () => {
+    const { out, err } = await capture(async () => {
+      reserveStdout();
+      reserveStdout(); // idempotent: a second call must not capture the stderr redirect
+      releaseStdout();
+      process.stdout.write("plain\n");
+    });
+
+    expect(out).toBe("plain\n");
+    expect(err).toBe("");
   });
 });

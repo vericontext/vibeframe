@@ -46,7 +46,8 @@ import { guideCommand, legacyGuideAliasCommand } from "./commands/walkthrough.js
 import { completionCommand } from "./commands/completion.js";
 import { ApiKeyError } from "./utils/api-key.js";
 import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
-import { exitWithError, usageError } from "./commands/output.js";
+import { exitWithError, isJsonMode, isQuietMode, usageError } from "./commands/output.js";
+import { reserveStdout } from "./utils/stdout-guard.js";
 import { rejectControlChars } from "./utils/input-validation.js";
 import { buildSchema } from "./commands/schema.js";
 import { getCostTier, TIER_DESCRIPTION, type CostTier } from "./commands/_shared/cost-tier.js";
@@ -204,6 +205,12 @@ program.hook("preAction", async (thisCommand, actionCommand) => {
   // --fields flag
   if (opts.fields) {
     process.env.VIBE_OUTPUT_FIELDS = opts.fields;
+  }
+
+  // In JSON/quiet mode stdout carries only the command's product; any human
+  // line a command prints goes to stderr instead of ahead of the envelope.
+  if (isJsonMode() || isQuietMode()) {
+    reserveStdout();
   }
 
   // --stdin: read JSON from stdin and merge into command options
