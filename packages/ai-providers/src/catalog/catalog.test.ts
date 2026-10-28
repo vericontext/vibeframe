@@ -52,7 +52,7 @@ describe("model catalog", () => {
     expect(findModel("gemini", "image", undefined)?.id).toBe(defaultModel("gemini", "image").id);
     expect(findModel("kling", "video", "v9")).toBeUndefined();
     expect(modelAliases("grok", "video")).toEqual(["1.5", "lite", "1.5-lite", "classic"]);
-    expect(listModels({ kind: "transcription" }).map((m) => m.id)).toEqual(["whisper-1"]);
+    expect(listModels({ kind: "transcription" }).map((m) => m.id)).toEqual(["scribe_v2", "whisper-1"]);
   });
 
   it("throws when a provider and kind has no default", () => {

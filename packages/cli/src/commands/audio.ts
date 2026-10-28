@@ -4,14 +4,14 @@
  * Top-level `vibe audio` command group for audio operations.
  *
  * Commands:
- *   audio transcribe   - Transcribe audio using Whisper
+ *   audio transcribe   - Transcribe audio (ElevenLabs Scribe or OpenAI Whisper)
  *   audio list-voices  - List available ElevenLabs voices
  *   audio isolate      - Isolate vocals from audio (ElevenLabs)
  *   audio clone-voice  - Clone a voice from audio samples (ElevenLabs)
- *   audio dub          - Dub audio/video to another language (Whisper + Claude + ElevenLabs)
+ *   audio dub          - Dub audio/video to another language (transcription + Claude + TTS)
  *   audio duck         - Auto-duck background music when voice is present (FFmpeg)
  *
- * @dependencies Whisper (OpenAI), ElevenLabs, Claude (Anthropic), FFmpeg
+ * @dependencies ElevenLabs (Scribe, TTS), Whisper (OpenAI), Claude (Anthropic), FFmpeg
  */
 
 import { Command } from "commander";
@@ -36,6 +36,7 @@ import {
 } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { executeDub, executeIsolate, executeTranscribe, executeVoiceClone } from "./ai-audio.js";
+import { STT_OPTION_HELP, requireSttProvider, sttLabel, sttOptionOrExit } from "./_shared/transcription.js";
 
 export const audioCommand = new Command("audio")
   .alias("au")
@@ -46,6 +47,7 @@ export const audioCommand = new Command("audio")
 Examples:
   $ vibe audio transcribe interview.mp3 -o transcript.srt --format srt
   $ vibe audio transcribe video.mp4 -l ko                  # Specify language
+  $ vibe audio transcribe talk.mp3 -p openai               # Force Whisper
   $ vibe audio list-voices                                  # List available voices
   $ vibe audio isolate song.mp3 -o vocals.mp3
   $ vibe audio clone-voice sample.mp3 --name "my-voice"
@@ -56,9 +58,9 @@ Consent:
   clone-voice requires explicit user permission for the sampled voice.
 
 API Keys:
-  OPENAI_API_KEY      transcribe (Whisper)
+  ELEVENLABS_API_KEY or OPENAI_API_KEY  transcribe (Scribe first when both are set)
   ELEVENLABS_API_KEY  list-voices, isolate, clone-voice
-  OPENAI_API_KEY + ANTHROPIC_API_KEY + ELEVENLABS_API_KEY  dub (full pipeline)
+  ELEVENLABS_API_KEY or OPENAI_API_KEY + ANTHROPIC_API_KEY  dub (transcribe, translate, speak)
   No key needed       duck (FFmpeg only)
 
 Run 'vibe schema audio.<command>' for structured parameter info.
@@ -69,9 +71,10 @@ Run 'vibe schema audio.<command>' for structured parameter info.
 
 audioCommand
   .command("transcribe")
-  .description("Transcribe audio using Whisper")
+  .description("Transcribe audio (ElevenLabs Scribe or OpenAI Whisper)")
   .argument("<audio>", "Audio file path")
-  .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("-p, --provider <provider>", STT_OPTION_HELP, "auto")
+  .option("-k, --api-key <key>", "API key for --provider (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY")
   .option("-l, --language <lang>", "Language code (e.g., en, ko)")
   .option("-o, --output <path>", "Output file path")
   .option("--format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
@@ -81,14 +84,15 @@ audioCommand
     if (!existsSync(resolve(process.cwd(), audioPath))) {
       exitWithError(notFoundError(resolve(process.cwd(), audioPath)));
     }
-    const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
-    const spinner = isJsonMode() ? null : createSpinner("Transcribing...").start();
+    const stt = await requireSttProvider(sttOptionOrExit(options.provider), { apiKey: options.apiKey });
+    const spinner = isJsonMode() ? null : createSpinner(`Transcribing with ${sttLabel(stt.provider)}...`).start();
     const result = await executeTranscribe({
       audioPath,
       language: options.language,
       output: options.output,
       format: options.format,
-      apiKey,
+      provider: stt.provider,
+      apiKey: stt.apiKey,
     });
     if (!result.success) {
       spinner?.fail("Transcription failed");
@@ -100,6 +104,7 @@ audioCommand
         command: "audio transcribe",
         startedAt,
         data: {
+          provider: result.provider,
           fullText: result.text,
           segments: result.segments,
           language: result.detectedLanguage,
@@ -313,6 +318,7 @@ audioCommand
   .option("--source <lang>", "Source language code (default: auto-detect)")
   .option("--voice <id>", "Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)")
   .option("--tts <provider>", "TTS provider: auto (default), elevenlabs, openai, kokoro", "auto")
+  .option("--stt <provider>", STT_OPTION_HELP, "auto")
   .option("--analyze-only", "Only analyze and show timing, don't generate audio")
   .option("-o, --output <path>", "Output file path")
   .option("--dry-run", "Preview parameters without executing")
@@ -323,15 +329,15 @@ audioCommand
         command: "audio dub",
         startedAt,
         dryRun: true,
-        data: { params: { mediaPath, targetLanguage: options.language, sourceLanguage: options.source, voice: options.voice } },
+        data: { params: { mediaPath, targetLanguage: options.language, sourceLanguage: options.source, voice: options.voice, tts: options.tts, stt: options.stt } },
       });
       return;
     }
     if (options.output) validateOutputPath(options.output);
     if (!options.language) exitWithError(usageError("Target language is required. Use -l or --language"));
     if (!existsSync(resolve(process.cwd(), mediaPath))) exitWithError(notFoundError(mediaPath));
-    // Whisper needs OpenAI; translation uses Claude when its key is set, else OpenAI.
-    await requireApiKey("OPENAI_API_KEY", "OpenAI");
+    // Transcription needs an ElevenLabs or OpenAI key; translation uses Claude when its key is set, else OpenAI.
+    const stt = await requireSttProvider(sttOptionOrExit(options.stt));
 
     const spinner = isJsonMode() ? null : createSpinner("Transcribing, translating, and dubbing...").start();
     const result = await executeDub({
@@ -340,6 +346,7 @@ audioCommand
       source: options.source,
       voice: options.voice,
       tts: options.tts,
+      stt: stt.provider,
       analyzeOnly: options.analyzeOnly,
       output: options.output,
     });

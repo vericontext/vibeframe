@@ -2,11 +2,11 @@
  * @module ai-animated-caption
  * @description Animated caption pipeline — word-by-word TikTok/Reels-style captions.
  *
- * Pipeline: Video → FFmpeg audio extract → Whisper word-level transcribe
+ * Pipeline: Video → FFmpeg audio extract → word-level transcribe (Scribe or Whisper)
  *   → Word grouping → Style routing (ASS fast tier / Remotion tier) → Output MP4
  *
  * ## Commands: vibe pipeline animated-caption
- * ## Dependencies: Whisper (OpenAI), FFmpeg, Remotion (optional)
+ * ## Dependencies: ElevenLabs Scribe or OpenAI Whisper, FFmpeg, Remotion (optional)
  * @see MODELS.md for AI model configuration
  */
 
@@ -15,7 +15,7 @@ import { writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { transcribeWithWords } from "./ai-edit.js";
-import { requireApiKey } from "../utils/api-key.js";
+import { resolveSttProvider } from "./_shared/transcription.js";
 import { execSafe, ffprobeVideoSize, ffprobeDuration } from "../utils/exec-safe.js";
 import {
   generateAnimatedCaptionComponent,
@@ -58,6 +58,8 @@ export interface AnimatedCaptionOptions {
   maxChars?: number;
   language?: string;
   fast?: boolean;
+  /** Transcription provider: auto (default), elevenlabs, openai. */
+  stt?: string;
 }
 
 export interface AnimatedCaptionResult {
@@ -257,7 +259,7 @@ export async function executeAnimatedCaption(
   const effectiveStyle = isASSTier && !ASS_STYLES.includes(style) ? "karaoke-sweep" : style;
   const tier = isASSTier ? "ass" : "remotion";
   // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
-  const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+  const stt = await resolveSttProvider(options.stt);
 
   try {
     // 1. Get video info
@@ -297,7 +299,7 @@ export async function executeAnimatedCaption(
     ], { timeout: 120_000 });
 
     // 3. Transcribe with word-level timestamps
-    const transcript = await transcribeWithWords(audioPath, apiKey, language);
+    const transcript = await transcribeWithWords(audioPath, stt, language);
     if (!transcript.words || transcript.words.length === 0) {
       await rm(tmpAudioDir, { recursive: true, force: true }).catch(() => {});
       return { success: false, error: "No words detected in transcription" };

@@ -14,6 +14,7 @@ export {
   type VoiceCloneOptions,
   type VoiceCloneResult,
 } from "./ElevenLabsProvider.js";
+export { ScribeTranscriber, scribeSegments, scribeWords, type ScribeToken } from "./ScribeTranscriber.js";
 
 import { defineProvider } from "../define-provider.js";
 
@@ -21,8 +22,8 @@ defineProvider({
   id: "elevenlabs",
   label: "ElevenLabs",
   apiKey: "elevenlabs",
-  kinds: ["speech", "music"],
-  resolverPriority: { speech: 1 },
+  kinds: ["speech", "music", "transcription"],
+  resolverPriority: { speech: 1, transcription: 1 },
   commandsUnlocked: [
     "generate speech",
     "generate sound-effect",
@@ -30,5 +31,8 @@ defineProvider({
     "audio list-voices",
     "audio clone-voice",
     "audio dub",
+    "audio transcribe",
+    "edit caption",
+    "edit jump-cut",
   ],
 });

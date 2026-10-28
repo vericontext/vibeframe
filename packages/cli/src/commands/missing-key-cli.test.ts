@@ -78,13 +78,19 @@ const CASES: Array<{ args: string[]; envVar: string; ffmpeg?: boolean }> = [
   { args: ["generate", "sound-effect", "boom"], envVar: "ELEVENLABS_API_KEY" },
   { args: ["generate", "music", "lofi", "--no-wait"], envVar: "ELEVENLABS_API_KEY" },
   { args: ["edit", "translate-srt", "s.srt", "--target", "ko"], envVar: "ANTHROPIC_API_KEY" },
-  { args: ["audio", "dub", "a.mp3", "-l", "ko"], envVar: "OPENAI_API_KEY" },
+  // Transcription: auto names both keys; a named provider names its own.
+  { args: ["audio", "dub", "a.mp3", "-l", "ko"], envVar: "ELEVENLABS_API_KEY or OPENAI_API_KEY" },
+  { args: ["audio", "transcribe", "a.mp3"], envVar: "ELEVENLABS_API_KEY or OPENAI_API_KEY" },
+  { args: ["audio", "transcribe", "a.mp3", "-p", "elevenlabs"], envVar: "ELEVENLABS_API_KEY" },
+  { args: ["audio", "transcribe", "a.mp3", "-p", "openai"], envVar: "OPENAI_API_KEY" },
   // These check for FFmpeg first.
   // Previously exit 0 with a spinner and no JSON at all.
   { args: ["edit", "grade", "v.mp4", "--style", "warm film"], envVar: "ANTHROPIC_API_KEY", ffmpeg: true },
   { args: ["edit", "reframe", "v.mp4"], envVar: "ANTHROPIC_API_KEY", ffmpeg: true },
   // Previously ERROR (exit 1).
-  { args: ["edit", "speed-ramp", "v.mp4"], envVar: "OPENAI_API_KEY", ffmpeg: true },
+  { args: ["edit", "speed-ramp", "v.mp4"], envVar: "ELEVENLABS_API_KEY or OPENAI_API_KEY", ffmpeg: true },
+  { args: ["edit", "caption", "v.mp4", "--stt", "elevenlabs"], envVar: "ELEVENLABS_API_KEY", ffmpeg: true },
+  { args: ["edit", "jump-cut", "v.mp4"], envVar: "ELEVENLABS_API_KEY or OPENAI_API_KEY", ffmpeg: true },
 ];
 
 describe("missing provider keys", () => {

@@ -281,7 +281,7 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   // High
   "generate video": { min: 0.50, max: 5.00, unit: "per video" },
   "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
-  // Whisper + translation + one TTS call per line.
+  // Transcription + translation + one TTS call per line.
   "audio dub": { min: 0.05, max: 1.00, unit: "per file" },
   // Very High
   "pipeline highlights": { min: 0.05, max: 1.00, unit: "per analysis" },

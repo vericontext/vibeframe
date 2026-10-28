@@ -21,6 +21,7 @@ import {
   executeAutoShorts,
 } from "../../commands/ai-highlights.js";
 import { loadPipeline, executePipeline } from "../../pipeline/index.js";
+import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 
 export const pipelineHighlightsTool = defineTool({
   name: "remix_highlights",
@@ -29,7 +30,7 @@ export const pipelineHighlightsTool = defineTool({
   title: "Extract Video Highlights",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Extract highlight clips from a longer video using AI analysis. Requires OPENAI_API_KEY+ANTHROPIC_API_KEY or GOOGLE_API_KEY (with --use-gemini).",
+    `Extract highlight clips from a longer video using AI analysis. Requires ANTHROPIC_API_KEY plus a transcription key, or GOOGLE_API_KEY (with useGemini). ${STT_KEYS_TEXT}.`,
   schema: z.object({
     media: z.string().describe("Path to the input video file"),
     output: z.string().optional().describe("Output path for the highlights compilation"),
@@ -39,6 +40,7 @@ export const pipelineHighlightsTool = defineTool({
     threshold: z.number().optional().describe("Minimum confidence threshold 0-1 (default: 0.7)"),
     criteria: z.enum(["emotional", "informative", "funny", "all"]).optional().describe("Highlight selection criteria (default: all)"),
     language: z.string().optional().describe("Language code (default: en)"),
+    stt: sttSchema,
     useGemini: z.boolean().optional().describe("Use Gemini for analysis (requires GOOGLE_API_KEY)"),
     lowRes: z.boolean().optional().describe("Use lower resolution for faster analysis"),
   }),
@@ -77,6 +79,7 @@ export const pipelineAutoShortsTool = defineTool({
     captionStyle: z.enum(["minimal", "bold", "animated"]).optional().describe("Caption style if enabled"),
     analyzeOnly: z.boolean().optional().describe("Only analyze without generating shorts"),
     language: z.string().optional().describe("Language code (default: en)"),
+    stt: sttSchema,
     useGemini: z.boolean().optional().describe("Use Gemini for analysis"),
     lowRes: z.boolean().optional().describe("Use lower resolution"),
   }),

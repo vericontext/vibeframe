@@ -387,7 +387,7 @@ const AI_FEATURES: AIFeature[] = [
   {
     label: "AI editing + motion",
     desc: "captions, grade, reframe, motion graphics",
-    defaultProvider: "Whisper (transcription) + Claude (reasoning)",
+    defaultProvider: "Scribe or Whisper (transcription) + Claude (reasoning)",
     alsoAvailable: "",
     keyHint: "2 keys",
     keys: [

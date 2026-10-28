@@ -6,10 +6,10 @@
  * CLI commands: highlights, auto-shorts
  *
  * Execute functions:
- *   executeHighlights  - Extract best moments from video/audio (Whisper+Claude or Gemini)
+ *   executeHighlights  - Extract best moments from video/audio (transcription + Claude, or Gemini)
  *   executeAutoShorts   - Generate short-form vertical clips from long-form video
  *
- * @dependencies Whisper (OpenAI), Claude (Anthropic), Gemini (Google), FFmpeg
+ * @dependencies ElevenLabs Scribe or OpenAI Whisper, Claude (Anthropic), Gemini (Google), FFmpeg
  */
 
 import { Command } from "commander";
@@ -30,7 +30,14 @@ import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, log, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
-import { transcribeAudioFile } from "./_shared/transcription.js";
+import {
+  STT_OPTION_HELP,
+  requireSttProvider,
+  resolveSttProvider,
+  sttLabel,
+  sttOptionOrExit,
+  transcribeAudioFile,
+} from "./_shared/transcription.js";
 
 // ============================================================================
 // Shared helpers
@@ -101,9 +108,11 @@ export interface HighlightsOptions {
   threshold?: number;
   /** Selection criteria filter */
   criteria?: "emotional" | "informative" | "funny" | "all";
-  /** Language code for Whisper transcription */
+  /** Language code for transcription */
   language?: string;
-  /** Use Gemini multimodal analysis instead of Whisper+Claude */
+  /** Transcription provider: auto (default), elevenlabs, openai */
+  stt?: string;
+  /** Use Gemini multimodal analysis instead of transcription + Claude */
   useGemini?: boolean;
   /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
@@ -137,7 +146,7 @@ function highlightsFailure(failure: StructuredError): HighlightsExtractResult {
  * Extract the best highlights from a video or audio file.
  *
  * Supports two analysis backends:
- * - Whisper + Claude (default): transcribe audio, then analyze text for highlights
+ * - Transcription + Claude (default): transcribe audio (Scribe or Whisper), then analyze text for highlights
  * - Gemini (--useGemini): multimodal visual+audio analysis for richer detection
  *
  * @param options - Highlight extraction configuration
@@ -245,7 +254,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         return highlightsFailure(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
       }
     } else {
-      const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+      const stt = await resolveSttProvider(options.stt);
       const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
       let audioPath = absPath;
@@ -265,7 +274,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         sourceDuration = await ffprobeDuration(absPath);
       }
 
-      const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
+      const transcriptResult = await transcribeAudioFile(audioPath, { ...stt, language: options.language });
 
       if (tempAudioPath && existsSync(tempAudioPath)) {
         const { unlink: unlinkFile } = await import("node:fs/promises");
@@ -374,9 +383,11 @@ export interface AutoShortsOptions {
   captionStyle?: "minimal" | "bold" | "animated";
   /** If true, only analyze without extracting clips */
   analyzeOnly?: boolean;
-  /** Language code for Whisper transcription */
+  /** Language code for transcription */
   language?: string;
-  /** Use Gemini multimodal analysis instead of Whisper+Claude */
+  /** Transcription provider: auto (default), elevenlabs, openai */
+  stt?: string;
+  /** Use Gemini multimodal analysis instead of transcription + Claude */
   useGemini?: boolean;
   /** Use low-resolution mode for Gemini (longer videos) */
   lowRes?: boolean;
@@ -416,7 +427,7 @@ function autoShortsFailure(failure: StructuredError): AutoShortsResult {
 /**
  * Auto-generate short-form vertical clips from a long-form video.
  *
- * Finds the best viral-worthy moments using Whisper+Claude or Gemini analysis,
+ * Finds the best viral-worthy moments using transcription + Claude or Gemini analysis,
  * then extracts and crops them to the target aspect ratio using FFmpeg.
  *
  * @param options - Auto-shorts generation configuration
@@ -519,13 +530,13 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         return autoShortsFailure(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
       }
     } else {
-      const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+      const stt = await resolveSttProvider(options.stt);
       const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
       await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
-      const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
+      const transcript = await transcribeAudioFile(tempAudio, { ...stt, language: options.language });
 
       try {
         const { unlink: unlinkFile } = await import("node:fs/promises");
@@ -653,6 +664,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .option("--threshold <value>", "Confidence threshold (0-1)", "0.7")
     .option("--criteria <type>", "Selection criteria: emotional | informative | funny | all", "all")
     .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
+    .option("--stt <provider>", STT_OPTION_HELP, "auto")
     .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
     .option("--dry-run", "Preview parameters without executing")
@@ -683,6 +695,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
                 threshold: options.threshold,
                 criteria: options.criteria,
                 language: options.language,
+                stt: sttOptionOrExit(options.stt),
                 useGemini: options.useGemini ?? false,
                 lowRes: options.lowRes ?? false,
               },
@@ -701,7 +714,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         if (options.useGemini) {
           log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
         } else {
-          log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
+          log(chalk.dim("Using transcription + Claude (audio-based analysis)"));
         }
         log();
 
@@ -802,7 +815,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
           geminiSpinner.succeed(chalk.green(`Found ${allHighlights.length} highlights via visual+audio analysis`));
         } else {
-          const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+          const stt = await requireSttProvider(sttOptionOrExit(options.stt));
 
           const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
@@ -824,7 +837,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
               if (!hasAudio) {
                 audioSpinner.fail("Video has no audio track");
-                exitWithError(generalError("Video has no audio track — cannot use Whisper transcription.", "Use --use-gemini flag for visual-only analysis of videos without audio."));
+                exitWithError(generalError("Video has no audio track - cannot transcribe it.", "Use --use-gemini flag for visual-only analysis of videos without audio."));
               } else {
                 tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
                 await execSafe("ffmpeg", [
@@ -844,9 +857,9 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             }
           }
 
-          const transcribeSpinner = createSpinner("📝 Transcribing with Whisper...").start();
+          const transcribeSpinner = createSpinner(`📝 Transcribing with ${sttLabel(stt.provider)}...`).start();
 
-          const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiApiKey, language: options.language });
+          const transcriptResult = await transcribeAudioFile(audioPath, { ...stt, language: options.language });
 
           if (transcriptResult.status === "failed" || !transcriptResult.segments) {
             transcribeSpinner.fail("Transcription failed");
@@ -1019,6 +1032,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
     .option("--caption-style <style>", "Caption style: minimal, bold, animated", "bold")
     .option("--analyze-only", "Show segments without generating")
     .option("-l, --language <lang>", "Language code for transcription")
+    .option("--stt <provider>", STT_OPTION_HELP, "auto")
     .option("--use-gemini", "Use Gemini Video Understanding for enhanced visual+audio analysis")
     .option("--low-res", "Use low resolution mode for longer videos (Gemini only)")
     .option("--dry-run", "Preview parameters without executing")
@@ -1051,6 +1065,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
                 captionStyle: options.captionStyle,
                 analyzeOnly: options.analyzeOnly ?? false,
                 language: options.language,
+                stt: sttOptionOrExit(options.stt),
                 useGemini: options.useGemini ?? false,
                 lowRes: options.lowRes ?? false,
               },
@@ -1072,7 +1087,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         if (options.useGemini) {
           log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
         } else {
-          log(chalk.dim("Using Whisper + Claude (audio-based analysis)"));
+          log(chalk.dim("Using transcription + Claude (audio-based analysis)"));
         }
         log();
 
@@ -1159,7 +1174,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
           spinner.succeed(chalk.green(`Found ${highlights.length} potential shorts via visual+audio analysis`));
         } else {
-          const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+          const stt = await requireSttProvider(sttOptionOrExit(options.stt));
 
           const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
@@ -1170,7 +1185,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           ]);
           if (!autoShortsProbe.trim()) {
             spinner.fail("Video has no audio track");
-            exitWithError(generalError("Video has no audio track — cannot use Whisper transcription.", "Use --use-gemini flag for visual-only analysis of videos without audio."));
+            exitWithError(generalError("Video has no audio track - cannot transcribe it.", "Use --use-gemini flag for visual-only analysis of videos without audio."));
           }
 
           const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
@@ -1178,7 +1193,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
 
           spinner.text = "Transcribing audio...";
 
-          const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiApiKey, language: options.language });
+          const transcript = await transcribeAudioFile(tempAudio, { ...stt, language: options.language });
 
           try {
             const { unlink: unlinkFile } = await import("node:fs/promises");

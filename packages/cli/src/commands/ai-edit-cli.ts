@@ -16,6 +16,7 @@ import { existsSync } from 'node:fs';
 import { commandExists } from '../utils/exec-safe.js';
 import chalk from 'chalk';
 import { requireApiKey } from '../utils/api-key.js';
+import { STT_OPTION_HELP, requireSttProvider, sttLabel, sttOptionOrExit } from './_shared/transcription.js';
 import {
   executeSilenceCut,
   executeCaption,
@@ -185,7 +186,7 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
 aiCommand
   .command("caption")
   .alias("cap")
-  .description("Transcribe and burn styled captions onto video (Whisper + FFmpeg)")
+  .description("Transcribe and burn styled captions onto video (Scribe or Whisper + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-captioned.<ext>)")
   .option("--style <style>", "Caption style: minimal, bold, outline, karaoke (default: bold)", "bold")
@@ -193,7 +194,8 @@ aiCommand
   .option("--color <color>", "Font color (default: white)", "white")
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
   .option("--position <pos>", "Caption position: top, center, bottom (default: bottom)", "bottom")
-  .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("--stt <provider>", STT_OPTION_HELP, "auto")
+  .option("-k, --api-key <key>", "API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY")
   .option("--dry-run", "Preview parameters without executing")
   .addHelpText("after", `
 Examples:
@@ -203,7 +205,7 @@ Examples:
   $ vibe ed cap video.mp4 -o out.mp4 --style karaoke     # Karaoke-style
   $ vibe ed cap video.mp4 --dry-run --json
 
-Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
+Requires: ELEVENLABS_API_KEY (Scribe) or OPENAI_API_KEY (Whisper) + FFmpeg`)
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
     try {
@@ -234,19 +236,20 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
               fontColor: options.color,
               language: options.language,
               position: options.position,
+              stt: options.stt,
             },
           },
         });
         return;
       }
 
-      const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
+      const stt = await requireSttProvider(sttOptionOrExit(options.stt), { apiKey: options.apiKey });
 
       const ext = extname(videoPath);
       const name = basename(videoPath, ext);
       const outputPath = options.output || `${name}-captioned${ext}`;
 
-      const spinner = createSpinner("Starting caption process...").start();
+      const spinner = createSpinner(`Captioning with ${sttLabel(stt.provider)}...`).start();
 
       const result = await executeCaption({
         videoPath: absVideoPath,
@@ -256,7 +259,8 @@ Requires: OPENAI_API_KEY (Whisper transcription) + FFmpeg`)
         fontColor: options.color,
         language: options.language,
         position: options.position as "top" | "center" | "bottom",
-        apiKey,
+        stt: stt.provider,
+        apiKey: stt.apiKey,
       });
 
       if (!result.success) {
@@ -589,14 +593,15 @@ aiCommand
 
 aiCommand
   .command("jump-cut")
-  .description("Remove filler words (um, uh, like, etc.) from video using Whisper word-level timestamps")
+  .description("Remove filler words (um, uh, like, etc.) from video using word-level timestamps (Scribe or Whisper)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output file path (default: <name>-jumpcut.<ext>)")
   .option("--fillers <words>", "Comma-separated filler words to detect")
   .option("--padding <seconds>", "Padding around cuts in seconds (default: 0.05)", "0.05")
   .option("-l, --language <lang>", "Language code for transcription (e.g., en, ko)")
   .option("--analyze-only", "Only detect fillers, don't cut")
-  .option("-k, --api-key <key>", "OpenAI API key (or set OPENAI_API_KEY env)")
+  .option("--stt <provider>", STT_OPTION_HELP, "auto")
+  .option("-k, --api-key <key>", "API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
@@ -631,13 +636,14 @@ aiCommand
               padding: parseFloat(options.padding),
               language: options.language,
               analyzeOnly: options.analyzeOnly || false,
+              stt: options.stt,
             },
           },
         });
         return;
       }
 
-      const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
+      const stt = await requireSttProvider(sttOptionOrExit(options.stt), { apiKey: options.apiKey });
 
       const ext = extname(videoPath);
       const name = basename(videoPath, ext);
@@ -647,7 +653,7 @@ aiCommand
         ? options.fillers.split(",").map((f: string) => f.trim())
         : undefined;
 
-      const spinner = createSpinner("Transcribing with word-level timestamps...").start();
+      const spinner = createSpinner(`Transcribing with word-level timestamps (${sttLabel(stt.provider)})...`).start();
 
       const result = await executeJumpCut({
         videoPath: absVideoPath,
@@ -656,7 +662,8 @@ aiCommand
         padding: parseFloat(options.padding),
         language: options.language,
         analyzeOnly: options.analyzeOnly || false,
-        apiKey,
+        stt: stt.provider,
+        apiKey: stt.apiKey,
       });
 
       if (!result.success) {

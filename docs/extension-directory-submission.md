@@ -111,9 +111,9 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | edit_interpolate | W | `{"videoPath":"sample.mp4","factor":2}` |
 | edit_upscale | W | `{"videoPath":"sample.mp4","scale":2}` |
 | edit_silence_cut | W, OW (optional Gemini analysis) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
-| edit_caption | W, OW (Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
-| edit_animated_caption | W, OW (Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
-| edit_jump_cut | W, OW (Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
+| edit_caption | W, OW (Scribe or Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
+| edit_animated_caption | W, OW (Scribe or Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
+| edit_jump_cut | W, OW (Scribe or Whisper) | `{"videoPath":"sample.mp4","outputPath":"out.mp4"}` |
 | edit_speed_ramp | W, OW | `{"videoPath":"sample.mp4"}` |
 | edit_grade | W, OW (custom styles use Claude) | `{"videoPath":"sample.mp4","style":"cinematic"}` |
 | edit_motion_overlay | W, OW (generated overlays use LLM) | `{"videoPath":"sample.mp4","description":"confetti burst"}` |
@@ -126,7 +126,7 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | Tool | Hints | Example |
 |---|---|---|
 | audio_duck | W | `{"musicPath":"music.mp3","voicePath":"voice.mp3"}` |
-| audio_transcribe | W, OW (Whisper) | `{"audioPath":"sample.mp4","format":"srt"}` |
+| audio_transcribe | W, OW (Scribe or Whisper) | `{"audioPath":"sample.mp4","format":"srt"}` |
 | audio_isolate | W, OW (ElevenLabs) | `{"audioPath":"sample.mp4"}` |
 | audio_clone_voice | W (additive: creates a new remote voice), OW | `{"samplePaths":["voice.mp3"],"name":"Reviewer Test"}` |
 | audio_dub | W, OW | `{"mediaPath":"sample.mp4","language":"Spanish"}` |

@@ -16,8 +16,56 @@ import {
 export * from "@vibeframe/ai-providers/testing";
 
 /**
+ * A Scribe (`POST /v1/speech-to-text`) reply: two sentences, a filler word,
+ * and the spacing tokens between words. "Um, so the paper boat drifts. It
+ * floats away."
+ */
+export const FAKE_SCRIBE_TRANSCRIPT = {
+  language_code: "eng",
+  language_probability: 0.98,
+  text: "Um, so the paper boat drifts. It floats away.",
+  words: [
+    ["Um,", 0.0, 0.3],
+    ["so", 0.4, 0.6],
+    ["the", 0.65, 0.8],
+    ["paper", 0.85, 1.2],
+    ["boat", 1.25, 1.5],
+    ["drifts.", 1.55, 2.0],
+    ["It", 2.6, 2.75],
+    ["floats", 2.8, 3.2],
+    ["away.", 3.25, 3.7],
+  ].flatMap(([text, start, end], i, all) => {
+    const token = { text, type: "word", start, end, speaker_id: "speaker_0", logprob: -0.05 };
+    const next = all[i + 1];
+    return next ? [token, { text: " ", type: "spacing", start: end, end: next[1], speaker_id: "speaker_0", logprob: 0 }] : [token];
+  }),
+};
+
+/** A Whisper (`POST /v1/audio/transcriptions`, verbose_json) reply for the same speech. */
+export const FAKE_WHISPER_TRANSCRIPT = {
+  text: "Um, so the paper boat drifts. It floats away.",
+  language: "english",
+  segments: [
+    { id: 0, start: 0, end: 2.0, text: " Um, so the paper boat drifts." },
+    { id: 1, start: 2.6, end: 3.7, text: " It floats away." },
+  ],
+  words: [
+    { word: "Um", start: 0.0, end: 0.3 },
+    { word: "so", start: 0.4, end: 0.6 },
+    { word: "the", start: 0.65, end: 0.8 },
+    { word: "paper", start: 0.85, end: 1.2 },
+    { word: "boat", start: 1.25, end: 1.5 },
+    { word: "drifts", start: 1.55, end: 2.0 },
+    { word: "It", start: 2.6, end: 2.75 },
+    { word: "floats", start: 2.8, end: 3.2 },
+    { word: "away", start: 3.25, end: 3.7 },
+  ],
+};
+
+/**
  * Default happy-path routes for the providers a project build uses:
- * ElevenLabs (narration, music), OpenAI images, ImgBB uploads, fal
+ * ElevenLabs (narration, music, Scribe transcription), OpenAI images and
+ * Whisper transcription, ImgBB uploads, fal
  * (Seedance queue protocol and storage uploads), Runway (submit and
  * polling), and a CDN for media downloads.
  */
@@ -31,6 +79,8 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
     )
     .on("POST", "api.elevenlabs.io", /^\/v1\/text-to-speech\//, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
     .on("POST", "api.elevenlabs.io", /^\/v1\/music/, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
+    .on("POST", "api.elevenlabs.io", /^\/v1\/speech-to-text$/, () => jsonResponse(FAKE_SCRIBE_TRANSCRIPT))
+    .on("POST", "api.openai.com", /^\/v1\/audio\/transcriptions$/, () => jsonResponse(FAKE_WHISPER_TRANSCRIPT))
     .on("POST", "api.openai.com", /^\/v1\/images\/(generations|edits)$/, () =>
       jsonResponse({ data: [{ b64_json: FAKE_PNG.toString("base64") }] })
     )

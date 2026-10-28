@@ -157,9 +157,9 @@ export interface CreateBuildPlanOptions {
   skipKeyframe?: boolean;
   skipMusic?: boolean;
   /**
-   * Skip Whisper word-level transcription of narration. Recorded for plan
-   * fidelity; transcription is a negligible-cost step (~$0.002/beat) that only
-   * runs when a beat has narration and an OpenAI key is configured, so it is
+   * Skip word-level transcription of narration. Recorded for plan fidelity;
+   * transcription is a negligible-cost step (~$0.002/beat) that only runs
+   * when a beat has narration and an ElevenLabs or OpenAI key is configured, so it is
    * not itemised as a separate cost line.
    */
   skipTranscript?: boolean;
@@ -204,7 +204,7 @@ export function narrationCostUsd(provider: string | undefined): number {
   if (provider === "openai") return OPENAI_NARRATION_COST_USD;
   return 0;
 }
-/** Whisper word-level transcription is ~$0.006/min; a beat is ~10–20s. */
+/** Word-level transcription is ~$0.006/min (Whisper) or less (Scribe); a beat is ~10–20s. */
 const TRANSCRIPT_COST_USD = 0.002;
 const COMPOSE_COST_USD = 0.06;
 const SUPPORTED_BUILD_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
@@ -547,7 +547,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
       },
     };
   });
-  // Transcript stage: Whisper word-timings for each narrated beat. Nearly free
+  // Transcript stage: word timings for each narrated beat. Nearly free
   // but modeled so `--stage transcript` reports a non-zero, faithful estimate.
   if (includeTranscript && !opts.skipNarration) {
     const narratedBeats = beats.filter((beat) => beat.assets.narration != null).length;

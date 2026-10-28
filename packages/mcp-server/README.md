@@ -209,7 +209,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | Tool                                     | Description                                                                      |
 | ---------------------------------------- | -------------------------------------------------------------------------------- |
 | `edit_silence_cut`                       | Remove silent segments (FFmpeg or Gemini)                                        |
-| `edit_jump_cut`                          | Remove filler words (Whisper)                                                    |
+| `edit_jump_cut`                          | Remove filler words (Scribe or Whisper)                                          |
 | `edit_caption` / `edit_animated_caption` | Burn styled / animated captions                                                  |
 | `edit_text_overlay`                      | Simple static text burn-in                                                       |
 | `edit_motion_overlay`                    | Designed animated overlays or user-provided Lottie overlays                      |
@@ -232,7 +232,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `audio_clone_voice` | Voice clone from sample                     |
 | `audio_isolate`     | Vocal / background isolation                |
 | `audio_duck`        | Auto-duck BGM under speech                  |
-| `audio_transcribe`  | Transcript with word-level timing (Whisper) |
+| `audio_transcribe`  | Transcript with timing (Scribe or Whisper)  |
 
 ### Detection (3)
 

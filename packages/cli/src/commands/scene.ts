@@ -56,7 +56,7 @@ import { runProjectLint, rootExists, type ProjectLintResult } from "./_shared/sc
 // themselves live in _shared/ and are still consumed by the top-level
 // commands and the manifest tools.
 import { exitWithError, failureFromError, generalError, usageError, outputSuccess, isJsonMode } from "./output.js";
-import { getApiKey, requireApiKey } from "../utils/api-key.js";
+import { requireApiKey } from "../utils/api-key.js";
 import { writeImageFile } from "../utils/image-file.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 import { getAudioDuration } from "../utils/audio.js";
@@ -68,6 +68,7 @@ import {
   transcribeNarrationWords,
   beatTranscriptRelPath,
 } from "./_shared/transcribe-narration.js";
+import { findSttProvider, sttLabel } from "./_shared/transcription.js";
 import { executeSceneSubmit } from "./_shared/scene-submit.js";
 import { executeSceneRepair } from "./_shared/scene-repair.js";
 import {
@@ -488,9 +489,9 @@ sceneCommand
   .option("--no-image", "Skip image generation even when --visuals is provided")
   .option(
     "--no-transcribe",
-    "Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)"
+    "Skip the word-level transcribe step (no transcript-<id>.json emitted)"
   )
-  .option("--transcribe-language <code>", "BCP-47 language code passed to Whisper (e.g. en, ko)")
+  .option("--transcribe-language <code>", "BCP-47 language code passed to transcription (e.g. en, ko)")
   .option("--force", "Overwrite an existing compositions/scene-<id>.html")
   .option("--lottie <path>", "Lottie animation file (.json/.lottie) to overlay on the scene")
   .option(
@@ -702,11 +703,11 @@ export interface SceneAddOptions {
   /** When true, skip image generation even if visuals is provided. */
   skipImage?: boolean;
   /**
-   * When true, skip the Whisper word-level transcribe step that would
+   * When true, skip the word-level transcribe step that would
    * otherwise emit `assets/transcript-<id>.json`.
    */
   skipTranscribe?: boolean;
-  /** BCP-47 language hint forwarded to Whisper (e.g. `"en"`, `"ko"`). */
+  /** BCP-47 language hint forwarded to transcription (e.g. `"en"`, `"ko"`). */
   transcribeLanguage?: string;
   /** Overwrite existing compositions/scene-<id>.html. */
   force?: boolean;
@@ -727,7 +728,7 @@ export interface SceneAddResult {
   audioPath?: string;
   imagePath?: string;
   /**
-   * Project-relative path to `assets/transcript-<id>.json` when Whisper
+   * Project-relative path to `assets/transcript-<id>.json` when the
    * word-level transcribe ran. `undefined` when skipped or when the audio
    * source produced no narration text to transcribe.
    */
@@ -912,8 +913,9 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     }
   }
 
-  // -- Whisper word-level transcribe --------------------------------------
-  // Auto-runs whenever we have audio + an OpenAI key. The transcript JSON
+  // -- Word-level transcribe ------------------------------------------------
+  // Auto-runs whenever we have audio + an ElevenLabs or OpenAI key (Scribe
+  // first, as `--stt auto` everywhere else). The transcript JSON
   // mirrors the Hyperframes shape so a future emitSceneHtml (C5) can drive
   // GSAP word-sync from it. Failure is non-fatal — narration still plays,
   // we just lose word-level animation timing.
@@ -922,15 +924,15 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
   let transcriptWords: { text: string; start: number; end: number }[] | undefined;
 
   if (audioAbsPath && !opts.skipTranscribe) {
-    const whisperKey = await getApiKey("OPENAI_API_KEY", "OpenAI");
-    if (!whisperKey) {
+    const stt = await findSttProvider("auto", { cwd: projectDir });
+    if (!stt) {
       opts.onProgress?.(
-        "Skipping transcribe (OPENAI_API_KEY not set — narration plays but word-sync unavailable)"
+        "Skipping transcribe (neither ELEVENLABS_API_KEY nor OPENAI_API_KEY set - narration plays but word-sync unavailable)"
       );
     } else {
-      opts.onProgress?.("Transcribing narration (Whisper word-level)...");
+      opts.onProgress?.(`Transcribing narration (${sttLabel(stt.provider)} word-level)...`);
       const words = await transcribeNarrationWords(audioAbsPath, {
-        apiKey: whisperKey,
+        ...stt,
         language: opts.transcribeLanguage,
       });
       if (words.length > 0) {

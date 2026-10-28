@@ -93,13 +93,13 @@ Every model ID comes from the catalog (`packages/ai-providers/src/catalog/catalo
 - `packages/ai-providers/src/openai-image/OpenAIImageProvider.ts` - `GPTImageModel` (2.5 Sunburst, 2.5 Flare, 2, 1.5); default from the catalog (`gpt-image-2.5-sunburst`); JSON `/images/generations` and multipart `/images/edits` with `image[]`; quality `low`/`medium`/`high` only.
 - `packages/cli/src/commands/_shared/openai-image.ts` - CLI aliases to catalog IDs for cost estimates; unknown aliases resolve to the default.
 - `packages/ai-providers/src/openai-tts/OpenAiTtsProvider.ts` - `gpt-4o-mini-tts` default, `tts-1`/`tts-1-hd` opt-in; rejects voices `tts-1` does not support.
-- `packages/ai-providers/src/whisper/WhisperProvider.ts` - `whisper-1`, `verbose_json`, `timestamp_granularities[]`; captions and `edit jump-cut` get word timings through it.
+- `packages/ai-providers/src/whisper/WhisperProvider.ts` - `whisper-1`, `verbose_json`, `timestamp_granularities[]`; captions, `edit jump-cut`, and every other transcribing command reach it with `--stt openai`, or with `--stt auto` when no ElevenLabs key is set (`packages/cli/src/commands/_shared/transcription.ts`).
 
 ## Recommended changes
 
 1. `gpt-image-1.5` (`--model 1.5`) shuts down 2026-12-01; the catalog points it at `--model flare`, so the CLI warns until then and refuses after. Widen the quality type to the 2.5 models' `xhigh`/`max` and custom `WxH` sizes.
 2. Plan the TTS exit before 2027-01-06: no documented model will serve `/audio/speech`, so either port to the Realtime API with `gpt-realtime-2.1-mini` or drop OpenAI TTS in favor of Kokoro/ElevenLabs.
-3. Plan a word-timing source before 2027-02-26, since `whisper-1` is the only documented word-timestamp model; check `gpt-transcribe` live for `verbose_json` support before assuming either way.
+3. Remove Whisper before 2027-02-26, since `whisper-1` is the only documented word-timestamp model. ElevenLabs Scribe v2 is the word-timing source now (first choice of `--stt auto`, see `elevenlabs.md`); check `gpt-transcribe` live for `verbose_json` support before keeping an OpenAI option.
 4. Move narration script and storyboard drafts from Chat Completions `json_object` to the Responses text contract with `json_schema` (`strict: true`), as `storyboard revise` already does, and drop the `segments` wrapper prompt.
 
 ## Sources

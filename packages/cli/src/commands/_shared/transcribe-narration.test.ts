@@ -81,6 +81,7 @@ describe("readBeatTranscript", () => {
 describe("transcribeNarrationWords", () => {
   it("returns [] (non-fatal) when the audio file cannot be read", async () => {
     const words = await transcribeNarrationWords("/nonexistent/path/narration.wav", {
+      provider: "openai",
       apiKey: "sk-test-unused",
     });
     expect(words).toEqual([]);
