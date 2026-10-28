@@ -96,9 +96,9 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "generate narration -p gemini",
         "generate video -p omni",
         "edit image",
-        "analyze media",
-        "analyze video",
-        "analyze review",
+        "inspect media",
+        "inspect render --ai",
+        "remix highlights --use-gemini",
       ],
       OPENAI_API_KEY: [
         "generate image -p openai",
@@ -108,10 +108,9 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "edit jump-cut",
       ],
       ANTHROPIC_API_KEY: [
-        "generate storyboard",
         "generate motion",
-        "edit grade",
-        "edit reframe",
+        "edit grade --style",
+        "edit reframe --focus auto",
         "edit speed-ramp",
       ],
       XAI_API_KEY: [
@@ -126,7 +125,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "generate video -p seedance --ref-images <images...> (reference-to-video)",
       ],
       ELEVENLABS_API_KEY: [
-        "generate speech",
+        "generate narration",
         "generate sound-effect",
         "generate music",
         "audio list-voices",

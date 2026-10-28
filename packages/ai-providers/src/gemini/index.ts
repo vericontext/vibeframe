@@ -17,9 +17,9 @@ defineProvider({
     "generate image",
     "edit image",
     "generate narration -p gemini",
-    "analyze media",
-    "analyze video",
-    "analyze review",
+    "inspect media",
+    "inspect render --ai",
+    "remix highlights --use-gemini",
   ],
 });
 

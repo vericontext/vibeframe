@@ -25,7 +25,7 @@ defineProvider({
   kinds: ["speech", "music", "transcription"],
   resolverPriority: { speech: 1, transcription: 1 },
   commandsUnlocked: [
-    "generate speech",
+    "generate narration",
     "generate sound-effect",
     "generate music",
     "audio list-voices",
