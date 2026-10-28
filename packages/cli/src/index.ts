@@ -46,7 +46,8 @@ import { guideCommand, legacyGuideAliasCommand } from "./commands/walkthrough.js
 import { completionCommand } from "./commands/completion.js";
 import { ApiKeyError } from "./utils/api-key.js";
 import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
-import { exitWithError, isJsonMode, isQuietMode, usageError } from "./commands/output.js";
+import { exitWithError, failureFromError, isJsonMode, isQuietMode, usageError } from "./commands/output.js";
+import { isProviderError } from "@vibeframe/ai-providers";
 import { reserveStdout } from "./utils/stdout-guard.js";
 import { rejectControlChars } from "./utils/input-validation.js";
 import { buildSchema } from "./commands/schema.js";
@@ -420,10 +421,12 @@ if (process.argv.length <= 2) {
         const code = err.exitCode === 0 ? 0 : 2; // 0 for --help/--version, 2 for usage errors
         process.exit(code);
       }
-      if (err instanceof ApiKeyError) {
-        exitWithError(err.toStructured());
+      // A missing key or a provider failure that a command did not catch
+      // still exits with its structured error (code, kind, exit code)
+      // instead of a stack trace.
+      if (err instanceof ApiKeyError || isProviderError(err)) {
+        exitWithError(failureFromError(err));
       }
-      // Re-throw non-ApiKeyError errors
       throw err;
     }
   })();
