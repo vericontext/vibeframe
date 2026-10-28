@@ -11,6 +11,7 @@
 import { Command } from "commander";
 import { exitWithError, generalError, usageError } from "./output.js";
 import { getCostTier } from "./_shared/cost-tier.js";
+import { writeStdout } from "../utils/stdout-guard.js";
 import {
   PRODUCT_SURFACES,
   isProductSurface,
@@ -79,7 +80,7 @@ export const schemaCommand = new Command("schema")
           );
         }
         const schema = buildSchema(cmd as Command, parts[0], parts[0]);
-        console.log(JSON.stringify(schema, null, 2));
+        writeStdout(JSON.stringify(schema, null, 2));
         return;
       }
 
@@ -122,7 +123,7 @@ export const schemaCommand = new Command("schema")
 
       const toolName = `${groupName}_${actionName.replace(/-/g, "_")}`;
       const schema = buildSchema(actionCmd as Command, toolName, `${groupName}.${actionName}`);
-      console.log(JSON.stringify(schema, null, 2));
+      writeStdout(JSON.stringify(schema, null, 2));
     }
   );
 
@@ -189,7 +190,7 @@ function listCommands(
     }
   }
 
-  console.log(JSON.stringify(commands, null, 2));
+  writeStdout(JSON.stringify(commands, null, 2));
 }
 
 function extractEnumFromDescription(description: string): string[] | undefined {

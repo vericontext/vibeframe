@@ -266,12 +266,29 @@ describe("batch commands", () => {
       const output = execSync(`${CLI} batch info "${projectFile}"`, {
         cwd: tempDir,
         encoding: "utf-8",
+        env: { ...process.env, VIBE_HUMAN_OUTPUT: "1" },
       });
 
       expect(output).toContain("Sources:");
       expect(output).toContain("Clips:");
       expect(output).toContain("Timeline:");
       expect(output).toContain("3"); // 3 sources/clips
+    });
+
+    it("reports the same statistics as one JSON envelope", () => {
+      const output = execSync(`${CLI} batch info "${projectFile}" --json`, {
+        cwd: tempDir,
+        encoding: "utf-8",
+      });
+
+      expect(JSON.parse(output)).toMatchObject({
+        command: "batch info",
+        data: {
+          sources: { total: 3, video: 3 },
+          clips: { total: 3 },
+          timeline: { duration: 15 },
+        },
+      });
     });
   });
 });

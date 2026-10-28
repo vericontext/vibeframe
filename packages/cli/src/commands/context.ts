@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeStdout } from "../utils/stdout-guard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -135,7 +136,7 @@ export const contextCommand = new Command("context")
     };
 
     if (options.json) {
-      console.log(JSON.stringify(contract, null, 2));
+      writeStdout(JSON.stringify(contract, null, 2));
       return;
     }
 
@@ -143,7 +144,7 @@ export const contextCommand = new Command("context")
       const contextPath = resolveContextPath();
       if (!contextPath) throw new Error("CONTEXT.md not found");
       const content = await readFile(contextPath, "utf-8");
-      console.log(
+      writeStdout(
         content.replace(
           "## Mental model",
           `## Storyboard-to-video contract
@@ -243,6 +244,6 @@ Group → MCP tool name: '<group>_<leaf>' (snake_case). Bare top-level (init/bui
 
 Full reference: docs/cli-reference.md
 `;
-      console.log(fallback);
+      writeStdout(fallback);
     }
   });

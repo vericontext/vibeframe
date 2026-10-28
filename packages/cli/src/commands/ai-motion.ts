@@ -26,7 +26,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { loadEnv, requireApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
-import { failureFromError, spinner as createSpinner, exitWithError, outputSuccess, apiError, usageError } from "./output.js";
+import { failureFromError, spinner as createSpinner, exitWithError, log, outputSuccess, apiError, usageError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 
 // ── Motion: exported function for Agent tool ────────────────────────────────
@@ -503,40 +503,50 @@ export function registerMotionCommand(aiCommand: Command): void {
         if (!result.success) {
           spinner.fail(result.error || "Motion generation failed");
           if (result.codePath) {
-            console.log(chalk.dim(`TSX code saved to: ${result.codePath}`));
+            log(chalk.dim(`TSX code saved to: ${result.codePath}`));
           }
           exitWithError(apiError(result.error || "Motion generation failed", true));
         }
 
         spinner.succeed(chalk.green("Motion graphic generated"));
 
-        console.log();
-        console.log(chalk.bold.cyan("Motion Graphics Pipeline"));
-        console.log(chalk.dim("─".repeat(60)));
+        log();
+        log(chalk.bold.cyan("Motion Graphics Pipeline"));
+        log(chalk.dim("─".repeat(60)));
 
         if (result.codePath) {
-          console.log(chalk.green(`  Code: ${result.codePath}`));
+          log(chalk.green(`  Code: ${result.codePath}`));
         }
         if (result.renderedPath) {
-          console.log(chalk.green(`  Rendered: ${result.renderedPath}`));
+          log(chalk.green(`  Rendered: ${result.renderedPath}`));
         }
         if (result.compositedPath) {
-          console.log(chalk.green(`  Composited: ${result.compositedPath}`));
+          log(chalk.green(`  Composited: ${result.compositedPath}`));
         }
 
         if (!shouldRender) {
-          console.log();
-          console.log(chalk.dim("To render this standalone motion asset, add --render:"));
-          console.log(chalk.dim(`  vibe generate motion "${description}" --render -o motion.webm`));
-          console.log(chalk.dim("For overlays on an existing video, use:"));
-          console.log(
+          log();
+          log(chalk.dim("To render this standalone motion asset, add --render:"));
+          log(chalk.dim(`  vibe generate motion "${description}" --render -o motion.webm`));
+          log(chalk.dim("For overlays on an existing video, use:"));
+          log(
             chalk.dim(
               `  vibe edit motion-overlay input.mp4 "${description}" --understand auto -o output.mp4`
             )
           );
         }
 
-        console.log();
+        log();
+        outputSuccess({
+          command: "generate motion",
+          startedAt,
+          data: {
+            ...(result.codePath ? { codePath: result.codePath } : {}),
+            ...(result.renderedPath ? { renderedPath: result.renderedPath } : {}),
+            ...(result.compositedPath ? { compositedPath: result.compositedPath } : {}),
+            outputPath: result.compositedPath ?? result.renderedPath ?? result.codePath,
+          },
+        });
       } catch (error) {
         exitWithError(failureFromError(error, undefined, { fallback: "general" }));
       }

@@ -18,7 +18,7 @@ import {
   getActiveScope,
   type Scope,
 } from "../config/index.js";
-import { exitWithError, generalError } from "./output.js";
+import { exitWithError, generalError, isJsonMode, log, outputSuccess } from "./output.js";
 import {
   prompt,
   promptHidden,
@@ -95,6 +95,7 @@ Exit codes (non-interactive):
 `
   )
   .action(async (options) => {
+    const startedAt = Date.now();
     if (options.claudeCode) {
       await setupClaudeCode();
       return;
@@ -110,8 +111,9 @@ Exit codes (non-interactive):
     if (options.reset) {
       const config = createDefaultConfig();
       await saveConfig(config, { scope });
-      console.log(chalk.green("✓ Configuration reset to defaults"));
-      console.log(chalk.dim(`  Saved to: ${getConfigPath(scope)}`));
+      log(chalk.green("✓ Configuration reset to defaults"));
+      log(chalk.dim(`  Saved to: ${getConfigPath(scope)}`));
+      outputSuccess({ command: "setup", startedAt, data: { scope, configPath: getConfigPath(scope), reset: true } });
       return;
     }
 
@@ -119,6 +121,7 @@ Exit codes (non-interactive):
     const wantsNonInteractive = Boolean(options.yes) || (!hasTTY() && options.importEnv);
     if (wantsNonInteractive) {
       await runNonInteractiveSetup({
+        startedAt,
         importEnv: Boolean(options.importEnv),
         test: Boolean(options.test),
         scope,
@@ -591,6 +594,7 @@ function mergeSelectedFeatures(current: AIFeature[], next: AIFeature[]): AIFeatu
  * to `git init`. Prints a one-line summary so callers can grep for it.
  */
 interface NonInteractiveOptions {
+  startedAt: number;
   importEnv?: boolean;
   test?: boolean;
   scope?: Scope;
@@ -628,12 +632,15 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
   }
 
   await saveConfig(config, { scope });
+  const configPath = getConfigPath(scope);
+  const legacyImportedFrom =
+    userStatusBefore?.source === "legacy" ? userStatusBefore.legacyConfigPath : undefined;
 
   // Output: one structured line per change, plus warnings on stderr.
-  console.log(chalk.green(`✓ Setup complete (non-interactive, ${scope} scope)`));
-  console.log(chalk.dim(`  Config: ${getConfigPath(scope)}`));
+  log(chalk.green(`✓ Setup complete (non-interactive, ${scope} scope)`));
+  log(chalk.dim(`  Config: ${configPath}`));
   if (userStatusBefore?.source === "legacy") {
-    console.log(
+    log(
       chalk.dim(
         `  Imported legacy config from ${userStatusBefore.legacyConfigPath}; future writes use ${userStatusBefore.writePath}`
       )
@@ -641,53 +648,75 @@ async function runNonInteractiveSetup(opts: NonInteractiveOptions): Promise<void
   }
   if (changes.length > 0) {
     for (const c of changes) {
-      console.log(chalk.dim(`  ${c}`));
+      log(chalk.dim(`  ${c}`));
     }
   } else {
-    console.log(chalk.dim("  No changes (config already up to date)"));
+    log(chalk.dim("  No changes (config already up to date)"));
   }
-  for (const w of warnings) {
-    console.error(chalk.yellow(`⚠ ${w}`));
+  if (!isJsonMode()) {
+    for (const w of warnings) {
+      console.error(chalk.yellow(`⚠ ${w}`));
+    }
   }
 
   // --test: live-validate every configured key. Exits 7 (verification
   // failed) if any provider returned a non-2xx response, so CI scripts
   // can `vibe setup --yes --import-env --test || exit 1` and catch
   // bad keys before the first paid call.
+  const keyTests: Array<{ provider: string; result: "pass" | "fail" | "skip"; status?: number; message?: string }> = [];
+  let failures = 0;
   if (opts.test) {
     const { testKey } = await import("../utils/key-live-test.js");
-    console.log();
-    console.log(chalk.bold("Live key tests"));
-    let failures = 0;
-    let tested = 0;
+    log();
+    log(chalk.bold("Live key tests"));
     for (const meta of getAllApiKeys()) {
       const value = config.providers[meta.configKey as keyof typeof config.providers];
       if (!value) continue;
-      tested++;
       const result = await testKey(meta.configKey, value);
       const label = meta.label.padEnd(12);
       if (result.skipped) {
-        console.log(chalk.dim(`  SKIP  ${label} ${result.message ?? "no test available"}`));
+        keyTests.push({ provider: meta.configKey, result: "skip", message: result.message });
+        log(chalk.dim(`  SKIP  ${label} ${result.message ?? "no test available"}`));
       } else if (result.ok) {
-        console.log(chalk.green(`  ✓     ${label}`) + chalk.dim(` ${result.status}`));
+        keyTests.push({ provider: meta.configKey, result: "pass", status: result.status });
+        log(chalk.green(`  ✓     ${label}`) + chalk.dim(` ${result.status}`));
       } else {
         failures++;
         const detail = result.message ?? `status ${result.status ?? "?"}`;
-        console.log(chalk.red(`  ✗     ${label}`) + chalk.dim(` ${detail}`));
+        keyTests.push({ provider: meta.configKey, result: "fail", status: result.status, message: detail });
+        log(chalk.red(`  ✗     ${label}`) + chalk.dim(` ${detail}`));
       }
     }
-    if (tested === 0) {
-      console.log(chalk.dim("  (no keys configured to test)"));
+    if (keyTests.length === 0) {
+      log(chalk.dim("  (no keys configured to test)"));
     }
-    if (failures > 0) {
+  }
+
+  // A failed key test still reports what was saved and tested, then exits 7.
+  outputSuccess({
+    command: "setup",
+    startedAt: opts.startedAt,
+    warnings,
+    data: {
+      scope,
+      configPath,
+      changes,
+      importedCount,
+      ...(legacyImportedFrom ? { legacyImportedFrom } : {}),
+      ...(opts.test ? { keyTests } : {}),
+    },
+  });
+
+  if (failures > 0) {
+    if (!isJsonMode()) {
       console.error();
       console.error(
         chalk.red(
           `Verification failed: ${failures} key${failures === 1 ? "" : "s"} returned non-2xx.`
         )
       );
-      process.exit(7);
     }
+    process.exit(7);
   }
 }
 

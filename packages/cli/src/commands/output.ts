@@ -7,6 +7,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { isProviderError } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../utils/api-key-error.js";
+import { writeStdout } from "../utils/stdout-guard.js";
 
 // ── Exit Codes ───────────────────────────────────────────────────────────
 
@@ -380,7 +381,7 @@ export function outputSuccess(opts: SuccessEnvelopeOptions): void {
       }
       envelope.data = filteredData;
     }
-    console.log(JSON.stringify(envelope, null, 2));
+    writeStdout(JSON.stringify(envelope, null, 2));
     return;
   }
 
@@ -388,7 +389,7 @@ export function outputSuccess(opts: SuccessEnvelopeOptions): void {
     const data = opts.data;
     const primary =
       data.outputPath ?? data.output ?? data.path ?? data.url ?? data.id;
-    if (primary !== undefined) console.log(String(primary));
+    if (primary !== undefined) writeStdout(String(primary));
     return;
   }
 
@@ -465,14 +466,14 @@ export function outputResult(result: Record<string, unknown>): void {
       }
       // Always include success
       if ("success" in result) filtered.success = result.success;
-      console.log(JSON.stringify(filtered, null, 2));
+      writeStdout(JSON.stringify(filtered, null, 2));
     } else {
-      console.log(JSON.stringify(result, null, 2));
+      writeStdout(JSON.stringify(result, null, 2));
     }
   } else if (isQuietMode()) {
     // In quiet mode, output the primary value only (path, url, or id)
     const primary = result.output ?? result.path ?? result.url ?? result.id ?? result.result;
-    if (primary !== undefined) console.log(String(primary));
+    if (primary !== undefined) writeStdout(String(primary));
   }
 }
 

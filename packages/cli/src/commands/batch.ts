@@ -4,7 +4,7 @@ import { resolve, basename, extname, join } from "node:path";
 import chalk from "chalk";
 import { Project, type ProjectFile } from "../engine/index.js";
 import type { MediaType, EffectType } from "@vibeframe/core/timeline";
-import { spinner as createSpinner, exitWithError, generalError, outputSuccess, usageError } from "./output.js";
+import { spinner as createSpinner, exitWithError, generalError, log, outputSuccess, usageError } from "./output.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
 export const batchCommand = new Command("batch")
@@ -138,13 +138,18 @@ batchCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Imported ${addedSources.length} media files`));
-      console.log();
+      log();
 
       for (const file of mediaFiles) {
-        console.log(chalk.dim("  +"), basename(file));
+        log(chalk.dim("  +"), basename(file));
       }
 
-      console.log();
+      log();
+      outputSuccess({
+        command: "batch import",
+        startedAt,
+        data: { project: filePath, importedCount: addedSources.length, sourceIds: addedSources, files: mediaFiles },
+      });
     } catch (error) {
       spinner.fail("Import failed");
       const msg = error instanceof Error ? error.message : String(error);
@@ -247,15 +252,20 @@ batchCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Created ${addedClips.length} clips`));
-      console.log();
-      console.log(chalk.dim("  Total duration:"), `${currentTime - gap}s`);
-      console.log(chalk.dim("  Track:"), trackId);
+      log();
+      log(chalk.dim("  Total duration:"), `${currentTime - gap}s`);
+      log(chalk.dim("  Track:"), trackId);
 
       for (let i = 0; i < selectedSources.length; i++) {
-        console.log(chalk.dim(`  ${i + 1}.`), selectedSources[i].name);
+        log(chalk.dim(`  ${i + 1}.`), selectedSources[i].name);
       }
 
-      console.log();
+      log();
+      outputSuccess({
+        command: "batch concat",
+        startedAt,
+        data: { project: filePath, trackId, clipIds: addedClips, totalDuration: currentTime - gap },
+      });
     } catch (error) {
       spinner.fail("Concat failed");
       const msg = error instanceof Error ? error.message : String(error);
@@ -356,11 +366,16 @@ batchCommand
         spinner.succeed(
           chalk.green(`Applied ${effectType} to ${appliedCount} clips`)
         );
-        console.log();
-        console.log(chalk.dim("  Effect:"), effectType);
-        console.log(chalk.dim("  Duration:"), `${duration}s`);
-        console.log(chalk.dim("  Intensity:"), intensity);
-        console.log();
+        log();
+        log(chalk.dim("  Effect:"), effectType);
+        log(chalk.dim("  Duration:"), `${duration}s`);
+        log(chalk.dim("  Intensity:"), intensity);
+        log();
+        outputSuccess({
+          command: "batch apply-effect",
+          startedAt,
+          data: { project: filePath, effectType, appliedCount, duration, start: startTime, intensity },
+        });
       } catch (error) {
         spinner.fail("Apply effect failed");
         const msg = error instanceof Error ? error.message : String(error);
@@ -442,7 +457,12 @@ batchCommand
       await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
 
       spinner.succeed(chalk.green(`Removed ${removedCount} clips`));
-      console.log();
+      log();
+      outputSuccess({
+        command: "batch remove-clips",
+        startedAt,
+        data: { project: filePath, removedCount, clipIds: clipsToRemove.map((c) => c.id) },
+      });
     } catch (error) {
       spinner.fail("Remove clips failed");
       const msg = error instanceof Error ? error.message : String(error);
@@ -457,6 +477,7 @@ batchCommand
   .description("Show batch processing statistics")
   .argument("<project>", "Timeline file or directory")
   .action(async (projectPath: string) => {
+    const startedAt = Date.now();
     const spinner = createSpinner("Loading project...").start();
 
     try {
@@ -472,17 +493,17 @@ batchCommand
 
       spinner.stop();
 
-      console.log(`\n${chalk.bold("Project Statistics")}\n`);
+      log(`\n${chalk.bold("Project Statistics")}\n`);
 
       // Sources breakdown
       const videoSources = sources.filter((s) => s.type === "video").length;
       const audioSources = sources.filter((s) => s.type === "audio").length;
       const imageSources = sources.filter((s) => s.type === "image").length;
 
-      console.log(chalk.cyan("Sources:"), sources.length);
-      if (videoSources > 0) console.log(chalk.dim("  Video:"), videoSources);
-      if (audioSources > 0) console.log(chalk.dim("  Audio:"), audioSources);
-      if (imageSources > 0) console.log(chalk.dim("  Image:"), imageSources);
+      log(chalk.cyan("Sources:"), sources.length);
+      if (videoSources > 0) log(chalk.dim("  Video:"), videoSources);
+      if (audioSources > 0) log(chalk.dim("  Audio:"), audioSources);
+      if (imageSources > 0) log(chalk.dim("  Image:"), imageSources);
 
       // Clips breakdown
       const clipsPerTrack = tracks.map((t) => ({
@@ -490,25 +511,41 @@ batchCommand
         count: clips.filter((c) => c.trackId === t.id).length,
       }));
 
-      console.log(chalk.cyan("\nClips:"), clips.length);
+      log(chalk.cyan("\nClips:"), clips.length);
       for (const { track, count } of clipsPerTrack) {
-        if (count > 0) console.log(chalk.dim(`  ${track}:`), count);
+        if (count > 0) log(chalk.dim(`  ${track}:`), count);
       }
 
       // Effects count
       const totalEffects = clips.reduce((sum, c) => sum + c.effects.length, 0);
       if (totalEffects > 0) {
-        console.log(chalk.cyan("\nEffects:"), totalEffects);
+        log(chalk.cyan("\nEffects:"), totalEffects);
       }
 
       // Timeline info
-      console.log(chalk.cyan("\nTimeline:"));
-      console.log(chalk.dim("  Duration:"), `${summary.duration.toFixed(1)}s`);
-      console.log(chalk.dim("  Tracks:"), tracks.length);
-      console.log(chalk.dim("  Frame rate:"), `${summary.frameRate} fps`);
-      console.log(chalk.dim("  Aspect ratio:"), summary.aspectRatio);
+      log(chalk.cyan("\nTimeline:"));
+      log(chalk.dim("  Duration:"), `${summary.duration.toFixed(1)}s`);
+      log(chalk.dim("  Tracks:"), tracks.length);
+      log(chalk.dim("  Frame rate:"), `${summary.frameRate} fps`);
+      log(chalk.dim("  Aspect ratio:"), summary.aspectRatio);
 
-      console.log();
+      log();
+      outputSuccess({
+        command: "batch info",
+        startedAt,
+        data: {
+          project: filePath,
+          sources: { total: sources.length, video: videoSources, audio: audioSources, image: imageSources },
+          clips: { total: clips.length, perTrack: clipsPerTrack },
+          effects: totalEffects,
+          timeline: {
+            duration: summary.duration,
+            tracks: tracks.length,
+            frameRate: summary.frameRate,
+            aspectRatio: summary.aspectRatio,
+          },
+        },
+      });
     } catch (error) {
       spinner.fail("Failed to load project");
       const msg = error instanceof Error ? error.message : String(error);

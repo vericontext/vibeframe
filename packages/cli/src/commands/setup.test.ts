@@ -61,6 +61,9 @@ function testEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
     // --import-env reads .env; every run here has a temp cwd and HOME, so the
     // suite-wide VIBE_NO_DOTENV guard is not needed.
     VIBE_NO_DOTENV: "",
+    // These tests read the human summary; a piped stdout would otherwise
+    // switch on JSON mode.
+    VIBE_HUMAN_OUTPUT: "1",
     ...extra,
   };
 }
@@ -158,6 +161,21 @@ describe("vibe setup --yes (non-interactive)", () => {
     // The warning is on stderr; execFileSync collects it via stdio[2].
     // Black-box: just ensure the value was persisted despite mismatch.
     expect(result).toContain("imported");
+  });
+
+  it("--json prints one envelope, with format warnings inside it", () => {
+    const stdout = execFileSync(process.execPath, [CLI, "setup", "--yes", "--import-env", "--json"], {
+      cwd: projectDir,
+      env: testEnv({ ANTHROPIC_API_KEY: "totally-not-the-right-prefix" }),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const envelope = JSON.parse(stdout);
+    expect(envelope).toMatchObject({
+      command: "setup",
+      data: { scope: "user", configPath: userConfigPath(), importedCount: 1, changes: ["imported 1 key from env"] },
+    });
+    expect(envelope.warnings).toEqual([expect.stringContaining("format looks unusual")]);
   });
 
   it("is idempotent — second run with same env reports no changes", () => {

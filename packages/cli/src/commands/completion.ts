@@ -20,6 +20,7 @@
 import { Command } from "commander";
 import { exitWithError, usageError } from "./output.js";
 import { getCostTier, type CostTier } from "./_shared/cost-tier.js";
+import { writeStdout } from "../utils/stdout-guard.js";
 
 export const completionCommand = new Command("completion")
   .description("Print a shell completion script for `vibe`")
@@ -47,9 +48,9 @@ sync with the CLI surface. Re-run after upgrades.
       exitWithError(usageError(`Unknown shell: ${shell}`, "Supported: zsh, bash, fish"));
     }
 
-    if (shell === "zsh") console.log(generateZsh(program));
-    else if (shell === "bash") console.log(generateBash(program));
-    else console.log(generateFish(program));
+    if (shell === "zsh") writeStdout(generateZsh(program));
+    else if (shell === "bash") writeStdout(generateBash(program));
+    else writeStdout(generateFish(program));
   });
 
 interface CommandNode {

@@ -27,6 +27,7 @@ import {
   failureFromError,
   spinner as createSpinner,
   isJsonMode,
+  log,
   outputSuccess,
   exitWithError,
   notFoundError,
@@ -160,13 +161,13 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
         return;
       }
 
-      console.log();
-      console.log(chalk.bold.cyan("Animated Caption Pipeline"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log(`  Video: ${chalk.bold(basename(absVideoPath))}`);
-      console.log(`  Style: ${chalk.bold(options.style)}`);
-      console.log(`  Mode:  ${chalk.bold(options.fast ? "ASS (fast)" : "Remotion")}`);
-      console.log();
+      log();
+      log(chalk.bold.cyan("Animated Caption Pipeline"));
+      log(chalk.dim("─".repeat(60)));
+      log(`  Video: ${chalk.bold(basename(absVideoPath))}`);
+      log(`  Style: ${chalk.bold(options.style)}`);
+      log(`  Mode:  ${chalk.bold(options.fast ? "ASS (fast)" : "Remotion")}`);
+      log();
 
       const spinner = createSpinner("Processing animated captions...").start();
 
@@ -205,15 +206,15 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
         return;
       }
 
-      console.log();
-      console.log(chalk.bold.cyan("Result"));
-      console.log(chalk.dim("─".repeat(60)));
-      console.log(`  Output:  ${chalk.green(result.outputPath)}`);
-      console.log(`  Words:   ${result.wordCount}`);
-      console.log(`  Groups:  ${result.groupCount}`);
-      console.log(`  Style:   ${result.style}`);
-      console.log(`  Tier:    ${result.tier}`);
-      console.log();
+      log();
+      log(chalk.bold.cyan("Result"));
+      log(chalk.dim("─".repeat(60)));
+      log(`  Output:  ${chalk.green(result.outputPath)}`);
+      log(`  Words:   ${result.wordCount}`);
+      log(`  Groups:  ${result.groupCount}`);
+      log(`  Style:   ${result.style}`);
+      log(`  Tier:    ${result.tier}`);
+      log();
     } catch (error) {
       exitWithError(failureFromError(error, "Animated caption failed", { fallback: "general" }));
     }
