@@ -666,7 +666,7 @@ the framework-level minimum, not the cinematic craft layer.
 - \`compositions/scene-*.html\` - per-scene HTML authored by you or the agent
 - \`assets/\` - generated/canonical build media (narration audio, images, video)
 - \`.agents/skills/hyperframes/\` - upstream composition rules, when installed here rather than globally
-- \`transcript.json\` - Whisper word-level transcript (if narration exists)
+- \`transcript.json\` - word-level transcript (if narration exists)
 - \`hyperframes.json\` - HF registry config (speak to both toolchains)
 - \`vibe.config.json\` - canonical VibeFrame config (providers, budget)
 - \`renders/\` - output MP4s

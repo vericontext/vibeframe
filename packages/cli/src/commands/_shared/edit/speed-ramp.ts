@@ -2,7 +2,7 @@
  * @module _shared/edit/speed-ramp
  * @description `executeSpeedRamp`, the one implementation of
  * `vibe edit speed-ramp`, shared by the CLI action and the `edit_speed_ramp`
- * MCP tool. Whisper transcribes the audio, Claude plans speed keyframes,
+ * MCP tool. Scribe or Whisper transcribes the audio, Claude plans speed keyframes,
  * FFmpeg applies the average speed.
  */
 
@@ -13,7 +13,7 @@ import { ClaudeProvider } from "@vibeframe/ai-providers";
 import { requireConfiguredApiKey } from "../../../utils/api-key.js";
 import { execSafe } from "../../../utils/exec-safe.js";
 import { apiError, failureFromError, providerFailure, usageError } from "../../output.js";
-import { transcribeAudioFile } from "../transcription.js";
+import { resolveSttProvider, transcribeAudioFile } from "../transcription.js";
 import { editFailure, editOutputPath, resolveVideoInput, type EditFailure } from "./_helpers.js";
 
 export const SPEED_RAMP_STYLES = ["dramatic", "smooth", "action"] as const;
@@ -37,8 +37,10 @@ export interface SpeedRampOptions {
   language?: string;
   /** Anthropic key. */
   apiKey?: string;
-  /** OpenAI key for Whisper. */
-  openaiApiKey?: string;
+  /** Transcription provider: auto (default), elevenlabs, openai. */
+  stt?: string;
+  /** Key for the transcription provider (with auto, an OpenAI key). */
+  sttApiKey?: string;
   /** Step messages for a spinner. */
   onProgress?: (message: string) => void;
 }
@@ -94,7 +96,7 @@ export async function executeSpeedRamp(options: SpeedRampOptions): Promise<Speed
   const { absPath } = input;
 
   // A missing key throws ApiKeyError (API_KEY_MISSING) before any work.
-  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI", options.openaiApiKey);
+  const stt = await resolveSttProvider(options.stt, { apiKey: options.sttApiKey });
   const claudeKey = await requireConfiguredApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
   let tempDir: string | undefined;
@@ -113,7 +115,7 @@ export async function executeSpeedRamp(options: SpeedRampOptions): Promise<Speed
     await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
 
     onProgress?.("Transcribing audio...");
-    const transcript = await transcribeAudioFile(tempAudio, { apiKey: openaiKey, language });
+    const transcript = await transcribeAudioFile(tempAudio, { ...stt, language });
     if (transcript.status === "failed") {
       return editFailure(providerFailure(`Transcription failed: ${transcript.error ?? "unknown error"}`, transcript.errorKind));
     }

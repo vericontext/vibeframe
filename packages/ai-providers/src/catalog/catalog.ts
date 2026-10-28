@@ -27,7 +27,7 @@ export type ModelStatus = "ga" | "preview" | "legacy" | "deprecated";
 export interface ModelPrice {
   usd: number;
   /** What one `usd` buys. */
-  per: "image" | "second" | "minute" | "1K characters" | "1M input tokens";
+  per: "image" | "second" | "minute" | "hour" | "1K characters" | "1M input tokens";
   /** Conditions the price assumes (quality, resolution, tier). */
   basis?: string;
   /** Per-output-size prices, keyed by the size the API takes ("1K", "4K"); `usd` is the default size. */
@@ -111,7 +111,8 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "onnx-community/Kokoro-82M-v1.0-ONNX", provider: "kokoro", kind: "speech", label: "Kokoro 82M", aliases: ["kokoro"], default: true, status: "ga", price: { usd: 0, per: "1K characters" }, note: "Runs locally; ~90 MB download on first use" },
   { id: "music_v2_5", provider: "elevenlabs", kind: "music", label: "ElevenLabs Music v2.5", default: true, status: "ga", price: { usd: 0.15, per: "minute" } },
   { id: "eleven_text_to_sound_v2", provider: "elevenlabs", kind: "sound-effect", label: "ElevenLabs Sound Effects v2", default: true, status: "ga", price: { usd: 0.12, per: "minute" }, note: "0.5-30 s" },
-  { id: "whisper-1", provider: "openai", kind: "transcription", label: "Whisper", default: true, status: "deprecated", shutdown: "2027-02-26", note: "Only OpenAI model with word timestamps" },
+  { id: "scribe_v2", provider: "elevenlabs", kind: "transcription", label: "ElevenLabs Scribe v2", aliases: ["scribe"], default: true, status: "ga", price: { usd: 0.22, per: "hour" }, note: "Word timestamps; first choice of `--stt auto` when ELEVENLABS_API_KEY is set" },
+  { id: "whisper-1", provider: "openai", kind: "transcription", label: "Whisper", default: true, status: "deprecated", shutdown: "2027-02-26", replacement: "`--stt elevenlabs` (Scribe v2)", note: "Only OpenAI model with word timestamps" },
 ];
 
 /** All catalog entries matching the filter, in catalog order. */

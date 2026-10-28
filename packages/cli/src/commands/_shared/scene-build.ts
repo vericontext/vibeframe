@@ -14,7 +14,7 @@
  * Scope held tight for v0.60:
  *   - TTS via `resolveTtsProvider` (ElevenLabs / OpenAI / Kokoro auto-fallback)
  *   - T2I via OpenAI, Gemini, or Grok
- *   - No Whisper transcribe step (compose handles its own)
+ *   - No transcribe step (compose handles its own)
  *   - No root `index.html` synthesis — driver expects the project to
  *     already have one with sub-composition references.
  */
@@ -44,8 +44,9 @@ import {
 import type { ComposerProvider } from "./composer-resolve.js";
 import { getComposePrompts, type ComposePromptsBeat } from "./compose-prompts.js";
 import { getApiKeyFromConfig } from "../../config/index.js";
-import { getConfiguredApiKey, loadEnv } from "../../utils/api-key.js";
+import { loadEnv } from "../../utils/api-key.js";
 import { transcribeNarrationWords, beatTranscriptRelPath } from "./transcribe-narration.js";
+import { findSttProvider } from "./transcription.js";
 import { executeSceneRender, type SceneRenderResult } from "./scene-render.js";
 import {
   beatCharacterNames,
@@ -273,8 +274,9 @@ export interface SceneBuildOptions {
   /** Skip music generation even when beats declare music cues. */
   skipMusic?: boolean;
   /**
-   * Skip Whisper word-level transcription of generated narration. Default is
-   * to transcribe whenever narration exists and an OpenAI key is configured,
+   * Skip word-level transcription of generated narration. Default is to
+   * transcribe whenever narration exists and an ElevenLabs or OpenAI key is
+   * configured (Scribe first, as `--stt auto`),
    * writing `assets/transcript-<beat>.json` so the composer can sync caption /
    * kinetic-type reveals to speech. Pass true to opt out (no transcribe cost).
    */
@@ -1566,7 +1568,7 @@ interface TranscriptDispatchContext {
 }
 
 /**
- * Whisper word-level transcription of a beat's narration. Writes
+ * Word-level transcription (Scribe or Whisper) of a beat's narration. Writes
  * `assets/transcript-<beat>.json` (the same shape `vibe scene add` produces),
  * which the compose stage reads to drive word-synced caption / kinetic-type
  * animations. Entirely best-effort — it never fails the build:
@@ -1596,17 +1598,17 @@ async function dispatchTranscript(
     return "cached";
   }
 
-  const apiKey = await getConfiguredApiKey("OPENAI_API_KEY", undefined, { cwd: ctx.projectDir });
-  if (!apiKey) {
+  const stt = await findSttProvider("auto", { cwd: ctx.projectDir });
+  if (!stt) {
     ctx.onProgress({
       type: "transcript-skipped",
       beatId: beat.id,
-      reason: "OPENAI_API_KEY not set — narration plays but word-sync timings unavailable",
+      reason: "neither ELEVENLABS_API_KEY nor OPENAI_API_KEY set - narration plays but word-sync timings unavailable",
     });
     return "skipped";
   }
 
-  const words = await transcribeNarrationWords(join(ctx.projectDir, narrationPath), { apiKey });
+  const words = await transcribeNarrationWords(join(ctx.projectDir, narrationPath), stt);
   if (words.length === 0) {
     ctx.onProgress({
       type: "transcript-skipped",

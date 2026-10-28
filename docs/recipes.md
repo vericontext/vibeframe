@@ -26,7 +26,7 @@ captions.
 Requires:
 
 - FFmpeg for silence cutting and noise reduction
-- `OPENAI_API_KEY` for Whisper captions
+- `ELEVENLABS_API_KEY` (Scribe) or `OPENAI_API_KEY` (Whisper) for captions
 
 ```bash
 vibe edit silence-cut interview.mp4 -o interview-trimmed.mp4

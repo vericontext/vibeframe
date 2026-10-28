@@ -283,7 +283,7 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("edit-caption", async (params, outputDir) => {
     const { executeCaption } = await import("../commands/ai-edit.js");
     const output = getOutput(params, outputDir, "captioned.mp4");
-    const r = await executeCaption({ videoPath: params.input as string, outputPath: output, language: params.language as string | undefined });
+    const r = await executeCaption({ videoPath: params.input as string, outputPath: output, language: params.language as string | undefined, stt: stringParam(params.stt) });
     return { id: "", action: "edit-caption", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
@@ -319,6 +319,7 @@ async function ensureActionsRegistered(): Promise<void> {
       minSpeed: params.minSpeed as number | undefined,
       maxSpeed: params.maxSpeed as number | undefined,
       language: params.language as string | undefined,
+      stt: stringParam(params.stt),
     });
     if (!r.success) return { id: "", action: "edit-speed-ramp", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-speed-ramp", success: true, output: r.outputPath, data: { avgSpeed: r.avgSpeed, keyframeCount: r.keyframes.length } };
@@ -356,6 +357,7 @@ async function ensureActionsRegistered(): Promise<void> {
       padding: numberParam(params.padding),
       language: stringParam(params.language),
       analyzeOnly: params.analyzeOnly as boolean | undefined,
+      stt: stringParam(params.stt),
     });
     return { id: "", action: "edit-jump-cut", success: r.success, output: r.outputPath, data: { fillerCount: r.fillerCount, fillerDuration: r.fillerDuration, totalDuration: r.totalDuration }, error: r.error, ...stepFailure(r) };
   });
@@ -445,8 +447,8 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("audio-transcribe", async (params, outputDir) => {
     const { executeTranscribe } = await import("../commands/ai-audio.js");
     const output = getOutput(params, outputDir, "transcript.srt");
-    const r = await executeTranscribe({ audioPath: params.input as string, language: params.language as string | undefined, output });
-    return { id: "", action: "audio-transcribe", success: r.success, output: r.outputPath, data: { text: r.text, segmentCount: r.segments?.length }, error: r.error, ...stepFailure(r) };
+    const r = await executeTranscribe({ audioPath: params.input as string, language: params.language as string | undefined, output, provider: stringParam(params.provider) });
+    return { id: "", action: "audio-transcribe", success: r.success, output: r.outputPath, data: { provider: r.provider, text: r.text, segmentCount: r.segments?.length }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("audio-isolate", async (params, outputDir) => {
@@ -466,6 +468,7 @@ async function ensureActionsRegistered(): Promise<void> {
       source: stringParam(params.source),
       voice: stringParam(params.voice),
       tts: stringParam(params.tts),
+      stt: stringParam(params.stt),
       analyzeOnly,
       output,
     });

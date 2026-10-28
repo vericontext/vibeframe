@@ -31,6 +31,7 @@ import {
   SPEED_RAMP_STYLES,
 } from "../../commands/edit-cmd.js";
 import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
+import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 import { executeImageEdit } from "../../commands/ai-image.js";
 import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 import { executeMotionOverlay } from "../../commands/edit/motion-overlay.js";
@@ -80,7 +81,7 @@ export const editCaptionTool = defineTool({
   title: "Burn Captions into Video",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Transcribe audio and burn styled captions into video. Requires OPENAI_API_KEY for Whisper transcription.",
+    `Transcribe audio and burn styled captions into video. ${STT_KEYS_TEXT}.`,
   schema: z.object({
     videoPath: z.string().describe("Path to the input video file"),
     outputPath: z.string().describe("Path for the output video"),
@@ -89,6 +90,7 @@ export const editCaptionTool = defineTool({
     fontColor: z.string().optional().describe("Font color (default: white)"),
     language: z.string().optional().describe("Language code for transcription (default: en)"),
     position: z.enum(["top", "center", "bottom"]).optional().describe("Caption position (default: bottom)"),
+    stt: sttSchema,
   }),
   async execute(args) {
     const result = await executeCaption(args);
@@ -164,7 +166,7 @@ export const editJumpCutTool = defineTool({
   title: "Remove Filler Words",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Remove filler words (um, uh, like, etc.) from video using Whisper transcription. Requires OPENAI_API_KEY.",
+    `Remove filler words (um, uh, like, etc.) from video using word-level transcription. ${STT_KEYS_TEXT}.`,
   schema: z.object({
     videoPath: z.string().describe("Path to the input video file"),
     outputPath: z.string().describe("Path for the output video"),
@@ -172,6 +174,7 @@ export const editJumpCutTool = defineTool({
     padding: z.number().optional().describe("Padding around cuts in seconds (default: 0.05)"),
     language: z.string().optional().describe("Language code (default: en)"),
     analyzeOnly: z.boolean().optional().describe("Only analyze without cutting"),
+    stt: sttSchema,
   }),
   async execute(args) {
     const result = await executeJumpCut(args);
@@ -326,7 +329,7 @@ export const editSpeedRampTool = defineTool({
   title: "Apply Content-Aware Speed Ramping",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Apply content-aware speed ramping. Analyzes speech with Whisper, plans speed changes with Claude, applies with FFmpeg. Requires OPENAI_API_KEY + ANTHROPIC_API_KEY.",
+    `Apply content-aware speed ramping. Transcribes speech, plans speed changes with Claude, applies with FFmpeg. Requires ANTHROPIC_API_KEY. ${STT_KEYS_TEXT}.`,
   schema: z.object({
     videoPath: z.string().describe("Input video file path (must have audio)"),
     output: z.string().optional().describe("Output video file path"),
@@ -335,6 +338,7 @@ export const editSpeedRampTool = defineTool({
     maxSpeed: z.number().optional().describe("Maximum speed factor (default: 4.0)"),
     analyzeOnly: z.boolean().optional().describe("Show keyframes without applying"),
     language: z.string().optional().describe("Language code for transcription"),
+    stt: sttSchema,
   }),
   async execute(args) {
     const result = await executeSpeedRamp(args);
@@ -446,7 +450,7 @@ export const editAnimatedCaptionTool = defineTool({
   title: "Add Animated Captions",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Add animated word-by-word captions (TikTok/Reels style). Supports highlight, bounce, pop-in, neon, karaoke-sweep, typewriter styles. Requires OPENAI_API_KEY for Whisper.",
+    `Add animated word-by-word captions (TikTok/Reels style). Supports highlight, bounce, pop-in, neon, karaoke-sweep, typewriter styles. ${STT_KEYS_TEXT}.`,
   schema: z.object({
     videoPath: z.string().describe("Path to the input video file"),
     outputPath: z.string().describe("Path for the output video"),
@@ -458,6 +462,7 @@ export const editAnimatedCaptionTool = defineTool({
     maxChars: z.number().optional().describe("Max characters per group (default: 30)"),
     language: z.string().optional().describe("Language code for transcription (default: en)"),
     fast: z.boolean().optional().describe("Use ASS rendering instead of Remotion (faster but fewer styles)"),
+    stt: sttSchema,
   }),
   async execute(args) {
     const result = await executeAnimatedCaption({

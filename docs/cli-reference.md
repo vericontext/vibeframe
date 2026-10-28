@@ -690,7 +690,7 @@ Cost tier: `very-high`
 
 #### `vibe edit caption`
 
-Transcribe and burn styled captions onto video (Whisper + FFmpeg)
+Transcribe and burn styled captions onto video (Scribe or Whisper + FFmpeg)
 
 Product surface: `public`
 
@@ -705,7 +705,8 @@ Cost tier: `low`
 - `color` _(string)_ _(default: `"white"`)_ - Font color (default: white)
 - `language` _(string)_ - Language code for transcription (e.g., en, ko)
 - `position` _(string)_ _(top \| center \| bottom)_ _(default: `"bottom"`)_ - Caption position: top, center, bottom (default: bottom)
-- `apiKey` _(string)_ - OpenAI API key (or set OPENAI_API_KEY env)
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
+- `apiKey` _(string)_ - API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe edit fade`
@@ -801,7 +802,7 @@ Cost tier: `free`
 
 #### `vibe edit jump-cut`
 
-Remove filler words (um, uh, like, etc.) from video using Whisper word-level timestamps
+Remove filler words (um, uh, like, etc.) from video using word-level timestamps (Scribe or Whisper)
 
 Product surface: `public`
 
@@ -815,7 +816,8 @@ Cost tier: `low`
 - `padding` _(number)_ _(default: `0.05`)_ - Padding around cuts in seconds (default: 0.05)
 - `language` _(string)_ - Language code for transcription (e.g., en, ko)
 - `analyzeOnly` _(boolean)_ - Only detect fillers, don't cut
-- `apiKey` _(string)_ - OpenAI API key (or set OPENAI_API_KEY env)
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
+- `apiKey` _(string)_ - API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe edit motion-overlay`
@@ -904,7 +906,7 @@ Cost tier: `low`
 
 #### `vibe edit speed-ramp`
 
-Apply content-aware speed ramping (Whisper + Claude + FFmpeg)
+Apply content-aware speed ramping (Scribe or Whisper + Claude + FFmpeg)
 
 Product surface: `advanced`
 
@@ -919,6 +921,7 @@ Cost tier: `low`
 - `maxSpeed` _(string)_ _(default: `"4.0"`)_ - Maximum speed factor
 - `analyzeOnly` _(boolean)_ - Show keyframes without applying
 - `language` _(string)_ - Language code for transcription
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `apiKey` _(string)_ - Anthropic API key (or set ANTHROPIC_API_KEY env)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
@@ -1094,6 +1097,7 @@ Cost tier: `high`
 - `source` _(string)_ - Source language code (default: auto-detect)
 - `voice` _(string)_ - Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)
 - `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto (default), elevenlabs, openai, kokoro
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `analyzeOnly` _(boolean)_ - Only analyze and show timing, don't generate audio
 - `output` _(string)_ - Output file path
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -1147,7 +1151,7 @@ Cost tier: `low`
 
 #### `vibe audio transcribe`
 
-Transcribe audio using Whisper
+Transcribe audio (ElevenLabs Scribe or OpenAI Whisper)
 
 Product surface: `public`
 
@@ -1156,7 +1160,8 @@ Cost tier: `low`
 **Parameters:**
 
 - `audio` _(string)_ **required** - Audio file path
-- `apiKey` _(string)_ - OpenAI API key (or set OPENAI_API_KEY env)
+- `provider` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
+- `apiKey` _(string)_ - API key for --provider (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY
 - `language` _(string)_ - Language code (e.g., en, ko)
 - `output` _(string)_ - Output file path
 - `format` _(string)_ _(json \| srt \| vtt)_ - Output format: json, srt, vtt (auto-detected from extension)
@@ -1165,7 +1170,7 @@ Cost tier: `low`
 
 #### `vibe remix animated-caption`
 
-Add animated captions with word-by-word effects (Whisper + Remotion/ASS)
+Add animated captions with word-by-word effects (Scribe or Whisper + Remotion/ASS)
 
 Product surface: `public`
 
@@ -1180,7 +1185,8 @@ Cost tier: `low`
 - `position` _(string)_ _(top \| center \| bottom)_ _(default: `"bottom"`)_ - Caption position: top, center, bottom
 - `wordsPerGroup` _(number)_ - Words shown at once (default: auto 3-5)
 - `maxChars` _(number)_ - Max characters per group
-- `language` _(string)_ - Whisper language hint
+- `language` _(string)_ - Transcription language hint
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `fast` _(boolean)_ - Use ASS/FFmpeg only (no Remotion, forces ASS tier styles)
 - `output` _(string)_ - Output file path
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -1205,6 +1211,7 @@ Cost tier: `high`
 - `captionStyle` _(string)_ _(minimal \| bold \| animated)_ _(default: `"bold"`)_ - Caption style: minimal, bold, animated
 - `analyzeOnly` _(boolean)_ - Show segments without generating
 - `language` _(string)_ - Language code for transcription
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `useGemini` _(boolean)_ - Use Gemini Video Understanding for enhanced visual+audio analysis
 - `lowRes` _(boolean)_ - Use low resolution mode for longer videos (Gemini only)
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -1227,6 +1234,7 @@ Cost tier: `high`
 - `threshold` _(number)_ _(default: `0.7`)_ - Confidence threshold (0-1)
 - `criteria` _(string)_ _(default: `"all"`)_ - Selection criteria: emotional | informative | funny | all
 - `language` _(string)_ - Language code for transcription (e.g., en, ko)
+- `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `useGemini` _(boolean)_ - Use Gemini Video Understanding for enhanced visual+audio analysis
 - `lowRes` _(boolean)_ - Use low resolution mode for longer videos (Gemini only)
 - `dryRun` _(boolean)_ - Preview parameters without executing
@@ -1259,8 +1267,8 @@ Cost tier: `free`
 - `voice` _(string)_ - Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)
 - `noAudio` _(boolean)_ - Skip TTS even when --narration is provided (useful for tests/agent dry runs)
 - `noImage` _(boolean)_ - Skip image generation even when --visuals is provided
-- `noTranscribe` _(boolean)_ - Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)
-- `transcribeLanguage` _(string)_ - BCP-47 language code passed to Whisper (e.g. en, ko)
+- `noTranscribe` _(boolean)_ - Skip the word-level transcribe step (no transcript-<id>.json emitted)
+- `transcribeLanguage` _(string)_ - BCP-47 language code passed to transcription (e.g. en, ko)
 - `force` _(boolean)_ - Overwrite an existing compositions/scene-<id>.html
 - `lottie` _(string)_ - Lottie animation file (.json/.lottie) to overlay on the scene
 - `lottiePosition` _(string)_ _(full \| center \| top-left \| top-right \| bottom-left \| bottom-right)_ _(default: `"full"`)_ - Lottie position: full, center, top-left, top-right, bottom-left, bottom-right

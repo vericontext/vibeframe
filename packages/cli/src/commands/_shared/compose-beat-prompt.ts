@@ -96,7 +96,7 @@ export function formatTranscriptSection(
 
 === Narration word timings (seconds) ===
 
-Whisper word-level start times for this beat's narration. If you author captions
+Word-level start times for this beat's narration. If you author captions
 or kinetic typography, reveal each word at its start time with absolute-time
 GSAP tweens, e.g.
 \`tl.fromTo('.caption .word[data-i="0"]', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18 }, ${round(

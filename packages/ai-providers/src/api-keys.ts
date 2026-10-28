@@ -59,7 +59,7 @@ defineApiKey({
   envVar: "ELEVENLABS_API_KEY",
   label: "ElevenLabs",
   showInSetup: true,
-  setupDescription: "TTS ($), SFX, music, voice clone, dubbing - skip to use local Kokoro",
+  setupDescription: "TTS ($), SFX, music, voice clone, dubbing, Scribe transcription - skip to use local Kokoro",
   envExampleComment:
     "ElevenLabs API Key (text-to-speech — Kokoro local fallback runs when this is unset, since v0.54)",
   envExampleUrl: "https://elevenlabs.io/api",

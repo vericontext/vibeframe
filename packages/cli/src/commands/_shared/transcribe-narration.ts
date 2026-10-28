@@ -3,7 +3,8 @@
  *
  * Shared narration → word-level transcript helpers, used by both
  * `vibe scene add` (deterministic emit path) and `vibe build` (LLM compose
- * path). Whisper transcription of the generated narration audio is the
+ * path). Transcription (ElevenLabs Scribe or OpenAI Whisper, whichever key
+ * `--stt auto` finds first) of the generated narration audio is the
  * single, provider-agnostic source of word timings: every TTS provider
  * (kokoro / openai / elevenlabs) writes a `.wav`/`.mp3`, and word timings let
  * the composer sync captions / kinetic typography to speech.
@@ -16,12 +17,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { SceneTranscriptWord } from "./scene-html-emit.js";
-import { transcribeAudioFile } from "./transcription.js";
+import { transcribeAudioFile, type SttResolution } from "./transcription.js";
 
-export interface TranscribeNarrationOptions {
-  /** OpenAI API key for Whisper. */
-  apiKey: string;
-  /** Optional BCP-47 language hint passed to Whisper (auto-detect when unset). */
+export interface TranscribeNarrationOptions extends SttResolution {
+  /** Optional BCP-47 language hint (auto-detect when unset). */
   language?: string;
 }
 
@@ -35,7 +34,12 @@ export async function transcribeNarrationWords(
   opts: TranscribeNarrationOptions
 ): Promise<SceneTranscriptWord[]> {
   try {
-    const transcript = await transcribeAudioFile(audioAbsPath, { apiKey: opts.apiKey, granularity: "word", language: opts.language });
+    const transcript = await transcribeAudioFile(audioAbsPath, {
+      provider: opts.provider,
+      apiKey: opts.apiKey,
+      granularity: "word",
+      language: opts.language,
+    });
     if (transcript.status === "completed" && transcript.words?.length) {
       return transcript.words.map((w) => ({ text: w.text, start: w.start, end: w.end }));
     }

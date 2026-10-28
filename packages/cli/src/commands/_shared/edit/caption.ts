@@ -1,6 +1,6 @@
 /**
  * @module _shared/edit/caption
- * @description `executeCaption` — Whisper transcribe + ASS subtitles
+ * @description `executeCaption` - transcribe (Scribe or Whisper) + ASS subtitles
  * burn-in (or Remotion fallback if libass missing). Split out of
  * `ai-edit.ts` in v0.69 (Plan G Phase 3).
  */
@@ -8,12 +8,11 @@
 import { existsSync } from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, basename, extname, join } from "node:path";
-import { requireConfiguredApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { formatSRT } from "../../../utils/subtitle.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
 import { getVideoResolution } from "./_helpers.js";
-import { transcribeAudioFile } from "../transcription.js";
+import { resolveSttProvider, transcribeAudioFile } from "../transcription.js";
 
 /** Visual style preset for burned-in captions. */
 export type CaptionStyle = "minimal" | "bold" | "outline" | "karaoke";
@@ -30,11 +29,13 @@ export interface CaptionOptions {
   fontSize?: number;
   /** Font color name (default: "white") */
   fontColor?: string;
-  /** Language code for Whisper transcription */
+  /** Language code for transcription */
   language?: string;
   /** Vertical position of captions (default: "bottom") */
   position?: "top" | "center" | "bottom";
-  /** Override OpenAI API key */
+  /** Transcription provider: auto (default), elevenlabs, openai */
+  stt?: string;
+  /** Key for the transcription provider (with auto, an OpenAI key) */
   apiKey?: string;
 }
 
@@ -78,9 +79,9 @@ function getCaptionForceStyle(
 }
 
 /**
- * Transcribe video audio and burn styled captions using Whisper + FFmpeg.
+ * Transcribe video audio and burn styled captions using FFmpeg.
  *
- * Pipeline: extract audio -> Whisper transcription -> generate SRT ->
+ * Pipeline: extract audio -> transcription -> generate SRT ->
  * burn captions via FFmpeg subtitles filter (or Remotion fallback).
  */
 export async function executeCaption(options: CaptionOptions): Promise<CaptionResult> {
@@ -92,6 +93,7 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
     fontColor = "white",
     language,
     position = "bottom",
+    stt: sttName,
     apiKey,
   } = options;
 
@@ -108,7 +110,7 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
   }
 
   // A missing key throws ApiKeyError (API_KEY_MISSING) before any work.
-  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI", apiKey);
+  const stt = await resolveSttProvider(sttName, { apiKey });
 
   try {
     const tmpDir = `/tmp/vibe_caption_${Date.now()}`;
@@ -127,9 +129,8 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
         { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
       );
 
-      // Step 2: Transcribe with Whisper
-
-      const transcriptResult = await transcribeAudioFile(audioPath, { apiKey: openaiKey, language: language });
+      // Step 2: Transcribe
+      const transcriptResult = await transcribeAudioFile(audioPath, { ...stt, language });
 
       if (
         transcriptResult.status === "failed" ||

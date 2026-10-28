@@ -14,7 +14,7 @@
  *   remix auto-shorts      - Generate short-form clips from long-form video
  *   remix animated-caption - Add word-by-word animated captions
  *
- * @dependencies Whisper, Claude, Gemini, ElevenLabs, Kling, Runway, FFmpeg
+ * @dependencies ElevenLabs Scribe, Whisper, Claude, Gemini, ElevenLabs, Kling, Runway, FFmpeg
  */
 
 import { Command } from "commander";
@@ -23,6 +23,7 @@ import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { registerHighlightsCommands } from "./ai-highlights.js";
 import { executeAnimatedCaption, type AnimatedCaptionStyle } from "./ai-animated-caption.js";
+import { STT_OPTION_HELP, requireSttProvider, sttOptionOrExit } from "./_shared/transcription.js";
 import {
   failureFromError,
   spinner as createSpinner,
@@ -57,8 +58,8 @@ Examples (REMIX):
 
 Provider API Keys:
   highlights:          GOOGLE_API_KEY (Gemini analysis)
-  auto-shorts:         GOOGLE_API_KEY + OPENAI_API_KEY (optional captions)
-  animated-caption:    OPENAI_API_KEY (Whisper transcription)
+  auto-shorts:         GOOGLE_API_KEY, or ELEVENLABS_API_KEY/OPENAI_API_KEY (transcription) + ANTHROPIC_API_KEY
+  animated-caption:    ELEVENLABS_API_KEY (Scribe) or OPENAI_API_KEY (Whisper)
 
 Cost tiers:
   highlights:          $   Low (~$0.05)
@@ -87,7 +88,7 @@ const ANIMATED_CAPTION_STYLES = [
 
 remixCommand
   .command("animated-caption")
-  .description("Add animated captions with word-by-word effects (Whisper + Remotion/ASS)")
+  .description("Add animated captions with word-by-word effects (Scribe or Whisper + Remotion/ASS)")
   .argument("<video>", "Video file path")
   .option("--style <preset>", "Style preset (default: highlight)", "highlight")
   .option("--highlight-color <color>", "Active word highlight color", "#FFFF00")
@@ -95,7 +96,8 @@ remixCommand
   .option("--position <pos>", "Caption position: top, center, bottom", "bottom")
   .option("--words-per-group <n>", "Words shown at once (default: auto 3-5)")
   .option("--max-chars <n>", "Max characters per group")
-  .option("-l, --language <lang>", "Whisper language hint")
+  .option("-l, --language <lang>", "Transcription language hint")
+  .option("--stt <provider>", STT_OPTION_HELP, "auto")
   .option("--fast", "Use ASS/FFmpeg only (no Remotion, forces ASS tier styles)")
   .option("-o, --output <path>", "Output file path")
   .option("--dry-run", "Preview parameters without executing")
@@ -115,7 +117,7 @@ Styles:
   karaoke-sweep        Color sweep across active word (ASS/FFmpeg, fast)
   typewriter           Words appear one by one (ASS/FFmpeg, fast)
 
-Required API Key: OPENAI_API_KEY (Whisper transcription)
+Required API Key: ELEVENLABS_API_KEY (Scribe) or OPENAI_API_KEY (Whisper); --stt picks one
 `
   )
   .action(async (videoPath: string, options) => {
@@ -155,6 +157,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
               maxChars: options.maxChars ? parseInt(options.maxChars) : "auto",
               language: options.language || "auto",
               fast: !!options.fast,
+              stt: sttOptionOrExit(options.stt),
             },
           },
         });
@@ -169,6 +172,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
       log(`  Mode:  ${chalk.bold(options.fast ? "ASS (fast)" : "Remotion")}`);
       log();
 
+      const stt = await requireSttProvider(sttOptionOrExit(options.stt));
       const spinner = createSpinner("Processing animated captions...").start();
 
       const result = await executeAnimatedCaption({
@@ -182,6 +186,7 @@ Required API Key: OPENAI_API_KEY (Whisper transcription)
         maxChars: options.maxChars ? parseInt(options.maxChars) : undefined,
         language: options.language,
         fast: options.fast,
+        stt: stt.provider,
       });
 
       if (!result.success) {

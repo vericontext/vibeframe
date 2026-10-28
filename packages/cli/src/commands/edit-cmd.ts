@@ -5,22 +5,22 @@
  *
  * Commands:
  *   edit silence-cut    - Remove silent segments (FFmpeg / Gemini)
- *   edit jump-cut       - Remove filler words (Whisper + FFmpeg)
- *   edit caption        - Add styled captions (Whisper + FFmpeg)
+ *   edit jump-cut       - Remove filler words (Scribe or Whisper + FFmpeg)
+ *   edit caption        - Add styled captions (Scribe or Whisper + FFmpeg)
  *   edit noise-reduce   - Audio/video noise removal (FFmpeg)
  *   edit fade           - Fade in/out effects (FFmpeg)
  *   edit translate-srt  - Translate SRT subtitles (Claude or OpenAI)
  *   edit grade          - Color grading (Claude + FFmpeg)
  *   edit text-overlay   - Simple static text overlays (FFmpeg drawtext)
  *   edit motion-overlay - Designed motion graphics overlays (Remotion/Lottie)
- *   edit speed-ramp     - Speed ramping (Whisper + Claude + FFmpeg)
+ *   edit speed-ramp     - Speed ramping (Scribe or Whisper + Claude + FFmpeg)
  *   edit reframe        - Reframe aspect ratio (Claude Vision + FFmpeg, or a free center crop)
  *   edit image          - Image editing (Gemini, OpenAI, or Grok)
  *   edit interpolate    - Frame interpolation / slow motion (FFmpeg)
  *   edit upscale        - Video upscaling (FFmpeg)
  *   edit fill-gaps      - Fill timeline gaps with AI video (Kling)
  *
- * @dependencies Whisper, Claude, Gemini, Kling, FFmpeg
+ * @dependencies ElevenLabs Scribe, Whisper, Claude, Gemini, Kling, FFmpeg
  */
 
 import { Command, Option } from "commander";
@@ -42,6 +42,7 @@ import { executeImageEdit } from "./ai-image.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 import { executeGrade, GRADE_PRESETS } from "./_shared/edit/grade.js";
 import { executeSpeedRamp } from "./_shared/edit/speed-ramp.js";
+import { STT_OPTION_HELP, requireSttProvider, sttOptionOrExit } from "./_shared/transcription.js";
 import { executeReframe, REFRAME_FOCUS_MODES, type ReframeFocus } from "./_shared/edit/reframe.js";
 import { executeUpscale } from "./_shared/edit/upscale.js";
 import { executeInterpolate, INTERPOLATE_FACTORS } from "./_shared/edit/interpolate.js";
@@ -68,7 +69,7 @@ Examples:
 API Keys (varies by subcommand):
   No key needed       silence-cut, noise-reduce, fade, interpolate, text-overlay,
                       upscale, grade --preset, reframe --focus center
-  OPENAI_API_KEY      caption, jump-cut (Whisper transcription)
+  ELEVENLABS_API_KEY or OPENAI_API_KEY  caption, jump-cut, speed-ramp (transcription; --stt picks)
   ANTHROPIC_API_KEY   grade --style, speed-ramp, reframe (Claude analysis)
   GOOGLE_API_KEY      image editing (Gemini, default)
 
@@ -292,7 +293,7 @@ editCommand
 
 editCommand
   .command("speed-ramp")
-  .description("Apply content-aware speed ramping (Whisper + Claude + FFmpeg)")
+  .description("Apply content-aware speed ramping (Scribe or Whisper + Claude + FFmpeg)")
   .argument("<video>", "Video file path")
   .option("-o, --output <path>", "Output video file path")
   .option("--style <style>", "Style: dramatic, smooth, action", "dramatic")
@@ -300,12 +301,14 @@ editCommand
   .option("--max-speed <factor>", "Maximum speed factor", "4.0")
   .option("--analyze-only", "Show keyframes without applying")
   .option("-l, --language <lang>", "Language code for transcription")
+  .option("--stt <provider>", STT_OPTION_HELP, "auto")
   .option("-k, --api-key <key>", "Anthropic API key (or set ANTHROPIC_API_KEY env)")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
     try {
       if (options.output) validateOutputPath(options.output);
+      const sttName = sttOptionOrExit(options.stt);
 
       if (options.dryRun) {
         outputSuccess({
@@ -319,6 +322,7 @@ editCommand
               minSpeed: parseFloat(options.minSpeed),
               maxSpeed: parseFloat(options.maxSpeed),
               analyzeOnly: options.analyzeOnly || false,
+              stt: sttName,
             },
           },
         });
@@ -327,7 +331,7 @@ editCommand
 
       // Resolve both keys up front (interactively in a terminal) so a missing
       // key fails fast with API_KEY_MISSING.
-      const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
+      const stt = await requireSttProvider(sttName);
       const apiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.apiKey);
 
       const spinner = createSpinner("Checking audio...").start();
@@ -340,7 +344,8 @@ editCommand
         analyzeOnly: options.analyzeOnly,
         language: options.language,
         apiKey,
-        openaiApiKey,
+        stt: stt.provider,
+        sttApiKey: stt.apiKey,
         onProgress: (message) => { spinner.text = message; },
       });
       if (!result.success) exitWithError(result.failure);
@@ -739,7 +744,7 @@ applyTiers(editCommand, {
   "text-overlay": "free",
   "interpolate": "free",
   "upscale": "free",
-  // low — Whisper / single LLM call
+  // low - transcription / single LLM call
   "silence-cut": "low",
   "caption": "low",
   "translate-srt": "low",

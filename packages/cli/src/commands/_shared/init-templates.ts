@@ -133,7 +133,7 @@ starting from a media file and wants it transformed, it's REMIX.
 | Remove silence | \`vibe edit silence-cut in.mp4 -o out.mp4\` |
 | Add static captions | \`vibe edit caption in.mp4 -o out.mp4\` |
 | Translate audio (transcribe → TTS) | \`vibe audio dub file.mp4 -t ko\` |
-| Transcribe (Whisper, word-level) | \`vibe audio transcribe file.mp4 --granularity word\` |
+| Transcribe (Scribe or Whisper) | \`vibe audio transcribe file.mp4 -o transcript.srt\` |
 | Inspect media with Gemini | \`vibe inspect media file.mp4 "summarise" --json\` |
 
 ### Compose pipelines (Video as Code)

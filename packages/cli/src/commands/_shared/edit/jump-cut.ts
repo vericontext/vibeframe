@@ -1,7 +1,8 @@
 /**
  * @module _shared/edit/jump-cut
  * @description `executeJumpCut` — remove filler words from video using
- * Whisper word-level timestamps + FFmpeg stream-copy concat. Also exports
+ * word-level timestamps (ElevenLabs Scribe or OpenAI Whisper) + FFmpeg
+ * stream-copy concat. Also exports
  * `transcribeWithWords` and `detectFillerRanges` (used by other modules
  * via `ai-edit.ts` re-export). Split out of `ai-edit.ts` in v0.69 (Plan G
  * Phase 3).
@@ -10,10 +11,9 @@
 import { existsSync } from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { requireConfiguredApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
-import { transcribeAudioFile } from "../transcription.js";
+import { resolveSttProvider, transcribeAudioFile, type SttResolution } from "../transcription.js";
 
 /** A detected filler word with its time range. */
 export interface FillerWord {
@@ -35,11 +35,13 @@ export interface JumpCutOptions {
   fillers?: string[];
   /** Padding in seconds around filler cuts (default: 0.05) */
   padding?: number;
-  /** Language code for Whisper transcription */
+  /** Language code for transcription */
   language?: string;
   /** If true, only analyze without producing output video */
   analyzeOnly?: boolean;
-  /** Override OpenAI API key */
+  /** Transcription provider: auto (default), elevenlabs, openai */
+  stt?: string;
+  /** Key for the transcription provider (with auto, an OpenAI key) */
   apiKey?: string;
 }
 
@@ -68,17 +70,17 @@ export const DEFAULT_FILLER_WORDS = [
 ];
 
 /**
- * Transcribe audio with word-level timestamps (Whisper through the
- * transcription contract) for filler detection. Throws on failure.
+ * Transcribe audio with word-level timestamps (through the transcription
+ * contract) for filler detection. Throws on failure.
  */
 export async function transcribeWithWords(
   audioPath: string,
-  apiKey: string,
+  stt: SttResolution,
   language?: string,
 ): Promise<{ words: { word: string; start: number; end: number }[]; text: string }> {
-  const result = await transcribeAudioFile(audioPath, { apiKey, language, granularity: "word" });
+  const result = await transcribeAudioFile(audioPath, { ...stt, language, granularity: "word" });
   if (result.status !== "completed") {
-    throw new Error(`Whisper transcription failed: ${result.error ?? "unknown error"}`);
+    throw new Error(`Transcription failed: ${result.error ?? "unknown error"}`);
   }
   return {
     words: (result.words ?? []).map((w) => ({ word: w.text, start: w.start, end: w.end })),
@@ -122,9 +124,9 @@ export function detectFillerRanges(
 }
 
 /**
- * Remove filler words from a video using Whisper word-level timestamps + FFmpeg concat.
+ * Remove filler words from a video using word-level timestamps + FFmpeg concat.
  *
- * Pipeline: extract audio -> Whisper transcription (word-level) -> detect fillers ->
+ * Pipeline: extract audio -> transcription (word-level) -> detect fillers ->
  * invert to keep-segments -> FFmpeg stream-copy concat.
  */
 export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutResult> {
@@ -135,6 +137,7 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
     padding = 0.05,
     language,
     analyzeOnly = false,
+    stt: sttName,
     apiKey,
   } = options;
 
@@ -151,7 +154,7 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
   }
 
   // A missing key throws ApiKeyError (API_KEY_MISSING) before any work.
-  const openaiKey = await requireConfiguredApiKey("OPENAI_API_KEY", "OpenAI", apiKey);
+  const stt = await resolveSttProvider(sttName, { apiKey });
 
   try {
     const tmpDir = `/tmp/vibe_jumpcut_${Date.now()}`;
@@ -170,7 +173,7 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
       );
 
       // Step 2: Transcribe with word-level timestamps
-      const { words } = await transcribeWithWords(audioPath, openaiKey, language);
+      const { words } = await transcribeWithWords(audioPath, stt, language);
 
       if (words.length === 0) {
         return { success: false, error: "No words detected in audio" };

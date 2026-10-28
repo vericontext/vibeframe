@@ -230,7 +230,7 @@ Format: ${args.format || "srt"}
 
 Steps:
 1. Extract audio from the video
-2. Use Whisper transcription (vibe ai transcribe command)
+2. Transcribe the audio (vibe audio transcribe: ElevenLabs Scribe, or OpenAI Whisper)
 3. Format output as ${args.format || "SRT"} subtitles
 4. Optionally add as text overlay clips
 

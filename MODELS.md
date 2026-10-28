@@ -91,7 +91,8 @@ Prices are upper-bound list prices for estimates, not metered billing.
 
 | Provider | Model | ID | Aliases | Status | Price | Notes |
 |---|---|---|---|---|---|---|
-| openai | **Whisper** (default) | `whisper-1` |  | Deprecated, shuts down 2027-02-26 |  | Only OpenAI model with word timestamps |
+| elevenlabs | **ElevenLabs Scribe v2** (default) | `scribe_v2` | `scribe` | GA | $0.22 / hour | Word timestamps; first choice of `--stt auto` when ELEVENLABS_API_KEY is set |
+| openai | **Whisper** (default) | `whisper-1` |  | Deprecated, shuts down 2027-02-26; use `--stt elevenlabs` (Scribe v2) |  | Only OpenAI model with word timestamps |
 
 <!-- END GENERATED: model catalog -->
 
@@ -214,10 +215,10 @@ Recognizable real people in uploaded images are not supported, so it is no fallb
 
 | Provider | Capability | Env Key | Notes |
 |----------|------------|---------|-------|
-| ElevenLabs | TTS, SFX, Music, Voice Clone | `ELEVENLABS_API_KEY` | TTS: eleven_v3. SFX: 0.5-30s. Music: 3s-10min, model music_v2_5 (48 kHz / 192 kbps MP3) |
+| ElevenLabs | TTS, SFX, Music, Voice Clone, Transcription | `ELEVENLABS_API_KEY` | TTS: eleven_v3. SFX: 0.5-30s. Music: 3s-10min, model music_v2_5 (48 kHz / 192 kbps MP3). Transcription: Scribe v2 with word timestamps, first choice of `--stt auto` |
 | OpenAI TTS | TTS | `OPENAI_API_KEY` | gpt-4o-mini-tts (~$0.015/min of audio); voices incl. marin, alloy, nova |
 | Kokoro | TTS (local, free) | - | Kokoro-82M (Apache 2.0); ~90MB model on first use; bundled in the Desktop extension. English voices only. Long narration is synthesised in sentence chunks |
-| Whisper | Transcription | `OPENAI_API_KEY` | OpenAI API |
+| Whisper | Transcription | `OPENAI_API_KEY` | OpenAI API; `whisper-1` shuts down 2027-02-26. Used by `--stt auto` when no ElevenLabs key is set |
 | Replicate | Music generation | `REPLICATE_API_TOKEN` | MusicGen, max 30s. Weights are CC-BY-NC: not for commercial use |
 
 ---
@@ -234,7 +235,7 @@ export GOOGLE_API_KEY="AIza..."       # Gemini (text, image, Omni video)
 export XAI_API_KEY="xai-..."          # xAI Grok
 
 # Media Providers
-export ELEVENLABS_API_KEY="..."       # TTS, SFX
+export ELEVENLABS_API_KEY="..."       # TTS, SFX, Scribe transcription
 export RUNWAY_API_SECRET="..."        # Runway Gen-4 Turbo
 export KLING_API_KEY="..."            # Kling v2.x/v3
 export REPLICATE_API_TOKEN="..."      # Replicate (music)

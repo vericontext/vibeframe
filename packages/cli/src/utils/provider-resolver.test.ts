@@ -55,6 +55,13 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
     ]);
   });
 
+  it("getProvidersFor('transcription') puts ElevenLabs Scribe before OpenAI Whisper", () => {
+    expect(getProvidersFor("transcription")).toEqual([
+      { name: "elevenlabs", envVar: "ELEVENLABS_API_KEY", label: "ElevenLabs" },
+      { name: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
+    ]);
+  });
+
   it("getProviderEnvVars() matches schema PROVIDER_ENV_VARS", () => {
     // Same set + same envvar mapping. Insertion order is preserved by
     // defineApiKey calls in api-keys.ts; the schema constant relied on the
@@ -120,6 +127,9 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
         "audio list-voices",
         "audio clone-voice",
         "audio dub",
+        "audio transcribe",
+        "edit caption",
+        "edit jump-cut",
       ],
       KLING_API_KEY: ["generate video -p kling"],
       RUNWAY_API_SECRET: ["generate video -p runway"],

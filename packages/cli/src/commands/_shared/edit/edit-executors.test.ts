@@ -35,7 +35,10 @@ vi.mock("@vibeframe/ai-providers", async (importOriginal) => ({
   },
 }));
 
-vi.mock("../transcription.js", () => ({ transcribeAudioFile: vi.fn() }));
+vi.mock("../transcription.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../transcription.js")>()),
+  transcribeAudioFile: vi.fn(),
+}));
 
 const { transcribeAudioFile } = await import("../transcription.js");
 const { executeGrade } = await import("./grade.js");
@@ -214,7 +217,7 @@ describe.skipIf(!hasFfmpeg)("executeReframe", () => {
 
 describe.skipIf(!hasFfmpeg)("executeSpeedRamp", () => {
   it("a video without audio is a usage error, before any transcription", async () => {
-    const result = await executeSpeedRamp({ videoPath: silent, apiKey: "test-key", openaiApiKey: "test-key" });
+    const result = await executeSpeedRamp({ videoPath: silent, apiKey: "test-key", stt: "openai", sttApiKey: "test-key" });
     expect(result).toMatchObject({ success: false, failure: { code: "USAGE_ERROR" } });
     expect(result.success ? "" : result.error).toContain("no audio stream");
     expect(transcribeAudioFile).not.toHaveBeenCalled();
@@ -223,7 +226,7 @@ describe.skipIf(!hasFfmpeg)("executeSpeedRamp", () => {
 
   it("a failed transcription keeps its provider error kind", async () => {
     vi.mocked(transcribeAudioFile).mockResolvedValue({ id: "", status: "failed", error: "quota exceeded", errorKind: "quota" });
-    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", openaiApiKey: "test-key" });
+    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", stt: "openai", sttApiKey: "test-key" });
     expect(result).toMatchObject({ success: false, failure: { errorKind: "quota" } });
   });
 
@@ -240,7 +243,7 @@ describe.skipIf(!hasFfmpeg)("executeSpeedRamp", () => {
       ],
     });
     const output = join(dir, "ramped.mp4");
-    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", openaiApiKey: "test-key", output });
+    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", stt: "openai", sttApiKey: "test-key", output });
 
     expect(result).toMatchObject({ success: true, outputPath: output, avgSpeed: 2 });
     const audio = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", output], { encoding: "utf-8" });
@@ -254,7 +257,7 @@ describe.skipIf(!hasFfmpeg)("executeSpeedRamp", () => {
       segments: [{ id: 0, startTime: 0, endTime: 4, text: "hello", confidence: 1 }],
     } as never);
     claude.analyzeForSpeedRamp.mockResolvedValue({ keyframes: [] });
-    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", openaiApiKey: "test-key", analyzeOnly: true });
+    const result = await executeSpeedRamp({ videoPath: withAudio, apiKey: "test-key", stt: "openai", sttApiKey: "test-key", analyzeOnly: true });
     expect(result).toMatchObject({ success: false, failure: { code: "API_ERROR", retryable: true } });
   });
 });

@@ -107,12 +107,13 @@ drives it frame by frame from a runtime copied into `assets/vendor/dotlottie/`
 ## Narration Word-Sync
 
 During `vibe build`, generated narration is transcribed at the word level
-(Whisper) to `assets/transcript-<beat>.json` whenever narration exists and an
-OpenAI key is configured. Those word timings are passed into each beat's compose
+(ElevenLabs Scribe when `ELEVENLABS_API_KEY` is set, else OpenAI Whisper) to
+`assets/transcript-<beat>.json` whenever narration exists and one of those keys
+is configured. Those word timings are passed into each beat's compose
 prompt so captions / kinetic typography can be synced to speech.
 
 - On by default; pass `--skip-transcript` to opt out (no transcription cost).
-- No OpenAI key → silently skipped; narration still plays, just without
+- Neither key → silently skipped; narration still plays, just without
   word-level animation timing.
 - Timings are advisory and visual-only — the composer never adds audio/SFX from
   them. For long narration the prompt downgrades to coarse phrase-level anchors.

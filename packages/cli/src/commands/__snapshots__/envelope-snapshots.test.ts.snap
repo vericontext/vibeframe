@@ -149,6 +149,16 @@ exports[`CLI --describe schemas (drift detection) > vibe audio dub --describe 1`
         "description": "Source language code (default: auto-detect)",
         "type": "string",
       },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
+        "type": "string",
+      },
       "tts": {
         "default": "auto",
         "description": "TTS provider: auto (default), elevenlabs, openai, kokoro",
@@ -283,12 +293,12 @@ exports[`CLI --describe schemas (drift detection) > vibe audio list-voices --des
 exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --describe 1`] = `
 {
   "cost": "low",
-  "description": "Transcribe audio using Whisper",
+  "description": "Transcribe audio (ElevenLabs Scribe or OpenAI Whisper)",
   "name": "audio.transcribe",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "OpenAI API key (or set OPENAI_API_KEY env)",
+        "description": "API key for --provider (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY",
         "type": "string",
       },
       "audio": {
@@ -310,6 +320,16 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
       },
       "output": {
         "description": "Output file path",
+        "type": "string",
+      },
+      "provider": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
         "type": "string",
       },
     },
@@ -867,12 +887,12 @@ exports[`CLI --describe schemas (drift detection) > vibe doctor --describe 1`] =
 exports[`CLI --describe schemas (drift detection) > vibe edit caption --describe 1`] = `
 {
   "cost": "low",
-  "description": "Transcribe and burn styled captions onto video (Whisper + FFmpeg)",
+  "description": "Transcribe and burn styled captions onto video (Scribe or Whisper + FFmpeg)",
   "name": "edit.caption",
   "parameters": {
     "properties": {
       "apiKey": {
-        "description": "OpenAI API key (or set OPENAI_API_KEY env)",
+        "description": "API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY",
         "type": "string",
       },
       "color": {
@@ -903,6 +923,16 @@ exports[`CLI --describe schemas (drift detection) > vibe edit caption --describe
           "top",
           "center",
           "bottom",
+        ],
+        "type": "string",
+      },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
         ],
         "type": "string",
       },
@@ -1190,7 +1220,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit interpolate --desc
 exports[`CLI --describe schemas (drift detection) > vibe edit jump-cut --describe 1`] = `
 {
   "cost": "low",
-  "description": "Remove filler words (um, uh, like, etc.) from video using Whisper word-level timestamps",
+  "description": "Remove filler words (um, uh, like, etc.) from video using word-level timestamps (Scribe or Whisper)",
   "name": "edit.jump-cut",
   "parameters": {
     "properties": {
@@ -1199,7 +1229,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit jump-cut --describ
         "type": "boolean",
       },
       "apiKey": {
-        "description": "OpenAI API key (or set OPENAI_API_KEY env)",
+        "description": "API key for --stt (with auto, an OpenAI key); or set ELEVENLABS_API_KEY / OPENAI_API_KEY",
         "type": "string",
       },
       "dryRun": {
@@ -1222,6 +1252,16 @@ exports[`CLI --describe schemas (drift detection) > vibe edit jump-cut --describ
         "default": 0.05,
         "description": "Padding around cuts in seconds (default: 0.05)",
         "type": "number",
+      },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
+        "type": "string",
       },
       "video": {
         "description": "Video file path",
@@ -1504,7 +1544,7 @@ exports[`CLI --describe schemas (drift detection) > vibe edit silence-cut --desc
 exports[`CLI --describe schemas (drift detection) > vibe edit speed-ramp --describe 1`] = `
 {
   "cost": "low",
-  "description": "Apply content-aware speed ramping (Whisper + Claude + FFmpeg)",
+  "description": "Apply content-aware speed ramping (Scribe or Whisper + Claude + FFmpeg)",
   "name": "edit.speed-ramp",
   "parameters": {
     "properties": {
@@ -1536,6 +1576,16 @@ exports[`CLI --describe schemas (drift detection) > vibe edit speed-ramp --descr
       },
       "output": {
         "description": "Output video file path",
+        "type": "string",
+      },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
         "type": "string",
       },
       "style": {
@@ -2869,7 +2919,7 @@ exports[`CLI --describe schemas (drift detection) > vibe preview --describe 1`] 
 exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption --describe 1`] = `
 {
   "cost": "low",
-  "description": "Add animated captions with word-by-word effects (Whisper + Remotion/ASS)",
+  "description": "Add animated captions with word-by-word effects (Scribe or Whisper + Remotion/ASS)",
   "name": "remix.animated-caption",
   "parameters": {
     "properties": {
@@ -2891,7 +2941,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption 
         "type": "string",
       },
       "language": {
-        "description": "Whisper language hint",
+        "description": "Transcription language hint",
         "type": "string",
       },
       "maxChars": {
@@ -2909,6 +2959,16 @@ exports[`CLI --describe schemas (drift detection) > vibe remix animated-caption 
           "top",
           "center",
           "bottom",
+        ],
+        "type": "string",
+      },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
         ],
         "type": "string",
       },
@@ -2999,6 +3059,16 @@ exports[`CLI --describe schemas (drift detection) > vibe remix auto-shorts --des
         "description": "Output directory for multiple shorts",
         "type": "string",
       },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
+        "type": "string",
+      },
       "useGemini": {
         "description": "Use Gemini Video Understanding for enhanced visual+audio analysis",
         "type": "boolean",
@@ -3060,6 +3130,16 @@ exports[`CLI --describe schemas (drift detection) > vibe remix highlights --desc
       },
       "project": {
         "description": "Create project with highlight clips",
+        "type": "string",
+      },
+      "stt": {
+        "default": "auto",
+        "description": "Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai",
+        "enum": [
+          "auto",
+          "elevenlabs",
+          "openai",
+        ],
         "type": "string",
       },
       "threshold": {
@@ -3306,7 +3386,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "boolean",
       },
       "noTranscribe": {
-        "description": "Skip Whisper word-level transcribe step (no transcript-<id>.json emitted)",
+        "description": "Skip the word-level transcribe step (no transcript-<id>.json emitted)",
         "type": "boolean",
       },
       "project": {
@@ -3327,7 +3407,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "string",
       },
       "transcribeLanguage": {
-        "description": "BCP-47 language code passed to Whisper (e.g. en, ko)",
+        "description": "BCP-47 language code passed to transcription (e.g. en, ko)",
         "type": "string",
       },
       "tts": {

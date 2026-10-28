@@ -1,8 +1,8 @@
 /**
  * @module manifest/audio
  * @description Audio post-processing tools.
- *   audio_transcribe (Whisper), audio_isolate (ElevenLabs vocals isolation),
- *   audio_clone_voice (ElevenLabs IVC), audio_dub (Whisper + translation + any TTS),
+ *   audio_transcribe (Scribe or Whisper), audio_isolate (ElevenLabs vocals isolation),
+ *   audio_clone_voice (ElevenLabs IVC), audio_dub (transcription + translation + any TTS),
  *   audio_duck (FFmpeg sidechain).
  */
 
@@ -15,6 +15,7 @@ import {
   executeDub,
   executeDuck,
 } from "../../commands/ai-audio.js";
+import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 
 // ── audio_transcribe ────────────────────────────────────────────────────────
 
@@ -25,12 +26,13 @@ export const audioTranscribeTool = defineTool({
   title: "Transcribe Audio",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Transcribe audio using OpenAI Whisper. Outputs text, SRT, or VTT. Requires OPENAI_API_KEY.",
+    `Transcribe audio with ElevenLabs Scribe or OpenAI Whisper. Outputs text, SRT, or VTT. ${STT_KEYS_TEXT}; auto prefers Scribe.`,
   schema: z.object({
     audioPath: z.string().describe("Input audio file path"),
     language: z.string().optional().describe("Language code (e.g., en, ko)"),
     output: z.string().optional().describe("Output file path (format auto-detected from extension: .json, .srt, .vtt)"),
     format: z.string().optional().describe("Output format override: json, srt, vtt"),
+    provider: sttSchema,
   }),
   async execute(args) {
     const result = await executeTranscribe(args);
@@ -38,6 +40,7 @@ export const audioTranscribeTool = defineTool({
     return {
       success: true,
       data: {
+        provider: result.provider,
         text: result.text?.slice(0, 500),
         segmentCount: result.segments?.length,
         detectedLanguage: result.detectedLanguage,
@@ -114,13 +117,14 @@ export const audioDubTool = defineTool({
   title: "Dub Audio to Another Language",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Dub audio/video to another language: transcribe (Whisper), translate (Claude, or OpenAI without an Anthropic key), speak each line with a TTS provider, and place it at its original time. Requires OPENAI_API_KEY.",
+    `Dub audio/video to another language: transcribe (Scribe or Whisper), translate (Claude, or OpenAI without an Anthropic key), speak each line with a TTS provider, and place it at its original time. ${STT_KEYS_TEXT}.`,
   schema: z.object({
     mediaPath: z.string().describe("Input media file (video or audio)"),
     language: z.string().describe("Target language code (e.g., es, ko, ja)"),
     source: z.string().optional().describe("Source language code (default: auto-detect)"),
     voice: z.string().optional().describe("Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)"),
     tts: z.enum(["auto", "elevenlabs", "openai", "kokoro"]).optional().describe("TTS provider (default: auto)"),
+    stt: sttSchema,
     analyzeOnly: z.boolean().optional().describe("Only analyze timing, don't generate audio"),
     output: z.string().optional().describe("Output file path"),
   }),
