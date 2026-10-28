@@ -153,9 +153,42 @@ describe.skipIf(!hasFfmpeg)("executeReframe", () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.failure).toMatchObject({ code: "API_ERROR", retryable: true });
-    expect(result.error).toContain("no frame could be analyzed");
+    expect(result.error).toBe("Reframe analysis failed on frame 1/2: bad frame");
+    expect(claude.analyzeFrameForReframe).toHaveBeenCalledTimes(1);
     expect(existsSync(output)).toBe(false);
     expect(reframeTempDirs()).toEqual(before);
+  });
+
+  it("fails on the first frame that cannot be analyzed, without calling Claude for the rest", async () => {
+    // Before, a failed frame was skipped and the crop averaged over the rest,
+    // so the run reported success on a crop Claude never fully agreed to.
+    claude.analyzeFrameForReframe
+      .mockResolvedValueOnce({ cropX: 10, cropY: 0, cropWidth: 135, cropHeight: 240, confidence: 0.9, subjectDescription: "frame 1" })
+      .mockRejectedValueOnce(new ProviderError({ kind: "provider", provider: "claude", message: "claude returned no parseable reframe JSON" }))
+      .mockResolvedValue({ cropX: 30, cropY: 0, cropWidth: 135, cropHeight: 240, confidence: 0.9, subjectDescription: "later frame" });
+    const longer = join(dir, "six-seconds.mp4");
+    ffmpeg(["-f", "lavfi", "-i", "testsrc=size=320x240:rate=15:duration=6", "-c:v", "libx264", "-pix_fmt", "yuv420p", longer]);
+    const before = reframeTempDirs();
+    const output = join(dir, "partial.mp4");
+    const result = await executeReframe({ videoPath: longer, focus: "auto", apiKey: "test-key", output, frameDelayMs: 0 });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.failure).toMatchObject({ code: "API_ERROR", errorKind: "provider" });
+    expect(result.error).toContain("frame 2/3");
+    expect(result.error).toContain("no parseable reframe JSON");
+    expect(claude.analyzeFrameForReframe).toHaveBeenCalledTimes(2);
+    expect(existsSync(output)).toBe(false);
+    expect(reframeTempDirs()).toEqual(before);
+  });
+
+  it("fails when a frame analysis returns a non-finite position instead of dropping it", async () => {
+    claude.analyzeFrameForReframe.mockResolvedValue({ cropX: Number.NaN, cropY: 0, cropWidth: 135, cropHeight: 240, confidence: 0.9, subjectDescription: "?" });
+    const result = await executeReframe({ videoPath: withAudio, focus: "auto", apiKey: "test-key", analyzeOnly: true, frameDelayMs: 0 });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.failure).toMatchObject({ errorKind: "provider" });
+    expect(claude.analyzeFrameForReframe).toHaveBeenCalledTimes(1);
   });
 
   it("carries the provider error kind when every frame fails on the provider", async () => {
