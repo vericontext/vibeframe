@@ -10,7 +10,7 @@
  */
 
 import { z } from "zod";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import {
   executeSilenceCut,
   executeCaption,
@@ -56,7 +56,7 @@ export const editSilenceCutTool = defineTool({
   }),
   async execute(args) {
     const result = await executeSilenceCut(args);
-    if (!result.success) return { success: false, error: result.error ?? "Silence cut failed" };
+    if (!result.success) return failedTool(result, "Silence cut failed");
     return {
       success: true,
       data: {
@@ -92,7 +92,7 @@ export const editCaptionTool = defineTool({
   }),
   async execute(args) {
     const result = await executeCaption(args);
-    if (!result.success) return { success: false, error: result.error ?? "Caption failed" };
+    if (!result.success) return failedTool(result, "Caption failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, srtPath: result.srtPath, segmentCount: result.segmentCount },
@@ -120,7 +120,7 @@ export const editFadeTool = defineTool({
   }),
   async execute(args) {
     const result = await executeFade(args);
-    if (!result.success) return { success: false, error: result.error ?? "Fade failed" };
+    if (!result.success) return failedTool(result, "Fade failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },
@@ -146,7 +146,7 @@ export const editNoiseReduceTool = defineTool({
   }),
   async execute(args) {
     const result = await executeNoiseReduce(args);
-    if (!result.success) return { success: false, error: result.error ?? "Noise reduce failed" };
+    if (!result.success) return failedTool(result, "Noise reduce failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },
@@ -175,7 +175,7 @@ export const editJumpCutTool = defineTool({
   }),
   async execute(args) {
     const result = await executeJumpCut(args);
-    if (!result.success) return { success: false, error: result.error ?? "Jump cut failed" };
+    if (!result.success) return failedTool(result, "Jump cut failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, fillerCount: result.fillerCount },
@@ -207,7 +207,7 @@ export const editTextOverlayTool = defineTool({
   }),
   async execute(args) {
     const result = await executeTextOverlay(args);
-    if (!result.success) return { success: false, error: result.error ?? "Text overlay failed" };
+    if (!result.success) return failedTool(result, "Text overlay failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },
@@ -246,7 +246,7 @@ export const editMotionOverlayTool = defineTool({
     const result = await executeMotionOverlay(args);
     if (!result.success) {
       const error = result.error ?? "Motion overlay failed";
-      return { success: false, error: result.suggestion ? `${error} ${result.suggestion}` : error };
+      return failedTool({ ...result, error: result.suggestion ? `${error} ${result.suggestion}` : error }, "Motion overlay failed");
     }
     return {
       success: true,
@@ -280,7 +280,7 @@ export const editTranslateSrtTool = defineTool({
   }),
   async execute(args) {
     const result = await executeTranslateSrt(args);
-    if (!result.success) return { success: false, error: result.error ?? "Translation failed" };
+    if (!result.success) return failedTool(result, "Translation failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, segmentCount: result.segmentCount, sourceLanguage: result.sourceLanguage, targetLanguage: result.targetLanguage },
@@ -308,7 +308,7 @@ export const editGradeTool = defineTool({
   }),
   async execute(args) {
     const result = await executeGrade(args);
-    if (!result.success) return { success: false, error: result.error ?? "Color grading failed" };
+    if (!result.success) return failedTool(result, "Color grading failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, style: result.style, description: result.description, ffmpegFilter: result.ffmpegFilter },
@@ -338,7 +338,7 @@ export const editSpeedRampTool = defineTool({
   }),
   async execute(args) {
     const result = await executeSpeedRamp(args);
-    if (!result.success) return { success: false, error: result.error ?? "Speed ramping failed" };
+    if (!result.success) return failedTool(result, "Speed ramping failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, keyframeCount: result.keyframes?.length, avgSpeed: result.avgSpeed },
@@ -367,7 +367,7 @@ export const editReframeTool = defineTool({
   }),
   async execute(args) {
     const result = await executeReframe({ ...args, focus: args.focus ?? "center" });
-    if (!result.success) return { success: false, error: result.error };
+    if (!result.success) return failedTool(result, "Reframe failed");
     return {
       success: true,
       data: {
@@ -402,7 +402,7 @@ export const editInterpolateTool = defineTool({
   }),
   async execute(args) {
     const result = await executeInterpolate(args);
-    if (!result.success) return { success: false, error: result.error ?? "Interpolation failed" };
+    if (!result.success) return failedTool(result, "Interpolation failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, originalFps: result.originalFps, targetFps: result.targetFps, factor: result.factor },
@@ -428,7 +428,7 @@ export const editUpscaleTool = defineTool({
   }),
   async execute(args) {
     const result = await executeUpscale(args);
-    if (!result.success) return { success: false, error: result.error ?? "Upscale failed" };
+    if (!result.success) return failedTool(result, "Upscale failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, originalRes: result.originalRes, targetRes: result.targetRes },
@@ -466,7 +466,7 @@ export const editAnimatedCaptionTool = defineTool({
       highlightColor: args.highlightColor ?? "#FFD700",
       position: args.position ?? "bottom",
     });
-    if (!result.success) return { success: false, error: result.error ?? "Animated caption failed" };
+    if (!result.success) return failedTool(result, "Animated caption failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, wordCount: result.wordCount, groupCount: result.groupCount },
@@ -496,7 +496,7 @@ export const editImageTool = defineTool({
   }),
   async execute(args) {
     const result = await executeImageEdit(args);
-    if (!result.success) return { success: false, error: result.error ?? "Image edit failed" };
+    if (!result.success) return failedTool(result, "Image edit failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, model: result.model },
@@ -535,7 +535,7 @@ export const editFillGapsTool = defineTool({
       ratio: args.ratio,
     });
     if (!result.success) {
-      return { success: false, error: result.error ?? "Fill gaps failed" };
+      return failedTool(result, "Fill gaps failed");
     }
     return {
       success: true,

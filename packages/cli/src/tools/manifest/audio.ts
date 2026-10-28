@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import {
   executeTranscribe,
   executeIsolate,
@@ -34,7 +34,7 @@ export const audioTranscribeTool = defineTool({
   }),
   async execute(args) {
     const result = await executeTranscribe(args);
-    if (!result.success) return { success: false, error: result.error ?? "Transcription failed" };
+    if (!result.success) return failedTool(result, "Transcription failed");
     return {
       success: true,
       data: {
@@ -67,7 +67,7 @@ export const audioIsolateTool = defineTool({
   }),
   async execute(args) {
     const result = await executeIsolate(args);
-    if (!result.success) return { success: false, error: result.error ?? "Isolation failed" };
+    if (!result.success) return failedTool(result, "Isolation failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },
@@ -96,7 +96,7 @@ export const audioVoiceCloneTool = defineTool({
   }),
   async execute(args) {
     const result = await executeVoiceClone(args);
-    if (!result.success) return { success: false, error: result.error ?? "Voice cloning failed" };
+    if (!result.success) return failedTool(result, "Voice cloning failed");
     return {
       success: true,
       data: { voiceId: result.voiceId, name: result.name },
@@ -126,7 +126,7 @@ export const audioDubTool = defineTool({
   }),
   async execute(args) {
     const result = await executeDub(args);
-    if (!result.success) return { success: false, error: result.error ?? "Dubbing failed" };
+    if (!result.success) return failedTool(result, "Dubbing failed");
     return {
       success: true,
       data: {
@@ -161,7 +161,7 @@ export const audioDuckTool = defineTool({
   }),
   async execute(args) {
     const result = await executeDuck(args);
-    if (!result.success) return { success: false, error: result.error ?? "Ducking failed" };
+    if (!result.success) return failedTool(result, "Ducking failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },

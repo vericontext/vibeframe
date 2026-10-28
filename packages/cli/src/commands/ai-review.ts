@@ -18,6 +18,7 @@ import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers"
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe } from "../utils/exec-safe.js";
 import type { VideoReviewFeedback } from "./ai-edit.js";
+import { executorFailure, notFoundError, providerFailure, type StructuredError } from "./output.js";
 
 /** Options for {@link executeReview}. */
 export interface ReviewOptions {
@@ -51,6 +52,8 @@ export interface ReviewResult {
   outputPath?: string;
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 function parseReviewFeedback(response: string): VideoReviewFeedback | null {
@@ -98,7 +101,7 @@ export async function executeReview(options: ReviewOptions): Promise<ReviewResul
 
   const absVideoPath = resolve(process.cwd(), videoPath);
   if (!existsSync(absVideoPath)) {
-    return { success: false, error: `Video not found: ${absVideoPath}` };
+    return executorFailure(notFoundError(absVideoPath));
   }
 
   const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
@@ -154,16 +157,9 @@ Score each category 1-10. Prefer beatIssues when you can map a problem to a stor
     model: modelId,
   });
 
-  if (!analysisResult.success || !analysisResult.response) {
-    return { success: false, error: analysisResult.error || "Gemini video analysis failed" };
-  }
-
   const feedback = parseReviewFeedback(analysisResult.response);
   if (!feedback) {
-    return {
-      success: false,
-      error: "Failed to parse review feedback from Gemini response",
-    };
+    return executorFailure(providerFailure("Gemini returned review feedback that could not be parsed", "provider"));
   }
 
   const result: ReviewResult = {
@@ -215,13 +211,17 @@ Score each category 1-10. Prefer beatIssues when you can map a problem to a stor
 
   if (verify && result.outputPath) {
     const verifyVideoData = await readFile(result.outputPath);
-    const verifyResult = await gemini.analyzeVideo(
-      verifyVideoData,
-      'Rate this video overall quality on a scale of 1-10. Return ONLY a JSON object: {"score": <number>}',
-      { model: modelId }
-    );
+    // The fixes are already written; a failed verification score only leaves
+    // `verificationScore` unset.
+    const verifyResult = await gemini
+      .analyzeVideo(
+        verifyVideoData,
+        'Rate this video overall quality on a scale of 1-10. Return ONLY a JSON object: {"score": <number>}',
+        { model: modelId }
+      )
+      .catch(() => undefined);
 
-    if (verifyResult.success && verifyResult.response) {
+    if (verifyResult) {
       try {
         let cleaned = verifyResult.response.trim();
         if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);

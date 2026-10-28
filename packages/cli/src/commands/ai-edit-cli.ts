@@ -130,7 +130,7 @@ No API key needed (FFmpeg only). Use --use-gemini for smart detection (requires 
 
       if (!result.success) {
         spinner.fail("Silence cut failed");
-        exitWithError(apiError(result.error || "Silence cut failed", true));
+        exitWithError(result.failure ?? apiError(result.error || "Silence cut failed", true));
       }
 
       spinner.succeed(chalk.green("Silence detection complete"));

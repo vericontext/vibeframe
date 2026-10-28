@@ -1,10 +1,14 @@
 /**
  * Motion graphics generation helpers for GeminiProvider.
  *
- * Extracted methods: generateMotion, refineMotion
+ * Extracted methods: generateMotion, refineMotion. Both throw a
+ * `ProviderError` on every failure.
  */
 
+import type { RemotionComponent } from "../claude/ClaudeProvider.js";
+import { isText, parseJsonReply } from "../shared/json-reply.js";
 import { GEMINI_TEXT_MODEL_ALIASES, resolveGeminiTextModel } from "./gemini-models.js";
+import { geminiGenerateContent } from "./gemini-text.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,7 +16,7 @@ import { GEMINI_TEXT_MODEL_ALIASES, resolveGeminiTextModel } from "./gemini-mode
 
 /** Parameters needed to call the Gemini generateContent API. */
 export interface GeminiApiParams {
-  apiKey: string;
+  apiKey?: string;
   baseUrl: string;
 }
 
@@ -36,27 +40,47 @@ export interface GeminiMotionOptions {
   model?: string;
 }
 
-/** Result returned by generateMotion / refineMotion. */
-export interface GeminiMotionResult {
-  success: boolean;
-  component?: {
-    name: string;
-    code: string;
-    durationInFrames: number;
-    fps: number;
-    width: number;
-    height: number;
-    description: string;
-  };
-  error?: string;
-}
-
 /** Supported model aliases for motion graphic generation (same as the text aliases). */
 export const GEMINI_MOTION_MODELS = GEMINI_TEXT_MODEL_ALIASES;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/** Reply shape for motion generation and refinement. */
+const MOTION_COMPONENT_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    code: { type: "string" },
+    description: { type: "string" },
+  },
+  required: ["name", "code", "description"],
+};
+
+/** One motion call; a reply without component code is a `ProviderError`. */
+async function callMotion(
+  api: GeminiApiParams,
+  modelId: string,
+  system: string,
+  user: string,
+  task: string,
+): Promise<{ name: string; code: string; description?: string }> {
+  const { text } = await geminiGenerateContent(api, {
+    model: modelId,
+    system,
+    contents: [{ role: "user", parts: [{ text: user }] }],
+    maxOutputTokens: 16384,
+    jsonSchema: MOTION_COMPONENT_SCHEMA,
+  });
+  return parseJsonReply<{ name: string; code: string; description?: string }>(text, {
+    provider: "gemini",
+    label: "Gemini",
+    task,
+    shape: "object",
+    isValid: (value) => isText(value.name) && isText(value.code),
+  });
+}
 
 function buildMotionSystemPrompt(
   width: number,
@@ -235,7 +259,7 @@ export async function generateMotion(
   api: GeminiApiParams,
   description: string,
   options: GeminiMotionOptions = {},
-): Promise<GeminiMotionResult> {
+): Promise<RemotionComponent> {
   const width = options.width || 1920;
   const height = options.height || 1080;
   const fps = options.fps || 30;
@@ -273,78 +297,16 @@ UNIVERSAL RULES:
 - Both entrance AND exit animations
 - whiteSpace: "nowrap" on all text`;
 
-  try {
-    const response = await fetch(
-      `${api.baseUrl}/models/${modelId}:generateContent?key=${api.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            maxOutputTokens: 16384,
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const err = await response.text();
-      return {
-        success: false,
-        error: `Gemini API error (${response.status}): ${err}`,
-      };
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-      }>;
-    };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      return { success: false, error: "No response from Gemini" };
-    }
-
-    // Strip markdown code fences if present
-    const cleaned = text
-      .replace(/^```(?:json)?\s*/m, "")
-      .replace(/\s*```\s*$/m, "")
-      .trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return {
-        success: false,
-        error: "Could not parse JSON from Gemini response",
-      };
-    }
-
-    const result = JSON.parse(jsonMatch[0]) as {
-      name: string;
-      code: string;
-      description: string;
-    };
-
-    return {
-      success: true,
-      component: {
-        name: result.name,
-        code: result.code,
-        durationInFrames,
-        fps,
-        width,
-        height,
-        description: result.description,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  const result = await callMotion(api, modelId, systemPrompt, userPrompt, "motion graphic");
+  return {
+    name: result.name,
+    code: result.code,
+    durationInFrames,
+    fps,
+    width,
+    height,
+    description: result.description ?? "",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +318,7 @@ export async function refineMotion(
   existingCode: string,
   instructions: string,
   options: GeminiMotionOptions = {},
-): Promise<GeminiMotionResult> {
+): Promise<RemotionComponent> {
   const width = options.width || 1920;
   const height = options.height || 1080;
   const fps = options.fps || 30;
@@ -391,79 +353,20 @@ Respond with ONLY valid JSON (no markdown):
   "description": "One sentence describing the changes made"
 }`;
 
-  try {
-    const response = await fetch(
-      `${api.baseUrl}/models/${modelId}:generateContent?key=${api.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Here is the existing Remotion component code:\n\`\`\`tsx\n${existingCode}\n\`\`\`\n\nModification instructions: ${instructions}\n\nReturn the complete modified component as JSON.`,
-                },
-              ],
-            },
-          ],
-          generationConfig: { maxOutputTokens: 16384 },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const err = await response.text();
-      return {
-        success: false,
-        error: `Gemini API error (${response.status}): ${err}`,
-      };
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-      }>;
-    };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { success: false, error: "No response from Gemini" };
-
-    const cleaned = text
-      .replace(/^```(?:json)?\s*/m, "")
-      .replace(/\s*```\s*$/m, "")
-      .trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch)
-      return {
-        success: false,
-        error: "Could not parse JSON from Gemini response",
-      };
-
-    const result = JSON.parse(jsonMatch[0]) as {
-      name: string;
-      code: string;
-      description: string;
-    };
-
-    return {
-      success: true,
-      component: {
-        name: result.name,
-        code: result.code,
-        durationInFrames,
-        fps,
-        width,
-        height,
-        description: result.description,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  const result = await callMotion(
+    api,
+    modelId,
+    systemPrompt,
+    `Here is the existing Remotion component code:\n\`\`\`tsx\n${existingCode}\n\`\`\`\n\nModification instructions: ${instructions}\n\nReturn the complete modified component as JSON.`,
+    "motion refinement",
+  );
+  return {
+    name: result.name,
+    code: result.code,
+    durationInFrames,
+    fps,
+    width,
+    height,
+    description: result.description ?? "",
+  };
 }

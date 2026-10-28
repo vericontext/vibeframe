@@ -14,6 +14,7 @@ import { GeminiProvider, type EditSuggestion } from "@vibeframe/ai-providers";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { applySuggestion } from "./ai-helpers.js";
 import { requireConfiguredApiKey } from "../utils/api-key.js";
+import { executorFailure, failureFromError, type StructuredError } from "./output.js";
 
 export interface ExecuteSuggestEditOptions {
   projectPath: string;
@@ -36,6 +37,8 @@ export interface ExecuteSuggestEditResult {
   appliedSuggestion?: SuggestEditEntry;
   outputPath?: string;
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 export async function executeSuggestEdit(
@@ -74,9 +77,6 @@ export async function executeSuggestEdit(
 
     return { success: true, suggestions };
   } catch (error) {
-    return {
-      success: false,
-      error: `Suggest failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
+    return executorFailure(failureFromError(error, "Suggest failed"));
   }
 }

@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import { Project } from "../../engine/index.js";
 import { executeProjectList } from "../../commands/_shared/project-list.js";
 import { loadProject } from "./_project-io.js";
@@ -33,7 +33,7 @@ export const projectListTool = defineTool({
       workspaceDir: args.dir ? resolve(ctx.workingDirectory, args.dir) : ctx.workingDirectory,
     });
     if (!result.success) {
-      return { success: false, error: result.error ?? "project list failed" };
+      return failedTool(result, "project list failed");
     }
     return {
       success: true,

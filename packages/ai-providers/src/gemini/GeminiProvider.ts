@@ -11,16 +11,17 @@ import {
   refineMotion as refineMotionImpl,
   GEMINI_MOTION_MODELS,
 } from "./gemini-motion.js";
-import type { GeminiMotionOptions, GeminiMotionResult } from "./gemini-motion.js";
+import type { GeminiMotionOptions } from "./gemini-motion.js";
 import { GEMINI_DEFAULT_TEXT_MODEL, resolveGeminiTextModel } from "./gemini-models.js";
 import type { GeminiTextModel } from "./gemini-models.js";
-import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
+import type { RemotionComponent, StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
 import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
-import { geminiGenerateText } from "./gemini-text.js";
+import { geminiGenerateContent, geminiGenerateText, type GeminiPart } from "./gemini-text.js";
+import { isText, parseJsonReply } from "../shared/json-reply.js";
 import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
 /**
@@ -45,13 +46,11 @@ export interface GeminiVideoOptions {
  * Video analysis result
  */
 export interface GeminiVideoResult {
-  success: boolean;
-  response?: string;
-  model?: string;
+  response: string;
+  model: string;
   promptTokens?: number;
   responseTokens?: number;
   totalTokens?: number;
-  error?: string;
 }
 
 /**
@@ -67,15 +66,7 @@ export interface GeminiImageAnalysisOptions {
 /**
  * Image analysis result
  */
-export interface GeminiImageAnalysisResult {
-  success: boolean;
-  response?: string;
-  model?: string;
-  promptTokens?: number;
-  responseTokens?: number;
-  totalTokens?: number;
-  error?: string;
-}
+export type GeminiImageAnalysisResult = GeminiVideoResult;
 
 /** What each Gemini image model accepts, from Google's image-generation guide. */
 const GEMINI_IMAGE_CAPABILITIES: Record<string, { sizes: string[]; webSearch: boolean; imageSearch: boolean; maxInputs: number }> = {
@@ -220,276 +211,70 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
   }
 
   /**
-   * Video analysis options
+   * Ask Gemini about a video: inline bytes, a Files API URI, or a YouTube URL.
+   * Throws a `ProviderError` on every failure.
    */
   async analyzeVideo(
     videoData: Buffer | string,
     prompt: string,
     options: GeminiVideoOptions = {}
   ): Promise<GeminiVideoResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "Google API key not configured",
-      };
-    }
-
-    const modelId = resolveGeminiTextModel(options.model);
-
-    try {
-      // Build the video part
-      let videoPart: Record<string, unknown>;
-
-      if (typeof videoData === "string") {
-        // YouTube URL or file URI
-        if (videoData.includes("youtube.com") || videoData.includes("youtu.be")) {
-          videoPart = {
-            file_data: { file_uri: videoData },
-          };
-        } else {
-          // Assume it's a file URI from Files API
-          videoPart = {
-            file_data: { file_uri: videoData },
-          };
-        }
-      } else {
-        // Buffer - inline data
-        videoPart = {
-          inline_data: {
-            mime_type: options.mimeType || "video/mp4",
-            data: videoData.toString("base64"),
-          },
-        };
-      }
-
-      // Add video metadata if specified
-      const videoMetadata: Record<string, unknown> = {};
-      if (options.fps !== undefined) {
-        videoMetadata.fps = options.fps;
-      }
-      if (options.startOffset !== undefined) {
-        videoMetadata.start_offset = `${options.startOffset}s`;
-      }
-      if (options.endOffset !== undefined) {
-        videoMetadata.end_offset = `${options.endOffset}s`;
-      }
-
-      if (Object.keys(videoMetadata).length > 0) {
-        videoPart.video_metadata = videoMetadata;
-      }
-
-      // Build generation config
-      const generationConfig: Record<string, unknown> = {
-        maxOutputTokens: 8192,
-      };
-
-      if (options.lowResolution) {
-        generationConfig.mediaResolution = "MEDIA_RESOLUTION_LOW";
-      }
-
-      const payload = {
-        contents: [{
-          parts: [
-            videoPart,
-            { text: prompt },
-          ],
-        }],
-        generationConfig,
-      };
-
-      const response = await fetch(
-        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
-
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-        };
-      };
-
-      const parts = data.candidates?.[0]?.content?.parts;
-      if (!parts || parts.length === 0) {
-        return {
-          success: false,
-          error: "No response from model",
-        };
-      }
-
-      const textParts = parts.filter((p) => p.text).map((p) => p.text);
-      const responseText = textParts.join("\n");
-
-      return {
-        success: true,
-        response: responseText,
-        model: modelId,
-        promptTokens: data.usageMetadata?.promptTokenCount,
-        responseTokens: data.usageMetadata?.candidatesTokenCount,
-        totalTokens: data.usageMetadata?.totalTokenCount,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    const videoMetadata: Record<string, unknown> = {};
+    if (options.fps !== undefined) videoMetadata.fps = options.fps;
+    if (options.startOffset !== undefined) videoMetadata.start_offset = `${options.startOffset}s`;
+    if (options.endOffset !== undefined) videoMetadata.end_offset = `${options.endOffset}s`;
+    const metadata = Object.keys(videoMetadata).length > 0 ? { video_metadata: videoMetadata } : {};
+    const videoPart: GeminiPart = typeof videoData === "string"
+      ? { file_data: { file_uri: videoData }, ...metadata }
+      : { inline_data: { mime_type: options.mimeType || "video/mp4", data: videoData.toString("base64") }, ...metadata };
+    return this.analyze([videoPart, { text: prompt }], options);
   }
 
   /**
-   * Analyze image(s) using Gemini vision
-   * Supports single or multiple images for comparison analysis
+   * Ask Gemini about one image or several (for comparison).
+   * Throws a `ProviderError` on every failure.
    */
   async analyzeImage(
     imageData: Buffer | Buffer[],
     prompt: string,
     options: GeminiImageAnalysisOptions = {}
   ): Promise<GeminiImageAnalysisResult> {
-    if (!this.apiKey) {
-      return {
-        success: false,
-        error: "Google API key not configured",
-      };
-    }
-
-    const modelId = resolveGeminiTextModel(options.model);
-
-    try {
-      // Build image parts
-      const buffers = Array.isArray(imageData) ? imageData : [imageData];
-      const imageParts: Array<Record<string, unknown>> = buffers.map((buf) => ({
-        inline_data: {
-          mime_type: "image/png",
-          data: buf.toString("base64"),
-        },
-      }));
-
-      // Build generation config
-      const generationConfig: Record<string, unknown> = {
-        maxOutputTokens: 8192,
-      };
-
-      if (options.lowResolution) {
-        generationConfig.mediaResolution = "MEDIA_RESOLUTION_LOW";
-      }
-
-      const payload = {
-        contents: [{
-          parts: [
-            ...imageParts,
-            { text: prompt },
-          ],
-        }],
-        generationConfig,
-      };
-
-      const response = await fetch(
-        `${this.baseUrl}/models/${modelId}:generateContent?key=${this.apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage: string;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        return {
-          success: false,
-          error: `API error (${response.status}): ${errorMessage}`,
-        };
-      }
-
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-        };
-      };
-
-      const parts = data.candidates?.[0]?.content?.parts;
-      if (!parts || parts.length === 0) {
-        return {
-          success: false,
-          error: "No response from model",
-        };
-      }
-
-      const textParts = parts.filter((p) => p.text).map((p) => p.text);
-      const responseText = textParts.join("\n");
-
-      return {
-        success: true,
-        response: responseText,
-        model: modelId,
-        promptTokens: data.usageMetadata?.promptTokenCount,
-        responseTokens: data.usageMetadata?.candidatesTokenCount,
-        totalTokens: data.usageMetadata?.totalTokenCount,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
+    const buffers = Array.isArray(imageData) ? imageData : [imageData];
+    const imageParts: GeminiPart[] = buffers.map((buf) => ({
+      inline_data: { mime_type: "image/png", data: buf.toString("base64") },
+    }));
+    return this.analyze([...imageParts, { text: prompt }], options);
   }
 
+  private async analyze(
+    parts: GeminiPart[],
+    options: { model?: string; lowResolution?: boolean }
+  ): Promise<GeminiVideoResult> {
+    const result = await geminiGenerateContent({ apiKey: this.apiKey, baseUrl: this.baseUrl }, {
+      model: resolveGeminiTextModel(options.model),
+      contents: [{ role: "user", parts }],
+      maxOutputTokens: 8192,
+      lowResolution: options.lowResolution,
+    });
+    return {
+      response: result.text,
+      model: result.model,
+      promptTokens: result.promptTokens,
+      responseTokens: result.responseTokens,
+      totalTokens: result.totalTokens,
+    };
+  }
+
+  /** Suggest timeline edits for an instruction. Throws a `ProviderError` on every failure. */
   async autoEdit(clips: Clip[], instruction: string): Promise<EditSuggestion[]> {
-    if (!this.apiKey) {
-      return [];
-    }
+    const clipsInfo = clips.map((clip) => ({
+      id: clip.id,
+      startTime: clip.startTime,
+      duration: clip.duration,
+      effects: clip.effects?.map((e) => e.type) || [],
+    }));
 
-    try {
-      const clipsInfo = clips.map((clip) => ({
-        id: clip.id,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        effects: clip.effects?.map((e) => e.type) || [],
-      }));
-
-      const prompt = `You are a video editing assistant. Analyze the following clips and user instruction to suggest edits.
+    const prompt = `You are a video editing assistant. Analyze the following clips and user instruction to suggest edits.
 
 Clips:
 ${JSON.stringify(clipsInfo, null, 2)}
@@ -510,110 +295,33 @@ Example response:
 
 Respond with ONLY the JSON array, no other text.`;
 
-      const response = await fetch(
-        `${this.baseUrl}/models/${GEMINI_DEFAULT_TEXT_MODEL}:generateContent?key=${this.apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              maxOutputTokens: 1024,
-            },
-          }),
-        }
-      );
+    const { text } = await geminiGenerateContent({ apiKey: this.apiKey, baseUrl: this.baseUrl }, {
+      model: GEMINI_DEFAULT_TEXT_MODEL,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      maxOutputTokens: 8192,
+    });
+    const suggestions = parseJsonReply<Array<{
+      type: string;
+      description: string;
+      clipIds: string[];
+      params: Record<string, unknown>;
+      confidence: number;
+    }>>(text, {
+      provider: "gemini",
+      label: "Gemini",
+      task: "edit suggestion",
+      shape: "array",
+      isValid: (items) => items.every((s) => isText(s?.type) && Array.isArray(s.clipIds)),
+    });
 
-      if (!response.ok) {
-        const error = await response.text();
-        console.error("Gemini API error:", error);
-        return this.fallbackAutoEdit(clips, instruction);
-      }
-
-      const data = await response.json() as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-      };
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        return this.fallbackAutoEdit(clips, instruction);
-      }
-
-      // Extract JSON from response (handle markdown code blocks)
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        return this.fallbackAutoEdit(clips, instruction);
-      }
-
-      const suggestions = JSON.parse(jsonMatch[0]) as Array<{
-        type: string;
-        description: string;
-        clipIds: string[];
-        params: Record<string, unknown>;
-        confidence: number;
-      }>;
-
-      return suggestions.map((s) => ({
-        id: crypto.randomUUID(),
-        type: s.type as EditSuggestion["type"],
-        description: s.description,
-        clipIds: s.clipIds,
-        params: s.params,
-        confidence: s.confidence,
-      }));
-    } catch (error) {
-      console.error("Gemini autoEdit error:", error);
-      return this.fallbackAutoEdit(clips, instruction);
-    }
-  }
-
-  /**
-   * Fallback to simple pattern matching when API fails
-   */
-  private fallbackAutoEdit(clips: Clip[], instruction: string): EditSuggestion[] {
-    const suggestions: EditSuggestion[] = [];
-    const lowerInstruction = instruction.toLowerCase();
-
-    if (lowerInstruction.includes("trim") || lowerInstruction.includes("shorten")) {
-      const timeMatch = lowerInstruction.match(/(\d+)\s*(s|sec|seconds?)/);
-      const duration = timeMatch ? parseInt(timeMatch[1]) : 3;
-
-      clips.forEach((clip) => {
-        suggestions.push({
-          id: crypto.randomUUID(),
-          type: "trim",
-          description: `Trim clip to ${duration} seconds`,
-          clipIds: [clip.id],
-          params: { newDuration: duration },
-          confidence: 0.8,
-        });
-      });
-    }
-
-    if (lowerInstruction.includes("fade")) {
-      const isFadeOut = lowerInstruction.includes("out");
-      clips.forEach((clip) => {
-        suggestions.push({
-          id: crypto.randomUUID(),
-          type: "add-effect",
-          description: `Add fade ${isFadeOut ? "out" : "in"} effect`,
-          clipIds: [clip.id],
-          params: {
-            effectType: isFadeOut ? "fadeOut" : "fadeIn",
-            duration: 1,
-          },
-          confidence: 0.9,
-        });
-      });
-    }
-
-    return suggestions;
+    return suggestions.map((s) => ({
+      id: crypto.randomUUID(),
+      type: s.type as EditSuggestion["type"],
+      description: s.description,
+      clipIds: s.clipIds,
+      params: s.params ?? {},
+      confidence: s.confidence,
+    }));
   }
 
   /**
@@ -632,10 +340,7 @@ Respond with ONLY the JSON array, no other text.`;
   async generateMotion(
     description: string,
     options: GeminiMotionOptions = {}
-  ): Promise<GeminiMotionResult> {
-    if (!this.apiKey) {
-      return { success: false, error: "Google API key not configured" };
-    }
+  ): Promise<RemotionComponent> {
     return generateMotionImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, description, options);
   }
 
@@ -646,10 +351,7 @@ Respond with ONLY the JSON array, no other text.`;
     existingCode: string,
     instructions: string,
     options: GeminiMotionOptions = {}
-  ): Promise<GeminiMotionResult> {
-    if (!this.apiKey) {
-      return { success: false, error: "Google API key not configured" };
-    }
+  ): Promise<RemotionComponent> {
     return refineMotionImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, existingCode, instructions, options);
   }
 
@@ -662,7 +364,6 @@ Respond with ONLY the JSON array, no other text.`;
     targetDuration?: number,
     options?: { creativity?: "low" | "high" }
   ): Promise<StoryboardSegment[]> {
-    if (!this.apiKey) return [];
     return analyzeContentImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, content, targetDuration, options);
   }
 }

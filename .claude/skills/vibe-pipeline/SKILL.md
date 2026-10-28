@@ -102,6 +102,9 @@ or MCP tool. If unsure, read the executor source. There is no public
 `vibe run` refuses an unknown action before any step runs (exit 2). A run
 with a failed step exits 1 with the per-step report in the error's `data`;
 fix the step and rerun with `--resume`.
+A failed step carries `errorCode` (`AUTH_ERROR`, `API_ERROR`, `NOT_FOUND`, ...)
+and, for a provider failure, `errorKind` (`auth`, `quota`, `rate-limit`, ...):
+fix the key for `auth`, wait for `rate-limit`, and retry `provider`/`network`.
 
 ## Running
 

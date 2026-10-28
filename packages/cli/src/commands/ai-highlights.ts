@@ -28,7 +28,7 @@ import { Project } from "../engine/index.js";
 import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { failureFromError, spinner as createSpinner, exitWithError, outputSuccess, notFoundError, apiError, generalError } from "./output.js";
+import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { transcribeAudioFile } from "./_shared/transcription.js";
 
@@ -125,6 +125,12 @@ export interface HighlightsExtractResult {
   projectPath?: string;
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
+}
+
+function highlightsFailure(failure: StructuredError): HighlightsExtractResult {
+  return { ...executorFailure(failure), highlights: [], totalDuration: 0, totalHighlightDuration: 0 };
 }
 
 /**
@@ -143,7 +149,7 @@ export async function executeHighlights(
   try {
     const absPath = resolve(process.cwd(), options.media);
     if (!existsSync(absPath)) {
-      return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: `File not found: ${absPath}` };
+      return highlightsFailure(notFoundError(absPath));
     }
 
     const ext = extname(absPath).toLowerCase();
@@ -207,10 +213,6 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         lowResolution: options.lowRes,
       });
 
-      if (!result.success || !result.response) {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: `Gemini analysis failed: ${result.error}` };
-      }
-
       try {
         let jsonStr = result.response;
         const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -240,7 +242,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           }));
         }
       } catch {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "Failed to parse Gemini response" };
+        return highlightsFailure(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
       }
     } else {
       const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
@@ -251,7 +253,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
       if (isVideo) {
         if (!commandExists("ffmpeg")) {
-          return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: "FFmpeg not found" };
+          return highlightsFailure(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
         }
 
         tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
@@ -271,7 +273,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
       }
 
       if (transcriptResult.status === "failed" || !transcriptResult.segments) {
-        return { success: false, highlights: [], totalDuration: 0, totalHighlightDuration: 0, error: `Transcription failed: ${transcriptResult.error}` };
+        return highlightsFailure(providerFailure(`Transcription failed: ${transcriptResult.error}`, transcriptResult.errorKind));
       }
 
       if (transcriptResult.segments.length > 0) {
@@ -350,13 +352,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
   } catch (error) {
     // A missing key is not a highlight failure; let the caller report it.
     if (error instanceof ApiKeyError) throw error;
-    return {
-      success: false,
-      highlights: [],
-      totalDuration: 0,
-      totalHighlightDuration: 0,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return highlightsFailure(failureFromError(error, "Highlight extraction failed"));
   }
 }
 
@@ -409,6 +405,12 @@ export interface AutoShortsResult {
   }>;
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
+}
+
+function autoShortsFailure(failure: StructuredError): AutoShortsResult {
+  return { ...executorFailure(failure), shorts: [] };
 }
 
 /**
@@ -425,12 +427,12 @@ export async function executeAutoShorts(
 ): Promise<AutoShortsResult> {
   try {
     if (!commandExists("ffmpeg")) {
-      return { success: false, shorts: [], error: "FFmpeg not found" };
+      return autoShortsFailure(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
     }
 
     const absPath = resolve(process.cwd(), options.video);
     if (!existsSync(absPath)) {
-      return { success: false, shorts: [], error: `File not found: ${absPath}` };
+      return autoShortsFailure(notFoundError(absPath));
     }
 
     const targetDuration = options.duration ?? 60;
@@ -486,10 +488,6 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         lowResolution: options.lowRes,
       });
 
-      if (!result.success || !result.response) {
-        return { success: false, shorts: [], error: `Gemini analysis failed: ${result.error}` };
-      }
-
       try {
         let jsonStr = result.response;
         const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -518,7 +516,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
           }));
         }
       } catch {
-        return { success: false, shorts: [], error: "Failed to parse Gemini response" };
+        return autoShortsFailure(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
       }
     } else {
       const openaiApiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI");
@@ -534,8 +532,11 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         await unlinkFile(tempAudio);
       } catch { /* ignore */ }
 
+      if (transcript.status === "failed") {
+        return autoShortsFailure(providerFailure(`Transcription failed: ${transcript.error}`, transcript.errorKind));
+      }
       if (!transcript.segments || transcript.segments.length === 0) {
-        return { success: false, shorts: [], error: "No transcript found" };
+        return autoShortsFailure(generalError("No speech found to pick shorts from", "Try --use-gemini for visual analysis."));
       }
 
       const claude = new ClaudeProvider();
@@ -549,7 +550,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
     }
 
     if (highlights.length === 0) {
-      return { success: false, shorts: [], error: "No highlights found" };
+      return autoShortsFailure(generalError("No highlights found"));
     }
 
     highlights.sort((a, b) => b.confidence - a.confidence);
@@ -632,11 +633,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
   } catch (error) {
     // A missing key is not an auto-shorts failure; let the caller report it.
     if (error instanceof ApiKeyError) throw error;
-    return {
-      success: false,
-      shorts: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return autoShortsFailure(failureFromError(error, "Auto shorts failed"));
   }
 }
 
@@ -771,11 +768,6 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             lowResolution: options.lowRes,
           });
 
-          if (!result.success || !result.response) {
-            geminiSpinner.fail("Gemini analysis failed");
-            exitWithError(apiError(`Gemini analysis failed: ${result.error}`, true));
-          }
-
           try {
             let jsonStr = result.response;
             const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -805,7 +797,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
             }
           } catch {
             geminiSpinner.fail("Failed to parse Gemini response");
-            exitWithError(apiError("Failed to parse Gemini response", true));
+            exitWithError(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
           }
 
           geminiSpinner.succeed(chalk.green(`Found ${allHighlights.length} highlights via visual+audio analysis`));
@@ -862,7 +854,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
               const { unlink: unlinkFile } = await import("node:fs/promises");
               await unlinkFile(tempAudioPath).catch(() => {});
             }
-            exitWithError(apiError(`Transcription failed: ${transcriptResult.error}`, true));
+            exitWithError(providerFailure(`Transcription failed: ${transcriptResult.error}`, transcriptResult.errorKind));
           }
 
           transcribeSpinner.succeed(chalk.green(`Transcribed ${transcriptResult.segments.length} segments`));
@@ -1108,11 +1100,6 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
             lowResolution: options.lowRes,
           });
 
-          if (!result.success || !result.response) {
-            spinner.fail("Gemini analysis failed");
-            exitWithError(apiError(`Gemini analysis failed: ${result.error}`, true));
-          }
-
           try {
             let jsonStr = result.response;
             const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -1141,7 +1128,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
             }
           } catch {
             spinner.fail("Failed to parse Gemini response");
-            exitWithError(apiError("Failed to parse Gemini response", true));
+            exitWithError(providerFailure("Gemini returned a highlights reply that could not be parsed", "provider"));
           }
 
           spinner.succeed(chalk.green(`Found ${highlights.length} potential shorts via visual+audio analysis`));
@@ -1172,9 +1159,13 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
             await unlinkFile(tempAudio);
           } catch { /* ignore cleanup errors */ }
 
+          if (transcript.status === "failed") {
+            spinner.fail("Transcription failed");
+            exitWithError(providerFailure(`Transcription failed: ${transcript.error}`, transcript.errorKind));
+          }
           if (!transcript.segments || transcript.segments.length === 0) {
-            spinner.fail("No transcript found");
-            exitWithError(apiError("No transcript found", true));
+            spinner.fail("No speech found");
+            exitWithError(generalError("No speech found to pick shorts from", "Try --use-gemini for visual analysis."));
           }
 
           spinner.text = "Finding highlights...";
@@ -1192,7 +1183,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         }
 
         if (highlights.length === 0) {
-          exitWithError(apiError("No highlights found", false));
+          exitWithError(generalError("No highlights found"));
         }
 
         highlights.sort((a, b) => b.confidence - a.confidence);

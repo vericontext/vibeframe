@@ -6,23 +6,26 @@
  */
 
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
+import { parseJsonReply } from "../shared/json-reply.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
 import { GEMINI_DEFAULT_TEXT_MODEL } from "./gemini-models.js";
+import { geminiGenerateContent } from "./gemini-text.js";
 
 /** Parameters for Gemini API calls */
 export interface GeminiApiParams {
-  apiKey: string;
+  apiKey?: string;
   baseUrl: string;
 }
 
 /**
  * Generate a storyboard from script content using the shared Gemini default.
+ * Throws a `ProviderError` on every failure, including a reply with no
+ * storyboard array.
  *
  * @param api - Gemini API parameters (apiKey, baseUrl)
  * @param content - Script/content text to break into scenes
  * @param targetDuration - Target total video duration in seconds
  * @param options - Generation options
- * @returns Array of storyboard segments (empty on failure)
  */
 export async function analyzeContent(
   api: GeminiApiParams,
@@ -30,64 +33,11 @@ export async function analyzeContent(
   targetDuration?: number,
   options?: { creativity?: "low" | "high" }
 ): Promise<StoryboardSegment[]> {
-  const creativity = options?.creativity || "low";
-  const systemPrompt = buildStoryboardSystemPrompt(targetDuration, creativity);
-
-  try {
-    const payload = {
-      system_instruction: {
-        parts: [{ text: systemPrompt }],
-      },
-      contents: [{
-        parts: [{ text: buildStoryboardUserMessage(content) }],
-      }],
-      generationConfig: {
-        maxOutputTokens: 4096,
-      },
-    };
-
-    const response = await fetch(
-      `${api.baseUrl}/models/${GEMINI_DEFAULT_TEXT_MODEL}:generateContent?key=${api.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Gemini] Storyboard API error (${response.status}): ${errorText.slice(0, 300)}`);
-      return [];
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{
-        content?: {
-          parts?: Array<{ text?: string }>;
-        };
-      }>;
-    };
-
-    const parts = data.candidates?.[0]?.content?.parts;
-    if (!parts || parts.length === 0) {
-      console.error("[Gemini] No content in storyboard response");
-      return [];
-    }
-
-    const text = parts.filter((p) => p.text).map((p) => p.text).join("\n");
-
-    // Extract JSON array from response (handles markdown code blocks)
-    const arrayMatch = text.match(/\[[\s\S]*\]/);
-    if (!arrayMatch) {
-      console.error("[Gemini] No JSON array found in storyboard response. Response text:");
-      console.error(text.slice(0, 500));
-      return [];
-    }
-
-    return JSON.parse(arrayMatch[0]) as StoryboardSegment[];
-  } catch (err) {
-    console.error(`[Gemini] Storyboard error: ${err instanceof Error ? err.message : err}`);
-    return [];
-  }
+  const { text } = await geminiGenerateContent(api, {
+    model: GEMINI_DEFAULT_TEXT_MODEL,
+    system: buildStoryboardSystemPrompt(targetDuration, options?.creativity || "low"),
+    contents: [{ role: "user", parts: [{ text: buildStoryboardUserMessage(content) }] }],
+    maxOutputTokens: 16384,
+  });
+  return parseJsonReply<StoryboardSegment[]>(text, { provider: "gemini", label: "Gemini", task: "storyboard", shape: "array" });
 }

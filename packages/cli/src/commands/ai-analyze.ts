@@ -17,6 +17,7 @@ import { extname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
+import { executorFailure, failureFromError, generalError, notFoundError, type StructuredError } from "./output.js";
 
 /** Options for {@link executeGeminiVideo}. */
 export interface GeminiVideoOptions {
@@ -52,6 +53,8 @@ export interface GeminiVideoResult {
   responseTokens?: number;
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 /**
@@ -80,7 +83,7 @@ export async function executeGeminiVideo(
     } else {
       const absPath = resolve(process.cwd(), options.source);
       if (!existsSync(absPath)) {
-        return { success: false, error: `File not found: ${absPath}` };
+        return executorFailure(notFoundError(absPath));
       }
       videoData = await readFile(absPath);
     }
@@ -96,10 +99,6 @@ export async function executeGeminiVideo(
       lowResolution: options.lowRes,
     });
 
-    if (!result.success) {
-      return { success: false, error: result.error || "Video analysis failed" };
-    }
-
     return {
       success: true,
       response: result.response,
@@ -109,10 +108,7 @@ export async function executeGeminiVideo(
       responseTokens: result.responseTokens,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return executorFailure(failureFromError(error, "Analysis failed"));
   }
 }
 
@@ -152,6 +148,8 @@ export interface AnalyzeResult {
   responseTokens?: number;
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 /**
@@ -200,13 +198,13 @@ export async function executeAnalyze(
       if (isImageUrl) {
         const response = await fetch(source);
         if (!response.ok) {
-          return { success: false, error: `Failed to fetch image: ${response.status}` };
+          return executorFailure(generalError(`Failed to fetch image: ${response.status}`));
         }
         imageBuffer = Buffer.from(await response.arrayBuffer());
       } else {
         const absPath = resolve(process.cwd(), source);
         if (!existsSync(absPath)) {
-          return { success: false, error: `File not found: ${absPath}` };
+          return executorFailure(notFoundError(absPath));
         }
         imageBuffer = await readFile(absPath);
       }
@@ -215,10 +213,6 @@ export async function executeAnalyze(
         model: modelId,
         lowResolution: options.lowRes,
       });
-
-      if (!result.success) {
-        return { success: false, error: result.error || "Image analysis failed" };
-      }
 
       return {
         success: true,
@@ -240,13 +234,13 @@ export async function executeAnalyze(
     } else if (isVideoUrl) {
       const response = await fetch(source);
       if (!response.ok) {
-        return { success: false, error: `Failed to fetch video: ${response.status}` };
+        return executorFailure(generalError(`Failed to fetch video: ${response.status}`));
       }
       videoData = Buffer.from(await response.arrayBuffer());
     } else {
       const absPath = resolve(process.cwd(), source);
       if (!existsSync(absPath)) {
-        return { success: false, error: `File not found: ${absPath}` };
+        return executorFailure(notFoundError(absPath));
       }
       videoData = await readFile(absPath);
     }
@@ -259,10 +253,6 @@ export async function executeAnalyze(
       lowResolution: options.lowRes,
     });
 
-    if (!result.success) {
-      return { success: false, error: result.error || "Video analysis failed" };
-    }
-
     return {
       success: true,
       response: result.response,
@@ -273,9 +263,6 @@ export async function executeAnalyze(
       responseTokens: result.responseTokens,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return executorFailure(failureFromError(error, "Analysis failed"));
   }
 }

@@ -15,7 +15,7 @@ import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import {
   executeHighlights,
   executeAutoShorts,
@@ -44,7 +44,7 @@ export const pipelineHighlightsTool = defineTool({
   }),
   async execute(args) {
     const result = await executeHighlights(args);
-    if (!result.success) return { success: false, error: result.error ?? "Highlights failed" };
+    if (!result.success) return failedTool(result, "Highlights failed");
     return {
       success: true,
       data: {
@@ -82,7 +82,7 @@ export const pipelineAutoShortsTool = defineTool({
   }),
   async execute(args) {
     const result = await executeAutoShorts(args);
-    if (!result.success) return { success: false, error: result.error ?? "Auto-shorts failed" };
+    if (!result.success) return failedTool(result, "Auto-shorts failed");
     return {
       success: true,
       data: {
@@ -171,6 +171,8 @@ export const pipelineRunTool = defineTool({
             output: s.output,
             duration: s.duration,
             error: s.error,
+            ...(s.errorCode ? { errorCode: s.errorCode } : {}),
+            ...(s.errorKind ? { errorKind: s.errorKind } : {}),
           })),
         },
         humanLines: [`Pipeline ${result.name}: ${result.completedSteps}/${result.totalSteps}`],

@@ -1,97 +1,45 @@
 /**
  * @module openai-storyboard
  *
- * Storyboard generation using OpenAI GPT-5.4 mini.
+ * Storyboard generation on the OpenAI default text model.
  * Uses the same shared prompt as Claude and Gemini storyboard generators.
  */
 
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
+import { parseJsonReply } from "../shared/json-reply.js";
 import { buildStoryboardSystemPrompt, buildStoryboardUserMessage } from "../storyboard-prompt.js";
-import { defaultModel } from "../catalog/catalog.js";
+import { openaiGenerateText } from "./openai-text.js";
 
 /**
- * Generate a storyboard from script content using OpenAI GPT-5.4 mini.
+ * Generate a storyboard from script content. Throws a `ProviderError` on
+ * every failure, including a reply with no storyboard array.
  *
- * @param apiKey - OpenAI API key
+ * @param api - OpenAI API key and base URL
  * @param content - Script/content text to break into scenes
  * @param targetDuration - Target total video duration in seconds
  * @param options - Generation options
- * @returns Array of storyboard segments (empty on failure)
  */
 export async function analyzeContent(
-  apiKey: string,
+  api: { apiKey?: string; baseUrl: string },
   content: string,
   targetDuration?: number,
   options?: { creativity?: "low" | "high" }
 ): Promise<StoryboardSegment[]> {
-  const creativity = options?.creativity || "low";
-  // json_object mode cannot return a bare array, so ask for the shared
-  // storyboard array wrapped in a "segments" key instead.
-  const systemPrompt =
-    buildStoryboardSystemPrompt(targetDuration, creativity) +
-    '\n\nWrap the array in a JSON object: {"segments": [ ...segment objects... ]}.';
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: defaultModel("openai", "llm").id,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: buildStoryboardUserMessage(content) },
-        ],
-        // Reasoning tokens count against this cap.
-        max_completion_tokens: 16384,
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[OpenAI] Storyboard API error (${response.status}): ${errorText.slice(0, 300)}`);
-      return [];
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const text = data.choices?.[0]?.message?.content;
-    if (!text) {
-      console.error("[OpenAI] No content in storyboard response");
-      return [];
-    }
-
-    // OpenAI with json_object mode returns valid JSON, but it may wrap the array
-    // in an object like { "segments": [...] } or { "storyboard": [...] }
-    const parsed = JSON.parse(text);
-
-    // If it's already an array, return directly
-    if (Array.isArray(parsed)) {
-      return parsed as StoryboardSegment[];
-    }
-
-    // Otherwise find the first array value in the response object
-    for (const value of Object.values(parsed)) {
-      if (Array.isArray(value)) {
-        return value as StoryboardSegment[];
-      }
-    }
-
-    // Fallback: try extracting JSON array with regex
-    const arrayMatch = text.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      return JSON.parse(arrayMatch[0]) as StoryboardSegment[];
-    }
-
-    console.error("[OpenAI] Could not extract storyboard array from response");
-    return [];
-  } catch (err) {
-    console.error(`[OpenAI] Storyboard error: ${err instanceof Error ? err.message : err}`);
-    return [];
-  }
+  const { text } = await openaiGenerateText(api, {
+    // Segments carry optional fields, which a strict JSON schema cannot
+    // express, so the array is asked for inside a "segments" object.
+    system:
+      buildStoryboardSystemPrompt(targetDuration, options?.creativity || "low") +
+      '\n\nWrap the array in a JSON object: {"segments": [ ...segment objects... ]}.',
+    messages: [{ role: "user", content: buildStoryboardUserMessage(content) }],
+    maxOutputTokens: 16384,
+  });
+  const reply = parseJsonReply<{ segments: StoryboardSegment[] }>(text, {
+    provider: "openai",
+    label: "OpenAI",
+    task: "storyboard",
+    shape: "object",
+    isValid: (value) => Array.isArray(value.segments),
+  });
+  return reply.segments;
 }

@@ -87,6 +87,8 @@ const MODERATION =
 const QUOTA = /quota|insufficient (credit|balance|fund)|out of credits|credits? (exhausted|remaining)|billing|payment required|RESOURCE_EXHAUSTED/i;
 const RATE_LIMIT = /rate.?limit|too many requests|concurrency limit/i;
 const AUTH = /api.?key|unauthori[sz]ed|forbidden|authenticat|invalid token|permission denied/i;
+/** A rejected key some providers report as 400 (Google: API_KEY_INVALID). */
+const INVALID_KEY = /API_KEY_INVALID|api.?key (is )?(not valid|invalid|expired)|invalid.api.key/i;
 const RETIRED = /no longer (available|supported)|has been (shut ?down|deprecated|retired)/i;
 
 /**
@@ -110,7 +112,7 @@ export function classifyProviderError(input: {
         ? "quota"
         : status === 429 || RATE_LIMIT.test(text)
           ? "rate-limit"
-          : status === 401 || status === 403 || (status === undefined && AUTH.test(text))
+          : status === 401 || status === 403 || INVALID_KEY.test(text) || (status === undefined && AUTH.test(text))
             ? "auth"
             : RETIRED.test(text)
               ? "model-retired"

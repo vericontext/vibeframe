@@ -272,7 +272,7 @@ inspectCommand
 
       if (!result.success) {
         spinner.fail();
-        exitWithError(apiError(result.error || "Analysis failed", true));
+        exitWithError(result.failure ?? apiError(result.error || "Analysis failed", true));
       }
 
       spinner.succeed(chalk.green("Analysis complete"));
