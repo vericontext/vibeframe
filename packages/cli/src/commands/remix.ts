@@ -142,7 +142,7 @@ Required API Key: ELEVENLABS_API_KEY (Scribe) or OPENAI_API_KEY (Whisper); --stt
 
       if (options.dryRun) {
         outputSuccess({
-          command: "pipeline animated-caption",
+          command: "remix animated-caption",
           startedAt,
           dryRun: true,
           data: {
@@ -198,7 +198,7 @@ Required API Key: ELEVENLABS_API_KEY (Scribe) or OPENAI_API_KEY (Whisper); --stt
 
       if (isJsonMode()) {
         outputSuccess({
-          command: "pipeline animated-caption",
+          command: "remix animated-caption",
           startedAt,
           data: {
             outputPath: result.outputPath,
