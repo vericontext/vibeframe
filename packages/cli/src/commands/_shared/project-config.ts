@@ -12,7 +12,7 @@ export const LEGACY_VIBE_PROJECT_FILENAME = "vibe.project.yaml";
 export type CompositionEngine = "hyperframes";
 export type ProjectImageProvider = "openai" | "gemini" | "grok" | null;
 export type ProjectVideoProvider = BuildVideoProvider | null;
-export type ProjectNarrationProvider = "elevenlabs" | "openai" | "kokoro" | null;
+export type ProjectNarrationProvider = "elevenlabs" | "gemini" | "openai" | "kokoro" | null;
 export type ProjectComposerProvider = "claude" | "openai" | "gemini" | null;
 export type ProjectQuality = "draft" | "standard" | "high";
 

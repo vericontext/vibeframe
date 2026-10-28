@@ -254,7 +254,7 @@ Cost tier: _not tagged_
 - `skipMusic` _(boolean)_ - Don't dispatch music generation even when beats declare music cues
 - `skipTranscript` _(boolean)_ - Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)
 - `skipRender` _(boolean)_ - Compose only - don't render to MP4
-- `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
+- `tts` _(string)_ - TTS provider: auto|elevenlabs|gemini|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
 - `imageModel` _(string)_ - Image model for keyframes/backdrops/character sheets (gemini: flash|lite|pro, openai: gpt-image-2.5-sunburst|gpt-image-2.5-flare|gpt-image-2). Provider default when omitted.
@@ -383,7 +383,7 @@ Cost tier: _not tagged_
 - `skipBackdrop` _(boolean)_ - Don't include backdrop image generation in the plan
 - `skipVideo` _(boolean)_ - Don't include video generation in the plan
 - `skipMusic` _(boolean)_ - Don't include music generation in the plan
-- `tts` _(string)_ - TTS provider: auto|elevenlabs|openai|kokoro
+- `tts` _(string)_ - TTS provider: auto|elevenlabs|gemini|openai|kokoro
 - `voice` _(string)_ - Voice id
 - `imageProvider` _(string)_ - Image provider: openai|gemini|grok
 - `videoProvider` _(string)_ - Video provider: seedance|grok|kling|runway|omni
@@ -563,7 +563,7 @@ Cost tier: `low`
 
 #### `vibe generate narration`
 
-Generate narration from text (ElevenLabs, OpenAI, or local Kokoro)
+Generate narration from text (ElevenLabs, Gemini, OpenAI, or local Kokoro)
 
 Product surface: `public`
 Note: Product-facing TTS command.
@@ -573,11 +573,11 @@ Cost tier: `low`
 **Parameters:**
 
 - `text` _(string)_ - Narration text (interactive if omitted)
-- `provider` _(string)_ _(default: `"auto"`)_ - auto (default: ElevenLabs if its key is set, else OpenAI, else local Kokoro), elevenlabs, openai, kokoro
+- `provider` _(string)_ _(default: `"auto"`)_ - auto (default: the first of ElevenLabs, Gemini, OpenAI with a key, else local Kokoro), elevenlabs, gemini, openai, kokoro
 - `apiKey` _(string)_ - API key for the chosen provider
-- `output` _(string)_ - Output audio file path (default: narration.mp3, or .wav for Kokoro)
-- `voice` _(string)_ - Voice: ElevenLabs name or ID (default Rachel), OpenAI voice (default marin), Kokoro voice (default af_heart)
-- `model` _(string)_ - Model: ElevenLabs v3 (default), multilingual, flash; OpenAI gpt-4o-mini-tts, tts-1
+- `output` _(string)_ - Output audio file path (default: narration.mp3, or .wav for Gemini and Kokoro)
+- `voice` _(string)_ - Voice: ElevenLabs name or ID (default Rachel), Gemini voice (default Kore), OpenAI voice (default marin), Kokoro voice (default af_heart)
+- `model` _(string)_ - Model: ElevenLabs v3 (default), multilingual, flash; Gemini flash (default), lite; OpenAI gpt-4o-mini-tts, tts-1
 - `speed` _(number)_ - Speaking speed multiplier
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
@@ -1095,8 +1095,8 @@ Cost tier: `high`
 - `media` _(string)_ **required** - Input media file (video or audio)
 - `language` _(string)_ - Target language code (e.g., es, ko, ja) (required)
 - `source` _(string)_ - Source language code (default: auto-detect)
-- `voice` _(string)_ - Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)
-- `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto (default), elevenlabs, openai, kokoro
+- `voice` _(string)_ - Voice for the TTS provider (ElevenLabs name/ID, Gemini voice, OpenAI voice, Kokoro voice)
+- `tts` _(string)_ _(auto \| elevenlabs \| gemini \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto (default), elevenlabs, gemini, openai, kokoro
 - `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai
 - `analyzeOnly` _(boolean)_ - Only analyze and show timing, don't generate audio
 - `output` _(string)_ - Output file path
@@ -1263,8 +1263,8 @@ Cost tier: `free`
 - `project` _(string)_ _(default: `"."`)_ - Project directory
 - `noStoryboard` _(boolean)_ - Do not sync STORYBOARD.md; insert this scene directly into the root composition only
 - `imageProvider` _(string)_ _(gemini \| openai \| grok)_ _(default: `"gemini"`)_ - Image provider: gemini, openai, grok
-- `tts` _(string)_ _(auto \| elevenlabs \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)
-- `voice` _(string)_ - Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)
+- `tts` _(string)_ _(auto \| elevenlabs \| gemini \| openai \| kokoro)_ _(default: `"auto"`)_ - TTS provider: auto, elevenlabs, gemini, openai, kokoro (default auto - ElevenLabs key > Google key > OpenAI key > Kokoro local)
+- `voice` _(string)_ - Voice id (ElevenLabs name/id, Gemini voice like Kore, OpenAI voice like marin, or Kokoro id like af_heart)
 - `noAudio` _(boolean)_ - Skip TTS even when --narration is provided (useful for tests/agent dry runs)
 - `noImage` _(boolean)_ - Skip image generation even when --visuals is provided
 - `noTranscribe` _(boolean)_ - Skip the word-level transcribe step (no transcript-<id>.json emitted)

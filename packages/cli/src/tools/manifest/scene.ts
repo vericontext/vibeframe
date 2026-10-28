@@ -30,6 +30,7 @@ import { getComposePrompts } from "../../commands/_shared/compose-prompts.js";
 import { executeSceneRepair } from "../../commands/_shared/scene-repair.js";
 import { executeSceneSubmit } from "../../commands/_shared/scene-submit.js";
 import { BUILD_VIDEO_PROVIDERS } from "../../commands/_shared/build-video-providers.js";
+import { TTS_PROVIDER_NAMES } from "../../commands/_shared/tts-providers.js";
 
 const SCENE_PRESETS = [
   "simple",
@@ -580,10 +581,10 @@ const sceneBuildSchema = z.object({
     .optional()
     .describe("Stop after compose — produces compositions/*.html but no final MP4."),
   ttsProvider: z
-    .enum(["auto", "elevenlabs", "openai", "kokoro"])
+    .enum(TTS_PROVIDER_NAMES)
     .optional()
     .describe(
-      "TTS provider override. Default 'auto' (elevenlabs key > openai key > local kokoro).",
+      "TTS provider override. Default 'auto' (elevenlabs key > google key (gemini) > openai key > local kokoro).",
     ),
   voice: z.string().optional().describe("TTS voice id (provider-specific)."),
   imageProvider: z

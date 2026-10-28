@@ -29,6 +29,7 @@ import {
   usageError,
 } from "./output.js";
 import { BUILD_VIDEO_PROVIDERS } from "./_shared/build-video-providers.js";
+import { TTS_PROVIDER_NAMES } from "./_shared/tts-providers.js";
 
 const VALID_MODES: SceneBuildMode[] = ["agent", "batch", "auto"];
 const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
@@ -60,7 +61,7 @@ export const buildCommand = new Command("build")
     "Don't transcribe narration for word-sync (default: transcribe when narration + OpenAI key exist)"
   )
   .option("--skip-render", "Compose only - don't render to MP4")
-  .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
+  .option("--tts <provider>", `TTS provider: ${TTS_PROVIDER_NAMES.join("|")}`)
   .option("--voice <id>", "Voice id")
   .option("--image-provider <name>", `Image provider: ${VALID_IMAGE_PROVIDERS.join("|")}`)
   .option(

@@ -105,6 +105,43 @@ describe("createBuildPlan", () => {
     expect(plan.nextCommands).toContain(`vibe build ${dir} --stage assets --json`);
   });
 
+  it("narrates with Gemini on a Google key alone, as resolveTtsProvider does", async () => {
+    const dir = await makeProject();
+    process.env.GOOGLE_API_KEY = "AIza-test";
+    process.env.OPENAI_API_KEY = "sk-test";
+
+    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", skipBackdrop: true });
+
+    expect(plan.providerResolution[0]).toMatchObject({
+      kind: "narration",
+      resolved: "gemini",
+      requiresKey: true,
+      configured: true,
+      configKey: "google",
+    });
+    expect(plan.beats[0].assets.narration).toMatchObject({
+      provider: "gemini",
+      path: "assets/narration-hook.wav",
+      estimatedCostUsd: narrationCostUsd("gemini"),
+    });
+    expect(narrationCostUsd("gemini")).toBeGreaterThan(0);
+  });
+
+  it("names GOOGLE_API_KEY when --tts gemini has no key", async () => {
+    const dir = await makeProject();
+
+    const plan = await createBuildPlan({ projectDir: dir, stage: "assets", skipBackdrop: true, ttsProvider: "gemini" });
+
+    expect(plan.providerResolution[0]).toMatchObject({
+      kind: "narration",
+      requested: "gemini",
+      resolved: "gemini",
+      configured: false,
+      configKey: "google",
+      missingKey: "GOOGLE_API_KEY",
+    });
+  });
+
   it("plans a clip and adds keyframe image cost for a keyframe-only beat", async () => {
     const dir = await mkdtemp(join(tmpdir(), "vibe-build-plan-kf-"));
     await mkdir(resolve(dir, "assets"), { recursive: true });

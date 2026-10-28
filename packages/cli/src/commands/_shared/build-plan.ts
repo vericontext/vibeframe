@@ -21,13 +21,19 @@ import {
   normalizeVideoDuration,
   videoCacheDescriptor,
 } from "./build-cache.js";
-import { estimateSeedanceVideoCostUsd } from "@vibeframe/ai-providers";
+import {
+  SPEECH_GENERATOR_PROVIDERS,
+  estimateSeedanceVideoCostUsd,
+  speechAudioExtension,
+  type SpeechGeneratorProvider,
+} from "@vibeframe/ai-providers";
 import {
   assetFreshnessFromMetadata,
   assetMetadataPath,
   type AssetFreshness,
 } from "./build-asset-metadata.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
+import { TTS_PROVIDER_KEYS, asTtsProviderName, pickTtsProvider } from "./tts-providers.js";
 import { composerEnvVar, isComposerProvider, type ComposerProvider } from "./composer-resolve.js";
 import {
   beatCharacterNames,
@@ -192,6 +198,8 @@ const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
 /** gpt-4o-mini-tts is ~$0.015/min of audio; a beat is ~10–20s. Includes retry headroom. */
 const OPENAI_NARRATION_COST_USD = 0.01;
+/** gemini-3.8-flash-tts is ~$0.0135/min of audio until 2026-12-31, then ~$0.027; same headroom as OpenAI. */
+const GEMINI_NARRATION_COST_USD = 0.01;
 
 /**
  * Per-beat narration cost by resolved TTS provider. Kokoro runs locally and
@@ -201,8 +209,16 @@ const OPENAI_NARRATION_COST_USD = 0.01;
  */
 export function narrationCostUsd(provider: string | undefined): number {
   if (provider === "elevenlabs") return ELEVENLABS_NARRATION_COST_USD;
+  if (provider === "gemini") return GEMINI_NARRATION_COST_USD;
   if (provider === "openai") return OPENAI_NARRATION_COST_USD;
   return 0;
+}
+
+/** The narration file extension for a resolved TTS provider (Gemini and Kokoro speak WAV). */
+function narrationExtension(provider: string): "mp3" | "wav" {
+  return (SPEECH_GENERATOR_PROVIDERS as readonly string[]).includes(provider)
+    ? speechAudioExtension(provider as SpeechGeneratorProvider)
+    : "mp3";
 }
 /** Word-level transcription is ~$0.006/min (Whisper) or less (Scribe); a beat is ~10–20s. */
 const TRANSCRIPT_COST_USD = 0.002;
@@ -359,7 +375,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             cue: narrationText,
             provider: resolved.narration.resolved,
             voice,
-            ext: resolved.narration.resolved === "kokoro" ? "wav" : "mp3",
+            ext: narrationExtension(resolved.narration.resolved),
           })
         : null;
     const backdropCache =
@@ -988,37 +1004,25 @@ async function resolveNarrationProvider(
   input: ProviderInput,
   projectDir: string
 ): Promise<ProviderResolution> {
-  const requested = input.value.toLowerCase();
-  const hasElevenLabs = Boolean(await getApiKeyFromConfig("elevenlabs", { cwd: projectDir }));
-  const hasOpenAi = Boolean(await getApiKeyFromConfig("openai", { cwd: projectDir }));
-  // Mirrors resolveTtsProvider in tts-resolve.ts: explicit choice wins;
-  // auto prefers ElevenLabs (dedicated TTS key signals intent), then
-  // OpenAI (key usually present for backdrops), then local Kokoro.
-  const resolved =
-    requested === "elevenlabs"
-      ? "elevenlabs"
-      : requested === "openai"
-        ? "openai"
-        : requested === "kokoro"
-          ? "kokoro"
-          : hasElevenLabs
-            ? "elevenlabs"
-            : hasOpenAi
-              ? "openai"
-              : "kokoro";
-  const requiresKey = resolved !== "kokoro";
-  const hasKey =
-    resolved === "elevenlabs" ? hasElevenLabs : resolved === "openai" ? hasOpenAi : true;
+  // pickTtsProvider, as resolveTtsProvider uses it: an explicit choice wins; auto takes
+  // the first speech provider with a key (ElevenLabs, Gemini, OpenAI), then
+  // local Kokoro. An unknown value is treated as auto.
+  const preferred = asTtsProviderName(input.value.toLowerCase()) ?? "auto";
+  const hasKey = async ({ configKey }: { configKey: string }) =>
+    Boolean(await getApiKeyFromConfig(configKey, { cwd: projectDir }));
+  const resolved = await pickTtsProvider(preferred, hasKey);
+  const key = resolved === "kokoro" ? undefined : TTS_PROVIDER_KEYS[resolved];
+  const hasResolvedKey = key ? await hasKey(key) : true;
   return {
     kind: "narration",
     requested: input.requested,
     resolved,
     source: input.source,
-    requiresKey,
-    configured: hasKey,
-    ...(requiresKey ? { configKey: resolved } : {}),
-    ...(requiresKey && !hasKey ? { missingKey: providerEnvVar(resolved) } : {}),
-    retryWith: requiresKey && !hasKey ? ["vibe setup --full"] : [],
+    requiresKey: Boolean(key),
+    configured: hasResolvedKey,
+    ...(key ? { configKey: key.configKey } : {}),
+    ...(key && !hasResolvedKey ? { missingKey: key.envVar } : {}),
+    retryWith: key && !hasResolvedKey ? ["vibe setup --full"] : [],
   };
 }
 

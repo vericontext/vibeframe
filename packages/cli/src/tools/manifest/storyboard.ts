@@ -14,6 +14,7 @@ import {
 import { executeStoryboardRevision } from "../../commands/_shared/storyboard-revise.js";
 import { createBuildPlan } from "../../commands/_shared/build-plan.js";
 import { BUILD_VIDEO_PROVIDERS } from "../../commands/_shared/build-video-providers.js";
+import { TTS_PROVIDER_NAMES } from "../../commands/_shared/tts-providers.js";
 
 const PROJECT_DIR_DESCRIPTION =
   "Project directory. Defaults to the surface's cwd; in MCP hosts, relative paths resolve under the configured server workspace.";
@@ -273,7 +274,7 @@ export const planTool = defineTool({
     skipVideo: z.boolean().optional().describe("Don't include video generation in the plan."),
     skipMusic: z.boolean().optional().describe("Don't include music generation in the plan."),
     ttsProvider: z
-      .enum(["auto", "elevenlabs", "openai", "kokoro"])
+      .enum(TTS_PROVIDER_NAMES)
       .optional()
       .describe("TTS provider override."),
     voice: z.string().optional().describe("Voice id."),

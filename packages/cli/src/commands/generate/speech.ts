@@ -1,7 +1,7 @@
 /**
  * @module generate/speech
  * @description `vibe generate narration` (alias `voiceover`) — text to
- * speech on ElevenLabs, OpenAI, or local Kokoro, through the same TTS
+ * speech on ElevenLabs, Gemini, OpenAI, or local Kokoro, through the same TTS
  * resolver scenes and builds use.
  */
 
@@ -11,9 +11,11 @@ import chalk from "chalk";
 import type { ProviderErrorKind } from "@vibeframe/ai-providers";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { writeAudioFile } from "../../utils/audio-file.js";
+import { defaultOutputPath } from "../_shared/default-output.js";
 import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { parseTtsProviderName, resolveTtsProvider } from "../_shared/tts-resolve.js";
+import { TTS_PROVIDER_KEYS, type TtsProviderName } from "../_shared/tts-providers.js";
 import { ApiKeyError } from "../../utils/api-key.js";
 
 // ── Library: executeSpeech ──────────────────────────────────────────────
@@ -22,11 +24,13 @@ export interface ExecuteSpeechOptions {
   text: string;
   output?: string;
   voice?: string;
-  /** auto (default): ElevenLabs if its key is set, else OpenAI, else local Kokoro. */
+  /** auto (default): ElevenLabs, Gemini, then OpenAI, whichever key is set first, else local Kokoro. */
   provider?: string;
   /** Catalog model ID or alias for the chosen provider. */
   model?: string;
   speed?: number;
+  /** Directory a relative or default output resolves against (MCP: the workspace). Default: the process cwd. */
+  cwd?: string;
 }
 
 export interface ExecuteSpeechResult {
@@ -42,7 +46,7 @@ export interface ExecuteSpeechResult {
 export async function executeSpeech(options: ExecuteSpeechOptions): Promise<ExecuteSpeechResult> {
   let tts: Awaited<ReturnType<typeof resolveTtsProvider>>;
   try {
-    tts = await resolveTtsProvider(parseTtsProviderName(options.provider));
+    tts = await resolveTtsProvider(parseTtsProviderName(options.provider, "provider"));
   } catch (error) {
     // A missing key (TtsKeyMissingError is an ApiKeyError) is reported by the
     // caller as API_KEY_MISSING, not as a provider auth rejection.
@@ -57,7 +61,9 @@ export async function executeSpeech(options: ExecuteSpeechOptions): Promise<Exec
   if (!result.success || !result.audioBuffer) {
     return { success: false, provider: tts.provider, error: result.error ?? "TTS generation failed", errorKind: result.errorKind };
   }
-  const outputPath = resolve(process.cwd(), options.output || `narration.${tts.audioExtension}`);
+  // Without an output, a paid result never overwrites an earlier one: narration.wav, then narration-2.wav.
+  const cwd = options.cwd ?? process.cwd();
+  const outputPath = resolve(cwd, options.output || defaultOutputPath(`narration.${tts.audioExtension}`, 1, cwd));
   await writeAudioFile(outputPath, result.audioBuffer, tts.audioExtension);
   return { success: true, outputPath, characterCount: result.characterCount, provider: tts.provider, model: result.model };
 }
@@ -66,13 +72,13 @@ export function registerNarrationCommand(parent: Command): void {
   parent
     .command("narration")
     .alias("voiceover")
-    .description("Generate narration from text (ElevenLabs, OpenAI, or local Kokoro)")
+    .description("Generate narration from text (ElevenLabs, Gemini, OpenAI, or local Kokoro)")
     .argument("[text]", "Narration text (interactive if omitted)")
-    .option("-p, --provider <provider>", "auto (default: ElevenLabs if its key is set, else OpenAI, else local Kokoro), elevenlabs, openai, kokoro", "auto")
+    .option("-p, --provider <provider>", "auto (default: the first of ElevenLabs, Gemini, OpenAI with a key, else local Kokoro), elevenlabs, gemini, openai, kokoro", "auto")
     .option("-k, --api-key <key>", "API key for the chosen provider")
-    .option("-o, --output <path>", "Output audio file path (default: narration.mp3, or .wav for Kokoro)")
-    .option("--voice <id>", "Voice: ElevenLabs name or ID (default Rachel), OpenAI voice (default marin), Kokoro voice (default af_heart)")
-    .option("-m, --model <model>", "Model: ElevenLabs v3 (default), multilingual, flash; OpenAI gpt-4o-mini-tts, tts-1")
+    .option("-o, --output <path>", "Output audio file path (default: narration.mp3, or .wav for Gemini and Kokoro)")
+    .option("--voice <id>", "Voice: ElevenLabs name or ID (default Rachel), Gemini voice (default Kore), OpenAI voice (default marin), Kokoro voice (default af_heart)")
+    .option("-m, --model <model>", "Model: ElevenLabs v3 (default), multilingual, flash; Gemini flash (default), lite; OpenAI gpt-4o-mini-tts, tts-1")
     .option("--speed <n>", "Speaking speed multiplier")
     .option("--dry-run", "Preview parameters without executing")
     .action(async (text: string | undefined, options) => {
@@ -87,9 +93,9 @@ export function registerNarrationCommand(parent: Command): void {
       }
       rejectControlChars(text);
       if (options.output) validateOutputPath(options.output);
-      let provider: string;
+      let provider: TtsProviderName;
       try {
-        provider = parseTtsProviderName(options.provider);
+        provider = parseTtsProviderName(options.provider, "--provider");
       } catch (error) {
         exitWithError(usageError(error instanceof Error ? error.message : String(error)));
       }
@@ -107,7 +113,7 @@ export function registerNarrationCommand(parent: Command): void {
       }
 
       if (options.apiKey && provider !== "auto" && provider !== "kokoro") {
-        process.env[provider === "openai" ? "OPENAI_API_KEY" : "ELEVENLABS_API_KEY"] = options.apiKey;
+        process.env[TTS_PROVIDER_KEYS[provider].envVar] = options.apiKey;
       }
       const spinner = isJsonMode() ? null : createSpinner("Generating narration...").start();
       const result = await executeSpeech({ text, provider, output: options.output, voice: options.voice, model: options.model, speed });

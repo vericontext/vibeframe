@@ -161,17 +161,18 @@ exports[`CLI --describe schemas (drift detection) > vibe audio dub --describe 1`
       },
       "tts": {
         "default": "auto",
-        "description": "TTS provider: auto (default), elevenlabs, openai, kokoro",
+        "description": "TTS provider: auto (default), elevenlabs, gemini, openai, kokoro",
         "enum": [
           "auto",
           "elevenlabs",
+          "gemini",
           "openai",
           "kokoro",
         ],
         "type": "string",
       },
       "voice": {
-        "description": "Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)",
+        "description": "Voice for the TTS provider (ElevenLabs name/ID, Gemini voice, OpenAI voice, Kokoro voice)",
         "type": "string",
       },
     },
@@ -653,7 +654,7 @@ exports[`CLI --describe schemas (drift detection) > vibe build --describe 1`] = 
         "type": "string",
       },
       "tts": {
-        "description": "TTS provider: auto|elevenlabs|openai|kokoro",
+        "description": "TTS provider: auto|elevenlabs|gemini|openai|kokoro",
         "type": "string",
       },
       "videoProvider": {
@@ -2007,7 +2008,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate music --descri
 exports[`CLI --describe schemas (drift detection) > vibe generate narration --describe 1`] = `
 {
   "cost": "low",
-  "description": "Generate narration from text (ElevenLabs, OpenAI, or local Kokoro)",
+  "description": "Generate narration from text (ElevenLabs, Gemini, OpenAI, or local Kokoro)",
   "name": "generate.narration",
   "note": "Product-facing TTS command.",
   "parameters": {
@@ -2021,16 +2022,16 @@ exports[`CLI --describe schemas (drift detection) > vibe generate narration --de
         "type": "boolean",
       },
       "model": {
-        "description": "Model: ElevenLabs v3 (default), multilingual, flash; OpenAI gpt-4o-mini-tts, tts-1",
+        "description": "Model: ElevenLabs v3 (default), multilingual, flash; Gemini flash (default), lite; OpenAI gpt-4o-mini-tts, tts-1",
         "type": "string",
       },
       "output": {
-        "description": "Output audio file path (default: narration.mp3, or .wav for Kokoro)",
+        "description": "Output audio file path (default: narration.mp3, or .wav for Gemini and Kokoro)",
         "type": "string",
       },
       "provider": {
         "default": "auto",
-        "description": "auto (default: ElevenLabs if its key is set, else OpenAI, else local Kokoro), elevenlabs, openai, kokoro",
+        "description": "auto (default: the first of ElevenLabs, Gemini, OpenAI with a key, else local Kokoro), elevenlabs, gemini, openai, kokoro",
         "type": "string",
       },
       "speed": {
@@ -2042,7 +2043,7 @@ exports[`CLI --describe schemas (drift detection) > vibe generate narration --de
         "type": "string",
       },
       "voice": {
-        "description": "Voice: ElevenLabs name or ID (default Rachel), OpenAI voice (default marin), Kokoro voice (default af_heart)",
+        "description": "Voice: ElevenLabs name or ID (default Rachel), Gemini voice (default Kore), OpenAI voice (default marin), Kokoro voice (default af_heart)",
         "type": "string",
       },
     },
@@ -2835,7 +2836,7 @@ exports[`CLI --describe schemas (drift detection) > vibe plan --describe 1`] = `
         "type": "string",
       },
       "tts": {
-        "description": "TTS provider: auto|elevenlabs|openai|kokoro",
+        "description": "TTS provider: auto|elevenlabs|gemini|openai|kokoro",
         "type": "string",
       },
       "videoProvider": {
@@ -3412,10 +3413,11 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
       },
       "tts": {
         "default": "auto",
-        "description": "TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)",
+        "description": "TTS provider: auto, elevenlabs, gemini, openai, kokoro (default auto - ElevenLabs key > Google key > OpenAI key > Kokoro local)",
         "enum": [
           "auto",
           "elevenlabs",
+          "gemini",
           "openai",
           "kokoro",
         ],
@@ -3426,7 +3428,7 @@ exports[`CLI --describe schemas (drift detection) > vibe scene add --describe 1`
         "type": "string",
       },
       "voice": {
-        "description": "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)",
+        "description": "Voice id (ElevenLabs name/id, Gemini voice like Kore, OpenAI voice like marin, or Kokoro id like af_heart)",
         "type": "string",
       },
     },

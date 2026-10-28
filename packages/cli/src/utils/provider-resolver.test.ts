@@ -17,6 +17,7 @@ import {
   getProviderEnvVars,
   getCommandKeyMap,
   getSetupProviders,
+  SPEECH_GENERATOR_PROVIDERS,
 } from "@vibeframe/ai-providers";
 import { loadProviderDefaultsFromConfig, resolveProvider } from "./provider-resolver.js";
 
@@ -46,13 +47,16 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
   });
 
   it("getProvidersFor('speech') matches SPEECH_PROVIDERS", () => {
-    // v0.113: OpenAI TTS (gpt-4o-mini-tts) slots between ElevenLabs and the
-    // local Kokoro fallback, mirroring resolveTtsProvider's auto order.
+    // Gemini TTS, then OpenAI TTS (gpt-4o-mini-tts, shuts down 2027-01-06),
+    // slot between ElevenLabs and the local Kokoro fallback, in the order of
+    // SPEECH_GENERATOR_PROVIDERS (resolveTtsProvider's auto order).
     expect(getProvidersFor("speech")).toEqual([
       { name: "elevenlabs", envVar: "ELEVENLABS_API_KEY", label: "ElevenLabs" },
+      { name: "gemini", envVar: "GOOGLE_API_KEY", label: "Gemini" },
       { name: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
       { name: "kokoro", envVar: null, label: "Kokoro (local)" },
     ]);
+    expect(getProvidersFor("speech").map((p) => p.name)).toEqual([...SPEECH_GENERATOR_PROVIDERS]);
   });
 
   it("getProvidersFor('transcription') puts ElevenLabs Scribe before OpenAI Whisper", () => {
@@ -89,6 +93,7 @@ describe("provider registry — derived shapes match v0.67 hardcoded arrays", ()
     const original: Record<string, string[]> = {
       GOOGLE_API_KEY: [
         "generate image",
+        "generate narration -p gemini",
         "generate video -p omni",
         "edit image",
         "analyze media",

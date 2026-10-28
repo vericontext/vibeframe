@@ -342,7 +342,7 @@ const AI_FEATURES: AIFeature[] = [
     desc: "TTS, SFX, music, voice clone",
     defaultProvider:
       "ElevenLabs (paid, premium quality) - falls back to local Kokoro when no key (free, since v0.54)",
-    alsoAvailable: "Replicate MusicGen (music only)",
+    alsoAvailable: "Gemini TTS (Google key), OpenAI TTS (OpenAI key), Replicate MusicGen (music only)",
     keyHint: "0-1 key",
     keys: [
       {

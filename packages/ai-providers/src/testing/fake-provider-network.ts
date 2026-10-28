@@ -44,6 +44,48 @@ export const FAKE_PNG = Buffer.from(
 export const FAKE_MP3 = Buffer.from("ID3fake-mp3-audio");
 export const FAKE_MP4 = Buffer.from("\0\0\0 ftypisomfake-mp4-video");
 
+/** 0.1 s of a 440 Hz tone as 16-bit mono 24 kHz PCM, no header: what Gemini TTS speaks. */
+export const FAKE_PCM = (() => {
+  const samples = 2400;
+  const pcm = Buffer.alloc(samples * 2);
+  for (let i = 0; i < samples; i++) pcm.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / 24000) * 8000), i * 2);
+  return pcm;
+})();
+
+/** {@link FAKE_PCM} as a 24 kHz mono WAV file. */
+export const FAKE_WAV = (() => {
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0, "ascii");
+  header.writeUInt32LE(36 + FAKE_PCM.length, 4);
+  header.write("WAVE", 8, "ascii");
+  header.write("fmt ", 12, "ascii");
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(24000, 24);
+  header.writeUInt32LE(48000, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36, "ascii");
+  header.writeUInt32LE(FAKE_PCM.length, 40);
+  return Buffer.concat([header, FAKE_PCM]);
+})();
+
+/**
+ * A completed Gemini Interactions reply carrying one audio item, the shape
+ * Gemini TTS answers in (`steps[].content[]`, base64 `data`).
+ */
+export function geminiAudioResponse(audio: Buffer = FAKE_WAV, mimeType = "audio/wav"): Response {
+  return jsonResponse({
+    id: "interaction-tts",
+    status: "completed",
+    steps: [
+      { type: "user_input", content: [{ type: "text", text: "..." }] },
+      { type: "model_output", content: [{ type: "audio", mime_type: mimeType, data: audio.toString("base64") }] },
+    ],
+  });
+}
+
 export function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,

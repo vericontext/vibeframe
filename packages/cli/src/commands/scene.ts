@@ -478,10 +478,10 @@ sceneCommand
   .option("--image-provider <name>", "Image provider: gemini, openai, grok", "gemini")
   .option(
     "--tts <provider>",
-    "TTS provider: auto, elevenlabs, openai, kokoro (default auto - ElevenLabs key > OpenAI key > Kokoro local)",
+    "TTS provider: auto, elevenlabs, gemini, openai, kokoro (default auto - ElevenLabs key > Google key > OpenAI key > Kokoro local)",
     "auto"
   )
-  .option("--voice <id>", "Voice id (ElevenLabs name/id, OpenAI voice like marin, or Kokoro id like af_heart)")
+  .option("--voice <id>", "Voice id (ElevenLabs name/id, Gemini voice like Kore, OpenAI voice like marin, or Kokoro id like af_heart)")
   .option(
     "--no-audio",
     "Skip TTS even when --narration is provided (useful for tests/agent dry runs)"
@@ -694,9 +694,9 @@ export interface SceneAddOptions {
   syncStoryboard?: boolean;
   /** "gemini" | "openai". */
   imageProvider?: string;
-  /** TTS provider preference. Defaults to `"auto"` (ElevenLabs if key set, else Kokoro). */
+  /** TTS provider preference. Defaults to `"auto"` (the first of ElevenLabs, Gemini, OpenAI with a key, else Kokoro). */
   tts?: TtsProviderName;
-  /** Voice id (ElevenLabs name/id, or Kokoro id like `af_heart`). */
+  /** Voice id (ElevenLabs name/id, Gemini or OpenAI voice name, or Kokoro id like `af_heart`). */
   voice?: string;
   /** When true, skip TTS even if narration is provided. */
   skipAudio?: boolean;
@@ -887,9 +887,11 @@ export async function executeSceneAdd(opts: SceneAddOptions): Promise<SceneAddRe
     opts.onProgress?.(
       resolution.provider === "kokoro"
         ? "Generating narration with Kokoro (local — first run downloads a ~90MB model)..."
-        : resolution.provider === "openai"
-          ? "Generating narration with OpenAI (gpt-4o-mini-tts)..."
-          : "Generating narration with ElevenLabs..."
+        : resolution.provider === "gemini"
+          ? "Generating narration with Gemini TTS..."
+          : resolution.provider === "openai"
+            ? "Generating narration with OpenAI (gpt-4o-mini-tts)..."
+            : "Generating narration with ElevenLabs..."
     );
     const tts = await resolution.call(narrationText, {
       voice: opts.voice,

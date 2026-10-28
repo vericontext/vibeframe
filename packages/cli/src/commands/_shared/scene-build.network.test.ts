@@ -99,6 +99,26 @@ music: "Soft piano"`)
     expect(net.to("api.elevenlabs.io").some((r) => r.path.startsWith("/v1/music"))).toBe(true);
   });
 
+  it("narrates with Gemini into a WAV when the storyboard asks for it", async () => {
+    process.env.GOOGLE_API_KEY = "AIza-fake";
+    writeFileSync(
+      join(projectDir, "STORYBOARD.md"),
+      storyboard(`narration: "A paper boat drifts."`).replace("tts: elevenlabs", "tts: gemini")
+    );
+
+    const report = await executeSceneBuild({ projectDir, stage: "assets", voice: "Puck" });
+
+    expect(report.beats[0].narrationStatus).toBe("generated");
+    const wav = readFileSync(join(projectDir, "assets/narration-pond.wav"));
+    expect(wav.toString("ascii", 0, 4)).toBe("RIFF");
+    expect(wav.readUInt32LE(24)).toBe(24000);
+    expect(existsSync(join(projectDir, "assets/narration-pond.mp3"))).toBe(false);
+    const [tts] = net.to("generativelanguage.googleapis.com");
+    expect(tts.headers["x-goog-api-key"]).toBe("AIza-fake");
+    expect(tts.body).toMatchObject({ model: "gemini-3.8-flash-tts", generation_config: { speech_config: [{ voice: "Puck" }] } });
+    expect(net.to("api.elevenlabs.io")).toHaveLength(0);
+  });
+
   it("saves the clip when video is the only asset, so nothing else created assets/", async () => {
     writeFileSync(join(projectDir, "STORYBOARD.md"), storyboard(`video: "Slow push-in on the boat"`));
 

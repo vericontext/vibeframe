@@ -438,7 +438,7 @@ defaults:
 
 # Optional - uncomment to set per-primitive provider preferences.
 # providers:
-#   tts: elevenlabs       # auto | elevenlabs | kokoro
+#   tts: elevenlabs       # auto | elevenlabs | gemini | openai | kokoro
 #   image: openai         # openai | gemini | grok
 #   music: elevenlabs
 

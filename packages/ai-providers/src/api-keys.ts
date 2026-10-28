@@ -37,8 +37,8 @@ defineApiKey({
   envVar: "GOOGLE_API_KEY",
   label: "Google",
   showInSetup: true,
-  setupDescription: "Gemini - image gen (free tier), video analysis ($), Omni video ($$)",
-  envExampleComment: "Google API Key (Gemini auto-edit suggestions, image gen, Omni video)",
+  setupDescription: "Gemini - image gen (free tier), narration and video analysis ($), Omni video ($$)",
+  envExampleComment: "Google API Key (Gemini auto-edit suggestions, image gen, TTS narration, Omni video)",
   envExampleUrl: "https://aistudio.google.com/apikey",
   keyFormat: { prefix: /^AIza/, example: "AIza..." },
 });

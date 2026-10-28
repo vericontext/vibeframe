@@ -12,6 +12,7 @@ import { COST_ESTIMATES, failureFromError, providerFailure, type StructuredError
 import { getApiKeyFromConfig } from "../config/index.js";
 import { loadProviderDefaults, resolveProvider } from "../utils/provider-resolver.js";
 import { resolveBuildVideoProvider, type BuildVideoProvider } from "../commands/_shared/build-video-providers.js";
+import type { TtsProviderName } from "../commands/_shared/tts-resolve.js";
 
 // ── Action metadata registry (for cost/help/schema growth) ──────────────
 
@@ -548,7 +549,7 @@ async function ensureActionsRegistered(): Promise<void> {
       skipNarration: params.skipNarration as boolean | undefined,
       skipBackdrop: params.skipBackdrop as boolean | undefined,
       skipRender: params.skipRender as boolean | undefined,
-      ttsProvider: params.tts as "auto" | "elevenlabs" | "kokoro" | undefined,
+      ttsProvider: params.tts as TtsProviderName | undefined,
       voice: params.voice as string | undefined,
       imageProvider: params.imageProvider as "openai" | undefined,
       imageQuality: params.quality as "standard" | "hd" | undefined,

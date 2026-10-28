@@ -10,6 +10,7 @@
 import { resolve } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
+import { TTS_PROVIDER_NAMES } from "../../commands/_shared/tts-providers.js";
 import { executeMotion } from "../../commands/ai-motion.js";
 import {
   executeSpeech,
@@ -92,16 +93,16 @@ export const generateNarrationTool = defineTool({
   title: "Generate Narration Audio",
   annotations: { readOnly: false, openWorld: true },
   description:
-    "Generate narration from text. Providers: elevenlabs (premium cloud voices), openai (fast cloud voice), kokoro (free, local; first use downloads ~90 MB). Default auto: ElevenLabs if ELEVENLABS_API_KEY is set, else OpenAI, else Kokoro.",
+    "Generate narration from text. Providers: elevenlabs (premium cloud voices), gemini (cloud voices on the Google API key), openai (fast cloud voice), kokoro (free, local; first use downloads ~90 MB). Default auto: the first of ElevenLabs, Gemini, OpenAI whose key is set, else Kokoro.",
   schema: z.object({
     text: z.string().describe("Narration text to convert to speech"),
-    provider: z.enum(["auto", "elevenlabs", "openai", "kokoro"]).optional().describe("TTS provider (default: auto)"),
-    output: z.string().optional().describe("Output audio file path (default: narration.mp3, or .wav for Kokoro)"),
-    voice: z.string().optional().describe("Voice: ElevenLabs name or ID, OpenAI voice (e.g. marin), or Kokoro voice (e.g. af_heart)"),
-    model: z.string().optional().describe("Model alias for the provider (ElevenLabs: v3, multilingual, flash)"),
+    provider: z.enum(TTS_PROVIDER_NAMES).optional().describe("TTS provider (default: auto)"),
+    output: z.string().optional().describe("Output audio file path (default: narration.mp3, or .wav for Gemini and Kokoro)"),
+    voice: z.string().optional().describe("Voice: ElevenLabs name or ID, Gemini voice (e.g. Kore), OpenAI voice (e.g. marin), or Kokoro voice (e.g. af_heart)"),
+    model: z.string().optional().describe("Model alias for the provider (ElevenLabs: v3, multilingual, flash; Gemini: flash, lite)"),
   }),
-  async execute(args) {
-    const result = await executeSpeech(args);
+  async execute(args, ctx) {
+    const result = await executeSpeech({ ...args, cwd: ctx.workingDirectory });
     if (!result.success) return failedTool(result, "Narration failed");
     return {
       success: true,

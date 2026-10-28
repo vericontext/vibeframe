@@ -70,6 +70,8 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | elevenlabs | **ElevenLabs v3** (default) | `eleven_v3` | `v3` | GA | $0.08 / 1K characters | 5,000 characters per request |
 | elevenlabs | ElevenLabs Multilingual v2 | `eleven_multilingual_v2` | `multilingual`, `v2` | GA | $0.08 / 1K characters | 10,000 characters; steadiest on long form |
 | elevenlabs | ElevenLabs Flash v2.5 | `eleven_flash_v2_5` | `flash` | GA | $0.04 / 1K characters | 40,000 characters; lowest latency |
+| gemini | **Gemini 3.8 Flash TTS** (default) | `gemini-3.8-flash-tts` | `flash` | GA | $0.0135 / minute (audio out until 2026-12-31, then $0.027) | WAV; 30 prebuilt voices, style directions; 130+ languages |
+| gemini | Gemini 3.8 Flash-Lite TTS | `gemini-3.8-flash-lite-tts` | `lite`, `flash-lite` | GA | $0.009 / minute (audio out until 2026-12-31, then $0.018) | Cheaper and faster; 100+ languages |
 | openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06 |  |  |
 | openai | TTS-1 | `tts-1` |  | Deprecated, shuts down 2027-01-06 | $0.015 / 1K characters |  |
 | openai | TTS-1 HD | `tts-1-hd` |  | Deprecated, shuts down 2027-01-06 | $0.03 / 1K characters |  |
@@ -211,12 +213,13 @@ Recognizable real people in uploaded images are not supported, so it is no fallb
 
 ---
 
-## Audio (5)
+## Audio (6)
 
 | Provider | Capability | Env Key | Notes |
 |----------|------------|---------|-------|
 | ElevenLabs | TTS, SFX, Music, Voice Clone, Transcription | `ELEVENLABS_API_KEY` | TTS: eleven_v3. SFX: 0.5-30s. Music: 3s-10min, model music_v2_5 (48 kHz / 192 kbps MP3). Transcription: Scribe v2 with word timestamps, first choice of `--stt auto` |
-| OpenAI TTS | TTS | `OPENAI_API_KEY` | gpt-4o-mini-tts (~$0.015/min of audio); voices incl. marin, alloy, nova |
+| Gemini TTS | TTS | `GOOGLE_API_KEY` | gemini-3.8-flash-tts (~$0.0135/min of audio until 2026-12-31, then ~$0.027); 30 prebuilt voices (default Kore); `--tts auto` picks it after ElevenLabs. WAV output; long narration is synthesised in sentence chunks |
+| OpenAI TTS | TTS | `OPENAI_API_KEY` | gpt-4o-mini-tts (~$0.015/min of audio); voices incl. marin, alloy, nova. Shuts down 2027-01-06 |
 | Kokoro | TTS (local, free) | - | Kokoro-82M (Apache 2.0); ~90MB model on first use; bundled in the Desktop extension. English voices only. Long narration is synthesised in sentence chunks |
 | Whisper | Transcription | `OPENAI_API_KEY` | OpenAI API; `whisper-1` shuts down 2027-02-26. Used by `--stt auto` when no ElevenLabs key is set |
 | Replicate | Music generation | `REPLICATE_API_TOKEN` | MusicGen, max 30s. Weights are CC-BY-NC: not for commercial use |
