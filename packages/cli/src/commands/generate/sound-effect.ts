@@ -6,8 +6,8 @@
  */
 
 import type { Command } from "commander";
-import { resolve } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import { ElevenLabsProvider, type ProviderErrorKind } from "@vibeframe/ai-providers";
 import { requireApiKey, requireConfiguredApiKey } from "../../utils/api-key.js";
@@ -47,6 +47,7 @@ export async function executeSoundEffect(options: ExecuteSoundEffectOptions): Pr
       return { success: false, error: result.error || "Sound effect generation failed", errorKind: result.errorKind };
     }
     const outputPath = resolve(process.cwd(), options.output || "sound-effect.mp3");
+    await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, result.audioBuffer);
     return { success: true, outputPath };
   } catch (error) {

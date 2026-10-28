@@ -4,8 +4,8 @@
  * storyboard analysis. Split out of `generate.ts` in v0.69 (Plan G Phase 2).
  */
 
-import { resolve } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import { ClaudeProvider } from "@vibeframe/ai-providers";
 import { sanitizeLLMResponse } from "../sanitize.js";
 import { requireConfiguredApiKey } from "../../utils/api-key.js";
@@ -63,6 +63,7 @@ export async function executeStoryboard(
     let outputPath: string | undefined;
     if (output) {
       outputPath = resolve(process.cwd(), output);
+      await mkdir(dirname(outputPath), { recursive: true });
       await writeFile(outputPath, JSON.stringify(segments, null, 2), "utf-8");
     }
 

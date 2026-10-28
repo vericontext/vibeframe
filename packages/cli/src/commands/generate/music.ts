@@ -6,8 +6,8 @@
  */
 
 import type { Command } from "commander";
-import { resolve } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import {
@@ -72,6 +72,7 @@ export async function executeMusic(
       }
 
       const outputPath = resolve(process.cwd(), options.output || "music.mp3");
+      await mkdir(dirname(outputPath), { recursive: true });
       await writeFile(outputPath, result.audioBuffer);
 
       return { success: true, outputPath, provider: "elevenlabs", duration };
@@ -112,6 +113,7 @@ export async function executeMusic(
 
     const audioBuffer = Buffer.from(await response.arrayBuffer());
     const outputPath = resolve(process.cwd(), options.output || "music.mp3");
+    await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, audioBuffer);
 
     return { success: true, outputPath, provider: "replicate", duration };
