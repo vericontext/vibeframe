@@ -1,7 +1,7 @@
 import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import type { StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./openai-storyboard.js";
-import { defaultModel } from "../catalog/catalog.js";
+import { isText, parseJsonReply } from "../shared/json-reply.js";
 import { openaiGenerateText } from "./openai-text.js";
 import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
@@ -36,20 +36,13 @@ export class OpenAIProvider implements AIProvider, TextGenerator {
     return openaiGenerateText({ apiKey: this.apiKey, baseUrl: this.baseUrl }, request);
   }
 
+  /** Write a narration script for a video analysis. Throws a `ProviderError` on every failure. */
   async generateNarrationScript(
     videoAnalysis: string,
     duration: number,
     style: "informative" | "energetic" | "calm" | "dramatic" = "informative",
     language: string = "en"
-  ): Promise<{
-    success: boolean;
-    script?: string;
-    segments?: Array<{ startTime: number; endTime: number; text: string }>;
-    error?: string;
-  }> {
-    if (!this.apiKey) {
-      return { success: false, error: "OpenAI API key not configured" };
-    }
+  ): Promise<{ script: string; segments: Array<{ startTime: number; endTime: number; text: string }> }> {
 
     const styleGuides: Record<string, string> = {
       informative: "Clear, educational, and objective. Focus on facts and explanations. Professional but accessible tone.",
@@ -87,55 +80,16 @@ IMPORTANT: Respond with JSON only:
 The segments should divide the script into natural phrases that align with video scenes.
 Each segment should be 3-10 seconds long.`;
 
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: defaultModel("openai", "llm").id,
-          // Reasoning tokens count against this cap.
-          max_completion_tokens: 16384,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Create a narration script for this video:\n\n${videoAnalysis}` },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return { success: false, error: `API error: ${response.status} ${error}` };
-      }
-
-      const data = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        return { success: false, error: "No response from OpenAI" };
-      }
-
-      const result = JSON.parse(content) as {
-        script: string;
-        segments?: Array<{ startTime: number; endTime: number; text: string }>;
-      };
-
-      return {
-        success: true,
-        script: result.script,
-        segments: result.segments || [],
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to generate narration script",
-      };
-    }
+    const { text } = await openaiGenerateText({ apiKey: this.apiKey, baseUrl: this.baseUrl }, {
+      system: systemPrompt,
+      messages: [{ role: "user", content: `Create a narration script for this video:\n\n${videoAnalysis}` }],
+      maxOutputTokens: 16384,
+    });
+    const result = parseJsonReply<{
+      script: string;
+      segments?: Array<{ startTime: number; endTime: number; text: string }>;
+    }>(text, { provider: "openai", label: "OpenAI", task: "narration script", shape: "object", isValid: (value) => isText(value.script) });
+    return { script: result.script, segments: result.segments ?? [] };
   }
 
   /**
@@ -147,8 +101,7 @@ Each segment should be 3-10 seconds long.`;
     targetDuration?: number,
     options?: { creativity?: "low" | "high" }
   ): Promise<StoryboardSegment[]> {
-    if (!this.apiKey) return [];
-    return analyzeContentImpl(this.apiKey, content, targetDuration, options);
+    return analyzeContentImpl({ apiKey: this.apiKey, baseUrl: this.baseUrl }, content, targetDuration, options);
   }
 }
 

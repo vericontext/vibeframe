@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { parse as yamlParse, stringify as yamlStringify } from "yaml";
 import type { PipelineManifest, PipelineAction, PipelineBudget, StepResult, PipelineResult, BudgetUsage } from "./types.js";
 import { resolveStepParams, findUnresolvedRefs } from "./resolver.js";
-import { COST_ESTIMATES } from "../commands/output.js";
+import { COST_ESTIMATES, failureFromError, providerFailure, type StructuredError } from "../commands/output.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { loadProviderDefaults, resolveProvider } from "../utils/provider-resolver.js";
 import { resolveBuildVideoProvider, type BuildVideoProvider } from "../commands/_shared/build-video-providers.js";
@@ -86,6 +86,18 @@ export function isPipelineAction(action: string): action is PipelineAction {
 type ActionHandler = (params: Record<string, unknown>, outputDir: string) => Promise<StepResult>;
 
 const ACTION_HANDLERS: Record<string, ActionHandler> = {};
+
+/**
+ * The structured error code and provider error kind of a failed executor
+ * result, so `vibe run` reports and the `run` MCP tool can tell a bad key
+ * from a rate limit without reading the message.
+ */
+function stepFailure(r: { success: boolean; error?: string; failure?: StructuredError; errorKind?: string }): Pick<StepResult, "errorCode" | "errorKind"> {
+  if (r.success) return {};
+  const failure = r.failure ?? (r.errorKind ? providerFailure(r.error ?? "", r.errorKind) : undefined);
+  if (!failure) return {};
+  return { errorCode: failure.code, ...(failure.errorKind ? { errorKind: failure.errorKind } : {}) };
+}
 
 function registerAction(action: PipelineAction, handler: ActionHandler): void {
   ACTION_HANDLERS[action] = handler;
@@ -193,7 +205,7 @@ async function ensureActionsRegistered(): Promise<void> {
       count: numberParam(params.count),
       apiKey: await apiKeyForProvider(providerKeyForImage(provider)),
     });
-    return { id: "", action: "generate-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error };
+    return { id: "", action: "generate-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-video", async (params, outputDir) => {
@@ -216,7 +228,7 @@ async function ensureActionsRegistered(): Promise<void> {
       wait: true,
       apiKey: await apiKeyForProvider(providerKeyForVideo(provider)),
     });
-    return { id: "", action: "generate-video", success: r.success, output: r.outputPath || r.videoUrl, data: { taskId: r.taskId, provider: r.provider, videoUrl: r.videoUrl }, error: r.error };
+    return { id: "", action: "generate-video", success: r.success, output: r.outputPath || r.videoUrl, data: { taskId: r.taskId, provider: r.provider, videoUrl: r.videoUrl }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-tts", async (params, outputDir) => {
@@ -229,35 +241,35 @@ async function ensureActionsRegistered(): Promise<void> {
       model: stringParam(params.model),
       output,
     });
-    return { id: "", action: "generate-tts", success: r.success, output: r.outputPath, data: { characterCount: r.characterCount }, error: r.error };
+    return { id: "", action: "generate-tts", success: r.success, output: r.outputPath, data: { characterCount: r.characterCount }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-sfx", async (params, outputDir) => {
     const { executeSoundEffect } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "sfx.mp3");
     const r = await executeSoundEffect({ prompt: params.prompt as string, duration: params.duration as number | undefined, output });
-    return { id: "", action: "generate-sfx", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "generate-sfx", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-music", async (params, outputDir) => {
     const { executeMusic } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "music.mp3");
     const r = await executeMusic({ prompt: params.prompt as string, duration: params.duration as number | undefined, provider: params.provider as "elevenlabs" | "replicate" | undefined, instrumental: params.instrumental as boolean | undefined, output });
-    return { id: "", action: "generate-music", success: r.success, output: r.outputPath, data: { provider: r.provider, duration: r.duration }, error: r.error };
+    return { id: "", action: "generate-music", success: r.success, output: r.outputPath, data: { provider: r.provider, duration: r.duration }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-storyboard", async (params, outputDir) => {
     const { executeStoryboard } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "storyboard.yaml");
     const r = await executeStoryboard({ content: params.content as string, duration: params.duration as number | undefined, creativity: params.creativity as "low" | "high" | undefined, output });
-    return { id: "", action: "generate-storyboard", success: r.success, output: r.outputPath, data: { segmentCount: r.segmentCount }, error: r.error };
+    return { id: "", action: "generate-storyboard", success: r.success, output: r.outputPath, data: { segmentCount: r.segmentCount }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-motion", async (params, outputDir) => {
     const { executeMotion } = await import("../commands/ai-motion.js");
     const output = getOutput(params, outputDir, "motion.tsx");
     const r = await executeMotion({ description: params.description as string || params.prompt as string, duration: params.duration as number | undefined, render: params.render as boolean | undefined, video: params.video as string | undefined, output, understand: params.understand as "auto" | "off" | "required" | undefined, understandingPrompt: params.understandingPrompt as string | undefined });
-    return { id: "", action: "generate-motion", success: r.success, output: r.compositedPath || r.renderedPath || r.codePath, data: { codePath: r.codePath, renderedPath: r.renderedPath, compositedPath: r.compositedPath }, error: r.error };
+    return { id: "", action: "generate-motion", success: r.success, output: r.compositedPath || r.renderedPath || r.codePath, data: { codePath: r.codePath, renderedPath: r.renderedPath, compositedPath: r.compositedPath }, error: r.error, ...stepFailure(r) };
   });
 
   // Edit
@@ -265,35 +277,35 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeSilenceCut } = await import("../commands/ai-edit.js");
     const output = getOutput(params, outputDir, "silence-cut.mp4");
     const r = await executeSilenceCut({ videoPath: params.input as string, outputPath: output, padding: params.padding as number | undefined });
-    return { id: "", action: "edit-silence-cut", success: r.success, output: r.outputPath, data: { totalDuration: r.totalDuration, silentDuration: r.silentDuration }, error: r.error };
+    return { id: "", action: "edit-silence-cut", success: r.success, output: r.outputPath, data: { totalDuration: r.totalDuration, silentDuration: r.silentDuration }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-caption", async (params, outputDir) => {
     const { executeCaption } = await import("../commands/ai-edit.js");
     const output = getOutput(params, outputDir, "captioned.mp4");
     const r = await executeCaption({ videoPath: params.input as string, outputPath: output, language: params.language as string | undefined });
-    return { id: "", action: "edit-caption", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "edit-caption", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-noise-reduce", async (params, outputDir) => {
     const { executeNoiseReduce } = await import("../commands/ai-edit.js");
     const output = getOutput(params, outputDir, "denoised.mp4");
     const r = await executeNoiseReduce({ inputPath: params.input as string, outputPath: output, strength: params.strength as "low" | "medium" | "high" | undefined });
-    return { id: "", action: "edit-noise-reduce", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "edit-noise-reduce", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-fade", async (params, outputDir) => {
     const { executeFade } = await import("../commands/ai-edit.js");
     const output = getOutput(params, outputDir, "faded.mp4");
     const r = await executeFade({ videoPath: params.input as string, outputPath: output, fadeIn: params.fadeIn as number | undefined, fadeOut: params.fadeOut as number | undefined });
-    return { id: "", action: "edit-fade", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "edit-fade", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-grade", async (params, outputDir) => {
     const { executeGrade } = await import("../commands/edit-cmd.js");
     const output = getOutput(params, outputDir, "graded.mp4");
     const r = await executeGrade({ videoPath: params.input as string, style: params.style as string | undefined, preset: params.preset as string | undefined, output });
-    if (!r.success) return { id: "", action: "edit-grade", success: false, error: r.error };
+    if (!r.success) return { id: "", action: "edit-grade", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-grade", success: true, output: r.outputPath, data: { description: r.description } };
   });
 
@@ -308,7 +320,7 @@ async function ensureActionsRegistered(): Promise<void> {
       maxSpeed: params.maxSpeed as number | undefined,
       language: params.language as string | undefined,
     });
-    if (!r.success) return { id: "", action: "edit-speed-ramp", success: false, error: r.error };
+    if (!r.success) return { id: "", action: "edit-speed-ramp", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-speed-ramp", success: true, output: r.outputPath, data: { avgSpeed: r.avgSpeed, keyframeCount: r.keyframes.length } };
   });
 
@@ -316,7 +328,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeUpscale } = await import("../commands/edit-cmd.js");
     const output = getOutput(params, outputDir, "upscaled.mp4");
     const r = await executeUpscale({ videoPath: params.input as string, output, scale: params.scale as number | undefined });
-    if (!r.success) return { id: "", action: "edit-upscale", success: false, error: r.error };
+    if (!r.success) return { id: "", action: "edit-upscale", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-upscale", success: true, output: r.outputPath, data: { originalRes: r.originalRes, targetRes: r.targetRes } };
   });
 
@@ -330,7 +342,7 @@ async function ensureActionsRegistered(): Promise<void> {
       fps: numberParam(params.fps),
       quality: params.mode as "fast" | "quality" | undefined,
     });
-    if (!r.success) return { id: "", action: "edit-interpolate", success: false, error: r.error };
+    if (!r.success) return { id: "", action: "edit-interpolate", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-interpolate", success: true, output: r.outputPath, data: { originalFps: r.originalFps, targetFps: r.targetFps, factor: r.factor } };
   });
 
@@ -345,7 +357,7 @@ async function ensureActionsRegistered(): Promise<void> {
       language: stringParam(params.language),
       analyzeOnly: params.analyzeOnly as boolean | undefined,
     });
-    return { id: "", action: "edit-jump-cut", success: r.success, output: r.outputPath, data: { fillerCount: r.fillerCount, fillerDuration: r.fillerDuration, totalDuration: r.totalDuration }, error: r.error };
+    return { id: "", action: "edit-jump-cut", success: r.success, output: r.outputPath, data: { fillerCount: r.fillerCount, fillerDuration: r.fillerDuration, totalDuration: r.totalDuration }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-text-overlay", async (params, outputDir) => {
@@ -362,7 +374,7 @@ async function ensureActionsRegistered(): Promise<void> {
       startTime: numberParam(params.startTime),
       endTime: numberParam(params.endTime),
     });
-    return { id: "", action: "edit-text-overlay", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "edit-text-overlay", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-translate-srt", async (params, outputDir) => {
@@ -375,7 +387,7 @@ async function ensureActionsRegistered(): Promise<void> {
       provider: params.provider as "claude" | "openai" | undefined,
       sourceLanguage: stringParam(params.source),
     });
-    return { id: "", action: "edit-translate-srt", success: r.success, output: r.outputPath, data: { segmentCount: r.segmentCount, sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage }, error: r.error };
+    return { id: "", action: "edit-translate-srt", success: r.success, output: r.outputPath, data: { segmentCount: r.segmentCount, sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-image", async (params, outputDir) => {
@@ -390,7 +402,7 @@ async function ensureActionsRegistered(): Promise<void> {
       resolution: stringParam(params.resolution),
       output,
     });
-    return { id: "", action: "edit-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error };
+    return { id: "", action: "edit-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-motion-overlay", async (params, outputDir) => {
@@ -412,7 +424,7 @@ async function ensureActionsRegistered(): Promise<void> {
       opacity: params.opacity as number | undefined,
       loop: params.loop as boolean | undefined,
     });
-    return { id: "", action: "edit-motion-overlay", success: r.success, output: r.outputPath, data: { codePath: r.codePath, renderedPath: r.renderedPath, provider: r.provider }, error: r.error };
+    return { id: "", action: "edit-motion-overlay", success: r.success, output: r.outputPath, data: { codePath: r.codePath, renderedPath: r.renderedPath, provider: r.provider }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("edit-reframe", async (params, outputDir) => {
@@ -425,7 +437,7 @@ async function ensureActionsRegistered(): Promise<void> {
       focus: params.focus as "auto" | "face" | "center" | "action" | undefined,
       output,
     });
-    if (!r.success) return { id: "", action: "edit-reframe", success: false, error: r.error };
+    if (!r.success) return { id: "", action: "edit-reframe", success: false, error: r.error, ...stepFailure(r) };
     return { id: "", action: "edit-reframe", success: true, output: r.outputPath, data: { focus: r.focus, crop: r.crop } };
   });
 
@@ -434,14 +446,14 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeTranscribe } = await import("../commands/ai-audio.js");
     const output = getOutput(params, outputDir, "transcript.srt");
     const r = await executeTranscribe({ audioPath: params.input as string, language: params.language as string | undefined, output });
-    return { id: "", action: "audio-transcribe", success: r.success, output: r.outputPath, data: { text: r.text, segmentCount: r.segments?.length }, error: r.error };
+    return { id: "", action: "audio-transcribe", success: r.success, output: r.outputPath, data: { text: r.text, segmentCount: r.segments?.length }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("audio-isolate", async (params, outputDir) => {
     const { executeIsolate } = await import("../commands/ai-audio.js");
     const output = getOutput(params, outputDir, "vocals.mp3");
     const r = await executeIsolate({ audioPath: params.input as string, output });
-    return { id: "", action: "audio-isolate", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "audio-isolate", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("audio-dub", async (params, outputDir) => {
@@ -457,14 +469,14 @@ async function ensureActionsRegistered(): Promise<void> {
       analyzeOnly,
       output,
     });
-    return { id: "", action: "audio-dub", success: r.success, output: r.outputPath, data: { sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage, segmentCount: r.segmentCount }, error: r.error };
+    return { id: "", action: "audio-dub", success: r.success, output: r.outputPath, data: { sourceLanguage: r.sourceLanguage, targetLanguage: r.targetLanguage, segmentCount: r.segmentCount }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("audio-duck", async (params, outputDir) => {
     const { executeDuck } = await import("../commands/ai-audio.js");
     const output = getOutput(params, outputDir, "ducked.mp3");
     const r = await executeDuck({ musicPath: params.music as string, voicePath: params.voice as string, output });
-    return { id: "", action: "audio-duck", success: r.success, output: r.outputPath, error: r.error };
+    return { id: "", action: "audio-duck", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   // Detect
@@ -472,26 +484,26 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeDetectScenes } = await import("../commands/detect.js");
     const output = getOutput(params, outputDir, "scenes.json");
     const r = await executeDetectScenes({ videoPath: params.input as string, threshold: params.threshold as number | undefined, outputPath: output });
-    return { id: "", action: "detect-scenes", success: r.success, output, data: { scenes: r.scenes, totalDuration: r.totalDuration }, error: r.error };
+    return { id: "", action: "detect-scenes", success: r.success, output, data: { scenes: r.scenes, totalDuration: r.totalDuration }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("detect-silence", async (params, _outputDir) => {
     const { executeDetectSilence } = await import("../commands/detect.js");
     const r = await executeDetectSilence({ mediaPath: params.input as string, noise: params.noise as string | undefined, duration: params.duration as string | undefined });
-    return { id: "", action: "detect-silence", success: r.success, data: { silences: r.silences }, error: r.error };
+    return { id: "", action: "detect-silence", success: r.success, data: { silences: r.silences }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("detect-beats", async (params, _outputDir) => {
     const { executeDetectBeats } = await import("../commands/detect.js");
     const r = await executeDetectBeats({ audioPath: params.input as string });
-    return { id: "", action: "detect-beats", success: r.success, data: { beats: r.beats }, error: r.error };
+    return { id: "", action: "detect-beats", success: r.success, data: { beats: r.beats }, error: r.error, ...stepFailure(r) };
   });
 
   // Analyze
   registerAction("analyze-video", async (params, _outputDir) => {
     const { executeGeminiVideo } = await import("../commands/ai-analyze.js");
     const r = await executeGeminiVideo({ source: params.input as string, prompt: params.prompt as string, model: params.model as "flash" | "flash-2.5" | "pro" | undefined });
-    return { id: "", action: "analyze-video", success: r.success, data: { response: r.response, model: r.model }, error: r.error };
+    return { id: "", action: "analyze-video", success: r.success, data: { response: r.response, model: r.model }, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("analyze-media", async (params, _outputDir) => {
@@ -505,14 +517,14 @@ async function ensureActionsRegistered(): Promise<void> {
       end: numberParam(params.end),
       lowRes: params.lowRes as boolean | undefined,
     });
-    return { id: "", action: "analyze-media", success: r.success, data: { response: r.response, model: r.model, sourceType: r.sourceType }, error: r.error };
+    return { id: "", action: "analyze-media", success: r.success, data: { response: r.response, model: r.model, sourceType: r.sourceType }, error: r.error, ...stepFailure(r) };
   });
 
   // Review
   registerAction("review-video", async (params, _outputDir) => {
     const { executeReview } = await import("../commands/ai-review.js");
     const r = await executeReview({ videoPath: params.input as string, autoApply: params.autoApply as boolean | undefined, model: params.model as "flash" | "flash-2.5" | "pro" | undefined });
-    return { id: "", action: "review-video", success: r.success, output: r.outputPath, data: { feedback: r.feedback }, error: r.error };
+    return { id: "", action: "review-video", success: r.success, output: r.outputPath, data: { feedback: r.feedback }, error: r.error, ...stepFailure(r) };
   });
 
   // v0.62: STORYBOARD → MP4 in one action. Reads frontmatter + per-beat
@@ -542,6 +554,7 @@ async function ensureActionsRegistered(): Promise<void> {
       output: r.outputPath,
       data: { beats: r.beats, totalLatencyMs: r.totalLatencyMs } as Record<string, unknown>,
       error: r.error,
+      ...stepFailure(r),
     };
   });
 
@@ -572,6 +585,7 @@ async function ensureActionsRegistered(): Promise<void> {
         audioMuxApplied: r.audioMuxApplied,
       } as Record<string, unknown>,
       error: r.error,
+      ...stepFailure(r),
     };
   });
 }
@@ -768,11 +782,15 @@ export async function executePipeline(
       result.id = step.id;
       result.duration = Date.now() - stepStart;
     } catch (err) {
+      // A missing key (ApiKeyError) or a provider error thrown by the executor.
+      const failure = failureFromError(err);
       result = {
         id: step.id,
         action: step.action,
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: failure.error,
+        errorCode: failure.code,
+        ...(failure.errorKind ? { errorKind: failure.errorKind } : {}),
         duration: Date.now() - stepStart,
       };
     }

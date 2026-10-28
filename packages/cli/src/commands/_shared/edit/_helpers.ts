@@ -7,24 +7,13 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { commandExists, execSafe } from "../../../utils/exec-safe.js";
-import { generalError, notFoundError, type StructuredError } from "../../output.js";
+import { executorFailure, generalError, notFoundError, type ExecutorFailure } from "../../output.js";
 
-/**
- * A failed edit executor result. `error` is the message MCP tools and the
- * YAML pipeline report; `failure` is the structured error the CLI exits
- * with. It is chosen where the failure happens (usage, not found, provider
- * error kind), so no caller classifies an error by its wording.
- */
-export interface EditFailure {
-  success: false;
-  error: string;
-  failure: StructuredError;
-}
+/** A failed edit executor result; see {@link ExecutorFailure}. */
+export type EditFailure = ExecutorFailure;
 
 /** Wrap a structured error as a failed executor result. */
-export function editFailure(failure: StructuredError): EditFailure {
-  return { success: false, error: failure.error, failure };
-}
+export const editFailure = executorFailure;
 
 /**
  * Resolve an edit executor's input video against the cwd and check that it

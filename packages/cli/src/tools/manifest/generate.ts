@@ -9,7 +9,7 @@
 
 import { resolve } from "node:path";
 import { z } from "zod";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import { executeMotion } from "../../commands/ai-motion.js";
 import {
   executeSpeech,
@@ -70,7 +70,7 @@ export const generateMotionTool = defineTool({
   async execute(args) {
     const result = await executeMotion(args);
     if (!result.success)
-      return { success: false, error: result.error ?? "Motion generation failed" };
+      return failedTool(result, "Motion generation failed");
     const out = result.compositedPath ?? result.renderedPath ?? result.codePath;
     return {
       success: true,
@@ -102,7 +102,7 @@ export const generateNarrationTool = defineTool({
   }),
   async execute(args) {
     const result = await executeSpeech(args);
-    if (!result.success) return { success: false, error: result.error ?? "Narration failed", errorKind: result.errorKind };
+    if (!result.success) return failedTool(result, "Narration failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, characterCount: result.characterCount, provider: result.provider, model: result.model },
@@ -128,7 +128,7 @@ export const generateSoundEffectTool = defineTool({
   }),
   async execute(args) {
     const result = await executeSoundEffect(args);
-    if (!result.success) return { success: false, error: result.error ?? "SFX failed" };
+    if (!result.success) return failedTool(result, "SFX failed");
     return {
       success: true,
       data: { outputPath: result.outputPath },
@@ -169,7 +169,7 @@ export const generateMusicTool = defineTool({
   }),
   async execute(args, ctx) {
     const result = await executeMusic(args);
-    if (!result.success) return { success: false, error: result.error ?? "Music gen failed" };
+    if (!result.success) return failedTool(result, "Music gen failed");
     let job: Awaited<ReturnType<typeof createAndWriteJobRecord>> | undefined;
     if (args.wait === false && result.provider === "replicate" && result.taskId) {
       job = await createAndWriteJobRecord({
@@ -235,7 +235,7 @@ export const generateImageTool = defineTool({
     const output = args.output ?? defaultOutputIn(ctx.workingDirectory, "image.png", args.count ?? 1);
     const result = await executeImageGenerate({ ...args, output });
     if (!result.success)
-      return { success: false, error: result.error ?? "Image generation failed", errorKind: result.errorKind };
+      return failedTool(result, "Image generation failed");
     return {
       success: true,
       data: {
@@ -267,7 +267,7 @@ export const generateThumbnailTool = defineTool({
   }),
   async execute(args) {
     const result = await executeThumbnailBestFrame(args);
-    if (!result.success) return { success: false, error: result.error ?? "Thumbnail failed" };
+    if (!result.success) return failedTool(result, "Thumbnail failed");
     return {
       success: true,
       data: { outputPath: result.outputPath, timestamp: result.timestamp, reason: result.reason },
@@ -340,7 +340,7 @@ export const generateVideoTool = defineTool({
       // Keep the job ID: a job that failed or timed out after submission may
       // still have been billed, or may still finish.
       const taskNote = result.taskId ? ` (${result.provider} task ${result.taskId})` : "";
-      return { success: false, error: `${result.error ?? "Video gen failed"}${taskNote}` };
+      return failedTool({ ...result, error: `${result.error ?? "Video gen failed"}${taskNote}` }, "Video gen failed");
     }
     let job: Awaited<ReturnType<typeof createAndWriteJobRecord>> | undefined;
     if (args.wait === false && result.taskId && result.status !== "completed") {
@@ -396,7 +396,7 @@ export const generateVideoCancelTool = defineTool({
   }),
   async execute(args) {
     const result = await executeVideoCancel(args);
-    if (!result.success) return { success: false, error: result.error ?? "Cancel failed" };
+    if (!result.success) return failedTool(result, "Cancel failed");
     return {
       success: true,
       data: { taskId: args.taskId },
@@ -432,7 +432,7 @@ export const generateVideoExtendTool = defineTool({
       ...args,
       output: args.output ?? defaultOutputIn(ctx.workingDirectory, "video-extended.mp4"),
     });
-    if (!result.success) return { success: false, error: result.error ?? "Extend failed" };
+    if (!result.success) return failedTool(result, "Extend failed");
     return {
       success: true,
       data: {

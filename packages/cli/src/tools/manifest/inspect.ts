@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import { resolve } from "node:path";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import { executeAnalyze } from "../../commands/ai-analyze.js";
 import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { inspectProject } from "../../commands/_shared/scene-inspect.js";
@@ -148,7 +148,7 @@ export const analyzeMediaTool = defineTool({
   }),
   async execute(args) {
     const result = await executeAnalyze(args);
-    if (!result.success) return { success: false, error: result.error ?? "Analysis failed" };
+    if (!result.success) return failedTool(result, "Analysis failed");
     return {
       success: true,
       data: {
@@ -180,7 +180,7 @@ export const analyzeSuggestTool = defineTool({
   }),
   async execute(args) {
     const result = await executeSuggestEdit(args);
-    if (!result.success) return { success: false, error: result.error ?? "Suggest failed" };
+    if (!result.success) return failedTool(result, "Suggest failed");
     return {
       success: true,
       data: {

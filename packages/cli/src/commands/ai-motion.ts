@@ -21,6 +21,7 @@ import {
   findModel,
   GeminiProvider,
   GEMINI_DEFAULT_TEXT_MODEL,
+  isProviderError,
   type RemotionComponent,
 } from "@vibeframe/ai-providers";
 import { loadEnv, requireApiKey } from "../utils/api-key.js";
@@ -136,14 +137,12 @@ export async function executeMotion(options: MotionCommandOptions): Promise<Moti
 Be specific and concise — this analysis will guide a Remotion animation generator.`
     );
 
-    if (analysisResult.success && analysisResult.response) {
-      enrichedDescription = `${options.description}
+    enrichedDescription = `${options.description}
 
 [Image Analysis Context]
 ${analysisResult.response}
 
 Use this image analysis to inform the color palette, typography placement, and overall aesthetic of the motion graphic.`;
-    }
   }
 
   const understand = normalizeUnderstand(options.understand);
@@ -171,27 +170,35 @@ Use this image analysis to inform the color palette, typography placement, and o
 6. Recommended animation timing and entrance/exit style
 7. Any moments where overlays should pause, fade, or stay minimal`;
 
-      const analysisResult = await gemini.analyzeVideo(videoBuffer, analysisPrompt, {
-        model: GEMINI_DEFAULT_TEXT_MODEL,
-        fps: 1,
-        lowResolution: true,
-      });
+      // Best effort unless --understand required, but a rejected key or an
+      // exhausted quota is reported, not silently skipped.
+      let understanding: string | undefined;
+      try {
+        const analysisResult = await gemini.analyzeVideo(videoBuffer, analysisPrompt, {
+          model: GEMINI_DEFAULT_TEXT_MODEL,
+          fps: 1,
+          lowResolution: true,
+        });
+        understanding = analysisResult.response;
+      } catch (error) {
+        if (understand === "required" || (isProviderError(error) && (error.kind === "auth" || error.kind === "quota"))) {
+          throw error;
+        }
+      }
 
-      if (analysisResult.success && analysisResult.response) {
+      if (understanding) {
         enrichedDescription = `${enrichedDescription}
 
 [Video Understanding Context]
-${analysisResult.response}
+${understanding}
 
 Use this video understanding to place motion graphics in safe zones, match the clip's palette and camera movement, and avoid covering important subjects.`;
-      } else if (understand === "required") {
-        return { success: false, error: analysisResult.error || "Video understanding failed" };
       }
     }
   }
 
-  // Claude throws a classified ProviderError on failure (the command's
-  // catch maps it by kind); Gemini still reports `{ success: false }`.
+  // Claude and Gemini throw a classified ProviderError on failure; the
+  // command's catch, the MCP adapter, and the pipeline map it by kind.
   let component: RemotionComponent;
 
   if (options.fromTsx) {
@@ -205,17 +212,13 @@ Use this video understanding to place motion graphics in safe zones, match the c
     if (useGemini) {
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
-      const result = await gemini.refineMotion(existingCode, options.description, {
+      component = await gemini.refineMotion(existingCode, options.description, {
         duration,
         width,
         height,
         fps,
         model: modelConfig.modelId,
       });
-      if (!result.success || !result.component) {
-        return { success: false, error: result.error || "Motion generation failed" };
-      }
-      component = result.component;
     } else {
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });
@@ -230,7 +233,7 @@ Use this video understanding to place motion graphics in safe zones, match the c
     if (useGemini) {
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey });
-      const result = await gemini.generateMotion(enrichedDescription, {
+      component = await gemini.generateMotion(enrichedDescription, {
         duration,
         width,
         height,
@@ -238,10 +241,6 @@ Use this video understanding to place motion graphics in safe zones, match the c
         style: options.style,
         model: modelConfig.modelId,
       });
-      if (!result.success || !result.component) {
-        return { success: false, error: result.error || "Motion generation failed" };
-      }
-      component = result.component;
     } else {
       const claude = new ClaudeProvider();
       await claude.initialize({ apiKey });

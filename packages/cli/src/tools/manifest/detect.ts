@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { defineTool, type AnyTool } from "../define-tool.js";
+import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import {
   executeDetectScenes,
   executeDetectSilence,
@@ -26,7 +26,7 @@ export const detectScenesTool = defineTool({
   }),
   async execute(args) {
     const result = await executeDetectScenes(args);
-    if (!result.success) return { success: false, error: result.error ?? "Scene detection failed" };
+    if (!result.success) return failedTool(result, "Scene detection failed");
     return {
       success: true,
       data: {
@@ -54,7 +54,7 @@ export const detectSilenceTool = defineTool({
   }),
   async execute(args) {
     const result = await executeDetectSilence(args);
-    if (!result.success) return { success: false, error: result.error ?? "Silence detection failed" };
+    if (!result.success) return failedTool(result, "Silence detection failed");
     return {
       success: true,
       data: { silenceCount: result.silences?.length, silences: result.silences },
@@ -77,7 +77,7 @@ export const detectBeatsTool = defineTool({
   }),
   async execute(args) {
     const result = await executeDetectBeats(args);
-    if (!result.success) return { success: false, error: result.error ?? "Beat detection failed" };
+    if (!result.success) return failedTool(result, "Beat detection failed");
     return {
       success: true,
       data: { beatCount: result.beatCount, beats: result.beats },

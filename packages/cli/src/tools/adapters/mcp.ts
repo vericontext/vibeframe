@@ -302,9 +302,13 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
           ...(extra?.elicit ? { elicit: extra.elicit } : {}),
         })
       );
+      // A failure with a structured error (code, provider error kind,
+      // suggestion) goes back as that envelope, like the CLI's --json error.
       const text = result.success
         ? JSON.stringify({ success: true, ...result.data })
-        : result.data
+        : result.failure
+          ? JSON.stringify(result.data ? { ...result.failure, ...result.data } : result.failure)
+          : result.data
           ? JSON.stringify({
               success: false,
               error: result.error ?? "unknown error",

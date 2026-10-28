@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ProviderError } from "../shared/errors.js";
 import { analyzeContent } from "./openai-storyboard.js";
 
-function mockChatResponse(content: string) {
-  const fetchMock = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
-  );
+const API = { apiKey: "key", baseUrl: "https://api.openai.com/v1" };
+
+function mockResponsesReply(text: string, status = 200) {
+  const body = status === 200
+    ? { status: "completed", output: [{ type: "message", content: [{ type: "output_text", text }] }] }
+    : { error: { message: text } };
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -15,24 +19,38 @@ describe("OpenAI storyboard analyzeContent", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends only parameters GPT-5.x reasoning models accept", async () => {
-    const fetchMock = mockChatResponse('{"segments": []}');
+  it("asks the Responses API for the segments wrapped in an object", async () => {
+    const fetchMock = mockResponsesReply('{"segments": []}');
 
-    await analyzeContent("key", "A coffee mug teaser", 10, { creativity: "high" });
+    await analyzeContent(API, "A coffee mug teaser", 10, { creativity: "high" });
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/responses");
+    const body = JSON.parse(init.body as string);
     expect(body.model).toBe("gpt-5.4-mini");
     expect(body).not.toHaveProperty("temperature");
-    expect(body).not.toHaveProperty("max_tokens");
-    expect(body.max_completion_tokens).toBeGreaterThan(4096);
-    expect(body.response_format).toEqual({ type: "json_object" });
-    expect(body.messages[0].content).toContain('{"segments": [');
+    expect(body.max_output_tokens).toBeGreaterThan(4096);
+    expect(body.instructions).toContain('{"segments": [');
   });
 
-  it("unwraps the segments array from the json_object response", async () => {
+  it("unwraps the segments array", async () => {
     const segment = { index: 0, description: "Steam rises", startTime: 0, duration: 5 };
-    mockChatResponse(JSON.stringify({ segments: [segment] }));
+    mockResponsesReply(JSON.stringify({ segments: [segment] }));
 
-    await expect(analyzeContent("key", "A coffee mug teaser", 10)).resolves.toEqual([segment]);
+    await expect(analyzeContent(API, "A coffee mug teaser", 10)).resolves.toEqual([segment]);
+  });
+
+  it("throws a provider error for a reply with no segments", async () => {
+    mockResponsesReply("Sorry, I cannot help with that.");
+
+    await expect(analyzeContent(API, "A coffee mug teaser", 10)).rejects.toMatchObject({ kind: "provider" });
+  });
+
+  it("throws an auth error for a rejected key instead of returning no segments", async () => {
+    mockResponsesReply("Incorrect API key provided", 401);
+
+    const error = await analyzeContent(API, "A coffee mug teaser", 10).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).toMatchObject({ kind: "auth", provider: "openai" });
   });
 });

@@ -96,7 +96,15 @@ export function apiError(msg: string, retryable = false): StructuredError {
  */
 export function providerFailure(message: string, kind?: string): StructuredError {
   if (kind === "auth") {
-    return { success: false, error: message, code: "AUTH_ERROR", exitCode: ExitCode.AUTH, retryable: false, errorKind: kind };
+    return {
+      success: false,
+      error: message,
+      code: "AUTH_ERROR",
+      exitCode: ExitCode.AUTH,
+      suggestion: "The provider rejected the API key. Check it in the provider's dashboard, then update it with 'vibe setup' or in .env.",
+      retryable: false,
+      errorKind: kind,
+    };
   }
   if (kind === "invalid-request" || kind === "unsupported" || kind === "model-retired") {
     return { ...usageError(message), errorKind: kind };
@@ -129,6 +137,23 @@ export function failureFromError(
   const text = prefix ? `${prefix}: ${message}` : message;
   if (isProviderError(error)) return providerFailure(text, error.kind);
   return options.fallback === "general" ? generalError(text) : apiError(text, options.retryable ?? false);
+}
+
+/**
+ * A failed executor result. `error` is the message text; `failure` is the
+ * structured error (code, exit code, provider error kind, suggestion) chosen
+ * where the failure happened. The CLI exits with `failure`, and the MCP tool
+ * and YAML pipeline report it, so no caller classifies an error by wording.
+ */
+export interface ExecutorFailure {
+  success: false;
+  error: string;
+  failure: StructuredError;
+}
+
+/** Wrap a structured error as a failed executor result. */
+export function executorFailure(failure: StructuredError): ExecutorFailure {
+  return { success: false, error: failure.error, failure };
 }
 
 export function notFoundError(path: string): StructuredError {

@@ -101,6 +101,10 @@ export interface StepResult {
   data?: Record<string, unknown>;
   /** Error message if failed */
   error?: string;
+  /** Structured error code if failed (`AUTH_ERROR`, `API_ERROR`, `NOT_FOUND`, ...) */
+  errorCode?: string;
+  /** Provider error kind if a provider call failed (`auth`, `quota`, `rate-limit`, ...) */
+  errorKind?: string;
   /** Execution time in ms */
   duration?: number;
 }

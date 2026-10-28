@@ -26,6 +26,7 @@ import { ApiKeyError, requireConfiguredApiKey } from "../utils/api-key.js";
 import { contractQuality, openImageGenerator, readImageInput, saveImage } from "./_shared/image-jobs.js";
 import { numberedPath } from "./_shared/default-output.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
+import { executorFailure, failureFromError, generalError, notFoundError, providerFailure, type StructuredError } from "./output.js";
 
 // ============================================================================
 // Image Generate
@@ -168,6 +169,8 @@ export interface ThumbnailBestFrameResult {
   timestamp?: number;
   reason?: string;
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptions): Promise<ThumbnailBestFrameResult> {
@@ -180,11 +183,11 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
   } = options;
 
   if (!existsSync(videoPath)) {
-    return { success: false, error: `Video not found: ${videoPath}` };
+    return executorFailure(notFoundError(videoPath));
   }
 
   if (!commandExists("ffmpeg")) {
-    return { success: false, error: "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details." };
+    return executorFailure(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
   }
 
   const googleKey = await requireConfiguredApiKey("GOOGLE_API_KEY", "Google", apiKey);
@@ -208,13 +211,9 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
       fps: 1,
     });
 
-    if (!result.success || !result.response) {
-      return { success: false, error: result.error || "Gemini analysis failed" };
-    }
-
     const jsonMatch = result.response.match(/\{[\s\S]*?"timestamp"\s*:\s*([\d.]+)[\s\S]*?\}/);
     if (!jsonMatch) {
-      return { success: false, error: `Could not parse timestamp from Gemini response: ${result.response.slice(0, 200)}` };
+      return executorFailure(providerFailure(`Could not parse a timestamp from the Gemini reply: ${result.response.slice(0, 200)}`, "provider"));
     }
 
     const timestamp = parseFloat(jsonMatch[1]);
@@ -227,7 +226,7 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
     await execSafe("ffmpeg", ["-ss", String(timestamp), "-i", videoPath, "-frames:v", "1", "-q:v", "2", outputPath, "-y"], { timeout: 60000, maxBuffer: 50 * 1024 * 1024 });
 
     if (!existsSync(outputPath)) {
-      return { success: false, error: "FFmpeg failed to extract frame" };
+      return executorFailure(generalError("FFmpeg failed to extract frame"));
     }
 
     return {
@@ -237,9 +236,6 @@ export async function executeThumbnailBestFrame(options: ThumbnailBestFrameOptio
       reason,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: `Best frame extraction failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
+    return executorFailure(failureFromError(error, "Best frame extraction failed"));
   }
 }

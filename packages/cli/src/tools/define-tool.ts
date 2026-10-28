@@ -15,6 +15,7 @@
  */
 
 import { z, type ZodTypeAny } from "zod";
+import { providerFailure, type StructuredError } from "../commands/output.js";
 import {
   productSurfaceForToolName,
   type ProductSurface,
@@ -57,6 +58,26 @@ export interface ToolExecuteResult {
   /** Human-readable lines for Agent REPL output. Optional — adapter falls back to JSON if absent. */
   humanLines?: readonly string[];
   error?: string;
+  /**
+   * The structured error (code, exit code, provider error kind, suggestion)
+   * for a failed call. MCP returns it as the JSON envelope, so an agent can
+   * tell a bad key from a rate limit without reading the message.
+   */
+  failure?: StructuredError;
+}
+
+/**
+ * The tool result for a failed executor. Keeps the executor's structured
+ * error, or builds one from a provider error kind, so MCP reports the same
+ * code and kind the CLI exits with.
+ */
+export function failedTool(
+  result: { error?: string; failure?: StructuredError; errorKind?: string },
+  fallback: string
+): ToolExecuteResult {
+  const failure =
+    result.failure ?? (result.errorKind ? providerFailure(result.error ?? fallback, result.errorKind) : undefined);
+  return { success: false, error: failure?.error ?? result.error ?? fallback, ...(failure ? { failure } : {}) };
 }
 
 export interface ToolDefinition<S extends ZodTypeAny = ZodTypeAny> {

@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { resolve, relative } from "node:path";
-import { defineTool, type AnyTool, type ToolExecuteResult } from "../define-tool.js";
+import { defineTool, type AnyTool, type ToolExecuteResult, failedTool } from "../define-tool.js";
 import { runWithMcpPromotion, type LocalJobUpdate } from "../_shared/long-poll.js";
 import { applyElicitationAnswers, planBuildElicitation } from "../_shared/elicit.js";
 import { listVisualStyles, getVisualStyle } from "../../commands/_shared/visual-styles.js";
@@ -248,7 +248,7 @@ export const sceneAddTool = defineTool({
       force: args.force,
     });
     if (!result.success) {
-      return { success: false, error: result.error ?? "scene_add failed" };
+      return failedTool(result, "scene_add failed");
     }
     const lines = [
       `✅ Added scene "${result.id}" (preset=${result.preset})`,
@@ -441,7 +441,7 @@ function mapRenderResultToToolResult(
   projectDir: string
 ): ToolExecuteResult {
   if (!result.success) {
-    return { success: false, error: result.error ?? "render failed" };
+    return failedTool(result, "render failed");
   }
   return {
     success: true,
@@ -884,7 +884,7 @@ export const sceneComposePromptsTool = defineTool({
       beatId: args.beat,
     });
     if (!result.success) {
-      return { success: false, error: result.error ?? "compose-prompts failed" };
+      return failedTool(result, "compose-prompts failed");
     }
     return {
       success: true,

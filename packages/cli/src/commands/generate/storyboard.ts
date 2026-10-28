@@ -9,6 +9,7 @@ import { writeFile } from "node:fs/promises";
 import { ClaudeProvider } from "@vibeframe/ai-providers";
 import { sanitizeLLMResponse } from "../sanitize.js";
 import { requireConfiguredApiKey } from "../../utils/api-key.js";
+import { executorFailure, failureFromError, providerFailure, type StructuredError } from "../output.js";
 
 // ── Library: executeStoryboard ──────────────────────────────────────────
 
@@ -31,6 +32,8 @@ export interface ExecuteStoryboardResult {
   segmentCount?: number;
   outputPath?: string;
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 export async function executeStoryboard(
@@ -48,7 +51,7 @@ export async function executeStoryboard(
     const segments = await claude.analyzeContent(content, duration, { creativity });
 
     if (segments.length === 0) {
-      return { success: false, error: "Could not generate storyboard" };
+      return executorFailure(providerFailure("Claude returned a storyboard with no segments", "provider"));
     }
 
     // Sanitize LLM output
@@ -65,10 +68,7 @@ export async function executeStoryboard(
 
     return { success: true, segments, segmentCount: segments.length, outputPath };
   } catch (error) {
-    return {
-      success: false,
-      error: `Storyboard failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
+    return executorFailure(failureFromError(error, "Storyboard failed"));
   }
 }
 

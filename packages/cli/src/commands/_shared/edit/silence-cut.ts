@@ -12,6 +12,7 @@ import { GeminiProvider, resolveGeminiTextModel } from "@vibeframe/ai-providers"
 import { requireApiKey } from "../../../utils/api-key.js";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
+import { executorFailure, failureFromError, generalError, notFoundError, type StructuredError } from "../../output.js";
 
 /** A detected silent segment within a media file. */
 export interface SilencePeriod {
@@ -63,6 +64,8 @@ export interface SilenceCutResult {
   method?: "ffmpeg" | "gemini";
   /** Error message on failure */
   error?: string;
+  /** The structured error on failure; see {@link ExecutorFailure}. */
+  failure?: StructuredError;
 }
 
 /**
@@ -174,10 +177,6 @@ If there are no silent segments, return: { "silentSegments": [] }`;
       : {}),
   });
 
-  if (!result.success || !result.response) {
-    throw new Error(`Gemini analysis failed: ${result.error || "No response"}`);
-  }
-
   // Parse JSON from Gemini response
   let jsonStr = result.response;
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -227,15 +226,14 @@ export async function executeSilenceCut(
   } = options;
 
   if (!existsSync(videoPath)) {
-    return { success: false, error: `Video not found: ${videoPath}` };
+    return executorFailure(notFoundError(videoPath));
   }
 
   if (!commandExists("ffmpeg")) {
-    return {
-      success: false,
-      error:
-        "FFmpeg not found. Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details.",
-    };
+    return executorFailure(generalError(
+      "FFmpeg not found",
+      "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details.",
+    ));
   }
 
   const method = useGemini ? "gemini" : "ffmpeg";
@@ -280,7 +278,7 @@ export async function executeSilenceCut(
     }
 
     if (segments.length === 0) {
-      return { success: false, error: "No non-silent segments found" };
+      return executorFailure(generalError("No non-silent segments found"));
     }
 
     // Build filter_complex with trim+concat per segment.
@@ -326,9 +324,6 @@ export async function executeSilenceCut(
       method,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: `Silence cut failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
+    return executorFailure(failureFromError(error, "Silence cut failed", { fallback: "general" }));
   }
 }

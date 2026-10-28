@@ -93,7 +93,7 @@ export function registerThumbnailCommand(parent: Command): void {
 
           if (!result.success) {
             spinner.fail(result.error || "Best frame extraction failed");
-            exitWithError(apiError(result.error || "Best frame extraction failed", true));
+            exitWithError(result.failure ?? apiError(result.error || "Best frame extraction failed", true));
           }
 
           spinner.succeed(chalk.green("Best frame extracted"));

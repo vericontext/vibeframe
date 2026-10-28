@@ -17,6 +17,9 @@ describe("classifyProviderError", () => {
     expect(kind("You have insufficient credits", 429)).toBe("quota");
     expect(kind("RESOURCE_EXHAUSTED", 429)).toBe("quota");
     expect(kind("Payment required", 402)).toBe("quota");
+    // Google rejects a bad key with 400 INVALID_ARGUMENT, not 401.
+    expect(kind("POST /v1beta/models/x:generateContent -> 400: API key not valid. Please pass a valid API key.", 400)).toBe("auth");
+    expect(kind("API key expired. Please renew the API key.", 400, "API_KEY_INVALID")).toBe("auth");
   });
 
   it("falls back to the HTTP status", () => {
