@@ -142,7 +142,7 @@ The server prefers asking over silently picking defaults:
 
 - On hosts that support **MCP elicitation** (Claude Code 2.1.76+), the `build`
   tool opens a native form before the build starts for any choice the call
-  left unspecified: narration provider (Kokoro free/local, OpenAI's
+  left unspecified: narration provider (Kokoro free/local, Gemini TTS, OpenAI's
   gpt-4o-mini-tts, or ElevenLabs), backdrop image generation (skip vs paid
   OpenAI), and a max cost cap.
   Declining cancels the build before any provider spend. Set
@@ -317,7 +317,7 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 | ------------------------------------------------------------ | -------------------------------------------------------------- |
 | `OPENAI_API_KEY`                                             | gpt-image-2, Whisper, GPT                                      |
 | `ANTHROPIC_API_KEY`                                          | Claude (translate-srt, highlights, build compose pipeline)     |
-| `GOOGLE_API_KEY`                                             | Gemini (analyze, review, silence-cut, narrate)                 |
+| `GOOGLE_API_KEY`                                             | Gemini (analyze, review, silence-cut, narrate, TTS narration)  |
 | `ELEVENLABS_API_KEY`                                         | TTS, voice-clone, dubbing, SFX                                 |
 | `XAI_API_KEY`                                                | Grok                                                           |
 | `FAL_API_KEY`                                                | Seedance image-to-video                                        |

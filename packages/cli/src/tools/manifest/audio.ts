@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
+import { TTS_PROVIDER_NAMES } from "../../commands/_shared/tts-providers.js";
 import {
   executeTranscribe,
   executeIsolate,
@@ -122,8 +123,8 @@ export const audioDubTool = defineTool({
     mediaPath: z.string().describe("Input media file (video or audio)"),
     language: z.string().describe("Target language code (e.g., es, ko, ja)"),
     source: z.string().optional().describe("Source language code (default: auto-detect)"),
-    voice: z.string().optional().describe("Voice for the TTS provider (ElevenLabs name/ID, OpenAI voice, Kokoro voice)"),
-    tts: z.enum(["auto", "elevenlabs", "openai", "kokoro"]).optional().describe("TTS provider (default: auto)"),
+    voice: z.string().optional().describe("Voice for the TTS provider (ElevenLabs name/ID, Gemini voice, OpenAI voice, Kokoro voice)"),
+    tts: z.enum(TTS_PROVIDER_NAMES).optional().describe("TTS provider (default: auto)"),
     stt: sttSchema,
     analyzeOnly: z.boolean().optional().describe("Only analyze timing, don't generate audio"),
     output: z.string().optional().describe("Output file path"),

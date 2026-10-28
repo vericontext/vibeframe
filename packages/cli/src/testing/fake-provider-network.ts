@@ -10,6 +10,7 @@ import {
   FAKE_PNG,
   FakeProviderNetwork,
   bytesResponse,
+  geminiAudioResponse,
   jsonResponse,
 } from "@vibeframe/ai-providers/testing";
 
@@ -64,8 +65,8 @@ export const FAKE_WHISPER_TRANSCRIPT = {
 
 /**
  * Default happy-path routes for the providers a project build uses:
- * ElevenLabs (narration, music, Scribe transcription), OpenAI images and
- * Whisper transcription, ImgBB uploads, fal
+ * ElevenLabs (narration, music, Scribe transcription), Gemini narration,
+ * OpenAI images and Whisper transcription, ImgBB uploads, fal
  * (Seedance queue protocol and storage uploads), Runway (submit and
  * polling), and a CDN for media downloads.
  */
@@ -81,6 +82,12 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
     .on("POST", "api.elevenlabs.io", /^\/v1\/music/, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
     .on("POST", "api.elevenlabs.io", /^\/v1\/speech-to-text$/, () => jsonResponse(FAKE_SCRIBE_TRANSCRIPT))
     .on("POST", "api.openai.com", /^\/v1\/audio\/transcriptions$/, () => jsonResponse(FAKE_WHISPER_TRANSCRIPT))
+    // Gemini TTS; other Interactions requests (Omni video) need their own route.
+    .on("POST", "generativelanguage.googleapis.com", /^\/v1beta\/interactions$/, (req) => {
+      const format = (req.body as { response_format?: { type?: string } } | undefined)?.response_format;
+      if (format?.type !== "audio") throw new Error("FakeProviderNetwork: no default route for this Gemini interaction");
+      return geminiAudioResponse();
+    })
     .on("POST", "api.openai.com", /^\/v1\/images\/(generations|edits)$/, () =>
       jsonResponse({ data: [{ b64_json: FAKE_PNG.toString("base64") }] })
     )

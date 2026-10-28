@@ -1,9 +1,16 @@
 /** The speech contract over the fake provider network (Kokoro runs locally and is checked without a model). */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { FAKE_MP3, FakeProviderNetwork, bytesResponse, jsonResponse } from "../testing/fake-provider-network.js";
+import {
+  FAKE_MP3,
+  FAKE_WAV,
+  FakeProviderNetwork,
+  bytesResponse,
+  geminiAudioResponse,
+  jsonResponse,
+} from "../testing/fake-provider-network.js";
 import { ProviderError } from "../shared/errors.js";
-import { createSpeechGenerator } from "./registry.js";
+import { SPEECH_GENERATOR_PROVIDERS, createSpeechGenerator, speechAudioExtension } from "./registry.js";
 
 let net: FakeProviderNetwork;
 beforeEach(() => {
@@ -48,6 +55,55 @@ describe.each(Object.entries(CLOUD))("%s meets the speech contract", (provider, 
     net.on("POST", route.host, route.path, () => jsonResponse({ detail: { message: "Invalid API key" } }, 401));
     const tts = await createSpeechGenerator(provider, "test-key");
     expect(await rejection(tts.synthesize({ text: "x" }))).toMatchObject({ kind: "auth", status: 401 });
+  });
+});
+
+describe("gemini meets the speech contract", () => {
+  const host = "generativelanguage.googleapis.com";
+  const path = /^\/v1beta\/interactions$/;
+
+  it("returns WAV bytes on its default model", async () => {
+    net.on("POST", host, path, () => geminiAudioResponse());
+    const tts = await createSpeechGenerator("gemini", "test-key");
+    const result = await tts.synthesize({ text: "A paper boat drifts." });
+
+    expect(result).toMatchObject({ mimeType: "audio/wav", extension: "wav", model: "gemini-3.8-flash-tts", characters: 20 });
+    expect(Buffer.from(result.bytes)).toEqual(FAKE_WAV);
+  });
+
+  it("refuses an unknown model and an unknown voice before sending", async () => {
+    const tts = await createSpeechGenerator("gemini", "test-key");
+    expect((await rejection(tts.synthesize({ text: "x", model: "no-such-model" }))).kind).toBe("invalid-request");
+    expect((await rejection(tts.synthesize({ text: "x", voice: "no-such-voice-xyz" }))).kind).toBe("invalid-request");
+    expect(net.requests).toHaveLength(0);
+  });
+
+  it("classifies a bad key, which Google reports as 400 API_KEY_INVALID", async () => {
+    net.on("POST", host, path, () =>
+      jsonResponse(
+        {
+          error: {
+            code: 400,
+            message: "API key not valid. Please pass a valid API key.",
+            status: "INVALID_ARGUMENT",
+            details: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "API_KEY_INVALID" }],
+          },
+        },
+        400
+      )
+    );
+    const tts = await createSpeechGenerator("gemini", "test-key");
+    expect(await rejection(tts.synthesize({ text: "x" }))).toMatchObject({ kind: "auth", status: 400 });
+  });
+});
+
+describe("speech provider order", () => {
+  it("tries ElevenLabs, Gemini, OpenAI, then local Kokoro", () => {
+    expect(SPEECH_GENERATOR_PROVIDERS).toEqual(["elevenlabs", "gemini", "openai", "kokoro"]);
+  });
+
+  it("names each provider's container before the call", () => {
+    expect(SPEECH_GENERATOR_PROVIDERS.map(speechAudioExtension)).toEqual(["mp3", "wav", "mp3", "wav"]);
   });
 });
 

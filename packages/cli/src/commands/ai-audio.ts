@@ -212,7 +212,7 @@ export interface DubOptions {
   source?: string;
   /** Voice for the chosen TTS provider. */
   voice?: string;
-  /** TTS provider: auto (default), elevenlabs, openai, kokoro. */
+  /** TTS provider: auto (default), elevenlabs, gemini, openai, kokoro. */
   tts?: string;
   /** Transcription provider: auto (default), elevenlabs, openai. */
   stt?: string;

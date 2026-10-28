@@ -1,6 +1,6 @@
 ---
 provider: google
-checked: 2026-10-24
+checked: 2026-10-28
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
@@ -20,13 +20,15 @@ models_in_use:
   - gemini-3.1-flash-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-3-pro-image-preview  # explicit pass-through only; past its 2026-06-25 shutdown date
   - gemini-omni-1.1-flash       # Google video default (`-p omni`, auto-resolved)
+  - gemini-3.8-flash-tts        # narration default (`--tts gemini`, `-m flash`)
+  - gemini-3.8-flash-lite-tts   # narration `-m lite`
 models_recommended: []
 ---
 
 # Google (Gemini API)
 
-VibeFrame uses one `GOOGLE_API_KEY` on the Gemini Developer API for text and vision (storyboards, motion code, video review), Nano Banana image generation and editing, and Gemini Omni video generation, editing, and extension.
-We do not call Lyria, Gemini TTS, or Gemini Transcribe yet; they are listed below because they share the key and are the obvious next integrations.
+VibeFrame uses one `GOOGLE_API_KEY` on the Gemini Developer API for text and vision (storyboards, motion code, video review), Nano Banana image generation and editing, Gemini Omni video generation, editing, and extension, and Gemini TTS narration (`--tts gemini`, since 2026-10-28).
+We do not call Lyria or Gemini Transcribe yet; they are listed below because they share the key and are the obvious next integrations.
 
 ## Models
 
@@ -102,8 +104,26 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 |---|---|---|---|
 | `lyria-3.5` | GA 2026-09-03 (docs) | $0.08 per song (docs) | Full songs, 44.1 kHz stereo MP3 (WAV via `response_format`), text and image input, Interactions API (docs). |
 | `lyria-3-clip-preview` | preview, no shutdown date (docs) | $0.04 per 30 s clip (docs) | `lyria-3-pro-preview` is replaced by `lyria-3.5` (docs). |
-| `gemini-3.8-flash-tts` | GA 2026-09-22 (docs) | $0.50 in / $9.00 audio out per 1M intro, about $0.00225 per 10 s (docs) | WAV output by default; voices via `speech_config`, Voices endpoint `/v1beta/voices` (docs). Flash-Lite TTS replaces `gemini-3.1-flash-tts-preview` (docs). |
+| `gemini-3.8-flash-tts` | GA 2026-09-22, no shutdown date (changelog, deprecations, checked 2026-10-28) | $0.50 in / $9.00 audio out per 1M until 2026-12-31, then $1.00 / $18.00; audio is 25 tokens/s, so about $0.0135/min, then $0.027/min; free tier available; Batch half price (pricing, 2026-10-28) | Our narration default. 8,192 input / 16,384 output tokens, so about 11 min of audio per request (model card). 130+ languages, auto-detected; single and two-speaker; voice design and replication; no thinking, caching, or structured output (model card). |
+| `gemini-3.8-flash-lite-tts` | GA 2026-09-22, no shutdown date (changelog, deprecations) | $0.50 in / $6.00 audio out per 1M until 2026-12-31, then $1.00 / $12.00; about $0.009/min, then $0.018/min (pricing) | Same API schema and limits as Flash TTS, 100+ languages; named replacement for `gemini-3.1-flash-tts-preview` (model card). |
+| `gemini-3.1-flash-tts-preview` | preview, shutdown 2026-11-17, replacement 3.8 Flash or Flash-Lite TTS (deprecations) | $1.00 in / $20.00 out per 1M (pricing) | Not called. |
+| `gemini-2.5-flash-preview-tts`, `gemini-2.5-pro-preview-tts` | preview, shutdown 2026-11-17 (deprecations) | 2.5 Flash $0.50 / $10.00 (pricing) | Not called. |
 | `gemini-3.5-transcribe` | GA 2026-08-26 (docs) | about $0.005/min blended (docs) | Up to 1 h per request, 30 min with diarization or word timestamps; 85+ languages (docs). |
+
+### Speech (TTS)
+
+Checked 2026-10-28 against the speech guide (last updated 2026-10-12), both model cards (2026-10-09), pricing (2026-10-27), deprecations (2026-10-22), changelog, and the Interactions API reference.
+
+- Endpoint: the speech guide documents only `POST /v1beta/interactions` (docs). The model card also lists generateContent, but the guide has no generateContent example and no `responseModalities`/`speechConfig` field any more (docs). We use Interactions.
+- Request: `model`, `input: [{type: "user_input", content: [{type: "text", text, annotations?: [{type: "speech_metadata", style}]}]}]`, `response_format: {type: "audio", mime_type, sample_rate}`, `generation_config.speech_config: [{voice}]` (docs). `speech_config` is an array for one speaker and `{mode: "conversational", speakers: [{speaker, voice}]}` for two; each turn then names its speaker in `speech_metadata.speaker` (docs).
+- `response_format.mime_type`: `audio/wav` (unary default: 16-bit signed little-endian PCM, mono, 24 kHz, with a RIFF header), `audio/l16` (headerless, the streaming default), `audio/mulaw`, `audio/alaw`; `sample_rate` 24000 (default), 16000, or 8000 (docs). The 3.8 models changed the default to WAV; earlier TTS models returned raw PCM (model card).
+- Response: base64 audio in `steps[].content[].data` of the `model_output` step, `type: "audio"`, with `mime_type` and an optional `sample_rate`/`channels` (docs, API reference). The guide's jq takes the last such item. `output_audio` is an SDK convenience (docs).
+- Status: `completed`, `failed` (with `error.{code,message}`), `incomplete`, plus `in_progress`, `requires_action`, `cancelled` (API reference). The Interactions overview says a blocked or cut-off output ends `incomplete` with a `finish_reason`, but the API reference lists no `finish_reason` field (docs conflict; no TTS-specific safety wording documented).
+- `store`: the overview says it defaults to `true` (55 days paid, 1 day free) and the API reference says `false` (docs conflict). We send `store: false`.
+- Voices: 30 prebuilt (Zephyr, Puck, Charon, Kore, Fenrir, Leda, Orus, Aoede, Callirrhoe, Autonoe, Enceladus, Iapetus, Umbriel, Algieba, Despina, Erinome, Algenib, Rasalgethi, Laomedeia, Achernar, Alnilam, Schedar, Gacrux, Pulcherrima, Achird, Zubenelgenubi, Vindemiatrix, Sadachbia, Sadaltager, Sulafat) (docs). An Extended Voice Library of hundreds more is listed by `GET /v1beta/voices`; its ID format is not documented on the guide. Custom voices from `POST /v1beta/voices` are `voice_...` (stored, 200 per project, 1 year from last use) or `voicekey_...` (stateless, 7 days) (docs).
+- Style: delivery directions go in `speech_metadata.style` ("cheerful and friendly", "speaking slowly"); there is no numeric speed or `language` field in the guide; inline tags like `<laugh>`, `<short pause>` work in the text (docs).
+- Limits: no character limit is stated; the model cards give 8,192 input and 16,384 output tokens, and pricing says audio is 25 tokens/s (docs). We split narration into sentence chunks of at most 4,000 characters and join the PCM into one WAV.
+- Probe: none yet. The live request shape, response shape, and error bodies for TTS are unverified.
 
 ## API shape
 
@@ -151,6 +171,8 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 - `packages/cli/src/commands/edit-cmd.ts:699`, `:777-800` - image edit model names and the same fallback.
 - `packages/cli/src/commands/ai-motion.ts:63-71` - `gemini-2.5-pro` and `gemini-3.1-pro` -> `gemini-3.1-pro-preview`.
 - Video review and analysis via `analyzeVideo`: `packages/cli/src/commands/ai-review.ts:125-228`, `packages/cli/src/commands/ai-analyze.ts:94-262`, `packages/cli/src/commands/ai-highlights.ts:209`, `:501`, `:799`, `:1150`, `packages/cli/src/commands/inspect.ts:359`, `packages/cli/src/commands/_shared/render-inspect.ts:715`, `:910`.
+- `packages/ai-providers/src/gemini/gemini-tts.ts` - the speech contract on `/v1beta/interactions`: key in `x-goog-api-key`, `store: false`, WAV at 24 kHz requested; decodes WAV or L16 items to PCM, splits text at 4,000 characters, joins chunks into one WAV; `incomplete` without audio reads as moderation. Voices validated against the 30 prebuilt names plus `voice_`/`voicekey_` IDs.
+- `packages/cli/src/commands/_shared/tts-resolve.ts` - `--tts auto` order ElevenLabs, Gemini, OpenAI, Kokoro (from `SPEECH_GENERATOR_PROVIDERS`).
 - `packages/cli/src/tools/manifest/generate.ts:60`, `packages/cli/src/tools/manifest/edit.ts:234`, `packages/cli/src/pipeline/executor.ts:290` - `gemini-2.5-pro` / `gemini-3.1-pro` alias enums.
 
 ## Recommended changes
@@ -166,7 +188,7 @@ Public YouTube URLs work, with an 8 h/day cap on the free tier (docs).
 
 ## Sources
 
-All opened 2026-10-04.
+All opened 2026-10-04 unless a date says otherwise; the deprecations, changelog, and pricing pages were reopened 2026-10-28 for TTS.
 
 - https://ai.google.dev/gemini-api/docs/deprecations
 - https://ai.google.dev/gemini-api/docs/changelog
@@ -184,7 +206,10 @@ All opened 2026-10-04.
 - https://ai.google.dev/gemini-api/docs/video-understanding
 - https://ai.google.dev/gemini-api/docs/files
 - https://ai.google.dev/gemini-api/docs/music-generation
-- https://ai.google.dev/gemini-api/docs/speech-generation
+- https://ai.google.dev/gemini-api/docs/speech-generation (again 2026-10-28)
+- https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash-tts and https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash-lite-tts (2026-10-28)
+- https://ai.google.dev/api/interactions-api (2026-10-28)
+- https://www.philschmid.de/gemini-3-8-tts (2026-09-24 article; `voice_`/`voicekey_` IDs, WAV with RIFF header on 3.8)
 - https://ai.google.dev/gemini-api/docs/transcribe
 - https://ai.google.dev/gemini-api/docs/libraries
 - Model cards under https://ai.google.dev/gemini-api/docs/models/ for `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-pro-preview`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-3.1-flash-image`, `gemini-3-pro-image`, `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image`, `gemini-omni-flash`, `lyria-3.5`, `gemini-3.8-flash-tts`, `gemini-3.5-transcribe`

@@ -93,5 +93,20 @@ describe("parseErrorBody", () => {
       code: "SAFETY.INPUT.IMAGE",
     });
     expect(parseErrorBody("<html>502</html>")).toEqual({ message: "<html>502</html>" });
+    expect(parseErrorBody("42")).toEqual({ message: "42" });
+  });
+
+  it("reads Google's Interactions errors, which come wrapped in an array", () => {
+    const body = JSON.stringify([
+      {
+        error: {
+          code: 400,
+          message: "API key not valid. Please pass a valid API key.",
+          status: "INVALID_ARGUMENT",
+          details: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "API_KEY_INVALID" }],
+        },
+      },
+    ]);
+    expect(parseErrorBody(body)).toEqual({ message: "API key not valid. Please pass a valid API key.", code: "400" });
   });
 });

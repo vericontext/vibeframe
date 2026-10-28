@@ -5,10 +5,11 @@ import { resolve } from "node:path";
 import { createBuildPlan, type BuildPlanResult, type BuildStage } from "./_shared/build-plan.js";
 import { costCapError, exitWithError, isJsonMode, outputSuccess, usageError } from "./output.js";
 import { BUILD_VIDEO_PROVIDERS } from "./_shared/build-video-providers.js";
+import { TTS_PROVIDER_NAMES } from "./_shared/tts-providers.js";
 
 const VALID_STAGES: BuildStage[] = ["assets", "transcript", "compose", "sync", "render", "all"];
 const VALID_MODES = ["agent", "batch", "auto"] as const;
-const VALID_TTS_PROVIDERS = ["auto", "elevenlabs", "openai", "kokoro"] as const;
+const VALID_TTS_PROVIDERS = TTS_PROVIDER_NAMES;
 const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 const VALID_VIDEO_PROVIDERS = BUILD_VIDEO_PROVIDERS;
 const VALID_MUSIC_PROVIDERS = ["elevenlabs", "replicate"] as const;
@@ -25,7 +26,7 @@ export const planCommand = new Command("plan")
   .option("--skip-backdrop", "Don't include backdrop image generation in the plan")
   .option("--skip-video", "Don't include video generation in the plan")
   .option("--skip-music", "Don't include music generation in the plan")
-  .option("--tts <provider>", "TTS provider: auto|elevenlabs|openai|kokoro")
+  .option("--tts <provider>", `TTS provider: ${VALID_TTS_PROVIDERS.join("|")}`)
   .option("--voice <id>", "Voice id")
   .option("--image-provider <name>", `Image provider: ${VALID_IMAGE_PROVIDERS.join("|")}`)
   .option("--video-provider <name>", `Video provider: ${VALID_VIDEO_PROVIDERS.join("|")}`)

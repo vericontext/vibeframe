@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@vibeframe/ai-providers", () => ({
+vi.mock("@vibeframe/ai-providers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@vibeframe/ai-providers")>()),
   createSpeechGenerator: (...args: unknown[]) => mocks.createSpeechGenerator(...args),
   isProviderError: () => false,
 }));
@@ -41,9 +42,10 @@ describe("parseTtsProviderName", () => {
     expect(parseTtsProviderName("")).toBe("auto");
   });
 
-  it("accepts the four valid values", () => {
+  it("accepts the five valid values", () => {
     expect(parseTtsProviderName("auto")).toBe("auto");
     expect(parseTtsProviderName("elevenlabs")).toBe("elevenlabs");
+    expect(parseTtsProviderName("gemini")).toBe("gemini");
     expect(parseTtsProviderName("openai")).toBe("openai");
     expect(parseTtsProviderName("kokoro")).toBe("kokoro");
   });
@@ -51,6 +53,7 @@ describe("parseTtsProviderName", () => {
   it("throws for unknown providers", () => {
     expect(() => parseTtsProviderName("azure")).toThrow(/Invalid --tts/);
     expect(() => parseTtsProviderName("KOKORO")).toThrow(/Invalid --tts/);
+    expect(() => parseTtsProviderName("azure")).toThrow("Valid: auto, elevenlabs, gemini, openai, kokoro.");
   });
 });
 
@@ -79,6 +82,43 @@ describe("resolveTtsProvider", () => {
       expect(r.audioExtension).toBe("mp3");
       expect(getConfiguredApiKey).toHaveBeenCalledWith("ELEVENLABS_API_KEY");
       expect(createSpeechGenerator).toHaveBeenCalledWith("elevenlabs", "sk-test");
+    });
+
+    it("picks Gemini when only GOOGLE_API_KEY is set", async () => {
+      getConfiguredApiKey.mockImplementation(async (envVar: unknown) =>
+        envVar === "GOOGLE_API_KEY" ? "AIza-test" : undefined,
+      );
+      getApiKey.mockResolvedValue("AIza-test");
+
+      const r = await resolveTtsProvider("auto");
+
+      expect(r.provider).toBe("gemini");
+      expect(r.audioExtension).toBe("wav");
+      expect(getApiKey).toHaveBeenCalledWith("GOOGLE_API_KEY", "Google");
+      expect(createSpeechGenerator).toHaveBeenCalledWith("gemini", "AIza-test");
+    });
+
+    it("tries ElevenLabs, Gemini, then OpenAI before falling back to Kokoro", async () => {
+      getConfiguredApiKey.mockResolvedValue(undefined);
+
+      await resolveTtsProvider("auto");
+
+      expect(getConfiguredApiKey.mock.calls.map(([envVar]) => envVar)).toEqual([
+        "ELEVENLABS_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENAI_API_KEY",
+      ]);
+    });
+
+    it("prefers Gemini over OpenAI when both keys are set", async () => {
+      getConfiguredApiKey.mockImplementation(async (envVar: unknown) =>
+        envVar === "ELEVENLABS_API_KEY" ? undefined : "key",
+      );
+      getApiKey.mockResolvedValue("key");
+
+      const r = await resolveTtsProvider("auto");
+
+      expect(r.provider).toBe("gemini");
     });
 
     it("picks OpenAI when only OPENAI_API_KEY is set", async () => {
@@ -168,6 +208,28 @@ describe("resolveTtsProvider", () => {
     });
   });
 
+  describe("explicit gemini", () => {
+    it("uses Gemini with the Google key", async () => {
+      getApiKey.mockResolvedValue("AIza-real");
+
+      const r = await resolveTtsProvider("gemini");
+
+      expect(r).toMatchObject({ provider: "gemini", audioExtension: "wav" });
+      expect(createSpeechGenerator).toHaveBeenCalledWith("gemini", "AIza-real");
+      expect(getConfiguredApiKey).not.toHaveBeenCalled();
+    });
+
+    it("throws TtsKeyMissingError naming GOOGLE_API_KEY when the key is absent", async () => {
+      getApiKey.mockResolvedValue(undefined);
+
+      const error = await resolveTtsProvider("gemini").catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(TtsKeyMissingError);
+      expect((error as TtsKeyMissingError).envVar).toBe("GOOGLE_API_KEY");
+      expect((error as Error).message).toMatch(/Google API key required \(GOOGLE_API_KEY\).*--tts kokoro/);
+      expect(createSpeechGenerator).not.toHaveBeenCalled();
+    });
+  });
+
   describe("explicit kokoro", () => {
     it("uses Kokoro without checking any key", async () => {
       const r = await resolveTtsProvider("kokoro");
@@ -183,6 +245,7 @@ describe("resolveTtsProvider", () => {
   describe("call dispatch", () => {
     it.each([
       ["elevenlabs", "rachel", 1.1],
+      ["gemini", "Kore", 0.9],
       ["openai", "marin", 1.05],
     ] as const)("forwards voice + speed to %s through the speech contract", async (provider, voice, speed) => {
       getApiKey.mockResolvedValue("sk-test");

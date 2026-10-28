@@ -12,7 +12,7 @@ defineProvider({
   label: "OpenAI",
   apiKey: "openai",
   kinds: ["llm", "image", "transcription", "speech"],
-  resolverPriority: { image: 1, speech: 2, transcription: 2 },
+  resolverPriority: { image: 1, speech: 3, transcription: 2 },
   commandsUnlocked: [
     "generate image -p openai",
     "edit image -p openai",

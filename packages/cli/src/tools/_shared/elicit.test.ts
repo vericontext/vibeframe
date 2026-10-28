@@ -24,8 +24,8 @@ describe("planBuildElicitation", () => {
       enum: string[];
       enumNames: string[];
     };
-    expect(narration.enum).toEqual(["kokoro", "openai", "elevenlabs"]);
-    expect(narration.enumNames).toHaveLength(3);
+    expect(narration.enum).toEqual(["kokoro", "gemini", "openai", "elevenlabs"]);
+    expect(narration.enumNames).toHaveLength(4);
   });
 
   it("skips the narration question when narration is skipped entirely", () => {

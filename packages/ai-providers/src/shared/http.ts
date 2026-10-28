@@ -25,10 +25,17 @@ export interface ProviderRequestOptions {
 
 const RETRY_STATUS = new Set([429, 502, 503, 504]);
 
-/** Read `message` / `error` / `detail` from the JSON error bodies providers return. */
+/**
+ * Read `message` / `error` / `detail` from the JSON error bodies providers
+ * return. Google's Interactions API wraps its error in a one-element array
+ * (`[{"error": {...}}]`, probe 2026-10-28), so a top-level array is read by
+ * its first element.
+ */
 export function parseErrorBody(body: string): { message: string; code?: string } {
   try {
-    const data = JSON.parse(body) as Record<string, unknown>;
+    const parsed = JSON.parse(body) as unknown;
+    const data = (Array.isArray(parsed) ? parsed[0] : parsed) as Record<string, unknown> | null;
+    if (!data || typeof data !== "object") return { message: body.trim() || "empty response" };
     const pick = (value: unknown): string | undefined => {
       if (typeof value === "string") return value;
       if (Array.isArray(value)) return value.map(pick).filter(Boolean).join("; ") || undefined;

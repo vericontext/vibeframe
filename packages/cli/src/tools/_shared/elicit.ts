@@ -1,4 +1,5 @@
 import type { ElicitForm } from "../adapters/mcp.js";
+import type { TtsProviderName } from "../../commands/_shared/tts-resolve.js";
 
 /**
  * @module tools/_shared/elicit
@@ -13,14 +14,14 @@ import type { ElicitForm } from "../adapters/mcp.js";
 /** The subset of build args that drive the question set. */
 export interface BuildChoiceArgs {
   stage?: "assets" | "compose" | "sync" | "render" | "all";
-  ttsProvider?: "auto" | "elevenlabs" | "openai" | "kokoro";
+  ttsProvider?: TtsProviderName;
   skipNarration?: boolean;
   skipBackdrop?: boolean;
   imageProvider?: string;
   maxCostUsd?: number;
 }
 
-const NARRATION_CHOICES = ["kokoro", "openai", "elevenlabs"] as const;
+const NARRATION_CHOICES = ["kokoro", "gemini", "openai", "elevenlabs"] as const;
 const BACKDROP_CHOICES = ["skip", "openai"] as const;
 
 /**
@@ -45,9 +46,10 @@ export function planBuildElicitation(args: BuildChoiceArgs): ElicitForm | null {
       description: "Which TTS engine narrates the video?",
       enum: [...NARRATION_CHOICES],
       enumNames: [
-        "Kokoro — free, runs on this machine (first use downloads a ~90 MB voice model; slower)",
-        "OpenAI — fast cloud voice, uses your OpenAI API key (~$0.02 per video)",
-        "ElevenLabs — premium cloud voices, uses your ElevenLabs credits",
+        "Kokoro - free, runs on this machine (first use downloads a ~90 MB voice model; slower)",
+        "Gemini - cloud voices, uses your Google API key (~$0.02 per video)",
+        "OpenAI - fast cloud voice, uses your OpenAI API key (~$0.02 per video)",
+        "ElevenLabs - premium cloud voices, uses your ElevenLabs credits",
       ],
     };
     required.push("narration");

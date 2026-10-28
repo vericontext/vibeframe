@@ -392,8 +392,9 @@ work:
   pieces. Keyframe edits already pin facial features with an identity-lock
   instruction, but the model still matters.
 - **Narration** - `--tts kokoro` is free and local (draft quality); for a final
-  or shared cut use `--tts openai` (fast, ~$0.02/video) or `--tts elevenlabs`
-  (premium voices). Switching providers regenerates narration and updates the
+  or shared cut use `--tts gemini` (Google key, ~$0.02/video), `--tts openai`
+  (fast, ~$0.02/video, until OpenAI retires it on 2027-01-06), or
+  `--tts elevenlabs` (premium voices). Switching providers regenerates narration and updates the
   render automatically.
 
 ## Profiles
