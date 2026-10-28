@@ -682,7 +682,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
 
         if (options.dryRun) {
           outputSuccess({
-            command: "ai highlights",
+            command: "remix highlights",
             startedAt,
             dryRun: true,
             data: {
@@ -904,7 +904,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         if (allHighlights.length === 0) {
           log(chalk.yellow("No highlights detected in the content"));
           outputSuccess({
-            command: "ai highlights",
+            command: "remix highlights",
             startedAt,
             warnings: ["No highlights detected in the content"],
             data: {
@@ -1005,7 +1005,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
         log();
 
         outputSuccess({
-          command: "ai highlights",
+          command: "remix highlights",
           startedAt,
           data: {
             ...result,
@@ -1050,7 +1050,7 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
 
         if (options.dryRun) {
           outputSuccess({
-            command: "ai auto-shorts",
+            command: "remix auto-shorts",
             startedAt,
             dryRun: true,
             data: {
@@ -1257,7 +1257,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         if (options.analyzeOnly) {
           log(chalk.dim("Use without --analyze-only to generate shorts."));
           outputSuccess({
-            command: "ai auto-shorts",
+            command: "remix auto-shorts",
             startedAt,
             data: { analyzeOnly: true, targetDuration, aspect: options.aspect, shorts: shortSegments },
           });
@@ -1330,7 +1330,7 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
         log();
 
         outputSuccess({
-          command: "ai auto-shorts",
+          command: "remix auto-shorts",
           startedAt,
           data: {
             targetDuration,

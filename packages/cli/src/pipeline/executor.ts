@@ -27,7 +27,7 @@ export interface PipelineActionMetadata {
 const ACTION_METADATA: Record<PipelineAction, PipelineActionMetadata> = {
   "generate-image": { id: "generate-image", title: "Generate image", category: "generate", command: "generate image", outputs: ["image"] },
   "generate-video": { id: "generate-video", title: "Generate video", category: "generate", command: "generate video", outputs: ["video"], requiredKeys: ["provider-dependent"] },
-  "generate-tts": { id: "generate-tts", title: "Generate speech", category: "generate", command: "generate speech", outputs: ["audio"] },
+  "generate-tts": { id: "generate-tts", title: "Generate speech", category: "generate", command: "generate narration", outputs: ["audio"] },
   "generate-sfx": { id: "generate-sfx", title: "Generate sound effect", category: "generate", command: "generate sound-effect", outputs: ["audio"] },
   "generate-music": { id: "generate-music", title: "Generate music", category: "generate", command: "generate music", outputs: ["audio"] },
   "generate-storyboard": { id: "generate-storyboard", title: "Generate storyboard", category: "generate", command: "generate storyboard", outputs: ["storyboard"] },
@@ -53,9 +53,9 @@ const ACTION_METADATA: Record<PipelineAction, PipelineActionMetadata> = {
   "detect-scenes": { id: "detect-scenes", title: "Detect scenes", category: "detect", command: "detect scenes", outputs: ["json"] },
   "detect-silence": { id: "detect-silence", title: "Detect silence", category: "detect", command: "detect silence", outputs: ["json"] },
   "detect-beats": { id: "detect-beats", title: "Detect beats", category: "detect", command: "detect beats", outputs: ["json"] },
-  "analyze-media": { id: "analyze-media", title: "Analyze media", category: "analyze", command: "analyze media", outputs: ["json"] },
-  "analyze-video": { id: "analyze-video", title: "Analyze video", category: "analyze", command: "analyze video", outputs: ["json"] },
-  "review-video": { id: "review-video", title: "Review video", category: "analyze", command: "analyze review", outputs: ["json"] },
+  "analyze-media": { id: "analyze-media", title: "Analyze media", category: "analyze", command: "inspect media", outputs: ["json"] },
+  "analyze-video": { id: "analyze-video", title: "Analyze video", category: "analyze", command: "inspect media", outputs: ["json"] },
+  "review-video": { id: "review-video", title: "Review video", category: "analyze", command: "inspect render", outputs: ["json"] },
   "scene-build": { id: "scene-build", title: "Build scene project", category: "scene", outputs: ["video", "html", "assets"] },
   "scene-render": { id: "scene-render", title: "Render scene project", category: "scene", outputs: ["video"] },
 };
@@ -72,6 +72,11 @@ function maxCostFor(step: { action: PipelineAction } & Record<string, unknown>):
   const cmd = ACTION_METADATA[step.action]?.command;
   if (!cmd) return 0;
   return COST_ESTIMATES[cmd]?.max ?? 0;
+}
+
+/** The catalog entry of every pipeline action, in catalog order. */
+export function pipelineActionMetadata(): readonly PipelineActionMetadata[] {
+  return Object.values(ACTION_METADATA);
 }
 
 /** Every pipeline action, in catalog order. */

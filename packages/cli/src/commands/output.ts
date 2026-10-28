@@ -254,21 +254,20 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "edit interpolate": { min: 0, max: 0, unit: "free" },
   "edit upscale": { min: 0, max: 0, unit: "free" },
   // Low
-  "analyze media": { min: 0.01, max: 0.05, unit: "per call" },
-  "analyze video": { min: 0.01, max: 0.10, unit: "per video" },
-  "analyze review": { min: 0.01, max: 0.10, unit: "per video" },
+  "inspect media": { min: 0.01, max: 0.10, unit: "per call" },
+  // `--cheap` is free; the Gemini review is the paid part.
+  "inspect render": { min: 0, max: 0.10, unit: "per video" },
   "generate image": { min: 0.01, max: 0.07, unit: "per image" },
   "generate thumbnail": { min: 0.01, max: 0.05, unit: "per image" },
   "generate storyboard": { min: 0.01, max: 0.05, unit: "per call" },
-  "ai transcribe": { min: 0.01, max: 0.10, unit: "per minute" },
   "audio transcribe": { min: 0.01, max: 0.10, unit: "per minute" },
   "edit caption": { min: 0.01, max: 0.10, unit: "per video" },
   "edit jump-cut": { min: 0.01, max: 0.10, unit: "per video" },
   "edit translate-srt": { min: 0.01, max: 0.05, unit: "per file" },
-  "edit animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
+  "remix animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
   "audio isolate": { min: 0.01, max: 0.20, unit: "per file" },
   // Medium
-  "generate speech": { min: 0.05, max: 0.30, unit: "per request" },
+  "generate narration": { min: 0.05, max: 0.30, unit: "per request" },
   "generate sound-effect": { min: 0.05, max: 0.20, unit: "per request" },
   "generate music": { min: 0.05, max: 0.50, unit: "per request" },
   "generate motion": { min: 0.01, max: 0.10, unit: "per generation" },
@@ -280,17 +279,15 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   "edit motion-overlay": { min: 0, max: 0.10, unit: "per video" },
   // High
   "generate video": { min: 0.50, max: 5.00, unit: "per video" },
+  "generate video-extend": { min: 0.50, max: 5.00, unit: "per video" },
+  // One generated video per gap.
+  "edit fill-gaps": { min: 0.50, max: 5.00, unit: "per gap" },
   "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
   // Transcription + translation + one TTS call per line.
   "audio dub": { min: 0.05, max: 1.00, unit: "per file" },
   // Very High
-  "pipeline highlights": { min: 0.05, max: 1.00, unit: "per analysis" },
-  "pipeline auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
-  "pipeline animated-caption": { min: 0.01, max: 0.10, unit: "per video" },
-  "pipeline regenerate-scene": { min: 0.50, max: 5.00, unit: "per scene" },
-  // Scene composition (v0.59+) — per-beat composer call ≈ $0.06 (PR #111
-  // pre-flight). Range covers a 1-beat preview to a 10-beat long-form.
-  "compose scenes with skills": { min: 0.05, max: 1.50, unit: "per pipeline" },
+  "remix highlights": { min: 0.05, max: 1.00, unit: "per analysis" },
+  "remix auto-shorts": { min: 0.10, max: 2.00, unit: "per batch" },
 };
 
 function formatCost(min: number, max: number, unit: string): string {
