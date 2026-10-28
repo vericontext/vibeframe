@@ -238,32 +238,14 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
     return !!this.apiKey;
   }
 
-  /**
-   * Get list of available voices
-   */
+  /** The account's voices. Throws a `ProviderError` on every failure. */
   async getVoices(): Promise<Voice[]> {
     if (!this.apiKey) {
-      return [];
+      throw new ProviderError({ kind: "auth", provider: this.speechProvider, message: "ElevenLabs API key not configured" });
     }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/voices`, {
-        headers: {
-          "xi-api-key": this.apiKey,
-        },
-      });
-
-      if (!response.ok) {
-        console.error("ElevenLabs API error:", await response.text());
-        return [];
-      }
-
-      const data = (await response.json()) as { voices: Voice[] };
-      return data.voices || [];
-    } catch (error) {
-      console.error("ElevenLabs getVoices error:", error);
-      return [];
-    }
+    const response = await this.request("/voices", { method: "GET" });
+    const data = (await response.json()) as { voices?: Voice[] };
+    return data.voices ?? [];
   }
 
   // ── SpeechGenerator ───────────────────────────────────────────────────
@@ -317,41 +299,6 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
       model,
       characters: text.length,
     };
-  }
-
-  /**
-   * Get user subscription info (quota)
-   */
-  async getSubscriptionInfo(): Promise<{
-    characterCount: number;
-    characterLimit: number;
-    tier: string;
-  } | null> {
-    if (!this.apiKey) return null;
-
-    try {
-      const response = await fetch(`${this.baseUrl}/user/subscription`, {
-        headers: {
-          "xi-api-key": this.apiKey,
-        },
-      });
-
-      if (!response.ok) return null;
-
-      const data = (await response.json()) as {
-        character_count: number;
-        character_limit: number;
-        tier: string;
-      };
-
-      return {
-        characterCount: data.character_count,
-        characterLimit: data.character_limit,
-        tier: data.tier,
-      };
-    } catch {
-      return null;
-    }
   }
 
   /** An ElevenLabs API call through the shared HTTP layer (retries, classified errors). */

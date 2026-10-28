@@ -103,3 +103,34 @@ describe("ElevenLabsProvider request bodies", () => {
     expect(body.duration_seconds).toBe(30);
   });
 });
+
+describe("ElevenLabsProvider.getVoices", () => {
+  it("returns the account's voices", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ voices: [{ voice_id: "v1", name: "Rachel" }] }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new ElevenLabsProvider();
+    await provider.initialize({ apiKey: "test-key" });
+
+    await expect(provider.getVoices()).resolves.toEqual([{ voice_id: "v1", name: "Rachel" }]);
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ "xi-api-key": "test-key" });
+  });
+
+  it("a rejected key is an auth error, not an empty list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: { status: "invalid_api_key", message: "Invalid API key" } }), { status: 401 })
+      )
+    );
+    const provider = new ElevenLabsProvider();
+    await provider.initialize({ apiKey: "bad" });
+
+    await expect(provider.getVoices()).rejects.toMatchObject({ kind: "auth", provider: "elevenlabs" });
+  });
+
+  it("a missing key is an auth error", async () => {
+    await expect(new ElevenLabsProvider().getVoices()).rejects.toMatchObject({ kind: "auth" });
+  });
+});
