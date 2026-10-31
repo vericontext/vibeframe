@@ -12,6 +12,7 @@ import type { ProviderConfig, TranscriptSegment, TranscriptWord } from "../inter
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { audioFilename, type Transcriber, type Transcript, type TranscriptionRequest } from "../transcription/contract.js";
+import { recordTranscriptionUsage } from "../usage/audio-duration.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 /** One entry of Scribe's `words[]` (docs: speech-to-text/convert). */
@@ -28,6 +29,8 @@ interface ScribeResponse {
   text: string;
   language_code?: string;
   words?: ScribeToken[];
+  /** Billed length of the upload. */
+  audio_duration_secs?: number;
 }
 
 /** A pause at least this long between two words starts a new segment. */
@@ -156,6 +159,13 @@ export class ScribeTranscriber implements Transcriber {
     }, { timeoutMs: 30 * 60_000 });
     const data = (await response.json()) as ScribeResponse;
     const tokens = data.words ?? [];
+    recordTranscriptionUsage({
+      provider: this.transcriptionProvider,
+      model,
+      reportedSeconds: data.audio_duration_secs,
+      audio: request.audio,
+      lastTimestamp: Math.max(0, ...tokens.map((t) => t.end ?? 0)) || undefined,
+    });
     return {
       text: data.text,
       language: data.language_code,

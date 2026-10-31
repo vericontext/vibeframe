@@ -39,6 +39,7 @@ import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, 
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { executeImageEdit } from "./ai-image.js";
+import { estimateImageCostUsd } from "./_shared/image-cost.js";
 import { IMAGE_PROVIDER_ENV, IMAGE_PROVIDER_LABELS } from "./_shared/image-jobs.js";
 import { executeGrade, GRADE_PRESETS } from "./_shared/edit/grade.js";
 import { executeSpeedRamp } from "./_shared/edit/speed-ramp.js";
@@ -568,9 +569,14 @@ editCommand
     }
 
     if (isJsonMode()) {
+      // Image providers are not metered: one edited image at list price.
+      const cost = estimateImageCostUsd(provider, options.model, 1, options.size);
       outputSuccess({
         command: "edit image",
         startedAt,
+        costUsd: cost.costUsd,
+        costEstimated: true,
+        warnings: cost.warnings,
         data: { provider, model: result.model, outputPath: result.outputPath },
       });
       return;

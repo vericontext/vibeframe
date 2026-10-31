@@ -23,6 +23,8 @@ import { splitSpeechText } from "../speech/split-text.js";
 import { joinPcmAsWav, parsePcmMimeType, parseWav, type Pcm, type PcmFormat } from "../speech/wav.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
+import { pcmSeconds } from "../usage/audio-duration.js";
+import { recordUsage } from "../usage/meter.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 const PROVIDER = "gemini";
@@ -231,7 +233,12 @@ export class GeminiTtsProvider implements AIProvider, SpeechGenerator {
             : `${model} returned no audio${interaction.status ? ` (status: ${interaction.status})` : ""}.`,
       });
     }
-    return decodeGeminiAudio(audio);
+    const pcm = decodeGeminiAudio(audio);
+    // Billed per second of audio out (25 tokens/s), so the length of the
+    // returned PCM is the billed amount. Input text tokens ($0.50 per 1M,
+    // under 0.5% of a request) are not counted.
+    recordUsage({ provider: PROVIDER, kind: "speech", model, amount: { unit: "seconds", count: pcmSeconds(pcm) } });
+    return pcm;
   }
 }
 

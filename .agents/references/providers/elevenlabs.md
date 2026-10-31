@@ -103,6 +103,7 @@ Pricing is the pay-as-you-go API page; subscription plans convert to credits dif
 - `packages/cli/src/utils/key-live-test.ts` L90 key check via `GET /v1/user`.
 - `packages/ai-providers/src/elevenlabs/ScribeTranscriber.ts`: `ScribeTranscriber` behind the transcription contract; `model_id` from the catalog (`scribe_v2`), always `timestamps_granularity=word` and `tag_audio_events=false`, `language_code` when a hint is given, `xi-api-key` header, 30 minute timeout; `scribeSegments` / `scribeWords` map tokens to the contract.
 - `packages/cli/src/commands/_shared/transcription.ts`: `--stt auto|elevenlabs|openai` (`-p` on `audio transcribe`); `auto` follows `getProvidersFor("transcription")` (ElevenLabs priority 1, OpenAI 2).
+- Cost metering (code): TTS records the characters sent; music records the requested `music_length_ms`; sound effects record `duration_seconds`, or the returned MP3's length at its frame bitrate (marked estimated) when the model picks the length; Scribe records `audio_duration_secs`, which is what it bills. Audio isolation is recorded, but this file lists no price for it (not checked on the pricing page), so the catalog cannot price it and it reports the tier upper bound with `costEstimated: true`. Instant voice cloning records nothing and reports 0: this file lists no per-call price for it either; check the pricing page before relying on that.
 
 ## Recommended changes
 

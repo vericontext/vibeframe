@@ -8,7 +8,10 @@ import { existsSync } from "node:fs";
 import { parse as yamlParse, stringify as yamlStringify } from "yaml";
 import type { PipelineManifest, PipelineAction, PipelineBudget, StepResult, PipelineResult, BudgetUsage } from "./types.js";
 import { resolveStepParams, findUnresolvedRefs } from "./resolver.js";
+import { meterUsageSettled, type UsageRecord } from "@vibeframe/ai-providers";
 import { COST_ESTIMATES, failureFromError, providerFailure, type StructuredError } from "../commands/output.js";
+import { costOfUsage, roundUsd } from "../commands/_shared/actual-cost.js";
+import { estimateImageCostUsd } from "../commands/_shared/image-cost.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { loadProviderDefaults, resolveProvider } from "../utils/provider-resolver.js";
 import { resolveBuildVideoProvider, type BuildVideoProvider } from "../commands/_shared/build-video-providers.js";
@@ -73,6 +76,40 @@ function maxCostFor(step: { action: PipelineAction } & Record<string, unknown>):
   const cmd = ACTION_METADATA[step.action]?.command;
   if (!cmd) return 0;
   return COST_ESTIMATES[cmd]?.max ?? 0;
+}
+
+/**
+ * What a finished step cost: what the step reported itself, else its metered
+ * provider usage, else (for a successful step that metered nothing, such as
+ * image or video generation) its COST_ESTIMATES upper bound.
+ */
+function stepCost(
+  step: { action: PipelineAction } & Record<string, unknown>,
+  result: StepResult,
+  usage: readonly UsageRecord[],
+): { costUsd: number; estimated: boolean } {
+  if (typeof result.costUsd === "number") return { costUsd: result.costUsd, estimated: result.costEstimated === true };
+  if (usage.length > 0) {
+    const cost = costOfUsage(usage, maxCostFor(step));
+    return { costUsd: cost.costUsd, estimated: cost.estimated };
+  }
+  if (!result.success) return { costUsd: 0, estimated: false };
+  const max = maxCostFor(step);
+  return { costUsd: max, estimated: max > 0 };
+}
+
+/**
+ * What a run cost: the sum of its steps' `costUsd`, including steps a
+ * resumed run skipped (they carry the cost recorded in the checkpoint).
+ */
+export function pipelineCost(result: Pick<PipelineResult, "steps">): { costUsd: number; estimated: boolean } {
+  let costUsd = 0;
+  let estimated = false;
+  for (const step of result.steps) {
+    costUsd += step.costUsd ?? 0;
+    if (step.costEstimated) estimated = true;
+  }
+  return { costUsd: roundUsd(costUsd), estimated };
 }
 
 /** The catalog entry of every pipeline action, in catalog order. */
@@ -211,11 +248,19 @@ async function ensureActionsRegistered(): Promise<void> {
       count: numberParam(params.count),
       apiKey: await apiKeyForProvider(providerKeyForImage(provider)),
     });
-    return { id: "", action: "generate-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r) };
+    // Image providers are not metered: list price per image, as the CLI reports.
+    const cost = r.success
+      ? estimateImageCostUsd(r.provider ?? provider ?? "gemini", stringParam(params.model), r.images?.length ?? 1, undefined, stringParam(params.size))
+      : undefined;
+    return {
+      id: "", action: "generate-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r),
+      ...(cost ? { costUsd: cost.costUsd, costEstimated: true } : {}),
+    };
   });
 
   registerAction("generate-video", async (params, outputDir) => {
     const { executeVideoGenerate } = await import("../commands/ai-video.js");
+    const { realRunCost } = await import("../commands/generate/video.js");
     const output = getOutput(params, outputDir, "video.mp4");
     const provider = await resolvePipelineVideoProvider(params.provider);
     const r = await executeVideoGenerate({
@@ -234,7 +279,19 @@ async function ensureActionsRegistered(): Promise<void> {
       wait: true,
       apiKey: await apiKeyForProvider(providerKeyForVideo(provider)),
     });
-    return { id: "", action: "generate-video", success: r.success, output: r.outputPath || r.videoUrl, data: { taskId: r.taskId, provider: r.provider, videoUrl: r.videoUrl }, error: r.error, ...stepFailure(r) };
+    // Video providers are not metered; same estimate as the CLI envelope.
+    const cost = r.success
+      ? realRunCost(r.provider ?? provider ?? "seedance", {
+          duration: params.duration !== undefined ? String(params.duration) : undefined,
+          resolution: stringParam(params.resolution),
+          ratio: stringParam(params.ratio),
+          seedanceModel: stringParam(params.seedanceModel),
+        })
+      : undefined;
+    return {
+      id: "", action: "generate-video", success: r.success, output: r.outputPath || r.videoUrl, data: { taskId: r.taskId, provider: r.provider, videoUrl: r.videoUrl }, error: r.error, ...stepFailure(r),
+      ...(cost ? { costUsd: cost.costUsd, costEstimated: true } : {}),
+    };
   });
 
   registerAction("generate-tts", async (params, outputDir) => {
@@ -401,16 +458,23 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("edit-image", async (params, outputDir) => {
     const { executeImageEdit } = await import("../commands/ai-image.js");
     const output = getOutput(params, outputDir, "edited.png");
+    const provider = await resolvePipelineImageProvider(params.provider);
     const r = await executeImageEdit({
       imagePaths: Array.isArray(params.input) ? (params.input as string[]) : [params.input as string],
       prompt: params.prompt as string,
-      provider: await resolvePipelineImageProvider(params.provider),
+      provider,
       model: stringParam(params.model),
       ratio: stringParam(params.ratio),
       resolution: stringParam(params.resolution),
       output,
     });
-    return { id: "", action: "edit-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r) };
+    const cost = r.success
+      ? estimateImageCostUsd(r.provider ?? provider ?? "gemini", stringParam(params.model), 1, stringParam(params.resolution))
+      : undefined;
+    return {
+      id: "", action: "edit-image", success: r.success, output: r.outputPath, data: { provider: r.provider, model: r.model }, error: r.error, ...stepFailure(r),
+      ...(cost ? { costUsd: cost.costUsd, costEstimated: true } : {}),
+    };
   });
 
   registerAction("edit-motion-overlay", async (params, outputDir) => {
@@ -562,6 +626,9 @@ async function ensureActionsRegistered(): Promise<void> {
       success: r.success,
       output: r.outputPath,
       data: { beats: r.beats, totalLatencyMs: r.totalLatencyMs } as Record<string, unknown>,
+      // The build reports its own list-price cost for images, video, and narration.
+      costUsd: r.costUsd ?? 0,
+      costEstimated: (r.costUsd ?? 0) > 0,
       error: r.error,
       ...stepFailure(r),
     };
@@ -649,7 +716,14 @@ export interface ExecutePipelineOptions {
 const CHECKPOINT_FILE = ".pipeline-state.yaml";
 
 interface CheckpointState {
-  completedSteps: Array<{ id: string; action?: PipelineAction; output?: string; data?: Record<string, unknown> }>;
+  completedSteps: Array<{
+    id: string;
+    action?: PipelineAction;
+    output?: string;
+    data?: Record<string, unknown>;
+    /** Absent in checkpoints written before cost metering. */
+    costUsd?: number;
+  }>;
 }
 
 export async function executePipeline(
@@ -691,6 +765,7 @@ export async function executePipeline(
           success: true,
           output: cs.output,
           data: cs.data,
+          ...(typeof cs.costUsd === "number" ? { costUsd: cs.costUsd } : {}),
         });
       }
     }
@@ -703,7 +778,7 @@ export async function executePipeline(
 
   // Dry-run: validate and show plan
   if (options.dryRun) {
-    const plan: Array<{ id: string; action: string; estimatedCost?: string; unresolvedRefs?: string[] }> = [];
+    const plan: Array<{ id: string; action: string; max: number; estimatedCost?: string; unresolvedRefs?: string[] }> = [];
     const availableIds = new Set<string>();
     let totalMaxCost = 0;
 
@@ -715,6 +790,7 @@ export async function executePipeline(
       plan.push({
         id: step.id,
         action: step.action,
+        max,
         estimatedCost: max > 0 ? `≤$${max.toFixed(2)}` : undefined,
         unresolvedRefs: unresolvedRefs.length > 0 ? unresolvedRefs : undefined,
       });
@@ -730,7 +806,15 @@ export async function executePipeline(
     return {
       success: true,
       name: manifest.name,
-      steps: plan.map(p => ({ id: p.id, action: p.action as PipelineAction, success: true, data: p as unknown as Record<string, unknown> })),
+      // A dry run's step cost is its upper bound, so `pipelineCost` totals the plan.
+      steps: plan.map(({ max, ...p }) => ({
+        id: p.id,
+        action: p.action as PipelineAction,
+        success: true,
+        data: p as unknown as Record<string, unknown>,
+        costUsd: max,
+        ...(max > 0 ? { costEstimated: true } : {}),
+      })),
       completedSteps: 0,
       totalSteps: manifest.steps.length,
       outputDir,
@@ -747,7 +831,7 @@ export async function executePipeline(
   // pipeline-wide budget (not just this-run budget).
   const budgetUsage: BudgetUsage = { estimatedCostUsd: 0, tokensUsed: 0, toolErrors: 0 };
   for (const cs of completedSteps.values()) {
-    budgetUsage.estimatedCostUsd += maxCostFor(manifest.steps.find((s) => s.id === cs.id) ?? { action: cs.action });
+    budgetUsage.estimatedCostUsd += cs.costUsd ?? maxCostFor(manifest.steps.find((s) => s.id === cs.id) ?? { action: cs.action });
   }
 
   // Execute steps
@@ -786,13 +870,15 @@ export async function executePipeline(
     const stepStart = Date.now();
     let result: StepResult;
 
-    try {
-      result = await handler(resolvedParams, outputDir);
+    // Meter the step so its actual provider spend counts, even when it fails.
+    const metered = await meterUsageSettled(() => handler(resolvedParams, outputDir));
+    if (!("error" in metered)) {
+      result = metered.result;
       result.id = step.id;
       result.duration = Date.now() - stepStart;
-    } catch (err) {
+    } else {
       // A missing key (ApiKeyError) or a provider error thrown by the executor.
-      const failure = failureFromError(err);
+      const failure = failureFromError(metered.error);
       result = {
         id: step.id,
         action: step.action,
@@ -804,11 +890,14 @@ export async function executePipeline(
       };
     }
 
+    const cost = stepCost(step, result, metered.usage);
+    result.costUsd = cost.costUsd;
+    if (cost.estimated) result.costEstimated = true;
+    budgetUsage.estimatedCostUsd = roundUsd(budgetUsage.estimatedCostUsd + cost.costUsd);
     results.push(result);
 
     if (result.success) {
       completedSteps.set(step.id, result);
-      budgetUsage.estimatedCostUsd += maxCostFor(step);
 
       // Save checkpoint
       const checkpoint: CheckpointState = {
@@ -817,6 +906,7 @@ export async function executePipeline(
           action: s.action,
           output: s.output,
           data: s.data,
+          ...(typeof s.costUsd === "number" ? { costUsd: s.costUsd } : {}),
         })),
       };
       await writeFile(

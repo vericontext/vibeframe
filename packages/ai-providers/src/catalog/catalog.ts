@@ -32,6 +32,17 @@ export interface ModelPrice {
   basis?: string;
   /** Per-output-size prices, keyed by the size the API takes ("1K", "4K"); `usd` is the default size. */
   bySize?: Readonly<Record<string, number>>;
+  /** USD per 1M output tokens, for token-priced models. Thinking and reasoning tokens bill as output. */
+  outputUsd?: number;
+  /**
+   * Prompts longer than `aboveInputTokens` bill at these rates instead. A
+   * tier without rates means the price above it is not listed, so such a
+   * call cannot be priced and is reported as an estimate.
+   */
+  longContext?: { aboveInputTokens: number; usd?: number; outputUsd?: number };
+  /** Last day (ISO date, UTC, inclusive) this price holds; `then` applies from the next day. */
+  until?: string;
+  then?: { usd: number; outputUsd?: number };
 }
 
 export interface ModelSpec {
@@ -58,18 +69,18 @@ export interface ModelSpec {
 
 export const MODEL_CATALOG: readonly ModelSpec[] = [
   // ── LLMs ──────────────────────────────────────────────────────────────
-  { id: "claude-sonnet-5-5", provider: "claude", kind: "llm", label: "Claude Sonnet 5.5", aliases: ["sonnet"], default: true, status: "ga", price: { usd: 2, per: "1M input tokens" }, note: "Agent, storyboard, translate-srt, motion default" },
-  { id: "claude-opus-5-5", provider: "claude", kind: "llm", label: "Claude Opus 5.5", aliases: ["opus"], status: "ga", price: { usd: 4, per: "1M input tokens" } },
-  { id: "claude-opus-4-6", provider: "claude", kind: "llm", label: "Claude Opus 4.6", aliases: ["opus-4-6"], status: "legacy", price: { usd: 5, per: "1M input tokens" } },
-  { id: "claude-haiku-5-5", provider: "claude", kind: "llm", label: "Claude Haiku 5.5", aliases: ["haiku"], status: "ga", price: { usd: 0.1, per: "1M input tokens", basis: "prompts up to 100K tokens, then $0.50" }, note: "Cheapest Claude; accepts `thinking: disabled`" },
-  { id: "gpt-5.4-mini", provider: "openai", kind: "llm", label: "GPT-5.4 mini", default: true, status: "ga", price: { usd: 0.75, per: "1M input tokens" }, note: "Text default: storyboard, narration script, translation" },
-  { id: "gemini-3.8-flash", provider: "gemini", kind: "llm", label: "Gemini 3.8 Flash", aliases: ["flash", "latest", "flash-3.8", "gemini"], default: true, status: "ga", price: { usd: 0.75, per: "1M input tokens", basis: "until 2026-12-31, then $1.50" } },
-  { id: "gemini-3.6-flash", provider: "gemini", kind: "llm", label: "Gemini 3.6 Flash", aliases: ["flash-3.6"], status: "ga", price: { usd: 0.75, per: "1M input tokens", basis: "until 2026-12-31, then $1.50" } },
+  { id: "claude-sonnet-5-5", provider: "claude", kind: "llm", label: "Claude Sonnet 5.5", aliases: ["sonnet"], default: true, status: "ga", price: { usd: 2, outputUsd: 10, per: "1M input tokens" }, note: "Agent, storyboard, translate-srt, motion default" },
+  { id: "claude-opus-5-5", provider: "claude", kind: "llm", label: "Claude Opus 5.5", aliases: ["opus"], status: "ga", price: { usd: 4, outputUsd: 20, per: "1M input tokens" } },
+  { id: "claude-opus-4-6", provider: "claude", kind: "llm", label: "Claude Opus 4.6", aliases: ["opus-4-6"], status: "legacy", price: { usd: 5, outputUsd: 25, per: "1M input tokens" } },
+  { id: "claude-haiku-5-5", provider: "claude", kind: "llm", label: "Claude Haiku 5.5", aliases: ["haiku"], status: "ga", price: { usd: 0.1, outputUsd: 0.5, per: "1M input tokens", longContext: { aboveInputTokens: 100_000, usd: 0.5, outputUsd: 2.5 } }, note: "Cheapest Claude; accepts `thinking: disabled`" },
+  { id: "gpt-5.4-mini", provider: "openai", kind: "llm", label: "GPT-5.4 mini", default: true, status: "ga", price: { usd: 0.75, outputUsd: 4.5, per: "1M input tokens" }, note: "Text default: storyboard, narration script, translation" },
+  { id: "gemini-3.8-flash", provider: "gemini", kind: "llm", label: "Gemini 3.8 Flash", aliases: ["flash", "latest", "flash-3.8", "gemini"], default: true, status: "ga", price: { usd: 0.75, outputUsd: 3.75, per: "1M input tokens", until: "2026-12-31", then: { usd: 1.5, outputUsd: 7.5 } } },
+  { id: "gemini-3.6-flash", provider: "gemini", kind: "llm", label: "Gemini 3.6 Flash", aliases: ["flash-3.6"], status: "ga", price: { usd: 0.75, outputUsd: 3.75, per: "1M input tokens", until: "2026-12-31", then: { usd: 1.5, outputUsd: 7.5 } } },
   { id: "gemini-3.5-flash", provider: "gemini", kind: "llm", label: "Gemini 3.5 Flash", aliases: ["flash-3.5"], status: "legacy", replacement: "`--model flash` (Gemini 3.8 Flash)", note: "Deprecated 2026-10-08 with no shutdown date; Google routes it to gemini-3.6-flash" },
-  { id: "gemini-3-flash-preview", provider: "gemini", kind: "llm", label: "Gemini 3 Flash (preview)", aliases: ["flash-3"], status: "preview" },
-  { id: "gemini-4-argon", provider: "gemini", kind: "llm", label: "Gemini 4 Argon", aliases: ["argon"], status: "ga", price: { usd: 2, per: "1M input tokens", basis: "until 2026-11-30, then $4" }, note: "Opt-in flagship; hard prompts can take minutes" },
-  { id: "gemini-3.1-pro-preview", provider: "gemini", kind: "llm", label: "Gemini 3.1 Pro (preview)", aliases: ["pro", "pro-3.1", "3.1-pro", "gemini-3.1-pro"], status: "preview" },
-  { id: "gemini-2.5-flash", provider: "gemini", kind: "llm", label: "Gemini 2.5 Flash", aliases: ["flash-2.5"], status: "legacy", note: "New projects cannot use 2.5 models since 2026-09-18" },
+  { id: "gemini-3-flash-preview", provider: "gemini", kind: "llm", label: "Gemini 3 Flash (preview)", aliases: ["flash-3"], status: "preview", price: { usd: 0.5, outputUsd: 3, per: "1M input tokens" } },
+  { id: "gemini-4-argon", provider: "gemini", kind: "llm", label: "Gemini 4 Argon", aliases: ["argon"], status: "ga", price: { usd: 2, outputUsd: 10, per: "1M input tokens", until: "2026-11-30", then: { usd: 4, outputUsd: 20 } }, note: "Opt-in flagship; hard prompts can take minutes" },
+  { id: "gemini-3.1-pro-preview", provider: "gemini", kind: "llm", label: "Gemini 3.1 Pro (preview)", aliases: ["pro", "pro-3.1", "3.1-pro", "gemini-3.1-pro"], status: "preview", price: { usd: 2, outputUsd: 12, per: "1M input tokens", longContext: { aboveInputTokens: 200_000 } } },
+  { id: "gemini-2.5-flash", provider: "gemini", kind: "llm", label: "Gemini 2.5 Flash", aliases: ["flash-2.5"], status: "legacy", price: { usd: 0.3, outputUsd: 2.5, per: "1M input tokens" }, note: "New projects cannot use 2.5 models since 2026-09-18" },
   { id: "gemini-2.5-pro", provider: "gemini", kind: "llm", label: "Gemini 2.5 Pro", aliases: ["pro-2.5", "2.5-pro"], status: "legacy" },
 
   // ── Images ────────────────────────────────────────────────────────────
@@ -105,8 +116,8 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "eleven_v3", provider: "elevenlabs", kind: "speech", label: "ElevenLabs v3", aliases: ["v3"], default: true, status: "ga", price: { usd: 0.08, per: "1K characters" }, note: "5,000 characters per request" },
   { id: "eleven_multilingual_v2", provider: "elevenlabs", kind: "speech", label: "ElevenLabs Multilingual v2", aliases: ["multilingual", "v2"], status: "ga", price: { usd: 0.08, per: "1K characters" }, note: "10,000 characters; steadiest on long form" },
   { id: "eleven_flash_v2_5", provider: "elevenlabs", kind: "speech", label: "ElevenLabs Flash v2.5", aliases: ["flash"], status: "ga", price: { usd: 0.04, per: "1K characters" }, note: "40,000 characters; lowest latency" },
-  { id: "gemini-3.8-flash-tts", provider: "gemini", kind: "speech", label: "Gemini 3.8 Flash TTS", aliases: ["flash"], default: true, status: "ga", price: { usd: 0.0135, per: "minute", basis: "audio out until 2026-12-31, then $0.027" }, note: "WAV; 30 prebuilt voices, style directions; 130+ languages" },
-  { id: "gemini-3.8-flash-lite-tts", provider: "gemini", kind: "speech", label: "Gemini 3.8 Flash-Lite TTS", aliases: ["lite", "flash-lite"], status: "ga", price: { usd: 0.009, per: "minute", basis: "audio out until 2026-12-31, then $0.018" }, note: "Cheaper and faster; 100+ languages" },
+  { id: "gemini-3.8-flash-tts", provider: "gemini", kind: "speech", label: "Gemini 3.8 Flash TTS", aliases: ["flash"], default: true, status: "ga", price: { usd: 0.0135, per: "minute", basis: "audio out", until: "2026-12-31", then: { usd: 0.027 } }, note: "WAV; 30 prebuilt voices, style directions; 130+ languages" },
+  { id: "gemini-3.8-flash-lite-tts", provider: "gemini", kind: "speech", label: "Gemini 3.8 Flash-Lite TTS", aliases: ["lite", "flash-lite"], status: "ga", price: { usd: 0.009, per: "minute", basis: "audio out", until: "2026-12-31", then: { usd: 0.018 } }, note: "Cheaper and faster; 100+ languages" },
   { id: "gpt-4o-mini-tts", provider: "openai", kind: "speech", label: "GPT-4o mini TTS", default: true, status: "deprecated", shutdown: "2027-01-06", replacement: "`--tts gemini`, `elevenlabs`, or `kokoro`" },
   { id: "tts-1", provider: "openai", kind: "speech", label: "TTS-1", status: "deprecated", shutdown: "2027-01-06", replacement: "`--tts gemini`, `elevenlabs`, or `kokoro`", price: { usd: 0.015, per: "1K characters" } },
   { id: "tts-1-hd", provider: "openai", kind: "speech", label: "TTS-1 HD", status: "deprecated", shutdown: "2027-01-06", replacement: "`--tts gemini`, `elevenlabs`, or `kokoro`", price: { usd: 0.03, per: "1K characters" } },
@@ -114,7 +125,7 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "music_v2_5", provider: "elevenlabs", kind: "music", label: "ElevenLabs Music v2.5", default: true, status: "ga", price: { usd: 0.15, per: "minute" } },
   { id: "eleven_text_to_sound_v2", provider: "elevenlabs", kind: "sound-effect", label: "ElevenLabs Sound Effects v2", default: true, status: "ga", price: { usd: 0.12, per: "minute" }, note: "0.5-30 s" },
   { id: "scribe_v2", provider: "elevenlabs", kind: "transcription", label: "ElevenLabs Scribe v2", aliases: ["scribe"], default: true, status: "ga", price: { usd: 0.22, per: "hour" }, note: "Word timestamps; first choice of `--stt auto` when ELEVENLABS_API_KEY is set" },
-  { id: "whisper-1", provider: "openai", kind: "transcription", label: "Whisper", default: true, status: "deprecated", shutdown: "2027-02-26", replacement: "`--stt elevenlabs` (Scribe v2)", note: "Only OpenAI model with word timestamps" },
+  { id: "whisper-1", provider: "openai", kind: "transcription", label: "Whisper", default: true, status: "deprecated", shutdown: "2027-02-26", replacement: "`--stt elevenlabs` (Scribe v2)", price: { usd: 0.006, per: "minute" }, note: "Only OpenAI model with word timestamps" },
 ];
 
 /** All catalog entries matching the filter, in catalog order. */

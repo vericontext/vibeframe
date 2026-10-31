@@ -94,6 +94,7 @@ Every model ID comes from the catalog (`packages/ai-providers/src/catalog/catalo
 - `packages/cli/src/commands/_shared/openai-image.ts` - CLI aliases to catalog IDs for cost estimates; unknown aliases resolve to the default.
 - `packages/ai-providers/src/openai-tts/OpenAiTtsProvider.ts` - `gpt-4o-mini-tts` default, `tts-1`/`tts-1-hd` opt-in; rejects voices `tts-1` does not support.
 - `packages/ai-providers/src/whisper/WhisperProvider.ts` - `whisper-1`, `verbose_json`, `timestamp_granularities[]`; captions, `edit jump-cut`, and every other transcribing command reach it with `--stt openai`, or with `--stt auto` when no ElevenLabs key is set (`packages/cli/src/commands/_shared/transcription.ts`).
+- Cost metering: `openai-text.ts` records Responses `usage.input_tokens` / `usage.output_tokens` (reasoning tokens are part of output), `translate-texts.ts` records Chat Completions `usage.prompt_tokens` / `usage.completion_tokens` (code). Whisper is billed per minute ($0.006, Models table), from the `verbose_json` `duration` when present, else the uploaded WAV/MP3 length, else the last timestamp (marked estimated). `tts-1`/`tts-1-hd` are billed per character ($15 / $30 per 1M). `gpt-4o-mini-tts` bills audio tokens that `/audio/speech` does not report, so the catalog leaves it unpriced and its cost is reported as the tier upper bound with `costEstimated: true`.
 
 ## Recommended changes
 

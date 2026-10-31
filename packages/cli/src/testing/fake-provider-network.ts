@@ -25,6 +25,8 @@ export const FAKE_SCRIBE_TRANSCRIPT = {
   language_code: "eng",
   language_probability: 0.98,
   text: "Um, so the paper boat drifts. It floats away.",
+  // What Scribe bills: the length of the upload, past the last word.
+  audio_duration_secs: 4.2,
   words: [
     ["Um,", 0.0, 0.3],
     ["so", 0.4, 0.6],
@@ -46,6 +48,7 @@ export const FAKE_SCRIBE_TRANSCRIPT = {
 export const FAKE_WHISPER_TRANSCRIPT = {
   text: "Um, so the paper boat drifts. It floats away.",
   language: "english",
+  duration: 4.2,
   segments: [
     { id: 0, start: 0, end: 2.0, text: " Um, so the paper boat drifts." },
     { id: 1, start: 2.6, end: 3.7, text: " It floats away." },
@@ -80,6 +83,7 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
     )
     .on("POST", "api.elevenlabs.io", /^\/v1\/text-to-speech\//, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
     .on("POST", "api.elevenlabs.io", /^\/v1\/music/, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
+    .on("POST", "api.elevenlabs.io", /^\/v1\/sound-generation$/, () => bytesResponse(FAKE_MP3, "audio/mpeg"))
     .on("POST", "api.elevenlabs.io", /^\/v1\/speech-to-text$/, () => jsonResponse(FAKE_SCRIBE_TRANSCRIPT))
     .on("POST", "api.openai.com", /^\/v1\/audio\/transcriptions$/, () => jsonResponse(FAKE_WHISPER_TRANSCRIPT))
     // Gemini TTS; other Interactions requests (Omni video) need their own route.

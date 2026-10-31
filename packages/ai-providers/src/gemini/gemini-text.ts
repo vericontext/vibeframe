@@ -8,6 +8,7 @@ import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { DEFAULT_MAX_OUTPUT_TOKENS, type TextRequest, type TextResult } from "../text/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
+import { recordTokenUsage } from "../usage/meter.js";
 
 const PROVIDER = "gemini";
 
@@ -68,8 +69,18 @@ export async function geminiGenerateContent(
   const data = (await response.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
     promptFeedback?: { blockReason?: string };
-    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      thoughtsTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
+  const usage = data.usageMetadata;
+  // Thinking tokens bill as output but are not part of candidatesTokenCount.
+  if (usage) {
+    recordTokenUsage(PROVIDER, model, usage.promptTokenCount ?? 0, (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0));
+  }
   const candidate = data.candidates?.[0];
   const blockReason = data.promptFeedback?.blockReason;
   if (blockReason || candidate?.finishReason === "SAFETY" || candidate?.finishReason === "PROHIBITED_CONTENT") {

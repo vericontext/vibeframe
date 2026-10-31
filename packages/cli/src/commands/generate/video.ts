@@ -316,10 +316,14 @@ Examples:
           });
           spinner?.succeed(chalk.green(`Generation started: ${providerLabel} task ${result.taskId}`));
           if (isJsonMode()) {
+            // Submitted work is billed whether or not this call waits for it.
+            const cost = realRunCost(provider, options);
             outputSuccess({
               command: "generate video",
               startedAt,
-              warnings: lifecycleWarnings,
+              costUsd: cost.costUsd,
+              costEstimated: true,
+              warnings: [...lifecycleWarnings, ...cost.warnings],
               data: {
                 provider,
                 taskId: result.taskId,
@@ -341,6 +345,7 @@ Examples:
             command: "generate video",
             startedAt,
             costUsd: cost.costUsd,
+            costEstimated: true,
             warnings: [...lifecycleWarnings, ...cost.warnings],
             data: {
               provider,

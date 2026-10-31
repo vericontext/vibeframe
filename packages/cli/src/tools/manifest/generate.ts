@@ -24,6 +24,10 @@ import {
   executeVideoExtend,
 } from "../../commands/ai-video.js";
 import { createAndWriteJobRecord } from "../../commands/_shared/status-jobs.js";
+import { estimateImageCostUsd } from "../../commands/_shared/image-cost.js";
+import { upperBoundCost } from "../../commands/_shared/actual-cost.js";
+import { lookupCostEstimateUpperBound } from "../../commands/output.js";
+import { realRunCost } from "../../commands/generate/video.js";
 import { defaultOutputPath } from "../../commands/_shared/default-output.js";
 
 /** Without an `output`, a paid result is saved under the working directory. */
@@ -243,6 +247,8 @@ export const generateImageTool = defineTool({
     const result = await executeImageGenerate({ ...args, output });
     if (!result.success)
       return failedTool(result, "Image generation failed");
+    // Image providers are not metered: list price per image, as the CLI reports.
+    const cost = estimateImageCostUsd(result.provider ?? args.provider ?? "gemini", args.model, result.images?.length ?? 1, args.resolution, args.size);
     return {
       success: true,
       data: {
@@ -250,6 +256,8 @@ export const generateImageTool = defineTool({
         provider: result.provider,
         model: result.model,
         imageCount: result.images?.length,
+        costUsd: cost.costUsd,
+        costEstimated: true,
       },
       humanLines: [`✅ Image (${result.provider}) → ${result.outputPath}`],
     };
@@ -363,6 +371,14 @@ export const generateVideoTool = defineTool({
         outputPath: output,
       });
     }
+    // Video providers are not metered; same estimate as the CLI envelope.
+    const cost = realRunCost(result.provider ?? args.provider ?? "seedance", {
+      duration: args.duration !== undefined ? String(args.duration) : undefined,
+      resolution: args.resolution,
+      ratio: args.ratio,
+      seedanceModel: args.seedanceModel,
+      refVideos: args.refVideos,
+    });
     return {
       success: true,
       data: {
@@ -372,6 +388,8 @@ export const generateVideoTool = defineTool({
         duration: result.duration,
         outputPath: result.outputPath,
         provider: result.provider,
+        costUsd: cost.costUsd,
+        costEstimated: true,
         jobId: job?.id,
         statusCommand: job
           ? `vibe status job ${job.id} --project ${job.projectDir} --json`
@@ -440,9 +458,12 @@ export const generateVideoExtendTool = defineTool({
       output: args.output ?? defaultOutputIn(ctx.workingDirectory, "video-extended.mp4"),
     });
     if (!result.success) return failedTool(result, "Extend failed");
+    const cost = upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, args.provider ?? "kling");
     return {
       success: true,
       data: {
+        costUsd: cost.costUsd,
+        costEstimated: cost.estimated,
         taskId: result.taskId,
         status: result.status,
         videoUrl: result.videoUrl,

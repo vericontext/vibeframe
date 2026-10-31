@@ -324,11 +324,20 @@ const ENVELOPE = `## JSON envelope
   "command": "<group> <leaf>",
   "elapsedMs": 12345,
   "costUsd": 0.07,
+  "costEstimated": true,    // present only when costUsd is an estimate
   "warnings": [],
   "data": { /* command-specific */ },
   "dryRun": true            // present only when --dry-run was passed
 }
 \`\`\`
+
+\`costUsd\` on a real run is what the provider calls consumed (tokens,
+characters, seconds of audio) times the model catalog's list price, or 0
+when nothing paid ran. When a call cannot be priced that way (no list price
+for the model, an inferred amount, image and video providers) it is an
+upper-bound estimate, \`costEstimated\` is \`true\`, and a warning says why.
+On a dry run \`costUsd\` is always the upper-bound estimate. MCP tool results
+carry the same \`costUsd\` / \`costEstimated\` in their data.
 
 ### Error (written to stderr)
 

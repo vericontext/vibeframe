@@ -8,6 +8,7 @@ import ora from "ora";
 import { isProviderError } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../utils/api-key-error.js";
 import { InputError } from "./validate.js";
+import { actualCostSince } from "./_shared/actual-cost.js";
 import { writeStdout } from "../utils/stdout-guard.js";
 
 // ── Exit Codes ───────────────────────────────────────────────────────────
@@ -306,6 +307,7 @@ function formatCost(min: number, max: number, unit: string): string {
 //   "dryRun"?: true,
 //   "elapsedMs": 1234,
 //   "costUsd": 0.04,
+//   "costEstimated"?: true,
 //   "warnings": [],
 //   "data": { ...domain shape... }
 // }
@@ -322,8 +324,18 @@ export interface SuccessEnvelopeOptions {
   data: Record<string, unknown>;
   /** Wallclock start. Use `Date.now()` at the top of the action handler. */
   startedAt: number;
-  /** Actual cost. Omit for free ops (defaults to 0). For dry-run, defaults to COST_ESTIMATES upper bound. */
+  /**
+   * Actual cost. When omitted, a real run reports what its provider calls
+   * were metered to consume, priced from the model catalog (0 when nothing
+   * paid ran); a dry run reports the COST_ESTIMATES upper bound.
+   */
   costUsd?: number;
+  /**
+   * The real-run `costUsd` is an estimate (a list-price upper bound or an
+   * inferred amount), not consumption times a listed price. Surfaces as
+   * `costEstimated: true`; metered costs set it themselves.
+   */
+  costEstimated?: boolean;
   /** Non-fatal signals (provider fallback, deprecated flag, partial cache miss). */
   warnings?: string[];
   /** Pass-through of `--dry-run` flag — surfaces as a top-level `dryRun: true` in the envelope. */
@@ -357,13 +369,20 @@ export function lookupCostEstimateUpperBound(command: string): number {
  */
 export function outputSuccess(opts: SuccessEnvelopeOptions): void {
   const elapsedMs = Math.max(0, Date.now() - opts.startedAt);
-  const costUsd = opts.costUsd ?? (opts.dryRun ? lookupCostEstimateUpperBound(opts.command) : 0);
+  const metered =
+    opts.costUsd === undefined && !opts.dryRun
+      ? actualCostSince(opts.startedAt, lookupCostEstimateUpperBound(opts.command))
+      : undefined;
+  const costUsd = opts.costUsd ?? metered?.costUsd ?? lookupCostEstimateUpperBound(opts.command);
+  const costEstimated = !opts.dryRun && (metered ? metered.estimated : opts.costEstimated === true);
+  const warnings = [...(opts.warnings ?? []), ...(metered?.warnings ?? [])];
   const envelope: Record<string, unknown> = {
     command: opts.command,
     ...(opts.dryRun ? { dryRun: true } : {}),
     elapsedMs,
     costUsd,
-    warnings: opts.warnings ?? [],
+    ...(costEstimated ? { costEstimated: true } : {}),
+    warnings,
     data: opts.data,
   };
 
@@ -395,7 +414,7 @@ export function outputSuccess(opts: SuccessEnvelopeOptions): void {
   }
 
   if (opts.dryRun && !opts.humanRendered) {
-    printDryRunSummary(opts.command, costUsd, opts.data, opts.warnings ?? []);
+    printDryRunSummary(opts.command, costUsd, opts.data, warnings);
   }
 }
 

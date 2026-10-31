@@ -66,7 +66,12 @@ export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 
 /** Pipeline budget — aborts execution when any ceiling is hit */
 export interface PipelineBudget {
-  /** Max estimated USD (uses COST_ESTIMATES.max per action) */
+  /**
+   * Max USD. Spent steps count their actual cost (metered provider usage
+   * priced from the model catalog), or their COST_ESTIMATES upper bound when
+   * nothing was metered; a step is refused when that plus its upper bound
+   * would exceed this.
+   */
   costUsd?: number;
   /** Max total token budget (tracked when provider returns usage) */
   tokens?: number;
@@ -107,11 +112,22 @@ export interface StepResult {
   errorKind?: string;
   /** Execution time in ms */
   duration?: number;
+  /**
+   * What the step cost: its metered provider usage priced from the model
+   * catalog, a cost the step reported itself, or its COST_ESTIMATES upper
+   * bound when nothing was metered. Failed steps count what they were billed.
+   */
+  costUsd?: number;
+  /** True when `costUsd` is an estimate rather than consumption times a listed price. */
+  costEstimated?: boolean;
 }
 
 /** Running budget usage after execution */
 export interface BudgetUsage {
-  /** Upper-bound estimated USD used (sum of max cost per completed step) */
+  /**
+   * USD spent so far: the sum of every step's `costUsd` (actual where
+   * metered, the upper-bound estimate otherwise). The name predates metering.
+   */
   estimatedCostUsd: number;
   /** Total tokens consumed (when providers report usage) */
   tokensUsed: number;

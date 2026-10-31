@@ -21,11 +21,13 @@ import {
   apiError,
   isJsonMode,
   isQuietMode,
+  lookupCostEstimateUpperBound,
   outputSuccess,
   providerFailure,
 } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { executeFillGaps } from "./_shared/execute-fill-gaps.js";
+import { upperBoundCost } from "./_shared/actual-cost.js";
 
 export function registerFillGapsCommand(aiCommand: Command): void {
   aiCommand
@@ -73,10 +75,15 @@ export function registerFillGapsCommand(aiCommand: Command): void {
         }
 
         if (isJsonMode() || isQuietMode()) {
+          // One generated video per gap; video providers are not metered.
+          const cost = result.dryRun
+            ? undefined
+            : upperBoundCost(lookupCostEstimateUpperBound("edit fill-gaps"), result.generatedCount ?? 0, options.provider);
           outputSuccess({
             command: "edit fill-gaps",
             startedAt,
             dryRun: result.dryRun,
+            ...(cost ? { costUsd: cost.costUsd, costEstimated: cost.estimated, warnings: cost.warnings } : {}),
             data: {
               outputPath: result.outputPath,
               gaps: result.gaps ?? [],

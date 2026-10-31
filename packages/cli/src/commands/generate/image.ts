@@ -160,6 +160,7 @@ Examples:
           command: "generate image",
           startedAt,
           costUsd: cost.costUsd,
+          costEstimated: true,
           warnings: [...lifecycleWarnings, ...cost.warnings],
           data: {
             provider,

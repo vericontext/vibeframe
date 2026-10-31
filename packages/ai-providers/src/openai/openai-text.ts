@@ -4,6 +4,7 @@ import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { DEFAULT_MAX_OUTPUT_TOKENS, type TextRequest, type TextResult } from "../text/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
+import { recordTokenUsage } from "../usage/meter.js";
 
 const PROVIDER = "openai";
 
@@ -33,7 +34,10 @@ export async function openaiGenerateText(
     status?: string;
     incomplete_details?: { reason?: string };
     output?: Array<{ type: string; content?: Array<{ type: string; text?: string; refusal?: string }> }>;
+    usage?: { input_tokens?: number; output_tokens?: number };
   };
+  // output_tokens includes reasoning tokens.
+  recordTokenUsage(PROVIDER, model, data.usage?.input_tokens, data.usage?.output_tokens);
   const content = (data.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? []);
   const refusal = content.find((part) => part.type === "refusal");
   if (refusal || data.incomplete_details?.reason === "content_filter") {

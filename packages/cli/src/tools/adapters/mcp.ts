@@ -6,10 +6,11 @@
 
 import type { ZodError } from "zod";
 import { zodToJsonSchema, type JsonSchema } from "../zod-to-json-schema.js";
-import type { ToolDefinition } from "../define-tool.js";
-import { isProviderError } from "@vibeframe/ai-providers";
+import type { ToolDefinition, ToolExecuteResult } from "../define-tool.js";
+import { isProviderError, meterUsageSettled, type UsageRecord } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../../utils/api-key-error.js";
-import { failureFromError } from "../../commands/output.js";
+import { failureFromError, lookupCostEstimateUpperBound } from "../../commands/output.js";
+import { costOfUsage } from "../../commands/_shared/actual-cost.js";
 
 /**
  * Top-level MCP tool inputSchema. We always emit `{ type:"object", properties,
@@ -276,6 +277,33 @@ function toMcpAnnotations(a: ToolDefinition["annotations"]): McpToolAnnotations 
   };
 }
 
+/** The CLI command a tool wraps: `audio_clone_voice` is `audio clone-voice`. */
+export function commandForToolName(name: string): string {
+  const [group, ...rest] = name.split("_");
+  return rest.length > 0 ? `${group} ${rest.join("-")}` : group;
+}
+
+/**
+ * Attach what the tool call's provider usage cost (`costUsd`, plus
+ * `costEstimated: true` and a warning when it is an estimate) to its data,
+ * unless the tool reports its own cost. Calls that metered nothing are left
+ * as they are, so free tools gain no field.
+ */
+export function withMeteredCost(
+  toolName: string,
+  result: ToolExecuteResult,
+  usage: readonly UsageRecord[],
+): ToolExecuteResult {
+  if (usage.length === 0 || (result.data && "costUsd" in result.data)) return result;
+  const cost = costOfUsage(usage, lookupCostEstimateUpperBound(commandForToolName(toolName)));
+  const data: Record<string, unknown> = { ...result.data, costUsd: cost.costUsd };
+  if (cost.estimated) data.costEstimated = true;
+  if (cost.warnings.length > 0) {
+    data.warnings = [...(Array.isArray(data.warnings) ? data.warnings : []), ...cost.warnings];
+  }
+  return { ...result, data };
+}
+
 /** Build the dispatcher used by `handleToolCall` in the MCP server. */
 export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDispatcher {
   const byName = new Map<string, ToolDefinition>();
@@ -293,15 +321,22 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
       };
     }
     const sink = makeProgressSink(extra?.onProgress);
+    let usage: readonly UsageRecord[] = [];
     try {
-      const result = await withCapturedStdout(() =>
-        tool.execute(parsed.data, {
-          workingDirectory: process.cwd(),
-          surface: "mcp",
-          ...(extra?.onProgress ? { onProgress: sink.send } : {}),
-          ...(extra?.elicit ? { elicit: extra.elicit } : {}),
-        })
+      // Each call gets its own usage meter, so concurrent calls never mix costs.
+      const metered = await meterUsageSettled(() =>
+        withCapturedStdout(() =>
+          tool.execute(parsed.data, {
+            workingDirectory: process.cwd(),
+            surface: "mcp",
+            ...(extra?.onProgress ? { onProgress: sink.send } : {}),
+            ...(extra?.elicit ? { elicit: extra.elicit } : {}),
+          })
+        )
       );
+      usage = metered.usage;
+      if ("error" in metered) throw metered.error;
+      const result = withMeteredCost(name, metered.result, usage);
       // A failure with a structured error (code, provider error kind,
       // suggestion) goes back as that envelope, like the CLI's --json error.
       const text = result.success
@@ -325,8 +360,12 @@ export function buildMcpDispatcher(manifest: readonly ToolDefinition[]): McpDisp
       }
       // A failed provider call keeps its kind (auth, quota, rate-limit, ...)
       // and the matching error code, so the agent knows whether to retry.
+      // Calls billed before the failure still report what they cost.
       if (isProviderError(error)) {
-        return { content: [{ type: "text", text: JSON.stringify(failureFromError(error, `${name} failed`)) }] };
+        const failed = withMeteredCost(name, { success: false }, usage);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ ...failureFromError(error, `${name} failed`), ...failed.data }) }],
+        };
       }
       const msg = error instanceof Error ? error.message : String(error);
       return { content: [{ type: "text", text: `${name} threw: ${msg}` }] };

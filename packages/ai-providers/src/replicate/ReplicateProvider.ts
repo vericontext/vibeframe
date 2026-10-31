@@ -5,6 +5,7 @@ import type {
   VideoResult,
 } from "../interface/types.js";
 import { providerRequest } from "../shared/http.js";
+import { recordUsage } from "../usage/meter.js";
 
 /**
  * Video upscale options
@@ -439,6 +440,8 @@ export class ReplicateProvider implements AIProvider {
       });
 
       const prediction = (await response.json()) as ReplicatePrediction;
+      // Replicate bills MusicGen by compute time, which the catalog does not price.
+      recordUsage({ provider: "replicate", kind: "music", model: "musicgen", amount: { unit: "requests", count: 1 } });
 
       return {
         success: true,

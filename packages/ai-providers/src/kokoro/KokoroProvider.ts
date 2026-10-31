@@ -7,6 +7,7 @@ import { defaultModel } from "../catalog/catalog.js";
 import type { SpeechGenerator, SpeechRequest, SpeechResult, SpeechSynthesisOptions } from "../speech/contract.js";
 import { ProviderError } from "../shared/errors.js";
 import { splitSpeechText } from "../speech/split-text.js";
+import { recordUsage } from "../usage/meter.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 /**
@@ -376,6 +377,8 @@ export class KokoroProvider implements AIProvider, SpeechGenerator {
         }
         buffer = encodeFloatWav(samples, sampleRate);
       }
+      // Local and free; recorded so a narration reports a priced $0, not an unknown.
+      recordUsage({ provider: this.speechProvider, kind: "speech", model: modelId, amount: { unit: "characters", count: text.length } });
       return { bytes: new Uint8Array(buffer), mimeType: "audio/wav", extension: "wav", model: modelId, characters: text.length };
     } catch (error) {
       throw new ProviderError({

@@ -6,6 +6,7 @@ import type {
 import type { SpeechGenerator, SpeechRequest, SpeechResult } from "../speech/contract.js";
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
+import { recordUsage } from "../usage/meter.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 /**
@@ -99,13 +100,12 @@ export class OpenAiTtsProvider implements AIProvider, SpeechGenerator {
         ...(request.instructions !== undefined && { instructions: request.instructions }),
       }),
     });
-    return {
-      bytes: new Uint8Array(await response.arrayBuffer()),
-      mimeType: "audio/mpeg",
-      extension: "mp3",
-      model,
-      characters: request.text.length,
-    };
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // tts-1 and tts-1-hd bill per character. gpt-4o-mini-tts bills audio
+    // tokens the response does not report, so the catalog leaves it unpriced
+    // and its cost is reported as an estimate.
+    recordUsage({ provider: this.speechProvider, kind: "speech", model, amount: { unit: "characters", count: request.text.length } });
+    return { bytes, mimeType: "audio/mpeg", extension: "mp3", model, characters: request.text.length };
   }
 }
 

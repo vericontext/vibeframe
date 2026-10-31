@@ -261,7 +261,7 @@ Advanced equivalent: \`vibe scene build\`.`
     if (!result.success) {
       spinner?.fail(`Build failed: ${result.error}`);
       if (isJsonMode()) {
-        outputSuccess({ command: "build", startedAt, data: buildFailureData(result) });
+        outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: (result.costUsd ?? 0) > 0, data: buildFailureData(result) });
         process.exitCode = 1;
         return;
       }
@@ -276,7 +276,8 @@ Advanced equivalent: \`vibe scene build\`.`
     }
 
     if (isJsonMode() || isQuietMode()) {
-      outputSuccess({ command: "build", startedAt, data: { ...result } });
+      // The build report keeps its own per-stage cost (list-price estimates); the envelope repeats it.
+      outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: (result.costUsd ?? 0) > 0, data: { ...result } });
       return;
     }
 

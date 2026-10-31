@@ -8,6 +8,8 @@ import type { SpeechGenerator, SpeechRequest, SpeechResult } from "../speech/con
 import { ProviderError, isProviderError, type ProviderErrorKind } from "../shared/errors.js";
 import { audioFilename } from "../transcription/contract.js";
 import { providerRequest } from "../shared/http.js";
+import { mp3Seconds } from "../usage/audio-duration.js";
+import { recordUsage } from "../usage/meter.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 /**
@@ -292,13 +294,10 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         },
       }),
     });
-    return {
-      bytes: new Uint8Array(await response.arrayBuffer()),
-      mimeType: "audio/mpeg",
-      extension: "mp3",
-      model,
-      characters: text.length,
-    };
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // TTS bills per character of input text.
+    recordUsage({ provider: this.speechProvider, kind: "speech", model, amount: { unit: "characters", count: text.length } });
+    return { bytes, mimeType: "audio/mpeg", extension: "mp3", model, characters: text.length };
   }
 
   /** An ElevenLabs API call through the shared HTTP layer (retries, classified errors). */
@@ -339,9 +338,10 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
       };
 
       // Duration is optional; API auto-determines if not provided
+      let duration: number | undefined;
       if (options.duration !== undefined) {
         // Clamp to valid range (0.5-30 seconds)
-        const duration = Math.max(0.5, Math.min(30, options.duration));
+        duration = Math.max(0.5, Math.min(30, options.duration));
         body.duration_seconds = duration;
       }
 
@@ -356,6 +356,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);
+      this.recordAudioOut("sound-effect", defaultModel(this.speechProvider, "sound-effect").id, duration, audioBuffer);
 
       return {
         success: true,
@@ -364,6 +365,27 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
     } catch (error) {
       return this.failure(error);
     }
+  }
+
+  /**
+   * Record generated audio billed per minute: the length that was asked for,
+   * else the length measured from the MP3 (marked estimated), else one
+   * request the catalog cannot price.
+   */
+  private recordAudioOut(kind: "sound-effect" | "music", model: string, requested: number | undefined, audio: Uint8Array): void {
+    const measured = requested === undefined ? mp3Seconds(audio) : undefined;
+    recordUsage({
+      provider: this.speechProvider,
+      kind,
+      model,
+      amount:
+        requested !== undefined
+          ? { unit: "seconds", count: requested }
+          : measured !== undefined
+            ? { unit: "seconds", count: measured }
+            : { unit: "requests", count: 1 },
+      ...(requested === undefined ? { estimated: true } : {}),
+    });
   }
 
   /**
@@ -386,9 +408,10 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         model_id: ELEVENLABS_MUSIC_MODEL,
       };
 
+      let duration: number | undefined;
       if (options.duration !== undefined) {
         // Clamp to valid range (3-600 seconds), convert to milliseconds
-        const duration = Math.max(3, Math.min(600, options.duration));
+        duration = Math.max(3, Math.min(600, options.duration));
         body.music_length_ms = duration * 1000;
       }
 
@@ -411,6 +434,7 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);
+      this.recordAudioOut("music", ELEVENLABS_MUSIC_MODEL, duration, audioBuffer);
 
       return {
         success: true,
@@ -448,6 +472,8 @@ export class ElevenLabsProvider implements AIProvider, SpeechGenerator {
         },
         body: formData,
       });
+      // Billed, but the catalog lists no price for audio isolation.
+      recordUsage({ provider: this.speechProvider, kind: "audio-isolation", model: "audio-isolation", amount: { unit: "requests", count: 1 } });
 
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = Buffer.from(arrayBuffer);

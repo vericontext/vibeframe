@@ -157,6 +157,7 @@ export function registerThumbnailCommand(parent: Command): void {
             command: "generate thumbnail",
             startedAt,
             costUsd: cost.costUsd,
+            costEstimated: true,
             warnings: cost.warnings,
             data: { provider: "openai", model: result.model, outputPath: result.outputPath },
           });

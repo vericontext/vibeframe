@@ -8,24 +8,24 @@ The model list itself is generated from the model catalog (`packages/ai-provider
 <!-- BEGIN GENERATED: model catalog (pnpm gen:models) -->
 
 Generated from the model catalog; edit `packages/ai-providers/src/catalog/catalog.ts`, then run `pnpm gen:models`.
-Prices are upper-bound list prices for estimates, not metered billing.
+Prices are list prices. Commands report `costUsd` as metered usage (tokens, characters, audio seconds) times these prices, not provider billing.
 
 ### LLMs
 
 | Provider | Model | ID | Aliases | Status | Price | Notes |
 |---|---|---|---|---|---|---|
-| claude | **Claude Sonnet 5.5** (default) | `claude-sonnet-5-5` | `sonnet` | GA | $2 / 1M input tokens | Agent, storyboard, translate-srt, motion default |
-| claude | Claude Opus 5.5 | `claude-opus-5-5` | `opus` | GA | $4 / 1M input tokens |  |
-| claude | Claude Opus 4.6 | `claude-opus-4-6` | `opus-4-6` | Legacy | $5 / 1M input tokens |  |
-| claude | Claude Haiku 5.5 | `claude-haiku-5-5` | `haiku` | GA | $0.1 / 1M input tokens (prompts up to 100K tokens, then $0.50) | Cheapest Claude; accepts `thinking: disabled` |
-| openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 / 1M input tokens | Text default: storyboard, narration script, translation |
-| gemini | **Gemini 3.8 Flash** (default) | `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8`, `gemini` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
-| gemini | Gemini 3.6 Flash | `gemini-3.6-flash` | `flash-3.6` | GA | $0.75 / 1M input tokens (until 2026-12-31, then $1.50) |  |
+| claude | **Claude Sonnet 5.5** (default) | `claude-sonnet-5-5` | `sonnet` | GA | $2 in / $10 out per 1M tokens | Agent, storyboard, translate-srt, motion default |
+| claude | Claude Opus 5.5 | `claude-opus-5-5` | `opus` | GA | $4 in / $20 out per 1M tokens |  |
+| claude | Claude Opus 4.6 | `claude-opus-4-6` | `opus-4-6` | Legacy | $5 in / $25 out per 1M tokens |  |
+| claude | Claude Haiku 5.5 | `claude-haiku-5-5` | `haiku` | GA | $0.1 in / $0.5 out per 1M tokens (prompts over 100K tokens: $0.5 in / $2.5 out per 1M tokens) | Cheapest Claude; accepts `thinking: disabled` |
+| openai | **GPT-5.4 mini** (default) | `gpt-5.4-mini` |  | GA | $0.75 in / $4.5 out per 1M tokens | Text default: storyboard, narration script, translation |
+| gemini | **Gemini 3.8 Flash** (default) | `gemini-3.8-flash` | `flash`, `latest`, `flash-3.8`, `gemini` | GA | $0.75 in / $3.75 out per 1M tokens (until 2026-12-31, then $1.5 in / $7.5 out per 1M tokens) |  |
+| gemini | Gemini 3.6 Flash | `gemini-3.6-flash` | `flash-3.6` | GA | $0.75 in / $3.75 out per 1M tokens (until 2026-12-31, then $1.5 in / $7.5 out per 1M tokens) |  |
 | gemini | Gemini 3.5 Flash | `gemini-3.5-flash` | `flash-3.5` | Legacy |  | Deprecated 2026-10-08 with no shutdown date; Google routes it to gemini-3.6-flash |
-| gemini | Gemini 3 Flash (preview) | `gemini-3-flash-preview` | `flash-3` | Preview |  |  |
-| gemini | Gemini 4 Argon | `gemini-4-argon` | `argon` | GA | $2 / 1M input tokens (until 2026-11-30, then $4) | Opt-in flagship; hard prompts can take minutes |
-| gemini | Gemini 3.1 Pro (preview) | `gemini-3.1-pro-preview` | `pro`, `pro-3.1`, `3.1-pro`, `gemini-3.1-pro` | Preview |  |  |
-| gemini | Gemini 2.5 Flash | `gemini-2.5-flash` | `flash-2.5` | Legacy |  | New projects cannot use 2.5 models since 2026-09-18 |
+| gemini | Gemini 3 Flash (preview) | `gemini-3-flash-preview` | `flash-3` | Preview | $0.5 in / $3 out per 1M tokens |  |
+| gemini | Gemini 4 Argon | `gemini-4-argon` | `argon` | GA | $2 in / $10 out per 1M tokens (until 2026-11-30, then $4 in / $20 out per 1M tokens) | Opt-in flagship; hard prompts can take minutes |
+| gemini | Gemini 3.1 Pro (preview) | `gemini-3.1-pro-preview` | `pro`, `pro-3.1`, `3.1-pro`, `gemini-3.1-pro` | Preview | $2 in / $12 out per 1M tokens (prompts up to 200K tokens) |  |
+| gemini | Gemini 2.5 Flash | `gemini-2.5-flash` | `flash-2.5` | Legacy | $0.3 in / $2.5 out per 1M tokens | New projects cannot use 2.5 models since 2026-09-18 |
 | gemini | Gemini 2.5 Pro | `gemini-2.5-pro` | `pro-2.5`, `2.5-pro` | Legacy |  |  |
 
 ### Image
@@ -70,8 +70,8 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | elevenlabs | **ElevenLabs v3** (default) | `eleven_v3` | `v3` | GA | $0.08 / 1K characters | 5,000 characters per request |
 | elevenlabs | ElevenLabs Multilingual v2 | `eleven_multilingual_v2` | `multilingual`, `v2` | GA | $0.08 / 1K characters | 10,000 characters; steadiest on long form |
 | elevenlabs | ElevenLabs Flash v2.5 | `eleven_flash_v2_5` | `flash` | GA | $0.04 / 1K characters | 40,000 characters; lowest latency |
-| gemini | **Gemini 3.8 Flash TTS** (default) | `gemini-3.8-flash-tts` | `flash` | GA | $0.0135 / minute (audio out until 2026-12-31, then $0.027) | WAV; 30 prebuilt voices, style directions; 130+ languages |
-| gemini | Gemini 3.8 Flash-Lite TTS | `gemini-3.8-flash-lite-tts` | `lite`, `flash-lite` | GA | $0.009 / minute (audio out until 2026-12-31, then $0.018) | Cheaper and faster; 100+ languages |
+| gemini | **Gemini 3.8 Flash TTS** (default) | `gemini-3.8-flash-tts` | `flash` | GA | $0.0135 / minute (audio out; until 2026-12-31, then $0.027 / minute) | WAV; 30 prebuilt voices, style directions; 130+ languages |
+| gemini | Gemini 3.8 Flash-Lite TTS | `gemini-3.8-flash-lite-tts` | `lite`, `flash-lite` | GA | $0.009 / minute (audio out; until 2026-12-31, then $0.018 / minute) | Cheaper and faster; 100+ languages |
 | openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` |  |  |
 | openai | TTS-1 | `tts-1` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` | $0.015 / 1K characters |  |
 | openai | TTS-1 HD | `tts-1-hd` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` | $0.03 / 1K characters |  |
@@ -94,7 +94,7 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | Provider | Model | ID | Aliases | Status | Price | Notes |
 |---|---|---|---|---|---|---|
 | elevenlabs | **ElevenLabs Scribe v2** (default) | `scribe_v2` | `scribe` | GA | $0.22 / hour | Word timestamps; first choice of `--stt auto` when ELEVENLABS_API_KEY is set |
-| openai | **Whisper** (default) | `whisper-1` |  | Deprecated, shuts down 2027-02-26; use `--stt elevenlabs` (Scribe v2) |  | Only OpenAI model with word timestamps |
+| openai | **Whisper** (default) | `whisper-1` |  | Deprecated, shuts down 2027-02-26; use `--stt elevenlabs` (Scribe v2) | $0.006 / minute | Only OpenAI model with word timestamps |
 
 <!-- END GENERATED: model catalog -->
 

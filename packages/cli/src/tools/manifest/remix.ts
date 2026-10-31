@@ -20,7 +20,7 @@ import {
   executeHighlights,
   executeAutoShorts,
 } from "../../commands/ai-highlights.js";
-import { loadPipeline, executePipeline } from "../../pipeline/index.js";
+import { loadPipeline, executePipeline, pipelineCost } from "../../pipeline/index.js";
 import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 
 export const pipelineHighlightsTool = defineTool({
@@ -159,10 +159,13 @@ export const pipelineRunTool = defineTool({
         budget: Object.keys(budget).length > 0 ? budget : undefined,
       });
 
+      const cost = pipelineCost(result);
       return {
         success: result.success,
         data: {
           name: result.name,
+          costUsd: cost.costUsd,
+          ...(cost.estimated ? { costEstimated: true } : {}),
           completedSteps: result.completedSteps,
           totalSteps: result.totalSteps,
           totalDuration: result.totalDuration,
@@ -175,6 +178,7 @@ export const pipelineRunTool = defineTool({
             success: s.success,
             output: s.output,
             duration: s.duration,
+            costUsd: s.costUsd,
             error: s.error,
             ...(s.errorCode ? { errorCode: s.errorCode } : {}),
             ...(s.errorKind ? { errorKind: s.errorKind } : {}),
