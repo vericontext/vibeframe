@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.116.3] - 2026-10-31
+
+### Added
+
+- narration and transcription warn before OpenAI TTS and Whisper shut down (#404)
+- Gemini TTS narration (--tts gemini), tried before OpenAI in --tts auto (#399)
+- ElevenLabs Scribe v2 transcription with --stt provider selection (#398)
+
+### Changed
+
+- run remix highlights and auto-shorts on their executors (#407)
+
+### Documentation
+
+- record the Kling 4.0 API from the official docs (#409)
+- record live probes of Gemini TTS and ElevenLabs Scribe (#403)
+
+### Fixed
+
+- report actual cost from metered provider usage (#406)
+- rejected input is a usage error on every command, not a retryable API error (#408)
+- temp files go in private mkdtemp dirs, not guessable /tmp paths (#405)
+- vibe doctor and vibe setup name commands that exist (#401)
+- cost estimates and --json labels name the commands that exist (#400)
+- music, sound effects, and storyboards create their output directory (#397)
+- a rejected ElevenLabs key fails voice listing instead of listing none (#396)
+- --json stdout carries only the envelope (#395)
+- Gemini and OpenAI helper failures carry their error kind to every surface (#394)
+- reframe fails on the first frame Claude cannot analyze (#393)
+
 ## [0.116.2] - 2026-10-26
 
 ### Documentation
