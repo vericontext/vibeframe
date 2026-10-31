@@ -97,6 +97,7 @@ export const pipelineAutoShortsTool = defineTool({
           reason: s.reason,
           outputPath: s.outputPath,
         })),
+        ...(result.warnings?.length ? { warnings: result.warnings } : {}),
       },
       humanLines: [`✅ ${result.shorts.length} shorts generated`],
     };

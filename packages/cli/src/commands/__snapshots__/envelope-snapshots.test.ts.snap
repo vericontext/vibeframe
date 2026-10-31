@@ -3004,7 +3004,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix auto-shorts --des
   "parameters": {
     "properties": {
       "addCaptions": {
-        "description": "Add auto-generated captions",
+        "description": "Add auto-generated captions (not implemented yet: ignored with a warning)",
         "type": "boolean",
       },
       "analyzeOnly": {
@@ -3022,7 +3022,7 @@ exports[`CLI --describe schemas (drift detection) > vibe remix auto-shorts --des
       },
       "captionStyle": {
         "default": "bold",
-        "description": "Caption style: minimal, bold, animated",
+        "description": "Caption style: minimal, bold, animated (not implemented yet)",
         "enum": [
           "minimal",
           "bold",

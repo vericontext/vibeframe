@@ -15,7 +15,8 @@
 
 import { Command } from "commander";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
-import { resolve, dirname, basename, extname } from "node:path";
+import { resolve, dirname, basename, extname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import {
@@ -29,7 +30,7 @@ import { Project } from "../engine/index.js";
 import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration, ffprobeHasAudio, ffprobeVideoSize } from "../utils/exec-safe.js";
-import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, log, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
+import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, log, outputSuccess, printWarnings, notFoundError, generalError, usageError, type StructuredError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import {
   STT_OPTION_HELP,
@@ -101,6 +102,18 @@ function parseGeminiHighlights<T>(response: string): T[] {
   const parsed = JSON.parse(jsonStr);
   return parsed.highlights && Array.isArray(parsed.highlights) ? parsed.highlights : [];
 }
+
+const HIGHLIGHT_CRITERIA = ["emotional", "informative", "funny", "all"] as const;
+
+/** The usage error for an aspect ratio that is not `W:H` with positive whole numbers, or `undefined`. */
+export function aspectRatioError(aspect: string): StructuredError | undefined {
+  const match = /^(\d+):(\d+)$/.exec(aspect);
+  if (match && Number(match[1]) > 0 && Number(match[2]) > 0) return undefined;
+  return usageError(`Invalid aspect ratio: ${aspect}`, "Use W:H, for example 9:16 or 1:1.");
+}
+
+/** Captions are accepted for compatibility but not drawn yet; say so instead of dropping them silently. */
+const CAPTIONS_NOT_ADDED = "Captions are not added yet: --add-captions and --caption-style are ignored.";
 
 function geminiParseFailure(): StructuredError {
   return providerFailure("Gemini returned a highlights reply that could not be parsed", "provider");
@@ -324,7 +337,11 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
     reason: h.reason || "Engaging moment",
     transcript: h.transcript || "",
   }));
-  progress.succeed(`Found ${highlights.length} highlights via visual+audio analysis`);
+  if (highlights.length === 0) {
+    progress.warn("No highlights detected in the content");
+  } else {
+    progress.succeed(`Found ${highlights.length} highlights via visual+audio analysis`);
+  }
   return { highlights, sourceDuration };
 }
 
@@ -348,7 +365,7 @@ async function transcriptHighlights(absPath: string, isVideo: boolean, options: 
           progress.fail("Video has no audio track");
           return { failure: noAudioTrackError() };
         }
-        tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
+        tempAudioPath = join(tmpdir(), `vibe_highlight_audio_${Date.now()}.wav`);
         await execSafe("ffmpeg", [
           "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
         ], { maxBuffer: 50 * 1024 * 1024 });
@@ -489,7 +506,8 @@ export async function executeHighlights(
   } catch (error) {
     // A missing key is not a highlight failure; let the caller report it.
     if (error instanceof ApiKeyError) throw error;
-    return highlightsFailure(failureFromError(error, "Highlight extraction failed"));
+    // Provider failures carry an error kind; anything else is local (FFmpeg, files).
+    return highlightsFailure(failureFromError(error, "Highlight extraction failed", { fallback: "general" }));
   }
 }
 
@@ -515,19 +533,22 @@ export interface AutoShort {
 export interface AutoShortsOptions {
   /** Path to the source video file */
   video: string;
-  /** Output file for a single short (`count` 1); ".mp4" is added when it has no extension */
+  /**
+   * Output file for a single short (".mp4" is added when it has no
+   * extension), or the directory for several when `outputDir` is not set
+   */
   output?: string;
-  /** Output directory for generated short clips */
+  /** Output directory for generated short clips (default: the source video's folder) */
   outputDir?: string;
   /** Target duration per short in seconds (default: 60) */
   duration?: number;
   /** Number of shorts to generate (default: 1) */
   count?: number;
-  /** Output aspect ratio (default: "9:16") */
-  aspect?: "9:16" | "1:1";
-  /** Add auto-generated captions to shorts */
+  /** Output aspect ratio as W:H (default: "9:16") */
+  aspect?: string;
+  /** Captions are not drawn yet; asking for them adds a warning */
   addCaptions?: boolean;
-  /** Caption visual style preset */
+  /** Caption visual style preset (not used yet) */
   captionStyle?: "minimal" | "bold" | "animated";
   /** If true, only analyze without extracting clips */
   analyzeOnly?: boolean;
@@ -557,6 +578,8 @@ export interface AutoShortsResult {
   success: boolean;
   /** Generated short clips with metadata */
   shorts: AutoShort[];
+  /** Non-fatal notes for the caller, such as options that had no effect */
+  warnings?: string[];
   /** Error message on failure */
   error?: string;
   /** The structured error on failure; see {@link ExecutorFailure}. */
@@ -643,8 +666,8 @@ async function transcriptShortCandidates(absPath: string, targetDuration: number
   const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.anthropicApiKey);
 
   progress.start("Extracting audio...");
-  const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-  let extracted = false;
+  // In the temp dir, never next to the source: that folder may be read-only.
+  const tempAudio = join(tmpdir(), `vibe_shorts_audio_${Date.now()}.mp3`);
   try {
     try {
       if (!(await ffprobeHasAudio(absPath))) {
@@ -652,7 +675,6 @@ async function transcriptShortCandidates(absPath: string, targetDuration: number
         return noAudioTrackError();
       }
       await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
-      extracted = true;
     } catch (error) {
       progress.fail("Failed to extract audio");
       return audioExtractionError(error);
@@ -680,7 +702,7 @@ async function transcriptShortCandidates(absPath: string, targetDuration: number
     progress.succeed(`Found ${highlights.length} potential highlights`);
     return highlights;
   } finally {
-    if (extracted) await unlink(tempAudio).catch(() => undefined);
+    await unlink(tempAudio).catch(() => undefined);
   }
 }
 
@@ -715,6 +737,9 @@ export async function executeAutoShorts(
     const targetDuration = options.duration ?? 60;
     const shortCount = options.count ?? 1;
     const aspect = options.aspect || "9:16";
+    const invalidAspect = aspectRatioError(aspect);
+    if (invalidAspect) return autoShortsFailure(invalidAspect);
+    const warnings = options.addCaptions ? [CAPTIONS_NOT_ADDED] : [];
 
     const candidates = options.useGemini
       ? await geminiShortCandidates(absPath, targetDuration, shortCount, options, progress)
@@ -737,16 +762,11 @@ export async function executeAutoShorts(
     options.onSelected?.(shorts);
 
     if (options.analyzeOnly) {
-      return { success: true, shorts };
+      return { success: true, shorts, ...(warnings.length ? { warnings } : {}) };
     }
 
-    const outputDir = options.outputDir
-      ? resolve(process.cwd(), options.outputDir)
-      : dirname(absPath);
-
-    if (options.outputDir && !existsSync(outputDir)) {
-      await mkdir(outputDir, { recursive: true });
-    }
+    const dirOption = options.outputDir ?? (shortCount > 1 ? options.output : undefined);
+    const outputDir = dirOption ? resolve(process.cwd(), dirOption) : dirname(absPath);
 
     const { width, height } = await ffprobeVideoSize(absPath);
     const vf = centerCrop(width, height, aspect);
@@ -775,11 +795,12 @@ export async function executeAutoShorts(
       generated.push({ ...short, outputPath });
     }
 
-    return { success: true, shorts: generated };
+    return { success: true, shorts: generated, ...(warnings.length ? { warnings } : {}) };
   } catch (error) {
     // A missing key is not an auto-shorts failure; let the caller report it.
     if (error instanceof ApiKeyError) throw error;
-    return autoShortsFailure(failureFromError(error, "Auto shorts failed"));
+    // Provider failures carry an error kind; anything else is local (FFmpeg, files).
+    return autoShortsFailure(failureFromError(error, "Auto shorts failed", { fallback: "general" }));
   }
 }
 
@@ -805,6 +826,26 @@ function spinnerProgress(): StepProgress {
     warn: (text) => finish((s) => s.warn(chalk.yellow(text))),
     fail: (text) => finish((s) => s.fail(text)),
   };
+}
+
+/** {@link validateOutputPath} for an option: a path that escapes the working directory is a usage error. */
+function outputPathOrExit(path: string): void {
+  try {
+    validateOutputPath(path);
+  } catch (error) {
+    exitWithError(usageError(error instanceof Error ? error.message : String(error)));
+  }
+}
+
+/** A numeric option value; anything else exits with a usage error before work starts. */
+function numberOption(value: string, flag: string, rule: "positive" | "count" | "fraction"): number {
+  const n = Number(value);
+  const valid = Number.isFinite(n) && (rule === "fraction" ? n >= 0 && n <= 1 : n > 0 && (rule === "positive" || Number.isInteger(n)));
+  if (!valid) {
+    const expected = rule === "fraction" ? "a number from 0 to 1" : rule === "count" ? "a positive whole number" : "a positive number";
+    exitWithError(usageError(`Invalid ${flag}: ${value}`, `${flag} must be ${expected}.`));
+  }
+  return n;
 }
 
 /**
@@ -836,14 +877,23 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .action(async (mediaPath: string, options) => {
       const startedAt = Date.now();
       try {
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
+        if (options.output) outputPathOrExit(options.output);
 
         const absPath = resolve(process.cwd(), mediaPath);
         if (!existsSync(absPath)) {
           exitWithError(notFoundError(absPath));
         }
+
+        // Validate before the dry run, so a plan never echoes values a real run would reject.
+        const sttName = sttOptionOrExit(options.stt);
+        const targetDuration = options.duration ? numberOption(options.duration, "--duration", "positive") : undefined;
+        const maxCount = options.count ? numberOption(options.count, "--count", "count") : undefined;
+        const threshold = numberOption(options.threshold, "--threshold", "fraction");
+        const criteria = HIGHLIGHT_CRITERIA.find((c) => c === options.criteria);
+        if (!criteria) {
+          exitWithError(usageError(`Invalid --criteria: ${options.criteria}`, `Valid: ${HIGHLIGHT_CRITERIA.join(", ")}`));
+        }
+        const useGemini = Boolean(options.useGemini) && isVideoPath(absPath);
 
         if (options.dryRun) {
           outputSuccess({
@@ -860,7 +910,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
                 threshold: options.threshold,
                 criteria: options.criteria,
                 language: options.language,
-                stt: sttOptionOrExit(options.stt),
+                stt: sttName,
                 useGemini: options.useGemini ?? false,
                 lowRes: options.lowRes ?? false,
               },
@@ -872,19 +922,18 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         log();
         log(chalk.bold.cyan("🎬 Highlight Extraction Pipeline"));
         log(chalk.dim("─".repeat(60)));
-        if (options.useGemini) {
+        if (useGemini) {
           log(chalk.dim("Using Gemini Video Understanding (visual + audio analysis)"));
+        } else if (options.useGemini) {
+          log(chalk.dim("Using transcription + Claude (audio-based analysis; --use-gemini needs a video)"));
         } else {
           log(chalk.dim("Using transcription + Claude (audio-based analysis)"));
         }
         log();
 
-        const targetDuration = options.duration ? parseFloat(options.duration) : undefined;
-        const maxCount = options.count ? parseInt(options.count) : undefined;
-        const threshold = parseFloat(options.threshold);
-        const keys = options.useGemini && isVideoPath(absPath)
+        const keys = useGemini
           ? { googleApiKey: await requireApiKey("GOOGLE_API_KEY", "Google") }
-          : await transcriptionKeys(options.stt);
+          : await transcriptionKeys(sttName);
 
         const result = await executeHighlights({
           media: mediaPath,
@@ -893,7 +942,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           duration: targetDuration,
           count: maxCount,
           threshold,
-          criteria: options.criteria,
+          criteria,
           language: options.language,
           useGemini: options.useGemini,
           lowRes: options.lowRes,
@@ -907,14 +956,14 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         const report = highlightsReport({
           sourceFile: absPath,
           totalDuration: result.totalDuration,
-          criteria: options.criteria,
+          criteria,
           threshold,
           totalHighlightDuration: result.totalHighlightDuration,
           highlights: result.highlights,
         });
 
         if (result.highlights.length === 0) {
-          log(chalk.yellow("No highlights detected in the content"));
+          // The analysis step already said so on the spinner.
           outputSuccess({
             command: "remix highlights",
             startedAt,
@@ -940,7 +989,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           log();
           log(`  ${chalk.yellow(`${highlight.index}.`)} [${startFormatted} - ${endFormatted}] ${categoryColor(highlight.category)}, ${chalk.dim(`${confidencePercent}%`)}`);
           log(`     ${chalk.white(highlight.reason)}`);
-          log(`     ${chalk.dim(truncate(highlight.transcript, 80))}`);
+          if (highlight.transcript) log(`     ${chalk.dim(truncate(highlight.transcript, 80))}`);
         }
 
         log();
@@ -954,8 +1003,8 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         if (result.projectPath) {
           createSpinner("📦 Creating project...").start().succeed(chalk.green(`Created project: ${result.projectPath}`));
         }
+        if (result.outputPath || result.projectPath) log();
 
-        log();
         log(chalk.bold.green("✅ Highlight extraction complete!"));
         log();
 
@@ -969,7 +1018,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           },
         });
       } catch (error) {
-        exitWithError(failureFromError(error, "Highlight extraction failed", { retryable: true }));
+        exitWithError(failureFromError(error, "Highlight extraction failed"));
       }
     });
 
@@ -983,8 +1032,8 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .option("--count <number>", "Number of shorts to generate", "1")
     .option("-a, --aspect <ratio>", "Aspect ratio: 9:16, 1:1", "9:16")
     .option("--output-dir <dir>", "Output directory for multiple shorts")
-    .option("--add-captions", "Add auto-generated captions")
-    .option("--caption-style <style>", "Caption style: minimal, bold, animated", "bold")
+    .option("--add-captions", "Add auto-generated captions (not implemented yet: ignored with a warning)")
+    .option("--caption-style <style>", "Caption style: minimal, bold, animated (not implemented yet)", "bold")
     .option("--analyze-only", "Show segments without generating")
     .option("-l, --language <lang>", "Language code for transcription")
     .option("--stt <provider>", STT_OPTION_HELP, "auto")
@@ -994,14 +1043,19 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .action(async (videoPath: string, options) => {
       const startedAt = Date.now();
       try {
-        if (options.output) {
-          validateOutputPath(options.output);
-        }
+        if (options.output) outputPathOrExit(options.output);
 
         const absPath = resolve(process.cwd(), videoPath);
         if (!existsSync(absPath)) {
           exitWithError(notFoundError(absPath));
         }
+
+        // Validate before the dry run, so a plan never echoes values a real run would reject.
+        const sttName = sttOptionOrExit(options.stt);
+        const targetDuration = numberOption(options.duration, "--duration", "positive");
+        const shortCount = numberOption(options.count, "--count", "count");
+        const invalidAspect = aspectRatioError(options.aspect);
+        if (invalidAspect) exitWithError(invalidAspect);
 
         if (options.dryRun) {
           outputSuccess({
@@ -1020,7 +1074,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
                 captionStyle: options.captionStyle,
                 analyzeOnly: options.analyzeOnly ?? false,
                 language: options.language,
-                stt: sttOptionOrExit(options.stt),
+                stt: sttName,
                 useGemini: options.useGemini ?? false,
                 lowRes: options.lowRes ?? false,
               },
@@ -1028,9 +1082,6 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           });
           return;
         }
-
-        const targetDuration = parseInt(options.duration);
-        const shortCount = parseInt(options.count);
 
         log();
         log(chalk.bold.cyan("🎬 Auto Shorts Generator"));
@@ -1044,7 +1095,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
 
         const keys = options.useGemini
           ? { googleApiKey: await requireApiKey("GOOGLE_API_KEY", "Google") }
-          : await transcriptionKeys(options.stt);
+          : await transcriptionKeys(sttName);
 
         const result = await executeAutoShorts({
           video: videoPath,
@@ -1080,6 +1131,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         if (!result.success) {
           exitWithError(result.failure ?? generalError(result.error ?? "Auto shorts failed"));
         }
+        const warnings = result.warnings ?? [];
 
         const shorts = result.shorts.map((short) => ({
           startTime: short.startTime,
@@ -1092,9 +1144,11 @@ export function registerHighlightsCommands(aiCommand: Command): void {
 
         if (options.analyzeOnly) {
           log(chalk.dim("Use without --analyze-only to generate shorts."));
+          printWarnings(warnings);
           outputSuccess({
             command: "remix auto-shorts",
             startedAt,
+            warnings,
             data: { analyzeOnly: true, targetDuration, aspect: options.aspect, shorts },
           });
           return;
@@ -1103,10 +1157,12 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         log();
         log(chalk.bold.green(`Generated ${shorts.length} short(s)`));
         log();
+        printWarnings(warnings);
 
         outputSuccess({
           command: "remix auto-shorts",
           startedAt,
+          warnings,
           data: {
             targetDuration,
             aspect: options.aspect,
@@ -1115,7 +1171,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           },
         });
       } catch (error) {
-        exitWithError(failureFromError(error, "Auto shorts failed", { retryable: true }));
+        exitWithError(failureFromError(error, "Auto shorts failed"));
       }
     });
 }

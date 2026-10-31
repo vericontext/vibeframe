@@ -1207,8 +1207,8 @@ Cost tier: `high`
 - `count` _(number)_ _(default: `1`)_ - Number of shorts to generate
 - `aspect` _(string)_ _(9:16 \| 1:1)_ _(default: `"9:16"`)_ - Aspect ratio: 9:16, 1:1
 - `outputDir` _(string)_ - Output directory for multiple shorts
-- `addCaptions` _(boolean)_ - Add auto-generated captions
-- `captionStyle` _(string)_ _(minimal \| bold \| animated)_ _(default: `"bold"`)_ - Caption style: minimal, bold, animated
+- `addCaptions` _(boolean)_ - Add auto-generated captions (not implemented yet: ignored with a warning)
+- `captionStyle` _(string)_ _(minimal \| bold \| animated)_ _(default: `"bold"`)_ - Caption style: minimal, bold, animated (not implemented yet)
 - `analyzeOnly` _(boolean)_ - Show segments without generating
 - `language` _(string)_ - Language code for transcription
 - `stt` _(string)_ _(auto \| elevenlabs \| openai)_ _(default: `"auto"`)_ - Transcription provider: auto (default: ElevenLabs Scribe if ELEVENLABS_API_KEY is set, else OpenAI Whisper), elevenlabs, openai

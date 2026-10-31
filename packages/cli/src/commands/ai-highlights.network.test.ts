@@ -388,11 +388,9 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
 
         2. [0:02.5 - 0:03.5] all, 75%
            Reaction shot
-           
 
       ────────────────────────────────────────────────────────────
       Total: 2 highlights, 3.0 seconds
-
 
       ✅ Highlight extraction complete!
       "
@@ -438,8 +436,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
       - 📝 Transcribing with ElevenLabs Scribe...
       ✔ Transcribed 2 segments
       - 🔍 Analyzing highlights with Claude...
-      ⚠ No highlights detected in the content
-      No highlights detected in the content"
+      ⚠ No highlights detected in the content"
     `);
   });
 
@@ -549,6 +546,52 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(exitCode).toBe(2);
     expect(error).toMatchObject({ code: "USAGE_ERROR" });
     expect(net.requests).toHaveLength(0);
+  });
+
+  for (const [label, args, message] of [
+    ["--stt with --use-gemini", ["--use-gemini", "--stt", "nope"], "Invalid transcription provider: nope"],
+    ["--threshold", ["--threshold", "high"], "Invalid --threshold: high"],
+    ["--threshold above 1", ["--threshold", "70"], "Invalid --threshold: 70"],
+    ["--count", ["--count", "2.5"], "Invalid --count: 2.5"],
+    ["--duration", ["--duration", "-5"], "Invalid --duration: -5"],
+    ["--criteria", ["--criteria", "viral"], "Invalid --criteria: viral"],
+    ["-o outside the working directory", ["-o", "../escape.json"], 'Output path "../escape.json" escapes the working directory.'],
+  ] as const) {
+    it(`an invalid ${label} is a usage error, also in a dry run`, async () => {
+      useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake", GOOGLE_API_KEY: "AIza-fake" });
+
+      for (const dryRun of [[], ["--dry-run"]]) {
+        const { exitCode, error } = await run(["highlights", video, ...args, ...dryRun], { json: true });
+        expect(exitCode).toBe(2);
+        expect(error).toMatchObject({ code: "USAGE_ERROR" });
+        expect(String(error?.error)).toContain(message);
+      }
+      expect(net.requests).toHaveLength(0);
+    });
+  }
+
+  it("--use-gemini on an audio file says it transcribes instead", async () => {
+    useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+
+    const { exitCode, human } = await run(["highlights", audio, "--use-gemini"]);
+
+    expect(exitCode).toBeUndefined();
+    expect(human).toContain("Using transcription + Claude (audio-based analysis; --use-gemini needs a video)");
+    expect(net.to(GEMINI)).toHaveLength(0);
+    expect(net.to(SCRIBE)).toHaveLength(1);
+  });
+
+  it("--use-gemini with no highlights warns once", async () => {
+    useKeys({ GOOGLE_API_KEY: "AIza-fake" });
+    net.on("POST", GEMINI, /:generateContent$/, () => geminiReply('{"highlights": []}'));
+
+    const { exitCode, human } = await run(["highlights", video, "--use-gemini"]);
+
+    expect(exitCode).toBeUndefined();
+    expect(human.split("\n").slice(-2)).toEqual([
+      "- 🎬 Analyzing video with Gemini (visual + audio)...",
+      "⚠ No highlights detected in the content",
+    ]);
   });
 
   it("the MCP tool reports the same highlights as the CLI", async () => {
@@ -779,6 +822,49 @@ describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
       Use without --analyze-only to generate shorts."
     `);
   });
+
+  it("-o is the folder for several shorts", async () => {
+    useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+
+    const { exitCode, envelope } = await run(["auto-shorts", video, "--count", "2", "-o", "clips"], { json: true });
+
+    expect(exitCode).toBeUndefined();
+    expect((envelope?.data as { shorts: Array<{ outputPath: string }> }).shorts.map((s) => s.outputPath)).toEqual([
+      "<dir>/clips/talk-short-1.mp4",
+      "<dir>/clips/talk-short-2.mp4",
+    ]);
+    expect(readdirSync(join(dir, "clips")).sort()).toEqual(["talk-short-1.mp4", "talk-short-2.mp4"]);
+  });
+
+  it("--add-captions warns that captions are not added yet", async () => {
+    useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+
+    const json = await run(["auto-shorts", video, "--analyze-only", "--add-captions"], { json: true });
+    expect(json.envelope?.warnings).toEqual(["Captions are not added yet: --add-captions and --caption-style are ignored."]);
+
+    const human = await run(["auto-shorts", video, "--analyze-only", "--add-captions"]);
+    expect(human.human).toContain("Warning: Captions are not added yet");
+
+    const reply = await buildMcpDispatcher(manifest)("remix_auto_shorts", { video, analyzeOnly: true, addCaptions: true });
+    expect(JSON.parse(reply.content[0].text)).toMatchObject({ success: true, warnings: json.envelope?.warnings });
+  });
+
+  for (const [label, args, message] of [
+    ["--aspect", ["--aspect", "tall"], "Invalid aspect ratio: tall"],
+    ["--count", ["--count", "0"], "Invalid --count: 0"],
+    ["--duration", ["--duration", "soon"], "Invalid --duration: soon"],
+  ] as const) {
+    it(`an invalid ${label} is a usage error, also in a dry run`, async () => {
+      useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+
+      for (const dryRun of [[], ["--dry-run"]]) {
+        const { exitCode, error } = await run(["auto-shorts", video, ...args, ...dryRun], { json: true });
+        expect(exitCode).toBe(2);
+        expect(error).toMatchObject({ code: "USAGE_ERROR", error: message });
+      }
+      expect(net.requests).toHaveLength(0);
+    });
+  }
 
   it("--dry-run prints the parameters and calls nothing", async () => {
     const { exitCode, envelope } = await run(["auto-shorts", video, "--count", "2", "--dry-run"], { json: true });
