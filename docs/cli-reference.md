@@ -1174,6 +1174,7 @@ Cost tier: `low`
 - `language` _(string)_ - Language code (e.g., en, ko)
 - `output` _(string)_ - Output file path
 - `format` _(string)_ _(json \| srt \| vtt)_ - Output format: json, srt, vtt (auto-detected from extension)
+- `dryRun` _(boolean)_ - Show the provider and estimated cost without transcribing
 
 ### `remix`
 

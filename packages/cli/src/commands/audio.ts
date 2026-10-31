@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { ElevenLabsProvider } from "@vibeframe/ai-providers";
+import { ElevenLabsProvider, findModel, priceRecord } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { applyTiers } from "./_shared/cost-tier.js";
@@ -36,7 +36,9 @@ import {
 } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
 import { executeDub, executeIsolate, executeTranscribe, executeVoiceClone } from "./ai-audio.js";
-import { STT_OPTION_HELP, requireSttProvider, sttLabel, sttOptionOrExit } from "./_shared/transcription.js";
+import { STT_OPTION_HELP, findSttProvider, requireSttProvider, sttLabel, sttOptionOrExit, type SttProviderName } from "./_shared/transcription.js";
+import { getAudioDuration } from "../utils/audio.js";
+import { retiringModelWarnings } from "../utils/model-lifecycle.js";
 
 export const audioCommand = new Command("audio")
   .alias("au")
@@ -69,6 +71,38 @@ Run 'vibe schema audio.<command>' for structured parameter info.
 
 // ── audio transcribe ───────────────────────────────────────────────────
 
+/**
+ * What `audio transcribe` would do, without a paid call: the provider `auto`
+ * resolves to with the configured keys, its catalog model, and the cost of
+ * the file's length at that model's price. A missing key is a warning here,
+ * not an error, so the dry run still shows the plan.
+ */
+async function planTranscription(
+  audioPath: string,
+  name: SttProviderName,
+  apiKey: string | undefined,
+): Promise<{ provider?: string; model?: string; durationSec?: number; costUsd?: number; warnings: string[] }> {
+  const warnings: string[] = [];
+  const resolution = await findSttProvider(name, { apiKey });
+  const provider = resolution?.provider ?? (name === "auto" ? undefined : name);
+  if (!resolution) {
+    warnings.push(
+      name === "auto"
+        ? "No transcription key is set: set ELEVENLABS_API_KEY or OPENAI_API_KEY before running."
+        : `No key is set for ${name}; set it before running.`
+    );
+  }
+  const model = provider ? findModel(provider, "transcription") : undefined;
+  if (model) warnings.push(...retiringModelWarnings(model));
+  const durationSec = await getAudioDuration(resolve(process.cwd(), audioPath)).catch(() => undefined);
+  let costUsd: number | undefined;
+  if (provider && model && durationSec !== undefined) {
+    costUsd = priceRecord({ provider, kind: "transcription", model: model.id, amount: { unit: "seconds", count: durationSec }, at: Date.now() });
+  }
+  if (costUsd === undefined) warnings.push("Cost could not be estimated from the file; the command's upper bound applies.");
+  return { provider, model: model?.id, durationSec, costUsd, warnings };
+}
+
 audioCommand
   .command("transcribe")
   .description("Transcribe audio (ElevenLabs Scribe or OpenAI Whisper)")
@@ -78,11 +112,24 @@ audioCommand
   .option("-l, --language <lang>", "Language code (e.g., en, ko)")
   .option("-o, --output <path>", "Output file path")
   .option("--format <format>", "Output format: json, srt, vtt (auto-detected from extension)")
+  .option("--dry-run", "Show the provider and estimated cost without transcribing")
   .action(async (audioPath: string, options) => {
     const startedAt = Date.now();
     if (options.output) validateOutputPath(options.output);
     if (!existsSync(resolve(process.cwd(), audioPath))) {
       exitWithError(notFoundError(resolve(process.cwd(), audioPath)));
+    }
+    if (options.dryRun) {
+      const plan = await planTranscription(audioPath, sttOptionOrExit(options.provider), options.apiKey);
+      outputSuccess({
+        command: "audio transcribe",
+        startedAt,
+        dryRun: true,
+        ...(plan.costUsd !== undefined ? { costUsd: plan.costUsd } : {}),
+        warnings: plan.warnings,
+        data: { params: { audioPath, provider: plan.provider, model: plan.model, durationSec: plan.durationSec, language: options.language, output: options.output } },
+      });
+      return;
     }
     const stt = await requireSttProvider(sttOptionOrExit(options.provider), { apiKey: options.apiKey });
     const spinner = isJsonMode() ? null : createSpinner(`Transcribing with ${sttLabel(stt.provider)}...`).start();
