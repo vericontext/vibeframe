@@ -31,7 +31,7 @@ import {
   type TranscriptResult,
 } from "@vibeframe/ai-providers";
 import { ApiKeyError, getConfiguredApiKey, requireApiKey } from "../../utils/api-key.js";
-import { exitWithError, printWarnings, usageError } from "../output.js";
+import { exitWithError, printWarnings, usageError, type StructuredError } from "../output.js";
 import { retiringModelWarnings } from "../../utils/model-lifecycle.js";
 
 /** `--stt` values. `"auto"` picks by configured keys. */
@@ -69,11 +69,16 @@ export function parseSttProviderName(value: string | undefined): SttProviderName
   throw new Error(`Invalid transcription provider: ${value}. Valid: ${STT_PROVIDER_NAMES.join(", ")}.`);
 }
 
+/** The usage error for an invalid `--stt <value>`, or `undefined` when it is valid (or empty). */
+export function sttOptionError(value: string | undefined): StructuredError | undefined {
+  if (!value || isSttProviderName(value)) return undefined;
+  return usageError(`Invalid transcription provider: ${value}`, `Valid: ${STT_PROVIDER_NAMES.join(", ")}`);
+}
+
 /** {@link parseSttProviderName} for a CLI option: an invalid value exits with a usage error. */
 export function sttOptionOrExit(value: string | undefined): SttProviderName {
-  if (value && !isSttProviderName(value)) {
-    exitWithError(usageError(`Invalid transcription provider: ${value}`, `Valid: ${STT_PROVIDER_NAMES.join(", ")}`));
-  }
+  const invalid = sttOptionError(value);
+  if (invalid) exitWithError(invalid);
   return parseSttProviderName(value);
 }
 

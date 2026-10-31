@@ -562,6 +562,29 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
   });
 });
 
+describe.skipIf(!hasFfmpeg)("the MCP tools", () => {
+  it("refuse a video with no audio track the way the CLI does, before any request", async () => {
+    useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+    const dispatch = buildMcpDispatcher(manifest);
+
+    for (const [name, args] of [
+      ["remix_highlights", { media: silentVideo }],
+      ["remix_auto_shorts", { video: silentVideo }],
+    ] as const) {
+      const envelope = JSON.parse((await dispatch(name, args)).content[0].text) as Record<string, unknown>;
+      expect(envelope, name).toMatchObject({
+        success: false,
+        code: "ERROR",
+        exitCode: 1,
+        error: "Video has no audio track - cannot transcribe it.",
+        suggestion: "Use --use-gemini flag for visual-only analysis of videos without audio.",
+      });
+    }
+    expect(net.requests).toHaveLength(0);
+    expect(readdirSync(fixtures).sort()).toEqual(["silent.mp4", "talk.mp4", "talk.wav"]);
+  });
+});
+
 describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
   it("Scribe + Claude: one short to -o, --json envelope", async () => {
     useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });

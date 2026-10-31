@@ -27,7 +27,7 @@ import {
 import { Project } from "../engine/index.js";
 import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
-import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
+import { execSafe, commandExists, ffprobeDuration, ffprobeHasAudio } from "../utils/exec-safe.js";
 import { executorFailure, failureFromError, providerFailure, spinner as createSpinner, exitWithError, log, outputSuccess, notFoundError, generalError, type StructuredError } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import {
@@ -35,6 +35,7 @@ import {
   requireSttProvider,
   resolveSttProvider,
   sttLabel,
+  sttOptionError,
   sttOptionOrExit,
   transcribeAudioFile,
 } from "./_shared/transcription.js";
@@ -68,6 +69,11 @@ function filterHighlights(
 
   filtered.sort((a, b) => a.startTime - b.startTime);
   return filtered.map((h, i) => ({ ...h, index: i + 1 }));
+}
+
+/** A video without an audio stream cannot be transcribed; Gemini can still look at it. */
+function noAudioTrackError(): StructuredError {
+  return generalError("Video has no audio track - cannot transcribe it.", "Use --use-gemini flag for visual-only analysis of videos without audio.");
 }
 
 function getCategoryColor(category: string): (text: string) => string {
@@ -160,6 +166,8 @@ export async function executeHighlights(
     if (!existsSync(absPath)) {
       return highlightsFailure(notFoundError(absPath));
     }
+    const invalidStt = sttOptionError(options.stt);
+    if (invalidStt) return highlightsFailure(invalidStt);
 
     const ext = extname(absPath).toLowerCase();
     const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"];
@@ -175,7 +183,11 @@ export async function executeHighlights(
     if (options.useGemini && isVideo) {
       const geminiApiKey = await requireApiKey("GOOGLE_API_KEY", "Google");
 
-      sourceDuration = await ffprobeDuration(absPath);
+      try {
+        sourceDuration = await ffprobeDuration(absPath);
+      } catch {
+        return highlightsFailure(generalError("Failed to get video duration"));
+      }
 
       const gemini = new GeminiProvider();
       await gemini.initialize({ apiKey: geminiApiKey });
@@ -265,13 +277,20 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
           return highlightsFailure(generalError("FFmpeg not found", "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux). Run `vibe doctor` for details."));
         }
 
-        tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
-        await execSafe("ffmpeg", [
-          "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
-        ], { maxBuffer: 50 * 1024 * 1024 });
-        audioPath = tempAudioPath;
+        try {
+          if (!(await ffprobeHasAudio(absPath))) {
+            return highlightsFailure(noAudioTrackError());
+          }
+          tempAudioPath = `/tmp/vibe_highlight_audio_${Date.now()}.wav`;
+          await execSafe("ffmpeg", [
+            "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
+          ], { maxBuffer: 50 * 1024 * 1024 });
+          audioPath = tempAudioPath;
 
-        sourceDuration = await ffprobeDuration(absPath);
+          sourceDuration = await ffprobeDuration(absPath);
+        } catch (error) {
+          return highlightsFailure(generalError(`Failed to extract audio: ${error instanceof Error ? error.message : String(error)}`));
+        }
       }
 
       const transcriptResult = await transcribeAudioFile(audioPath, { ...stt, language: options.language });
@@ -337,19 +356,20 @@ Analyze both what is SHOWN (visual cues, actions, expressions) and what is SAID 
       });
 
       const videoTrack = project.getTracks().find((t) => t.type === "video");
-      if (videoTrack) {
-        let currentTime = 0;
-        for (const highlight of filteredHighlights) {
-          project.addClip({
-            sourceId: source.id,
-            trackId: videoTrack.id,
-            startTime: currentTime,
-            duration: highlight.duration,
-            sourceStartOffset: highlight.startTime,
-            sourceEndOffset: highlight.endTime,
-          });
-          currentTime += highlight.duration;
-        }
+      if (!videoTrack) {
+        return highlightsFailure(generalError("Failed to create project: no video track"));
+      }
+      let currentTime = 0;
+      for (const highlight of filteredHighlights) {
+        project.addClip({
+          sourceId: source.id,
+          trackId: videoTrack.id,
+          startTime: currentTime,
+          duration: highlight.duration,
+          sourceStartOffset: highlight.startTime,
+          sourceEndOffset: highlight.endTime,
+        });
+        currentTime += highlight.duration;
       }
 
       const projectPath = resolve(process.cwd(), options.project);
@@ -445,6 +465,8 @@ export async function executeAutoShorts(
     if (!existsSync(absPath)) {
       return autoShortsFailure(notFoundError(absPath));
     }
+    const invalidStt = sttOptionError(options.stt);
+    if (invalidStt) return autoShortsFailure(invalidStt);
 
     const targetDuration = options.duration ?? 60;
     const shortCount = options.count ?? 1;
@@ -534,7 +556,14 @@ Analyze both VISUALS (expressions, actions, scene changes) and AUDIO (speech, re
       const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic");
 
       const tempAudio = absPath.replace(/(\.[^.]+)$/, "-temp-audio.mp3");
-      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
+      try {
+        if (!(await ffprobeHasAudio(absPath))) {
+          return autoShortsFailure(noAudioTrackError());
+        }
+        await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
+      } catch (error) {
+        return autoShortsFailure(generalError(`Failed to extract audio: ${error instanceof Error ? error.message : String(error)}`));
+      }
 
       const transcript = await transcribeAudioFile(tempAudio, { ...stt, language: options.language });
 

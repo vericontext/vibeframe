@@ -65,6 +65,22 @@ export async function ffprobeVideoSize(
   return { width: w, height: h };
 }
 
+/** Shorthand: whether a media file has at least one audio stream. Throws if ffprobe fails. */
+export async function ffprobeHasAudio(filePath: string): Promise<boolean> {
+  const { stdout } = await execSafe("ffprobe", [
+    "-v",
+    "error",
+    "-select_streams",
+    "a",
+    "-show_entries",
+    "stream=codec_type",
+    "-of",
+    "csv=p=0",
+    filePath,
+  ]);
+  return stdout.trim().length > 0;
+}
+
 /** Shorthand: check if a command exists */
 export function commandExists(cmd: string): boolean {
   try {
