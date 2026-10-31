@@ -11,6 +11,7 @@
 
 import type { GenerationStatus, MediaReference } from "../interface/types.js";
 import type { ProviderErrorInfo } from "../shared/errors.js";
+import type { UsageRecord } from "../usage/meter.js";
 
 /** What to generate. Providers reject fields they cannot honour instead of silently dropping them. */
 export interface VideoRequest {
@@ -83,7 +84,19 @@ export interface VideoGenerator {
   cancelVideoJob?(job: VideoJob): Promise<void>;
   /** Fetch a completed job's video bytes (some providers need auth to download). */
   downloadVideo(job: VideoJob, state: VideoJobState): Promise<Uint8Array>;
+  /**
+   * What submitting `request` bills, in the unit and size the catalog prices
+   * it: the same record `submitVideo` meters (`recordUsage`) when the
+   * provider accepts the job. For dry-run estimates; makes no request and
+   * needs no credentials. Throws `ProviderError` for a request `submitVideo`
+   * would refuse. Absent when the provider does not meter its submissions,
+   * in which case callers fall back to an estimate.
+   */
+  usageFor?(request: VideoRequest): VideoUsage;
 }
+
+/** A video submission's billed usage, as `recordUsage` takes it. */
+export type VideoUsage = Omit<UsageRecord, "at">;
 
 export const TERMINAL_STATUSES: ReadonlySet<GenerationStatus> = new Set(["completed", "failed", "cancelled"]);
 

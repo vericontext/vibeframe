@@ -30,8 +30,8 @@ describe("job lookups from a bare task ID", () => {
 
   it("Kling tries image-to-video when text-to-video does not know the task", async () => {
     net
-      .on("GET", "api.klingai.com", /\/text2video\/t-9$/, () => jsonResponse({ code: 1203, message: "task not found" }, 404))
-      .on("GET", "api.klingai.com", /\/image2video\/t-9$/, () =>
+      .on("GET", "api-singapore.klingai.com", /\/text2video\/t-9$/, () => jsonResponse({ code: 1203, message: "task not found" }, 404))
+      .on("GET", "api-singapore.klingai.com", /\/image2video\/t-9$/, () =>
         jsonResponse({ code: 0, message: "ok", request_id: "r", data: { task_id: "t-9", task_status: "processing" } })
       );
     const kling = await createVideoGenerator("kling", "k");

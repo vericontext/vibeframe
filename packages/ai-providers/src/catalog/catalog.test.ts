@@ -5,6 +5,8 @@ import {
   ModelRetiredError,
   assertModelServed,
   defaultModel,
+  describeDurations,
+  durationProblem,
   findModel,
   listModels,
   modelAliases,
@@ -53,6 +55,18 @@ describe("model catalog", () => {
     expect(findModel("kling", "video", "v9")).toBeUndefined();
     expect(modelAliases("grok", "video")).toEqual(["1.5", "lite", "1.5-lite", "classic"]);
     expect(listModels({ kind: "transcription" }).map((m) => m.id)).toEqual(["scribe_v2", "whisper-1"]);
+  });
+
+  it("describes and checks a model's accepted lengths", () => {
+    const four = findModel("kling", "video", "4.0")!;
+    const v26 = findModel("kling", "video", "v2.6")!;
+    expect(describeDurations(four)).toBe("3-30 s");
+    expect(describeDurations(v26)).toBe("5 or 10 s");
+    expect(durationProblem(four, 30)).toBeUndefined();
+    expect(durationProblem(four, 2.6)).toBeUndefined();
+    expect(durationProblem(four, 31)).toBe("Kling 4.0 (kling-4.0) accepts 3-30 s, not 31 s.");
+    expect(durationProblem(v26, 8)).toMatch(/5 or 10 s/);
+    expect(durationProblem(defaultModel("seedance", "video"), 99)).toBeUndefined();
   });
 
   it("throws when a provider and kind has no default", () => {

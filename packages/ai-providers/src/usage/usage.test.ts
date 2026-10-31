@@ -58,6 +58,18 @@ describe("priceRecord", () => {
     expect(priceRecord(whisper)).toBeCloseTo(2 * 0.006, 12);
   });
 
+  it("prices video seconds at the size they were billed at", () => {
+    const video = (model: string, size?: string) =>
+      priceRecord(record({ provider: "kling", kind: "video", model, amount: { unit: "seconds", count: 3 }, size }));
+    // Kling 4.0: $0.157/s 720p, $0.235/s 1080p (docs, 2026-10-31).
+    expect(video("kling-4.0", "720p")).toBeCloseTo(0.471, 6);
+    expect(video("kling-4.0", "1080p")).toBeCloseTo(0.705, 6);
+    expect(video("kling-v3", "1080p")).toBeCloseTo(0.336, 6);
+    // No size: the default (`usd`) rate. A size the catalog does not list: unpriced, never the wrong rate.
+    expect(video("kling-4.0")).toBeCloseTo(0.471, 6);
+    expect(video("kling-4.0", "4k")).toBeUndefined();
+  });
+
   it("leaves unknown models, unlisted prices, and unit mismatches unpriced", () => {
     expect(priceRecord(record({ provider: "openai", kind: "speech", model: "gpt-4o-mini-tts", amount: { unit: "characters", count: 10 } }))).toBeUndefined();
     expect(priceRecord(record({ provider: "claude", kind: "llm", model: "claude-opus-4-7", amount: { unit: "tokens", input: 1, output: 1 } }))).toBeUndefined();

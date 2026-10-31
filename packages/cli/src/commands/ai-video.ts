@@ -114,6 +114,11 @@ export interface VideoGenerateResult {
   duration?: number;
   outputPath?: string;
   provider?: string;
+  /**
+   * The provider recorded the job's billed usage (`recordUsage`) when it
+   * accepted it, so callers report the metered cost instead of an estimate.
+   */
+  metered?: boolean;
   error?: string;
   errorKind?: ProviderErrorKind;
 }
@@ -122,6 +127,8 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
   const provider = (options.provider ?? resolveProvider("video")?.name ?? "seedance").toLowerCase();
   try {
     const generator = await openVideoGenerator(provider, options.apiKey);
+    // A provider that meters its submissions records what the job billed.
+    const metered = typeof generator.usageFor === "function";
     const references: MediaReference[] = [];
     for (const [kind, paths, mime] of [
       ["image", options.refImages, "image/png"],
@@ -152,7 +159,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     const job = await generator.submitVideo(request);
     await options.onSubmitted?.(job);
     if (options.wait === false) {
-      return { success: true, taskId: job.id, job, status: "processing", provider };
+      return { success: true, taskId: job.id, job, status: "processing", provider, metered };
     }
     let settled: Awaited<ReturnType<typeof settle>>;
     try {
@@ -160,7 +167,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     } catch (error) {
       // Running out of wait time is not a failure: the job may still finish.
       if (isProviderError(error) && error.kind === "timeout") {
-        return { success: true, taskId: job.id, job, status: "processing", provider };
+        return { success: true, taskId: job.id, job, status: "processing", provider, metered };
       }
       throw error;
     }
@@ -171,6 +178,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         taskId: job.id,
         job,
         provider,
+        metered,
         status: state.status,
         error: state.error?.message ?? `${provider} generation ${state.status}`,
         errorKind: state.error?.kind,
@@ -185,6 +193,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       duration: state.durationSec,
       outputPath,
       provider,
+      metered,
     };
   } catch (error) {
     return { ...failure(error, "Video generation failed"), provider };

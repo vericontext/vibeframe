@@ -9,6 +9,8 @@ describe("resolveKlingModel", () => {
     expect(resolveKlingModel("v2.6")).toBe("kling-v2-6");
     expect(resolveKlingModel("v2.5-turbo")).toBe("kling-v2-5-turbo");
     expect(resolveKlingModel("kling-v3")).toBe("kling-v3");
+    expect(resolveKlingModel("4.0")).toBe("kling-4.0");
+    expect(resolveKlingModel("3.0-turbo")).toBe("kling-3.0-turbo");
   });
 
   it("rejects models the text2video/image2video endpoints do not accept", () => {
@@ -27,13 +29,14 @@ describe("klingDuration", () => {
   it("keeps the v2.x models on 5 or 10 seconds", () => {
     expect(klingDuration("kling-v2-6", 8)).toBe("5");
     expect(klingDuration("kling-v2-5-turbo", 12)).toBe("10");
+    expect(klingDuration("kling-v2-6", 3)).toBe("5");
   });
 });
 
 describe("KlingProvider auth", () => {
   async function authHeaderFor(apiKey: string) {
     const net = new FakeProviderNetwork();
-    net.on("POST", "api.klingai.com", /^\/v1\/videos\/text2video$/, () => jsonResponse({ code: 0, data: { task_id: "t1" } }));
+    net.on("POST", "api-singapore.klingai.com", /^\/v1\/videos\/text2video$/, () => jsonResponse({ code: 0, data: { task_id: "t1" } }));
     net.install();
     try {
       const kling = new KlingProvider();

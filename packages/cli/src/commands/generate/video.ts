@@ -14,7 +14,13 @@ import chalk from "chalk";
 import imageSize from "image-size";
 import { estimateSeedanceVideoCostUsd, modelAliases, resolveSeedanceVariant } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
-import { checkModelLifecycle, videoModelSpec } from "../../utils/model-lifecycle.js";
+import {
+  checkModelLifecycle,
+  videoDurationChoices,
+  videoModelChoices,
+  videoModelSpec,
+  videoRequestProblem,
+} from "../../utils/model-lifecycle.js";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import {
   spinner as createSpinner,
@@ -33,7 +39,7 @@ import { defaultOutputPath } from "../_shared/default-output.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeVideoGenerate, type VideoGenerateOptions } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
-import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS } from "../_shared/video-jobs.js";
+import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS, meteredVideoCostUsd } from "../_shared/video-jobs.js";
 
 export function registerVideoCommand(parent: Command): void {
   parent
@@ -53,7 +59,7 @@ export function registerVideoCommand(parent: Command): void {
     .option("-i, --image <path>", "Reference image for image-to-video")
     .option(
       "-d, --duration <sec>",
-      "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.",
+      `Duration in seconds. Seedance accepts 4-15; Kling: ${videoDurationChoices("kling")}.`,
       "5"
     )
     .option(
@@ -61,18 +67,18 @@ export function registerVideoCommand(parent: Command): void {
       "Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)"
     )
     .option("--seed <number>", "Random seed for reproducibility (Runway only)")
-    .option("--mode <mode>", "Generation mode: std or pro (Kling only)", "std")
+    .option("--mode <mode>", "Generation mode: std (720p) or pro (1080p) (Kling only; --resolution wins)", "std")
     .option(
       "--seedance-model <model>",
       "Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)",
       "quality"
     )
     .option("--grok-model <model>", "Grok video model: 1.5 (default), lite, classic", "1.5")
-    .option("--kling-model <model>", "Kling model: v3 (default), v2.6, v2.5-turbo", "v3")
+    .option("--kling-model <model>", `Kling model: ${videoModelChoices("kling")}`, "v3")
     .option("--negative <prompt>", "Negative prompt - what to avoid (Seedance/Kling)")
     .option("--resolution <res>", "Video resolution: 480p, 720p, 1080p, or 4k depending on provider")
-    .option("--last-frame <path>", "Ending frame image for Seedance (same as --end-image)")
-    .option("--end-image <path>", "Ending frame image for Seedance image-to-video")
+    .option("--last-frame <path>", "Ending frame image for Seedance or Kling 4.0 (same as --end-image)")
+    .option("--end-image <path>", "Ending frame image for image-to-video (Seedance, Kling 4.0)")
     .option(
       "--ref-images <paths...>",
       "Reference images for Seedance reference-to-video"
@@ -94,6 +100,7 @@ Examples:
   $ vibe generate video "dancing cat" -o cat.mp4                      # Seedance when FAL_API_KEY is set
   $ vibe gen vid "cinematic city timelapse" -o city.mp4 -p seedance   # Seedance via fal.ai
   $ vibe gen vid "city timelapse" -o city.mp4 -p kling                # Kling
+  $ vibe gen vid "city timelapse" -p kling --kling-model 4.0 -d 3 --dry-run --json  # Kling 4.0 estimate
   $ vibe gen vid "epic scene" -i frame.png -o out.mp4 -p runway       # Image-to-video
   $ vibe gen vid "ocean waves" -o waves.mp4 -p omni                  # Gemini Omni
   $ vibe gen vid "sunset" -o sun.mp4 -d 10 --dry-run --json`
@@ -205,6 +212,13 @@ Examples:
             usageError(`Unknown ${provider} model. Valid: ${modelAliases(provider, "video").join(", ")}.`)
           );
         }
+        // The model's own length and resolution limits (Kling 4.0: 3-30 s,
+        // 720p/1080p), so a dry run never prices a request the provider refuses.
+        const requestProblem = videoRequestProblem(modelSpec, {
+          duration: options.duration !== undefined ? parseFloat(options.duration) : undefined,
+          resolution: options.resolution,
+        });
+        if (requestProblem) exitWithError(usageError(requestProblem));
         const lifecycleWarnings = checkModelLifecycle(modelSpec);
         if (!options.dryRun) printWarnings(lifecycleWarnings);
 
@@ -216,13 +230,32 @@ Examples:
               `${VIDEO_PROVIDER_ENV[provider]} is not set; the real run will fail until it is (vibe setup).`
             );
           }
-          // For Seedance, replace the flat cost-tier upper bound with a
-          // token-accurate estimate so agents can gate spend precisely. Other
-          // providers fall back to the tier bound (costUsd left undefined).
-          const costUsd =
-            provider === "seedance"
-              ? realRunCost(provider, options).costUsd
-              : undefined;
+          // Replace the flat cost-tier upper bound with what the run will
+          // cost so agents can gate spend precisely: Seedance's token-accurate
+          // estimate, or list price x the usage a metering provider (Kling)
+          // records. Other providers fall back to the tier bound.
+          let costUsd: number | undefined;
+          if (provider === "seedance") {
+            costUsd = realRunCost(provider, options).costUsd;
+          } else {
+            try {
+              costUsd = await meteredVideoCostUsd(provider, {
+                prompt,
+                model: modelSpec.id,
+                durationSec: parseFloat(options.duration),
+                aspectRatio: options.ratio,
+                resolution: options.resolution,
+                // A placeholder: the real run uploads the local frame first.
+                image: options.image ? "https://dry-run.invalid/frame.png" : undefined,
+                negativePrompt: options.negative,
+                generateAudio: options.generateAudio,
+                providerOptions: provider === "kling" ? { mode: options.mode } : undefined,
+              });
+            } catch (error) {
+              // The provider would refuse this request: say so now, before any spend.
+              exitWithError(failureFromError(error, "Video generation would fail"));
+            }
+          }
           outputSuccess({
             command: "generate video",
             startedAt,
@@ -317,13 +350,14 @@ Examples:
           spinner?.succeed(chalk.green(`Generation started: ${providerLabel} task ${result.taskId}`));
           if (isJsonMode()) {
             // Submitted work is billed whether or not this call waits for it.
-            const cost = realRunCost(provider, options);
+            const { warnings: costWarnings, ...cost } = realRunCostFields(result.metered, provider, options);
             outputSuccess({
               command: "generate video",
               startedAt,
+              // Undefined for a metered job: outputSuccess then prices the meter.
               costUsd: cost.costUsd,
-              costEstimated: true,
-              warnings: [...lifecycleWarnings, ...cost.warnings],
+              costEstimated: cost.costEstimated,
+              warnings: [...lifecycleWarnings, ...costWarnings],
               data: {
                 provider,
                 taskId: result.taskId,
@@ -339,14 +373,15 @@ Examples:
         }
 
         spinner?.succeed(chalk.green("Video generated"));
-        const cost = realRunCost(provider, options);
+        const { warnings: costWarnings, ...cost } = realRunCostFields(result.metered, provider, options);
         if (isJsonMode()) {
           outputSuccess({
             command: "generate video",
             startedAt,
+            // Undefined for a metered job: outputSuccess then prices the meter.
             costUsd: cost.costUsd,
-            costEstimated: true,
-            warnings: [...lifecycleWarnings, ...cost.warnings],
+            costEstimated: cost.costEstimated,
+            warnings: [...lifecycleWarnings, ...costWarnings],
             data: {
               provider,
               taskId: result.taskId,
@@ -368,6 +403,22 @@ Examples:
     });
 }
 
+
+/**
+ * The cost fields of a real run's envelope. A provider that metered the job
+ * (Kling records the billed seconds at their resolution) gets none, so
+ * `outputSuccess` reports the metered usage times the catalog price; every
+ * other provider gets the `realRunCost` estimate, flagged as one.
+ */
+export function realRunCostFields(
+  metered: boolean | undefined,
+  provider: string,
+  options: Parameters<typeof realRunCost>[1]
+): { costUsd?: number; costEstimated?: boolean; warnings: string[] } {
+  if (metered) return { warnings: [] };
+  const cost = realRunCost(provider, options);
+  return { costUsd: cost.costUsd, costEstimated: true, warnings: cost.warnings };
+}
 
 /**
  * Cost figure for a REAL (non-dry-run) generation envelope.

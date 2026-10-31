@@ -45,6 +45,8 @@ function price(m: Spec): string {
     outputUsd === undefined ? `$${usd} / ${p.per}` : `$${usd} in / $${outputUsd} out per 1M tokens`;
   const notes: string[] = [];
   if (p.basis) notes.push(p.basis);
+  const otherSizes = Object.entries(p.bySize ?? {}).filter(([, usd]) => usd !== p.usd);
+  if (otherSizes.length > 0) notes.push(otherSizes.map(([size, usd]) => `${size} $${usd}`).join(", "));
   if (p.longContext) {
     const { aboveInputTokens, usd, outputUsd } = p.longContext;
     const above = `${aboveInputTokens / 1000}K`;

@@ -34,6 +34,11 @@ export interface UsageRecord {
   model: string;
   amount: UsageAmount;
   /**
+   * The output size the call was billed at, when the price depends on it
+   * (a catalog `bySize` key such as "720p" or "1080p").
+   */
+  size?: string;
+  /**
    * True when the amount was inferred rather than reported or measured, e.g.
    * a transcription length taken from the last word because the provider
    * sent no duration.

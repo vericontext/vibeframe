@@ -36,10 +36,10 @@ Prices are list prices. Commands report `costUsd` as metered usage (tokens, char
 | openai | GPT Image 2.5 Flare | `gpt-image-2.5-flare` | `flare`, `2.5-flare` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 2 | `gpt-image-2` | `2` | GA | $0.211 / image (high, 1024x1024) |  |
 | openai | GPT Image 1.5 | `gpt-image-1.5` | `1.5` | Deprecated, shuts down 2026-12-01; use `--model flare` (GPT Image 2.5 Flare) | $0.133 / image (high, 1024x1024) |  |
-| gemini | **Nano Banana 2.1** (default) | `gemini-nano-banana-2.1` | `flash`, `2.1`, `latest` | GA | $0.0336 / image (1K) | 1K, 2K, 4K; thinking defaults to medium |
-| gemini | Nano Banana 2 | `gemini-3.1-flash-image` | `3.1-flash` | Legacy | $0.067 / image (1K) | Deprecated 2026-10-06 with no shutdown date; the only Gemini image model with 512px |
+| gemini | **Nano Banana 2.1** (default) | `gemini-nano-banana-2.1` | `flash`, `2.1`, `latest` | GA | $0.0336 / image (1K; 2K $0.0504, 4K $0.113) | 1K, 2K, 4K; thinking defaults to medium |
+| gemini | Nano Banana 2 | `gemini-3.1-flash-image` | `3.1-flash` | Legacy | $0.067 / image (1K; 512px $0.045, 2K $0.101, 4K $0.151) | Deprecated 2026-10-06 with no shutdown date; the only Gemini image model with 512px |
 | gemini | Nano Banana 2 Lite | `gemini-3.1-flash-lite-image` | `lite` | GA | $0.034 / image (1K) |  |
-| gemini | Nano Banana Pro | `gemini-3-pro-image` | `pro` | GA | $0.134 / image (1K-2K) |  |
+| gemini | Nano Banana Pro | `gemini-3-pro-image` | `pro` | GA | $0.134 / image (1K-2K; 4K $0.24) |  |
 | gemini | Nano Banana (2.5 Flash Image) | `gemini-2.5-flash-image` |  | Deprecated, shuts down 2027-03-15; use `--model lite` (Nano Banana 2 Lite) |  |  |
 | gemini | Nano Banana 2 (preview) | `gemini-3.1-flash-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
 | gemini | Nano Banana Pro (preview) | `gemini-3-pro-image-preview` |  | Deprecated, shuts down 2026-06-25 |  |  |
@@ -57,9 +57,11 @@ Prices are list prices. Commands report `costUsd` as metered usage (tokens, char
 | grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
 | grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
 | grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation; the only Grok model that edits and extends videos |
-| kling | **Kling v3** (default) | `kling-v3` | `v3` | GA | $0.084 / second (std, silent) | 3-15 s, multi-shot; `std` 720p, `pro` 1080p |
-| kling | Kling v2.6 | `kling-v2-6` | `v2.6` | GA | $0.042 / second (std 720p) | 5 or 10 s |
-| kling | Kling v2.5 Turbo | `kling-v2-5-turbo` | `v2.5-turbo`, `v2.5` | GA | $0.042 / second (std) | 5 or 10 s, no audio |
+| kling | **Kling v3** (default) | `kling-v3` | `v3` | GA | $0.084 / second (`std` 720p, silent; 1080p $0.112) | 3-15 s, multi-shot; `std` 720p, `pro` 1080p |
+| kling | Kling 4.0 | `kling-4.0` | `4.0` | GA | $0.157 / second (720p, no input video; 1080p $0.235) | Opt-in; 3-30 s, native audio, first and last frame; needs a single API key, not an ACCESS:SECRET pair |
+| kling | Kling 3.0 Turbo | `kling-3.0-turbo` | `3.0-turbo` | GA | $0.112 / second (720p, audio included; 1080p $0.14) | 3-15 s, native audio, first frame only; needs a single API key, not an ACCESS:SECRET pair |
+| kling | Kling v2.6 | `kling-v2-6` | `v2.6` | GA | $0.042 / second (`std` 720p, silent; 1080p $0.07) | 5 or 10 s |
+| kling | Kling v2.5 Turbo | `kling-v2-5-turbo` | `v2.5-turbo`, `v2.5` | GA | $0.042 / second (`std` 720p; 1080p $0.07) | 5 or 10 s, no audio |
 | runway | **Runway Gen-4.5** (default) | `gen4.5` |  | GA | $0.12 / second | 2-10 s, no audio |
 | runway | Runway Gen-4 Turbo | `gen4_turbo` |  | GA | $0.05 / second | Image-to-video only, no audio |
 
@@ -106,7 +108,7 @@ Prices are list prices. Commands report `costUsd` as metered usage (tokens, char
 | `vibe generate image -p openai\|gemini\|grok`, `vibe edit image` | `-m` | The image aliases above |
 | `vibe generate video -p seedance` | `--seedance-model` | `quality` (default), `fast`, `2.5` |
 | `vibe generate video -p grok` | `--grok-model` | `1.5` (default), `lite`, `classic` |
-| `vibe generate video -p kling` | `--kling-model` | `v3` (default), `v2.6`, `v2.5-turbo` |
+| `vibe generate video -p kling` | `--kling-model` | `v3` (default), `4.0`, `3.0-turbo`, `v2.6`, `v2.5-turbo` |
 | `vibe generate video -p runway` | `--runway-model` | `gen4.5` (default), `gen4_turbo` |
 
 ---
@@ -185,7 +187,7 @@ All text-to-video providers also support image-to-video. Key differences per pro
 |----------|-------|-------------|-------------|-------|
 | Seedance via fal.ai | `seedance-2.0` | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) for local image paths. |
 | xAI Grok | `grok-imagine-video-1.5` | Yes | URL or data URI | Same pricing as T2V, plus $0.01 per input image |
-| Kling | all v2.5+ models | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`) |
+| Kling | all v2.5+ models, 4.0, 3.0 Turbo | Yes | **URL only** | Auto-uploads via ImgBB (`IMGBB_API_KEY`). `--end-image` sets a last frame on 4.0 only; 4.0 and 3.0 Turbo follow the first frame's aspect ratio |
 | Runway | `gen4.5` | Yes | URL or data URI | Text+image-to-video |
 | Runway | `gen4_turbo` | **I2V only** | URL or data URI | Cannot do text-only generation |
 | Gemini Omni | `gemini-omni-1.1-flash` | Yes | base64 (first frame; `--last-frame` adds an end frame) | Sent as typed `image` inputs before the text prompt |
@@ -240,7 +242,7 @@ export XAI_API_KEY="xai-..."          # xAI Grok
 # Media Providers
 export ELEVENLABS_API_KEY="..."       # TTS, SFX, Scribe transcription
 export RUNWAY_API_SECRET="..."        # Runway Gen-4 Turbo
-export KLING_API_KEY="..."            # Kling v2.x/v3
+export KLING_API_KEY="..."            # Kling API key (4.0 and 3.0 Turbo need one); legacy ACCESS:SECRET pairs run v3/v2.x only
 export REPLICATE_API_TOKEN="..."      # Replicate (music)
 ```
 

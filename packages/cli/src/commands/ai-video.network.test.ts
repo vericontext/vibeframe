@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { FAKE_PNG, createFakeProviderNetwork, jsonResponse, type FakeProviderNetwork } from "../testing/fake-provider-network.js";
 import { executeVideoCancel, executeVideoExtend, executeVideoGenerate, executeVideoStatus } from "./ai-video.js";
 
-const KLING = "api.klingai.com";
+const KLING = "api-singapore.klingai.com";
 const kling = (data: Record<string, unknown>) => jsonResponse({ code: 0, message: "ok", request_id: "r", data });
 
 let net: FakeProviderNetwork;

@@ -2165,11 +2165,11 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "duration": {
         "default": 5,
-        "description": "Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.",
+        "description": "Duration in seconds. Seedance accepts 4-15; Kling: v3 3-15 s, 4.0 3-30 s, 3.0-turbo 3-15 s, v2.6 5 or 10 s, v2.5-turbo 5 or 10 s.",
         "type": "number",
       },
       "endImage": {
-        "description": "Ending frame image for Seedance image-to-video",
+        "description": "Ending frame image for image-to-video (Seedance, Kling 4.0)",
         "type": "string",
       },
       "grokModel": {
@@ -2183,16 +2183,16 @@ exports[`CLI --describe schemas (drift detection) > vibe generate video --descri
       },
       "klingModel": {
         "default": "v3",
-        "description": "Kling model: v3 (default), v2.6, v2.5-turbo",
+        "description": "Kling model: v3 (default), 4.0, 3.0-turbo, v2.6, v2.5-turbo",
         "type": "string",
       },
       "lastFrame": {
-        "description": "Ending frame image for Seedance (same as --end-image)",
+        "description": "Ending frame image for Seedance or Kling 4.0 (same as --end-image)",
         "type": "string",
       },
       "mode": {
         "default": "std",
-        "description": "Generation mode: std or pro (Kling only)",
+        "description": "Generation mode: std (720p) or pro (1080p) (Kling only; --resolution wins)",
         "type": "string",
       },
       "negative": {

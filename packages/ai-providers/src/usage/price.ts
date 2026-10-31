@@ -31,6 +31,16 @@ function ratesOn(price: ModelPrice, now: Date): { usd: number; outputUsd?: numbe
   return { usd: price.usd, outputUsd: price.outputUsd };
 }
 
+/**
+ * The per-unit rate for a record that names its output size: that size's
+ * `bySize` price, or undefined when the catalog lists sizes but not this one
+ * (so the call is reported unpriced instead of at the wrong rate).
+ */
+function sizedRate(price: ModelPrice, size: string | undefined, fallback: number): number | undefined {
+  if (size === undefined || !price.bySize) return fallback;
+  return price.bySize[size];
+}
+
 /** USD for one record, or undefined when the catalog cannot price it. */
 export function priceRecord(record: UsageRecord, now: Date = new Date()): number | undefined {
   const price = catalogEntry(record)?.price;
@@ -54,10 +64,13 @@ export function priceRecord(record: UsageRecord, now: Date = new Date()): number
       return price.per === "1K characters" ? (amount.count / 1000) * rates.usd : undefined;
     case "seconds": {
       const seconds = SECONDS_PER[price.per];
-      return seconds ? (amount.count / seconds) * rates.usd : undefined;
+      const usd = sizedRate(price, record.size, rates.usd);
+      return seconds && usd !== undefined ? (amount.count / seconds) * usd : undefined;
     }
-    case "requests":
-      return price.per === "image" ? amount.count * rates.usd : undefined;
+    case "requests": {
+      const usd = sizedRate(price, record.size, rates.usd);
+      return price.per === "image" && usd !== undefined ? amount.count * usd : undefined;
+    }
   }
 }
 

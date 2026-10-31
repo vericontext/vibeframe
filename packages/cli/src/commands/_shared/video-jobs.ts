@@ -11,8 +11,10 @@ import {
   ProviderError,
   createVideoGenerator,
   defaultModel,
+  priceRecord,
   type VideoGenerator,
   type VideoJob,
+  type VideoRequest,
 } from "@vibeframe/ai-providers";
 import { requireConfiguredApiKey } from "../../utils/api-key.js";
 import { unknownVideoProviderMessage } from "./build-video-providers.js";
@@ -47,6 +49,21 @@ export async function openVideoGenerator(provider: string, apiKey?: string): Pro
   // (API_KEY_MISSING), never ProviderError "auth".
   const key = await requireConfiguredApiKey(envVar, VIDEO_PROVIDER_LABELS[id] ?? id, apiKey);
   return createVideoGenerator(id, key);
+}
+
+/**
+ * What a video request would cost, priced from the model catalog with the
+ * usage its provider would meter (`VideoGenerator.usageFor`): for dry runs,
+ * so the estimate matches what the real run reports. Undefined when the
+ * provider does not meter its submissions or the catalog cannot price it.
+ * Opens no connection and needs no key; throws the `ProviderError` the
+ * provider would refuse the request with.
+ */
+export async function meteredVideoCostUsd(provider: string, request: VideoRequest): Promise<number | undefined> {
+  const generator = await createVideoGenerator(provider.toLowerCase(), "");
+  if (!generator.usageFor) return undefined;
+  const usd = priceRecord({ ...generator.usageFor(request), at: Date.now() });
+  return usd === undefined ? undefined : Number(usd.toFixed(6));
 }
 
 /**
