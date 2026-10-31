@@ -306,6 +306,10 @@ exports[`CLI --describe schemas (drift detection) > vibe audio transcribe --desc
         "description": "Audio file path",
         "type": "string",
       },
+      "dryRun": {
+        "description": "Show the provider and estimated cost without transcribing",
+        "type": "boolean",
+      },
       "format": {
         "description": "Output format: json, srt, vtt (auto-detected from extension)",
         "enum": [
