@@ -1,6 +1,6 @@
 ---
 provider: elevenlabs
-checked: 2026-10-28
+checked: 2026-10-31
 env: [ELEVENLABS_API_KEY]
 models_endpoint: none
 models_in_use:
@@ -76,6 +76,7 @@ Pricing is the pay-as-you-go API page; subscription plans convert to credits dif
 - MP3 at 192 kbps needs Creator tier or above; PCM/WAV at 44.1 kHz needs Pro (docs).
 - Flash v2.5 does not normalize numbers by default; Multilingual v2 does better on phone numbers and dates (docs).
 - `GET /v1/usage/character-stats` is deprecated in favor of the workspace analytics endpoint (docs); we do not call it.
+- **Probe 2026-10-31 (live, under $0.001):** `vibe audio transcribe speech.wav -p elevenlabs` on 4 s of macOS `say` speech ("Um, so the paper boat drifts. It floats away, okay?") returned `language_code: "eng"` and word timings that became three SRT cues ("Um, so the paper boat drifts." / "It floats away." / "Okay?"): Scribe itself ends a sentence at "away". Words keep their punctuation (`"Um,"`), and `edit jump-cut --analyze-only --stt elevenlabs` found the fillers `Um,`, `so`, and `Okay?`.
 - **Scribe sends no segments.** `words[]` is one flat token list; we build caption segments from it (sentence punctuation, pauses of 0.8 s, speaker changes, 6 s soft / 12 s hard length).
   Word tokens keep their punctuation (`"Um,"`, `"drifts."`), unlike Whisper's words; jump-cut strips punctuation before matching fillers.
 - `tag_audio_events` is on unless sent as `false`, which would put `(laughter)` tokens into transcripts; we send `false` and also skip `audio_event` tokens.

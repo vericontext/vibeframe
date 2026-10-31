@@ -1,6 +1,6 @@
 ---
 provider: google
-checked: 2026-10-28
+checked: 2026-10-31
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
@@ -123,7 +123,8 @@ Checked 2026-10-28 against the speech guide (last updated 2026-10-12), both mode
 - Voices: 30 prebuilt (Zephyr, Puck, Charon, Kore, Fenrir, Leda, Orus, Aoede, Callirrhoe, Autonoe, Enceladus, Iapetus, Umbriel, Algieba, Despina, Erinome, Algenib, Rasalgethi, Laomedeia, Achernar, Alnilam, Schedar, Gacrux, Pulcherrima, Achird, Zubenelgenubi, Vindemiatrix, Sadachbia, Sadaltager, Sulafat) (docs). An Extended Voice Library of hundreds more is listed by `GET /v1beta/voices`; its ID format is not documented on the guide. Custom voices from `POST /v1beta/voices` are `voice_...` (stored, 200 per project, 1 year from last use) or `voicekey_...` (stateless, 7 days) (docs).
 - Style: delivery directions go in `speech_metadata.style` ("cheerful and friendly", "speaking slowly"); there is no numeric speed or `language` field in the guide; inline tags like `<laugh>`, `<short pause>` work in the text (docs).
 - Limits: no character limit is stated; the model cards give 8,192 input and 16,384 output tokens, and pricing says audio is 25 tokens/s (docs). We split narration into sentence chunks of at most 4,000 characters and join the PCM into one WAV.
-- Probe: none yet. The live request shape, response shape, and error bodies for TTS are unverified.
+- Probe 2026-10-31 (live, about $0.001): `vibe generate narration -p gemini --voice Kore` returned audio that ffprobe reads as `pcm_s16le`, 24000 Hz, mono, 2.64 s for one short sentence; `-m lite --speed 0.7` returned the same format, 4.24 s for a shorter sentence, so the pace direction takes effect. The documented request shape (`input` with `speech_metadata.style`, `response_format`, `generation_config.speech_config`, `store: false`) is accepted as is.
+- Probe 2026-10-28 (fake key): a bad key is HTTP 400 with the body wrapped in an array, `[{"error": {"code": 400, "message": "API key not valid. ...", "status": "INVALID_ARGUMENT"}}]`.
 
 ## API shape
 
