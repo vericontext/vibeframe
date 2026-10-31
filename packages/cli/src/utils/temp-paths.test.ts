@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Files still being fixed in their own PR. Remove an entry when that PR lands. */
-const PENDING: readonly string[] = ["commands/ai-highlights.ts"];
+const PENDING: readonly string[] = [];
 
 const GUESSABLE = [
   // A literal /tmp path.
