@@ -104,6 +104,7 @@ vibe guide <topic> --json              # Step-by-step guides (motion | scene | p
   "command": "<group> <leaf>",
   "elapsedMs": 12345,
   "costUsd": 0.07,
+  "costEstimated": true, // only when costUsd is an estimate, not metered usage x list price
   "warnings": [],
   "data": {
     /* command-specific */

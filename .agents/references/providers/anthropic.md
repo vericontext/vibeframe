@@ -89,6 +89,7 @@ Every model ID from the 4.6 generation on is a dateless pinned snapshot, not a m
 - `packages/cli/src/commands/_shared/edit/translate-srt.ts:126-148` direct fetch with `claude-sonnet-4-6`, `max_tokens: 4096`.
 - `packages/cli/src/commands/ai-motion.ts:66-68` `MODEL_MAP` duplicates the motion model IDs.
 - `packages/cli/src/utils/api-key.ts:10` maps `ANTHROPIC_API_KEY` to the `anthropic` config key.
+- Cost metering: `callClaude()`, `claudeGenerateText()`, and `translate-texts.ts` record the reply's `usage.input_tokens` and `usage.output_tokens` (cache token fields count as input; we never request caching) before any refusal or cut-off error, since those replies are billed too (code). The catalog carries the input/output prices from the Models table above (pricing page, see Sources); `claude-haiku-5-5` prompts over 100K tokens use its $0.50 / $2.50 tier.
 
 ## Recommended changes
 

@@ -6,7 +6,7 @@
  * text.
  */
 
-import { defaultModel, isProviderError, providerRequest, type ProviderErrorKind } from "@vibeframe/ai-providers";
+import { defaultModel, isProviderError, providerRequest, recordTokenUsage, type ProviderErrorKind } from "@vibeframe/ai-providers";
 import { getConfiguredApiKey } from "../../utils/api-key.js";
 import { ApiKeyError } from "../../utils/api-key-error.js";
 
@@ -75,21 +75,31 @@ export async function translateTexts(texts: string[], options: TranslateTextsOpt
 }
 
 async function askClaude(apiKey: string, prompt: string): Promise<string> {
+  const model = defaultModel("claude", "llm").id;
   const response = await providerRequest("claude", "https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: defaultModel("claude", "llm").id, max_tokens: 16000, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model, max_tokens: 16000, messages: [{ role: "user", content: prompt }] }),
   });
-  const data = (await response.json()) as { content?: Array<{ type: string; text: string }> };
+  const data = (await response.json()) as {
+    content?: Array<{ type: string; text: string }>;
+    usage?: { input_tokens?: number; output_tokens?: number };
+  };
+  recordTokenUsage("claude", model, data.usage?.input_tokens, data.usage?.output_tokens);
   return data.content?.find((c) => c.type === "text")?.text ?? "";
 }
 
 async function askOpenAI(apiKey: string, prompt: string): Promise<string> {
+  const model = defaultModel("openai", "llm").id;
   const response = await providerRequest("openai", "https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: defaultModel("openai", "llm").id, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }] }),
   });
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  recordTokenUsage("openai", model, data.usage?.prompt_tokens, data.usage?.completion_tokens);
   return data.choices?.[0]?.message?.content ?? "";
 }

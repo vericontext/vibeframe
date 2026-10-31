@@ -14,7 +14,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { loadPipeline, executePipeline } from "../pipeline/index.js";
+import { loadPipeline, executePipeline, pipelineCost } from "../pipeline/index.js";
 import type { PipelineBudget } from "../pipeline/types.js";
 import { outputSuccess, exitWithError, generalError, usageError } from "./output.js";
 import { loadEnv } from "../utils/api-key.js";
@@ -114,6 +114,7 @@ Run 'vibe schema run' for structured parameter info.
             command: "run",
             startedAt,
             dryRun: true,
+            costUsd: pipelineCost(result).costUsd,
             data: {
               name: manifest.name,
               steps: result.steps.map(s => ({ id: s.id, action: s.action, estimatedCost: (s.data as Record<string, unknown>)?.estimatedCost })),
@@ -184,9 +185,12 @@ Run 'vibe schema run' for structured parameter info.
           output: s.output,
           duration: s.duration,
           error: s.error,
+          costUsd: s.costUsd,
+          ...(s.costEstimated ? { costEstimated: true } : {}),
           data: s.data,
         })),
       };
+      const cost = pipelineCost(result);
       // A run with a failed step is a failure: structured error, exit 1,
       // with the per-step report attached so nothing needs a second call.
       const failure = result.success ? undefined : {
@@ -200,7 +204,7 @@ Run 'vibe schema run' for structured parameter info.
 
       if (isJson) {
         if (failure) exitWithError(failure);
-        outputSuccess({ command: "run", startedAt, data: report });
+        outputSuccess({ command: "run", startedAt, costUsd: cost.costUsd, costEstimated: cost.estimated, data: report });
       } else {
         console.log();
         for (const step of result.steps) {

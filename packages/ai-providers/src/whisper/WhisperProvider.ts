@@ -7,6 +7,7 @@ import type {
 import { audioFilename, type Transcriber, type Transcript, type TranscriptionRequest } from "../transcription/contract.js";
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
+import { recordTranscriptionUsage } from "../usage/audio-duration.js";
 import { resolveCatalogModel } from "../video/models.js";
 
 /**
@@ -77,7 +78,15 @@ export class WhisperProvider implements AIProvider, Transcriber {
       language?: string;
       segments?: Array<{ id: number; start: number; end: number; text: string }>;
       words?: Array<{ word: string; start: number; end: number }>;
+      duration?: number;
     };
+    recordTranscriptionUsage({
+      provider: this.transcriptionProvider,
+      model,
+      reportedSeconds: data.duration,
+      audio: request.audio,
+      lastTimestamp: Math.max(0, ...(data.segments ?? []).map((s) => s.end), ...(data.words ?? []).map((w) => w.end)) || undefined,
+    });
     return {
       text: data.text,
       language: data.language,

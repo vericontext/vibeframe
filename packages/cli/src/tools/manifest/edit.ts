@@ -33,6 +33,9 @@ import {
 import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
 import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 import { executeImageEdit } from "../../commands/ai-image.js";
+import { estimateImageCostUsd } from "../../commands/_shared/image-cost.js";
+import { upperBoundCost } from "../../commands/_shared/actual-cost.js";
+import { lookupCostEstimateUpperBound } from "../../commands/output.js";
 import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 import { executeMotionOverlay } from "../../commands/edit/motion-overlay.js";
 
@@ -502,9 +505,10 @@ export const editImageTool = defineTool({
   async execute(args) {
     const result = await executeImageEdit(args);
     if (!result.success) return failedTool(result, "Image edit failed");
+    const cost = estimateImageCostUsd(args.provider ?? "gemini", args.model, 1, args.resolution);
     return {
       success: true,
-      data: { outputPath: result.outputPath, model: result.model },
+      data: { outputPath: result.outputPath, model: result.model, costUsd: cost.costUsd, costEstimated: true },
       humanLines: [`✅ Image edited → ${result.outputPath}`],
     };
   },
@@ -542,9 +546,13 @@ export const editFillGapsTool = defineTool({
     if (!result.success) {
       return failedTool(result, "Fill gaps failed");
     }
+    const cost = result.dryRun
+      ? undefined
+      : upperBoundCost(lookupCostEstimateUpperBound("edit fill-gaps"), result.generatedCount ?? 0, "kling");
     return {
       success: true,
       data: {
+        ...(cost ? { costUsd: cost.costUsd, ...(cost.estimated ? { costEstimated: true } : {}) } : {}),
         outputPath: result.outputPath,
         generatedCount: result.generatedCount ?? 0,
         gaps: result.gaps,

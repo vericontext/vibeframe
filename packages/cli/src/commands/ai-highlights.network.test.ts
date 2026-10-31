@@ -53,8 +53,16 @@ const GEMINI_HIGHLIGHTS = {
   ],
 };
 
+/** Claude's reply, billed at 1,000 input and 200 output tokens: $0.004 on Sonnet 5.5 ($2 / $10 per 1M). */
 const claudeReply = (body: unknown) =>
-  jsonResponse({ id: "msg_1", type: "message", role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(body) }] });
+  jsonResponse({
+    id: "msg_1",
+    type: "message",
+    role: "assistant",
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: JSON.stringify(body) }],
+    usage: { input_tokens: 1_000, output_tokens: 200 },
+  });
 const geminiReply = (text: string) =>
   jsonResponse({ candidates: [{ content: { parts: [{ text }] }, finishReason: "STOP" }], usageMetadata: { totalTokenCount: 10 } });
 
@@ -198,7 +206,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(envelope).toMatchInlineSnapshot(`
       {
         "command": "remix highlights",
-        "costUsd": 0,
+        "costUsd": 0.004257,
         "data": {
           "criteria": "all",
           "highlights": [
@@ -300,7 +308,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(envelope).toMatchInlineSnapshot(`
       {
         "command": "remix highlights",
-        "costUsd": 0,
+        "costUsd": 0.00442,
         "data": {
           "criteria": "emotional",
           "highlights": [
@@ -419,7 +427,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(json.envelope).toMatchInlineSnapshot(`
       {
         "command": "remix highlights",
-        "costUsd": 0,
+        "costUsd": 0.004257,
         "data": {
           "criteria": "all",
           "highlights": [],
@@ -613,7 +621,8 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     const reply = await buildMcpDispatcher(manifest)("remix_highlights", { media: video, output: "hl.json" });
     const envelope = JSON.parse(normalize(reply.content[0].text)) as Record<string, unknown>;
 
-    expect(envelope).toMatchObject({ success: true, highlights: 2, totalDuration: 3.7, outputPath: "<dir>/hl.json" });
+    // Metered like the CLI: 4.2 s of Scribe ($0.22/h) plus the Claude reply ($0.004).
+    expect(envelope).toMatchObject({ success: true, highlights: 2, totalDuration: 3.7, outputPath: "<dir>/hl.json", costUsd: 0.004257 });
     expect(files()).toEqual(["hl.json"]);
   });
 });
@@ -689,7 +698,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
     expect(envelope).toMatchInlineSnapshot(`
       {
         "command": "remix auto-shorts",
-        "costUsd": 0,
+        "costUsd": 0.004257,
         "data": {
           "aspect": "9:16",
           "outputPath": "<dir>/out/best.mp4",
@@ -762,7 +771,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
     expect(json.envelope).toMatchInlineSnapshot(`
       {
         "command": "remix auto-shorts",
-        "costUsd": 0,
+        "costUsd": 0.00442,
         "data": {
           "analyzeOnly": true,
           "aspect": "9:16",
@@ -1035,6 +1044,7 @@ describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
 
     expect(envelope).toMatchObject({
       success: true,
+      costUsd: 0.004257,
       shorts: 1,
       shortsDetails: [{ index: 1, duration: 2, confidence: 0.92, outputPath: "<dir>/shorts/talk-short-1.mp4" }],
     });

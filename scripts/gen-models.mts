@@ -39,9 +39,19 @@ const STATUS: Record<Spec["status"], string> = {
 };
 
 function price(m: Spec): string {
-  if (!m.price) return "";
-  const usd = `$${m.price.usd}`;
-  return `${usd} / ${m.price.per}${m.price.basis ? ` (${m.price.basis})` : ""}`;
+  const p = m.price;
+  if (!p) return "";
+  const rate = (usd: number, outputUsd?: number) =>
+    outputUsd === undefined ? `$${usd} / ${p.per}` : `$${usd} in / $${outputUsd} out per 1M tokens`;
+  const notes: string[] = [];
+  if (p.basis) notes.push(p.basis);
+  if (p.longContext) {
+    const { aboveInputTokens, usd, outputUsd } = p.longContext;
+    const above = `${aboveInputTokens / 1000}K`;
+    notes.push(usd === undefined ? `prompts up to ${above} tokens` : `prompts over ${above} tokens: ${rate(usd, outputUsd)}`);
+  }
+  if (p.until && p.then) notes.push(`until ${p.until}, then ${rate(p.then.usd, p.then.outputUsd)}`);
+  return `${rate(p.usd, p.outputUsd)}${notes.length > 0 ? ` (${notes.join("; ")})` : ""}`;
 }
 
 function status(m: Spec): string {
@@ -55,7 +65,7 @@ function render(): string {
     BEGIN,
     "",
     "Generated from the model catalog; edit `packages/ai-providers/src/catalog/catalog.ts`, then run `pnpm gen:models`.",
-    "Prices are upper-bound list prices for estimates, not metered billing.",
+    "Prices are list prices. Commands report `costUsd` as metered usage (tokens, characters, audio seconds) times these prices, not provider billing.",
   ];
   for (const { kind, title } of KINDS) {
     const models = MODEL_CATALOG.filter((m) => m.kind === kind);

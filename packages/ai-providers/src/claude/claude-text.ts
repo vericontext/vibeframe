@@ -4,6 +4,7 @@ import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { DEFAULT_MAX_OUTPUT_TOKENS, type TextRequest, type TextResult } from "../text/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
+import { recordClaudeUsage, type ClaudeUsage } from "./claude-api.js";
 
 const PROVIDER = "claude";
 
@@ -31,7 +32,9 @@ export async function claudeGenerateText(
   const data = (await response.json()) as {
     content?: Array<{ type: string; text?: string }>;
     stop_reason?: string;
+    usage?: ClaudeUsage;
   };
+  recordClaudeUsage(model, data.usage);
   if (data.stop_reason === "refusal") {
     throw new ProviderError({ kind: "moderation", provider: PROVIDER, message: `${model} declined the request.` });
   }

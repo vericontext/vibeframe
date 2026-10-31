@@ -4,6 +4,7 @@ import { defaultModel } from "../catalog/catalog.js";
 import { FakeProviderNetwork, jsonResponse, type RecordedRequest } from "../testing/fake-provider-network.js";
 import type { TextRequest } from "./contract.js";
 import { createTextGenerator } from "./registry.js";
+import { meterUsage, meterUsageSettled } from "../usage/meter.js";
 
 const SCHEMA = {
   type: "object",
@@ -27,6 +28,8 @@ interface ProviderCase {
   truncated: unknown;
   /** The request body fields that carry system, conversation, schema, and cap. */
   expectBody: (body: Record<string, unknown>, model: string) => void;
+  /** Usage fields for 1,200 input tokens and 300 output tokens (thinking included). */
+  usage: Record<string, unknown>;
 }
 
 const CASES: ProviderCase[] = [
@@ -47,6 +50,7 @@ const CASES: ProviderCase[] = [
       });
       expect(body).not.toHaveProperty("temperature");
     },
+    usage: { usage: { input_tokens: 1_200, output_tokens: 300 } },
   },
   {
     provider: "openai",
@@ -71,6 +75,7 @@ const CASES: ProviderCase[] = [
       });
       expect(body).not.toHaveProperty("temperature");
     },
+    usage: { usage: { input_tokens: 1_200, output_tokens: 300 } },
   },
   {
     provider: "gemini",
@@ -89,6 +94,8 @@ const CASES: ProviderCase[] = [
       });
       expect(JSON.stringify(body)).not.toContain("temperature");
     },
+    // Thinking tokens are billed as output but reported apart from the candidates.
+    usage: { usageMetadata: { promptTokenCount: 1_200, candidatesTokenCount: 200, thoughtsTokenCount: 100, totalTokenCount: 1_500 } },
   },
 ];
 
@@ -116,6 +123,28 @@ describe.each(CASES)("$provider text contract", (c) => {
     // The key travels in a header, never the URL.
     expect(net.requests.at(-1)?.url).not.toContain("secret-test-key");
     expect(Object.values(net.requests.at(-1)?.headers ?? {}).join(" ")).toContain("secret-test-key");
+  });
+
+  it("records the billed tokens for cost reporting", async () => {
+    net.on("POST", c.host, c.path, () => jsonResponse({ ...(c.reply("ok") as object), ...c.usage }));
+    const generator = await createTextGenerator(c.provider, "k");
+    const { usage } = await meterUsage(() => generator.generateText(REQUEST));
+    expect(usage).toEqual([
+      expect.objectContaining({
+        provider: c.provider,
+        kind: "llm",
+        model: defaultModel(c.provider, "llm").id,
+        amount: { unit: "tokens", input: 1_200, output: 300 },
+      }),
+    ]);
+  });
+
+  it("records the tokens of a reply cut off by the output cap, which is still billed", async () => {
+    net.on("POST", c.host, c.path, () => jsonResponse({ ...(c.truncated as object), ...c.usage }));
+    const generator = await createTextGenerator(c.provider, "k");
+    const settled = await meterUsageSettled(() => generator.generateText(REQUEST));
+    expect("error" in settled).toBe(true);
+    expect(settled.usage.map((r) => r.amount)).toEqual([{ unit: "tokens", input: 1_200, output: 300 }]);
   });
 
   it("keeps thinking out of the reply text", async () => {

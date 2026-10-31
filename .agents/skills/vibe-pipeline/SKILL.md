@@ -117,6 +117,10 @@ vibe run pipeline.yaml -o pipeline-output --json
 Useful flags:
 
 - `--dry-run` validates the graph and shows upper-bound cost estimates.
+- On a real run each step reports `costUsd`: its metered provider usage
+  priced from the model catalog, or its upper-bound estimate (flagged
+  `costEstimated`) when nothing was metered. `budget.costUsd` counts these,
+  including what failed steps were billed.
 - `--resume` skips completed checkpointed steps.
 - `--budget-usd`, `--budget-tokens`, `--max-errors` override or extend the
   manifest budget.

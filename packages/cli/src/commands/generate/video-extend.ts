@@ -9,7 +9,8 @@ import type { Command } from "commander";
 import chalk from "chalk";
 import { executeVideoExtend } from "../ai-video.js";
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
-import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, lookupCostEstimateUpperBound, providerFailure, usageError } from "../output.js";
+import { upperBoundCost } from "../_shared/actual-cost.js";
 import { validateOutputPath } from "../validate.js";
 import { defaultOutputPath } from "../_shared/default-output.js";
 
@@ -85,9 +86,14 @@ export function registerVideoExtendCommand(parent: Command): void {
           : undefined;
 
       if (isJsonMode()) {
+        // Billed once the extension is accepted, whether or not we wait for it.
+        const cost = upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, provider);
         outputSuccess({
           command: "generate video-extend",
           startedAt,
+          costUsd: cost.costUsd,
+          costEstimated: cost.estimated,
+          warnings: cost.warnings,
           data: {
             provider,
             jobId: record?.id,

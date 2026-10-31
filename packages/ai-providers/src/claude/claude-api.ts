@@ -11,6 +11,7 @@
 import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { parseJsonReply } from "../shared/json-reply.js";
+import { recordTokenUsage } from "../usage/meter.js";
 
 const PROVIDER = "claude";
 
@@ -34,6 +35,25 @@ export interface ClaudeApiParams {
 export interface ClaudeApiResponse {
   content?: Array<{ type: string; text?: string }>;
   stop_reason?: string;
+  usage?: ClaudeUsage;
+}
+
+/** The token counts a Messages reply bills. */
+export interface ClaudeUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+/**
+ * Record a Messages reply's tokens. Prompt caching is never requested, so
+ * cache tokens are normally absent; when present they count as input.
+ */
+export function recordClaudeUsage(model: string, usage: ClaudeUsage | undefined): void {
+  if (!usage) return;
+  const input = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
+  recordTokenUsage(PROVIDER, model, input, usage.output_tokens ?? 0);
 }
 
 /**
@@ -79,6 +99,7 @@ export async function callClaude(
   );
 
   const data = (await response.json()) as ClaudeApiResponse;
+  recordClaudeUsage(params.model, data.usage);
   if (data.stop_reason === "refusal") {
     throw new ProviderError({ kind: "moderation", provider: PROVIDER, message: `${params.model} declined the request.` });
   }
