@@ -87,6 +87,7 @@ So one default 5 s std clip costs about $0.42 on v3, and the cheapest Kling 4.0 
 - No cancel endpoint; `KlingProvider` has no `cancelVideoJob`.
 - `video-extend` support per model was not verified; the capability map does not list it for v2.5+ models.
   VibeFrame refuses to extend a 4.0 or 3.0 Turbo job (`unsupported`).
+- Probe 2026-10-31 (live, approved, no charge): `vibe generate video -p kling --kling-model 4.0 -d 3 --resolution 720p` with our single API key reached `POST /text-to-video/kling-4.0` on `api-singapore.klingai.com`, passed auth, and was refused with HTTP 429 "Account balance not enough", which we classify as `quota` (exit 5, not retryable). So the path, host, and Bearer auth are right; a successful 4.0 generation is still unverified because the account has no balance. The docs banner says 4.0 needs the Flagship Resource Pack or a topped-up balance. The dry run prices the same request at $0.471.
 - Not verified: whether `/v1/videos/*` answers on `api-singapore.klingai.com` for a paid generation (only list endpoints were probed there), and whether the new API accepts a `data:` URI prefix.
 
 ## In our code
