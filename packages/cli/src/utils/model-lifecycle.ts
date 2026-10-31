@@ -26,10 +26,15 @@ const VIDEO_MODEL_FLAG: Record<string, keyof VideoModelFlags> = {
   runway: "runwayModel",
 };
 
+/** The model flag value given for a video provider (`klingModel` for kling), if any. */
+export function videoModelFlag(provider: string, flags: VideoModelFlags): string | undefined {
+  const flag = VIDEO_MODEL_FLAG[provider];
+  return flag ? flags[flag] : undefined;
+}
+
 /** The catalog model a video provider will call, given the command's model flags. */
 export function videoModelSpec(provider: string, flags: VideoModelFlags): ModelSpec | undefined {
-  const flag = VIDEO_MODEL_FLAG[provider];
-  return findModel(provider, "video", flag ? flags[flag] : undefined);
+  return findModel(provider, "video", videoModelFlag(provider, flags));
 }
 
 /**

@@ -23,7 +23,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { ApiKeyError } from "../utils/api-key.js";
-import { videoModelSpec } from "../utils/model-lifecycle.js";
+import { videoModelFlag, videoModelSpec } from "../utils/model-lifecycle.js";
 import {
   fileToUrlOrDataUri,
   jobFromTaskId,
@@ -134,7 +134,9 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     }
     const request: VideoRequest = {
       prompt: options.prompt,
-      model: videoModelSpec(provider, options)?.id,
+      // An unknown alias goes to the provider as given, which refuses it
+      // (invalid-request) instead of silently running its default model.
+      model: videoModelSpec(provider, options)?.id ?? videoModelFlag(provider, options),
       durationSec: options.duration ?? 5,
       aspectRatio: (options.ratio ?? "16:9") as VideoRequest["aspectRatio"],
       resolution: options.resolution,

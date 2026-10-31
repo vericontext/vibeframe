@@ -58,6 +58,14 @@ describe("video executors over the provider network", () => {
     expect(net.to("api.imgbb.com")).toHaveLength(1);
   });
 
+  it("refuses an unknown model alias instead of running the provider's default", async () => {
+    const result = await executeVideoGenerate({ prompt: "p", provider: "kling", klingModel: "v9", wait: false });
+
+    expect(result).toMatchObject({ success: false, errorKind: "invalid-request" });
+    expect(result.error).toContain('Unknown kling video model "v9"');
+    expect(net.requests).toHaveLength(0);
+  });
+
   it("never fetches an image URL for an inline-only provider", async () => {
     process.env.GOOGLE_API_KEY = "test-google";
 
