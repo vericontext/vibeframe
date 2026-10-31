@@ -4,7 +4,7 @@ import { resolve, basename } from "node:path";
 import chalk from "chalk";
 import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
-import { exitWithError, generalError, log, outputSuccess, spinner as createSpinner } from "./output.js";
+import { exitWithError, failureFromError, generalError, log, outputSuccess, spinner as createSpinner } from "./output.js";
 import { validateOutputPath } from "./validate.js";
 import { applyTiers } from "./_shared/cost-tier.js";
 
@@ -326,8 +326,7 @@ detectCommand
       });
     } catch (error) {
       spinner.fail("Scene detection failed");
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Scene detection failed: ${msg}`));
+      exitWithError(failureFromError(error, "Scene detection failed", { fallback: "general" }));
     }
   });
 
@@ -411,8 +410,7 @@ detectCommand
       });
     } catch (error) {
       spinner.fail("Silence detection failed");
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Silence detection failed: ${msg}`));
+      exitWithError(failureFromError(error, "Silence detection failed", { fallback: "general" }));
     }
   });
 
@@ -489,8 +487,7 @@ detectCommand
       });
     } catch (error) {
       spinner.fail("Beat detection failed");
-      const msg = error instanceof Error ? error.message : String(error);
-      exitWithError(generalError(`Beat detection failed: ${msg}`));
+      exitWithError(failureFromError(error, "Beat detection failed", { fallback: "general" }));
     }
   });
 

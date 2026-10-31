@@ -7,6 +7,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { isProviderError } from "@vibeframe/ai-providers";
 import { ApiKeyError } from "../utils/api-key-error.js";
+import { InputError } from "./validate.js";
 import { writeStdout } from "../utils/stdout-guard.js";
 
 // ── Exit Codes ───────────────────────────────────────────────────────────
@@ -120,6 +121,7 @@ export function providerFailure(message: string, kind?: string): StructuredError
  *
  * - `ApiKeyError` (a provider key is not configured) → `API_KEY_MISSING`,
  *   exit 4, with the "Set X in .env, or run: vibe setup" suggestion.
+ * - `InputError` (a validator rejected user input) → `USAGE_ERROR`, exit 2.
  * - `ProviderError` → {@link providerFailure} by its `kind`.
  * - anything else → `apiError` (default) or `generalError` (`fallback: "general"`
  *   for local work such as FFmpeg).
@@ -134,6 +136,8 @@ export function failureFromError(
   options: { retryable?: boolean; fallback?: "api" | "general" } = {}
 ): StructuredError {
   if (error instanceof ApiKeyError) return error.toStructured();
+  // Bad input is the caller's to fix, not a provider failure to retry.
+  if (error instanceof InputError) return usageError(error.message);
   const message = error instanceof Error ? error.message : String(error);
   const text = prefix ? `${prefix}: ${message}` : message;
   if (isProviderError(error)) return providerFailure(text, error.kind);

@@ -384,7 +384,7 @@ aiCommand
       console.log(`Output: ${chalk.green(result.outputPath!)}`);
       console.log();
     } catch (error) {
-      exitWithError(generalError(`Noise reduction failed: ${error instanceof Error ? error.message : String(error)}`));
+      exitWithError(failureFromError(error, "Noise reduction failed", { fallback: "general" }));
     }
   });
 
@@ -481,7 +481,7 @@ aiCommand
       console.log(`Output: ${chalk.green(result.outputPath!)}`);
       console.log();
     } catch (error) {
-      exitWithError(generalError(`Fade failed: ${error instanceof Error ? error.message : String(error)}`));
+      exitWithError(failureFromError(error, "Fade failed", { fallback: "general" }));
     }
   });
 
