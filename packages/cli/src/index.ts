@@ -48,6 +48,7 @@ import { ApiKeyError } from "./utils/api-key.js";
 import { isFirstRun, showFirstRunBanner, markBannerShown } from "./utils/first-run.js";
 import { exitWithError, failureFromError, isJsonMode, isQuietMode, usageError } from "./commands/output.js";
 import { isProviderError } from "@vibeframe/ai-providers";
+import { InputError } from "./commands/validate.js";
 import { reserveStdout } from "./utils/stdout-guard.js";
 import { rejectControlChars } from "./utils/input-validation.js";
 import { buildSchema } from "./commands/schema.js";
@@ -424,7 +425,7 @@ if (process.argv.length <= 2) {
       // A missing key or a provider failure that a command did not catch
       // still exits with its structured error (code, kind, exit code)
       // instead of a stack trace.
-      if (err instanceof ApiKeyError || isProviderError(err)) {
+      if (err instanceof ApiKeyError || err instanceof InputError || isProviderError(err)) {
         exitWithError(failureFromError(err));
       }
       throw err;

@@ -7,6 +7,19 @@
 import { resolve, relative, isAbsolute } from "node:path";
 
 /**
+ * Bad user input caught by a validator (a path outside the working
+ * directory, a malformed ID, control characters). `failureFromError` maps it
+ * to a usage error (exit 2), so a command's catch-all never reports it as a
+ * retryable provider failure.
+ */
+export class InputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InputError";
+  }
+}
+
+/**
  * Validate and resolve an output path.
  * Prevents path traversal attacks (e.g., --output ../../etc/passwd).
  * Absolute paths are allowed (explicit user intent), but relative paths
@@ -22,7 +35,7 @@ export function validateOutputPath(path: string, cwd = process.cwd()): string {
   const resolved = resolve(cwd, path);
   const rel = relative(cwd, resolved);
   if (rel.startsWith("..")) {
-    throw new Error(
+    throw new InputError(
       `Output path "${path}" escapes the working directory. Use a path within "${cwd}".`
     );
   }
@@ -36,12 +49,12 @@ export function validateOutputPath(path: string, cwd = process.cwd()): string {
 export function validateResourceId(id: string): string {
   rejectControlChars(id);
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-    throw new Error(
+    throw new InputError(
       `Invalid resource ID "${id}". Only alphanumeric characters, hyphens, and underscores are allowed.`
     );
   }
   if (id.length > 128) {
-    throw new Error(`Resource ID too long (max 128 characters).`);
+    throw new InputError(`Resource ID too long (max 128 characters).`);
   }
   return id;
 }
@@ -53,7 +66,7 @@ export function validateResourceId(id: string): string {
 export function rejectControlChars(input: string): string {
   // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1f\x7f-\x9f]/.test(input)) {
-    throw new Error("Input contains invalid control characters.");
+    throw new InputError("Input contains invalid control characters.");
   }
   return input;
 }
