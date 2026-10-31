@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import { COST_ESTIMATES } from "./output.js";
 import { pipelineActionMetadata } from "../pipeline/executor.js";
+import { getCommandKeyMap } from "@vibeframe/ai-providers";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -80,6 +81,23 @@ describe("command names", () => {
       .map((entry) => entry.path.replace(".", " "))
       .filter((path) => !(path in COST_ESTIMATES));
     expect(unpriced).toEqual([]);
+  });
+
+  it("every command `vibe doctor` lists for a key names a real command", () => {
+    // Entries are a command path, optionally followed by flags or a note: "generate video -p kling".
+    const stale = Object.values(getCommandKeyMap())
+      .flat()
+      .filter((entry) => !namesCommand(entry.replace(/ \(.*\)$/, "")));
+    expect(stale).toEqual([]);
+  });
+
+  it("every command `vibe setup` suggests trying names a real command", () => {
+    const source = readFileSync(join(here, "setup.ts"), "utf-8");
+    const suggested = [...source.matchAll(/tryCommand:\s*'vibe ([^']+)'/g)].map((match) => match[1]);
+    expect(suggested.length).toBeGreaterThan(0);
+    // "generate narration \"Hello world\" -o hello.mp3": the first two words are the command.
+    const stale = suggested.filter((line) => !commands.has(line.split(" ").slice(0, 2).join(" ")) && !commands.has(line.split(" ")[0]));
+    expect(stale).toEqual([]);
   });
 
   it("every --json envelope names a real command", () => {

@@ -14,10 +14,9 @@ defineProvider({
   apiKey: "anthropic",
   kinds: ["llm"],
   commandsUnlocked: [
-    "generate storyboard",
     "generate motion",
-    "edit grade",
-    "edit reframe",
+    "edit grade --style",
+    "edit reframe --focus auto",
     "edit speed-ramp",
   ],
 });

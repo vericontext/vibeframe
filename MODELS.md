@@ -157,7 +157,7 @@ Grok Imagine supports 14 aspect ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:
 
 ## Text-to-Video (5 providers)
 
-> Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate speech` / `vibe generate sound-effect`.
+> Models marked **Audio: Yes** generate synchronized sound (dialogue, SFX, ambient). Silent models need separate `vibe generate narration` / `vibe generate sound-effect`.
 
 Models, durations, and prices are in the catalog above.
 Provider keys: Seedance `FAL_API_KEY`, Grok `XAI_API_KEY`, Kling `KLING_API_KEY`, Omni `GOOGLE_API_KEY`, Runway `RUNWAY_API_SECRET`.
@@ -252,7 +252,7 @@ export REPLICATE_API_TOKEN="..."      # Replicate (music)
 | `vibe generate image -p openai` | `OPENAI_API_KEY` | OpenAI image generation |
 | `vibe generate image -p gemini` | `GOOGLE_API_KEY` | Gemini image generation |
 | `vibe edit image` | `GOOGLE_API_KEY` | Gemini Nano Banana |
-| `vibe generate speech` | `ELEVENLABS_API_KEY` | ElevenLabs |
+| `vibe generate narration` | `ELEVENLABS_API_KEY`, `GOOGLE_API_KEY`, or `OPENAI_API_KEY` (Kokoro needs none) | ElevenLabs, Gemini, OpenAI, Kokoro |
 | `vibe generate music` | `ELEVENLABS_API_KEY` | ElevenLabs Music (default) |
 | `vibe generate music -p replicate` | `REPLICATE_API_TOKEN` | Replicate MusicGen |
 | `vibe generate video -p seedance` | `FAL_API_KEY` | Seedance via fal.ai |

@@ -382,7 +382,7 @@ const AI_FEATURES: AIFeature[] = [
         },
       },
     ],
-    tryCommand: 'vibe generate speech "Hello world" -o hello.mp3',
+    tryCommand: 'vibe generate narration "Hello world" -o hello.mp3',
   },
   {
     label: "AI editing + motion",
