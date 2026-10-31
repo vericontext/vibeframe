@@ -72,9 +72,9 @@ Prices are upper-bound list prices for estimates, not metered billing.
 | elevenlabs | ElevenLabs Flash v2.5 | `eleven_flash_v2_5` | `flash` | GA | $0.04 / 1K characters | 40,000 characters; lowest latency |
 | gemini | **Gemini 3.8 Flash TTS** (default) | `gemini-3.8-flash-tts` | `flash` | GA | $0.0135 / minute (audio out until 2026-12-31, then $0.027) | WAV; 30 prebuilt voices, style directions; 130+ languages |
 | gemini | Gemini 3.8 Flash-Lite TTS | `gemini-3.8-flash-lite-tts` | `lite`, `flash-lite` | GA | $0.009 / minute (audio out until 2026-12-31, then $0.018) | Cheaper and faster; 100+ languages |
-| openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06 |  |  |
-| openai | TTS-1 | `tts-1` |  | Deprecated, shuts down 2027-01-06 | $0.015 / 1K characters |  |
-| openai | TTS-1 HD | `tts-1-hd` |  | Deprecated, shuts down 2027-01-06 | $0.03 / 1K characters |  |
+| openai | **GPT-4o mini TTS** (default) | `gpt-4o-mini-tts` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` |  |  |
+| openai | TTS-1 | `tts-1` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` | $0.015 / 1K characters |  |
+| openai | TTS-1 HD | `tts-1-hd` |  | Deprecated, shuts down 2027-01-06; use `--tts gemini`, `elevenlabs`, or `kokoro` | $0.03 / 1K characters |  |
 | kokoro | **Kokoro 82M** (default) | `onnx-community/Kokoro-82M-v1.0-ONNX` | `kokoro` | GA | $0 / 1K characters | Runs locally; ~90 MB download on first use |
 
 ### Music

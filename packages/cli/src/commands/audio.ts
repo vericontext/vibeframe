@@ -103,6 +103,7 @@ audioCommand
       outputSuccess({
         command: "audio transcribe",
         startedAt,
+        warnings: result.warnings,
         data: {
           provider: result.provider,
           fullText: result.text,

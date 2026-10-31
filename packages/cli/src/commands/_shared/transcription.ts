@@ -22,6 +22,7 @@ import { basename } from "node:path";
 import {
   TRANSCRIBER_PROVIDERS,
   createTranscriber,
+  findModel,
   getProvidersFor,
   isProviderError,
   type ProviderErrorKind,
@@ -30,7 +31,8 @@ import {
   type TranscriptResult,
 } from "@vibeframe/ai-providers";
 import { ApiKeyError, getConfiguredApiKey, requireApiKey } from "../../utils/api-key.js";
-import { exitWithError, usageError } from "../output.js";
+import { exitWithError, printWarnings, usageError } from "../output.js";
+import { retiringModelWarnings } from "../../utils/model-lifecycle.js";
 
 /** `--stt` values. `"auto"` picks by configured keys. */
 export const STT_PROVIDER_NAMES = ["auto", ...TRANSCRIBER_PROVIDERS] as const;
@@ -156,7 +158,7 @@ export interface TranscribeFileOptions extends SttResolution {
 export async function transcribeAudioFile(
   path: string,
   options: TranscribeFileOptions
-): Promise<TranscriptResult & { errorKind?: ProviderErrorKind }> {
+): Promise<TranscriptResult & { errorKind?: ProviderErrorKind; warnings?: string[] }> {
   try {
     const transcriber = await createTranscriber(options.provider, options.apiKey);
     const audio = new Uint8Array(await readFile(path));
@@ -168,6 +170,11 @@ export async function transcribeAudioFile(
       language: options.language,
       granularity: options.granularity,
     });
+    // A retiring model (whisper-1) still works; say so on every command
+    // that transcribes, on stderr in human mode and in `warnings` for callers
+    // that put it in their envelope.
+    const warnings = retiringModelWarnings(findModel(options.provider, "transcription"));
+    printWarnings(warnings);
     return {
       id: `transcript-${Date.now()}`,
       status: "completed",
@@ -175,6 +182,7 @@ export async function transcribeAudioFile(
       detectedLanguage: transcript.language,
       segments: transcript.segments,
       words: transcript.words,
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
   } catch (error) {
     return {
