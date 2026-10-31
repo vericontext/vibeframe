@@ -1,13 +1,13 @@
 ---
 provider: kling
-checked: 2026-10-17
+checked: 2026-10-31
 env: [KLING_API_KEY]
 models_endpoint: none
 models_in_use:
   - kling-v3                    # default
   - kling-v2-6                  # `--kling-model v2.6`
   - kling-v2-5-turbo            # `--kling-model v2.5-turbo`
-models_recommended: []          # kling-3.0-turbo needs the new API and a single API key
+models_recommended: []          # kling-4.0 and kling-3.0-turbo need the new API (path-named model, API key)
 ---
 
 # Kling
@@ -22,13 +22,13 @@ Prices are list price at 1 Unit = $0.14, per second of output (docs).
 
 | ID | Kind | Status | Price | Notes |
 |---|---|---|---|---|
-| Kling 4.0 / 4.0 Flash | video | not in API | - | No API model ID in the official docs or API updates log as of 2026-10-04 (docs). Third-party coverage says 4.0 Flash opened to limited consumer users on 2026-09-28 and full 4.0 lands in October (secondary). |
+| `kling-4.0` | t2v, i2v, omni (reference, editing, voice) | GA (docs banner "Kling 4.0 API Is Now Officially Live", checked 2026-10-31) | No input video: $0.157/s 720p, $0.235/s 1080p. With input video: $0.094/s 720p, $0.141/s 1080p, billed on output x 2 (input <= output) or input + output (input > output). No 4K (docs) | **New API only, no `model_name`:** the model is in the path: `POST /text-to-video/kling-4.0`, `/image-to-video/kling-4.0`, `/omni-video/kling-4.0`; API Key (Bearer) auth only. Body is `contents` (typed items: `prompt`, `first_frame`, `middle_frame`, `last_frame`, `refer_image`, `feature_video`, `base_video`, `element`, `voice`, referenced in the prompt as `@id`), `settings` (`resolution` 720p/1080p, default 1080p; `aspect_ratio` 21:9, 16:9, 9:16, 1:1 or `adaptive` (default); `duration` 3-30 s, default 10), `options` (`callback_url`, `external_task_id`, `watermark_info`). Up to 10 images, 5 reference videos (3-30 s, 700-4553 px, 24-60 fps in, 24 fps out), 7 Elements, 3 voices, 15 inputs total. Prompt up to 26,000 English characters. Results come from the shared `GET /tasks?task_ids=` (with `usage.input_duration` and `billing`), kept 30 days (docs). |
 | `kling-3.0-turbo` | t2v, i2v | GA 2026-06-17 | $0.112/s 720p, $0.14/s 1080p, audio included | New API only (path `/text-to-video/kling-3.0-turbo`), API Key auth only, 3-15 s, first frame only (docs). |
 | `kling-v3` | t2v, i2v | GA 2026-02-25 | $0.084/s std, $0.112/s pro, $0.126-0.168/s with audio, $0.42/s 4k | 3-15 s, multi-shot (up to 6), native audio, 4k mode (docs). |
 | `kling-v3-omni` | omni video | GA 2026-02-25 | $0.084-0.168/s, $0.42/s 4k | Only on `/v1/videos/omni-video` (legacy) or the new omni path, not on `text2video`/`image2video` (docs). |
 | `kling-video-o1` | omni video | GA 2025-12 | $0.084-0.168/s | Default `model_name` of `/v1/videos/omni-video`; 3-10 s; no audio (docs). |
 | `kling-v2-6` | t2v, i2v | GA 2025-12 | $0.042/s 720p, $0.07/s 1080p, $0.14-0.168/s with audio | Native audio only at 1080p/pro (docs). |
-| `kling-v2-5-turbo` | t2v, i2v | GA 2025-09 | $0.042/s std, $0.07/s pro | **Our default.** Durations 5 or 10 only, no native audio (docs). |
+| `kling-v2-5-turbo` | t2v, i2v | GA 2025-09 | $0.042/s std, $0.07/s pro | Durations 5 or 10 only, no native audio (docs). |
 
 So one default 5 s std clip costs about $0.21 (docs).
 
@@ -93,7 +93,7 @@ So one default 5 s std clip costs about $0.21 (docs).
 2. Send raw Base64 (strip the `data:` prefix) instead of requiring an ImgBB upload; keep upload only as an option.
 3. Plan a migration to the new API (`/tasks`, `contents`/`settings`) now that single API keys work, which also unlocks `kling-3.0-turbo`.
 4. Stop sending `cfg_scale`; remove the unused `cameraControl` option or wire it to a model that documents it.
-5. Re-check for a Kling 4.0 API model ID after the October launch.
+5. Add Kling 4.0. It exists only on the new API (path-named model, `contents`/`settings`, `/tasks`), so it comes with item 3 rather than as a new `model_name`.
 
 ## Sources
 
@@ -112,5 +112,7 @@ All opened 2026-10-04.
 - https://kling.ai/document-api/api/video/2-5-turbo/image-to-video/legacy
 - https://kling.ai/document-api/api/video/2-5-turbo/text-to-video/legacy
 - https://kling.ai/document-api/api/video/o1/video-omni/legacy
-- https://www.atlascloud.ai/blog/tips/kling-4-flash-vs-full (secondary, Kling 4.0 status)
-- https://muapi.ai/kling-4 (secondary, Kling 4.0 API not live)
+- https://kling.ai/document-api/api/video/4-0/text-to-video (2026-10-31, read in Chrome: the docs render client-side)
+- https://kling.ai/document-api/api/video/4-0/video-omni (2026-10-31)
+- https://kling.ai/document-api/api/get-started/authentication (reopened 2026-10-31: API Key is "for all models", AK/SK only for the legacy design)
+- https://kling.ai/document-api/pricing/base/video (reopened 2026-10-31, Balance view for USD)
