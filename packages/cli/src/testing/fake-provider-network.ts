@@ -66,17 +66,26 @@ export const FAKE_WHISPER_TRANSCRIPT = {
   ],
 };
 
+/** Kling's API host (both API generations). */
+export const KLING_HOST = "api-singapore.klingai.com";
+
+/** A Kling success envelope: service code 0 around `data`. */
+export function klingResponse(data: unknown): Response {
+  return jsonResponse({ code: 0, message: "SUCCEED", request_id: "fake", data });
+}
+
 /**
  * Default happy-path routes for the providers a project build uses:
  * ElevenLabs (narration, music, Scribe transcription), Gemini narration,
  * OpenAI images and Whisper transcription, ImgBB uploads, fal
- * (Seedance queue protocol and storage uploads), Runway (submit and
- * polling), and a CDN for media downloads.
+ * (Seedance queue protocol and storage uploads), Runway and Kling (both
+ * Kling API generations: submit and polling), and a CDN for media downloads.
  */
 export function createFakeProviderNetwork(): FakeProviderNetwork {
   const net = new FakeProviderNetwork();
   let falRequests = 0;
   let runwayTasks = 0;
+  let klingTasks = 0;
   return net
     .on("GET", "fake.media", /.*/, (req) =>
       req.path.endsWith(".png") ? bytesResponse(FAKE_PNG, "image/png") : bytesResponse(FAKE_MP4, "video/mp4")
@@ -111,6 +120,30 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
       jsonResponse({ upload_url: "https://fake.media/fal-upload", file_url: "https://fake.media/fal-frame.png" })
     )
     .on("PUT", "fake.media", /^\/fal-upload$/, () => new Response(null, { status: 200 }))
+    // Kling legacy API: `/v1/videos/{type}` tasks, `succeed` on the first poll.
+    .on("POST", KLING_HOST, /^\/v1\/videos\/(text2video|image2video)$/, () =>
+      klingResponse({ task_id: `kling-${++klingTasks}`, task_status: "submitted" })
+    )
+    .on("GET", KLING_HOST, /^\/v1\/videos\/(text2video|image2video)\/[^/]+$/, (req) =>
+      klingResponse({
+        task_id: req.path.split("/").at(-1),
+        task_status: "succeed",
+        task_result: { videos: [{ id: "kling-video", url: "https://fake.media/kling.mp4", duration: "5" }] },
+      })
+    )
+    // Kling new API (4.0, 3.0 Turbo): model in the path, `succeeded` on the first `/tasks` poll.
+    .on("POST", KLING_HOST, /^\/(text|image)-to-video\/kling-[\w.-]+$/, () =>
+      klingResponse({ id: `kling-${++klingTasks}`, status: "submitted" })
+    )
+    .on("GET", KLING_HOST, /^\/tasks$/, (req) =>
+      klingResponse(
+        (new URL(req.url).searchParams.get("task_ids") ?? "").split(",").map((id) => ({
+          id,
+          status: "succeeded",
+          outputs: [{ type: "video", id: `${id}-video`, url: "https://fake.media/kling.mp4", duration: "5" }],
+        }))
+      )
+    )
     .on("POST", "api.dev.runwayml.com", /^\/v1\/(image|text)_to_video$/, () =>
       jsonResponse({ id: `runway-${++runwayTasks}` })
     )

@@ -23,7 +23,7 @@ import {
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { ApiKeyError } from "../utils/api-key.js";
-import { videoModelSpec } from "../utils/model-lifecycle.js";
+import { videoModelFlag, videoModelSpec } from "../utils/model-lifecycle.js";
 import {
   fileToUrlOrDataUri,
   jobFromTaskId,
@@ -114,6 +114,11 @@ export interface VideoGenerateResult {
   duration?: number;
   outputPath?: string;
   provider?: string;
+  /**
+   * The provider recorded the job's billed usage (`recordUsage`) when it
+   * accepted it, so callers report the metered cost instead of an estimate.
+   */
+  metered?: boolean;
   error?: string;
   errorKind?: ProviderErrorKind;
 }
@@ -122,6 +127,8 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
   const provider = (options.provider ?? resolveProvider("video")?.name ?? "seedance").toLowerCase();
   try {
     const generator = await openVideoGenerator(provider, options.apiKey);
+    // A provider that meters its submissions records what the job billed.
+    const metered = typeof generator.usageFor === "function";
     const references: MediaReference[] = [];
     for (const [kind, paths, mime] of [
       ["image", options.refImages, "image/png"],
@@ -134,7 +141,9 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     }
     const request: VideoRequest = {
       prompt: options.prompt,
-      model: videoModelSpec(provider, options)?.id,
+      // An unknown alias goes to the provider as given, which refuses it
+      // (invalid-request) instead of silently running its default model.
+      model: videoModelSpec(provider, options)?.id ?? videoModelFlag(provider, options),
       durationSec: options.duration ?? 5,
       aspectRatio: (options.ratio ?? "16:9") as VideoRequest["aspectRatio"],
       resolution: options.resolution,
@@ -150,7 +159,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     const job = await generator.submitVideo(request);
     await options.onSubmitted?.(job);
     if (options.wait === false) {
-      return { success: true, taskId: job.id, job, status: "processing", provider };
+      return { success: true, taskId: job.id, job, status: "processing", provider, metered };
     }
     let settled: Awaited<ReturnType<typeof settle>>;
     try {
@@ -158,7 +167,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     } catch (error) {
       // Running out of wait time is not a failure: the job may still finish.
       if (isProviderError(error) && error.kind === "timeout") {
-        return { success: true, taskId: job.id, job, status: "processing", provider };
+        return { success: true, taskId: job.id, job, status: "processing", provider, metered };
       }
       throw error;
     }
@@ -169,6 +178,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
         taskId: job.id,
         job,
         provider,
+        metered,
         status: state.status,
         error: state.error?.message ?? `${provider} generation ${state.status}`,
         errorKind: state.error?.kind,
@@ -183,6 +193,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       duration: state.durationSec,
       outputPath,
       provider,
+      metered,
     };
   } catch (error) {
     return { ...failure(error, "Video generation failed"), provider };

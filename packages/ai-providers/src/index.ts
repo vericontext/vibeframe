@@ -59,6 +59,8 @@ export {
   ModelRetiredError,
   assertModelServed,
   defaultModel,
+  describeDurations,
+  durationProblem,
   findModel,
   listModels,
   modelAliases,

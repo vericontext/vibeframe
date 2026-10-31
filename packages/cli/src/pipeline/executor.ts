@@ -279,8 +279,9 @@ async function ensureActionsRegistered(): Promise<void> {
       wait: true,
       apiKey: await apiKeyForProvider(providerKeyForVideo(provider)),
     });
-    // Video providers are not metered; same estimate as the CLI envelope.
-    const cost = r.success
+    // Same cost as the CLI envelope: a metered job (Kling) leaves the step's
+    // cost to its usage meter; other providers report the estimate.
+    const cost = r.success && !r.metered
       ? realRunCost(r.provider ?? provider ?? "seedance", {
           duration: params.duration !== undefined ? String(params.duration) : undefined,
           resolution: stringParam(params.resolution),

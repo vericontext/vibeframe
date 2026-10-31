@@ -27,7 +27,8 @@ import { createAndWriteJobRecord } from "../../commands/_shared/status-jobs.js";
 import { estimateImageCostUsd } from "../../commands/_shared/image-cost.js";
 import { upperBoundCost } from "../../commands/_shared/actual-cost.js";
 import { lookupCostEstimateUpperBound } from "../../commands/output.js";
-import { realRunCost } from "../../commands/generate/video.js";
+import { realRunCostFields } from "../../commands/generate/video.js";
+import { videoDurationChoices, videoModelChoices } from "../../utils/model-lifecycle.js";
 import { defaultOutputPath } from "../../commands/_shared/default-output.js";
 
 /** Without an `output`, a paid result is saved under the working directory. */
@@ -310,7 +311,7 @@ export const generateVideoTool = defineTool({
         "Video provider (default: seedance when FAL_API_KEY is configured, otherwise first configured provider). `omni` = Gemini Omni 1.1 Flash, uses GOOGLE_API_KEY."
       ),
     image: z.string().optional().describe("Reference image path for image-to-video"),
-    endImage: z.string().optional().describe("Ending frame image path for Seedance image-to-video"),
+    endImage: z.string().optional().describe("Ending frame image path for image-to-video (Seedance, Kling 4.0)"),
     refImages: z
       .array(z.string())
       .optional()
@@ -326,9 +327,9 @@ export const generateVideoTool = defineTool({
     duration: z
       .number()
       .optional()
-      .describe("Duration in seconds (default: 5; Seedance accepts 4-15)"),
+      .describe(`Duration in seconds (default: 5; Seedance accepts 4-15; Kling: ${videoDurationChoices("kling")})`),
     ratio: z.string().optional().describe("Aspect ratio: 16:9, 9:16, 1:1 (default: 16:9)"),
-    mode: z.string().optional().describe("Kling mode: std or pro"),
+    mode: z.string().optional().describe("Kling mode: std (720p) or pro (1080p); resolution wins"),
     negative: z.string().optional().describe("Negative prompt (Seedance/Kling)"),
     resolution: z
       .string()
@@ -340,7 +341,7 @@ export const generateVideoTool = defineTool({
       .optional()
       .describe("Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)"),
     grokModel: z.string().optional().describe("Grok video model: 1.5 (default), lite, classic"),
-    klingModel: z.string().optional().describe("Kling model: v3 (default), v2.6, v2.5-turbo"),
+    klingModel: z.string().optional().describe(`Kling model: ${videoModelChoices("kling")}. 4.0 and 3.0-turbo need a single API key, not an ACCESS:SECRET pair`),
     generateAudio: z
       .boolean()
       .optional()
@@ -371,8 +372,9 @@ export const generateVideoTool = defineTool({
         outputPath: output,
       });
     }
-    // Video providers are not metered; same estimate as the CLI envelope.
-    const cost = realRunCost(result.provider ?? args.provider ?? "seedance", {
+    // Same cost as the CLI envelope: a metered job (Kling) leaves costUsd to
+    // the dispatcher's usage meter; other providers report the estimate.
+    const cost = realRunCostFields(result.metered, result.provider ?? args.provider ?? "seedance", {
       duration: args.duration !== undefined ? String(args.duration) : undefined,
       resolution: args.resolution,
       ratio: args.ratio,
@@ -388,8 +390,7 @@ export const generateVideoTool = defineTool({
         duration: result.duration,
         outputPath: result.outputPath,
         provider: result.provider,
-        costUsd: cost.costUsd,
-        costEstimated: true,
+        ...(cost.costUsd !== undefined ? { costUsd: cost.costUsd, costEstimated: cost.costEstimated } : {}),
         jobId: job?.id,
         statusCommand: job
           ? `vibe status job ${job.id} --project ${job.projectDir} --json`

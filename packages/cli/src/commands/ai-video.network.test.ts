@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { FAKE_PNG, createFakeProviderNetwork, jsonResponse, type FakeProviderNetwork } from "../testing/fake-provider-network.js";
 import { executeVideoCancel, executeVideoExtend, executeVideoGenerate, executeVideoStatus } from "./ai-video.js";
 
-const KLING = "api.klingai.com";
+const KLING = "api-singapore.klingai.com";
 const kling = (data: Record<string, unknown>) => jsonResponse({ code: 0, message: "ok", request_id: "r", data });
 
 let net: FakeProviderNetwork;
@@ -56,6 +56,14 @@ describe("video executors over the provider network", () => {
     const submit = net.to(KLING).find((r) => r.method === "POST");
     expect(submit?.body).toMatchObject({ image: "https://fake.media/upload.png" });
     expect(net.to("api.imgbb.com")).toHaveLength(1);
+  });
+
+  it("refuses an unknown model alias instead of running the provider's default", async () => {
+    const result = await executeVideoGenerate({ prompt: "p", provider: "kling", klingModel: "v9", wait: false });
+
+    expect(result).toMatchObject({ success: false, errorKind: "invalid-request" });
+    expect(result.error).toContain('Unknown kling video model "v9"');
+    expect(net.requests).toHaveLength(0);
   });
 
   it("never fetches an image URL for an inline-only provider", async () => {

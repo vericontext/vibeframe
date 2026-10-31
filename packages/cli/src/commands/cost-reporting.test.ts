@@ -27,7 +27,7 @@ type Reporting =
 
 const COST_REPORTING: Record<string, { reporting: Reporting; how: string }> = {
   "generate image": { reporting: "estimate", how: "catalog price per image (estimateImageCostUsd); image providers are not metered" },
-  "generate video": { reporting: "estimate", how: "Seedance token estimate, else the tier bound (realRunCost)" },
+  "generate video": { reporting: "estimate", how: "Kling: metered seconds at the billed resolution (costUsd left undefined); Seedance token estimate; else the tier bound (realRunCostFields)" },
   "generate video-extend": { reporting: "estimate", how: "tier bound per extension" },
   "edit fill-gaps": { reporting: "estimate", how: "tier bound per generated gap" },
   "edit image": { reporting: "estimate", how: "catalog price per edited image" },

@@ -30,7 +30,11 @@ export interface ModelPrice {
   per: "image" | "second" | "minute" | "hour" | "1K characters" | "1M input tokens";
   /** Conditions the price assumes (quality, resolution, tier). */
   basis?: string;
-  /** Per-output-size prices, keyed by the size the API takes ("1K", "4K"); `usd` is the default size. */
+  /**
+   * Per-output-size prices, keyed by the size the CLI takes ("1K", "4K",
+   * "720p"); `usd` is the default size. Metered usage that names a size is
+   * priced at that size's rate.
+   */
   bySize?: Readonly<Record<string, number>>;
   /** USD per 1M output tokens, for token-priced models. Thinking and reasoning tokens bill as output. */
   outputUsd?: number;
@@ -65,6 +69,22 @@ export interface ModelSpec {
   price?: ModelPrice;
   /** One short line for MODELS.md. */
   note?: string;
+  /**
+   * Output lengths the model accepts, in whole seconds: an inclusive range,
+   * or the only values allowed. Commands validate `--duration` against it
+   * before any dry run or spend.
+   */
+  durationSec?: { min: number; max: number } | readonly number[];
+  /** Output resolutions the model accepts, as `--resolution` takes them ("720p", "1080p"). */
+  resolutions?: readonly string[];
+  /**
+   * Which of its provider's API generations serves the model, for providers
+   * that run two side by side. Kling: `legacy` is `/v1/videos/*` with a
+   * `model_name` field; `model-path` names the model in the path
+   * (`/text-to-video/kling-4.0`), is polled through `/tasks`, and takes only
+   * an API key.
+   */
+  api?: "legacy" | "model-path";
 }
 
 export const MODEL_CATALOG: readonly ModelSpec[] = [
@@ -106,9 +126,11 @@ export const MODEL_CATALOG: readonly ModelSpec[] = [
   { id: "grok-imagine-video-1.5", provider: "grok", kind: "video", label: "Grok Imagine Video 1.5", aliases: ["1.5"], default: true, status: "ga", price: { usd: 0.14, per: "second", basis: "720p" }, note: "1-15 s, native audio; 720p unless `--resolution` says otherwise" },
   { id: "grok-imagine-video-1.5-lite", provider: "grok", kind: "video", label: "Grok Imagine Video 1.5 Lite", aliases: ["lite", "1.5-lite"], status: "ga", price: { usd: 0.03, per: "second", basis: "720p" }, note: "1-15 s, native audio" },
   { id: "grok-imagine-video", provider: "grok", kind: "video", label: "Grok Imagine Video", aliases: ["classic"], status: "legacy", price: { usd: 0.05, per: "second", basis: "480p" }, note: "Previous generation; the only Grok model that edits and extends videos" },
-  { id: "kling-v3", provider: "kling", kind: "video", label: "Kling v3", aliases: ["v3"], default: true, status: "ga", price: { usd: 0.084, per: "second", basis: "std, silent" }, note: "3-15 s, multi-shot; `std` 720p, `pro` 1080p" },
-  { id: "kling-v2-6", provider: "kling", kind: "video", label: "Kling v2.6", aliases: ["v2.6"], status: "ga", price: { usd: 0.042, per: "second", basis: "std 720p" }, note: "5 or 10 s" },
-  { id: "kling-v2-5-turbo", provider: "kling", kind: "video", label: "Kling v2.5 Turbo", aliases: ["v2.5-turbo", "v2.5"], status: "ga", price: { usd: 0.042, per: "second", basis: "std" }, note: "5 or 10 s, no audio" },
+  { id: "kling-v3", provider: "kling", kind: "video", label: "Kling v3", aliases: ["v3"], default: true, status: "ga", api: "legacy", durationSec: { min: 3, max: 15 }, resolutions: ["720p", "1080p"], price: { usd: 0.084, per: "second", basis: "`std` 720p, silent", bySize: { "720p": 0.084, "1080p": 0.112 } }, note: "3-15 s, multi-shot; `std` 720p, `pro` 1080p" },
+  { id: "kling-4.0", provider: "kling", kind: "video", label: "Kling 4.0", aliases: ["4.0"], status: "ga", api: "model-path", durationSec: { min: 3, max: 30 }, resolutions: ["720p", "1080p"], price: { usd: 0.157, per: "second", basis: "720p, no input video", bySize: { "720p": 0.157, "1080p": 0.235 } }, note: "Opt-in; 3-30 s, native audio, first and last frame; needs a single API key, not an ACCESS:SECRET pair" },
+  { id: "kling-3.0-turbo", provider: "kling", kind: "video", label: "Kling 3.0 Turbo", aliases: ["3.0-turbo"], status: "ga", api: "model-path", durationSec: { min: 3, max: 15 }, resolutions: ["720p", "1080p"], price: { usd: 0.112, per: "second", basis: "720p, audio included", bySize: { "720p": 0.112, "1080p": 0.14 } }, note: "3-15 s, native audio, first frame only; needs a single API key, not an ACCESS:SECRET pair" },
+  { id: "kling-v2-6", provider: "kling", kind: "video", label: "Kling v2.6", aliases: ["v2.6"], status: "ga", api: "legacy", durationSec: [5, 10], resolutions: ["720p", "1080p"], price: { usd: 0.042, per: "second", basis: "`std` 720p, silent", bySize: { "720p": 0.042, "1080p": 0.07 } }, note: "5 or 10 s" },
+  { id: "kling-v2-5-turbo", provider: "kling", kind: "video", label: "Kling v2.5 Turbo", aliases: ["v2.5-turbo", "v2.5"], status: "ga", api: "legacy", durationSec: [5, 10], resolutions: ["720p", "1080p"], price: { usd: 0.042, per: "second", basis: "`std` 720p", bySize: { "720p": 0.042, "1080p": 0.07 } }, note: "5 or 10 s, no audio" },
   { id: "gen4.5", provider: "runway", kind: "video", label: "Runway Gen-4.5", default: true, status: "ga", price: { usd: 0.12, per: "second" }, note: "2-10 s, no audio" },
   { id: "gen4_turbo", provider: "runway", kind: "video", label: "Runway Gen-4 Turbo", status: "ga", price: { usd: 0.05, per: "second" }, note: "Image-to-video only, no audio" },
 
@@ -200,6 +222,27 @@ export class ModelRetiredError extends ProviderError {
 export function assertModelServed(spec: ModelSpec, now: Date = new Date()): void {
   const lifecycle = modelLifecycle(spec, now);
   if (lifecycle.state === "retired") throw new ModelRetiredError(lifecycle.message, spec);
+}
+
+/** A model's accepted output lengths as text ("3-30 s", "5 or 10 s"), or undefined when the catalog does not say. */
+export function describeDurations(spec: ModelSpec): string | undefined {
+  const d = spec.durationSec;
+  if (!d) return undefined;
+  if ("min" in d) return `${d.min}-${d.max} s`;
+  return `${d.slice(0, -1).join(", ")}${d.length > 1 ? " or " : ""}${d.at(-1)} s`;
+}
+
+/**
+ * Why `seconds` is not a length the model accepts, or undefined when it is
+ * (or the catalog does not say). Providers round to whole seconds, so 4.6
+ * counts as 5.
+ */
+export function durationProblem(spec: ModelSpec, seconds: number): string | undefined {
+  const d = spec.durationSec;
+  if (!d) return undefined;
+  const whole = Math.round(seconds);
+  const ok = "min" in d ? whole >= d.min && whole <= d.max : d.includes(whole);
+  return ok ? undefined : `${spec.label} (${spec.id}) accepts ${describeDurations(spec)}, not ${seconds} s.`;
 }
 
 /** CLI aliases for a provider and kind, in catalog order, for help and error text. */

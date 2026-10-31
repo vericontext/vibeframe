@@ -640,17 +640,17 @@ Cost tier: `very-high`
 - `apiKey` _(string)_ - API key (or set FAL_API_KEY / XAI_API_KEY / RUNWAY_API_SECRET / KLING_API_KEY / GOOGLE_API_KEY env)
 - `output` _(string)_ - Output file path (default: video.mp4, or the next free video-N.mp4)
 - `image` _(string)_ - Reference image for image-to-video
-- `duration` _(number)_ _(default: `5`)_ - Duration in seconds. Seedance accepts 4-15; Kling accepts 5 or 10.
+- `duration` _(number)_ _(default: `5`)_ - Duration in seconds. Seedance accepts 4-15; Kling: v3 3-15 s, 4.0 3-30 s, 3.0-turbo 3-15 s, v2.6 5 or 10 s, v2.5-turbo 5 or 10 s.
 - `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1)_ - Aspect ratio: 16:9, 9:16, or 1:1 (auto-detected from image if omitted)
 - `seed` _(number)_ - Random seed for reproducibility (Runway only)
-- `mode` _(string)_ _(default: `"std"`)_ - Generation mode: std or pro (Kling only)
+- `mode` _(string)_ _(default: `"std"`)_ - Generation mode: std (720p) or pro (1080p) (Kling only; --resolution wins)
 - `seedanceModel` _(string)_ _(default: `"quality"`)_ - Seedance variant: quality (2.0), fast, or 2.5 (fal.ai only)
 - `grokModel` _(string)_ _(default: `"1.5"`)_ - Grok video model: 1.5 (default), lite, classic
-- `klingModel` _(string)_ _(default: `"v3"`)_ - Kling model: v3 (default), v2.6, v2.5-turbo
+- `klingModel` _(string)_ _(default: `"v3"`)_ - Kling model: v3 (default), 4.0, 3.0-turbo, v2.6, v2.5-turbo
 - `negative` _(string)_ - Negative prompt - what to avoid (Seedance/Kling)
 - `resolution` _(string)_ - Video resolution: 480p, 720p, 1080p, or 4k depending on provider
-- `lastFrame` _(string)_ - Ending frame image for Seedance (same as --end-image)
-- `endImage` _(string)_ - Ending frame image for Seedance image-to-video
+- `lastFrame` _(string)_ - Ending frame image for Seedance or Kling 4.0 (same as --end-image)
+- `endImage` _(string)_ - Ending frame image for image-to-video (Seedance, Kling 4.0)
 - `refImages` _(string)_ - Reference images for Seedance reference-to-video
 - `refVideos` _(string)_ - Reference videos for Seedance reference-to-video
 - `refAudio` _(string)_ - Reference audio for Seedance reference-to-video
