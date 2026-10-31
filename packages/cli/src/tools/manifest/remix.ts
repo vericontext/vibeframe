@@ -11,7 +11,7 @@
  * beat against the storyboard the project already owns.
  */
 
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -133,11 +133,12 @@ export const pipelineRunTool = defineTool({
     }
 
     let resolvedPath = args.pipelinePath;
-    let tempPath: string | undefined;
+    let tempDir: string | undefined;
     if (args.pipelineYaml) {
-      tempPath = join(tmpdir(), `vibe-mcp-pipeline-${Date.now()}.yaml`);
-      await writeFile(tempPath, args.pipelineYaml, "utf-8");
-      resolvedPath = tempPath;
+      // A private, uniquely named dir: a guessable tmp path can be pre-created or symlinked.
+      tempDir = await mkdtemp(join(tmpdir(), "vibe-mcp-pipeline-"));
+      resolvedPath = join(tempDir, "pipeline.yaml");
+      await writeFile(resolvedPath, args.pipelineYaml, "utf-8");
     }
 
     try {
@@ -182,14 +183,7 @@ export const pipelineRunTool = defineTool({
         error: result.error,
       };
     } finally {
-      if (tempPath) {
-        try {
-          const { unlink } = await import("node:fs/promises");
-          await unlink(tempPath);
-        } catch {
-          // best-effort cleanup
-        }
-      }
+      if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
     }
   },
 });

@@ -9,7 +9,8 @@
  */
 
 import { existsSync } from "node:fs";
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { execSafe, commandExists } from "../../../utils/exec-safe.js";
@@ -157,8 +158,8 @@ export async function executeJumpCut(options: JumpCutOptions): Promise<JumpCutRe
   const stt = await resolveSttProvider(sttName, { apiKey });
 
   try {
-    const tmpDir = `/tmp/vibe_jumpcut_${Date.now()}`;
-    await mkdir(tmpDir, { recursive: true });
+    // A private, uniquely named dir: a guessable /tmp path can be pre-created or symlinked.
+    const tmpDir = await mkdtemp(join(tmpdir(), "vibe-jumpcut-"));
     const audioPath = join(tmpDir, "audio.wav");
 
     try {

@@ -10,8 +10,8 @@
  * @see MODELS.md for AI model configuration
  */
 
-import { resolve, dirname, basename } from "node:path";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { resolve, dirname, basename, join } from "node:path";
+import { writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { transcribeWithWords } from "./ai-edit.js";
@@ -288,8 +288,8 @@ export async function executeAnimatedCaption(
     const effectiveFontSize = fontSize ?? Math.round(height * 0.04);
 
     // 2. Extract audio
-    const tmpAudioDir = resolve(tmpdir(), `vf-ac-${Date.now()}`);
-    await mkdir(tmpAudioDir, { recursive: true });
+    // A private, uniquely named dir: a guessable tmp path can be pre-created or symlinked.
+    const tmpAudioDir = await mkdtemp(join(tmpdir(), "vibe-animated-caption-"));
     const audioPath = resolve(tmpAudioDir, "audio.wav");
 
     await execSafe("ffmpeg", [
