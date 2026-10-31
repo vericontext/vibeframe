@@ -106,7 +106,13 @@ export const generateNarrationTool = defineTool({
     if (!result.success) return failedTool(result, "Narration failed");
     return {
       success: true,
-      data: { outputPath: result.outputPath, characterCount: result.characterCount, provider: result.provider, model: result.model },
+      data: {
+        outputPath: result.outputPath,
+        characterCount: result.characterCount,
+        provider: result.provider,
+        model: result.model,
+        ...(result.warnings ? { warnings: result.warnings } : {}),
+      },
       humanLines: [`✅ Narration → ${result.outputPath}`],
     };
   },

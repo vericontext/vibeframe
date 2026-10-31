@@ -8,11 +8,12 @@
 import type { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import type { ProviderErrorKind } from "@vibeframe/ai-providers";
+import { findModel, type ProviderErrorKind } from "@vibeframe/ai-providers";
 import { hasTTY, prompt as promptText } from "../../utils/tty.js";
 import { writeAudioFile } from "../../utils/audio-file.js";
 import { defaultOutputPath } from "../_shared/default-output.js";
-import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, printWarnings, providerFailure, usageError } from "../output.js";
+import { retiringModelWarnings } from "../../utils/model-lifecycle.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { parseTtsProviderName, resolveTtsProvider } from "../_shared/tts-resolve.js";
 import { TTS_PROVIDER_KEYS, type TtsProviderName } from "../_shared/tts-providers.js";
@@ -41,6 +42,8 @@ export interface ExecuteSpeechResult {
   model?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** Non-fatal signals, e.g. the model's announced shutdown. */
+  warnings?: string[];
 }
 
 export async function executeSpeech(options: ExecuteSpeechOptions): Promise<ExecuteSpeechResult> {
@@ -65,7 +68,15 @@ export async function executeSpeech(options: ExecuteSpeechOptions): Promise<Exec
   const cwd = options.cwd ?? process.cwd();
   const outputPath = resolve(cwd, options.output || defaultOutputPath(`narration.${tts.audioExtension}`, 1, cwd));
   await writeAudioFile(outputPath, result.audioBuffer, tts.audioExtension);
-  return { success: true, outputPath, characterCount: result.characterCount, provider: tts.provider, model: result.model };
+  const warnings = retiringModelWarnings(findModel(tts.provider, "speech", result.model));
+  return {
+    success: true,
+    outputPath,
+    characterCount: result.characterCount,
+    provider: tts.provider,
+    model: result.model,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
 
 export function registerNarrationCommand(parent: Command): void {
@@ -126,6 +137,7 @@ export function registerNarrationCommand(parent: Command): void {
         outputSuccess({
           command: "generate narration",
           startedAt,
+          warnings: result.warnings,
           data: {
             provider: result.provider,
             model: result.model,
@@ -136,6 +148,7 @@ export function registerNarrationCommand(parent: Command): void {
         return;
       }
       spinner?.succeed(chalk.green(`Narration generated with ${result.provider} (${result.model})`));
+      printWarnings(result.warnings ?? []);
       console.log(chalk.dim(`Characters: ${result.characterCount}`));
       console.log(chalk.green(`Saved to: ${result.outputPath}`));
     });

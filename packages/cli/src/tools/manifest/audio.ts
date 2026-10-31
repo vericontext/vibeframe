@@ -46,6 +46,7 @@ export const audioTranscribeTool = defineTool({
         segmentCount: result.segments?.length,
         detectedLanguage: result.detectedLanguage,
         outputPath: result.outputPath,
+        ...(result.warnings ? { warnings: result.warnings } : {}),
       },
       humanLines: [
         `✅ Transcribed${result.outputPath ? ` → ${result.outputPath}` : ""}`,

@@ -59,6 +59,8 @@ export interface TranscribeResult {
   format?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** Non-fatal signals, e.g. the transcription model's announced shutdown. */
+  warnings?: string[];
 }
 
 export async function executeTranscribe(options: TranscribeOptions): Promise<TranscribeResult> {
@@ -93,6 +95,7 @@ export async function executeTranscribe(options: TranscribeOptions): Promise<Tra
       detectedLanguage: result.detectedLanguage,
       outputPath,
       format: fmt,
+      ...(result.warnings ? { warnings: result.warnings } : {}),
     };
   } catch (error) {
     return { success: false, error: `Transcription failed: ${error instanceof Error ? error.message : String(error)}` };

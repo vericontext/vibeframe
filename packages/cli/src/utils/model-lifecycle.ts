@@ -42,3 +42,14 @@ export function checkModelLifecycle(spec: ModelSpec | undefined, now: Date = new
   if (lifecycle.state === "retired") exitWithError(usageError(lifecycle.message));
   return lifecycle.state === "retiring" ? [lifecycle.message] : [];
 }
+
+/**
+ * The shutdown warning for a retiring model, without exiting. For executors
+ * that run inside the MCP server or a pipeline: a retired model is refused by
+ * the provider itself (ModelRetiredError), so only the warning is needed here.
+ */
+export function retiringModelWarnings(spec: ModelSpec | undefined, now: Date = new Date()): string[] {
+  if (!spec) return [];
+  const lifecycle = modelLifecycle(spec, now);
+  return lifecycle.state === "retiring" ? [lifecycle.message] : [];
+}
