@@ -14,7 +14,7 @@
  */
 
 import { Command } from "commander";
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { resolve, dirname, basename, extname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { existsSync } from "node:fs";
@@ -351,7 +351,7 @@ async function transcriptHighlights(absPath: string, isVideo: boolean, options: 
   const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.anthropicApiKey);
 
   let audioPath = absPath;
-  let tempAudioPath: string | undefined;
+  let tempDir: string | undefined;
   let sourceDuration = 0;
   try {
     if (isVideo) {
@@ -365,11 +365,12 @@ async function transcriptHighlights(absPath: string, isVideo: boolean, options: 
           progress.fail("Video has no audio track");
           return { failure: noAudioTrackError() };
         }
-        tempAudioPath = join(tmpdir(), `vibe_highlight_audio_${Date.now()}.wav`);
+        // A private directory (mode 0700, random name): no predictable path to race or symlink.
+        tempDir = await mkdtemp(join(tmpdir(), "vibe-highlights-"));
+        audioPath = join(tempDir, "audio.wav");
         await execSafe("ffmpeg", [
-          "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tempAudioPath, "-y",
+          "-i", absPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audioPath, "-y",
         ], { maxBuffer: 50 * 1024 * 1024 });
-        audioPath = tempAudioPath;
         sourceDuration = await ffprobeDuration(absPath);
       } catch (error) {
         progress.fail("Failed to extract audio");
@@ -405,7 +406,7 @@ async function transcriptHighlights(absPath: string, isVideo: boolean, options: 
     }
     return { highlights, sourceDuration };
   } finally {
-    if (tempAudioPath) await unlink(tempAudioPath).catch(() => undefined);
+    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
@@ -666,22 +667,24 @@ async function transcriptShortCandidates(absPath: string, targetDuration: number
   const claudeApiKey = await requireApiKey("ANTHROPIC_API_KEY", "Anthropic", options.anthropicApiKey);
 
   progress.start("Extracting audio...");
-  // In the temp dir, never next to the source: that folder may be read-only.
-  const tempAudio = join(tmpdir(), `vibe_shorts_audio_${Date.now()}.mp3`);
+  // A private directory (mode 0700, random name), never next to the source:
+  // no predictable path to race or symlink, and no user file to overwrite.
+  let tempDir: string | undefined;
   try {
     try {
       if (!(await ffprobeHasAudio(absPath))) {
         progress.fail("Video has no audio track");
         return noAudioTrackError();
       }
-      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", tempAudio, "-y"]);
+      tempDir = await mkdtemp(join(tmpdir(), "vibe-shorts-"));
+      await execSafe("ffmpeg", ["-i", absPath, "-vn", "-acodec", "libmp3lame", "-q:a", "2", join(tempDir, "audio.mp3"), "-y"]);
     } catch (error) {
       progress.fail("Failed to extract audio");
       return audioExtractionError(error);
     }
 
     progress.update("Transcribing audio...");
-    const transcript = await transcribeAudioFile(tempAudio, { ...stt, language: options.language });
+    const transcript = await transcribeAudioFile(join(tempDir, "audio.mp3"), { ...stt, language: options.language });
     if (transcript.status === "failed") {
       progress.fail("Transcription failed");
       return providerFailure(`Transcription failed: ${transcript.error}`, transcript.errorKind);
@@ -702,7 +705,7 @@ async function transcriptShortCandidates(absPath: string, targetDuration: number
     progress.succeed(`Found ${highlights.length} potential highlights`);
     return highlights;
   } finally {
-    await unlink(tempAudio).catch(() => undefined);
+    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

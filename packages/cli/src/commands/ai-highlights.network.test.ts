@@ -9,17 +9,29 @@
  * cannot drift apart again.
  */
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createFakeProviderNetwork, jsonResponse, type FakeProviderNetwork } from "../testing/fake-provider-network.js";
+import { FAKE_SCRIBE_TRANSCRIPT, createFakeProviderNetwork, jsonResponse, type FakeProviderNetwork } from "../testing/fake-provider-network.js";
 import { manifest } from "../tools/manifest/index.js";
 import { buildMcpDispatcher } from "../tools/adapters/mcp.js";
 import { registerHighlightsCommands } from "./ai-highlights.js";
+
+/**
+ * Where `os.tmpdir()` points for the code under test. TMPDIR cannot be used:
+ * Node reads it from the real environment, which `process.env = {...}`
+ * (the per-test reset) detaches from.
+ */
+const tempRoot = vi.hoisted(() => ({ dir: undefined as string | undefined }));
+vi.mock("node:os", async (importOriginal) => {
+  const real = await importOriginal<typeof import("node:os")>();
+  const tmpdir = () => tempRoot.dir ?? real.tmpdir();
+  return { ...real, default: { ...real, tmpdir }, tmpdir };
+});
 
 const ANTHROPIC = "api.anthropic.com";
 const GEMINI = "generativelanguage.googleapis.com";
@@ -93,6 +105,7 @@ beforeEach(() => {
 
 afterEach(() => {
   net?.uninstall();
+  tempRoot.dir = undefined;
   process.env = { ...savedEnv };
   vi.restoreAllMocks();
   if (dir) rmSync(dir, { recursive: true, force: true });
@@ -603,6 +616,44 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(envelope).toMatchObject({ success: true, highlights: 2, totalDuration: 3.7, outputPath: "<dir>/hl.json" });
     expect(files()).toEqual(["hl.json"]);
   });
+});
+
+describe.skipIf(!hasFfmpeg)("temp audio", () => {
+  const scribeRejects = () =>
+    net.on("POST", SCRIBE, /^\/v1\/speech-to-text$/, () =>
+      jsonResponse({ detail: { status: "invalid_api_key", message: "Invalid API key" } }, 401));
+
+  for (const [label, args] of [
+    ["remix highlights", ["highlights", "VIDEO"]],
+    ["remix auto-shorts", ["auto-shorts", "VIDEO", "--analyze-only"]],
+  ] as const) {
+    for (const outcome of ["success", "failure"] as const) {
+      it(`${label} extracts into a private temp dir and removes it on ${outcome}`, async () => {
+        useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
+        // Every temp file of the run lands here.
+        const temp = join(dir, "tmp");
+        mkdirSync(temp);
+        tempRoot.dir = temp;
+        const seen = new Set<string>();
+        net.on("POST", SCRIBE, /^\/v1\/speech-to-text$/, () => {
+          for (const entry of readdirSync(temp, { recursive: true })) seen.add(String(entry));
+          return jsonResponse(FAKE_SCRIBE_TRANSCRIPT);
+        });
+        if (outcome === "failure") scribeRejects();
+
+        const { exitCode } = await run(args.map((arg) => (arg === "VIDEO" ? video : arg)), { json: true });
+
+        expect(exitCode).toBe(outcome === "success" ? undefined : 4);
+        if (outcome === "success") {
+          // The audio sat in a randomly named directory, never at a fixed path.
+          expect([...seen].some((entry) => /^vibe-(highlights|shorts)-[^/]+\/audio\.(wav|mp3)$/.test(entry))).toBe(true);
+        }
+        expect(readdirSync(temp)).toEqual([]);
+        expect(readdirSync(fixtures).sort()).toEqual(["silent.mp4", "talk.mp4", "talk.wav"]);
+        expect(files()).toEqual(["tmp"]);
+      });
+    }
+  }
 });
 
 describe.skipIf(!hasFfmpeg)("the MCP tools", () => {
