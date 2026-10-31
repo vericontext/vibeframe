@@ -11,7 +11,7 @@
  * - Final output is always a standard H264 MP4.
  */
 
-import { writeFile, mkdir, rm, copyFile } from "node:fs/promises";
+import { writeFile, mkdir, mkdtemp, rm, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -89,8 +89,8 @@ export async function scaffoldRemotionProject(
     useMediaPackage?: boolean;
   },
 ): Promise<string> {
-  const dir = join(tmpdir(), `vibe_motion_${Date.now()}`);
-  await mkdir(dir, { recursive: true });
+  // A private, uniquely named dir: a guessable tmp path can be pre-created or symlinked.
+  const dir = await mkdtemp(join(tmpdir(), "vibe-motion-"));
 
   // package.json — remotion + react deps (pinned versions)
   const deps: Record<string, string> = {

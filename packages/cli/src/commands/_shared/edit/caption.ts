@@ -6,7 +6,8 @@
  */
 
 import { existsSync } from "node:fs";
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, basename, extname, join } from "node:path";
 import { getVideoDuration } from "../../../utils/audio.js";
 import { formatSRT } from "../../../utils/subtitle.js";
@@ -113,8 +114,8 @@ export async function executeCaption(options: CaptionOptions): Promise<CaptionRe
   const stt = await resolveSttProvider(sttName, { apiKey });
 
   try {
-    const tmpDir = `/tmp/vibe_caption_${Date.now()}`;
-    await mkdir(tmpDir, { recursive: true });
+    // A private, uniquely named dir: a guessable /tmp path can be pre-created or symlinked.
+    const tmpDir = await mkdtemp(join(tmpdir(), "vibe-caption-"));
     const audioPath = join(tmpDir, "audio.wav");
     const srtPath = join(tmpDir, "captions.srt");
 
