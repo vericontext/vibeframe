@@ -790,6 +790,8 @@ describe.skipIf(!hasFfmpeg)("vibe remix auto-shorts", () => {
     `);
     expect(net.to(WHISPER)).toHaveLength(1);
 
+    // Scribe for the human run: Whisper adds a dated shutdown warning.
+    useKeys({ ELEVENLABS_API_KEY: "xi-fake" });
     const human = await run(["auto-shorts", video, "--analyze-only"]);
     expect(human.human).toMatchInlineSnapshot(`
       "
