@@ -38,6 +38,7 @@ import { upperBoundCost } from "../../commands/_shared/actual-cost.js";
 import { lookupCostEstimateUpperBound } from "../../commands/output.js";
 import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 import { executeMotionOverlay } from "../../commands/edit/motion-overlay.js";
+import { MOTION_MODEL_CHOICES } from "../../commands/ai-motion.js";
 
 // ── edit_silence_cut ────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ export const editMotionOverlayTool = defineTool({
     duration: z.number().optional().describe("Overlay/render duration in seconds"),
     start: z.number().optional().describe("Overlay start time in seconds"),
     style: z.string().optional().describe("Style preset for generated overlays"),
-    model: z.enum(["sonnet", "opus", "gemini", "gemini-2.5-pro", "gemini-3.1-pro"]).optional().describe("LLM model for generated overlays"),
+    model: z.enum(MOTION_MODEL_CHOICES).optional().describe("LLM model for generated overlays"),
     understand: z.enum(["auto", "off", "required"]).optional().describe("Analyze video before generated overlay (default: auto)"),
     understandingPrompt: z.string().optional().describe("Custom prompt for video understanding"),
     position: z.enum(["full", "center", "top-left", "top-right", "bottom-left", "bottom-right"]).optional().describe("Lottie overlay position"),

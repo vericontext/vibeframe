@@ -11,7 +11,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import { TTS_PROVIDER_NAMES } from "../../commands/_shared/tts-providers.js";
-import { executeMotion } from "../../commands/ai-motion.js";
+import { executeMotion, MOTION_MODEL_CHOICES } from "../../commands/ai-motion.js";
 import {
   executeSpeech,
   executeSoundEffect,
@@ -68,7 +68,7 @@ export const generateMotionTool = defineTool({
       .optional()
       .describe("Custom prompt for video understanding when --video is provided"),
     model: z
-      .enum(["sonnet", "opus", "gemini", "gemini-2.5-pro", "gemini-3.1-pro"])
+      .enum(MOTION_MODEL_CHOICES)
       .optional()
       .describe("LLM model for code generation (default: sonnet)"),
     output: z.string().optional().describe("Output path (TSX if code-only, MP4 if rendered)"),

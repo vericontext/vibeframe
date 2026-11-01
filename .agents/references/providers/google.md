@@ -1,6 +1,6 @@
 ---
 provider: google
-checked: 2026-10-31
+checked: 2026-11-02
 env: [GOOGLE_API_KEY]
 models_endpoint: gemini
 models_in_use:
@@ -10,7 +10,7 @@ models_in_use:
   - gemini-3.6-flash            # `flash-3.6` alias
   - gemini-3.5-flash            # `flash-3.5` alias; deprecated 2026-10-08, routed to 3.6 Flash
   - gemini-2.5-flash            # `flash-2.5` alias; restricted for new projects since 2026-09-18
-  - gemini-2.5-pro              # `pro-2.5` alias, motion `gemini-2.5-pro`
+  - gemini-2.5-pro              # `pro-2.5` alias; no longer a suggested motion choice
   - gemini-3-flash-preview      # `flash-3` alias
   - gemini-nano-banana-2.1      # image default (`flash`, `latest`, `2.1`)
   - gemini-3.1-flash-image      # image `3.1-flash`; deprecated 2026-10-06, no shutdown date
@@ -75,7 +75,7 @@ Image sizes must use an uppercase `K`; lowercase such as `1k` is rejected (docs)
 | ID | Status | Price | Notes |
 |---|---|---|---|
 | `gemini-omni-1.1-flash` | GA 2026-08-27, no shutdown date (docs) | $1.50 in, $17.50 per 1M video out, about $0.10/s at 720p (docs) | Interactions API only. 3-10 s clips, 24 fps, `360p` `720p` (default) `1080p` `4k`; 1080p and 4K are upscaled (docs). Paid tier only (docs). |
-| `gemini-omni-flash-preview` | changelog says deprecated 2026-09-30 (docs) | same as GA (docs) | Not in the deprecations table, still listed (probe). Our `-p omni` uses it. |
+| `gemini-omni-flash-preview` | changelog says deprecated 2026-09-30 (docs) | same as GA (docs) | Not in the deprecations table, still listed (probe 2026-11-02). Not called; `-p omni` uses `gemini-omni-1.1-flash`. |
 | `veo-3.1-*` | shut down 2026-10-22, replacement Omni 1.1 Flash (docs) | - | Gone from `/models` by 2026-10-24 (probe). VibeFrame removed Veo in 0.116.0. |
 | `veo-3.0-*`, `veo-2.0-*` | shut down (previews 2025-11-12, GA 2026-06-30) (docs) | - | `veo-3.0-generate-preview` returns 404 (probe). |
 
@@ -157,36 +157,30 @@ Checked 2026-10-28 against the speech guide (last updated 2026-10-12), both mode
 
 ## In our code
 
-- `packages/ai-providers/src/gemini/gemini-text.ts` - the text contract (`generateText`, used by `storyboard revise`): `generationConfig.maxOutputTokens`, `responseMimeType: "application/json"` plus `responseJsonSchema` (plain JSON Schema), no `temperature`; drops `thought` parts; `MAX_TOKENS` is a cut-off reply, `SAFETY`/`blockReason` moderation. `responseJsonSchema` accepted on `gemini-3.8-flash` 2026-10-16 (probe).
-- `packages/ai-providers/src/gemini/gemini-models.ts:9-20` - text defaults: `gemini-3.5-flash` default, `gemini-2.5-flash` agent default, aliases `flash-3` -> `gemini-3-flash-preview`, `pro` -> `gemini-2.5-pro`, `pro-3.1` -> `gemini-3.1-pro-preview`.
-- `packages/ai-providers/src/gemini/gemini-motion.ts:55-66` - motion alias table; `:289` and `:408` call generateContent with `temperature` 0.8 and 0.5.
-- `packages/ai-providers/src/gemini/gemini-storyboard.ts:35-52` - storyboard call with `temperature` 0.7 or 1.0.
+Rewritten 2026-11-02 against the source.
+
+- Model IDs, aliases, defaults, and prices come from the catalog (`packages/ai-providers/src/catalog/catalog.ts`); nothing below hardcodes an ID.
+- `packages/ai-providers/src/gemini/gemini-models.ts` - text aliases and `GEMINI_TEXT_MODEL_HELP` are built from the catalog's Gemini LLM rows (the help lists GA and preview models only).
+- `packages/ai-providers/src/gemini/gemini-text.ts` - `geminiGenerateContent` and the text contract (`generateText`): key in `x-goog-api-key`, `maxOutputTokens`, `responseMimeType: "application/json"` plus `responseJsonSchema`, no `temperature`, 10 min default timeout; drops `thought` parts; `MAX_TOKENS` is a cut-off reply, `SAFETY`/`blockReason` moderation.
+- `packages/ai-providers/src/gemini/gemini-motion.ts` and `gemini-storyboard.ts` - motion and storyboard calls through `geminiGenerateContent` with a 16,384-token output cap.
 - `packages/ai-providers/src/gemini/GeminiProvider.ts`:
-  - `:26`, `:189-197` - image model map; `flash` (default) -> `gemini-2.5-flash-image`, `3.1-flash`/`latest` -> `gemini-3.1-flash-image-preview`, `pro` -> `gemini-3-pro-image-preview`.
-  - `createImage` - the image contract for generation and edits (input images ride along as inline parts).
-  - `:914-1058` - `analyzeVideo`, inline base64 video, `temperature: 0.4`.
-  - `:1060-1168` - `analyzeImage`, `temperature: 0.4`.
-  - `:1170-1270` - `autoEdit`, `temperature: 0.3`.
-- `packages/ai-providers/src/gemini/gemini-omni.ts:24-131` - Omni client on `/v1beta/interactions` with `gemini-omni-flash-preview`, body `inputs` + `generation_config.video_config.{task,aspect_ratio}`, looks for an http URL in the response.
-- `packages/cli/src/commands/generate/image.ts:301-345` and `packages/cli/src/commands/ai-image.ts:108-121` - image generation with fallback from `latest`/`3.1-flash` to `flash`.
-- `packages/cli/src/commands/edit-cmd.ts:699`, `:777-800` - image edit model names and the same fallback.
-- `packages/cli/src/commands/ai-motion.ts:63-71` - `gemini-2.5-pro` and `gemini-3.1-pro` -> `gemini-3.1-pro-preview`.
-- Video review and analysis via `analyzeVideo`: `packages/cli/src/commands/ai-review.ts:125-228`, `packages/cli/src/commands/ai-analyze.ts:94-262`, `packages/cli/src/commands/ai-highlights.ts:209`, `:501`, `:799`, `:1150`, `packages/cli/src/commands/inspect.ts:359`, `packages/cli/src/commands/_shared/render-inspect.ts:715`, `:910`.
-- `packages/ai-providers/src/gemini/gemini-tts.ts` - the speech contract on `/v1beta/interactions`: key in `x-goog-api-key`, `store: false`, WAV at 24 kHz requested; decodes WAV or L16 items to PCM, splits text at 4,000 characters, joins chunks into one WAV; `incomplete` without audio reads as moderation. Voices validated against the 30 prebuilt names plus `voice_`/`voicekey_` IDs.
+  - `createImage` - the image contract for generation and edits; the model comes from the catalog (`flash` is Nano Banana 2.1), and `GEMINI_IMAGE_CAPABILITIES` holds sizes, Search grounding, and input limits per GA model.
+  - `analyzeVideo` / `analyzeImage` - inline base64 bytes, a Files API URI, or a YouTube URL; 8,192-token output cap.
+  - `autoEdit` - no fallback model.
+- `packages/ai-providers/src/gemini/gemini-omni.ts` - Omni 1.1 Flash on `/v1beta/interactions`: typed `input` items, `response_format` for video, `background: true` plus polling `GET /interactions/{id}`, the video `uri` read from `steps[]`, and `previous_interaction_id` for edits and extensions.
+- `packages/ai-providers/src/gemini/gemini-tts.ts` - the speech contract on `/v1beta/interactions`: `store: false`, WAV at 24 kHz requested; decodes WAV or L16 items to PCM, splits text at 4,000 characters, joins chunks into one WAV; `incomplete` without audio reads as moderation. Voices validated against the 30 prebuilt names plus `voice_`/`voicekey_` IDs.
 - `packages/cli/src/commands/_shared/tts-resolve.ts` - `--tts auto` order ElevenLabs, Gemini, OpenAI, Kokoro (from `SPEECH_GENERATOR_PROVIDERS`).
-- Cost metering: `geminiGenerateContent()` records `usageMetadata.promptTokenCount` as input and `candidatesTokenCount + thoughtsTokenCount` as output (thinking is billed as output) before any blocked or cut-off error (code). Gemini TTS records the seconds of PCM returned per chunk, priced per minute of audio out (25 tokens/s, Models table); the $0.50 per 1M input text tokens is not counted. The intro prices switch to the post-intro prices by date (`until`/`then` in the catalog).
-- `packages/cli/src/tools/manifest/generate.ts:60`, `packages/cli/src/tools/manifest/edit.ts:234`, `packages/cli/src/pipeline/executor.ts:290` - `gemini-2.5-pro` / `gemini-3.1-pro` alias enums.
+- `packages/cli/src/commands/ai-motion.ts` - `MOTION_MODEL_CHOICES` (`sonnet`, `opus`, `gemini`, `gemini-3.1-pro`) is the one list the CLI help and the `generate_motion` / `edit_motion_overlay` MCP schemas use; `resolveMotionModel` accepts any other Claude or Gemini catalog alias and rejects unknown ones as a usage error, before a dry run.
+- Video review and analysis via `analyzeVideo`: `ai-review.ts`, `ai-analyze.ts`, `ai-highlights.ts`, `inspect.ts`, `_shared/render-inspect.ts` under `packages/cli/src/commands/`.
+- Cost metering: `geminiGenerateContent()` records `usageMetadata.promptTokenCount` as input and `candidatesTokenCount + thoughtsTokenCount` as output (thinking is billed as output) before any blocked or cut-off error. Gemini TTS records the seconds of PCM returned per chunk, priced per minute of audio out (25 tokens/s, Models table); the $0.50 per 1M input text tokens is not counted. The intro prices switch to the post-intro prices by date (`until`/`then` in the catalog).
 
 ## Recommended changes
 
-1. Move image aliases to GA IDs before the listed-but-retired ones disappear: `flash` -> `gemini-3.1-flash-image` (or `gemini-3.1-flash-lite-image` for cheap 1K), `pro` -> `gemini-3-pro-image`; reverse the fallback so it never lands on `gemini-2.5-flash-image`, and key Image Search and 2K/4K/512px handling on the GA IDs.
-2. Done: `gemini-omni-1.1-flash` is the Google video path, and Veo was removed in 0.116.0 after its 2026-10-22 shutdown.
-3. Rewrite `gemini-omni.ts` to the documented shape: `input` (typed `image`/`text` items), `response_format: { type: "video", aspect_ratio, resolution, delivery: "uri" }`, read `steps[].content[]` (decode `data` or download `uri`), use `background: true` plus polling, and expose `previous_interaction_id` for edit and 40 s extension.
-4. Dropped: Veo is gone, so its request fixes no longer apply.
-5. Drop `temperature` from all 3.x text calls and move the default text model off `gemini-3.5-flash` to `gemini-3.7-flash` (cheaper and agentic-video capable) or `gemini-3.8-flash`; replace `pro` -> `gemini-2.5-pro` with `gemini-3.1-pro-preview`.
-6. Dropped: the agent adapter was removed in 0.116.0.
-7. Upload videos above 20 MB through the File API in `analyzeVideo`, and try `processing: "agentic"` for long-form review.
-8. Send the key in `x-goog-api-key` instead of `?key=` so it does not land in error strings or logs, .
+Done since 2026-10-04: image aliases on GA IDs, Omni 1.1 Flash as the Google video path with the documented Interactions shape, Veo and the agent adapter removed, `temperature` dropped from 3.x calls, the text default on `gemini-3.8-flash`, `pro` on `gemini-3.1-pro-preview`, and the key in `x-goog-api-key`.
+
+1. Upload videos above 20 MB through the File API before `analyzeVideo` (callers pass inline bytes today), and try `processing: "agentic"` for long-form review.
+2. Before suggesting `argon` for motion or analysis, give it Google's recommended output cap (at least 32,768 tokens) and a client timeout of at least 15 min; the motion and analysis calls use 16,384 / 8,192 tokens and 10 min today. It resolves as an alias already.
+3. Optional: add the cheaper `gemini-3.7-flash` and `gemini-3.5-flash-lite` to the catalog if a use calls for them; both are listed by `/v1beta/models` (probe 2026-11-02).
 
 ## Sources
 
@@ -215,5 +209,6 @@ All opened 2026-10-04 unless a date says otherwise; the deprecations, changelog,
 - https://ai.google.dev/gemini-api/docs/transcribe
 - https://ai.google.dev/gemini-api/docs/libraries
 - Model cards under https://ai.google.dev/gemini-api/docs/models/ for `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-pro-preview`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-3.1-flash-image`, `gemini-3-pro-image`, `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image`, `gemini-omni-flash`, `lyria-3.5`, `gemini-3.8-flash-tts`, `gemini-3.5-transcribe`
+- Probe 2026-11-02: `GET /v1beta/models` listing matched the catalog; the changelog had no new models, deprecations, or price changes after 2026-10-15.
 - Probe: `GET /v1beta/models` listing and `GET /v1beta/models/{id}` for `veo-3.0-generate-preview`, `imagen-4.0-generate-001`, `gemini-omni-flash-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-3.1-flash-image-preview`, `gemini-3.8-flash` (free metadata calls only, no generation)
 

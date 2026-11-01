@@ -489,7 +489,7 @@ async function ensureActionsRegistered(): Promise<void> {
       duration: params.duration as number | undefined,
       start: params.start as number | undefined,
       style: params.style as string | undefined,
-      model: params.model as "sonnet" | "opus" | "gemini" | "gemini-3.1-pro" | undefined,
+      model: params.model as string | undefined,
       understand: params.understand as "auto" | "off" | "required" | undefined,
       understandingPrompt: params.understandingPrompt as string | undefined,
       position: params.position as "full" | "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | undefined,

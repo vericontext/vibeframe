@@ -18,8 +18,13 @@ export const GEMINI_TEXT_MODEL_ALIASES: Readonly<Record<string, string>> = Objec
 export type GeminiTextModelAlias = string;
 export type GeminiTextModel = string;
 
-export const GEMINI_TEXT_MODEL_HELP =
-  "flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-* model ID";
+/** `--model` help for Gemini text commands, built from the catalog's served models. */
+export const GEMINI_TEXT_MODEL_HELP = [
+  ...listModels({ provider: "gemini", kind: "llm" })
+    .filter((m) => m.status === "ga" || m.status === "preview")
+    .flatMap((m) => (m.aliases?.length ? [`${m.aliases.join("/")}: ${m.label}${m.default ? " (default)" : ""}`] : [])),
+  "or a full gemini-* model ID",
+].join("; ");
 
 export function isGeminiTextModelAlias(model: string): boolean {
   return Object.prototype.hasOwnProperty.call(GEMINI_TEXT_MODEL_ALIASES, model);

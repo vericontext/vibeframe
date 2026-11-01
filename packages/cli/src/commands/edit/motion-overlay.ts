@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
-import { executeMotion, type MotionCommandOptions } from "../ai-motion.js";
+import { executeMotion, MOTION_MODEL_HELP, resolveMotionModel, type MotionCommandOptions } from "../ai-motion.js";
 import { ffprobeDuration } from "../../utils/exec-safe.js";
 import { renderLottieOverlay, type LottiePosition } from "./lottie-overlay.js";
 import {
@@ -173,7 +173,7 @@ export function registerMotionOverlayCommand(parent: Command): void {
     .option("-d, --duration <sec>", "Overlay/render duration in seconds")
     .option("--start <sec>", "Overlay start time in seconds", "0")
     .option("--style <style>", "Style preset for generated overlays: minimal, corporate, playful, cinematic")
-    .option("-m, --model <alias>", "LLM model for generated overlays: sonnet, opus, gemini, gemini-2.5-pro, gemini-3.1-pro", "sonnet")
+    .option("-m, --model <alias>", `LLM model for generated overlays: ${MOTION_MODEL_HELP}`, "sonnet")
     .option("--understand <mode>", "Analyze video before generated overlay: auto, off, required", "auto")
     .option("--understanding-prompt <text>", "Custom prompt for video understanding")
     .option("--position <position>", "Lottie position: full, center, top-left, top-right, bottom-left, bottom-right", "full")
@@ -220,6 +220,9 @@ export function registerMotionOverlayCommand(parent: Command): void {
         if (parsed.opacity !== undefined && (!Number.isFinite(parsed.opacity) || parsed.opacity < 0 || parsed.opacity > 1)) {
           exitWithError(usageError("Invalid --opacity.", "Opacity must be between 0 and 1."));
         }
+
+        // A generated overlay with a model nobody can resolve fails before the dry run.
+        if (!parsed.asset && parsed.model) resolveMotionModel(parsed.model);
 
         if (options.dryRun) {
           outputSuccess({
