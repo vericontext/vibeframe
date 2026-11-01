@@ -17,7 +17,6 @@ import { readFile, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import {
   ClaudeProvider,
-  defaultModel,
   findModel,
   GeminiProvider,
   GEMINI_DEFAULT_TEXT_MODEL,
@@ -27,7 +26,7 @@ import {
 import { loadEnv, requireApiKey } from "../utils/api-key.js";
 import { getApiKeyFromConfig } from "../config/index.js";
 import { failureFromError, spinner as createSpinner, exitWithError, log, outputSuccess, apiError, usageError } from "./output.js";
-import { validateOutputPath } from "./validate.js";
+import { InputError, validateOutputPath } from "./validate.js";
 
 // ── Motion: exported function for Agent tool ────────────────────────────────
 
@@ -52,7 +51,7 @@ export interface MotionCommandOptions {
   fromTsx?: string;
   /**
    * LLM model alias for code generation.
-   * sonnet (default) | opus | gemini | gemini-2.5-pro | gemini-3.1-pro
+   * One of {@link MOTION_MODEL_CHOICES}, or any Claude or Gemini catalog alias.
    */
   model?: string;
   /** Output path (TSX if code-only, WebM/MP4 if rendered) */
@@ -69,16 +68,24 @@ export interface MotionCommandResult {
 }
 
 /**
- * Resolve a motion `--model` alias through the model catalog: Claude aliases
- * (sonnet, opus, opus-4-6) first, then Gemini ones (gemini, gemini-3.1-pro,
- * gemini-2.5-pro, ...). Unknown aliases use the Claude default.
+ * The motion `--model` values we advertise. Any other Claude or Gemini
+ * catalog alias or ID still resolves; these are the ones worth suggesting.
  */
-function resolveMotionModel(alias: string): { provider: "claude" | "gemini"; modelId: string } {
+export const MOTION_MODEL_CHOICES = ["sonnet", "opus", "gemini", "gemini-3.1-pro"] as const;
+
+export const MOTION_MODEL_HELP = `${MOTION_MODEL_CHOICES[0]} (default), ${MOTION_MODEL_CHOICES.slice(1).join(", ")}, or another Claude or Gemini model alias`;
+
+/**
+ * Resolve a motion `--model` alias through the model catalog: Claude aliases
+ * first, then Gemini ones. An alias neither knows is a usage error, so a typo
+ * never runs a paid request on a model nobody chose.
+ */
+export function resolveMotionModel(alias: string): { provider: "claude" | "gemini"; modelId: string } {
   const claude = findModel("claude", "llm", alias);
   if (claude) return { provider: "claude", modelId: claude.id };
   const gemini = findModel("gemini", "llm", alias);
   if (gemini) return { provider: "gemini", modelId: gemini.id };
-  return { provider: "claude", modelId: defaultModel("claude", "llm").id };
+  throw new InputError(`Unknown motion model "${alias}". Use ${MOTION_MODEL_HELP}.`);
 }
 
 async function getOptionalGoogleApiKey(): Promise<string | null> {
@@ -400,7 +407,7 @@ export function registerMotionCommand(aiCommand: Command): void {
     .option("--from-tsx <path>", "Refine an existing TSX file instead of generating from scratch")
     .option(
       "-m, --model <alias>",
-      "LLM model: sonnet (default), opus, gemini, gemini-2.5-pro, gemini-3.1-pro",
+      `LLM model: ${MOTION_MODEL_HELP}`,
       "sonnet"
     )
     .option("--dry-run", "Preview parameters without executing")
@@ -447,6 +454,9 @@ export function registerMotionCommand(aiCommand: Command): void {
           }
         }
 
+        // A model nobody can resolve fails here, before a dry run echoes it.
+        const motionModel = resolveMotionModel(options.model);
+
         if (options.dryRun) {
           outputSuccess({
             command: "generate motion",
@@ -467,6 +477,7 @@ export function registerMotionCommand(aiCommand: Command): void {
                 understandingPrompt: options.understandingPrompt,
                 fromTsx: options.fromTsx,
                 model: options.model,
+                modelId: motionModel.modelId,
                 output: options.output,
               },
             },

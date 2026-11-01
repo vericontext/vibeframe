@@ -1,6 +1,6 @@
 ---
 provider: xai
-checked: 2026-10-17
+checked: 2026-11-02
 env: [XAI_API_KEY]
 models_endpoint: xai
 models_in_use:
@@ -31,7 +31,7 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 | `grok-build-0.1` | LLM (code) | GA | $1.00 / $0.20 / $2.00 | 256k context; aliases include `grok-code-fast-1` (probe) |
 | `grok-4-1-fast-reasoning` | LLM | retired 2026-05-15 | billed as grok-4.3 | Still resolves; `GET /v1/models/grok-4-1-fast-reasoning` returns `id: grok-4.3` (probe); served at `low` effort (docs) |
 | `grok-imagine-image-2.0` | image | GA | $0.04-$0.08 / image | low 1k $0.04, low 1.5k $0.05, low 2k $0.06, medium 1k $0.06, 1.5k $0.07, 2k $0.08 (probe); `quality` low / medium / auto; up to 5 edit sources (docs) |
-| `grok-imagine-image-quality` | image | retiring 2026-11-02 | $0.05 / image | After retirement, served by `grok-imagine-image-2.0` at `quality: low` (docs) |
+| `grok-imagine-image-quality` | image | retired 2026-11-02 | $0.05 / image | Now served by `grok-imagine-image-2.0` at `quality: low` (docs); still listed by `/v1/image-generation-models` (probe 2026-11-02). Not in our catalog. |
 | `grok-imagine-image-pro` | image | retired 2026-05-15 | as `-quality` | Listed only as an alias of `grok-imagine-image-quality` (probe); follows it to 2.0 low on 2026-11-02 (docs) |
 | `grok-imagine-image` | image | GA | $0.02 / image | Not affected by the Nov 2 retirement (docs, probe) |
 | `grok-imagine-video-1.5` | video | GA | $0.08 / s listed; billed $0.14 / s at 720p (probe 2026-10-17: 1 s 720p, `cost_in_usd_ticks` 1,400,000,000) | Inputs text, image, audio (probe); native 1080p for T2V and I2V, reference-to-video capped at 720p, `last_frame`, `keyframes`, preset voices (docs) |
@@ -101,12 +101,14 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 
 ## Sources
 
+- Live probe, 2026-11-02: `/v1/models`, `/v1/image-generation-models`, `/v1/video-generation-models` list no image or video model beyond the catalog; the October release notes add only Grok Voice 3.0 and moderation `guidelines`.
 - Live probe, 2026-10-04: `GET /v1/models`, `/v1/models/{grok-4-1-fast-reasoning, grok-imagine-image-pro, grok-imagine-image-quality}`, `/v1/image-generation-models`, `/v1/video-generation-models`.
 - https://docs.x.ai/docs/models.md (2026-10-04)
 - https://docs.x.ai/developers/pricing.md (2026-10-04)
 - https://docs.x.ai/developers/release-notes.md (2026-10-04)
 - https://docs.x.ai/developers/migration/may-15-retirement.md (2026-10-04)
 - https://docs.x.ai/developers/migration/imagine-image-quality-nov-2.md (2026-10-04)
+- https://docs.x.ai/docs/release-notes (2026-11-02)
 - https://docs.x.ai/developers/model-capabilities/text/reasoning.md (2026-10-04)
 - https://docs.x.ai/developers/model-capabilities/legacy/chat-completions.md (2026-10-04)
 - https://docs.x.ai/developers/model-capabilities/images/generation.md (2026-10-04)

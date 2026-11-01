@@ -546,7 +546,7 @@ Cost tier: `high`
 - `understand` _(string)_ _(default: `"auto"`)_ - Analyze --video with Gemini before generating motion: auto, off, required
 - `understandingPrompt` _(string)_ - Custom prompt for --video understanding
 - `fromTsx` _(string)_ - Refine an existing TSX file instead of generating from scratch
-- `model` _(string)_ _(default: `"sonnet"`)_ - LLM model: sonnet (default), opus, gemini, gemini-2.5-pro, gemini-3.1-pro
+- `model` _(string)_ _(default: `"sonnet"`)_ - LLM model: sonnet (default), opus, gemini, gemini-3.1-pro, or another Claude or Gemini model alias
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe generate music`
@@ -623,7 +623,7 @@ Cost tier: `free`
 - `style` _(string)_ _(youtube \| instagram \| tiktok \| twitter)_ - Platform style: youtube, instagram, tiktok, twitter
 - `bestFrame` _(string)_ - Extract best thumbnail frame from video using Gemini AI
 - `prompt` _(string)_ - Custom prompt for best-frame analysis
-- `model` _(string)_ _(default: `"flash"`)_ - Gemini model: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Gemini model: flash/latest/flash-3.8/gemini: Gemini 3.8 Flash (default); flash-3.6: Gemini 3.6 Flash; flash-3: Gemini 3 Flash (preview); argon: Gemini 4 Argon; pro/pro-3.1/3.1-pro/gemini-3.1-pro: Gemini 3.1 Pro (preview); or a full gemini-\* model ID
 
 #### `vibe generate video`
 
@@ -846,7 +846,7 @@ Cost tier: `low`
 - `duration` _(number)_ - Overlay/render duration in seconds
 - `start` _(number)_ _(default: `0`)_ - Overlay start time in seconds
 - `style` _(string)_ - Style preset for generated overlays: minimal, corporate, playful, cinematic
-- `model` _(string)_ _(default: `"sonnet"`)_ - LLM model for generated overlays: sonnet, opus, gemini, gemini-2.5-pro, gemini-3.1-pro
+- `model` _(string)_ _(default: `"sonnet"`)_ - LLM model for generated overlays: sonnet (default), opus, gemini, gemini-3.1-pro, or another Claude or Gemini model alias
 - `understand` _(string)_ _(default: `"auto"`)_ - Analyze video before generated overlay: auto, off, required
 - `understandingPrompt` _(string)_ - Custom prompt for video understanding
 - `position` _(string)_ _(full \| center \| top-left \| top-right \| bottom-left \| bottom-right)_ _(default: `"full"`)_ - Lottie position: full, center, top-left, top-right, bottom-left, bottom-right
@@ -1004,7 +1004,7 @@ Cost tier: `low`
 - `source` _(string)_ **required** - Image/video file path, image URL, or YouTube URL
 - `prompt` _(string)_ **required** - Analysis prompt (e.g., 'Describe this image', 'Summarize this video')
 - `apiKey` _(string)_ - Google API key (or set GOOGLE_API_KEY env)
-- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Model: flash/latest/flash-3.8/gemini: Gemini 3.8 Flash (default); flash-3.6: Gemini 3.6 Flash; flash-3: Gemini 3 Flash (preview); argon: Gemini 4 Argon; pro/pro-3.1/3.1-pro/gemini-3.1-pro: Gemini 3.1 Pro (preview); or a full gemini-\* model ID
 - `fps` _(number)_ - Frames per second for video (default: 1)
 - `start` _(number)_ - Start offset in seconds (video only)
 - `end` _(number)_ - End offset in seconds (video only)
@@ -1043,7 +1043,7 @@ Cost tier: `low`
 - `project-dir` _(string)_ - VibeFrame project directory
 - `cheap` _(boolean)_ - Run local checks only (default; no AI/API calls)
 - `ai` _(boolean)_ - Also run Gemini video review and merge findings into review-report.json
-- `model` _(string)_ _(default: `"flash"`)_ - Gemini model for --ai: flash/latest (Gemini 3.8 Flash), flash-3.8, flash-3.5, flash-3, flash-2.5, pro (Gemini 3.1 Pro), pro-3.1, pro-2.5, or a full gemini-\* model ID
+- `model` _(string)_ _(default: `"flash"`)_ - Gemini model for --ai: flash/latest/flash-3.8/gemini: Gemini 3.8 Flash (default); flash-3.6: Gemini 3.6 Flash; flash-3: Gemini 3 Flash (preview); argon: Gemini 4 Argon; pro/pro-3.1/3.1-pro/gemini-3.1-pro: Gemini 3.1 Pro (preview); or a full gemini-\* model ID
 - `beat` _(string)_ - Inspect a render for one storyboard beat
 - `video` _(string)_ - Rendered video path. Defaults to build-report outputPath or latest renders/\* video.
 - `output` _(string)_ - Write review report to this path (default: <project>/review-report.json)
