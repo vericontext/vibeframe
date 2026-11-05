@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.116.4] - 2026-11-05
+
+### Added
+
+- add Kling 4.0 and 3.0 Turbo on Kling's new API (#412)
+- vibe audio transcribe --dry-run shows the provider and priced cost (#411)
+
+### Documentation
+
+- record the live Kling 4.0 probe (auth ok, account has no balance) (#413)
+
+### Fixed
+
+- motion and Gemini model choices follow the catalog (#414)
+
 ## [0.116.3] - 2026-10-31
 
 ### Added
