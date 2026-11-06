@@ -91,7 +91,9 @@ import {
 import {
   assetMetadataPath,
   isFreshCanonicalAsset,
+  isPromotedSlot,
   readAssetMetadata,
+  slotCue,
   writeAssetMetadata,
   type AssetFreshness,
 } from "./build-asset-metadata.js";
@@ -104,6 +106,9 @@ import { executeSceneRepair, type SceneRepairResult } from "./scene-repair.js";
 import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./tts-resolve.js";
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 import { writeImageFile } from "../../utils/image-file.js";
+import { estimateImageCostUsd } from "./image-cost.js";
+import { withTake, type TakeContext } from "../../takes/record.js";
+import type { TakeSlot } from "../../takes/take.js";
 import {
   resolveBuildVideoProvider,
   videoProviderConfigKey,
@@ -1341,6 +1346,34 @@ interface PrimitiveOutcome {
   sourcePath?: string;
 }
 
+/**
+ * A slot `vibe take promote` filled: kept as is while the beat's cue is the
+ * one it was promoted under, unless `--force`. Undefined when the slot is
+ * not promoted, or its cue has since been edited, so the build regenerates.
+ */
+async function promotedPrimitiveOutcome(
+  kind: TakeSlot,
+  beat: Beat,
+  ctx: BeatDispatchContext
+): Promise<PrimitiveOutcome | undefined> {
+  if (ctx.force) return undefined;
+  const metadata = readAssetMetadata(ctx.projectDir, kind, beat.id);
+  if (!metadata || !isPromotedSlot(metadata, slotCue(beat.cues, kind))) return undefined;
+  const path = metadata.canonicalPath;
+  const abs = join(ctx.projectDir, path);
+  if (!existsSync(abs)) return undefined;
+  ctx.onProgress({ type: `${kind}-cached`, beatId: beat.id, path });
+  return {
+    status: "cached",
+    path,
+    provider: metadata.provider,
+    cacheKey: metadata.cacheKey,
+    metadataPath: assetMetadataPath(kind, beat.id),
+    freshness: "fresh",
+    ...(kind === "narration" || kind === "music" ? { durationSec: await safeAudioDuration(abs) } : {}),
+  };
+}
+
 async function referencePrimitiveOutcome(
   kind: BuildAssetKind,
   beat: Beat,
@@ -1412,6 +1445,8 @@ function emitPrimitiveFailed(
 async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "narration", beat);
   if (reference) return referencePrimitiveOutcome("narration", beat, ctx, reference);
+  const promoted = await promotedPrimitiveOutcome("narration", beat, ctx);
+  if (promoted) return promoted;
 
   const text = stringOrUndefined(beat.cues?.narration);
   if (!text) return { status: "no-cue" };
@@ -1510,15 +1545,32 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
     };
   }
 
-  const result = await resolution.call(text, { voice });
+  const result = await withTake(
+    buildTake(ctx.projectDir, beat.id, "narration"),
+    { kind: "audio", operation: "generate", prompt: text, params: { voice }, inputs: [] },
+    async () => {
+      const spoken = await resolution.call(text, { voice });
+      if (spoken.success && spoken.audioBuffer) {
+        await mkdir(dirname(abs), { recursive: true });
+        await writeFile(abs, spoken.audioBuffer);
+      }
+      return spoken;
+    },
+    (spoken) => ({
+      reached: spoken.success,
+      status: "completed",
+      provider: resolution.provider,
+      model: spoken.model,
+      outputs: spoken.success && spoken.audioBuffer ? [abs] : [],
+      error: spoken.error ? { message: spoken.error, ...(spoken.errorKind ? { kind: spoken.errorKind } : {}) } : undefined,
+      fallbackCost: () => ({ usd: narrationCostUsd(resolution.provider), basis: "estimate" }),
+    }),
+  );
   if (!result.success || !result.audioBuffer) {
     const error = result.error ?? "unknown TTS failure";
     ctx.onProgress({ type: "narration-failed", beatId: beat.id, error });
     return { status: "failed", error };
   }
-
-  await mkdir(dirname(abs), { recursive: true });
-  await writeFile(abs, result.audioBuffer);
   // Remove stale narration of the OTHER extension so a TTS-provider switch
   // (e.g. kokoro .wav → openai .mp3) doesn't leave a file that shadows this one
   // in the root composition and keeps the old voice in the render.
@@ -1538,6 +1590,7 @@ async function dispatchNarration(beat: Beat, ctx: BeatDispatchContext): Promise<
     cacheKey: cache.key,
     canonicalPath: rel,
     cachePath: cache.path,
+    takeId: result.takeId,
   });
   ctx.onProgress({
     type: "narration-generated",
@@ -1767,26 +1820,26 @@ async function buildCharacters(
       continue;
     }
 
-    const generated = await generateBackdropImage(
+    const generated = await buildImage({
       prompt,
-      {
+      ctx: {
         projectDir: ctx.projectDir,
         imageProvider: ctx.imageProvider,
         imageSize: size,
         imageQuality: ctx.imageQuality,
         imageModel: ctx.imageModel,
       },
-      imageRatioForSize(size)
-    );
+      ratio: imageRatioForSize(size),
+      output: abs,
+      take: buildTake(ctx.projectDir, undefined, undefined),
+    });
     if (!generated.success) {
       failures.push(`character "${character.name}": ${generated.error}`);
       ctx.onProgress({ type: "character-failed", name: character.name, error: generated.error });
       continue;
     }
-    await mkdir(dirname(abs), { recursive: true });
-    await writeImageFile(abs, generated.buffer);
     await mkdir(dirname(cacheAbs), { recursive: true });
-    await writeImageFile(cacheAbs, generated.buffer);
+    await copyFile(abs, cacheAbs);
     await writeAssetMetadata({
       projectDir: ctx.projectDir,
       kind: "character",
@@ -1797,6 +1850,7 @@ async function buildCharacters(
       cacheKey: cache.key,
       canonicalPath: rel,
       cachePath: cache.path,
+      takeId: generated.takeId,
     });
     costUsd += backdropCostUsd(ctx.imageQuality);
     paths.set(character.name, rel);
@@ -1814,6 +1868,8 @@ async function buildCharacters(
 async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "backdrop", beat);
   if (reference) return referencePrimitiveOutcome("backdrop", beat, ctx, reference);
+  const promoted = await promotedPrimitiveOutcome("backdrop", beat, ctx);
+  if (promoted) return promoted;
 
   const cue = stringOrUndefined(beat.cues?.backdrop);
   if (!cue) return { status: "no-cue" };
@@ -1887,18 +1943,21 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
     };
   }
 
-  const generated = await generateBackdropImage(prompt, ctx, ratio);
+  const generated = await buildImage({
+    prompt,
+    ctx,
+    ratio,
+    output: abs,
+    take: buildTake(ctx.projectDir, beat.id, "backdrop"),
+  });
   if (!generated.success) {
     const error = generated.error;
     ctx.onProgress({ type: "backdrop-failed", beatId: beat.id, error });
     return { status: "failed", error };
   }
 
-  await mkdir(dirname(abs), { recursive: true });
-  const buffer = generated.buffer;
-  await writeImageFile(abs, buffer);
   await mkdir(dirname(cacheAbs), { recursive: true });
-  await writeImageFile(cacheAbs, buffer);
+  await copyFile(abs, cacheAbs);
   await writeAssetMetadata({
     projectDir: ctx.projectDir,
     kind: "backdrop",
@@ -1909,6 +1968,7 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
     cacheKey: cache.key,
     canonicalPath: rel,
     cachePath: cache.path,
+    takeId: generated.takeId,
   });
   ctx.onProgress({
     type: "backdrop-generated",
@@ -1927,8 +1987,8 @@ async function dispatchBackdrop(beat: Beat, ctx: BeatDispatchContext): Promise<P
   };
 }
 
-type GeneratedBackdropResult =
-  | { success: true; buffer: Buffer }
+type GeneratedImageResult =
+  | { success: true; takeId?: string }
   | { success: false; error: string };
 
 /** Minimal context for raw image generation — shared by backdrops and characters. */
@@ -1940,36 +2000,31 @@ interface ImageGenContext {
   imageModel?: string;
 }
 
-async function generateBackdropImage(
-  prompt: string,
-  ctx: ImageGenContext,
-  ratio: string
-): Promise<GeneratedBackdropResult> {
-  return buildImage(prompt, ctx, ratio);
+/** The take a build records for one beat slot (or a character sheet, which fills no slot). */
+function buildTake(projectDir: string, beatId: string | undefined, asset: TakeSlot | undefined): TakeContext {
+  return {
+    via: "build",
+    command: "build",
+    cwd: projectDir,
+    ...(beatId ? { beatId } : {}),
+    ...(asset ? { asset } : {}),
+  };
 }
 
 /**
- * Generate a keyframe still by editing the character sheet(s) with the
- * keyframe prompt (so the character stays consistent). Providers that take
- * fewer input images than there are sheets get the first ones they accept
- * (Grok edits one image).
+ * One image through the image contract, with the build's project-scoped key,
+ * written to `output` and recorded as a take. With `sheets`, the image edits
+ * those character sheets (as many as the provider accepts; Grok edits one).
  */
-async function editKeyframeImage(
-  prompt: string,
-  sheetBuffers: Buffer[],
-  ctx: ImageGenContext,
-  ratio: string
-): Promise<GeneratedBackdropResult> {
-  return buildImage(prompt, ctx, ratio, sheetBuffers);
-}
-
-/** One image through the image contract, with the build's project-scoped key. */
-async function buildImage(
-  prompt: string,
-  ctx: ImageGenContext,
-  ratio: string,
-  sheetBuffers?: Buffer[]
-): Promise<GeneratedBackdropResult> {
+async function buildImage(opts: {
+  prompt: string;
+  ctx: ImageGenContext;
+  ratio: string;
+  output: string;
+  take: TakeContext;
+  sheets?: string[];
+}): Promise<GeneratedImageResult> {
+  const { prompt, ctx, ratio, output } = opts;
   loadEnv(ctx.projectDir);
   const keyInfo = imageProviderKeyInfo(ctx.imageProvider);
   const apiKey =
@@ -1979,24 +2034,57 @@ async function buildImage(
   if (!apiKey) {
     return {
       success: false,
-      error: `${keyInfo.envVar} not set — cannot generate ${sheetBuffers ? "keyframe" : "backdrop"} with ${ctx.imageProvider}`,
+      error: `${keyInfo.envVar} not set — cannot generate ${opts.sheets ? "keyframe" : "backdrop"} with ${ctx.imageProvider}`,
     };
   }
+  let generator: Awaited<ReturnType<typeof createImageGenerator>>;
   try {
-    const generator = await createImageGenerator(ctx.imageProvider, apiKey);
-    const maxInputs = sheetBuffers ? generator.maxEditImages(ctx.imageModel) : 0;
-    const result = await generator.createImage({
-      prompt,
-      model: ctx.imageModel,
-      aspectRatio: ratio,
-      quality: contractQuality(ctx.imageQuality),
-      providerOptions: ctx.imageSize ? { size: ctx.imageSize } : undefined,
-      images: sheetBuffers?.slice(0, maxInputs).map((b) => ({ bytes: new Uint8Array(b), mimeType: "image/png" })),
-    });
-    return { success: true, buffer: Buffer.from(result.images[0].bytes) };
+    generator = await createImageGenerator(ctx.imageProvider, apiKey);
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
+  const sheets = opts.sheets?.slice(0, opts.sheets ? generator.maxEditImages(ctx.imageModel) : 0) ?? [];
+  const result = await withTake(
+    opts.take,
+    {
+      kind: "image",
+      operation: sheets.length > 0 ? "edit" : "generate",
+      prompt,
+      params: { model: ctx.imageModel, ratio, size: ctx.imageSize, quality: ctx.imageQuality },
+      inputs: sheets.map((path) => ({ role: "reference-image" as const, path })),
+    },
+    async (): Promise<{ success: true; model?: string } | { success: false; error: string }> => {
+      try {
+        const images = await Promise.all(sheets.map(async (path) => ({ bytes: new Uint8Array(await readFile(path)), mimeType: "image/png" })));
+        const created = await generator.createImage({
+          prompt,
+          model: ctx.imageModel,
+          aspectRatio: ratio,
+          quality: contractQuality(ctx.imageQuality),
+          providerOptions: ctx.imageSize ? { size: ctx.imageSize } : undefined,
+          images: opts.sheets ? images : undefined,
+        });
+        await mkdir(dirname(output), { recursive: true });
+        await writeImageFile(output, Buffer.from(created.images[0].bytes));
+        return { success: true, model: created.model };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+    (done) => ({
+      reached: done.success,
+      status: "completed",
+      provider: ctx.imageProvider,
+      model: done.success ? done.model : undefined,
+      outputs: done.success ? [output] : [],
+      fallbackCost: () => {
+        const cost = estimateImageCostUsd(ctx.imageProvider, (done.success ? done.model : undefined) ?? ctx.imageModel, 1, undefined, ctx.imageSize);
+        return { usd: cost.costUsd, basis: cost.basis };
+      },
+    }),
+  );
+  if (!result.success) return { success: false, error: result.error };
+  return { success: true, ...(result.takeId ? { takeId: result.takeId } : {}) };
 }
 
 /**
@@ -2061,11 +2149,9 @@ async function ensureKeyframe(
     return { status: "cached", rel };
   }
 
-  const sheetBuffers: Buffer[] = [];
-  for (const relPath of characterRefsRel) {
-    const sheetAbs = join(ctx.projectDir, relPath);
-    if (existsSync(sheetAbs)) sheetBuffers.push(await readFile(sheetAbs));
-  }
+  const sheets = characterRefsRel
+    .map((relPath) => join(ctx.projectDir, relPath))
+    .filter((sheetAbs) => existsSync(sheetAbs));
   const imgCtx: ImageGenContext = {
     projectDir: ctx.projectDir,
     imageProvider: ctx.imageProvider,
@@ -2078,16 +2164,18 @@ async function ensureKeyframe(
   // a character reference to edit from.
   const identityLock =
     "Keep the EXACT same person and face as the reference image(s): identical facial features (eyes, nose shape, jawline), skin tone and complexion, hairstyle, hair color, and wardrobe. Do not restyle or change the face. Change only the scene, pose, framing, and lighting. ";
-  const generated =
-    sheetBuffers.length > 0
-      ? await editKeyframeImage(`${identityLock}${keyframeCue}`, sheetBuffers, imgCtx, ratio)
-      : await generateBackdropImage(keyframeCue, imgCtx, ratio);
+  const generated = await buildImage({
+    prompt: sheets.length > 0 ? `${identityLock}${keyframeCue}` : keyframeCue,
+    ctx: imgCtx,
+    ratio,
+    output: abs,
+    take: buildTake(ctx.projectDir, beat.id, "keyframe"),
+    ...(sheets.length > 0 ? { sheets } : {}),
+  });
   if (!generated.success) return { status: "failed", error: generated.error };
 
-  await mkdir(dirname(abs), { recursive: true });
-  await writeImageFile(abs, generated.buffer);
   await mkdir(dirname(cacheAbs), { recursive: true });
-  await writeImageFile(cacheAbs, generated.buffer);
+  await copyFile(abs, cacheAbs);
   await writeAssetMetadata({
     projectDir: ctx.projectDir,
     kind: "keyframe",
@@ -2098,6 +2186,7 @@ async function ensureKeyframe(
     cacheKey: cache.key,
     canonicalPath: rel,
     cachePath: cache.path,
+    takeId: generated.takeId,
   });
   return { status: "generated", rel };
 }
@@ -2116,6 +2205,8 @@ function imageProviderKeyInfo(provider: BuildImageProvider): { configKey: string
 async function dispatchKeyframe(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
   const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
   if (!keyframeCue) return { status: "no-cue" };
+  const promoted = await promotedPrimitiveOutcome("keyframe", beat, ctx);
+  if (promoted) return promoted;
 
   const characterRefsRel = beatCharacterNames(beat.cues)
     .map((name) => ctx.characterPaths?.get(name))
@@ -2141,6 +2232,8 @@ async function dispatchVideo(
 ): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "video", beat);
   if (reference) return referencePrimitiveOutcome("video", beat, ctx, reference);
+  const promoted = await promotedPrimitiveOutcome("video", beat, ctx);
+  if (promoted) return promoted;
 
   const keyframeCue = stringOrUndefined(beat.cues?.keyframe);
   // Motion prompt: explicit `video:` cue, else fall back to the keyframe prompt.
@@ -2280,7 +2373,7 @@ async function dispatchVideo(
   };
   const generateWith = (provider: BuildVideoProvider, apiKey: string | undefined) =>
     executeVideoGenerate({
-      take: { via: "build", command: "build", cwd: ctx.projectDir, beatId: beat.id },
+      take: buildTake(ctx.projectDir, beat.id, "video"),
       prompt,
       provider,
       duration: normalizeVideoDuration(beat.duration),
@@ -2353,6 +2446,7 @@ async function dispatchVideo(
       cacheKey: cache.key,
       canonicalPath: rel,
       cachePath: cache.path,
+      takeId: result.takeId,
     });
     ctx.onProgress({
       type: "video-generated",
@@ -2391,6 +2485,8 @@ async function dispatchVideo(
 async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<PrimitiveOutcome> {
   const reference = assetReferenceForBeat(ctx.projectDir, "music", beat);
   if (reference) return referencePrimitiveOutcome("music", beat, ctx, reference);
+  const promoted = await promotedPrimitiveOutcome("music", beat, ctx);
+  if (promoted) return promoted;
 
   const prompt = stringOrUndefined(beat.cues?.music);
   if (!prompt) return { status: "no-cue" };
@@ -2461,6 +2557,7 @@ async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
 
   loadEnv(ctx.projectDir);
   const result = await executeMusic({
+    take: buildTake(ctx.projectDir, beat.id, "music"),
     prompt,
     provider: ctx.musicProvider,
     duration,
@@ -2530,6 +2627,7 @@ async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
     cacheKey: cache.key,
     canonicalPath: rel,
     cachePath: cache.path,
+    takeId: result.takeId,
   });
   ctx.onProgress({
     type: "music-generated",

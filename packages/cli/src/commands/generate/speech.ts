@@ -18,6 +18,8 @@ import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { parseTtsProviderName, resolveTtsProvider } from "../_shared/tts-resolve.js";
 import { TTS_PROVIDER_KEYS, type TtsProviderName } from "../_shared/tts-providers.js";
 import { ApiKeyError } from "../../utils/api-key.js";
+import { narrationCostUsd } from "../_shared/build-plan.js";
+import { withTake, type TakeContext } from "../../takes/record.js";
 
 // ── Library: executeSpeech ──────────────────────────────────────────────
 
@@ -32,6 +34,8 @@ export interface ExecuteSpeechOptions {
   speed?: number;
   /** Directory a relative or default output resolves against (MCP: the workspace). Default: the process cwd. */
   cwd?: string;
+  /** Who is asking, for the take this generation records. */
+  take?: TakeContext;
 }
 
 export interface ExecuteSpeechResult {
@@ -44,9 +48,34 @@ export interface ExecuteSpeechResult {
   errorKind?: ProviderErrorKind;
   /** Non-fatal signals, e.g. the model's announced shutdown. */
   warnings?: string[];
+  /** The take this generation recorded. */
+  takeId?: string;
+  takeError?: string;
 }
 
 export async function executeSpeech(options: ExecuteSpeechOptions): Promise<ExecuteSpeechResult> {
+  return withTake(
+    options.take ?? { via: "cli", command: "generate narration", cwd: options.cwd },
+    {
+      kind: "audio",
+      operation: "generate",
+      prompt: options.text,
+      params: { voice: options.voice, model: options.model, speed: options.speed },
+      inputs: [],
+    },
+    () => runSpeech(options),
+    (result) => ({
+      reached: result.success,
+      status: "completed",
+      provider: result.provider ?? "unknown",
+      model: result.model,
+      outputs: result.outputPath ? [result.outputPath] : [],
+      fallbackCost: () => ({ usd: narrationCostUsd(result.provider), basis: "estimate" }),
+    }),
+  );
+}
+
+async function runSpeech(options: ExecuteSpeechOptions): Promise<ExecuteSpeechResult> {
   let tts: Awaited<ReturnType<typeof resolveTtsProvider>>;
   try {
     tts = await resolveTtsProvider(parseTtsProviderName(options.provider, "provider"));
@@ -137,12 +166,13 @@ export function registerNarrationCommand(parent: Command): void {
         outputSuccess({
           command: "generate narration",
           startedAt,
-          warnings: result.warnings,
+          warnings: [...(result.warnings ?? []), ...(result.takeError ? [result.takeError] : [])],
           data: {
             provider: result.provider,
             model: result.model,
             characterCount: result.characterCount,
             outputPath: result.outputPath,
+            ...(result.takeId ? { takeId: result.takeId } : {}),
           },
         });
         return;

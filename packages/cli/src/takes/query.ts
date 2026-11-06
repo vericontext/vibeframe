@@ -11,6 +11,7 @@
 import { resolve } from "node:path";
 
 import { InputError } from "../commands/validate.js";
+import { projectSlots, type SlotHolder } from "./slots.js";
 import {
   globalTakeStore,
   listTakes,
@@ -50,6 +51,10 @@ export interface TakeSummary {
   basis: TakeCostBasis;
   parent?: string;
   beatId?: string;
+  /** The beat slot a build made it for. */
+  asset?: Take["origin"]["asset"];
+  /** Set when this take's output is what the slot holds now; `promoted` when `vibe take promote` put it there. */
+  inSlot?: SlotHolder;
   prompt?: string;
   output?: string;
   projectDir?: string;
@@ -68,6 +73,7 @@ function summarizeTake(take: Take): TakeSummary {
     basis: take.cost.basis,
     ...(take.parent ? { parent: take.parent } : {}),
     ...(take.origin.beatId ? { beatId: take.origin.beatId } : {}),
+    ...(take.origin.asset ? { asset: take.origin.asset } : {}),
     prompt: take.prompt.length > 120 ? `${take.prompt.slice(0, 117)}...` : take.prompt,
     ...(take.outputs[0] ? { output: take.outputs[0].path } : {}),
   };
@@ -116,7 +122,12 @@ async function rows(scope: TakeScope, filter: TakeFilter): Promise<{ rows: TakeS
     return { rows: entries.filter((row) => matches(row, filter, since)), store: "ledger", mode: "ledger" };
   }
   const store = storeOf(scope);
-  const takes = (await listTakes(store)).map(summarizeTake);
+  const slots = store.projectDir ? projectSlots(store.projectDir) : undefined;
+  const takes = (await listTakes(store)).map((take) => {
+    const row = summarizeTake(take);
+    const slot = slots?.get(take.id);
+    return slot ? { ...row, inSlot: slot } : row;
+  });
   return { rows: takes.filter((row) => matches(row, filter, since)), store: store.dir, mode: store.mode };
 }
 

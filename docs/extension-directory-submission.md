@@ -50,7 +50,7 @@ to the Anthropic Connectors Directory.
 For sample media to exercise edit/detect tools, any short MP4 works:
 `ffmpeg -f lavfi -i testsrc=duration=8:size=640x360:rate=30 -f lavfi -i sine=frequency=440:duration=8 -shortest sample.mp4`
 
-## Tool inventory (63) with safety annotations and working examples
+## Tool inventory (64) with safety annotations and working examples
 
 Hints legend: **RO** = readOnlyHint:true · **W** = writes (destructiveHint:true
 unless noted) · **OW** = openWorldHint:true (calls an external provider).
@@ -144,6 +144,7 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | take_list | RO | `{"kind":"video","limit":10}` |
 | take_show | RO | `{"takeId":"take_mh2k1x0a_1f2e3d4c"}` |
 | take_log | RO | `{"since":"2026-11-01"}` or `{"global":true}` |
+| take_promote | W (local: copies a preserved take into a beat slot) | `{"takeId":"take_mh2k1x0a_1f2e3d4c","dryRun":true}` |
 
 ### Pipelines
 

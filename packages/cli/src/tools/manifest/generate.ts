@@ -107,7 +107,7 @@ export const generateNarrationTool = defineTool({
     model: z.string().optional().describe("Model alias for the provider (ElevenLabs: v3, multilingual, flash; Gemini: flash, lite)"),
   }),
   async execute(args, ctx) {
-    const result = await executeSpeech({ ...args, cwd: ctx.workingDirectory });
+    const result = await executeSpeech({ ...args, cwd: ctx.workingDirectory, take: { via: "mcp", command: "generate_narration", cwd: ctx.workingDirectory } });
     if (!result.success) return failedTool(result, "Narration failed");
     return {
       success: true,
@@ -116,7 +116,8 @@ export const generateNarrationTool = defineTool({
         characterCount: result.characterCount,
         provider: result.provider,
         model: result.model,
-        ...(result.warnings ? { warnings: result.warnings } : {}),
+        ...(result.takeId ? { takeId: result.takeId } : {}),
+        ...(result.warnings || result.takeError ? { warnings: [...(result.warnings ?? []), ...(result.takeError ? [result.takeError] : [])] } : {}),
       },
       humanLines: [`✅ Narration → ${result.outputPath}`],
     };
@@ -138,12 +139,16 @@ export const generateSoundEffectTool = defineTool({
     duration: z.number().optional().describe("Duration in seconds (0.5-30, default: auto)"),
     promptInfluence: z.number().optional().describe("Prompt influence 0-1 (default: 0.3)"),
   }),
-  async execute(args) {
-    const result = await executeSoundEffect(args);
+  async execute(args, ctx) {
+    const result = await executeSoundEffect({ ...args, take: { via: "mcp", command: "generate_sound_effect", cwd: ctx.workingDirectory } });
     if (!result.success) return failedTool(result, "SFX failed");
     return {
       success: true,
-      data: { outputPath: result.outputPath },
+      data: {
+        outputPath: result.outputPath,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
+        ...(result.takeError ? { warnings: [result.takeError] } : {}),
+      },
       humanLines: [`✅ SFX → ${result.outputPath}`],
     };
   },
@@ -180,7 +185,7 @@ export const generateMusicTool = defineTool({
       .describe("Wait for Replicate completion. Set false to return a local job id."),
   }),
   async execute(args, ctx) {
-    const result = await executeMusic(args);
+    const result = await executeMusic({ ...args, take: { via: "mcp", command: "generate_music", cwd: ctx.workingDirectory } });
     if (!result.success) return failedTool(result, "Music gen failed");
     let job: Awaited<ReturnType<typeof createAndWriteJobRecord>> | undefined;
     if (args.wait === false && result.provider === "replicate" && result.taskId) {
@@ -203,6 +208,8 @@ export const generateMusicTool = defineTool({
         taskId: result.taskId,
         status: result.status,
         jobId: job?.id,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
+        ...(result.takeError ? { warnings: [result.takeError] } : {}),
         statusCommand: job
           ? `vibe status job ${job.id} --project ${job.projectDir} --json`
           : undefined,
@@ -394,6 +401,8 @@ export const generateVideoTool = defineTool({
         ...(result.takeId ? { takeId: result.takeId } : {}),
         ...(cost.costUsd !== undefined ? { costUsd: cost.costUsd, costEstimated: cost.costEstimated } : {}),
         jobId: job?.id,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
+        ...(result.takeError ? { warnings: [result.takeError] } : {}),
         statusCommand: job
           ? `vibe status job ${job.id} --project ${job.projectDir} --json`
           : undefined,

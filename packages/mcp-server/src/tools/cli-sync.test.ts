@@ -50,6 +50,8 @@ const CLI_TREE: Record<string, string[]> = {
   storyboard: ["list", "get", "set", "move", "validate", "revise"],
   design: ["validate"],
   status: ["job", "project"],
+  // The take record: list/show/log read it, promote fills a beat slot.
+  take: ["list", "show", "log", "promote"],
 };
 
 // Top-level CLI commands with no manifest equivalent — pure ergonomics
@@ -134,6 +136,10 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   // status
   "status job":     "status_job",
   "status project": "status_project",
+  "take list":      "take_list",
+  "take show":      "take_show",
+  "take log":       "take_log",
+  "take promote":   "take_promote",
 };
 
 describe("CLI ↔ manifest sync", () => {

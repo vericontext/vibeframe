@@ -9,13 +9,17 @@
  * a submitted job does.
  */
 
-import { isAbsolute, relative, resolve } from "node:path";
+import { randomBytes } from "node:crypto";
+import { constants, existsSync } from "node:fs";
+import { copyFile, mkdir, rename } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 import { meterUsage, priceUsage, type UsageRecord, type VideoJob } from "@vibeframe/ai-providers";
 import {
   TAKE_SCHEMA_VERSION,
   hashFile,
   newTakeId,
+  takeMediaPath,
   takeStoreFor,
   writeTake,
   type Take,
@@ -25,6 +29,7 @@ import {
   type TakeKind,
   type TakeOperation,
   type TakeOrigin,
+  type TakeSlot,
   type TakeStatus,
   type TakeVia,
 } from "./take.js";
@@ -35,6 +40,8 @@ export interface TakeContext {
   command: string;
   cwd?: string;
   beatId?: string;
+  /** The beat slot a build is filling. */
+  asset?: TakeSlot;
   parent?: string;
 }
 
@@ -85,6 +92,23 @@ export function costOf(usage: UsageRecord[], fallback: () => Pick<TakeCost, "usd
   };
 }
 
+/**
+ * Keep a project take's output bytes under its content hash, so the take can
+ * be promoted after its slot file was regenerated. A copy-on-write clone
+ * where the filesystem supports it (APFS, Btrfs), a plain copy otherwise.
+ */
+async function preserveOutput(projectDir: string, source: string, file: TakeFile): Promise<void> {
+  const target = takeMediaPath(projectDir, file);
+  if (existsSync(target)) return;
+  await mkdir(dirname(target), { recursive: true });
+  // Two takes with the same bytes (a build's narration and music can be) may
+  // land here at once: each copies to its own temp file, and either rename
+  // leaves the same content.
+  const temp = `${target}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  await copyFile(source, temp, constants.COPYFILE_FICLONE);
+  await rename(temp, target);
+}
+
 function dropUndefined(params: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined));
 }
@@ -123,6 +147,7 @@ export async function withTake<T extends object>(
     for (const path of done.outputs) {
       const file = await hashFile(path);
       outputs.push({ ...file, path: storedPath(path, store.projectDir) });
+      if (store.projectDir) await preserveOutput(store.projectDir, path, file);
     }
     // A project take may be committed, so it names no absolute path: the project is where it lives.
     const origin: TakeOrigin = {
@@ -130,6 +155,7 @@ export async function withTake<T extends object>(
       command: ctx.command,
       cwd: store.projectDir ? storedPath(cwd, store.projectDir) || "." : cwd,
       ...(ctx.beatId ? { beatId: ctx.beatId } : {}),
+      ...(ctx.asset ? { asset: ctx.asset } : {}),
     };
     const take: Take = {
       schemaVersion: TAKE_SCHEMA_VERSION,

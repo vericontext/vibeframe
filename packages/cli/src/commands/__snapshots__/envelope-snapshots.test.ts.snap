@@ -3604,10 +3604,11 @@ exports[`CLI --describe schemas (drift detection) > vibe take list --describe 1`
         "type": "boolean",
       },
       "kind": {
-        "description": "Only this kind: video, image",
+        "description": "Only this kind: video, image, audio",
         "enum": [
           "video",
           "image",
+          "audio",
         ],
         "type": "string",
       },
@@ -3646,10 +3647,11 @@ exports[`CLI --describe schemas (drift detection) > vibe take log --describe 1`]
         "type": "boolean",
       },
       "kind": {
-        "description": "Only this kind: video, image",
+        "description": "Only this kind: video, image, audio",
         "enum": [
           "video",
           "image",
+          "audio",
         ],
         "type": "string",
       },
@@ -3662,6 +3664,50 @@ exports[`CLI --describe schemas (drift detection) > vibe take log --describe 1`]
         "type": "string",
       },
     },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe take promote --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Put a take's output into its beat slot; later builds keep it until the cue changes",
+  "name": "take.promote",
+  "parameters": {
+    "properties": {
+      "asset": {
+        "description": "Slot to fill: narration, backdrop, keyframe, video, music (default: the slot the take was made for)",
+        "enum": [
+          "narration",
+          "backdrop",
+          "keyframe",
+          "video",
+          "music",
+        ],
+        "type": "string",
+      },
+      "beat": {
+        "description": "Beat to fill (default: the beat the take was made for)",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Show what would change without writing",
+        "type": "boolean",
+      },
+      "project": {
+        "description": "Project to promote into (default: the one around the current directory)",
+        "type": "string",
+      },
+      "take-id": {
+        "description": "Take id, e.g. take_mh2k1x0a_1f2e3d4c",
+        "type": "string",
+      },
+    },
+    "required": [
+      "take-id",
+    ],
     "type": "object",
   },
   "surface": "advanced",

@@ -30,6 +30,8 @@ import {
 import {
   assetFreshnessFromMetadata,
   assetMetadataPath,
+  isPromotedSlot,
+  readAssetMetadata,
   type AssetFreshness,
 } from "./build-asset-metadata.js";
 import { augmentBackdropPrompt } from "./build-backdrop-prompt.js";
@@ -64,6 +66,7 @@ export type AssetPlanReason =
   | "missing"
   | "referenced-asset"
   | "invalid-reference"
+  | "promoted-take"
   | "stage-skipped";
 export type ProviderResolutionKind = BuildAssetKind | "composer";
 export type ProviderResolutionSource = "cli" | "storyboard" | "project-config" | "default" | "auto";
@@ -803,7 +806,9 @@ function assetPlan(opts: {
     beatId: opts.beatId,
     expectedCacheKey: opts.cache?.key,
     canonicalExists,
+    cue: opts.cue,
   });
+  const promoted = canonicalExists && freshness === "fresh" && isPromotedSlot(readAssetMetadata(opts.projectDir, opts.kind, opts.beatId), opts.cue);
   const force = !!opts.force;
   const canonicalUsable = canonicalExists && freshness !== "stale";
   const needsAssetRefresh = !canonicalUsable;
@@ -811,7 +816,9 @@ function assetPlan(opts: {
   const willGenerate = force || (needsAssetRefresh && !cacheHit);
   const reason: AssetPlanReason = force
     ? "force"
-    : canonicalExists && freshness === "stale"
+    : promoted
+      ? "promoted-take"
+      : canonicalExists && freshness === "stale"
       ? "canonical-stale"
       : canonicalExists && freshness === "unknown"
         ? "canonical-unknown"

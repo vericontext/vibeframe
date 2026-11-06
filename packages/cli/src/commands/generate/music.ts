@@ -17,9 +17,10 @@ import {
   type ProviderErrorKind,
 } from "@vibeframe/ai-providers";
 import { requireApiKey, requireConfiguredApiKey } from "../../utils/api-key.js";
-import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, notFoundError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, lookupCostEstimateUpperBound, notFoundError, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { createAndWriteJobRecord, type JobRecord } from "../_shared/status-jobs.js";
+import { withTake, type TakeContext } from "../../takes/record.js";
 
 // ── Library: executeMusic ───────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ export interface ExecuteMusicOptions {
   /** Replicate MusicGen variant: large, stereo-large, melody-large, stereo-melody-large. */
   model?: string;
   apiKey?: string;
+  /** Who is asking, for the take this generation records. */
+  take?: TakeContext;
 }
 export interface ExecuteMusicResult {
   success: boolean;
@@ -44,17 +47,47 @@ export interface ExecuteMusicResult {
   audioUrl?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** The take this generation recorded. */
+  takeId?: string;
+  takeError?: string;
 }
 
 export async function executeMusic(
   options: ExecuteMusicOptions,
 ): Promise<ExecuteMusicResult> {
   const provider = options.provider || "elevenlabs";
-  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  // A missing key throws ApiKeyError (API_KEY_MISSING) before any take is opened.
   const apiKey =
     provider === "elevenlabs"
       ? await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey)
       : await requireConfiguredApiKey("REPLICATE_API_TOKEN", "Replicate", options.apiKey);
+  return withTake(
+    options.take ?? { via: "cli", command: "generate music" },
+    {
+      kind: "audio",
+      operation: "generate",
+      prompt: options.prompt,
+      params: { provider, duration: options.duration, instrumental: options.instrumental, model: options.model },
+      inputs: [],
+    },
+    () => runMusic(options, provider, apiKey),
+    (result) => ({
+      // A Replicate job handed back unwaited was submitted: the provider has it.
+      reached: result.success,
+      status: result.taskId && !result.outputPath ? "submitted" : "completed",
+      provider: result.provider ?? provider,
+      ...(provider === "replicate" && options.model ? { model: options.model } : {}),
+      outputs: result.outputPath ? [result.outputPath] : [],
+      fallbackCost: () => ({ usd: lookupCostEstimateUpperBound("generate music"), basis: "upper-bound" }),
+    }),
+  );
+}
+
+async function runMusic(
+  options: ExecuteMusicOptions,
+  provider: "elevenlabs" | "replicate",
+  apiKey: string,
+): Promise<ExecuteMusicResult> {
 
   try {
     if (provider === "elevenlabs") {
@@ -196,7 +229,11 @@ export function registerMusicCommand(parent: Command): void {
       if (result.taskId && !result.outputPath) {
         const job = await recordMusicNoWaitJob({ provider: "replicate", providerTaskId: result.taskId, prompt });
         if (isJsonMode()) {
-          outputSuccess({ command: "generate music", startedAt, data: noWaitMusicData("replicate", result.taskId, job) });
+          outputSuccess({
+            command: "generate music",
+            startedAt,
+            data: { ...noWaitMusicData("replicate", result.taskId, job), ...(result.takeId ? { takeId: result.takeId } : {}) },
+          });
           return;
         }
         spinner?.succeed(chalk.green(`Music generation started (task ${result.taskId})`));
@@ -208,7 +245,13 @@ export function registerMusicCommand(parent: Command): void {
         outputSuccess({
           command: "generate music",
           startedAt,
-          data: { provider: result.provider, outputPath: result.outputPath, duration: result.duration },
+          ...(result.takeError ? { warnings: [result.takeError] } : {}),
+          data: {
+            provider: result.provider,
+            outputPath: result.outputPath,
+            duration: result.duration,
+            ...(result.takeId ? { takeId: result.takeId } : {}),
+          },
         });
         return;
       }

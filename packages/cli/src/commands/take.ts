@@ -1,10 +1,10 @@
 /**
- * `vibe take`: read the record of every paid generation.
+ * `vibe take`: the record of every paid generation.
  *
- * Every `generate video`, `generate image`, `edit image`, and video
- * extension leaves a take (see takes/take.ts and docs/take-graph.md). These
- * commands list them, show one in full, and total the spend, saying how much
- * of it is provider billing and how much is estimate.
+ * Every video, image, and audio generation leaves a take (see takes/take.ts
+ * and docs/take-graph.md). These commands list them, show one in full, total
+ * the spend (saying how much of it is provider billing and how much is
+ * estimate), and promote an earlier take back into a project's beat slot.
  */
 
 import { Command } from "commander";
@@ -13,9 +13,10 @@ import chalk from "chalk";
 import { applyTiers } from "./_shared/cost-tier.js";
 import { exitWithError, failureFromError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
 import { executeTakeList, executeTakeLog, executeTakeShow, type TakeScope } from "../takes/query.js";
-import type { TakeKind } from "../takes/take.js";
+import { executeTakePromote } from "../takes/promote.js";
+import { TAKE_SLOTS, type TakeKind, type TakeSlot } from "../takes/take.js";
 
-const KINDS: readonly TakeKind[] = ["video", "image"];
+const KINDS: readonly TakeKind[] = ["video", "image", "audio"];
 
 function scopeOf(options: { project?: string; global?: boolean }): TakeScope {
   return { cwd: process.cwd(), projectDir: options.project, global: options.global === true };
@@ -44,10 +45,15 @@ Inside a project, takes live in <project>/.vibeframe/takes/; elsewhere in
 ~/.vibeframe/takes/. Every take is also a line in ~/.vibeframe/ledger.jsonl,
 which --global reads to cover every project on this machine.
 
+A build records each beat asset (narration, backdrop, keyframe, video,
+music) as a take. 'take promote' puts an earlier take back into its slot;
+later builds keep it until the beat's cue changes or --force.
+
 Examples:
   $ vibe take list --json
-  $ vibe take list --kind video --limit 10
+  $ vibe take list --beat 2 --kind video
   $ vibe take show take_mh2k1x0a_1f2e3d4c --json
+  $ vibe take promote take_mh2k1x0a_1f2e3d4c --dry-run --json
   $ vibe take log --since 2026-11-01 --json
   $ vibe take log --global
 `);
@@ -83,9 +89,10 @@ takeCommand
         return;
       }
       for (const take of result.takes) {
-        const where = take.beatId ? ` beat ${take.beatId}` : "";
+        const where = take.beatId ? ` beat ${take.beatId}${take.asset ? ` ${take.asset}` : ""}` : "";
+        const held = take.inSlot ? chalk.green(take.inSlot.promoted ? "  [in slot, promoted]" : "  [in slot]") : "";
         console.log(
-          `${chalk.bold(take.id)}  ${take.createdAt.slice(0, 16).replace("T", " ")}  ${take.kind} ${take.operation}  ${take.provider}${take.model ? `/${take.model}` : ""}  ${take.status}  ${usd(take.usd)} (${take.basis})${where}`,
+          `${chalk.bold(take.id)}  ${take.createdAt.slice(0, 16).replace("T", " ")}  ${take.kind} ${take.operation}  ${take.provider}${take.model ? `/${take.model}` : ""}  ${take.status}  ${usd(take.usd)} (${take.basis})${where}${held}`,
         );
       }
       if (result.total > result.takes.length) console.log(chalk.dim(`${result.takes.length} of ${result.total} shown; use --limit for more.`));
@@ -150,4 +157,40 @@ takeCommand
     }
   });
 
-applyTiers(takeCommand, { list: "free", show: "free", log: "free" });
+takeCommand
+  .command("promote")
+  .description("Put a take's output into its beat slot; later builds keep it until the cue changes")
+  .argument("<take-id>", "Take id, e.g. take_mh2k1x0a_1f2e3d4c")
+  .option("--project <dir>", "Project to promote into (default: the one around the current directory)")
+  .option("--beat <id>", "Beat to fill (default: the beat the take was made for)")
+  .option("--asset <slot>", `Slot to fill: ${TAKE_SLOTS.join(", ")} (default: the slot the take was made for)`)
+  .option("--dry-run", "Show what would change without writing")
+  .action(async (id: string, options) => {
+    const startedAt = Date.now();
+    try {
+      if (options.asset !== undefined && !TAKE_SLOTS.includes(options.asset as TakeSlot)) {
+        exitWithError(usageError(`Invalid --asset "${String(options.asset)}".`, `Use one of: ${TAKE_SLOTS.join(", ")}.`));
+      }
+      const result = await executeTakePromote({
+        takeId: id,
+        cwd: process.cwd(),
+        projectDir: options.project,
+        beatId: options.beat,
+        asset: options.asset as TakeSlot | undefined,
+        dryRun: options.dryRun === true,
+      });
+      if (!result.success) exitWithError(result.failure);
+      if (isJsonMode()) {
+        outputSuccess({ command: "take promote", startedAt, dryRun: result.dryRun, data: result as unknown as Record<string, unknown> });
+        return;
+      }
+      const verb = result.dryRun ? "Would promote" : "Promoted";
+      console.log(`${verb} ${chalk.bold(result.takeId)} into the ${result.asset} slot of beat ${result.beatId} (${result.path})`);
+      if (result.previousTakeId) console.log(chalk.dim(`  replaces ${result.previousTakeId}`));
+      if (!result.dryRun) console.log(chalk.dim("  Run 'vibe build' to compose and render with it."));
+    } catch (error) {
+      exitWithError(failureFromError(error, "Could not promote the take", { fallback: "general" }));
+    }
+  });
+
+applyTiers(takeCommand, { list: "free", show: "free", log: "free", promote: "free" });
