@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.117.0] - 2026-11-06
+
+### Added
+
+- build records every beat asset as a take, and vibe take promote puts one back (#419)
+- record every paid generation as a take, with vibe take list/show/log (#418)
+
+### Breaking
+
+- remove the JSON timeline project model and packages/core (#417)
+
+### Fixed
+
+- report the charge xAI and Runway say a video job cost (#416)
+
 ## [0.116.4] - 2026-11-05
 
 ### Added
