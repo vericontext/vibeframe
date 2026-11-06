@@ -87,7 +87,10 @@ export function registerVideoExtendCommand(parent: Command): void {
 
       if (isJsonMode()) {
         // Billed once the extension is accepted, whether or not we wait for it.
-        const cost = upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, provider);
+        // A provider that reported the extension's charge was metered; outputSuccess prices the meter.
+        const cost = result.metered
+          ? { costUsd: undefined, estimated: undefined, warnings: [] }
+          : upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, provider);
         outputSuccess({
           command: "generate video-extend",
           startedAt,

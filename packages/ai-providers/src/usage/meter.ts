@@ -24,7 +24,12 @@ export type UsageAmount =
   /** Seconds of audio produced (TTS, music, sound effects) or transcribed. */
   | { unit: "seconds"; count: number }
   /** Billed requests, for services priced per call or not priced at all. */
-  | { unit: "requests"; count: number };
+  | { unit: "requests"; count: number }
+  /**
+   * What the provider says it charged, in US dollars (xAI `cost_in_usd_ticks`,
+   * Runway `cost.credits`). Taken as is, not priced from the catalog.
+   */
+  | { unit: "usd"; amount: number };
 
 export interface UsageRecord {
   /** Catalog provider id ("claude", "gemini", "elevenlabs", ...). */

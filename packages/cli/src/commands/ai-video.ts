@@ -13,6 +13,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
   isProviderError,
+  recordUsage,
   waitForVideoJob,
   type MediaReference,
   type ProviderErrorKind,
@@ -20,6 +21,7 @@ import {
   type VideoJob,
   type VideoJobState,
   type VideoRequest,
+  type VideoUsage,
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
 import { ApiKeyError } from "../utils/api-key.js";
@@ -50,15 +52,21 @@ function failure(error: unknown, prefix: string): { success: false; error: strin
   return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}` };
 }
 
-/** Wait for a job (or read it once), then download the video when asked. */
+/**
+ * Wait for a job (or read it once), then download the video when asked.
+ * With `recordUsage`, a charge the provider reports for the finished job is
+ * metered: set it only where this call is the first to see the job finish
+ * (right after submitting it), never on a later status read.
+ */
 async function settle(
   generator: VideoGenerator,
   job: VideoJob,
-  opts: { wait: boolean; output?: string; onProgress?: (state: VideoJobState) => void }
+  opts: { wait: boolean; output?: string; onProgress?: (state: VideoJobState) => void; recordUsage?: boolean }
 ): Promise<{ state: VideoJobState; outputPath?: string }> {
   const state = opts.wait
     ? await waitForVideoJob(generator, job, { timeoutMs: WAIT_TIMEOUT_MS, onProgress: opts.onProgress })
     : await generator.getVideoJob(job);
+  if (opts.recordUsage && state.usage) recordUsage(state.usage);
   const outputPath =
     opts.output && state.status === "completed"
       ? await saveOutput(opts.output, await generator.downloadVideo(job, state))
@@ -128,7 +136,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
   try {
     const generator = await openVideoGenerator(provider, options.apiKey);
     // A provider that meters its submissions records what the job billed.
-    const metered = typeof generator.usageFor === "function";
+    let metered = typeof generator.usageFor === "function";
     const references: MediaReference[] = [];
     for (const [kind, paths, mime] of [
       ["image", options.refImages, "image/png"],
@@ -163,7 +171,7 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
     }
     let settled: Awaited<ReturnType<typeof settle>>;
     try {
-      settled = await settle(generator, job, { wait: true, output: options.output, onProgress: options.onProgress });
+      settled = await settle(generator, job, { wait: true, output: options.output, onProgress: options.onProgress, recordUsage: true });
     } catch (error) {
       // Running out of wait time is not a failure: the job may still finish.
       if (isProviderError(error) && error.kind === "timeout") {
@@ -172,6 +180,8 @@ export async function executeVideoGenerate(options: VideoGenerateOptions): Promi
       throw error;
     }
     const { state, outputPath } = settled;
+    // A provider that reports the finished job's charge was metered just now.
+    if (state.usage) metered = true;
     if (state.status !== "completed") {
       return {
         success: false,
@@ -226,6 +236,8 @@ export interface VideoStatusResult {
   outputPath?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** What the provider says the job charged, on a terminal job that reports it. Not metered here. */
+  usage?: VideoUsage;
 }
 
 export async function executeVideoStatus(options: VideoStatusOptions): Promise<VideoStatusResult> {
@@ -244,6 +256,7 @@ export async function executeVideoStatus(options: VideoStatusOptions): Promise<V
       outputPath,
       error: state.error?.message,
       errorKind: state.error?.kind,
+      usage: state.usage,
     };
   } catch (error) {
     return failure(error, "Status check failed");
@@ -308,6 +321,8 @@ export interface VideoExtendResult {
   videoUrl?: string;
   duration?: number;
   outputPath?: string;
+  /** The provider reported the extension's charge, which was metered. */
+  metered?: boolean;
   error?: string;
   errorKind?: ProviderErrorKind;
 }
@@ -323,12 +338,14 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       from: { job: source, kind: "extend" },
     });
     if (options.wait === false) return { success: true, taskId: job.id, job, status: "processing" };
-    const { state, outputPath } = await settle(generator, job, { wait: true, output: options.output });
+    const { state, outputPath } = await settle(generator, job, { wait: true, output: options.output, recordUsage: true });
+    const metered = state.usage !== undefined;
     if (state.status !== "completed") {
       return {
         success: false,
         taskId: job.id,
         job,
+        metered,
         status: state.status,
         error: state.error?.message ?? `${source.provider} extension ${state.status}`,
         errorKind: state.error?.kind,
@@ -342,6 +359,7 @@ export async function executeVideoExtend(options: VideoExtendOptions): Promise<V
       videoUrl: state.videoUrl,
       duration: state.durationSec,
       outputPath,
+      metered,
     };
   } catch (error) {
     return failure(error, "Video extension failed");

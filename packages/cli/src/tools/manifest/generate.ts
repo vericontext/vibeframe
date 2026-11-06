@@ -459,12 +459,14 @@ export const generateVideoExtendTool = defineTool({
       output: args.output ?? defaultOutputIn(ctx.workingDirectory, "video-extended.mp4"),
     });
     if (!result.success) return failedTool(result, "Extend failed");
-    const cost = upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, args.provider ?? "kling");
+    // A metered extension leaves costUsd to the call's usage meter, as generate_video does.
+    const cost = result.metered
+      ? undefined
+      : upperBoundCost(lookupCostEstimateUpperBound("generate video-extend"), 1, args.provider ?? "kling");
     return {
       success: true,
       data: {
-        costUsd: cost.costUsd,
-        costEstimated: cost.estimated,
+        ...(cost ? { costUsd: cost.costUsd, costEstimated: cost.estimated } : {}),
         taskId: result.taskId,
         status: result.status,
         videoUrl: result.videoUrl,

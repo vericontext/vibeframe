@@ -95,7 +95,7 @@ Credit rates are per second of output unless noted (docs).
 1. Branch on `failureCode` (now included in the error text): never retry `SAFETY.INPUT.*`, retry `INTERNAL*` and `THIRD_PARTY.UNAVAILABLE` with delay, and surface the code in JSON reports.
 2. Retry 502 and 504 too, with jitter.
 3. Remove or restore the Runway image path; the Python script it spawns is missing.
-4. Record `estimatedCost.credits` and `cost.credits` from the task for real cost reporting.
+4. Record `estimatedCost.credits` at submit for dry runs. Done 2026-11-06: `getVideoJob` reads `cost.credits` on any terminal task (failed tasks can be billed) as `VideoJobState.usage` in USD, and the CLI meters it once as the job's real cost.
 5. Consider a Model Router `configId` option for users who do not want to pin a model.
 
 ## Sources

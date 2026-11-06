@@ -66,6 +66,12 @@ export const FAKE_WHISPER_TRANSCRIPT = {
   ],
 };
 
+/** What a fake Runway task reports it charged, in credits (1 credit = $0.01); deliberately not a list price. */
+export const FAKE_RUNWAY_CREDITS = 73;
+
+/** What a fake Grok job reports it charged, in ticks of 1e-10 USD ($0.8125); deliberately not a list price. */
+export const FAKE_GROK_TICKS = 8_125_000_000;
+
 /** Kling's API host (both API generations). */
 export const KLING_HOST = "api-singapore.klingai.com";
 
@@ -85,6 +91,7 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
   const net = new FakeProviderNetwork();
   let falRequests = 0;
   let runwayTasks = 0;
+  let grokRequests = 0;
   let klingTasks = 0;
   return net
     .on("GET", "fake.media", /.*/, (req) =>
@@ -148,6 +155,22 @@ export function createFakeProviderNetwork(): FakeProviderNetwork {
       jsonResponse({ id: `runway-${++runwayTasks}` })
     )
     .on("GET", "api.dev.runwayml.com", /^\/v1\/tasks\/[^/]+$/, (req) =>
-      jsonResponse({ id: req.path.split("/").at(-1), status: "SUCCEEDED", output: ["https://fake.media/runway.mp4"] })
+      jsonResponse({
+        id: req.path.split("/").at(-1),
+        status: "SUCCEEDED",
+        output: ["https://fake.media/runway.mp4"],
+        cost: { credits: FAKE_RUNWAY_CREDITS },
+      })
+    )
+    .on("POST", "api.x.ai", /^\/v1\/videos\/(generations|edits|extensions)$/, () =>
+      jsonResponse({ request_id: `grok-${++grokRequests}` })
+    )
+    .on("GET", "api.x.ai", /^\/v1\/videos\/[^/]+$/, () =>
+      jsonResponse({
+        status: "done",
+        model: "grok-imagine-video-1.5",
+        video: { url: "https://fake.media/grok.mp4", duration: 5 },
+        usage: { cost_in_usd_ticks: FAKE_GROK_TICKS },
+      })
     );
 }

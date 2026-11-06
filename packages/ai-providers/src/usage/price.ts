@@ -43,6 +43,8 @@ function sizedRate(price: ModelPrice, size: string | undefined, fallback: number
 
 /** USD for one record, or undefined when the catalog cannot price it. */
 export function priceRecord(record: UsageRecord, now: Date = new Date()): number | undefined {
+  // A charge the provider reported needs no price list.
+  if (record.amount.unit === "usd") return record.amount.amount;
   const price = catalogEntry(record)?.price;
   if (!price) return undefined;
   const rates = ratesOn(price, now);
