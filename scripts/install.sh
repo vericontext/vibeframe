@@ -239,7 +239,6 @@ else
   step "Building CLI packages..."
   # Build only CLI-related packages (faster). The MCP server imports the CLI's
   # public subpaths, so the CLI bundle must exist before mcp-server builds.
-  pnpm --filter @vibeframe/core build
   pnpm --filter @vibeframe/ai-providers build
   pnpm --filter @vibeframe/cli build
   pnpm --filter @vibeframe/mcp-server build

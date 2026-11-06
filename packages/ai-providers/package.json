@@ -63,7 +63,6 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.0",
-    "@vibeframe/core": "workspace:*",
     "kokoro-js": "^1.2.1"
   },
   "devDependencies": {

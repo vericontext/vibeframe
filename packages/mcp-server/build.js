@@ -7,7 +7,6 @@ const root = resolve("../..");
 const cliSrc = resolve(root, "packages/cli/src");
 
 const cliSourceAliases = new Map([
-  ["@vibeframe/cli/engine", resolve(cliSrc, "engine/index.ts")],
   ["@vibeframe/cli/tools/manifest", resolve(cliSrc, "tools/manifest/index.ts")],
   ["@vibeframe/cli/tools/adapters/mcp", resolve(cliSrc, "tools/adapters/mcp.ts")],
 ]);
@@ -15,7 +14,7 @@ const cliSourceAliases = new Map([
 const cliSourceAliasPlugin = {
   name: "cli-source-alias",
   setup(pluginBuild) {
-    pluginBuild.onResolve({ filter: /^@vibeframe\/cli\/(engine|tools\/manifest|tools\/adapters\/mcp)$/ }, (args) => {
+    pluginBuild.onResolve({ filter: /^@vibeframe\/cli\/(tools\/manifest|tools\/adapters\/mcp)$/ }, (args) => {
       const path = cliSourceAliases.get(args.path);
       if (!path) return undefined;
       return { path };

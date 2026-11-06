@@ -13,11 +13,7 @@ import chalk from "chalk";
 // relative path resolution depended on the source file layout.
 import pkg from "../package.json" with { type: "json" };
 
-// Re-export engine for library usage
-export { Project, generateId, type ProjectFile } from "./engine/index.js";
-import { projectCommand } from "./commands/project.js";
 import { sceneCommand } from "./commands/scene.js";
-import { timelineCommand } from "./commands/timeline.js";
 import { generateCommand } from "./commands/generate.js";
 import { editCommand } from "./commands/edit-cmd.js";
 import { inspectCommand } from "./commands/inspect.js";
@@ -25,7 +21,6 @@ import { audioCommand } from "./commands/audio.js";
 import { remixCommand } from "./commands/remix.js";
 import { schemaCommand } from "./commands/schema.js";
 import { mediaCommand } from "./commands/media.js";
-import { batchCommand } from "./commands/batch.js";
 import { detectCommand } from "./commands/detect.js";
 import { setupCommand } from "./commands/setup.js";
 import { initCommand } from "./commands/init.js";
@@ -174,7 +169,7 @@ program
   .addHelpText(
     "after",
     `
-Full command catalog, including the timeline, batch, and scene primitives
+Full command catalog, including the scene and media primitives
 this listing omits:
 
   vibe schema --list                  Every command, with cost tier
@@ -320,17 +315,12 @@ program.addCommand(runCommand);
 
 // Workflow commands
 //
-// `project`, `scene`, `timeline` are hidden from `vibe --help` because
-// their descriptions either self-deprecate ("Deprecated alias…") or
-// nudge users toward `init`/`build`/`render` ("For project flow use
-// `vibe init`…"). They still register, still show in
-// `vibe schema --list`, and tab completion still finds them — they
-// just don't take visual weight in the front-page Commands list.
-program.addCommand(projectCommand, { hidden: true });
+// `scene` is hidden from `vibe --help` because its description nudges
+// users toward `init`/`build`/`render`. It still registers, still shows
+// in `vibe schema --list`, and tab completion still finds it - it just
+// doesn't take visual weight in the front-page Commands list.
 program.addCommand(sceneCommand, { hidden: true });
-program.addCommand(timelineCommand, { hidden: true });
 program.addCommand(detectCommand);
-program.addCommand(batchCommand, { hidden: true });
 
 // Agent integration commands
 program.addCommand(schemaCommand);

@@ -14,7 +14,7 @@ models_recommended: []
 
 # Kling
 
-VibeFrame uses the official Kling API for text-to-video, image-to-video, and video extension (`vibe generate video -p kling`, `vibe edit fill-gaps`, `vibe generate video-extend`).
+VibeFrame uses the official Kling API for text-to-video, image-to-video, and video extension (`vibe generate video -p kling`, `vibe generate video-extend`).
 Kling runs two API generations side by side, and the catalog's `api` field picks one per model.
 `kling-v3` (the default), `kling-v2-6`, `kling-v2-5-turbo`, and video extension use the legacy `/v1/videos/*` API, authenticated with either a single console API key (Bearer) or the legacy AK/SK pair (JWT).
 `kling-4.0` and `kling-3.0-turbo` exist only on the new API (model in the path, polled through `/tasks`), which takes an API key only.
@@ -102,7 +102,6 @@ So one default 5 s std clip costs about $0.42 on v3, and the cheapest Kling 4.0 
   - `apiKeyToken()` refuses new-API models with only an AK/SK pair (`auth`, before any request); `token()` signs the HS256 JWT for the legacy API.
   - `klingErrorKind()` maps the service codes above; `submitExtend()` serves legacy jobs only.
 - `packages/cli/src/commands/generate/video.ts`: `--kling-model` choices and per-model `--duration` help come from the catalog; `videoRequestProblem()` rejects out-of-range durations and resolutions before the dry run; the dry run prices `usageFor()`; real runs report the metered cost.
-- `packages/cli/src/commands/_shared/execute-fill-gaps.ts`: fill-gaps uses Kling image-to-video (default model) with frames uploaded to ImgBB.
 - `packages/cli/src/commands/_shared/video-providers.ts`: storyboard retry wrapper, always `mode: "std"`; its comment about a "v1.5 fallback for base64" is stale.
 - `packages/cli/src/testing/fake-provider-network.ts`: default routes for both generations on `KLING_HOST`.
 - `packages/ai-providers/src/api-keys.ts`: env example says single API key or legacy pair, URL `platform.klingai.com`.

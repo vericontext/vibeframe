@@ -126,7 +126,6 @@ export type {
   TranscriptResult,
   TranscriptSegment,
   TranscriptWord,
-  EditSuggestion,
   Highlight,
   HighlightCriteria,
   HighlightsResult,

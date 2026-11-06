@@ -1,9 +1,7 @@
-import type { Clip } from "@vibeframe/core";
 import type {
   AIProvider,
   AICapability,
   ProviderConfig,
-  EditSuggestion,
 } from "../interface/types.js";
 
 import {
@@ -12,7 +10,7 @@ import {
   GEMINI_MOTION_MODELS,
 } from "./gemini-motion.js";
 import type { GeminiMotionOptions } from "./gemini-motion.js";
-import { GEMINI_DEFAULT_TEXT_MODEL, resolveGeminiTextModel } from "./gemini-models.js";
+import { resolveGeminiTextModel } from "./gemini-models.js";
 import type { GeminiTextModel } from "./gemini-models.js";
 import type { RemotionComponent, StoryboardSegment } from "../claude/ClaudeProvider.js";
 import { analyzeContent as analyzeContentImpl } from "./gemini-storyboard.js";
@@ -21,7 +19,6 @@ import { ProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveCatalogModel } from "../video/models.js";
 import { geminiGenerateContent, geminiGenerateText, type GeminiPart } from "./gemini-text.js";
-import { isText, parseJsonReply } from "../shared/json-reply.js";
 import type { TextGenerator, TextRequest, TextResult } from "../text/contract.js";
 
 /**
@@ -88,7 +85,7 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
   id = "gemini";
   name = "Google Gemini";
   description = "Image (Nano Banana), vision, and text generation";
-  capabilities: AICapability[] = ["text-to-image", "auto-edit", "vision"];
+  capabilities: AICapability[] = ["text-to-image", "vision"];
   iconUrl = "/icons/gemini.svg";
   isAvailable = true;
   readonly imageProvider = "gemini";
@@ -263,65 +260,6 @@ export class GeminiProvider implements AIProvider, ImageGenerator, TextGenerator
       responseTokens: result.responseTokens,
       totalTokens: result.totalTokens,
     };
-  }
-
-  /** Suggest timeline edits for an instruction. Throws a `ProviderError` on every failure. */
-  async autoEdit(clips: Clip[], instruction: string): Promise<EditSuggestion[]> {
-    const clipsInfo = clips.map((clip) => ({
-      id: clip.id,
-      startTime: clip.startTime,
-      duration: clip.duration,
-      effects: clip.effects?.map((e) => e.type) || [],
-    }));
-
-    const prompt = `You are a video editing assistant. Analyze the following clips and user instruction to suggest edits.
-
-Clips:
-${JSON.stringify(clipsInfo, null, 2)}
-
-User instruction: "${instruction}"
-
-Respond with a JSON array of edit suggestions. Each suggestion should have:
-- type: one of "trim", "cut", "add-effect", "reorder", "delete", "split", "merge"
-- description: brief explanation of the edit
-- clipIds: array of clip IDs to apply this edit to
-- params: object with parameters for the edit (e.g., newDuration, effectType, startTime)
-- confidence: number 0-1 indicating confidence
-
-Available effect types: fadeIn, fadeOut, blur, brightness, contrast, saturation, grayscale, sepia
-
-Example response:
-[{"type":"trim","description":"Trim intro to 3 seconds","clipIds":["clip-1"],"params":{"newDuration":3},"confidence":0.9}]
-
-Respond with ONLY the JSON array, no other text.`;
-
-    const { text } = await geminiGenerateContent({ apiKey: this.apiKey, baseUrl: this.baseUrl }, {
-      model: GEMINI_DEFAULT_TEXT_MODEL,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      maxOutputTokens: 8192,
-    });
-    const suggestions = parseJsonReply<Array<{
-      type: string;
-      description: string;
-      clipIds: string[];
-      params: Record<string, unknown>;
-      confidence: number;
-    }>>(text, {
-      provider: "gemini",
-      label: "Gemini",
-      task: "edit suggestion",
-      shape: "array",
-      isValid: (items) => items.every((s) => isText(s?.type) && Array.isArray(s.clipIds)),
-    });
-
-    return suggestions.map((s) => ({
-      id: crypto.randomUUID(),
-      type: s.type as EditSuggestion["type"],
-      description: s.description,
-      clipIds: s.clipIds,
-      params: s.params ?? {},
-      confidence: s.confidence,
-    }));
   }
 
   /**

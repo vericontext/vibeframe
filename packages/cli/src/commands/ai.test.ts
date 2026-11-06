@@ -24,18 +24,6 @@ describe("CLI command groups", () => {
     });
   });
 
-  describe("inspect suggest", () => {
-    it("fails without API key", () => {
-      expect(() => {
-        execSync(`${CLI} inspect suggest /tmp/nonexistent.json "trim clip"`, {
-          cwd: WORK,
-          encoding: "utf-8",
-          env: { ...process.env, GOOGLE_API_KEY: undefined },
-        });
-      }).toThrow();
-    });
-  });
-
   describe("remix highlights", () => {
     it("shows help", () => {
       const output = execSync(`${CLI} remix highlights --help`, {
@@ -49,7 +37,7 @@ describe("CLI command groups", () => {
       expect(output).toContain("--duration");
       expect(output).toContain("--count");
       expect(output).toContain("--output");
-      expect(output).toContain("--project");
+      expect(output).not.toContain("--project");
     });
 
     it("fails without API keys", () => {

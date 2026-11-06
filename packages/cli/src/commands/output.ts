@@ -78,7 +78,7 @@ const PROVIDER_ERROR_HINTS: Array<{ pattern: RegExp; suggestion: string; retryab
   { pattern: /voice.*not.*found|voice_not_found|invalid.*voice.?id/i, suggestion: "Voice ID not found. Run 'vibe audio list-voices' to list available voices, then pass --voice <id>.", retryable: false },
   { pattern: /character.*(count|limit).*exceeded|invalid_character_count/i, suggestion: "Text exceeds the TTS provider's character limit. Shorten the text or split into chunks.", retryable: false },
   { pattern: /invalid.*aspect.*ratio|unsupported.*aspect.*ratio|unsupported.*resolution/i, suggestion: "This aspect ratio or resolution isn't supported by the chosen model. Check 'vibe schema <command>' for supported values.", retryable: false },
-  { pattern: /invalid.*file.*format|unsupported.*(format|codec)|unsupported.*media.?type/i, suggestion: "Input file format not supported. Convert to MP4/MP3/PNG first with 'vibe export' or 'ffmpeg'.", retryable: false },
+  { pattern: /invalid.*file.*format|unsupported.*(format|codec)|unsupported.*media.?type/i, suggestion: "Input file format not supported. Convert to MP4/MP3/PNG first with 'ffmpeg'.", retryable: false },
   { pattern: /region.*(restriction|not.*supported|unavailable)|geo.?blocked/i, suggestion: "Provider unavailable in your region. Try -p <other-provider>, or use a supported region.", retryable: false },
   { pattern: /task.*(not.*found|expired)|job.*(not.*found|expired)/i, suggestion: "The async task expired or was never created. Re-run the command to start a new task.", retryable: true },
 ];
@@ -285,8 +285,6 @@ export const COST_ESTIMATES: Record<string, { min: number; max: number; unit: st
   // High
   "generate video": { min: 0.50, max: 5.00, unit: "per video" },
   "generate video-extend": { min: 0.50, max: 5.00, unit: "per video" },
-  // One generated video per gap.
-  "edit fill-gaps": { min: 0.50, max: 5.00, unit: "per gap" },
   "edit image": { min: 0.05, max: 0.50, unit: "per edit" },
   // Transcription + translation + one TTS call per line.
   "audio dub": { min: 0.05, max: 1.00, unit: "per file" },

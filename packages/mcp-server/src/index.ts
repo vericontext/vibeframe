@@ -3,15 +3,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { tools, handleToolCall } from "./tools/index.js";
-import { resources, readResource } from "./resources/index.js";
-import { prompts, getPrompt } from "./prompts/index.js";
 import {
   applyWorkspaceEnv,
   buildServerInstructions,
@@ -32,10 +26,8 @@ if (handleCliFlags(process.argv.slice(2), process.env.VIBE_MCP_SERVER_VERSION ??
  * VibeFrame MCP Server
  *
  * Exposes VibeFrame functionality through the Model Context Protocol.
- * This allows Claude Desktop, Cursor, and other MCP clients to:
- * - Manipulate video timelines
- * - Access project state
- * - Use AI-powered editing features
+ * This allows Claude Desktop, Cursor, and other MCP clients to plan, build,
+ * render, and review scene video projects and run one-shot media tools.
  */
 /**
  * The stdio transport owns stdout: any stray console.log corrupts JSON-RPC
@@ -64,8 +56,6 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
-      resources: {},
-      prompts: {},
     },
     instructions: buildServerInstructions(),
   }
@@ -121,28 +111,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
               }),
         }
   );
-});
-
-// List available resources
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return { resources };
-});
-
-// Read resource content
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const { uri } = request.params;
-  return readResource(uri);
-});
-
-// List available prompts
-server.setRequestHandler(ListPromptsRequestSchema, async () => {
-  return { prompts };
-});
-
-// Get prompt content
-server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-  return getPrompt(name, args || {});
 });
 
 // Start the server

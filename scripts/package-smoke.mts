@@ -198,8 +198,6 @@ const mcpDir = resolve(root, "packages/mcp-server");
 assertPackFiles(packDryRun(cliDir), [
   "dist/index.js",
   "dist/index.d.ts",
-  "dist/engine/index.js",
-  "dist/engine/index.d.ts",
   "dist/tools/manifest/index.js",
   "dist/tools/manifest/index.d.ts",
   "dist/tools/define-tool.js",
@@ -219,7 +217,6 @@ assertPackFiles(packDryRun(mcpDir), [
 ]);
 assertExportTargets(mcpDir);
 
-await smokeImport("@vibeframe/cli/engine", resolve(cliDir, "dist/engine/index.js"));
 await smokeImport("@vibeframe/cli/tools/manifest", resolve(cliDir, "dist/tools/manifest/index.js"));
 await smokeImport("@vibeframe/cli/tools/define-tool", resolve(cliDir, "dist/tools/define-tool.js"));
 await smokeImport(

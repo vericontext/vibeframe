@@ -91,7 +91,7 @@ vibe guide <topic> --json              # Step-by-step guides (motion | scene | p
 | Free      | `schema/context/doctor`, `detect *`, `status *`, `plan`, `storyboard validate`, `inspect project/render --cheap`, deterministic edits | $0            |
 | Low       | `generate narration/sound-effect/music`, `audio transcribe/list-voices`, `inspect media`, optional AI review                          | $0.01–0.10    |
 | High      | `generate image/motion`, `edit image/reframe/grade/speed-ramp`                                                                        | $1–5          |
-| Very High | `generate video`, `edit fill-gaps`, `remix highlights/auto-shorts`, `build` with generated assets                                     | $5–50+        |
+| Very High | `generate video`, `remix highlights/auto-shorts`, `build` with generated assets                                                       | $5–50+        |
 
 > Rule: **confirm with the user before any High / Very-High call**.
 
@@ -175,7 +175,7 @@ creative fixes belong to the host agent.
 ```
 init --from → storyboard revise → storyboard validate → plan → build → inspect → render
 generate / edit / inspect / remix                          # one-shot media tools
-scene / timeline                                            # lower-level authoring
+scene / detect / media / assemble                          # lower-level operations
 run / agent / schema / context                              # automation + agents
 ```
 
@@ -251,7 +251,6 @@ Use `legacy` commands only for compatibility and inspect `replacement` first.
 | `audio`                 | `transcribe` low cost (Whisper). `dub` is full pipeline (medium-high). `duck` is free.                                                                                                                             |
 | `remix`                 | **Confirm with user.** Multi-step, high cost ($5–50+). Always `--dry-run`.                                                                                                                                         |
 | `detect`                | Free, FFmpeg only. No keys.                                                                                                                                                                                        |
-| `project / timeline`    | Free. All mutating leaves support `--dry-run`.                                                                                                                                                                     |
 | `scene`                 | `lint` and `list-styles` free; `add` may invoke TTS + image-gen.                                                                                                                                                   |
 | `init / build / render` | Top-level project flow. `init` is idempotent. `build --stage assets` may return async job ids for video/music cues; poll with `status project --refresh`. Real `build` auto-repairs scene artifacts before render. |
 | `storyboard`            | `list/get/set/move/validate` are local. `revise` uses a composer LLM, validates before writing, and should be run with `--dry-run` first.                                                                          |
@@ -304,15 +303,6 @@ vibe scene repair --project my-video --json
 ### Storyboard revision contract
 
 `vibe storyboard revise --json` emits `data.kind:"storyboard-revision"`, `provider`, `summary`, `changedBeats`, `validation`, `wrote`, `warnings`, and `retryWith`. On failure it does not write `STORYBOARD.md`; inspect `data.code`, `data.message`, and `data.retryWith`.
-
-### Lower-level timeline (NLE-style)
-
-```bash
-vibe timeline create demo --json              # writes demo/timeline.json
-vibe timeline add-source demo hero.mp4 --json # returns sourceId
-vibe timeline add-clip demo <source-id> --json
-vibe timeline list demo --json
-```
 
 ### Dry-run before execution
 

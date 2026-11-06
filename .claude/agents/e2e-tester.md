@@ -31,7 +31,7 @@ commands. Discover commands dynamically with `pnpm vibe schema --list`.
 4. Prefer `--dry-run` and `--json` when available.
 5. Record PASS / FAIL / SKIP as you go in `test-output/e2e-report.md`.
 6. Do not use removed namespaces such as `vibe ai`, `vibe project`,
-   `vibe export`, or `vibe pipeline`.
+   `vibe export`, `vibe pipeline`, `vibe timeline`, or `vibe batch`.
 
 ## Phase 1: Repo Gates
 
@@ -80,8 +80,6 @@ pnpm vibe guide scene
 pnpm vibe guide pipeline
 pnpm vibe context
 pnpm vibe demo --keep --json
-pnpm vibe timeline create test-output/e2e-timeline --dry-run
-pnpm vibe batch import test-output/e2e-timeline test-output --recursive --dry-run
 ```
 
 If `vibe demo --keep` writes a media file, use it for `media`, `detect`, and

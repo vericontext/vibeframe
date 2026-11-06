@@ -34,7 +34,6 @@ export const pipelineHighlightsTool = defineTool({
   schema: z.object({
     media: z.string().describe("Path to the input video or audio file"),
     output: z.string().optional().describe("Path for a JSON file with the highlights"),
-    project: z.string().optional().describe("Path for a new timeline JSON file with the highlights as clips (overwritten if it exists)"),
     duration: z.number().optional().describe("Target total duration of the highlights in seconds (default: no target)"),
     count: z.number().optional().describe("Maximum number of highlights (default: no limit)"),
     threshold: z.number().optional().describe("Minimum confidence threshold 0-1 (default: 0.7)"),
@@ -54,7 +53,6 @@ export const pipelineHighlightsTool = defineTool({
         totalDuration: result.totalDuration,
         totalHighlightDuration: result.totalHighlightDuration,
         outputPath: result.outputPath,
-        projectPath: result.projectPath,
       },
       humanLines: [`✅ ${result.highlights.length} highlights extracted${result.outputPath ? ` → ${result.outputPath}` : ""}`],
     };

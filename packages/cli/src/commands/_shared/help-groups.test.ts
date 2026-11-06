@@ -14,7 +14,7 @@ function makeProgram(): Command {
   prog
     .addCommand(new Command("generate").alias("gen").description("Generate standalone assets"));
   prog.addCommand(new Command("setup").description("Configure VibeFrame"));
-  prog.addCommand(new Command("timeline").description("Low-level primitive"), { hidden: true });
+  prog.addCommand(new Command("scene").description("Low-level primitive"), { hidden: true });
   return prog;
 }
 
@@ -29,7 +29,7 @@ describe("visibleTopLevelCommands", () => {
   it("drops hidden commands and Commander's auto help command", () => {
     const names = visibleTopLevelCommands(makeProgram()).map((c) => c.name());
     expect(names).toEqual(["init", "build", "generate", "setup"]);
-    expect(names).not.toContain("timeline");
+    expect(names).not.toContain("scene");
   });
 });
 

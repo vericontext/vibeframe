@@ -238,7 +238,7 @@ Use '--dry-run --json' before any mutating/costly operation.
 Use your host's agent loop (Claude Code, Codex, Cursor, or another coding-agent host) as the outer loop; VibeFrame provides JSON reports, retryWith, fixOwner, cost gates, and render inspection for that host loop.
 Stop only when the final MP4 exists, target duration/aspect ratio are met, inspect render has no errors, any AI review score meets the review threshold when AI review is requested, and every host-agent issue is fixed, accepted with rationale, or reported blocked.
 
-Cost tiers: Free (schema/context/doctor/detect/status/plan/storyboard validate/inspect project/render --cheap, deterministic edits) | Low (generate narration/sound-effect/music, audio transcribe, inspect media, optional AI review) | High (generate image/motion, edit image/reframe/grade/speed-ramp) | Very High (generate video, edit fill-gaps, remix highlights/auto-shorts, build with generated assets)
+Cost tiers: Free (schema/context/doctor/detect/status/plan/storyboard validate/inspect project/render --cheap, deterministic edits) | Low (generate narration/sound-effect/music, audio transcribe, inspect media, optional AI review) | High (generate image/motion, edit image/reframe/grade/speed-ramp) | Very High (generate video, remix highlights/auto-shorts, build with generated assets)
 
 Group → MCP tool name: '<group>_<leaf>' (snake_case). Bare top-level (init/build/render/run) maps to bare MCP names.
 

@@ -37,8 +37,8 @@ fi
 
 # 3. Paths that affect the landing build output.
 #
-# Direct Next.js app + workspace deps it imports:
-#   apps/web, packages/core
+# Direct Next.js app:
+#   apps/web
 #
 # CLI/MCP/provider source files that next.config.js auto-counts into
 # NEXT_PUBLIC_CLI_COMMANDS / _MCP_TOOLS / _AGENT_TOOLS /
@@ -54,7 +54,6 @@ fi
 #   package.json, pnpm-lock.yaml, scripts/install.sh, vercel.json
 PATHS=(
     apps/web
-    packages/core
     packages/cli/src/agent/tools
     packages/cli/src/agent/types.ts
     packages/cli/src/commands

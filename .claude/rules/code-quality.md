@@ -1,7 +1,6 @@
 ---
 paths:
   - "packages/cli/src/**"
-  - "packages/core/src/**"
 ---
 
 # Code Quality Standards

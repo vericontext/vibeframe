@@ -198,27 +198,20 @@ steps:
     action: generate-tts
     text: "Meet the new standard."
     output: voice.mp3
-  - id: final
-    action: compose
-    video: $scene.output
-    audio: $voice.output
-    output: final.mp4
 \`\`\`
 
 ## Supported actions
 
 - \`generate-image\`, \`generate-video\`, \`generate-tts\`, \`generate-music\`,
-  \`generate-sound-effect\`, \`generate-storyboard\`, \`generate-motion\`
+  \`generate-sfx\`, \`generate-storyboard\`, \`generate-motion\`
 - \`edit-silence-cut\`, \`edit-jump-cut\`, \`edit-caption\`, \`edit-grade\`,
   \`edit-reframe\`, \`edit-speed-ramp\`, \`edit-fade\`, \`edit-noise-reduce\`,
-  \`edit-text-overlay\`, \`edit-motion-overlay\`, \`edit-fill-gaps\`
-- \`analyze-media\`, \`analyze-video\`, \`analyze-review\`, \`analyze-suggest\`
-- \`audio-transcribe\`, \`audio-isolate\`, \`audio-voice-clone\`, \`audio-dub\`,
-  \`audio-duck\`
+  \`edit-translate-srt\`, \`edit-text-overlay\`, \`edit-motion-overlay\`,
+  \`edit-interpolate\`, \`edit-upscale\`, \`edit-image\`
+- \`analyze-media\`, \`analyze-video\`, \`review-video\`
+- \`audio-transcribe\`, \`audio-isolate\`, \`audio-dub\`, \`audio-duck\`
 - \`detect-scenes\`, \`detect-silence\`, \`detect-beats\`
-- \`compose\`, \`export\`
-- \`scene-build\` (Plan H one-shot driver) and \`scene-render\`
-- \`compose-scenes-with-skills\` (internal-LLM compose pass)
+- \`scene-build\` (one-shot scene project driver) and \`scene-render\`
 
 The full set lives in \`packages/cli/src/pipeline/executor.ts\`.
 
@@ -258,8 +251,6 @@ Checkpoints land next to the YAML: \`pipeline.yaml.checkpoint.json\`.
      max_tool_errors: 3
      cost_usd: 5.00
    \`\`\`
-6. **Split large pipelines** into smaller YAML files and compose via
-   \`action: run-pipeline\` (nested).
 
 ## Converting ad-hoc shell sessions to pipelines
 
@@ -270,9 +261,6 @@ When the user has a working shell sequence, extract steps:
   become \`$<id>.output\`
 - Shared parameters move to a top-level \`defaults:\` section
 - Wrap the entire chain in a \`name:\` + \`steps:\` skeleton
-
-The \`compose\` action is the catch-all assembly step (audio mux, video
-overlay, etc.) - useful at the tail of a pipeline.
 `;
 
 const ARCHITECTURE_WALKTHROUGH = `# Host agents / build / run - when to pick which
@@ -319,7 +307,7 @@ a single bad key wastes time and money.
 All three paths ultimately call the same primitives:
 \`generate\` / \`edit\` / \`audio\` / \`inspect\` / \`detect\` / \`remix\`. A host
 agent runs them as shell commands or MCP tools; \`build\` calls a curated
-subset (TTS + image + compose + render); \`run\` exposes 55+ actions one per
+subset (TTS + image + compose + render); \`run\` exposes one action per
 primitive.
 
 ## Known overlap

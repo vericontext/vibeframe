@@ -3,7 +3,6 @@ paths:
   - "packages/cli/src/agent/**"
   - "packages/cli/src/commands/**"
   - "packages/cli/src/index.ts"
-  - "packages/core/src/**"
   - "packages/ai-providers/src/**"
   - "packages/mcp-server/src/**"
 ---
@@ -14,8 +13,6 @@ paths:
 
 - **packages/cli** - CLI and command implementations.
   Entry: `src/index.ts`.
-- **packages/core** - Timeline/project primitives and FFmpeg-oriented editing
-  model.
 - **packages/ai-providers** - Provider registry and provider implementations.
 - **packages/mcp-server** - MCP wrapper around the CLI, bundled with esbuild.
 - **apps/web** - Next.js public site.
@@ -29,11 +26,11 @@ The canonical user-facing workflow commands are:
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
 - Automation: `run`, `schema`, `context`, `guide`
 - Setup & hosts: `setup`, `doctor`, `host`
-- Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
-  `media`, `assemble`
+- Lower-level operations: `scene`, `design`, `detect`, `media`, `assemble`
 
 Do not introduce new docs or agent instructions that use removed namespaces such
-as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
+as `vibe ai`, `vibe project`, `vibe export`, `vibe pipeline`, `vibe timeline`,
+or `vibe batch`.
 
 Use `vibe schema --list` and `vibe schema <command>` as the source of truth for
 command availability and parameters.
@@ -63,7 +60,7 @@ When invoking CLI commands from agent context:
    it.
 3. Use `vibe schema <command>` before constructing non-trivial arguments.
 4. Confirm with the user before high/very-high cost operations such as
-   `generate video`, `edit fill-gaps`, and provider-backed `remix` workflows.
+   `generate video` and provider-backed `remix` workflows.
 5. Use `--stdin` for complex option payloads instead of fragile shell quoting.
 
 ## Cost Awareness
@@ -79,8 +76,7 @@ vibe schema generate.video
 
 General expectation:
 
-- Free/local: schema, setup/doctor, timeline/batch/detect/media, many FFmpeg
-  edits.
+- Free/local: schema, setup/doctor, detect/media, many FFmpeg edits.
 - Low: speech, transcription, inspection, simple AI-assisted edits.
 - High: image generation, storyboard/motion generation.
 - Very high: video generation and expensive provider-backed transforms.

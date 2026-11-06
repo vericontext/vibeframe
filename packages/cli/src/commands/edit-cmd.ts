@@ -18,7 +18,6 @@
  *   edit image          - Image editing (Gemini, OpenAI, or Grok)
  *   edit interpolate    - Frame interpolation / slow motion (FFmpeg)
  *   edit upscale        - Video upscaling (FFmpeg)
- *   edit fill-gaps      - Fill timeline gaps with AI video (Kling)
  *
  * @dependencies ElevenLabs Scribe, Whisper, Claude, Gemini, Kling, FFmpeg
  */
@@ -33,7 +32,6 @@ import { commandExists } from "../utils/exec-safe.js";
 import { formatTime } from "./ai-helpers.js";
 import { applyTextOverlays, type TextOverlayStyle } from "./ai-edit.js";
 import { registerEditCommands } from "./ai-edit-cli.js";
-import { registerFillGapsCommand } from "./ai-fill-gaps.js";
 import { registerMotionOverlayCommand } from "./edit/motion-overlay.js";
 import { failureFromError, spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, usageError, apiError, generalError, providerFailure } from "./output.js";
 import { rejectControlChars, validateOutputPath } from "./validate.js";
@@ -81,10 +79,6 @@ Run 'vibe schema edit.<command>' for structured parameter info.
 // ── edit silence-cut, jump-cut, caption, noise-reduce, fade, translate-srt ──
 
 registerEditCommands(editCommand);
-
-// ── edit fill-gaps ──────────────────────────────────────────────────────
-
-registerFillGapsCommand(editCommand);
 
 // ── edit motion-overlay ─────────────────────────────────────────────────
 
@@ -761,8 +755,6 @@ applyTiers(editCommand, {
   // high — vision LLM or image gen
   "reframe": "high",
   "image": "high",
-  // very-high — video gen per gap
-  "fill-gaps": "very-high",
 });
 
 // ── Exported execute functions ─────────────────────────────────────────────

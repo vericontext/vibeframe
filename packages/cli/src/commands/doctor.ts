@@ -53,10 +53,6 @@ const FREE_COMMANDS = [
   "detect scenes",
   "detect silence",
   "detect beats",
-  "export",
-  "timeline create/info",
-  "timeline (all)",
-  "batch import/concat",
 ];
 
 export const doctorCommand = new Command("doctor")
@@ -147,7 +143,7 @@ const OPTIONAL_TOOLS: Record<string, { commands: string[]; install: string }> = 
     install: "npm install -g @remotion/cli",
   },
   chrome: {
-    commands: ["render", "export --backend hyperframes", "run with render.backend=hyperframes"],
+    commands: ["render", "run with render.backend=hyperframes"],
     install: "macOS: brew install --cask google-chrome · Linux: apt install chromium",
   },
 };

@@ -2,8 +2,8 @@
  * @vibeframe/cli bundle script.
  *
  * The CLI used to ship as a `tsc` directory build that imported its
- * workspace siblings (`@vibeframe/ai-providers`, `@vibeframe/core`) at
- * runtime. Those workspace packages are private (we never publish them to
+ * workspace sibling (`@vibeframe/ai-providers`) at
+ * runtime. That workspace package is private (we never publish it to
  * npm), which made `npm i -g @vibeframe/cli` fail with a 404 on the
  * `@vibeframe/ai-providers@x.y.z` resolution. Caught during the v0.55
  * pre-HN fresh-machine smoke.
@@ -67,7 +67,6 @@ await build({
 
 await build({
   entryPoints: {
-    "engine/index": "src/engine/index.ts",
     "tools/manifest/index": "src/tools/manifest/index.ts",
     "tools/define-tool": "src/tools/define-tool.ts",
     "tools/adapters/mcp": "src/tools/adapters/mcp.ts",

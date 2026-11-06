@@ -197,10 +197,10 @@ async function run(args: string[], opts: { json?: boolean } = {}): Promise<RunRe
 const files = () => readdirSync(dir).sort();
 
 describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
-  it("Scribe + Claude: --json envelope, saved JSON, and project file", async () => {
+  it("Scribe + Claude: --json envelope and saved JSON", async () => {
     useKeys({ ELEVENLABS_API_KEY: "xi-fake", ANTHROPIC_API_KEY: "sk-ant-fake" });
 
-    const { exitCode, envelope } = await run(["highlights", video, "-o", "hl.json", "--project", "reel.json"], { json: true });
+    const { exitCode, envelope } = await run(["highlights", video, "-o", "hl.json"], { json: true });
 
     expect(exitCode).toBeUndefined();
     expect(envelope).toMatchInlineSnapshot(`
@@ -233,7 +233,6 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
           ],
           "highlightsCount": 2,
           "outputPath": "<dir>/hl.json",
-          "projectPath": "<dir>/reel.json",
           "sourceFile": "<fixtures>/talk.mp4",
           "threshold": 0.7,
           "totalDuration": 3.7,
@@ -246,15 +245,11 @@ describe.skipIf(!hasFfmpeg)("vibe remix highlights", () => {
     expect(net.to(SCRIBE)).toHaveLength(1);
     expect(net.to(WHISPER)).toHaveLength(0);
     expect(net.to(ANTHROPIC)).toHaveLength(1);
-    expect(files()).toEqual(["hl.json", "reel.json"]);
+    expect(files()).toEqual(["hl.json"]);
     const saved = JSON.parse(normalize(readFileSync(join(dir, "hl.json"), "utf-8")));
     const product = { ...(envelope!.data as Record<string, unknown>) };
     delete product.outputPath;
-    delete product.projectPath;
     expect(saved).toEqual(product);
-    const project = JSON.parse(readFileSync(join(dir, "reel.json"), "utf-8"));
-    expect(project.state.clips.map((c: { startTime: number; duration: number; sourceStartOffset: number }) => [c.startTime, c.duration, c.sourceStartOffset]))
-      .toEqual([[0, 2, 0], [2, 1.1, 2.6]]);
   });
 
   it("Scribe + Claude: human output", async () => {

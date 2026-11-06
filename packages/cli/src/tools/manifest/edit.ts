@@ -6,7 +6,6 @@
  *     jump-cut, text-overlay, translate-srt — Plan G Phase 3 split)
  *   - `commands/edit-cmd.ts` (grade, speed-ramp, reframe, interpolate, upscale)
  *   - `commands/ai-animated-caption.ts` + `commands/ai-image.ts`
- *   - `commands/_shared/execute-fill-gaps.ts` (Plan G Phase 4 finishing piece)
  */
 
 import { z } from "zod";
@@ -34,9 +33,6 @@ import { executeAnimatedCaption } from "../../commands/ai-animated-caption.js";
 import { STT_KEYS_TEXT, sttSchema } from "./_stt.js";
 import { executeImageEdit } from "../../commands/ai-image.js";
 import { estimateImageCostUsd } from "../../commands/_shared/image-cost.js";
-import { upperBoundCost } from "../../commands/_shared/actual-cost.js";
-import { lookupCostEstimateUpperBound } from "../../commands/output.js";
-import { executeFillGaps } from "../../commands/_shared/execute-fill-gaps.js";
 import { executeMotionOverlay } from "../../commands/edit/motion-overlay.js";
 import { MOTION_MODEL_CHOICES } from "../../commands/ai-motion.js";
 
@@ -515,58 +511,6 @@ export const editImageTool = defineTool({
   },
 });
 
-// ── edit_fill_gaps ─────────────────────────────────────────────────────────
-
-export const editFillGapsTool = defineTool({
-  name: "edit_fill_gaps",
-  category: "edit",
-  cost: "high",
-  title: "Fill Timeline Gaps with AI Video",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "Fill timeline gaps with AI-generated video using Kling image-to-video. Detects empty regions in a project's timeline, extracts the last frame of the preceding clip, and generates a continuation video. Requires KLING_API_KEY and IMGBB_API_KEY (image hosting for Kling).",
-  schema: z.object({
-    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
-    output: z.string().optional().describe("Output project path (default: overwrite input)"),
-    dir: z.string().optional().describe("Directory to save generated videos (default: <projectDir>/footage)"),
-    prompt: z.string().optional().describe("Custom prompt for video generation (default: 'Continue the scene naturally with subtle motion')"),
-    dryRun: z.boolean().optional().describe("Show gaps without generating videos"),
-    mode: z.enum(["std", "pro"]).optional().describe("Kling generation mode (default: std)"),
-    ratio: z.enum(["16:9", "9:16", "1:1"]).optional().describe("Aspect ratio (default: 16:9)"),
-  }),
-  async execute(args) {
-    const result = await executeFillGaps({
-      projectPath: args.projectPath,
-      output: args.output,
-      dir: args.dir,
-      prompt: args.prompt,
-      dryRun: args.dryRun,
-      mode: args.mode,
-      ratio: args.ratio,
-    });
-    if (!result.success) {
-      return failedTool(result, "Fill gaps failed");
-    }
-    const cost = result.dryRun
-      ? undefined
-      : upperBoundCost(lookupCostEstimateUpperBound("edit fill-gaps"), result.generatedCount ?? 0, "kling");
-    return {
-      success: true,
-      data: {
-        ...(cost ? { costUsd: cost.costUsd, ...(cost.estimated ? { costEstimated: true } : {}) } : {}),
-        outputPath: result.outputPath,
-        generatedCount: result.generatedCount ?? 0,
-        gaps: result.gaps,
-        gapsNeedingAI: result.gapsNeedingAI,
-        noGaps: result.noGaps ?? false,
-        allExtendable: result.allExtendable ?? false,
-        dryRun: result.dryRun ?? false,
-      },
-      humanLines: result.humanLines,
-    };
-  },
-});
-
 export const editTools: readonly AnyTool[] = [
   editSilenceCutTool as unknown as AnyTool,
   editCaptionTool as unknown as AnyTool,
@@ -583,5 +527,4 @@ export const editTools: readonly AnyTool[] = [
   editUpscaleTool as unknown as AnyTool,
   editAnimatedCaptionTool as unknown as AnyTool,
   editImageTool as unknown as AnyTool,
-  editFillGapsTool as unknown as AnyTool,
 ];

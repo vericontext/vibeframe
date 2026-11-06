@@ -1,7 +1,6 @@
 /**
  * @module manifest/analyze
- * @description Analysis tools (Gemini-driven media analysis + AI review +
- * suggest-edit). `generate_thumbnail` is treated as an analyze tool in the
+ * @description Analysis tools (Gemini-driven media analysis + AI review). `generate_thumbnail` is treated as an analyze tool in the
  * legacy ai-analysis.ts file but lives in the generate manifest because its
  * name is `generate_*`.
  */
@@ -10,7 +9,6 @@ import { z } from "zod";
 import { resolve } from "node:path";
 import { defineTool, type AnyTool, failedTool } from "../define-tool.js";
 import { executeAnalyze } from "../../commands/ai-analyze.js";
-import { executeSuggestEdit } from "../../commands/ai-suggest-edit.js";
 import { inspectProject } from "../../commands/_shared/scene-inspect.js";
 import { inspectRender, previewInspectRender } from "../../commands/_shared/render-inspect.js";
 
@@ -161,50 +159,8 @@ export const analyzeMediaTool = defineTool({
   },
 });
 
-
-
-// ── inspect_suggest ─────────────────────────────────────────────────────────
-
-export const analyzeSuggestTool = defineTool({
-  name: "inspect_suggest",
-  category: "analyze",
-  cost: "low",
-  title: "Suggest Edits with AI",
-  annotations: { readOnly: false, openWorld: true },
-  description:
-    "Get natural-language edit suggestions for a project from Gemini. Returns suggestions array with type/confidence/clipIds. With `apply: true`, applies the first suggestion in place. Requires GOOGLE_API_KEY.",
-  schema: z.object({
-    projectPath: z.string().describe("Path to timeline.json, a timeline directory, or a legacy *.vibe.json file"),
-    instruction: z.string().describe("Natural-language instruction (e.g. 'trim all clips to 5 seconds', 'add transitions between every clip')"),
-    apply: z.boolean().optional().describe("Apply the first suggestion in place"),
-  }),
-  async execute(args) {
-    const result = await executeSuggestEdit(args);
-    if (!result.success) return failedTool(result, "Suggest failed");
-    return {
-      success: true,
-      data: {
-        suggestionCount: result.suggestions?.length ?? 0,
-        suggestions: result.suggestions,
-        applied: result.applied,
-        appliedSuggestion: result.appliedSuggestion,
-        outputPath: result.outputPath,
-      },
-      humanLines: [
-        `Found ${result.suggestions?.length ?? 0} suggestion(s)`,
-        ...(result.suggestions ?? []).map(
-          (s, i) =>
-            `  [${i + 1}] ${s.type.toUpperCase()} (conf ${(s.confidence * 100).toFixed(0)}%) — ${s.description}`,
-        ),
-        ...(result.applied ? [`Applied first suggestion → ${result.outputPath}`] : []),
-      ],
-    };
-  },
-});
-
 export const inspectTools: readonly AnyTool[] = [
   inspectProjectTool as unknown as AnyTool,
   inspectRenderTool as unknown as AnyTool,
   analyzeMediaTool as unknown as AnyTool,
-  analyzeSuggestTool as unknown as AnyTool,
 ];

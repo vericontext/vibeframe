@@ -26,7 +26,6 @@ import {
   type HighlightCriteria,
   type HighlightsResult,
 } from "@vibeframe/ai-providers";
-import { Project } from "../engine/index.js";
 import { ApiKeyError, requireApiKey } from "../utils/api-key.js";
 import { formatTime } from "./ai-helpers.js";
 import { execSafe, commandExists, ffprobeDuration, ffprobeHasAudio, ffprobeVideoSize } from "../utils/exec-safe.js";
@@ -208,8 +207,6 @@ export interface HighlightsOptions {
   media: string;
   /** Path for the output JSON with highlight data */
   output?: string;
-  /** Path for a timeline JSON file with highlight clips */
-  project?: string;
   /** Target highlight reel duration in seconds */
   duration?: number;
   /** Maximum number of highlights to return */
@@ -248,8 +245,6 @@ export interface HighlightsExtractResult {
   totalHighlightDuration: number;
   /** Path to the output JSON (if --output specified) */
   outputPath?: string;
-  /** Path to the generated timeline file (if --project specified) */
-  projectPath?: string;
   /** Error message on failure */
   error?: string;
   /** The structured error on failure; see {@link ExecutorFailure}. */
@@ -470,37 +465,6 @@ export async function executeHighlights(
       });
       await writeFile(outputPath, JSON.stringify(report, null, 2), "utf-8");
       extractResult.outputPath = outputPath;
-    }
-
-    if (options.project) {
-      const project = new Project("Highlight Reel");
-      const source = project.addSource({
-        name: basename(absPath),
-        url: absPath,
-        type: isVideo ? "video" : "audio",
-        duration: sourceDuration,
-      });
-
-      const videoTrack = project.getTracks().find((t) => t.type === "video");
-      if (!videoTrack) {
-        return highlightsFailure(generalError("Failed to create project: no video track"));
-      }
-      let currentTime = 0;
-      for (const highlight of filteredHighlights) {
-        project.addClip({
-          sourceId: source.id,
-          trackId: videoTrack.id,
-          startTime: currentTime,
-          duration: highlight.duration,
-          sourceStartOffset: highlight.startTime,
-          sourceEndOffset: highlight.endTime,
-        });
-        currentTime += highlight.duration;
-      }
-
-      const projectPath = resolve(process.cwd(), options.project);
-      await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
-      extractResult.projectPath = projectPath;
     }
 
     return extractResult;
@@ -867,7 +831,6 @@ export function registerHighlightsCommands(aiCommand: Command): void {
     .description("Extract highlights from long-form video/audio content")
     .argument("<media>", "Video or audio file path")
     .option("-o, --output <path>", "Output JSON file with highlights")
-    .option("--project <path>", "Create project with highlight clips")
     .option("-d, --duration <seconds>", "Target highlight reel duration", "60")
     .option("--count <number>", "Maximum number of highlights")
     .option("--threshold <value>", "Confidence threshold (0-1)", "0.7")
@@ -907,7 +870,6 @@ export function registerHighlightsCommands(aiCommand: Command): void {
               params: {
                 mediaPath,
                 output: options.output,
-                project: options.project,
                 duration: options.duration,
                 count: options.count,
                 threshold: options.threshold,
@@ -941,7 +903,6 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         const result = await executeHighlights({
           media: mediaPath,
           output: options.output,
-          project: options.project,
           duration: targetDuration,
           count: maxCount,
           threshold,
@@ -1003,10 +964,7 @@ export function registerHighlightsCommands(aiCommand: Command): void {
         if (result.outputPath) {
           log(chalk.green(`💾 Saved highlights to: ${result.outputPath}`));
         }
-        if (result.projectPath) {
-          createSpinner("📦 Creating project...").start().succeed(chalk.green(`Created project: ${result.projectPath}`));
-        }
-        if (result.outputPath || result.projectPath) log();
+        if (result.outputPath) log();
 
         log(chalk.bold.green("✅ Highlight extraction complete!"));
         log();
@@ -1017,7 +975,6 @@ export function registerHighlightsCommands(aiCommand: Command): void {
           data: {
             ...report,
             ...(result.outputPath ? { outputPath: result.outputPath } : {}),
-            ...(result.projectPath ? { projectPath: result.projectPath } : {}),
           },
         });
       } catch (error) {

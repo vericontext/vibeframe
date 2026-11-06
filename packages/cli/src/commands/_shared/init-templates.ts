@@ -150,7 +150,7 @@ starting from a media file and wants it transformed, it's REMIX.
 | **Free** | \`schema/context/doctor\`, \`detect *\`, \`status *\`, \`plan\`, \`storyboard validate\`, \`inspect project/render --cheap\`, deterministic edits | $0 |
 | **Low** | \`generate narration/sound-effect/music\`, \`audio transcribe\`, \`inspect media\`, optional AI review | $0.01–$0.10 |
 | **High** | \`generate image/motion\`, \`edit image/reframe/grade/speed-ramp\` | $1–$5 |
-| **Very High** | \`generate video\`, \`edit fill-gaps\`, \`remix highlights/auto-shorts\`, \`build\` with generated assets | $5–$50+ |
+| **Very High** | \`generate video\`, \`remix highlights/auto-shorts\`, \`build\` with generated assets | $5–$50+ |
 
 ## Agent invariants
 
@@ -410,7 +410,6 @@ export const GITIGNORE_ADDITIONS = `
 .env.local
 renders/
 .pipeline-state.yaml
-*.vibe.json
 .vibeframe/
 
 # Hyperframes skill copies left by older VibeFrame versions, which vendored a

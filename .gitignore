@@ -68,7 +68,6 @@ demo-output/
 test-results/
 
 # Test artifacts
-project.vibe.json
 docker/test-output/
 promo/
 tiktok/

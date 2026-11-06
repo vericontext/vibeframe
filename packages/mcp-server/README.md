@@ -160,7 +160,7 @@ Once connected, your MCP host can resolve prompts like these into typed tool cal
 > _→ `init` + 3× `scene_add` + `render`_
 
 > "Generate a cinematic backdrop image, animate it for 5 seconds, add narration"
-> _→ `generate_image` + `generate_video` + `generate_speech`_
+> _→ `generate_image` + `generate_video` + `generate_narration`_
 
 > "Remove silent segments and add captions to my interview"
 > _→ `edit_silence_cut` + `edit_caption`_
@@ -171,12 +171,25 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 
 ### Project flow (top-level)
 
-| Tool           | Description                                                                     |
-| -------------- | ------------------------------------------------------------------------------- |
-| `project_list` | List workspace video projects with build/render status (`_archive/` skipped)    |
-| `init`         | Scaffold a video project with `STORYBOARD.md` + `DESIGN.md`                     |
-| `build`        | Build a storyboard project: narration TTS, image assets, scene HTML composition |
-| `render`       | Deterministic Hyperframes render → MP4/WebM/MOV                                 |
+| Tool             | Description                                                                     |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `project_list`   | List workspace video projects with build/render status (`_archive/` skipped)    |
+| `init`           | Scaffold a video project with `STORYBOARD.md` + `DESIGN.md`                     |
+| `plan`           | Build plan, missing artifacts, provider needs, and estimated cost               |
+| `build`          | Build a storyboard project: narration TTS, image assets, scene HTML composition |
+| `render`         | Deterministic Hyperframes render → MP4/WebM/MOV                                 |
+| `status_project` | Summarize build, review, and async job state for a project                      |
+| `status_job`     | Read one async job record and optionally refresh provider status                |
+
+### Storyboard and design (7)
+
+| Tool                                 | Description                                    |
+| ------------------------------------ | ---------------------------------------------- |
+| `storyboard_list` / `storyboard_get` | Read beats and cue blocks from `STORYBOARD.md` |
+| `storyboard_set` / `storyboard_move` | Set one cue, or reorder one beat               |
+| `storyboard_validate`                | Validate beat ids and cue blocks               |
+| `storyboard_revise`                  | Revise the storyboard from a request (LLM)     |
+| `design_validate`                    | Validate `DESIGN.md` tokens and sections       |
 
 ### Scene authoring (lower-level)
 
@@ -186,53 +199,51 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `scene_add`             | Append a beat (narration + backdrop + composed HTML)                            |
 | `scene_install_skill`   | Install the Hyperframes skill bundle into a scene project                       |
 | `scene_lint`            | Validate composition HTML against the visual identity                           |
+| `scene_repair`          | Apply deterministic mechanical scene repairs                                    |
 | `scene_compose_prompts` | Emit the per-beat compose plan without making an LLM call                       |
+| `scene_submit`          | Submit host-authored scene HTML for one beat                                    |
 
-### Generation (13)
+### Generation (9)
 
-| Tool                                            | Description                                   | Providers                                            |
-| ----------------------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
-| `generate_image`                                | Text-to-image                                 | OpenAI, Google, Stability                            |
-| `generate_background`                           | Cinematic backdrop image (video-tuned prompt) | OpenAI                                               |
-| `generate_video`                                | Text/image-to-video (long-running)            | Seedance via fal.ai, Grok, Kling, Runway, Gemini Omni |
-| `generate_video_status` / `_cancel` / `_extend` | Manage long-running video jobs                | (provider-specific)                                  |
-| `generate_motion`                               | Generate standalone designed motion graphics  | Claude or Gemini + Remotion                          |
-| `generate_speech`                               | Text-to-speech                                | ElevenLabs                                           |
-| `generate_music`                                | AI background music                           | Suno, ElevenLabs, Replicate MusicGen                 |
-| `generate_music_status`                         | Poll Replicate music task                     | Replicate                                            |
-| `generate_sound_effect`                         | SFX from prompt                               | ElevenLabs                                           |
-| `generate_thumbnail`                            | AI thumbnail composition                      | OpenAI, Google                                       |
-| `generate_storyboard`                           | Multi-beat storyboard frames                  | OpenAI, Google                                       |
+| Tool                                | Description                                  | Providers                                             |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
+| `generate_image`                    | Text-to-image                                | Gemini, OpenAI, Grok                                  |
+| `generate_video`                    | Text/image-to-video (long-running)           | Seedance via fal.ai, Grok, Kling, Runway, Gemini Omni |
+| `generate_video_cancel` / `_extend` | Manage long-running video jobs               | (provider-specific)                                   |
+| `generate_motion`                   | Generate standalone designed motion graphics | Claude or Gemini + Remotion                           |
+| `generate_narration`                | Text-to-speech                               | ElevenLabs, Gemini, OpenAI, Kokoro (local)            |
+| `generate_music`                    | AI background music                          | ElevenLabs, Replicate MusicGen                        |
+| `generate_sound_effect`             | SFX from prompt                              | ElevenLabs                                            |
+| `generate_thumbnail`                | Best thumbnail frame from a video            | Gemini                                                |
 
-### Editing (16)
+### Editing (15)
 
-| Tool                                     | Description                                                                      |
-| ---------------------------------------- | -------------------------------------------------------------------------------- |
-| `edit_silence_cut`                       | Remove silent segments (FFmpeg or Gemini)                                        |
-| `edit_jump_cut`                          | Remove filler words (Scribe or Whisper)                                          |
-| `edit_caption` / `edit_animated_caption` | Burn styled / animated captions                                                  |
-| `edit_text_overlay`                      | Simple static text burn-in                                                       |
-| `edit_motion_overlay`                    | Designed animated overlays or user-provided Lottie overlays                      |
-| `edit_fade`                              | Fade in/out                                                                      |
-| `edit_grade`                             | Color grading                                                                    |
-| `edit_speed_ramp`                        | Variable-speed segments                                                          |
-| `edit_reframe`                           | Aspect-ratio reframe (e.g. 16:9 → 9:16)                                          |
-| `edit_interpolate`                       | Frame interpolation / slow-mo                                                    |
-| `edit_upscale`                           | AI upscaling                                                                     |
-| `edit_image`                             | Image editing (gpt-image-2, Gemini)                                              |
-| `edit_noise_reduce`                      | Audio/video denoise                                                              |
-| `edit_translate_srt`                     | Translate SRT subtitles                                                          |
-| `edit_fill_gaps`                         | Detect & fill missing video segments via TTS narration timing (Plan G — Phase 4) |
+| Tool                                     | Description                                                 |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| `edit_silence_cut`                       | Remove silent segments (FFmpeg or Gemini)                   |
+| `edit_jump_cut`                          | Remove filler words (Scribe or Whisper)                     |
+| `edit_caption` / `edit_animated_caption` | Burn styled / animated captions                             |
+| `edit_text_overlay`                      | Simple static text burn-in                                  |
+| `edit_motion_overlay`                    | Designed animated overlays or user-provided Lottie overlays |
+| `edit_fade`                              | Fade in/out                                                 |
+| `edit_grade`                             | Color grading                                               |
+| `edit_speed_ramp`                        | Variable-speed segments                                     |
+| `edit_reframe`                           | Aspect-ratio reframe (e.g. 16:9 → 9:16)                     |
+| `edit_interpolate`                       | Frame interpolation / slow-mo                               |
+| `edit_upscale`                           | Resolution upscale (FFmpeg)                                 |
+| `edit_image`                             | Image editing (Gemini, OpenAI, Grok)                        |
+| `edit_noise_reduce`                      | Audio/video denoise                                         |
+| `edit_translate_srt`                     | Translate SRT subtitles                                     |
 
 ### Audio (5)
 
-| Tool                | Description                                 |
-| ------------------- | ------------------------------------------- |
-| `audio_dub`         | AI voice dubbing (ElevenLabs)               |
-| `audio_clone_voice` | Voice clone from sample                     |
-| `audio_isolate`     | Vocal / background isolation                |
-| `audio_duck`        | Auto-duck BGM under speech                  |
-| `audio_transcribe`  | Transcript with timing (Scribe or Whisper)  |
+| Tool                | Description                                |
+| ------------------- | ------------------------------------------ |
+| `audio_dub`         | AI voice dubbing                           |
+| `audio_clone_voice` | Voice clone from sample                    |
+| `audio_isolate`     | Vocal / background isolation               |
+| `audio_duck`        | Auto-duck BGM under speech                 |
+| `audio_transcribe`  | Transcript with timing (Scribe or Whisper) |
 
 ### Detection (3)
 
@@ -242,42 +253,21 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `detect_scenes`  | Find shot boundaries |
 | `detect_beats`   | Find music beats     |
 
-### Inspection (4)
+### Inspection (3)
 
-| Tool              | Description                                                             |
-| ----------------- | ----------------------------------------------------------------------- |
-| `inspect_media`   | Unified image / video / YouTube analysis (Gemini)                       |
-| `inspect_video`   | Temporal video understanding (Gemini)                                   |
-| `inspect_review`  | AI video review + auto-fix suggestions                                  |
-| `inspect_suggest` | Natural-language project edit suggestions (Gemini); optional auto-apply |
+| Tool              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `inspect_project` | Local project completeness and composition checks      |
+| `inspect_render`  | Cheap local render checks, plus optional Gemini review |
+| `inspect_media`   | Unified image / video / YouTube analysis (Gemini)      |
 
-### Timeline (10)
+### Remix & pipelines (3)
 
-| Tool                                                      | Description                                     |
-| --------------------------------------------------------- | ----------------------------------------------- |
-| `timeline_create` / `timeline_info`                       | Create or inspect low-level timeline JSON state |
-| `timeline_add_source`                                     | Import media (video/audio/image)                |
-| `timeline_add_clip` / `_split_clip` / `_trim_clip`        | Build & shape clips                             |
-| `timeline_move_clip` / `_duplicate_clip` / `_delete_clip` | Arrange clips                                   |
-| `timeline_add_track`                                      | Add video/audio track                           |
-| `timeline_add_effect`                                     | Apply effect (fade, blur, …)                    |
-| `timeline_list`                                           | List all project contents                       |
-
-### Compatibility & Export
-
-| Tool                              | Description                                              |
-| --------------------------------- | -------------------------------------------------------- |
-| `project_create` / `project_info` | Deprecated compatibility aliases for timeline JSON state |
-| `export_video`                    | Export timeline JSON to MP4/WebM/MOV via FFmpeg          |
-
-### Remix & pipelines (4)
-
-| Tool                     | Description                                                         |
-| ------------------------ | ------------------------------------------------------------------- |
-| `run`                    | Execute a multi-stage YAML pipeline (`vibe run pipeline.yaml`)      |
-| `remix_highlights`       | Long-form → highlight clips                                         |
-| `remix_auto_shorts`      | Long-form → vertical shorts                                         |
-| `remix_regenerate_scene` | Re-render a single scene against an existing storyboard.{yaml,json} |
+| Tool                | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `run`               | Execute a multi-stage YAML pipeline (`vibe run pipeline.yaml`) |
+| `remix_highlights`  | Long-form → highlight clips                                    |
+| `remix_auto_shorts` | Long-form → vertical shorts                                    |
 
 ### Guides (1)
 
@@ -285,29 +275,9 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | ------- | ------------------------------------------------------------------------- |
 | `guide` | Cross-host guides for motion, scene, pipeline, and architecture workflows |
 
-> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table — `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`, `vibe timeline set`) that are intentionally not exposed via MCP.
+> **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table - `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`) that are intentionally not exposed via MCP.
 
-## Resources
-
-| URI                       | Description        |
-| ------------------------- | ------------------ |
-| `vibe://project/current`  | Full project state |
-| `vibe://project/clips`    | All clips          |
-| `vibe://project/sources`  | Media sources      |
-| `vibe://project/tracks`   | Track list         |
-| `vibe://project/settings` | Project settings   |
-
-## Prompts
-
-| Prompt               | Description                           |
-| -------------------- | ------------------------------------- |
-| `edit_video`         | Natural-language editing instructions |
-| `create_montage`     | Montage with automatic pacing         |
-| `add_transitions`    | Add transitions between clips         |
-| `color_grade`        | Apply color grading                   |
-| `generate_subtitles` | Subtitles via AI transcription        |
-| `create_shorts`      | Short-form from longer video          |
-| `sync_to_music`      | Cut to music beats                    |
+The server exposes tools only; it registers no MCP resources or prompts.
 
 ## Environment Variables
 
@@ -329,7 +299,6 @@ API keys are read from the host's environment (`~/.zshrc`, MCP config `env` bloc
 | `VIBE_UPLOAD_S3_PREFIX`                                      | Optional S3 key prefix for temporary image uploads             |
 | `VIBE_UPLOAD_TTL_SECONDS`                                    | Optional TTL hint for temporary upload URLs                    |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | S3 upload host credentials                                     |
-| `VIBE_PROJECT_PATH`                                          | Default timeline JSON path for resources                       |
 
 ## Requirements
 
@@ -343,8 +312,8 @@ data path. Projects and generated media stay in the workspace folder you
 choose; content is sent only to the AI providers you configure (Anthropic,
 OpenAI, Google, ElevenLabs, …) when you explicitly invoke them, and API keys
 live only on your machine. Tools that reach external services are marked with
-`openWorldHint` in their MCP annotations; everything else (timeline edits,
-ffmpeg operations, linting, rendering, local Kokoro TTS) runs fully locally.
+`openWorldHint` in their MCP annotations; everything else (ffmpeg
+operations, media detection, linting, rendering, local Kokoro TTS) runs fully locally.
 
 Full policy: <https://vibeframe.ai/privacy> (source:
 [PRIVACY.md](https://github.com/vericontext/vibeframe/blob/main/PRIVACY.md)).

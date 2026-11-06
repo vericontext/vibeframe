@@ -28,7 +28,7 @@ const CLI_TREE: Record<string, string[]> = {
   // v0.77: `styles` → `list-styles` (verb-first leaf consistency).
   scene:    ["list-styles", "add", "lint", "install-skill", "compose-prompts", "repair"],
   generate: ["image", "video", "video-cancel", "video-extend", "narration", "sound-effect", "music", "motion", "thumbnail"],
-  edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "fill-gaps", "grade", "text-overlay", "motion-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale"],
+  edit:     ["silence-cut", "caption", "noise-reduce", "fade", "translate-srt", "jump-cut", "grade", "text-overlay", "motion-overlay", "speed-ramp", "reframe", "image", "interpolate", "upscale"],
   // v0.74: `voices` → `list-voices`, `voice-clone` → `clone-voice`
   // (verb-first leaf consistency). Old names remain as Commander aliases.
   audio:    ["transcribe", "list-voices", "isolate", "clone-voice", "dub", "duck"],
@@ -37,14 +37,9 @@ const CLI_TREE: Record<string, string[]> = {
   // but the canonical name reported by Commander is `remix`.
   remix:    ["highlights", "auto-shorts", "animated-caption"],
   detect:   ["scenes", "silence", "beats"],
-  // v0.77: bare verbs (`trim`, `split`, etc.) became verb-noun
-  // (`trim-clip`, `split-clip`, ...) to match the existing `add-*`
-  // pattern. `list` stays bare since it lists multi-type contents.
-  timeline: ["add-source", "add-clip", "add-track", "add-effect", "trim-clip", "list", "split-clip", "duplicate-clip", "delete-clip", "move-clip"],
-  project:  ["create", "info", "set"],
   // `analyze` was renamed to `inspect` in v0.74 (see remix note above).
   // `analyze` and `az` remain as deprecated Commander aliases.
-  inspect:  ["media", "suggest", "project", "render"],
+  inspect:  ["media", "project", "render"],
   // `vibe guide <topic>` is a top-level command with a positional
   // arg, not a real subcommand group. We model the topics as "subs" here
   // so each one ↔ manifest mapping is verifiable; the single backing
@@ -62,7 +57,7 @@ const CLI_TREE: Record<string, string[]> = {
 // "manifest-as-tool" mold.
 const CLI_ONLY_TOP_LEVEL = new Set([
   "setup", "init", "build", "render", "doctor", "demo", "run",
-  "batch", "schema", "context", "media", "help", "plan",
+  "schema", "context", "media", "help", "plan",
 ]);
 
 // CLI subcommands → expected manifest tool name (or null = intentionally
@@ -94,7 +89,6 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "edit fade":          "edit_fade",
   "edit translate-srt": "edit_translate_srt",
   "edit jump-cut":      "edit_jump_cut",
-  "edit fill-gaps":     "edit_fill_gaps",
   "edit grade":         "edit_grade",
   "edit text-overlay":  "edit_text_overlay",
   "edit motion-overlay": "edit_motion_overlay",
@@ -119,27 +113,8 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "detect scenes":  "detect_scenes",
   "detect silence": "detect_silence",
   "detect beats":   "detect_beats",
-  // timeline (v0.77: now 1:1 token-for-token with manifest names)
-  "timeline create":          "timeline_create",
-  "timeline info":            "timeline_info",
-  "timeline set":             null, // CLI-only settings update
-  "timeline add-source":      "timeline_add_source",
-  "timeline add-clip":        "timeline_add_clip",
-  "timeline add-track":       "timeline_add_track",
-  "timeline add-effect":      "timeline_add_effect",
-  "timeline trim-clip":       "timeline_trim_clip",
-  "timeline list":            "timeline_list",
-  "timeline split-clip":      "timeline_split_clip",
-  "timeline duplicate-clip":  "timeline_duplicate_clip",
-  "timeline delete-clip":     "timeline_delete_clip",
-  "timeline move-clip":       "timeline_move_clip",
-  // project
-  "project create": "project_create", // deprecated compatibility alias
-  "project info":   "project_info",   // deprecated compatibility alias
-  "project set":    null, // deprecated CLI-only alias
   // inspect (was: analyze — manifest tool names keep `analyze_*` prefix)
   "inspect media":   "inspect_media",
-  "inspect suggest": "inspect_suggest",
   "inspect project": "inspect_project",
   "inspect render":  "inspect_render",
   // guide — all topics route through the single `guide`
