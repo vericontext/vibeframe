@@ -16,7 +16,7 @@
       },
       {
         "group": "Guides",
-        "pages": ["projects", "recipes", "ai-video-prompting"]
+        "pages": ["projects", "take-graph", "recipes", "ai-video-prompting"]
       },
       {
         "group": "Reference",

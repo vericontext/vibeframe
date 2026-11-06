@@ -38,13 +38,14 @@ export function estimateImageCostUsd(
   count: number,
   resolution?: string,
   size?: string
-): { costUsd: number; warnings: string[] } {
+): { costUsd: number; warnings: string[]; basis: "estimate" | "upper-bound" } {
   const images = Math.max(1, count);
   const listPrice = catalogPrice(provider, model, resolution);
   const perImage = listPrice !== undefined && provider === "openai" ? listPrice * openAISizeFactor(size) : listPrice;
   if (perImage === undefined) {
     return {
       costUsd: lookupCostEstimateUpperBound("generate image") ?? 5,
+      basis: "upper-bound",
       warnings: [
         `costUsd is the tier upper bound for ${provider} - actual provider billing is typically lower and is not metered here.`,
       ],
@@ -52,6 +53,7 @@ export function estimateImageCostUsd(
   }
   return {
     costUsd: Number((perImage * images).toFixed(3)),
+    basis: "estimate",
     warnings: [
       `costUsd is an upper-bound estimate from ${provider} list prices for ${images} image(s) - not metered billing.`,
     ],

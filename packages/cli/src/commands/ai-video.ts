@@ -24,6 +24,9 @@ import {
   type VideoUsage,
 } from "@vibeframe/ai-providers";
 import { resolveProvider } from "../utils/provider-resolver.js";
+import { withTake, type TakeContext, type TakeOutcome } from "../takes/record.js";
+import { realRunCost } from "./_shared/video-cost.js";
+import { lookupCostEstimateUpperBound } from "./output.js";
 import { ApiKeyError } from "../utils/api-key.js";
 import { videoModelFlag, videoModelSpec } from "../utils/model-lifecycle.js";
 import {
@@ -110,6 +113,8 @@ export interface VideoGenerateOptions {
   onSubmitted?: (job: VideoJob) => void | Promise<void>;
   /** Called after every poll while waiting. */
   onProgress?: (state: VideoJobState) => void;
+  /** Who is asking, for the take this generation records. */
+  take?: TakeContext;
 }
 
 export interface VideoGenerateResult {
@@ -129,9 +134,78 @@ export interface VideoGenerateResult {
   metered?: boolean;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** The take this generation recorded (see takes/take.ts). */
+  takeId?: string;
+  /** Why the take could not be written; the generation itself succeeded or failed on its own. */
+  takeError?: string;
 }
 
+/** The take a finished video call leaves: completed, submitted (still running), or failed after the provider took it. */
+function videoOutcome(
+  result: { success: boolean; job?: VideoJob; status?: string; outputPath?: string; provider?: string; error?: string; errorKind?: ProviderErrorKind },
+  provider: string,
+  fallback: () => { usd: number; basis: "estimate" | "upper-bound" },
+): TakeOutcome {
+  const status = result.status === "completed" ? "completed" : result.success ? "submitted" : "failed";
+  return {
+    reached: result.job !== undefined,
+    status,
+    provider: result.job?.provider ?? result.provider ?? provider,
+    model: result.job?.model,
+    session: result.job,
+    outputs: result.outputPath ? [result.outputPath] : [],
+    ...(status === "failed" ? { error: { message: result.error ?? "Video generation failed", ...(result.errorKind ? { kind: result.errorKind } : {}) } } : {}),
+    fallbackCost: fallback,
+  };
+}
+
+function videoFallbackCost(provider: string, options: { duration?: number; resolution?: string; ratio?: string; seedanceModel?: string; refVideos?: string[] }) {
+  return () => {
+    const cost = realRunCost(provider, {
+      duration: options.duration !== undefined ? String(options.duration) : undefined,
+      resolution: options.resolution,
+      ratio: options.ratio,
+      seedanceModel: options.seedanceModel,
+      refVideos: options.refVideos,
+    });
+    return { usd: cost.costUsd, basis: provider === "seedance" ? ("estimate" as const) : ("upper-bound" as const) };
+  };
+}
+
+/** Generate a video and record its take. */
 export async function executeVideoGenerate(options: VideoGenerateOptions): Promise<VideoGenerateResult> {
+  const provider = (options.provider ?? resolveProvider("video")?.name ?? "seedance").toLowerCase();
+  const inputs = [
+    ...(options.image ? [{ role: "image" as const, path: options.image }] : []),
+    ...(options.endImage ? [{ role: "end-image" as const, path: options.endImage }] : []),
+    ...(options.refImages ?? []).map((path) => ({ role: "reference-image" as const, path })),
+    ...(options.refVideos ?? []).map((path) => ({ role: "reference-video" as const, path })),
+    ...(options.refAudio ?? []).map((path) => ({ role: "reference-audio" as const, path })),
+  ];
+  return withTake(
+    options.take ?? { via: "cli", command: "generate video" },
+    {
+      kind: "video",
+      operation: "generate",
+      prompt: options.prompt,
+      params: {
+        duration: options.duration,
+        ratio: options.ratio,
+        resolution: options.resolution,
+        seed: options.seed,
+        mode: options.mode,
+        negative: options.negative,
+        generateAudio: options.generateAudio,
+        model: options.runwayModel ?? options.seedanceModel ?? options.grokModel ?? options.klingModel,
+      },
+      inputs,
+    },
+    () => runVideoGenerate({ ...options, provider: provider as VideoGenerateOptions["provider"] }),
+    (result) => videoOutcome(result, provider, videoFallbackCost(provider, options)),
+  );
+}
+
+async function runVideoGenerate(options: VideoGenerateOptions): Promise<VideoGenerateResult> {
   const provider = (options.provider ?? resolveProvider("video")?.name ?? "seedance").toLowerCase();
   try {
     const generator = await openVideoGenerator(provider, options.apiKey);
@@ -311,6 +385,8 @@ export interface VideoExtendOptions {
   output?: string;
   wait?: boolean;
   apiKey?: string;
+  /** Who is asking, and the take being extended, for the take this records. */
+  take?: TakeContext;
 }
 
 export interface VideoExtendResult {
@@ -325,9 +401,29 @@ export interface VideoExtendResult {
   metered?: boolean;
   error?: string;
   errorKind?: ProviderErrorKind;
+  takeId?: string;
+  takeError?: string;
 }
 
+/** Extend a video and record its take. */
 export async function executeVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
+  const provider = (options.job?.provider ?? options.provider ?? "kling").toLowerCase();
+  return withTake(
+    options.take ?? { via: "cli", command: "generate video-extend" },
+    {
+      kind: "video",
+      operation: "extend",
+      prompt: options.prompt ?? "",
+      params: { duration: options.duration, negative: options.negative, source: options.job?.id ?? options.videoId },
+      inputs: [],
+    },
+    () => runVideoExtend(options),
+    (result) =>
+      videoOutcome(result, provider, () => ({ usd: lookupCostEstimateUpperBound("generate video-extend"), basis: "upper-bound" })),
+  );
+}
+
+async function runVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
   const source = options.job ?? jobFromTaskId(options.provider ?? "kling", options.videoId);
   try {
     const generator = await openVideoGenerator(source.provider, options.apiKey);

@@ -44,6 +44,8 @@ Canonical user-facing workflows:
   with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
 - Automation: `run`, `schema`, `context`, `guide`
+- Spend and provenance: `take` (the record of every paid generation; see
+  `docs/take-graph.md`)
 - Setup & hosts: `setup`, `doctor`, `host`
 - Lower-level operations: `scene`, `design`, `detect`, `media`, `assemble`
 

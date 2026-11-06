@@ -139,6 +139,7 @@ export function registerThumbnailCommand(parent: Command): void {
         const apiKey = await requireApiKey("OPENAI_API_KEY", "OpenAI", options.apiKey);
         const spinner = isJsonMode() ? null : createSpinner("Generating thumbnail...").start();
         const result = await executeImageGenerate({
+          take: { via: "cli", command: "generate thumbnail" },
           prompt: `Create a video thumbnail: ${description}. Style: ${style ? THUMBNAIL_STYLES[style].hint : "professional video thumbnail"}. No text in the image.`,
           provider: "openai",
           size,

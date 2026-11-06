@@ -571,7 +571,7 @@ editCommand
         costUsd: cost.costUsd,
         costEstimated: true,
         warnings: cost.warnings,
-        data: { provider, model: result.model, outputPath: result.outputPath },
+        data: { provider, model: result.model, outputPath: result.outputPath, ...(result.takeId ? { takeId: result.takeId } : {}) },
       });
       return;
     }

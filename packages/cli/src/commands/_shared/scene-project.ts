@@ -738,8 +738,10 @@ only when this project needs them.
 
 /** Minimal .gitignore for a scene project. */
 export function buildSceneGitignore(): string {
-  return `# VibeFrame - caches, checkpoints, and project-scope config.yaml (may contain API keys)
-.vibeframe/
+  return `# VibeFrame - caches, checkpoints, and project-scope config.yaml (may contain API keys).
+# Takes (.vibeframe/takes/) are kept: the record of what each generation cost and made.
+.vibeframe/*
+!.vibeframe/takes/
 
 # Render outputs
 renders/*.mp4

@@ -25,6 +25,8 @@ import { resolveProvider } from "../utils/provider-resolver.js";
 import { ApiKeyError, requireConfiguredApiKey } from "../utils/api-key.js";
 import { contractQuality, openImageGenerator, readImageInput, saveImage } from "./_shared/image-jobs.js";
 import { numberedPath } from "./_shared/default-output.js";
+import { estimateImageCostUsd } from "./_shared/image-cost.js";
+import { withTake, type TakeContext, type TakeOutcome } from "../takes/record.js";
 import { execSafe, commandExists } from "../utils/exec-safe.js";
 import { executorFailure, failureFromError, generalError, notFoundError, providerFailure, type StructuredError } from "./output.js";
 
@@ -46,6 +48,8 @@ export interface ImageGenerateOptions {
   count?: number;
   model?: string;
   apiKey?: string;
+  /** Who is asking, for the take this generation records. */
+  take?: TakeContext;
 }
 
 export interface ImageGenerateResult {
@@ -59,6 +63,32 @@ export interface ImageGenerateResult {
   model?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** The take this generation recorded (see takes/take.ts). */
+  takeId?: string;
+  takeError?: string;
+}
+
+/**
+ * The take a finished image call leaves. Image providers report no usage,
+ * so only a call that returned images is recorded, priced from the catalog.
+ */
+function imageOutcome(
+  result: { success: boolean; outputPath?: string; outputPaths?: string[]; provider?: string; model?: string },
+  provider: string,
+  count: number,
+  size: { resolution?: string; size?: string; model?: string },
+): TakeOutcome {
+  return {
+    reached: result.success,
+    status: "completed",
+    provider: result.provider ?? provider,
+    model: result.model,
+    outputs: result.outputPaths ?? (result.outputPath ? [result.outputPath] : []),
+    fallbackCost: () => {
+      const cost = estimateImageCostUsd(result.provider ?? provider, result.model ?? size.model, count, size.resolution, size.size);
+      return { usd: cost.costUsd, basis: cost.basis };
+    },
+  };
 }
 
 function imageFailure(error: unknown, prefix: string, provider?: string): ImageGenerateResult {
@@ -68,8 +98,25 @@ function imageFailure(error: unknown, prefix: string, provider?: string): ImageG
   return { success: false, error: `${prefix}: ${error instanceof Error ? error.message : String(error)}`, provider };
 }
 
+/** Generate images and record their take. */
 export async function executeImageGenerate(options: ImageGenerateOptions): Promise<ImageGenerateResult> {
   const provider = options.provider ?? resolveProvider("image")?.name ?? "gemini";
+  return withTake(
+    options.take ?? { via: "cli", command: "generate image" },
+    {
+      kind: "image",
+      operation: "generate",
+      prompt: options.prompt,
+      params: { model: options.model, ratio: options.ratio, size: options.size, quality: options.quality, resolution: options.resolution, count: options.count },
+      inputs: [],
+    },
+    () => runImageGenerate({ ...options, provider }),
+    (result) => imageOutcome(result, provider, result.images?.length ?? options.count ?? 1, options),
+  );
+}
+
+async function runImageGenerate(options: ImageGenerateOptions): Promise<ImageGenerateResult> {
+  const provider = options.provider ?? "gemini";
   try {
     const generator = await openImageGenerator(provider, options.apiKey);
     const result = await generator.createImage({
@@ -119,6 +166,8 @@ export interface ImageEditOptions {
   resolution?: string;
   quality?: string;
   apiKey?: string;
+  /** Who is asking, and the take being edited, for the take this records. */
+  take?: TakeContext;
 }
 
 export interface ImageEditResult {
@@ -128,9 +177,28 @@ export interface ImageEditResult {
   model?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  takeId?: string;
+  takeError?: string;
 }
 
+/** Edit images and record the take. */
 export async function executeImageEdit(options: ImageEditOptions): Promise<ImageEditResult> {
+  const provider = options.provider ?? "gemini";
+  return withTake(
+    options.take ?? { via: "cli", command: "edit image" },
+    {
+      kind: "image",
+      operation: "edit",
+      prompt: options.prompt,
+      params: { model: options.model, ratio: options.ratio, quality: options.quality, resolution: options.resolution },
+      inputs: options.imagePaths.map((path) => ({ role: "source" as const, path })),
+    },
+    () => runImageEdit(options),
+    (result) => imageOutcome(result, provider, 1, options),
+  );
+}
+
+async function runImageEdit(options: ImageEditOptions): Promise<ImageEditResult> {
   const provider = options.provider ?? "gemini";
   try {
     const generator = await openImageGenerator(provider, options.apiKey);

@@ -60,6 +60,10 @@ export const COMMAND_GROUPS: ReadonlyArray<{
     commands: ["generate", "edit", "audio", "detect", "remix"],
   },
   {
+    title: "Spend & provenance",
+    commands: ["take"],
+  },
+  {
     title: "Agents & setup",
     commands: [
       "setup",

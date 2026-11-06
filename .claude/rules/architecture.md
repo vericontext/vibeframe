@@ -25,6 +25,7 @@ The canonical user-facing workflow commands are:
   with `storyboard`, poll async work with `status`)
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
 - Automation: `run`, `schema`, `context`, `guide`
+- Spend and provenance: `take` (see `docs/take-graph.md`)
 - Setup & hosts: `setup`, `doctor`, `host`
 - Lower-level operations: `scene`, `design`, `detect`, `media`, `assemble`
 

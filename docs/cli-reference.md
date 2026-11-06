@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                         |
-| **Advanced** |    25 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +15 more   |
+| **Advanced** |    28 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +18 more   |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                       |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                         |
 
@@ -133,7 +133,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    32 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +24 more             | FFmpeg only, no API call                                                                          |
+| **Free**       |    35 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +27 more             | FFmpeg only, no API call                                                                          |
 | **Low**        |    18 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +10 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
 | **Very High**  |     2 | `generate.video` · `generate.video-extend`                                                                                                                                  | $5–$50+ per call                                                                                  |
@@ -1561,6 +1561,54 @@ Cost tier: `free`
 - `refresh` _(boolean)_ - Refresh active supported jobs before summarizing
 
 JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, `nextActions`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, `nextActions`, and `retryWith`; top-level `nextActions` is the preferred resume contract, while `retryWith` remains the compatibility fallback.
+
+### `take`
+
+#### `vibe take list`
+
+List takes, newest first
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `project` _(string)_ - Read this project's takes instead of the one around the current directory
+- `global` _(boolean)_ - Read the global ledger: every take on this machine, in any project
+- `kind` _(string)_ _(video \| image)_ - Only this kind: video, image
+- `beat` _(string)_ - Only takes a build made for this storyboard beat
+- `since` _(string)_ - Only takes made on or after this date (e.g. 2026-11-01)
+- `limit` _(number)_ - Most takes to show (default 50)
+
+#### `vibe take log`
+
+Total the spend on takes, and how much of it is provider billing
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `project` _(string)_ - Total this project's takes instead of the one around the current directory
+- `global` _(boolean)_ - Total the global ledger: every take on this machine, in any project
+- `kind` _(string)_ _(video \| image)_ - Only this kind: video, image
+- `beat` _(string)_ - Only takes a build made for this storyboard beat
+- `since` _(string)_ - Only takes made on or after this date (e.g. 2026-11-01)
+
+#### `vibe take show`
+
+Show one take in full
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `take-id` _(string)_ **required** - Take id, e.g. take_mh2k1x0a_1f2e3d4c
+- `project` _(string)_ - Look in this project first
 
 ### `host`
 

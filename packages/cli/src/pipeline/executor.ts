@@ -238,6 +238,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const output = getOutput(params, outputDir, "image.png");
     const provider = await resolvePipelineImageProvider(params.provider);
     const r = await executeImageGenerate({
+      take: { via: "pipeline", command: "generate-image" },
       prompt: params.prompt as string,
       provider,
       output,
@@ -264,6 +265,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const output = getOutput(params, outputDir, "video.mp4");
     const provider = await resolvePipelineVideoProvider(params.provider);
     const r = await executeVideoGenerate({
+      take: { via: "pipeline", command: "generate-video" },
       prompt: params.prompt as string,
       provider,
       image: stringParam(params.image),
@@ -461,6 +463,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const output = getOutput(params, outputDir, "edited.png");
     const provider = await resolvePipelineImageProvider(params.provider);
     const r = await executeImageEdit({
+      take: { via: "pipeline", command: "edit-image" },
       imagePaths: Array.isArray(params.input) ? (params.input as string[]) : [params.input as string],
       prompt: params.prompt as string,
       provider,
