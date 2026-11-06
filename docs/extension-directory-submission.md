@@ -47,10 +47,10 @@ to the Anthropic Connectors Directory.
 5. On hosts with the elicitation capability, `build` asks the user a form
    (narration provider / backdrop images / cost cap) before spending.
 
-For sample media to exercise edit/detect/timeline tools, any short MP4 works:
+For sample media to exercise edit/detect tools, any short MP4 works:
 `ffmpeg -f lavfi -i testsrc=duration=8:size=640x360:rate=30 -f lavfi -i sine=frequency=440:duration=8 -shortest sample.mp4`
 
-## Tool inventory (84) with safety annotations and working examples
+## Tool inventory (60) with safety annotations and working examples
 
 Hints legend: **RO** = readOnlyHint:true · **W** = writes (destructiveHint:true
 unless noted) · **OW** = openWorldHint:true (calls an external provider).
@@ -67,6 +67,7 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | storyboard_move | W | `{"projectDir":"demo","beat":"close","after":"hook"}` |
 | storyboard_revise | W, OW | `{"projectDir":"demo","request":"Make it 5 beats about coffee","dryRun":true}` |
 | plan | RO | `{"projectDir":"demo"}` |
+| design_validate | RO | `{"projectDir":"demo"}` |
 | build | W, OW | `{"projectDir":"demo","ttsProvider":"kokoro","skipBackdrop":true}` |
 | render | W | `{"projectDir":"demo","quality":"draft"}` |
 | scene_list_styles | RO | `{}` then `{"name":"swiss-pulse"}` |
@@ -86,17 +87,13 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 
 | Tool | Hints | Example |
 |---|---|---|
-| generate_speech / generate_narration | W, OW | `{"text":"Hello.","output":"hello.mp3"}` (ElevenLabs) |
+| generate_narration | W, OW | `{"text":"Hello.","output":"hello.mp3"}` (ElevenLabs) |
 | generate_sound_effect | W, OW | `{"prompt":"door knock","output":"knock.mp3"}` |
 | generate_music | W, OW | `{"prompt":"calm lo-fi beat"}` |
-| generate_music_status | RO, OW | `{"taskId":"<from generate_music>"}` |
 | generate_image | W, OW | `{"prompt":"abstract blue gradient","output":"bg.png"}` |
-| generate_background | W, OW | `{"description":"editorial background plate","output":"plate.png"}` |
-| generate_storyboard | W, OW | `{"content":"A 30s video about tea"}` |
 | generate_thumbnail | W, OW | `{"videoPath":"sample.mp4","outputPath":"thumb.png"}` |
 | generate_motion | W, OW | `{"description":"counter counting to 100"}` |
 | generate_video | W, OW | `{"prompt":"waves at sunset","duration":5}` (high cost - confirm spend) |
-| generate_video_status | W (downloads on completion), OW | `{"taskId":"<id>"}` |
 | generate_video_cancel | W, OW | `{"taskId":"<id>"}` |
 | generate_video_extend | W, OW | `{"videoId":"<id>","prompt":"keep panning"}` |
 
@@ -119,7 +116,6 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | edit_motion_overlay | W, OW (generated overlays use LLM) | `{"videoPath":"sample.mp4","description":"confetti burst"}` |
 | edit_translate_srt | W, OW | `{"srtPath":"subs.srt","outputPath":"subs.ko.srt","targetLanguage":"Korean"}` |
 | edit_image | W, OW | `{"imagePaths":["bg.png"],"prompt":"make it warmer"}` |
-| edit_fill_gaps | W, OW | `{"projectPath":"timeline.json","dryRun":true}` (high cost) |
 
 ### Audio
 
@@ -139,29 +135,12 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 | detect_silence | W (report), idempotent | `{"mediaPath":"sample.mp4"}` |
 | detect_beats | W (report), idempotent | `{"audioPath":"sample.mp4"}` |
 | inspect_media | RO, OW (Gemini) | `{"source":"bg.png","prompt":"Describe this image"}` |
-| inspect_video | RO, OW (Gemini) | `{"source":"sample.mp4","prompt":"Summarize"}` |
-| inspect_review | W (autoApply), OW | `{"videoPath":"sample.mp4"}` |
-| inspect_suggest | W (apply), OW | `{"projectPath":"timeline.json","instruction":"tighten pacing"}` |
 
-### Timeline & export (key-free, fully local)
+### Workspace (key-free, fully local)
 
 | Tool | Hints | Example |
 |---|---|---|
-| timeline_create | W | `{"name":"cut1"}` |
-| timeline_info / timeline_list | RO | `{"projectPath":"timeline.json"}` |
-| timeline_add_source | W | `{"projectPath":"timeline.json","mediaPath":"sample.mp4"}` |
-| timeline_add_clip | W | `{"projectPath":"timeline.json","sourceId":"<id>"}` |
-| timeline_split_clip | W | `{"projectPath":"timeline.json","clipId":"<id>","splitTime":2}` |
-| timeline_trim_clip | W | `{"projectPath":"timeline.json","clipId":"<id>","end":4}` |
-| timeline_move_clip | W | `{"projectPath":"timeline.json","clipId":"<id>","newStart":1}` |
-| timeline_duplicate_clip | W | `{"projectPath":"timeline.json","clipId":"<id>"}` |
-| timeline_delete_clip | W | `{"projectPath":"timeline.json","clipId":"<id>"}` |
-| timeline_add_effect | W | `{"projectPath":"timeline.json","clipId":"<id>","effectType":"fade-in"}` |
-| timeline_add_track | W | `{"projectPath":"timeline.json","trackType":"audio"}` |
-| export_video | W | `{"projectPath":"timeline.json","outputPath":"final.mp4"}` |
 | project_list | RO | `{}` (lists workspace projects) |
-| project_create | W | `{"name":"demo-project"}` |
-| project_info | RO | `{"projectPath":"timeline.json"}` |
 
 ### Pipelines
 
@@ -169,7 +148,6 @@ unless noted) · **OW** = openWorldHint:true (calls an external provider).
 |---|---|---|
 | remix_highlights | W, OW | `{"media":"sample.mp4","count":2}` |
 | remix_auto_shorts | W, OW | `{"video":"sample.mp4","count":1}` |
-| remix_regenerate_scene | W, OW | `{"projectDir":"demo","scenes":[1],"dryRun":true}` |
 | run | W, OW (very high cost) | `{"file":"pipeline.yaml","dryRun":true}` |
 
 ## Compliance checklist

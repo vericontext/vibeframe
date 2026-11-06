@@ -65,7 +65,7 @@ interface CommandNode {
  * Walk the program tree into a flat description suitable for shell-script
  * emission. Skips deprecated commands (description contains "deprecated")
  * and meta commands like `help`. Hidden commands are included so
- * `vibe project <tab>` still works for power users — they were only
+ * `vibe scene <tab>` still works for power users - they were only
  * hidden from the front-page `--help`, not from the catalog.
  */
 function collectCommandTree(program: Command): CommandNode[] {

@@ -78,7 +78,10 @@ describe("walkthroughs", () => {
       const r = loadWalkthrough("pipeline");
       expect(r.content).toContain("generate-image");
       expect(r.content).toContain("scene-build");
-      expect(r.content).toContain("compose-scenes-with-skills");
+      expect(r.content).toContain("scene-render");
+      // Only actions the pipeline loader accepts.
+      expect(r.content).not.toContain("compose-scenes-with-skills");
+      expect(r.content).not.toContain("edit-fill-gaps");
     });
 
     it("steps are non-trivial actionable instructions and at least one references a vibe command", () => {

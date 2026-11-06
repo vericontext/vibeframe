@@ -117,13 +117,13 @@ Generated from the live `surface` field in `vibe schema --list`. Use
 `vibe schema --list --surface public` for the small first-run command
 surface, and inspect `replacement` on legacy commands before using them.
 
-| Surface      | Count | Examples                                                                                                                                                                                                                  |
-| ------------ | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more   |
-| **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                           |
-| **Advanced** |    45 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.fill-gaps` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · +35 more |
-| **Legacy**   |     0 | -                                                                                                                                                                                                                         |
-| **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                           |
+| Surface      | Count | Examples                                                                                                                                                                                                                |
+| ------------ | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more |
+| **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                         |
+| **Advanced** |    25 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +15 more   |
+| **Legacy**   |     0 | -                                                                                                                                                                                                                       |
+| **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                         |
 
 ## Cost tiers
 
@@ -133,10 +133,10 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    50 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +42 more             | FFmpeg only, no API call                                                                          |
-| **Low**        |    19 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +11 more | $0.01–$0.10 per call                                                                              |
+| **Free**       |    32 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +24 more             | FFmpeg only, no API call                                                                          |
+| **Low**        |    18 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +10 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
-| **Very High**  |     3 | `generate.video` · `edit.fill-gaps` · `generate.video-extend`                                                                                                               | $5–$50+ per call                                                                                  |
+| **Very High**  |     2 | `generate.video` · `generate.video-extend`                                                                                                                                  | $5–$50+ per call                                                                                  |
 | **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first - the response
@@ -736,25 +736,6 @@ Cost tier: `free`
 - `videoOnly` _(boolean)_ - Apply fade to video only (audio stream copied)
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
-#### `vibe edit fill-gaps`
-
-Fill timeline gaps with AI-generated video (Kling image-to-video)
-
-Product surface: `advanced`
-
-Cost tier: `very-high`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `provider` _(string)_ _(default: `"kling"`)_ - AI provider (kling)
-- `output` _(string)_ - Output project path (default: overwrite)
-- `dir` _(string)_ - Directory to save generated videos
-- `prompt` _(string)_ - Custom prompt for video generation
-- `dryRun` _(boolean)_ - Show gaps without generating
-- `mode` _(string)_ _(default: `"std"`)_ - Generation mode: std or pro (Kling)
-- `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1)_ _(default: `"16:9"`)_ - Aspect ratio: 16:9, 9:16, or 1:1
-
 #### `vibe edit grade`
 
 Apply AI-generated color grading (Claude + FFmpeg)
@@ -1052,23 +1033,6 @@ Cost tier: `low`
 
 `review-report.json` payload uses `kind:"review"`, `mode:"render"`, `summary`, `sourceReports`, `nextActions`, `retryWith`, and issue-level `fixOwner:"vibe"|"host-agent"`. `--ai` maps Gemini findings to host-agent-owned issues.
 
-#### `vibe inspect suggest`
-
-Get AI edit suggestions using Gemini
-
-Product surface: `advanced`
-Note: Suggestion primitive; reports should drive host-agent edits.
-
-Cost tier: `low`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `instruction` _(string)_ **required** - Natural language instruction
-- `apiKey` _(string)_ - Google API key (or set GOOGLE_API_KEY env)
-- `apply` _(boolean)_ - Apply the first suggestion automatically
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
 ### `audio`
 
 #### `vibe audio clone-voice`
@@ -1238,7 +1202,6 @@ Cost tier: `high`
 
 - `media` _(string)_ **required** - Video or audio file path
 - `output` _(string)_ - Output JSON file with highlights
-- `project` _(string)_ - Create project with highlight clips
 - `duration` _(number)_ _(default: `60`)_ - Target highlight reel duration
 - `count` _(number)_ - Maximum number of highlights
 - `threshold` _(number)_ _(default: `0.7`)_ - Confidence threshold (0-1)
@@ -1373,224 +1336,6 @@ Cost tier: _not tagged_
 - `html` _(string)_ - Scene HTML inline (mainly for the global --stdin JSON payload: {"html": "..."})
 - `validateOnly` _(boolean)_ - Lint without writing the file
 
-### `timeline`
-
-#### `vibe timeline add-clip`
-
-Add a clip to the timeline
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `source-id` _(string)_ **required** - Source ID to use
-- `track` _(string)_ - Track ID (defaults to first matching track)
-- `start` _(number)_ _(default: `0`)_ - Start time in timeline
-- `duration` _(number)_ - Clip duration (defaults to source duration)
-- `offset` _(number)_ _(default: `0`)_ - Source start offset
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline add-effect`
-
-Add an effect to a clip
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID
-- `effect-type` _(string)_ **required** - Effect type (fadeIn, fadeOut, blur, brightness, contrast, saturation, speed, volume)
-- `start` _(number)_ _(default: `0`)_ - Effect start time (relative to clip)
-- `duration` _(number)_ - Effect duration (defaults to clip duration)
-- `params` _(string)_ _(default: `"{}"`)_ - Effect parameters as JSON
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline add-source`
-
-Add a media source to the timeline
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `media` _(string)_ **required** - Media file path
-- `name` _(string)_ - Source name (defaults to filename)
-- `type` _(string)_ _(video \| audio \| image \| lottie)_ - Media type (video, audio, image, lottie)
-- `duration` _(number)_ - Duration in seconds (required for images)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline add-track`
-
-Add a new track
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `type` _(string)_ **required** - Track type (video, audio)
-- `name` _(string)_ - Track name
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline create`
-
-Create a low-level timeline JSON file
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `name` _(string)_ **required** - Timeline name or path (e.g., 'my-video' or 'output/my-video')
-- `output` _(string)_ - Output file path (overrides name-based path)
-- `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1 \| 4:5)_ _(default: `"16:9"`)_ - Aspect ratio (16:9, 9:16, 1:1, 4:5)
-- `fps` _(number)_ _(default: `30`)_ - Frame rate
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline delete-clip`
-
-Delete a clip from the timeline
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID to delete
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline duplicate-clip`
-
-Duplicate a clip
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID to duplicate
-- `time` _(number)_ - Start time for duplicate (default: after original)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline info`
-
-Show timeline information
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `file` _(string)_ **required** - Timeline file or directory
-
-#### `vibe timeline list`
-
-List timeline contents
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `sources` _(boolean)_ - List sources only
-- `tracks` _(boolean)_ - List tracks only
-- `clips` _(boolean)_ - List clips only
-
-#### `vibe timeline move-clip`
-
-Move a clip to a new position
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID to move
-- `time` _(number)_ - New start time
-- `track` _(string)_ - Move to different track
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline set`
-
-Update timeline settings
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `file` _(string)_ **required** - Timeline file or directory
-- `name` _(string)_ - Timeline name
-- `ratio` _(string)_ _(16:9 \| 9:16 \| 1:1 \| 4:5)_ - Aspect ratio (16:9, 9:16, 1:1, 4:5)
-- `fps` _(number)_ - Frame rate
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline split-clip`
-
-Split a clip at a specific time
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID to split
-- `time` _(number)_ _(default: `0`)_ - Split time relative to clip start
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe timeline trim-clip`
-
-Trim a clip
-
-Product surface: `advanced`
-Note: Power tool for low-level timeline JSON edits.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-id` _(string)_ **required** - Clip ID
-- `start` _(number)_ - New start time
-- `duration` _(number)_ - New duration
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
 ### `detect`
 
 #### `vibe detect beats`
@@ -1620,7 +1365,6 @@ Cost tier: `free`
 - `video` _(string)_ **required** - Video file path
 - `threshold` _(number)_ _(default: `0.3`)_ - Scene change threshold (0-1)
 - `output` _(string)_ - Output JSON file with timestamps
-- `project` _(string)_ - Add scenes as clips to project
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 #### `vibe detect silence`
@@ -1637,95 +1381,6 @@ Cost tier: `free`
 - `noise` _(number)_ _(default: `-30`)_ - Noise threshold in dB
 - `duration` _(number)_ _(default: `0.5`)_ - Minimum silence duration
 - `output` _(string)_ - Output JSON file with timestamps
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-### `batch`
-
-#### `vibe batch apply-effect`
-
-Apply an effect to multiple clips
-
-Product surface: `advanced`
-Note: Power tool for bulk timeline/media operations.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `effect-type` _(string)_ **required** - Effect type (fadeIn, fadeOut, blur, etc.)
-- `clip-ids` _(array)_ - Clip IDs to apply effect to (or --all)
-- `all` _(boolean)_ _(default: `false`)_ - Apply to all clips
-- `duration` _(number)_ _(default: `1`)_ - Effect duration
-- `start` _(number)_ _(default: `0`)_ - Effect start time (relative to clip)
-- `intensity` _(string)_ _(default: `"1"`)_ - Effect intensity (0-1)
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe batch concat`
-
-Concatenate multiple sources into sequential clips
-
-Product surface: `advanced`
-Note: Power tool for bulk timeline/media operations.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `source-ids` _(array)_ - Source IDs to concatenate (or --all)
-- `all` _(boolean)_ _(default: `false`)_ - Concatenate all sources in order
-- `track` _(string)_ - Track to place clips on
-- `start` _(number)_ _(default: `0`)_ - Starting time
-- `gap` _(number)_ _(default: `0`)_ - Gap between clips
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe batch import`
-
-Import multiple media files from a directory
-
-Product surface: `advanced`
-Note: Power tool for bulk timeline/media operations.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `directory` _(string)_ **required** - Directory containing media files
-- `recursive` _(boolean)_ _(default: `false`)_ - Search subdirectories
-- `duration` _(number)_ _(default: `5`)_ - Default duration for images
-- `filter` _(string)_ - Filter files by extension (e.g., '.mp4,.mov')
-- `dryRun` _(boolean)_ - Preview parameters without executing
-
-#### `vibe batch info`
-
-Show batch processing statistics
-
-Product surface: `advanced`
-Note: Power tool for bulk timeline/media operations.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-
-#### `vibe batch remove-clips`
-
-Remove multiple clips from the timeline
-
-Product surface: `advanced`
-Note: Power tool for bulk timeline/media operations.
-
-Cost tier: `free`
-
-**Parameters:**
-
-- `project` _(string)_ **required** - Timeline file or directory
-- `clip-ids` _(array)_ - Clip IDs to remove
-- `all` _(boolean)_ _(default: `false`)_ - Remove all clips
-- `track` _(string)_ - Remove clips from specific track only
 - `dryRun` _(boolean)_ - Preview parameters without executing
 
 ### `media`

@@ -10,19 +10,15 @@
  *   inspect project - Local project completeness and composition checks
  *   inspect render  - Local rendered video checks plus optional Gemini review
  *   inspect media   - Unified analysis for images, videos, and YouTube URLs (Gemini)
- *   inspect suggest - Get AI edit suggestions using Gemini
  *
  * @dependencies Gemini (Google), FFmpeg (auto-fix filters)
  */
 
 import { Command } from "commander";
-import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { GeminiProvider, GEMINI_TEXT_MODEL_HELP, isGeminiTextModelAlias } from "@vibeframe/ai-providers";
-import { Project, type ProjectFile } from "../engine/index.js";
+import { GEMINI_TEXT_MODEL_HELP, isGeminiTextModelAlias } from "@vibeframe/ai-providers";
 import { requireApiKey } from "../utils/api-key.js";
-import { applySuggestion } from "./ai-helpers.js";
 import { executeAnalyze } from "./ai-analyze.js";
 import {
   failureFromError,
@@ -66,9 +62,6 @@ Examples:
   $ vibe inspect media image.png "Describe this image"
   $ vibe inspect media video.mp4 "Summarize this video"
   $ vibe inspect media "https://youtube.com/watch?v=..." "Key takeaways"
-
-Advanced:
-  inspect suggest  Advanced suggestion primitive; reports should drive host-agent edits
 
 API Keys:
   GOOGLE_API_KEY  Required for 'inspect media' and 'inspect render --ai'
@@ -367,105 +360,3 @@ function parseRenderAiModel(value: string): RenderInspectModel {
     )
   );
 }
-
-// ── analyze suggest ────────────────────────────────────────────────────
-
-inspectCommand
-  .command("suggest")
-  .description("Get AI edit suggestions using Gemini")
-  .argument("<project>", "Timeline file or directory")
-  .argument("<instruction>", "Natural language instruction")
-  .option("-k, --api-key <key>", "Google API key (or set GOOGLE_API_KEY env)")
-  .option("--apply", "Apply the first suggestion automatically")
-  .option("--dry-run", "Preview parameters without executing")
-  .action(async (projectPath: string, instruction: string, options) => {
-    const startedAt = Date.now();
-    try {
-      rejectControlChars(instruction);
-
-      if (options.dryRun) {
-        outputSuccess({
-          command: "inspect suggest",
-          startedAt,
-          dryRun: true,
-          data: {
-            params: {
-              project: projectPath,
-              instruction,
-              apply: options.apply ?? false,
-            },
-          },
-        });
-        return;
-      }
-
-      const apiKey = await requireApiKey("GOOGLE_API_KEY", "Google", options.apiKey);
-
-      const spinner = createSpinner("Initializing Gemini...").start();
-
-      const filePath = resolve(process.cwd(), projectPath);
-      const content = await readFile(filePath, "utf-8");
-      const data: ProjectFile = JSON.parse(content);
-      const project = Project.fromJSON(data);
-
-      const gemini = new GeminiProvider();
-      await gemini.initialize({ apiKey });
-
-      spinner.text = "Analyzing...";
-      const clips = project.getClips();
-      const suggestions = await gemini.autoEdit(clips, instruction);
-
-      spinner.succeed(chalk.green(`Found ${suggestions.length} suggestion(s)`));
-
-      if (isJsonMode()) {
-        outputSuccess({
-          command: "inspect suggest",
-          startedAt,
-          data: {
-            suggestions: suggestions.map((s) => ({
-              type: s.type,
-              description: s.description,
-              confidence: s.confidence,
-              clipIds: s.clipIds,
-              params: s.params,
-            })),
-          },
-        });
-        return;
-      }
-
-      console.log();
-      console.log(chalk.bold.cyan("Edit Suggestions"));
-      console.log(chalk.dim("─".repeat(60)));
-
-      for (let i = 0; i < suggestions.length; i++) {
-        const sug = suggestions[i];
-        console.log();
-        console.log(chalk.yellow(`[${i + 1}] ${sug.type.toUpperCase()}`));
-        console.log(`    ${sug.description}`);
-        console.log(chalk.dim(`    Confidence: ${(sug.confidence * 100).toFixed(0)}%`));
-        console.log(chalk.dim(`    Clips: ${sug.clipIds.join(", ")}`));
-        console.log(chalk.dim(`    Params: ${JSON.stringify(sug.params)}`));
-      }
-
-      if (options.apply && suggestions.length > 0) {
-        console.log();
-        spinner.start("Applying first suggestion...");
-
-        const sug = suggestions[0];
-        const applied = applySuggestion(project, sug);
-
-        if (applied) {
-          await writeFile(filePath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
-          spinner.succeed(chalk.green("Suggestion applied"));
-        } else {
-          spinner.warn(chalk.yellow("Could not apply suggestion automatically"));
-        }
-      }
-
-      console.log();
-    } catch (error) {
-      exitWithError(failureFromError(error, "AI suggestion failed"));
-    }
-  });
-applyTier(inspectCommand.commands[inspectCommand.commands.length - 1], "low");

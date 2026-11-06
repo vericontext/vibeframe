@@ -40,7 +40,6 @@ describe("GeminiProvider analysis calls", () => {
     const calls = [
       () => gemini.analyzeVideo(Buffer.from("v"), "describe"),
       () => gemini.analyzeImage(Buffer.from("i"), "describe"),
-      () => gemini.autoEdit([], "trim to 3s"),
       () => gemini.generateMotion("title card"),
       () => gemini.refineMotion("code", "make it blue"),
       () => gemini.analyzeContent("a script", 10),
@@ -77,10 +76,9 @@ describe("GeminiProvider analysis calls", () => {
     expect(body.generationConfig.mediaResolution).toBe("MEDIA_RESOLUTION_LOW");
   });
 
-  it("an unparseable reply is a provider error, not pattern-matched edits or an empty storyboard", async () => {
+  it("an unparseable reply is a provider error, not an empty storyboard", async () => {
     fetchMock.mockImplementation(async () => reply("I am not sure what you mean."));
 
-    await expect(gemini.autoEdit([], "trim to 3s")).rejects.toMatchObject({ kind: "provider" });
     await expect(gemini.analyzeContent("a script")).rejects.toMatchObject({ kind: "provider" });
     await expect(gemini.generateMotion("title card")).rejects.toMatchObject({ kind: "provider" });
   });

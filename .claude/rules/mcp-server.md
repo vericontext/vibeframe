@@ -24,7 +24,7 @@ Config file locations:
 - **Claude Desktop (Windows):** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Cursor:** `.cursor/mcp.json` in workspace
 
-**Bundling:** esbuild bundles all runtime code — workspace deps (`@vibeframe/cli`, `@vibeframe/core`, `@vibeframe/ai-providers`) and third-party utilities (chalk, ora, commander, yaml, dotenv) — into a single `dist/index.js` (~21MB).
+**Bundling:** esbuild bundles all runtime code (workspace deps `@vibeframe/cli` and `@vibeframe/ai-providers`, plus third-party utilities chalk, ora, commander, yaml, dotenv) into a single `dist/index.js` (~21MB).
 
 **External deps** (NOT bundled — must be declared in `dependencies` or `peerDependencies`):
 - `@modelcontextprotocol/sdk`, `zod` — MCP protocol; host controls version

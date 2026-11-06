@@ -92,7 +92,7 @@ export default function PrivacyPage() {
               ))}
             </ul>
             <p className="mt-2">
-              Operations that do not name a provider (timeline editing, ffmpeg-based edits,
+              Operations that do not name a provider (ffmpeg-based edits, media detection,
               scene linting, rendering, local Kokoro TTS) run fully locally and send nothing
               anywhere. Tool annotations in the MCP manifest mark which tools reach external
               services (<code>openWorldHint</code>).

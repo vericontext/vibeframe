@@ -49,7 +49,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   "edit.noise-reduce": { surface: "public" },
   "edit.fade": { surface: "advanced" },
   "edit.translate-srt": { surface: "advanced" },
-  "edit.fill-gaps": { surface: "advanced" },
   "edit.motion-overlay": { surface: "advanced" },
   "edit.grade": { surface: "advanced" },
   "edit.text-overlay": { surface: "advanced" },
@@ -65,10 +64,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
   "inspect.project": { surface: "public" },
   "inspect.render": { surface: "public" },
   "inspect.media": { surface: "public" },
-  "inspect.suggest": {
-    surface: "advanced",
-    note: "Suggestion primitive; reports should drive host-agent edits.",
-  },
 
   "audio.transcribe": { surface: "public" },
   "audio.dub": { surface: "public" },
@@ -106,17 +101,6 @@ const EXPLICIT_COMMAND_METADATA: Record<string, ProductSurfaceMetadata> = {
     surface: "internal",
     note: "Agent-mode build primitive; prefer vibe build --mode agent.",
   },
-
-  "project.create": {
-    surface: "legacy",
-    replacement: "vibe timeline create",
-    note: "Legacy timeline project alias.",
-  },
-  "project.info": {
-    surface: "legacy",
-    replacement: "vibe timeline info",
-    note: "Legacy timeline project alias.",
-  },
 };
 
 export function isProductSurface(value: string | undefined): value is ProductSurface {
@@ -126,19 +110,10 @@ export function isProductSurface(value: string | undefined): value is ProductSur
 export function productSurfaceForCommandPath(path: string): ProductSurfaceMetadata {
   const explicit = EXPLICIT_COMMAND_METADATA[path];
   if (explicit) return explicit;
-  if (path.startsWith("timeline.")) {
-    return { surface: "advanced", note: "Power tool for low-level timeline JSON edits." };
-  }
-  if (path.startsWith("batch.")) {
-    return { surface: "advanced", note: "Power tool for bulk timeline/media operations." };
-  }
   if (path.startsWith("media.")) {
     return { surface: "advanced", note: "Script utility for media metadata." };
   }
   if (path.startsWith("detect.")) return { surface: "public" };
-  if (path.startsWith("export.")) {
-    return { surface: "advanced", note: "Lower-level export helper." };
-  }
   return { surface: "advanced" };
 }
 

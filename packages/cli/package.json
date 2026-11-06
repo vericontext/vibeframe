@@ -43,10 +43,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./engine": {
-      "types": "./dist/engine/index.d.ts",
-      "import": "./dist/engine/index.js"
-    },
     "./tools/manifest": {
       "types": "./dist/tools/manifest/index.d.ts",
       "import": "./dist/tools/manifest/index.js"
@@ -69,7 +65,7 @@
     "test": "vitest run",
     "test:integration": "VIBE_TEST_INTEGRATION=1 vitest run",
     "test:watch": "vitest",
-    "pretest": "pnpm --dir ../core build && pnpm --dir ../ai-providers build && node build.js",
+    "pretest": "pnpm --dir ../ai-providers build && node build.js",
     "prepublishOnly": "node build.js"
   },
   "dependencies": {
@@ -90,7 +86,6 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@vibeframe/ai-providers": "workspace:*",
-    "@vibeframe/core": "workspace:*",
     "esbuild": "^0.24.0",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",

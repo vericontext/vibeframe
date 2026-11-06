@@ -101,15 +101,3 @@ describe("missing provider keys", () => {
     cases.forEach((c, i) => expectMissingKey(results[i], c.envVar, c.args.join(" ")));
   }, 120_000);
 });
-
-describe("edit fill-gaps on a file that is not a timeline", () => {
-  it("is a usage error naming the file, not a JSON parse failure", async () => {
-    const { cwd, env } = makeWorkspace();
-    const result = await run(cwd, env, ["edit", "fill-gaps", "v.mp4"]);
-    expect(result.code).toBe(2);
-    expect(JSON.parse(result.stderr)).toMatchObject({
-      code: "USAGE_ERROR",
-      error: expect.stringContaining("Not a timeline project:"),
-    });
-  }, 60_000);
-});

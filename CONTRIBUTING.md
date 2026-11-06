@@ -27,7 +27,6 @@ Please be respectful and considerate of others. We want to foster an inclusive a
 | Package                   | Path                    | Description                                      |
 | ------------------------- | ----------------------- | ------------------------------------------------ |
 | `@vibeframe/cli`          | `packages/cli`          | Main CLI interface (Commander.js + Agent)        |
-| `@vibeframe/core`         | `packages/core`         | Timeline data structures, effects, FFmpeg export |
 | `@vibeframe/ai-providers` | `packages/ai-providers` | Pluggable AI provider integrations               |
 | `@vibeframe/mcp-server`   | `packages/mcp-server`   | MCP server for Claude Desktop/Cursor             |
 | `@vibeframe/web`          | `apps/web`              | Next.js preview UI                               |
@@ -37,7 +36,6 @@ Please be respectful and considerate of others. We want to foster an inclusive a
 ```bash
 # All tests (note: default vitest runs in watch mode)
 pnpm -F @vibeframe/cli exec vitest run       # CLI tests (~232 tests, ~58s)
-pnpm -F @vibeframe/core exec vitest run       # Core tests (~8 tests, <1s)
 
 # With coverage
 pnpm -F @vibeframe/cli exec vitest run --coverage
@@ -158,7 +156,7 @@ We follow [conventional commits](https://www.conventionalcommits.org/):
 - `test:` Adding or updating tests
 - `chore:` Maintenance tasks
 
-Example: `feat: add fade in effect to timeline clips`
+Example: `feat: add --duration to vibe edit fade`
 
 ## Pull Request Guidelines
 
@@ -174,8 +172,8 @@ Example: `feat: add fade in effect to timeline clips`
 - **ESM**: All packages use ES modules.
 - **TypeScript**: Strict mode. Run `pnpm build` to compile.
 - **Time units**: All times in seconds (floats allowed).
-- **IDs**: `source-{id}`, `clip-{id}`, `track-{id}`, `effect-{id}`.
-- **Project files**: `.vibe.json` stores project state.
+- **Project files**: a video project is a directory with `STORYBOARD.md`,
+  `DESIGN.md`, and `vibe.config.json`.
 
 ## Questions?
 

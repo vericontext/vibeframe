@@ -166,7 +166,6 @@ Rewritten 2026-11-02 against the source.
 - `packages/ai-providers/src/gemini/GeminiProvider.ts`:
   - `createImage` - the image contract for generation and edits; the model comes from the catalog (`flash` is Nano Banana 2.1), and `GEMINI_IMAGE_CAPABILITIES` holds sizes, Search grounding, and input limits per GA model.
   - `analyzeVideo` / `analyzeImage` - inline base64 bytes, a Files API URI, or a YouTube URL; 8,192-token output cap.
-  - `autoEdit` - no fallback model.
 - `packages/ai-providers/src/gemini/gemini-omni.ts` - Omni 1.1 Flash on `/v1beta/interactions`: typed `input` items, `response_format` for video, `background: true` plus polling `GET /interactions/{id}`, the video `uri` read from `steps[]`, and `previous_interaction_id` for edits and extensions.
 - `packages/ai-providers/src/gemini/gemini-tts.ts` - the speech contract on `/v1beta/interactions`: `store: false`, WAV at 24 kHz requested; decodes WAV or L16 items to PCM, splits text at 4,000 characters, joins chunks into one WAV; `incomplete` without audio reads as moderation. Voices validated against the 30 prebuilt names plus `voice_`/`voicekey_` IDs.
 - `packages/cli/src/commands/_shared/tts-resolve.ts` - `--tts auto` order ElevenLabs, Gemini, OpenAI, Kokoro (from `SPEECH_GENERATOR_PROVIDERS`).

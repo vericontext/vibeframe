@@ -1,8 +1,7 @@
 import { Command } from "commander";
-import { readFile, writeFile } from "node:fs/promises";
-import { resolve, basename } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import chalk from "chalk";
-import { Project, type ProjectFile } from "../engine/index.js";
 import { execSafe, commandExists, ffprobeDuration } from "../utils/exec-safe.js";
 import { exitWithError, failureFromError, generalError, log, outputSuccess, spinner as createSpinner } from "./output.js";
 import { validateOutputPath } from "./validate.js";
@@ -220,7 +219,6 @@ detectCommand
   .argument("<video>", "Video file path")
   .option("--threshold <value>", "Scene change threshold (0-1)", "0.3")
   .option("-o, --output <path>", "Output JSON file with timestamps")
-  .option("--project <path>", "Add scenes as clips to project")
   .option("--dry-run", "Preview parameters without executing")
   .action(async (videoPath: string, options) => {
     const startedAt = Date.now();
@@ -242,7 +240,6 @@ detectCommand
               video: videoPath,
               threshold: options.threshold,
               output: options.output || null,
-              project: options.project || null,
             },
           },
         });
@@ -277,40 +274,6 @@ detectCommand
       const outputPath = options.output ? resolve(process.cwd(), options.output) : undefined;
       if (outputPath) log(chalk.green(`Saved to: ${outputPath}`));
 
-      let projectPath: string | undefined;
-      if (options.project) {
-        projectPath = resolve(process.cwd(), options.project);
-        const content = await readFile(projectPath, "utf-8");
-        const data: ProjectFile = JSON.parse(content);
-        const project = Project.fromJSON(data);
-
-        // Add video as source if not exists
-        let source = project.getSources().find((s) => s.url === absPath);
-        if (!source) {
-          source = project.addSource({
-            name: basename(absPath),
-            type: "video",
-            url: absPath,
-            duration: totalDuration,
-          });
-        }
-
-        // Add clips for each scene
-        for (const scene of scenes) {
-          project.addClip({
-            sourceId: source.id,
-            trackId: project.getTracks().find((t) => t.type === "video")?.id || "",
-            startTime: scene.startTime,
-            duration: scene.duration,
-            sourceStartOffset: scene.startTime,
-            sourceEndOffset: scene.endTime,
-          });
-        }
-
-        await writeFile(projectPath, JSON.stringify(project.toJSON(), null, 2), "utf-8");
-        log(chalk.green(`Added ${scenes.length} clips to project`));
-      }
-
       outputSuccess({
         command: "detect scenes",
         startedAt,
@@ -321,7 +284,6 @@ detectCommand
           sceneCount: scenes.length,
           scenes,
           ...(outputPath ? { outputPath } : {}),
-          ...(projectPath ? { projectPath } : {}),
         },
       });
     } catch (error) {

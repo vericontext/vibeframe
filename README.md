@@ -81,7 +81,7 @@ Needs **Node.js 20+, FFmpeg, and Chrome** (or Chromium).
 `vibe doctor` verifies all three and lists which commands each provider key unlocks.
 
 Generation is the only thing that needs a key.
-FFmpeg edits, Kokoro narration, scene composition, detection, timeline work, and rendering are all local.
+FFmpeg edits, Kokoro narration, scene composition, detection, and rendering are all local.
 Add `OPENAI_API_KEY`, `FAL_API_KEY`, `GOOGLE_API_KEY`, `RUNWAY_API_SECRET`, or `KLING_API_KEY` for the providers you actually use, via `vibe setup` or the environment.
 
 <details>

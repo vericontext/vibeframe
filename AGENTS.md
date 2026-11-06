@@ -14,7 +14,6 @@ Monorepo: Turborepo + pnpm workspaces. ESM. TypeScript strict mode.
 Packages:
 
 - `packages/cli` - CLI and command implementations.
-- `packages/core` - Timeline/project primitives and FFmpeg-oriented editing model.
 - `packages/ai-providers` - Provider registry and provider implementations.
 - `packages/mcp-server` - MCP wrapper around the CLI, bundled with esbuild.
 - `apps/web` - Next.js public site.
@@ -22,7 +21,7 @@ Packages:
 Architecture:
 
 ```text
-CLI (Commander.js) -> Engine (Project state) -> Core (Zustand + FFmpeg) -> AI Providers
+CLI (Commander.js) -> Executors (scene projects, one-shot media) -> AI Providers + FFmpeg + Hyperframes
 ```
 
 ## Commands
@@ -46,11 +45,11 @@ Canonical user-facing workflows:
 - One-shot media: `generate`, `edit`, `inspect`, `audio`, `remix`
 - Automation: `run`, `schema`, `context`, `guide`
 - Setup & hosts: `setup`, `doctor`, `host`
-- Lower-level operations: `scene`, `design`, `timeline`, `detect`, `batch`,
-  `media`, `assemble`
+- Lower-level operations: `scene`, `design`, `detect`, `media`, `assemble`
 
 Do not introduce docs, examples, or agent instructions that use removed
-namespaces such as `vibe ai`, `vibe project`, `vibe export`, or `vibe pipeline`.
+namespaces such as `vibe ai`, `vibe project`, `vibe export`, `vibe pipeline`,
+`vibe timeline`, or `vibe batch`.
 
 ## Agent Workflow Rules
 
@@ -69,7 +68,7 @@ When invoking VibeFrame commands from an agent context:
   fallback.
 - Use `vibe schema <command>` before constructing non-trivial arguments.
 - Confirm with the user before high/very-high cost operations such as
-  `generate video`, `edit fill-gaps`, and provider-backed `remix` workflows.
+  `generate video` and provider-backed `remix` workflows.
 - Use `--stdin` for complex option payloads instead of fragile shell quoting.
 
 Provider assets are inputs, not always the final product. For factual,
@@ -103,7 +102,7 @@ vibe schema generate.video
 
 General expectation:
 
-- Free/local: schema, setup/doctor, timeline/batch/detect/media, many FFmpeg edits.
+- Free/local: schema, setup/doctor, detect/media, many FFmpeg edits.
 - Low: speech, transcription, inspection, simple AI-assisted edits.
 - High: image generation, storyboard/motion generation.
 - Very high: video generation and expensive provider-backed transforms.
@@ -178,8 +177,8 @@ Match verification to the change:
 - CLI schema/reference changes: run `pnpm gen:reference:check` when relevant.
 - Scene/video work: run `vibe scene lint`, `vibe render`, and `vibe inspect render --cheap`.
 - `pnpm test` skips the Chrome/CLI-spawning integration tests for speed;
-  run `pnpm -F @vibeframe/cli test:integration` when touching rendering,
-  timeline, or batch code (CI always runs them).
+  run `pnpm -F @vibeframe/cli test:integration` when touching rendering
+  or scene code (CI always runs them).
 - Provider or build-pipeline changes: extend the fake provider network
   (`packages/cli/src/testing/fake-provider-network.ts`) so the real request
   and file-write path is tested without paid calls.

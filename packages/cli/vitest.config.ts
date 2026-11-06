@@ -11,8 +11,6 @@ const INTEGRATION_TESTS = [
   "src/commands/_shared/scene-lottie.integration.test.ts",
   "src/commands/_shared/scene-render.test.ts",
   "src/commands/ai.test.ts",
-  "src/commands/timeline.test.ts",
-  "src/commands/batch.test.ts",
 ];
 
 export default defineConfig({

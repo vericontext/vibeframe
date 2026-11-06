@@ -3,14 +3,12 @@
  * @description Shared types for the AI provider system.
  *
  * Defines capability enums, generation options and results, transcription types,
- * edit suggestions, highlight detection, B-roll matching, viral optimization,
+ * highlight detection, B-roll matching, viral optimization,
  * and the core {@link AIProvider} interface.
  */
 
-import type { TimeSeconds } from "@vibeframe/core";
-
-/** Re-export TimeSeconds for use by consumers. */
-export type { TimeSeconds } from "@vibeframe/core";
+/** A time value in seconds. */
+export type TimeSeconds = number;
 
 /**
  * Capabilities that an AI provider can declare support for
@@ -24,7 +22,6 @@ export type AICapability =
   | "text-to-image"
   | "speech-to-text"
   | "text-to-speech"
-  | "auto-edit"
   | "natural-language-command"
   | "style-transfer"
   | "object-removal"
@@ -182,29 +179,6 @@ export interface TranscriptResult {
   detectedLanguage?: string;
   /** Error message if failed */
   error?: string;
-}
-
-/**
- * An AI-suggested edit operation returned by `GeminiProvider.autoEdit`.
- *
- * Each suggestion targets one or more clips and includes a confidence score
- * indicating how strongly the AI recommends the edit.
- */
-export interface EditSuggestion {
-  /** Unique suggestion identifier */
-  id: string;
-  /** Type of edit operation */
-  type: "trim" | "cut" | "add-effect" | "reorder" | "delete" | "split" | "merge";
-  /** Description of the suggestion */
-  description: string;
-  /** Target clip IDs */
-  clipIds: string[];
-  /** Parameters for the edit */
-  params: Record<string, unknown>;
-  /** Confidence score 0-1 */
-  confidence: number;
-  /** Preview URL if available */
-  previewUrl?: string;
 }
 
 /**

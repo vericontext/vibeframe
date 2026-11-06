@@ -21,7 +21,6 @@ All `package.json` files must have the same version:
 ```
 package.json (root)
 packages/cli/package.json
-packages/core/package.json
 packages/ai-providers/package.json
 packages/mcp-server/package.json
 apps/web/package.json
@@ -74,11 +73,11 @@ Generated CLI docs must match the built CLI.
 3. Run `pnpm vibe schema --list` and confirm the top-level groups align with
    README:
    `generate`, `edit`, `inspect`, `audio`, `remix`, `init`, `build`,
-   `render`, `run`, `scene`, `timeline`, `detect`, `batch`,
-   `media`, `guide`, `context`, `completion`.
+   `render`, `run`, `scene`, `detect`, `media`, `guide`, `context`,
+   `completion`.
 4. Confirm `README.md` and `docs/` use current commands, not removed
-   namespaces such as `vibe ai`, `vibe project`, `vibe export`, or
-   `vibe pipeline`.
+   namespaces such as `vibe ai`, `vibe project`, `vibe export`,
+   `vibe pipeline`, `vibe timeline`, or `vibe batch`.
 
 **Report:**
 

@@ -19,10 +19,13 @@ describe("product surface taxonomy", () => {
       surface: "legacy",
       replacement: "vibe remix animated-caption",
     });
-    expect(productSurfaceForCommandPath("project.create")).toMatchObject({
-      surface: "legacy",
-      replacement: "vibe timeline create",
-    });
+  });
+
+  it("no longer carries the removed timeline model commands", () => {
+    for (const path of ["project.create", "project.info", "edit.fill-gaps", "inspect.suggest"]) {
+      expect(productSurfaceForCommandPath(path).surface).toBe("advanced");
+      expect(productSurfaceForCommandPath(path).replacement).toBeUndefined();
+    }
   });
 
   it("no longer carries the eight commands removed in 0.114", () => {

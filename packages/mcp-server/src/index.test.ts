@@ -5,8 +5,6 @@
 
 import { describe, it, expect } from "vitest";
 import { tools, handleToolCall } from "./tools/index.js";
-import { resources, readResource } from "./resources/index.js";
-import { prompts, getPrompt } from "./prompts/index.js";
 
 describe("@vibeframe/mcp-server", () => {
   describe("tools", () => {
@@ -16,8 +14,8 @@ describe("@vibeframe/mcp-server", () => {
       expect(tools.length).toBeGreaterThan(0);
     });
 
-    it("should have 85 tools total", () => {
-      expect(tools.length).toBe(77);
+    it("should have 60 tools total", () => {
+      expect(tools.length).toBe(60);
     });
 
     it("should have correct tool structure", () => {
@@ -51,18 +49,19 @@ describe("@vibeframe/mcp-server", () => {
       expect(typeof handleToolCall).toBe("function");
     });
 
-    it("should have project and timeline tools", () => {
+    it("should have scene project tools", () => {
       const toolNames = tools.map((t) => t.name);
-      expect(toolNames).toContain("project_create");
-      expect(toolNames).toContain("project_info");
-      expect(toolNames).toContain("timeline_add_source");
-      expect(toolNames).toContain("timeline_add_clip");
-      expect(toolNames).toContain("timeline_list");
+      for (const name of ["init", "plan", "build", "render", "project_list", "status_project"]) {
+        expect(toolNames).toContain(name);
+      }
     });
 
-    it("should have export tool", () => {
+    it("no longer exposes the removed timeline model tools", () => {
       const toolNames = tools.map((t) => t.name);
-      expect(toolNames).toContain("export_video");
+      expect(toolNames.filter((n) => n.startsWith("timeline_"))).toEqual([]);
+      for (const name of ["project_create", "project_info", "export_video", "edit_fill_gaps", "inspect_suggest"]) {
+        expect(toolNames).not.toContain(name);
+      }
     });
 
     it("should have AI editing tools", () => {
@@ -128,30 +127,6 @@ describe("@vibeframe/mcp-server", () => {
       const toolNames = tools.map((t) => t.name);
       const uniqueNames = new Set(toolNames);
       expect(uniqueNames.size).toBe(toolNames.length);
-    });
-  });
-
-  describe("resources", () => {
-    it("should export resources array", () => {
-      expect(resources).toBeDefined();
-      expect(Array.isArray(resources)).toBe(true);
-    });
-
-    it("should export readResource function", () => {
-      expect(readResource).toBeDefined();
-      expect(typeof readResource).toBe("function");
-    });
-  });
-
-  describe("prompts", () => {
-    it("should export prompts array", () => {
-      expect(prompts).toBeDefined();
-      expect(Array.isArray(prompts)).toBe(true);
-    });
-
-    it("should export getPrompt function", () => {
-      expect(getPrompt).toBeDefined();
-      expect(typeof getPrompt).toBe("function");
     });
   });
 
@@ -222,41 +197,42 @@ describe("@vibeframe/mcp-server", () => {
   });
 
   describe("required args validation", () => {
-    // Regression for #44: project_create stringified undefined into "undefined.vibe.json".
-    it("rejects project_create with missing name (not 'undefined.vibe.json')", async () => {
-      const result = await handleToolCall("project_create", {});
+    // Regression for #44: a missing required arg must not be stringified
+    // into a path like "undefined".
+    it("rejects init with a missing dir (not an 'undefined' directory)", async () => {
+      const result = await handleToolCall("init", {});
       const text = result.content[0].text;
       expect(text).toContain("missing required");
-      expect(text).toContain("name");
-      expect(text).not.toContain("undefined.vibe.json");
+      expect(text).toContain("dir");
+      expect(text).not.toContain("/undefined");
     });
 
     it("reports all missing required args for multi-required tools", async () => {
-      const result = await handleToolCall("timeline_add_source", {});
+      const result = await handleToolCall("audio_duck", {});
       const text = result.content[0].text;
       expect(text).toContain("missing required");
-      expect(text).toContain("projectPath");
-      expect(text).toContain("mediaPath");
+      expect(text).toContain("musicPath");
+      expect(text).toContain("voicePath");
     });
 
     it("rejects null as a missing required arg (not empty string)", async () => {
-      const result = await handleToolCall("project_create", { name: null });
+      const result = await handleToolCall("init", { dir: null });
       expect(result.content[0].text).toContain("missing required");
     });
 
     it("accepts a valid call with all required args present", async () => {
-      // Use a throwaway path that won't collide with anything
-      const tmpPath = `/tmp/vibeframe-validation-test-${Date.now()}.vibe.json`;
-      const result = await handleToolCall("project_create", {
-        name: "validation-test",
-        outputPath: tmpPath,
-      });
-      const text = result.content[0].text;
-      expect(text).not.toContain("missing required");
-      expect(text).toContain("validation-test");
-      // Cleanup
-      const { unlink } = await import("node:fs/promises");
-      try { await unlink(tmpPath); } catch { /* ignore */ }
+      const { mkdtemp, rm } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const root = await mkdtemp(join(tmpdir(), "vibeframe-validation-test-"));
+      try {
+        const result = await handleToolCall("init", { dir: join(root, "validation-test") });
+        const text = result.content[0].text;
+        expect(text).not.toContain("missing required");
+        expect(text).toContain("validation-test");
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     });
   });
 });

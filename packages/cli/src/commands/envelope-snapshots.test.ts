@@ -93,6 +93,13 @@ describe("schema product surface taxonomy", () => {
     }
   });
 
+  it("does not list the timeline model commands removed with packages/core", () => {
+    const paths = getLeafCommands().map((leaf) => leaf.path);
+    expect(paths.filter((p) => /^(timeline|batch|project|export)\./.test(p))).toEqual([]);
+    expect(paths).not.toContain("edit.fill-gaps");
+    expect(paths).not.toContain("inspect.suggest");
+  });
+
   it("filters schema --list by product surface", () => {
     const out = runCli("schema --list --surface public");
     const leaves = JSON.parse(out) as SchemaListEntry[];
@@ -148,7 +155,7 @@ describe("CLI help product surface taxonomy", () => {
     expect(help).not.toMatch(/\n\s+video\s+\[options\]/);
     expect(help).not.toMatch(/\n\s+review\s+\[options\]/);
     expect(help).not.toContain("Legacy");
-    expect(help).toContain("inspect suggest");
+    expect(help).not.toContain("suggest");
   });
 
   it("keeps remix help focused on repurposing and points regeneration to build", () => {

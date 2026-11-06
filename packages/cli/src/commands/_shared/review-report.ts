@@ -651,7 +651,6 @@ function classifyReviewCommand(command: string): {
   }
   if (
     lower.startsWith("vibe generate video") ||
-    lower.startsWith("vibe edit fill-gaps") ||
     lower.startsWith("vibe remix ")
   ) {
     return unsafe("very-high");

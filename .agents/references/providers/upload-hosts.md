@@ -26,7 +26,6 @@ Which callers need a URL:
 - Seedance via fal image-to-video: `image_url` and `end_image_url` take JPEG, PNG or WebP up to 30 MB (docs).
   fal says URLs work with every model and some models also accept data URIs (docs); our code comment says Seedance 2.0 rejects data URIs, which was not re-verified.
 - Seedance reference-to-video already sends local images, videos and audio to fal as data URIs with no upload host (code), so the two Seedance paths disagree.
-- `vibe edit fill-gaps` uploads extracted frames for Kling continuation (code).
 
 ## API shape
 
@@ -56,7 +55,6 @@ S3 as implemented in `upload-host.ts`:
 - SigV4 presigned URLs top out at 7 days, and URLs signed with temporary credentials die when those credentials expire (docs); we clamp the TTL to 604800.
 - `upload.s3.endpoint` exists in the config schema but the uploader ignores it, so R2, MinIO and other S3-compatible stores do not work.
 - Base64 in a form body inflates the upload by about a third; large images approach ImgBB's 32 MB and fal's 30 MB limits sooner than the file size suggests.
-- `execute-fill-gaps.ts` uploads frames through `resolveUploadHost` (it used to have its own ImgBB uploader that ignored S3).
 - `prepareSeedanceReferences` is duplicated in `ai-video.ts` and `generate/video.ts`.
 
 ## In our code
@@ -67,8 +65,6 @@ S3 as implemented in `upload-host.ts`:
 - `packages/cli/src/utils/upload-host.ts:162-205` - S3 host: credential check, key layout, PUT, returned URL and `expiresAt`.
 - `packages/cli/src/utils/upload-host.ts:207-219` - ImgBB host via `uploadToImgbb`.
 - `packages/cli/src/commands/_shared/video-utils.ts:57-94` - `uploadToImgbb`, no `expiration`.
-- `packages/cli/src/commands/_shared/execute-fill-gaps.ts:167-196` - duplicate `uploadFrameToImgbb`.
-- `packages/cli/src/commands/_shared/execute-fill-gaps.ts:384-392`, `:437-447`, `:534-542` - ImgBB key lookup and frame uploads for Kling.
 - `packages/cli/src/commands/generate/video.ts:397-418` - Kling upload through `resolveUploadHost`.
 - `packages/cli/src/commands/generate/video.ts:620-667` - Seedance start and end image uploads.
 - `packages/cli/src/commands/ai-video.ts:136-145`, `:222-231` - the same for the pipeline path; `:381-417` sends references as data URIs.

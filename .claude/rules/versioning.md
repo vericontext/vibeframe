@@ -92,7 +92,6 @@ do not dispatch publishing automatically.
 
 - `package.json` (root) — Often forgotten!
 - `packages/cli/package.json`
-- `packages/core/package.json`
 - `packages/ai-providers/package.json`
 - `packages/mcp-server/package.json`
 - `apps/web/package.json`

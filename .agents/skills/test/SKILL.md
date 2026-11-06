@@ -15,12 +15,6 @@ Use this skill when the user asks Codex to run or diagnose VibeFrame tests.
   pnpm -F @vibeframe/cli exec vitest run
   ```
 
-- Core package:
-
-  ```bash
-  pnpm -F @vibeframe/core test
-  ```
-
 - All packages:
 
   ```bash
