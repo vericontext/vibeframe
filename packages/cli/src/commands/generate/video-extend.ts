@@ -99,6 +99,7 @@ export function registerVideoExtendCommand(parent: Command): void {
           warnings: cost.warnings,
           data: {
             provider,
+            ...(result.takeId ? { takeId: result.takeId } : {}),
             jobId: record?.id,
             statusCommand: record?.retryWith[0],
             taskId: result.taskId,

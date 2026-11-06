@@ -2280,6 +2280,7 @@ async function dispatchVideo(
   };
   const generateWith = (provider: BuildVideoProvider, apiKey: string | undefined) =>
     executeVideoGenerate({
+      take: { via: "build", command: "build", cwd: ctx.projectDir, beatId: beat.id },
       prompt,
       provider,
       duration: normalizeVideoDuration(beat.duration),

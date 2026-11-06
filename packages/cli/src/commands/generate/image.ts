@@ -161,9 +161,10 @@ Examples:
           startedAt,
           costUsd: cost.costUsd,
           costEstimated: true,
-          warnings: [...lifecycleWarnings, ...cost.warnings],
+          warnings: [...lifecycleWarnings, ...cost.warnings, ...(result.takeError ? [result.takeError] : [])],
           data: {
             provider,
+            ...(result.takeId ? { takeId: result.takeId } : {}),
             model: imageModelLabel(provider, modelId),
             modelId,
             images: result.images.map((img) => ({ mimeType: img.mimeType, revisedPrompt: img.revisedPrompt })),

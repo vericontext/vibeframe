@@ -499,13 +499,19 @@ export const editImageTool = defineTool({
     ratio: z.string().optional().describe("Output aspect ratio"),
     resolution: z.string().optional().describe("Resolution: 1K, 2K, 4K (Pro only)"),
   }),
-  async execute(args) {
-    const result = await executeImageEdit(args);
+  async execute(args, ctx) {
+    const result = await executeImageEdit({ ...args, take: { via: "mcp", command: "edit_image", cwd: ctx.workingDirectory } });
     if (!result.success) return failedTool(result, "Image edit failed");
     const cost = estimateImageCostUsd(args.provider ?? "gemini", args.model, 1, args.resolution);
     return {
       success: true,
-      data: { outputPath: result.outputPath, model: result.model, costUsd: cost.costUsd, costEstimated: true },
+      data: {
+        outputPath: result.outputPath,
+        model: result.model,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
+        costUsd: cost.costUsd,
+        costEstimated: true,
+      },
       humanLines: [`✅ Image edited → ${result.outputPath}`],
     };
   },

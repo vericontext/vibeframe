@@ -3588,6 +3588,111 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard validate --d
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe take list --describe 1`] = `
+{
+  "cost": "free",
+  "description": "List takes, newest first",
+  "name": "take.list",
+  "parameters": {
+    "properties": {
+      "beat": {
+        "description": "Only takes a build made for this storyboard beat",
+        "type": "string",
+      },
+      "global": {
+        "description": "Read the global ledger: every take on this machine, in any project",
+        "type": "boolean",
+      },
+      "kind": {
+        "description": "Only this kind: video, image",
+        "enum": [
+          "video",
+          "image",
+        ],
+        "type": "string",
+      },
+      "limit": {
+        "description": "Most takes to show (default 50)",
+        "type": "number",
+      },
+      "project": {
+        "description": "Read this project's takes instead of the one around the current directory",
+        "type": "string",
+      },
+      "since": {
+        "description": "Only takes made on or after this date (e.g. 2026-11-01)",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe take log --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Total the spend on takes, and how much of it is provider billing",
+  "name": "take.log",
+  "parameters": {
+    "properties": {
+      "beat": {
+        "description": "Only takes a build made for this storyboard beat",
+        "type": "string",
+      },
+      "global": {
+        "description": "Total the global ledger: every take on this machine, in any project",
+        "type": "boolean",
+      },
+      "kind": {
+        "description": "Only this kind: video, image",
+        "enum": [
+          "video",
+          "image",
+        ],
+        "type": "string",
+      },
+      "project": {
+        "description": "Total this project's takes instead of the one around the current directory",
+        "type": "string",
+      },
+      "since": {
+        "description": "Only takes made on or after this date (e.g. 2026-11-01)",
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe take show --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Show one take in full",
+  "name": "take.show",
+  "parameters": {
+    "properties": {
+      "project": {
+        "description": "Look in this project first",
+        "type": "string",
+      },
+      "take-id": {
+        "description": "Take id, e.g. take_mh2k1x0a_1f2e3d4c",
+        "type": "string",
+      },
+    },
+    "required": [
+      "take-id",
+    ],
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`envelope shape (--dry-run --json) > detect scenes (free, basic) 1`] = `
 {
   "command": "detect scenes",

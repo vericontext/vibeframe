@@ -245,7 +245,7 @@ export const generateImageTool = defineTool({
   }),
   async execute(args, ctx) {
     const output = args.output ?? defaultOutputIn(ctx.workingDirectory, "image.png", args.count ?? 1);
-    const result = await executeImageGenerate({ ...args, output });
+    const result = await executeImageGenerate({ ...args, output, take: { via: "mcp", command: "generate_image", cwd: ctx.workingDirectory } });
     if (!result.success)
       return failedTool(result, "Image generation failed");
     // Image providers are not metered: list price per image, as the CLI reports.
@@ -256,6 +256,7 @@ export const generateImageTool = defineTool({
         outputPath: result.outputPath,
         provider: result.provider,
         model: result.model,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
         imageCount: result.images?.length,
         costUsd: cost.costUsd,
         costEstimated: true,
@@ -351,7 +352,7 @@ export const generateVideoTool = defineTool({
   }),
   async execute(args, ctx) {
     const output = args.output ?? defaultOutputIn(ctx.workingDirectory, "video.mp4");
-    const result = await executeVideoGenerate({ ...args, output });
+    const result = await executeVideoGenerate({ ...args, output, take: { via: "mcp", command: "generate_video", cwd: ctx.workingDirectory } });
     if (!result.success) {
       // Keep the job ID: a job that failed or timed out after submission may
       // still have been billed, or may still finish.
@@ -390,6 +391,7 @@ export const generateVideoTool = defineTool({
         duration: result.duration,
         outputPath: result.outputPath,
         provider: result.provider,
+        ...(result.takeId ? { takeId: result.takeId } : {}),
         ...(cost.costUsd !== undefined ? { costUsd: cost.costUsd, costEstimated: cost.costEstimated } : {}),
         jobId: job?.id,
         statusCommand: job
@@ -456,6 +458,7 @@ export const generateVideoExtendTool = defineTool({
   async execute(args, ctx) {
     const result = await executeVideoExtend({
       ...args,
+      take: { via: "mcp", command: "generate_video_extend", cwd: ctx.workingDirectory },
       output: args.output ?? defaultOutputIn(ctx.workingDirectory, "video-extended.mp4"),
     });
     if (!result.success) return failedTool(result, "Extend failed");
@@ -467,6 +470,7 @@ export const generateVideoExtendTool = defineTool({
       success: true,
       data: {
         ...(cost ? { costUsd: cost.costUsd, costEstimated: cost.estimated } : {}),
+        ...(result.takeId ? { takeId: result.takeId } : {}),
         taskId: result.taskId,
         status: result.status,
         videoUrl: result.videoUrl,

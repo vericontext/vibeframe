@@ -12,7 +12,7 @@ import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import chalk from "chalk";
 import imageSize from "image-size";
-import { estimateSeedanceVideoCostUsd, modelAliases, resolveSeedanceVariant } from "@vibeframe/ai-providers";
+import { modelAliases } from "@vibeframe/ai-providers";
 import { requireApiKey, hasConfiguredApiKey } from "../../utils/api-key.js";
 import {
   checkModelLifecycle,
@@ -26,7 +26,6 @@ import {
   spinner as createSpinner,
   failureFromError,
   isJsonMode,
-  lookupCostEstimateUpperBound,
   outputSuccess,
   printWarnings,
   log,
@@ -38,6 +37,9 @@ import { rejectControlChars, validateOutputPath } from "../validate.js";
 import { defaultOutputPath } from "../_shared/default-output.js";
 import { loadProviderDefaults, resolveProvider } from "../../utils/provider-resolver.js";
 import { executeVideoGenerate, type VideoGenerateOptions } from "../ai-video.js";
+import { realRunCost } from "../_shared/video-cost.js";
+
+export { realRunCost };
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
 import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS, meteredVideoCostUsd } from "../_shared/video-jobs.js";
 
@@ -357,10 +359,11 @@ Examples:
               // Undefined for a metered job: outputSuccess then prices the meter.
               costUsd: cost.costUsd,
               costEstimated: cost.costEstimated,
-              warnings: [...lifecycleWarnings, ...costWarnings],
+              warnings: [...lifecycleWarnings, ...costWarnings, ...(result.takeError ? [result.takeError] : [])],
               data: {
                 provider,
                 taskId: result.taskId,
+                ...(result.takeId ? { takeId: result.takeId } : {}),
                 status: job.status,
                 jobId: job.id,
                 statusCommand: job.retryWith[0],
@@ -381,10 +384,11 @@ Examples:
             // Undefined for a metered job: outputSuccess then prices the meter.
             costUsd: cost.costUsd,
             costEstimated: cost.costEstimated,
-            warnings: [...lifecycleWarnings, ...costWarnings],
+            warnings: [...lifecycleWarnings, ...costWarnings, ...(result.takeError ? [result.takeError] : [])],
             data: {
               provider,
               taskId: result.taskId,
+              ...(result.takeId ? { takeId: result.takeId } : {}),
               videoUrl: result.videoUrl,
               duration: result.duration,
               outputPath: result.outputPath,
@@ -418,42 +422,4 @@ export function realRunCostFields(
   if (metered) return { warnings: [] };
   const cost = realRunCost(provider, options);
   return { costUsd: cost.costUsd, costEstimated: true, warnings: cost.warnings };
-}
-
-/**
- * Cost figure for a REAL (non-dry-run) generation envelope.
- *
- * Seedance has a token-accurate estimator; every other provider reports the
- * command's tier upper bound with a warning naming it an estimate. Without
- * this the success envelope defaulted to costUsd 0, which an agent budget
- * loop reads as "free" - the hybrid-brew dogfood run billed Runway twice
- * while reporting $0.
- */
-export function realRunCost(provider: string, options: {
-  duration?: string;
-  resolution?: string;
-  ratio?: string;
-  seedanceModel?: string;
-  refVideos?: string[];
-}): { costUsd: number; warnings: string[] } {
-  if (provider === "seedance") {
-    const variant = resolveSeedanceVariant(options.seedanceModel);
-    return {
-      costUsd: estimateSeedanceVideoCostUsd({
-        durationSec: Number(options.duration) || 5,
-        resolution: options.resolution,
-        aspectRatio: options.ratio,
-        fast: variant === "seedance-2.0-fast",
-        v25: variant === "seedance-2.5",
-        hasVideoReference: Boolean(options.refVideos),
-      }),
-      warnings: [],
-    };
-  }
-  return {
-    costUsd: lookupCostEstimateUpperBound("generate video") ?? 5,
-    warnings: [
-      `costUsd is the tier upper bound for ${provider} - actual provider billing is typically lower and is not metered here.`,
-    ],
-  };
 }

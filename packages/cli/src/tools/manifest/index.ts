@@ -17,6 +17,7 @@ import { detectTools } from "./detect.js";
 import { projectTools } from "./project.js";
 import { guideTools } from "./walkthrough.js";
 import { statusTools } from "./status.js";
+import { takeTools } from "./take.js";
 
 export const manifest: readonly AnyTool[] = [
   ...sceneTools,
@@ -31,6 +32,7 @@ export const manifest: readonly AnyTool[] = [
   ...projectTools,
   ...guideTools,
   ...statusTools,
+  ...takeTools,
 ];
 
 export {
@@ -46,4 +48,5 @@ export {
   projectTools,
   guideTools,
   statusTools,
+  takeTools,
 };
