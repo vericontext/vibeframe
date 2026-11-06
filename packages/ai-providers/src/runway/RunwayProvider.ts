@@ -20,7 +20,12 @@ interface RunwayTaskResponse {
   output?: string[];
   failure?: string;
   failureCode?: string;
+  /** What the task charged; 1 credit = $0.01 (docs). */
+  cost?: { credits?: number };
 }
+
+/** Runway credits are a cent each (docs). */
+const USD_PER_CREDIT = 0.01;
 
 const RATIOS: Record<string, string> = {
   "16:9": "1280:720",
@@ -138,6 +143,16 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
         code: task.failureCode,
         message: task.failureCode ? `${reason} (${task.failureCode})` : reason,
       }).toJSON();
+    }
+    // A failed task can be billed too (SAFETY.INPUT.*), so the charge is read on any terminal task.
+    const credits = task.cost?.credits;
+    if (typeof credits === "number" && Number.isFinite(credits) && ["SUCCEEDED", "FAILED", "CANCELLED"].includes(task.status)) {
+      state.usage = {
+        provider: this.id,
+        kind: "video",
+        model: job.model,
+        amount: { unit: "usd", amount: Number((credits * USD_PER_CREDIT).toFixed(6)) },
+      };
     }
     return state;
   }

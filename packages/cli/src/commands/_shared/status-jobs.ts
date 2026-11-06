@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, resolve } from "node:path";
 
-import { VIDEO_GENERATOR_PROVIDERS, type VideoJob } from "@vibeframe/ai-providers";
+import { VIDEO_GENERATOR_PROVIDERS, recordUsage, type VideoJob, type VideoUsage } from "@vibeframe/ai-providers";
 import { executeVideoStatus } from "../ai-video.js";
 import { executeMusicStatus } from "../generate/music-status.js";
 import type { BuildAssetKind } from "./build-cache.js";
@@ -61,6 +61,11 @@ export interface JobRecord {
   providerTaskType?: "text2video" | "image2video";
   /** The provider's job handle, so a refresh polls exactly the job that was submitted. */
   providerJob?: VideoJob;
+  /**
+   * What the provider says the finished job charged (xAI, Runway), stored
+   * the first time a refresh sees it, which is also when it is metered.
+   */
+  usage?: VideoUsage;
   progress?: number;
   resultUrl?: string;
   beatId?: string;
@@ -416,6 +421,12 @@ export async function refreshJobRecord(
         outputPath: result.outputPath,
         error: result.error,
       });
+      // Meter a reported charge once: the stored record says it was already counted.
+      // A refresh that does not write the record must not meter, or the next one would count it again.
+      if (result.usage && !record.usage && opts.write !== false) {
+        recordUsage(result.usage);
+        updated = { ...updated, usage: result.usage };
+      }
       await maybeCacheOutput(updated);
       await maybeWriteCompletedAssetMetadata(updated);
     } else if (record.jobType === "generate-music") {

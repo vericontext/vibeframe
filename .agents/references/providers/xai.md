@@ -96,7 +96,7 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 3. Fix `ai-image.ts` Grok path to call `GrokProvider.generateImage` (or pass a Grok model) instead of sending `gpt-image-2` to xAI.
 4. Drop `grok-imagine-image-pro` from `GrokModel`; offer `grok-imagine-image-2.0` with an explicit `quality` before the 2026-11-02 retirement.
 5. Send `resolution` (at least 720p) and forward `generate_audio`, and let callers pick `grok-imagine-video-1.5` / `-1.5-lite`.
-6. Update price comments and MODELS.md (video is $0.05/s, not $0.07/s); read `usage.cost_in_usd_ticks` for real cost.
+6. Update price comments and MODELS.md (video is $0.05/s, not $0.07/s). Done 2026-11-06: `getVideoJob` reads `usage.cost_in_usd_ticks` on a finished job (`VideoJobState.usage`, unit `usd`), and the CLI meters it once as the job's real cost.
 7. Remove or verify `cancelGeneration`; no cancel endpoint is documented.
 
 ## Sources

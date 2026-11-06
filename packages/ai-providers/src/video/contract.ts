@@ -66,6 +66,12 @@ export interface VideoJobState {
   durationSec?: number;
   /** Why the job failed; set when `failed`. */
   error?: ProviderErrorInfo;
+  /**
+   * What the provider says the finished job charged, when it reports it
+   * (xAI, Runway). Polling returns it on every read of a terminal job, so a
+   * caller records it once, when it first sees the job terminal.
+   */
+  usage?: VideoUsage;
 }
 
 /** How a provider takes an input image: a public URL, an inline data URI, or either. */

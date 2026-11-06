@@ -90,7 +90,12 @@ interface GrokStatusResponse {
     duration?: number;
   };
   model?: string;
+  /** What the job charged, in units of 1e-10 USD (probe 2026-10-17: 1 s at 720p = 1,400,000,000). */
+  usage?: { cost_in_usd_ticks?: number };
 }
+
+/** xAI bills in ticks of 1e-10 USD. */
+const USD_PER_TICK = 1e-10;
 
 /**
  * xAI Grok Imagine provider for video generation
@@ -244,6 +249,15 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
         code: data.error?.code,
         message: `Generation failed: ${data.error?.message ?? data.error?.code ?? "unknown error"}`,
       }).toJSON();
+    }
+    const ticks = data.usage?.cost_in_usd_ticks;
+    if (typeof ticks === "number" && Number.isFinite(ticks) && data.status !== "pending") {
+      state.usage = {
+        provider: this.id,
+        kind: "video",
+        model: data.model ?? job.model,
+        amount: { unit: "usd", amount: Number((ticks * USD_PER_TICK).toFixed(6)) },
+      };
     }
     return state;
   }
