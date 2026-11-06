@@ -21,17 +21,33 @@
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 
 import type { UsageRecord, VideoJob } from "@vibeframe/ai-providers";
 import { USER_CONFIG_DIR } from "../config/index.js";
 
 export const TAKE_SCHEMA_VERSION = "1";
 
-export type TakeKind = "video" | "image";
+export type TakeKind = "video" | "image" | "audio";
 export type TakeOperation = "generate" | "edit" | "extend";
 export type TakeStatus = "completed" | "failed" | "submitted";
 export type TakeVia = "cli" | "mcp" | "pipeline" | "build";
+
+/**
+ * The per-beat slots a project build fills. A take made for a slot names it
+ * in `origin.asset`; `vibe take promote` puts a take's output into a slot.
+ */
+export const TAKE_SLOTS = ["narration", "backdrop", "keyframe", "video", "music"] as const;
+export type TakeSlot = (typeof TAKE_SLOTS)[number];
+
+/** Which take kinds can fill which slot. */
+export const SLOT_KIND: Record<TakeSlot, TakeKind> = {
+  narration: "audio",
+  backdrop: "image",
+  keyframe: "image",
+  video: "video",
+  music: "audio",
+};
 
 /**
  * Where a cost figure comes from, most to least trustworthy:
@@ -73,6 +89,8 @@ export interface TakeOrigin {
   cwd: string;
   /** The storyboard beat, for takes a build made. */
   beatId?: string;
+  /** The beat slot a build made it for. */
+  asset?: TakeSlot;
 }
 
 export interface Take {
@@ -150,6 +168,17 @@ export function projectTakeStore(projectDir: string): TakeStore {
 export function takeStoreFor(cwd: string): TakeStore {
   const projectDir = findProject(cwd);
   return projectDir ? projectTakeStore(projectDir) : globalTakeStore();
+}
+
+/**
+ * Where a project keeps the bytes of its takes' outputs, by content hash:
+ * `<project>/.vibeframe/media/<sha256><ext>`. A build overwrites its slot
+ * files on every regeneration, so a take keeps its own copy to be promoted
+ * back later. The directory is not committed (the take JSON is). Global
+ * takes keep no copy: their outputs are the files the user asked for.
+ */
+export function takeMediaPath(projectDir: string, file: Pick<TakeFile, "path" | "sha256">): string {
+  return join(projectDir, ".vibeframe", "media", `${file.sha256}${extname(file.path).toLowerCase()}`);
 }
 
 export function ledgerPath(): string {

@@ -11,8 +11,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import chalk from "chalk";
 import { ElevenLabsProvider, type ProviderErrorKind } from "@vibeframe/ai-providers";
 import { requireApiKey, requireConfiguredApiKey } from "../../utils/api-key.js";
-import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, providerFailure, usageError } from "../output.js";
+import { spinner as createSpinner, isJsonMode, outputSuccess, exitWithError, lookupCostEstimateUpperBound, providerFailure, usageError } from "../output.js";
 import { rejectControlChars, validateOutputPath } from "../validate.js";
+import { withTake, type TakeContext } from "../../takes/record.js";
 
 // ── Library: executeSoundEffect (used by pipeline executor + manifest) ──
 
@@ -24,6 +25,8 @@ export interface ExecuteSoundEffectOptions {
   /** 0-1, default 0.3. */
   promptInfluence?: number;
   apiKey?: string;
+  /** Who is asking, for the take this generation records. */
+  take?: TakeContext;
 }
 
 export interface ExecuteSoundEffectResult {
@@ -31,11 +34,35 @@ export interface ExecuteSoundEffectResult {
   outputPath?: string;
   error?: string;
   errorKind?: ProviderErrorKind;
+  /** The take this generation recorded. */
+  takeId?: string;
+  takeError?: string;
 }
 
 export async function executeSoundEffect(options: ExecuteSoundEffectOptions): Promise<ExecuteSoundEffectResult> {
-  // A missing key throws ApiKeyError (API_KEY_MISSING), outside the catch below.
+  // A missing key throws ApiKeyError (API_KEY_MISSING) before any take is opened.
   const apiKey = await requireConfiguredApiKey("ELEVENLABS_API_KEY", "ElevenLabs", options.apiKey);
+  return withTake(
+    options.take ?? { via: "cli", command: "generate sound-effect" },
+    {
+      kind: "audio",
+      operation: "generate",
+      prompt: options.prompt,
+      params: { duration: options.duration, promptInfluence: options.promptInfluence },
+      inputs: [],
+    },
+    () => runSoundEffect(options, apiKey),
+    (result) => ({
+      reached: result.success,
+      status: "completed",
+      provider: "elevenlabs",
+      outputs: result.outputPath ? [result.outputPath] : [],
+      fallbackCost: () => ({ usd: lookupCostEstimateUpperBound("generate sound-effect"), basis: "upper-bound" }),
+    }),
+  );
+}
+
+async function runSoundEffect(options: ExecuteSoundEffectOptions, apiKey: string): Promise<ExecuteSoundEffectResult> {
   try {
     const elevenlabs = new ElevenLabsProvider();
     await elevenlabs.initialize({ apiKey });
@@ -98,7 +125,12 @@ export function registerSoundEffectCommand(parent: Command): void {
         exitWithError(providerFailure(result.error ?? "Sound effect generation failed", result.errorKind));
       }
       if (isJsonMode()) {
-        outputSuccess({ command: "generate sound-effect", startedAt, data: { outputPath: result.outputPath } });
+        outputSuccess({
+          command: "generate sound-effect",
+          startedAt,
+          ...(result.takeError ? { warnings: [result.takeError] } : {}),
+          data: { outputPath: result.outputPath, ...(result.takeId ? { takeId: result.takeId } : {}) },
+        });
         return;
       }
       spinner?.succeed(chalk.green("Sound effect generated"));

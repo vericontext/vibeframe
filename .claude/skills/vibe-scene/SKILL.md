@@ -106,6 +106,22 @@ tuned by `--lottie-position` (full|center|top-left|top-right|bottom-left|bottom-
 drives it frame by frame from a runtime copied into `assets/vendor/dotlottie/`
 (no provider call, free).
 
+## Takes: Keeping A Generation You Liked
+
+`vibe build` records every beat asset it generates (narration, backdrop,
+keyframe, video, music) as a take, and keeps each take's bytes. When a
+regeneration came out worse, put the earlier one back instead of paying again:
+
+```bash
+vibe take list --beat <id> --json       # inSlot marks what the slot holds now
+vibe take promote <take id> --dry-run --json
+vibe take promote <take id>
+```
+
+Later builds keep a promoted slot until that beat's cue is edited or
+`vibe build --force` runs. `vibe take log --json` totals what the project
+spent, split into provider billing and estimates. See `docs/take-graph.md`.
+
 ## Narration Word-Sync
 
 During `vibe build`, generated narration is transcribed at the word level

@@ -301,6 +301,7 @@ async function ensureActionsRegistered(): Promise<void> {
     const { executeSpeech } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "speech.mp3");
     const r = await executeSpeech({
+      take: { via: "pipeline", command: "generate-tts" },
       text: params.text as string,
       voice: stringParam(params.voice),
       provider: stringParam(params.provider),
@@ -313,14 +314,14 @@ async function ensureActionsRegistered(): Promise<void> {
   registerAction("generate-sfx", async (params, outputDir) => {
     const { executeSoundEffect } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "sfx.mp3");
-    const r = await executeSoundEffect({ prompt: params.prompt as string, duration: params.duration as number | undefined, output });
+    const r = await executeSoundEffect({ take: { via: "pipeline", command: "generate-sfx" }, prompt: params.prompt as string, duration: params.duration as number | undefined, output });
     return { id: "", action: "generate-sfx", success: r.success, output: r.outputPath, error: r.error, ...stepFailure(r) };
   });
 
   registerAction("generate-music", async (params, outputDir) => {
     const { executeMusic } = await import("../commands/generate.js");
     const output = getOutput(params, outputDir, "music.mp3");
-    const r = await executeMusic({ prompt: params.prompt as string, duration: params.duration as number | undefined, provider: params.provider as "elevenlabs" | "replicate" | undefined, instrumental: params.instrumental as boolean | undefined, output });
+    const r = await executeMusic({ take: { via: "pipeline", command: "generate-music" }, prompt: params.prompt as string, duration: params.duration as number | undefined, provider: params.provider as "elevenlabs" | "replicate" | undefined, instrumental: params.instrumental as boolean | undefined, output });
     return { id: "", action: "generate-music", success: r.success, output: r.outputPath, data: { provider: r.provider, duration: r.duration }, error: r.error, ...stepFailure(r) };
   });
 

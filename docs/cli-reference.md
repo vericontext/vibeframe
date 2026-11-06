@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                         |
-| **Advanced** |    28 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +18 more   |
+| **Advanced** |    29 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +19 more   |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                       |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                         |
 
@@ -133,7 +133,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    35 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +27 more             | FFmpeg only, no API call                                                                          |
+| **Free**       |    36 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +28 more             | FFmpeg only, no API call                                                                          |
 | **Low**        |    18 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +10 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
 | **Very High**  |     2 | `generate.video` · `generate.video-extend`                                                                                                                                  | $5–$50+ per call                                                                                  |
@@ -1576,7 +1576,7 @@ Cost tier: `free`
 
 - `project` _(string)_ - Read this project's takes instead of the one around the current directory
 - `global` _(boolean)_ - Read the global ledger: every take on this machine, in any project
-- `kind` _(string)_ _(video \| image)_ - Only this kind: video, image
+- `kind` _(string)_ _(video \| image \| audio)_ - Only this kind: video, image, audio
 - `beat` _(string)_ - Only takes a build made for this storyboard beat
 - `since` _(string)_ - Only takes made on or after this date (e.g. 2026-11-01)
 - `limit` _(number)_ - Most takes to show (default 50)
@@ -1593,9 +1593,25 @@ Cost tier: `free`
 
 - `project` _(string)_ - Total this project's takes instead of the one around the current directory
 - `global` _(boolean)_ - Total the global ledger: every take on this machine, in any project
-- `kind` _(string)_ _(video \| image)_ - Only this kind: video, image
+- `kind` _(string)_ _(video \| image \| audio)_ - Only this kind: video, image, audio
 - `beat` _(string)_ - Only takes a build made for this storyboard beat
 - `since` _(string)_ - Only takes made on or after this date (e.g. 2026-11-01)
+
+#### `vibe take promote`
+
+Put a take's output into its beat slot; later builds keep it until the cue changes
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `take-id` _(string)_ **required** - Take id, e.g. take_mh2k1x0a_1f2e3d4c
+- `project` _(string)_ - Project to promote into (default: the one around the current directory)
+- `beat` _(string)_ - Beat to fill (default: the beat the take was made for)
+- `asset` _(string)_ _(narration \| backdrop \| keyframe \| video \| music)_ - Slot to fill: narration, backdrop, keyframe, video, music (default: the slot the take was made for)
+- `dryRun` _(boolean)_ - Show what would change without writing
 
 #### `vibe take show`
 
