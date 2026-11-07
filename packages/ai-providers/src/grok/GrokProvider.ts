@@ -1,6 +1,6 @@
 import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
-import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
@@ -105,6 +105,11 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
   id = "grok";
   readonly imageProvider = "grok";
   readonly imageInput = "either" as const;
+
+  /** xAI extends and edits any finished Grok video, on the continuation model. */
+  continuations(job: VideoJob): readonly VideoContinuation[] {
+    return job.provider === this.id ? ["extend", "edit"] : [];
+  }
   name = "xAI Grok Imagine";
   description = "AI video generation with Grok Imagine (native audio, 1-15 sec)";
   capabilities: AICapability[] = ["text-to-video", "image-to-video", "text-to-image", "image-editing"];

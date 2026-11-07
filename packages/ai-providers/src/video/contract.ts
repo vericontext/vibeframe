@@ -35,10 +35,13 @@ export interface VideoRequest {
    * after its last frame, `edit` revises it (a multi-turn session such as
    * Gemini Omni). Providers without the capability throw `unsupported`.
    */
-  from?: { job: VideoJob; kind: "extend" | "edit" };
+  from?: { job: VideoJob; kind: VideoContinuation };
   /** Provider-specific settings with no shared meaning (Kling `mode`). */
   providerOptions?: Record<string, unknown>;
 }
+
+/** Continuing an earlier job: `extend` adds time after its last frame, `edit` revises it. */
+export type VideoContinuation = "extend" | "edit";
 
 /** A submitted generation. Plain data: safe to store and hand to another process. */
 export interface VideoJob {
@@ -82,6 +85,13 @@ export interface VideoGenerator {
   readonly id: string;
   /** How `VideoRequest.image` must be given. Callers upload or inline local files to match. */
   readonly imageInput: VideoImageInput;
+  /**
+   * How this provider can continue `job` (`VideoRequest.from`): extend it,
+   * edit it, both, or neither. Pure: no request, no credentials. A job from
+   * another provider, or from a model the provider cannot continue, gets
+   * none; `submitVideo` refuses a continuation not listed.
+   */
+  continuations(job: VideoJob): readonly VideoContinuation[];
   /** Start a generation. Throws `ProviderError` when the provider refuses it. */
   submitVideo(request: VideoRequest): Promise<VideoJob>;
   /** Read a job's current state. Throws `ProviderError` only when the state cannot be read. */

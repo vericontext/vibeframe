@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "Takes And The Spend Ledger"
-description: "The record VibeFrame keeps of every paid generation: the take format, where takes live, how cost is attributed, promoting a take into a beat slot, and the vibe take commands."
+description: "The record VibeFrame keeps of every paid generation: the take format, where takes live, how cost is attributed, promoting a take into a beat slot, extending or editing a video take, and the vibe take commands."
 tags: [takes, cost, governance]
 ---
 
@@ -14,6 +14,7 @@ Takes let you, or the agent working for you, answer three questions after the fa
 These commands record takes:
 
 - `vibe generate video` and `vibe generate video-extend`
+- `vibe take extend` and `vibe take edit`
 - `vibe generate image`, `vibe generate thumbnail`, and `vibe edit image`
 - `vibe generate narration`, `vibe generate music`, and `vibe generate sound-effect`
 - `vibe build`, for every beat asset it generates: narration, backdrop, keyframe, video, and music, plus character sheets
@@ -127,9 +128,32 @@ A take made outside a build, such as a `vibe generate narration` run inside the 
 The take kind must match the slot, and the beat must have a cue for that slot.
 A beat whose cue names a file (`backdrop: assets/photo.png`) uses that file, not a take, and cannot be promoted into.
 
+## Extending and editing a video take
+
+A video take keeps its provider job handle (`session`), and that handle is enough to continue the video.
+`vibe take extend <take id>` adds time after its last frame; `vibe take edit <take id> --prompt "<the change>"` revises it.
+On Gemini Omni an edit is a follow-up turn of the take's own interaction; on Grok it is an xAI edit of the take's video.
+
+| Provider | Extend | Edit |
+| --- | --- | --- |
+| Grok | yes | yes |
+| Gemini Omni | yes | yes |
+| Kling (legacy models) | yes | no |
+| Seedance, Runway, Kling 4.0 and 3.0 Turbo | no | no |
+
+The provider answers whether it can continue a given job before any request is sent, so a refusal costs nothing.
+The result is a new take whose `parent` is the take continued, with `operation` `extend` or `edit`, stored beside its parent.
+It is made for the same beat slot as its parent, so `vibe take promote <new take id>` puts it into the build.
+By default the video is written next to the parent's output as `<name>-extended.mp4` or `<name>-edited.mp4`, never overwriting a file.
+
+These calls are paid.
+`--dry-run` shows the provider, the output path, and the cost estimate; `--max-cost <usd>` refuses before any request when the estimate is above it.
+Grok and Omni do not say ahead of time what a continuation will bill, so the estimate is the tier upper bound; the take records what the provider reported.
+
 ## Commands
 
-All of these are free and make no provider calls.
+`list`, `show`, `log`, and `promote` are free and make no provider calls.
+`extend` and `edit` call the take's provider.
 
 ```bash
 vibe take list --json                       # takes here (project, else global), newest first
@@ -140,9 +164,11 @@ vibe take log --since 2026-11-01 --json     # spend here, split by basis
 vibe take log --global                      # spend across every project on this machine
 vibe take promote take_mh2k1x0a_1f2e3d4c --dry-run --json
 vibe take promote take_mh2k1x0a_1f2e3d4c    # put it back into its beat slot
+vibe take extend take_mh2k1x0a_1f2e3d4c --duration 6 --dry-run --json
+vibe take edit take_mh2k1x0a_1f2e3d4c --prompt "make it dusk" --max-cost 2
 ```
 
-MCP hosts get the same as `take_list`, `take_show`, `take_log`, and `take_promote`.
+MCP hosts get the same as `take_list`, `take_show`, `take_log`, `take_promote`, `take_extend`, and `take_edit`.
 Commands that record a take return its `takeId` in `data`.
 
 ## What comes next
@@ -150,6 +176,5 @@ Commands that record a take return its `takeId` in `data`.
 Takes are the base of the take graph: branching, comparing, and promoting generations.
 Planned on top of this format:
 
-- `vibe take extend` and `vibe take edit` continue a take through its provider session, recording the new take with its parent;
 - review findings point at the take that needs work;
 - a video job a build leaves running is finished by `vibe status job`, which does not yet record the finished output on a take.

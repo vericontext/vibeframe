@@ -25,7 +25,7 @@
 
 import type { ProviderConfig } from "../interface/index.js";
 import { defaultModel } from "../catalog/catalog.js";
-import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
@@ -85,6 +85,11 @@ export class OmniProvider implements VideoGenerator {
   id = "omni";
   /** Frames go inline in the request. */
   readonly imageInput = "data-uri" as const;
+
+  /** Omni continues its own interactions: a follow-up turn extends or revises the video. */
+  continuations(job: VideoJob): readonly VideoContinuation[] {
+    return job.provider === this.id ? ["extend", "edit"] : [];
+  }
   label = "Gemini Omni 1.1 Flash";
   private apiKey?: string;
 

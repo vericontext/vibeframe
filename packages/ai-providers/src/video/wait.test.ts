@@ -10,6 +10,7 @@ function generator(states: Array<VideoJobState | Error>): VideoGenerator {
   return {
     id: "test",
     imageInput: "either",
+    continuations: () => [],
     submitVideo: vi.fn(),
     downloadVideo: vi.fn(),
     getVideoJob: vi.fn(async () => {

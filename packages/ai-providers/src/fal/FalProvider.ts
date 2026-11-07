@@ -6,7 +6,7 @@ import type {
   MediaReference,
 } from "../interface/types.js";
 import { findModel, modelAliases } from "../catalog/catalog.js";
-import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { ProviderError, classifyProviderError, isProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
@@ -159,6 +159,10 @@ export class FalProvider implements AIProvider, VideoGenerator {
   isAvailable = true;
   /** Data URIs are uploaded to fal storage on submit. */
   readonly imageInput = "either" as const;
+
+  continuations(): readonly VideoContinuation[] {
+    return [];
+  }
 
   private client?: FalClient;
   private apiKey?: string;

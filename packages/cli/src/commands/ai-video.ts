@@ -17,6 +17,7 @@ import {
   waitForVideoJob,
   type MediaReference,
   type ProviderErrorKind,
+  type VideoContinuation,
   type VideoGenerator,
   type VideoJob,
   type VideoJobState,
@@ -407,31 +408,45 @@ export interface VideoExtendResult {
 
 /** Extend a video and record its take. */
 export async function executeVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
+  return executeVideoContinue({ ...options, continuation: "extend" });
+}
+
+export interface VideoContinueOptions extends VideoExtendOptions {
+  continuation: VideoContinuation;
+}
+
+/**
+ * Continue an earlier job (extend it or edit it) and record the new take.
+ * The provider decides whether it can; one that cannot refuses with
+ * `unsupported` before anything is billed.
+ */
+export async function executeVideoContinue(options: VideoContinueOptions): Promise<VideoExtendResult> {
   const provider = (options.job?.provider ?? options.provider ?? "kling").toLowerCase();
   return withTake(
     options.take ?? { via: "cli", command: "generate video-extend" },
     {
       kind: "video",
-      operation: "extend",
+      operation: options.continuation,
       prompt: options.prompt ?? "",
       params: { duration: options.duration, negative: options.negative, source: options.job?.id ?? options.videoId },
       inputs: [],
     },
-    () => runVideoExtend(options),
+    () => runVideoContinue(options),
     (result) =>
       videoOutcome(result, provider, () => ({ usd: lookupCostEstimateUpperBound("generate video-extend"), basis: "upper-bound" })),
   );
 }
 
-async function runVideoExtend(options: VideoExtendOptions): Promise<VideoExtendResult> {
+async function runVideoContinue(options: VideoContinueOptions): Promise<VideoExtendResult> {
   const source = options.job ?? jobFromTaskId(options.provider ?? "kling", options.videoId);
+  const verb = options.continuation === "extend" ? "extension" : "edit";
   try {
     const generator = await openVideoGenerator(source.provider, options.apiKey);
     const job = await generator.submitVideo({
       prompt: options.prompt ?? "",
       durationSec: options.duration,
       negativePrompt: options.negative,
-      from: { job: source, kind: "extend" },
+      from: { job: source, kind: options.continuation },
     });
     if (options.wait === false) return { success: true, taskId: job.id, job, status: "processing" };
     const { state, outputPath } = await settle(generator, job, { wait: true, output: options.output, recordUsage: true });
@@ -443,7 +458,7 @@ async function runVideoExtend(options: VideoExtendOptions): Promise<VideoExtendR
         job,
         metered,
         status: state.status,
-        error: state.error?.message ?? `${source.provider} extension ${state.status}`,
+        error: state.error?.message ?? `${source.provider} ${verb} ${state.status}`,
         errorKind: state.error?.kind,
       };
     }
@@ -458,6 +473,6 @@ async function runVideoExtend(options: VideoExtendOptions): Promise<VideoExtendR
       metered,
     };
   } catch (error) {
-    return failure(error, "Video extension failed");
+    return failure(error, `Video ${verb} failed`);
   }
 }

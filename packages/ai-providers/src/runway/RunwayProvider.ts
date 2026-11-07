@@ -1,5 +1,5 @@
 import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
-import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
@@ -56,6 +56,10 @@ export class RunwayProvider implements AIProvider, VideoGenerator {
   iconUrl = "/icons/runway.svg";
   isAvailable = true;
   readonly imageInput = "either" as const;
+
+  continuations(): readonly VideoContinuation[] {
+    return [];
+  }
 
   private static readonly API_VERSION = "2024-11-06";
   private apiKey?: string;

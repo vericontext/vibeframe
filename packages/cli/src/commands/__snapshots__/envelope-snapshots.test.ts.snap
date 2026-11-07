@@ -3588,6 +3588,112 @@ exports[`CLI --describe schemas (drift detection) > vibe storyboard validate --d
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe take edit --describe 1`] = `
+{
+  "cost": "very-high",
+  "description": "Revise a video take with a prompt, through its provider session",
+  "name": "take.edit",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "API key for the take's provider",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Show the provider, output, and estimate without calling the provider",
+        "type": "boolean",
+      },
+      "maxCost": {
+        "description": "Refuse before any provider request when the estimate is above this USD cap",
+        "type": "number",
+      },
+      "noWait": {
+        "description": "Return once the provider accepted the job; check it with 'vibe status job'",
+        "type": "boolean",
+      },
+      "output": {
+        "description": "Output file (default: beside the take's output, as <name>-edited.mp4)",
+        "type": "string",
+      },
+      "project": {
+        "description": "Look for the take in this project first",
+        "type": "string",
+      },
+      "prompt": {
+        "description": "What to change (required)",
+        "type": "string",
+      },
+      "take-id": {
+        "description": "Video take id, e.g. take_mh2k1x0a_1f2e3d4c",
+        "type": "string",
+      },
+    },
+    "required": [
+      "take-id",
+    ],
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
+exports[`CLI --describe schemas (drift detection) > vibe take extend --describe 1`] = `
+{
+  "cost": "very-high",
+  "description": "Extend a video take from its last frame, through its provider session",
+  "name": "take.extend",
+  "parameters": {
+    "properties": {
+      "apiKey": {
+        "description": "API key for the take's provider",
+        "type": "string",
+      },
+      "dryRun": {
+        "description": "Show the provider, output, and estimate without calling the provider",
+        "type": "boolean",
+      },
+      "duration": {
+        "description": "Seconds to add (provider's default when omitted)",
+        "type": "number",
+      },
+      "maxCost": {
+        "description": "Refuse before any provider request when the estimate is above this USD cap",
+        "type": "number",
+      },
+      "negative": {
+        "description": "What to avoid (Kling only)",
+        "type": "string",
+      },
+      "noWait": {
+        "description": "Return once the provider accepted the job; check it with 'vibe status job'",
+        "type": "boolean",
+      },
+      "output": {
+        "description": "Output file (default: beside the take's output, as <name>-extended.mp4)",
+        "type": "string",
+      },
+      "project": {
+        "description": "Look for the take in this project first",
+        "type": "string",
+      },
+      "prompt": {
+        "description": "How the video carries on",
+        "type": "string",
+      },
+      "take-id": {
+        "description": "Video take id, e.g. take_mh2k1x0a_1f2e3d4c",
+        "type": "string",
+      },
+    },
+    "required": [
+      "take-id",
+    ],
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe take list --describe 1`] = `
 {
   "cost": "free",

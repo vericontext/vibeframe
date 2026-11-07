@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                         |
-| **Advanced** |    29 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +19 more   |
+| **Advanced** |    31 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +21 more   |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                       |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                         |
 
@@ -136,7 +136,7 @@ listed in their command sections for compatibility.
 | **Free**       |    36 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +28 more             | FFmpeg only, no API call                                                                          |
 | **Low**        |    18 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +10 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
-| **Very High**  |     2 | `generate.video` · `generate.video-extend`                                                                                                                                  | $5–$50+ per call                                                                                  |
+| **Very High**  |     4 | `generate.video` · `generate.video-extend` · `take.edit` · `take.extend`                                                                                                    | $5–$50+ per call                                                                                  |
 | **Not tagged** |    14 | `build` · `doctor` · `guide` · `init` · `plan` · `preview` · `render` · `setup` · +6 more                                                                                   | Utility/orchestration/reference commands; inspect command behavior before assuming provider spend |
 
 > **Tip:** Run `<paid command> --dry-run --json` first - the response
@@ -1563,6 +1563,46 @@ Cost tier: `free`
 JSON payload: `data.kind` is `"project"` and includes `status`, `currentStage`, `beats` readiness counts, `jobs.latest`, `build`, `review`, `warnings`, `nextActions`, and `retryWith`. `review` includes `mode`, issue/error/warning/info counts, `fixOwners`, `sourceReports`, `nextActions`, and `retryWith`; top-level `nextActions` is the preferred resume contract, while `retryWith` remains the compatibility fallback.
 
 ### `take`
+
+#### `vibe take edit`
+
+Revise a video take with a prompt, through its provider session
+
+Product surface: `advanced`
+
+Cost tier: `very-high`
+
+**Parameters:**
+
+- `take-id` _(string)_ **required** - Video take id, e.g. take_mh2k1x0a_1f2e3d4c
+- `project` _(string)_ - Look for the take in this project first
+- `prompt` _(string)_ - What to change (required)
+- `output` _(string)_ - Output file (default: beside the take's output, as <name>-edited.mp4)
+- `maxCost` _(number)_ - Refuse before any provider request when the estimate is above this USD cap
+- `apiKey` _(string)_ - API key for the take's provider
+- `noWait` _(boolean)_ - Return once the provider accepted the job; check it with 'vibe status job'
+- `dryRun` _(boolean)_ - Show the provider, output, and estimate without calling the provider
+
+#### `vibe take extend`
+
+Extend a video take from its last frame, through its provider session
+
+Product surface: `advanced`
+
+Cost tier: `very-high`
+
+**Parameters:**
+
+- `take-id` _(string)_ **required** - Video take id, e.g. take_mh2k1x0a_1f2e3d4c
+- `project` _(string)_ - Look for the take in this project first
+- `prompt` _(string)_ - How the video carries on
+- `output` _(string)_ - Output file (default: beside the take's output, as <name>-extended.mp4)
+- `maxCost` _(number)_ - Refuse before any provider request when the estimate is above this USD cap
+- `apiKey` _(string)_ - API key for the take's provider
+- `noWait` _(boolean)_ - Return once the provider accepted the job; check it with 'vibe status job'
+- `dryRun` _(boolean)_ - Show the provider, output, and estimate without calling the provider
+- `duration` _(number)_ - Seconds to add (provider's default when omitted)
+- `negative` _(string)_ - What to avoid (Kling only)
 
 #### `vibe take list`
 

@@ -2,8 +2,9 @@
  * @module manifest/take
  * @description Read the take record: every paid generation, its inputs and
  *   outputs, its provider session, and what it cost with the basis of that
- *   figure; and promote an earlier take back into a project's beat slot.
- *   Free; no provider calls.
+ *   figure; promote an earlier take back into a project's beat slot (free,
+ *   no provider calls); and extend or edit a video take through its
+ *   provider session (paid).
  */
 
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { z } from "zod";
 import { defineTool, failedTool, type AnyTool } from "../define-tool.js";
 import { executeTakeList, executeTakeLog, executeTakeShow } from "../../takes/query.js";
 import { executeTakePromote } from "../../takes/promote.js";
+import { executeTakeContinue, type TakeContinueResult } from "../../takes/continue.js";
 import { TAKE_SLOTS } from "../../takes/take.js";
 
 const SCOPE = {
@@ -121,9 +123,75 @@ export const takePromoteTool = defineTool({
   },
 });
 
+const CONTINUE = {
+  takeId: z.string().describe("Video take id, e.g. take_mh2k1x0a_1f2e3d4c"),
+  projectDir: z.string().optional().describe("Project to look for the take in first."),
+  output: z.string().optional().describe("Output file. Default: beside the take's output, as <name>-extended.mp4 or <name>-edited.mp4."),
+  maxCostUsd: z.number().nonnegative().optional().describe("Refuse before any provider request when the estimate is above this USD cap."),
+  wait: z.boolean().optional().describe("Wait for the provider to finish (default true). False returns once it accepted the job."),
+  dryRun: z.boolean().optional().describe("Report the provider, output path, and cost estimate without calling the provider."),
+};
+
+function continuedData(result: TakeContinueResult): Record<string, unknown> {
+  // A metered continuation leaves costUsd to the call's usage meter; otherwise report the estimate.
+  const cost = result.metered ? {} : { costUsd: result.estimate.usd, costEstimated: true };
+  return { ...cost, ...(result as unknown as Record<string, unknown>) };
+}
+
+function continuedLine(result: TakeContinueResult): string {
+  const done = result.continuation === "extend" ? "Extended" : "Edited";
+  if (result.dryRun) {
+    return `Would ${result.continuation} ${result.parentTakeId} on ${result.provider}: ${result.estimate.basis === "upper-bound" ? "up to" : "about"} $${result.estimate.usd} -> ${result.output}`;
+  }
+  if (result.status !== "completed") return `${result.provider} accepted the ${result.continuation} of ${result.parentTakeId} (task ${result.taskId}, ${result.status})`;
+  return `${done} ${result.parentTakeId}${result.takeId ? ` as ${result.takeId}` : ""} -> ${result.outputPath}`;
+}
+
+export const takeExtendTool = defineTool({
+  name: "take_extend",
+  category: "take",
+  cost: "very-high",
+  title: "Extend Take",
+  annotations: { readOnly: false, openWorld: true },
+  description:
+    "Extend a video take from its last frame through its provider session (Grok and Gemini Omni; Kling legacy models). Records a new take whose parent is the one extended, for the same beat slot, so take_promote can put it into the build. Paid: run with dryRun first and confirm the spend; maxCostUsd refuses before any request.",
+  schema: z.object({
+    ...CONTINUE,
+    prompt: z.string().optional().describe("How the video carries on."),
+    duration: z.number().positive().optional().describe("Seconds to add. The provider's default when omitted."),
+    negative: z.string().optional().describe("What to avoid (Kling only)."),
+  }),
+  async execute(args, ctx) {
+    const result = await executeTakeContinue({ ...args, continuation: "extend", cwd: ctx.workingDirectory, via: "mcp", command: "take_extend" });
+    if (!result.success) return failedTool(result, "Could not extend the take");
+    return { success: true, data: continuedData(result), humanLines: [continuedLine(result)] };
+  },
+});
+
+export const takeEditTool = defineTool({
+  name: "take_edit",
+  category: "take",
+  cost: "very-high",
+  title: "Edit Take",
+  annotations: { readOnly: false, openWorld: true },
+  description:
+    "Revise a video take with a prompt through its provider session (Grok and Gemini Omni). Records a new take whose parent is the one edited, for the same beat slot, so take_promote can put it into the build. Paid: run with dryRun first and confirm the spend; maxCostUsd refuses before any request.",
+  schema: z.object({
+    ...CONTINUE,
+    prompt: z.string().min(1).describe("What to change."),
+  }),
+  async execute(args, ctx) {
+    const result = await executeTakeContinue({ ...args, continuation: "edit", cwd: ctx.workingDirectory, via: "mcp", command: "take_edit" });
+    if (!result.success) return failedTool(result, "Could not edit the take");
+    return { success: true, data: continuedData(result), humanLines: [continuedLine(result)] };
+  },
+});
+
 export const takeTools: readonly AnyTool[] = [
   takeListTool as unknown as AnyTool,
   takeShowTool as unknown as AnyTool,
   takeLogTool as unknown as AnyTool,
   takePromoteTool as unknown as AnyTool,
+  takeExtendTool as unknown as AnyTool,
+  takeEditTool as unknown as AnyTool,
 ];
