@@ -50,8 +50,9 @@ const CLI_TREE: Record<string, string[]> = {
   storyboard: ["list", "get", "set", "move", "validate", "revise"],
   design: ["validate"],
   status: ["job", "project"],
-  // The take record: list/show/log read it, promote fills a beat slot.
-  take: ["list", "show", "log", "promote"],
+  // The take record: list/show/log read it, promote fills a beat slot,
+  // extend/edit continue a video take through its provider session.
+  take: ["list", "show", "log", "promote", "extend", "edit"],
 };
 
 // Top-level CLI commands with no manifest equivalent — pure ergonomics
@@ -140,6 +141,8 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "take show":      "take_show",
   "take log":       "take_log",
   "take promote":   "take_promote",
+  "take extend":    "take_extend",
+  "take edit":      "take_edit",
 };
 
 describe("CLI ↔ manifest sync", () => {

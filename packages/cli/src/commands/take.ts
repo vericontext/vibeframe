@@ -4,16 +4,21 @@
  * Every video, image, and audio generation leaves a take (see takes/take.ts
  * and docs/take-graph.md). These commands list them, show one in full, total
  * the spend (saying how much of it is provider billing and how much is
- * estimate), and promote an earlier take back into a project's beat slot.
+ * estimate), promote an earlier take back into a project's beat slot, and
+ * extend or edit a video take through its provider session.
  */
 
 import { Command } from "commander";
 import chalk from "chalk";
 
 import { applyTiers } from "./_shared/cost-tier.js";
-import { exitWithError, failureFromError, isJsonMode, notFoundError, outputSuccess, usageError } from "./output.js";
+import { exitWithError, failureFromError, isJsonMode, notFoundError, outputSuccess, spinner as createSpinner, usageError } from "./output.js";
+import { upperBoundCost } from "./_shared/actual-cost.js";
+import { createAndWriteJobRecord } from "./_shared/status-jobs.js";
 import { executeTakeList, executeTakeLog, executeTakeShow, type TakeScope } from "../takes/query.js";
 import { executeTakePromote } from "../takes/promote.js";
+import { executeTakeContinue, type TakeContinueResult } from "../takes/continue.js";
+import type { VideoContinuation } from "@vibeframe/ai-providers";
 import { TAKE_SLOTS, type TakeKind, type TakeSlot } from "../takes/take.js";
 
 const KINDS: readonly TakeKind[] = ["video", "image", "audio"];
@@ -35,7 +40,7 @@ function usd(value: number): string {
 }
 
 export const takeCommand = new Command("take")
-  .description("List, inspect, and total the record of every paid generation (takes)")
+  .description("List, inspect, total, promote, and continue the record of every paid generation (takes)")
   .addHelpText("after", `
 A take is one generation as it happened: prompt, parameters, inputs and
 outputs by hash, provider session, parent take, and cost with its basis
@@ -49,11 +54,18 @@ A build records each beat asset (narration, backdrop, keyframe, video,
 music) as a take. 'take promote' puts an earlier take back into its slot;
 later builds keep it until the beat's cue changes or --force.
 
+'take extend' and 'take edit' continue a video take through its provider
+session (Grok and Gemini Omni extend and edit; Kling's legacy models
+extend). The result is a new take whose parent is the one continued, made
+for the same beat slot, so 'take promote' can put it into the build.
+
 Examples:
   $ vibe take list --json
   $ vibe take list --beat 2 --kind video
   $ vibe take show take_mh2k1x0a_1f2e3d4c --json
   $ vibe take promote take_mh2k1x0a_1f2e3d4c --dry-run --json
+  $ vibe take extend take_mh2k1x0a_1f2e3d4c --duration 6 --dry-run --json
+  $ vibe take edit take_mh2k1x0a_1f2e3d4c --prompt "make it dusk" --max-cost 2
   $ vibe take log --since 2026-11-01 --json
   $ vibe take log --global
 `);
@@ -193,4 +205,118 @@ takeCommand
     }
   });
 
-applyTiers(takeCommand, { list: "free", show: "free", log: "free", promote: "free" });
+function registerContinuation(continuation: VideoContinuation): void {
+  const extend = continuation === "extend";
+  const cmd = takeCommand
+    .command(continuation)
+    .description(extend ? "Extend a video take from its last frame, through its provider session" : "Revise a video take with a prompt, through its provider session")
+    .argument("<take-id>", "Video take id, e.g. take_mh2k1x0a_1f2e3d4c")
+    .option("--project <dir>", "Look for the take in this project first")
+    .option("--prompt <text>", extend ? "How the video carries on" : "What to change (required)")
+    .option("-o, --output <path>", `Output file (default: beside the take's output, as <name>-${extend ? "extended" : "edited"}.mp4)`)
+    .option("--max-cost <usd>", "Refuse before any provider request when the estimate is above this USD cap")
+    .option("-k, --api-key <key>", "API key for the take's provider")
+    .option("--no-wait", "Return once the provider accepted the job; check it with 'vibe status job'")
+    .option("--dry-run", "Show the provider, output, and estimate without calling the provider");
+  if (extend) {
+    cmd
+      .option("-d, --duration <sec>", "Seconds to add (provider's default when omitted)")
+      .option("--negative <prompt>", "What to avoid (Kling only)");
+  }
+  cmd.action(async (id: string, options) => {
+    const startedAt = Date.now();
+    const command = `take ${continuation}`;
+    let spin: ReturnType<typeof createSpinner> | null = null;
+    try {
+      const maxCostUsd = options.maxCost !== undefined ? Number.parseFloat(String(options.maxCost)) : undefined;
+      if (maxCostUsd !== undefined && (!Number.isFinite(maxCostUsd) || maxCostUsd < 0)) {
+        exitWithError(usageError(`Invalid --max-cost "${String(options.maxCost)}".`, "Pass a USD amount, e.g. --max-cost 2."));
+      }
+      const duration = options.duration !== undefined ? Number(options.duration) : undefined;
+      const run = (dryRun: boolean) =>
+        executeTakeContinue({
+          takeId: id,
+          continuation,
+          cwd: process.cwd(),
+          projectDir: options.project,
+          prompt: options.prompt,
+          duration,
+          negative: options.negative,
+          output: options.output,
+          wait: options.wait,
+          dryRun,
+          maxCostUsd,
+          apiKey: options.apiKey,
+          via: "cli",
+          command,
+        });
+      // Plan first: every refusal (unknown take, a provider that cannot continue it, the cost cap) comes before the spinner.
+      const plan = await run(true);
+      if (!plan.success) exitWithError(plan.failure);
+      if (options.dryRun) {
+        if (isJsonMode()) {
+          outputSuccess({ command, startedAt, dryRun: true, costUsd: plan.estimate.usd, costEstimated: true, data: plan as unknown as Record<string, unknown> });
+          return;
+        }
+        printPlan(plan);
+        return;
+      }
+      if (!isJsonMode()) spin = createSpinner(`${extend ? "Extending" : "Editing"} ${id} on ${plan.provider} (this may take a few minutes)...`).start();
+      const result = await run(false);
+      if (!result.success) exitWithError(result.failure);
+      // A job left running gets a record, so 'vibe status job' can poll and download it later.
+      const record =
+        result.status !== "completed" && result.taskId
+          ? await createAndWriteJobRecord({
+              jobType: "generate-video",
+              provider: result.provider,
+              providerTaskId: result.taskId,
+              providerJob: result.job,
+              status: "running",
+              command: `vibe ${command}`,
+              prompt: result.prompt,
+              outputPath: result.output,
+            })
+          : undefined;
+      if (isJsonMode()) {
+        // A provider that reported the charge was metered; outputSuccess prices the meter.
+        const cost = result.metered
+          ? { costUsd: undefined, estimated: undefined, warnings: [] as string[] }
+          : upperBoundCost(result.estimate.usd, 1, result.provider);
+        outputSuccess({
+          command,
+          startedAt,
+          costUsd: cost.costUsd,
+          costEstimated: cost.estimated,
+          warnings: [...cost.warnings, ...(result.takeError ? [result.takeError] : [])],
+          data: { ...(result as unknown as Record<string, unknown>), jobId: record?.id, statusCommand: record?.retryWith[0] },
+        });
+        return;
+      }
+      if (record) {
+        spin?.succeed(chalk.green(`${extend ? "Extension" : "Edit"} started: ${result.provider} task ${result.taskId}`));
+        console.log(chalk.dim(`  Check it with: ${record.retryWith[0]}`));
+        return;
+      }
+      spin?.succeed(chalk.green(`${extend ? "Extended" : "Edited"} ${id}${result.takeId ? ` as ${chalk.bold(result.takeId)}` : ""}`));
+      if (result.outputPath) console.log(`  Saved to: ${result.outputPath}`);
+      if (result.takeError) console.log(chalk.yellow(`  ${result.takeError}`));
+      if (result.takeId) console.log(chalk.dim(`  Put it into the build with: vibe take promote ${result.takeId}`));
+    } catch (error) {
+      spin?.stop();
+      exitWithError(failureFromError(error, `Could not ${continuation} the take`, { fallback: "general" }));
+    }
+  });
+}
+
+function printPlan(plan: TakeContinueResult): void {
+  console.log(`Would ${plan.continuation} ${chalk.bold(plan.parentTakeId)} on ${plan.provider} (job ${plan.source.id})`);
+  if (plan.prompt) console.log(`  prompt ${plan.prompt}`);
+  console.log(`  output ${plan.output}`);
+  console.log(`  cost ${plan.estimate.basis === "upper-bound" ? "up to " : "about "}${usd(plan.estimate.usd)} (${plan.estimate.basis})`);
+}
+
+registerContinuation("extend");
+registerContinuation("edit");
+
+applyTiers(takeCommand, { list: "free", show: "free", log: "free", promote: "free", extend: "very-high", edit: "very-high" });

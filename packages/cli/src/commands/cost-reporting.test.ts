@@ -29,6 +29,8 @@ const COST_REPORTING: Record<string, { reporting: Reporting; how: string }> = {
   "generate image": { reporting: "estimate", how: "catalog price per image (estimateImageCostUsd); image providers are not metered" },
   "generate video": { reporting: "estimate", how: "Kling: metered seconds at the billed resolution (costUsd left undefined); Seedance token estimate; else the tier bound (realRunCostFields)" },
   "generate video-extend": { reporting: "estimate", how: "tier bound per extension" },
+  "take extend": { reporting: "estimate", how: "tier bound per extension, or the provider-reported charge when metered (costUsd left undefined), as generate video-extend" },
+  "take edit": { reporting: "estimate", how: "tier bound per edit, or the provider-reported charge when metered (costUsd left undefined)" },
   "edit image": { reporting: "estimate", how: "catalog price per edited image" },
   "generate narration": { reporting: "metered", how: "TTS characters or Gemini audio seconds; gpt-4o-mini-tts is unpriced" },
   "generate sound-effect": { reporting: "metered", how: "requested seconds, else the measured MP3 length" },

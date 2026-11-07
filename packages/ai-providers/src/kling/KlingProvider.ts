@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import { durationProblem, findModel, modelAliases, type ModelSpec } from "../catalog/catalog.js";
-import type { VideoGenerator, VideoJob, VideoJobState, VideoRequest, VideoUsage } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest, VideoUsage } from "../video/contract.js";
 import { ProviderError, classifyProviderError, isProviderError, type ProviderErrorKind } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { recordUsage } from "../usage/meter.js";
@@ -135,6 +135,12 @@ export class KlingProvider implements AIProvider, VideoGenerator {
   isAvailable = true;
   /** VibeFrame sends Kling image URLs only (both APIs also take raw Base64, which is not wired up). */
   readonly imageInput = "url" as const;
+
+  /** Kling extends videos from its legacy models only; it never edits. */
+  continuations(job: VideoJob): readonly VideoContinuation[] {
+    if (job.provider !== this.id || this.isModelPath(job)) return [];
+    return ["extend"];
+  }
 
   private apiKey?: string;
   private accessKey?: string;
@@ -370,13 +376,18 @@ export class KlingProvider implements AIProvider, VideoGenerator {
 
   // ── Legacy video extension ────────────────────────────────────────────
 
+  /** Whether `job` ran on the new model-path API, which has no extension. */
+  private isModelPath(job: VideoJob): boolean {
+    return job.meta?.api === "model-path" || findModel(this.id, "video", job.model)?.api === "model-path";
+  }
+
   /** Extend a finished legacy Kling video (`POST /v1/videos/video-extend` with its `video_id`). */
   private async submitExtend(request: VideoRequest): Promise<VideoJob> {
     const source = request.from!.job;
     if (source.provider !== this.id) {
       throw this.invalid(`Kling can only extend a Kling video, not a ${source.provider} job.`);
     }
-    if (source.meta?.api === "model-path" || findModel(this.id, "video", source.model)?.api === "model-path") {
+    if (this.isModelPath(source)) {
       throw new ProviderError({
         kind: "unsupported",
         provider: this.id,

@@ -275,7 +275,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | ------- | ------------------------------------------------------------------------- |
 | `guide` | Cross-host guides for motion, scene, pipeline, and architecture workflows |
 
-### Takes (4)
+### Takes (6)
 
 | Tool           | Description                                                                                  |
 | -------------- | -------------------------------------------------------------------------------------------- |
@@ -283,6 +283,8 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `take_show`    | Show one take in full: prompt, inputs and outputs with sha256, provider session, cost        |
 | `take_log`     | Total spend by provider, model, and kind, split into billing and estimates                   |
 | `take_promote` | Put an earlier take back into a project's beat slot; later builds keep it                    |
+| `take_extend`  | Extend a video take from its last frame through its provider session (paid)                  |
+| `take_edit`    | Revise a video take with a prompt through its provider session (paid)                        |
 
 > **CLI ↔ MCP sync**: `packages/mcp-server/src/tools/cli-sync.test.ts` is a vitest hook that fails CI when a CLI subcommand is added/removed/renamed without the matching MCP change. Open the test file to see the live mapping table - `null` rows mark CLI-only commands (e.g. `vibe audio list-voices`) that are intentionally not exposed via MCP.
 

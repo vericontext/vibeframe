@@ -120,6 +120,13 @@ Later builds keep a promoted slot until that beat's cue is edited or
 `vibe build --force` runs. `vibe take log --json` totals what the project
 spent, split into provider billing and estimates. See `docs/take-graph.md`.
 
+A beat video that is close but not right can be continued instead of
+regenerated: `vibe take extend <take id>` adds time after its last frame,
+`vibe take edit <take id> --prompt "<the change>"` revises it (Grok and
+Gemini Omni; Kling legacy models extend only). Both are paid: run
+`--dry-run --json` first, confirm the spend with the user, and pass
+`--max-cost`. The result is a new take for the same slot; promote it to use it.
+
 ## Narration Word-Sync
 
 During `vibe build`, generated narration is transcribed at the word level

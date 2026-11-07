@@ -125,6 +125,8 @@ export function describeVideoContract(name: string, fixture: VideoContractFixtur
       fixture.scriptSuccess(net);
       const generator = await fixture.create();
       const job = await generator.submitVideo(fixture.request);
+      expect([...generator.continuations(job)].sort()).toEqual([...fixture.continuations].sort());
+      expect(generator.continuations({ ...job, provider: "another-provider" })).toEqual([]);
       const before = net.requests.length;
       for (const kind of (["extend", "edit"] as const).filter((k) => !fixture.continuations.includes(k))) {
         const error = await rejection(generator.submitVideo({ ...fixture.request, from: { job, kind } }));
