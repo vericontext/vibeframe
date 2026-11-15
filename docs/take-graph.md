@@ -62,7 +62,7 @@ A take is written once the provider was reached:
 
 - a finished generation: `status: "completed"`;
 - a job that is still running when the command returns (`--no-wait`, or the wait timed out): `status: "submitted"`, with the provider session so it can be polled;
-- a provider failure after the provider accepted the job or billed for it: `status: "failed"`, with the error.
+- a provider failure after the provider accepted the job or billed for it: `status: "failed"`, with the error. A failed video job costs what the provider reported for it, which is usually nothing; without a reported or metered charge it is recorded at $0.
 
 A call refused before any request leaves no take: bad input, a missing key, or a model the catalog has retired.
 Image providers report no usage, so a failed image call leaves no take.
@@ -85,6 +85,7 @@ The basis says how far to trust the figure.
 | `estimate` | A formula over the request | Seedance token formula, image list price per image |
 | `upper-bound` | The command's cost tier ceiling, when nothing better exists | A video job handed back still running, until `vibe status job` settles it with the provider's charge |
 
+A build reports the sum of the takes it recorded, so its `costUsd` is billing wherever the providers reported a charge, and `costEstimated` is false only when every figure is.
 `reported` and `metered` figures are billing.
 `estimate` and `upper-bound` figures are not, and `vibe take log` keeps them separate.
 The usage records behind a `reported` or `metered` figure are stored with the take.
