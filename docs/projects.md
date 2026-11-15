@@ -209,6 +209,25 @@ Each issue names its own owner and carries the actions that would resolve it:
 }
 ```
 
+An issue about one beat also names the takes (recorded generations) that fill that beat's slots now, so a finding says which generation it is about:
+
+```jsonc
+"takes": [
+  {
+    "takeId": "take_mh2k1x0a_1f2e3d4c",
+    "asset": "video",              // narration | backdrop | keyframe | video | music
+    "kind": "video",
+    "provider": "grok",
+    "promoted": false,             // true when `vibe take promote` put it there
+    "continuations": ["extend", "edit"],      // what its provider session can still do
+    "alternatives": ["take_mh2jz9q1_0b1c2d3e"] // earlier takes for the slot, newest first
+  }
+]
+```
+
+For an issue about generated content (`STATIC_FRAME_SEGMENT`, `BLACK_FRAME_SEGMENT`, `LONG_SILENCE`, `AI_REVIEW_*`) the list holds only the slots that content comes from, and the issue's actions add the take-level fixes: `vibe take edit` when the provider can revise the take (very-high, needs confirmation), `vibe take promote --dry-run` for the newest earlier take (free), and `vibe take list --beat`.
+See [take-graph.md](take-graph.md).
+
 `nextActions` is the list to drive from, not `issues` - it is deduplicated
 across issues and pre-classified:
 

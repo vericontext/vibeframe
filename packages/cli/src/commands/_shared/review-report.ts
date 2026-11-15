@@ -39,7 +39,25 @@ export interface ReviewIssue {
   audioCoverageRatio?: number;
   fixOwner?: ReviewFixOwner;
   suggestedFix?: string;
+  /** The takes (recorded generations) that fill the issue's beat slots now: which generation the finding is about. */
+  takes?: ReviewIssueTake[];
   actions?: ReviewAction[];
+}
+
+/** A take an issue points at: one generation filling a slot of the issue's beat. */
+export interface ReviewIssueTake {
+  takeId: string;
+  /** The beat slot it fills: narration, backdrop, keyframe, video, or music. */
+  asset: string;
+  kind: string;
+  provider: string;
+  model?: string;
+  /** True when `vibe take promote` put it there, rather than a build. */
+  promoted: boolean;
+  /** What its provider session can still do (`vibe take extend` / `vibe take edit`). */
+  continuations?: string[];
+  /** Earlier takes made for the same slot, newest first, that `vibe take promote` can put back. */
+  alternatives?: string[];
 }
 
 export interface ReviewSummary {
@@ -656,6 +674,14 @@ function classifyReviewCommand(command: string): {
     return unsafe("very-high");
   }
   if (lower.startsWith("vibe storyboard revise")) return unsafe("unknown", "host-agent");
+  if (/^vibe take (list|show|log)\b/.test(lower)) return safe("free");
+  if (lower.startsWith("vibe take promote")) {
+    // Free, but it replaces what the slot holds; a dry run only reports.
+    return lower.includes("--dry-run") ? safe("free") : unsafe("free");
+  }
+  if (lower.startsWith("vibe take edit") || lower.startsWith("vibe take extend")) {
+    return unsafe("very-high", "host-agent");
+  }
   return unsafe("unknown");
 }
 

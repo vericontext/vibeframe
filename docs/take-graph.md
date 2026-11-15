@@ -150,6 +150,18 @@ These calls are paid.
 `--dry-run` shows the provider, the output path, and the cost estimate; `--max-cost <usd>` refuses before any request when the estimate is above it.
 Grok and Omni do not say ahead of time what a continuation will bill, so the estimate is the tier upper bound; the take records what the provider reported.
 
+## Review findings point at takes
+
+`vibe inspect project` and `vibe inspect render` name, on each issue about one beat, the takes that fill that beat's slots now (`issues[].takes`).
+A finding about generated content (a static or black stretch, a long silence, an AI review note) names only the slots that content comes from and offers the take-level fixes in its actions:
+
+- `vibe take edit <take id> --prompt "<the change>"` when the take's provider can revise it;
+- `vibe take promote <earlier take id>` when an earlier take for the same slot is preserved;
+- `vibe take list --beat <id>` to see every take made for the beat.
+
+Linking reads local files only and sends no provider request.
+A project with no takes reviews exactly as before.
+
 ## Commands
 
 `list`, `show`, `log`, and `promote` are free and make no provider calls.
@@ -176,5 +188,4 @@ Commands that record a take return its `takeId` in `data`.
 Takes are the base of the take graph: branching, comparing, and promoting generations.
 Planned on top of this format:
 
-- review findings point at the take that needs work;
 - a video job a build leaves running is finished by `vibe status job`, which does not yet record the finished output on a take.
