@@ -41,7 +41,7 @@ import { realRunCost } from "../_shared/video-cost.js";
 
 export { realRunCost };
 import { createAndWriteJobRecord } from "../_shared/status-jobs.js";
-import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS, meteredVideoCostUsd } from "../_shared/video-jobs.js";
+import { VIDEO_PROVIDER_ENV, VIDEO_PROVIDER_LABELS as PROVIDER_LABELS, expectedVideoCostUsd } from "../_shared/video-jobs.js";
 
 export function registerVideoCommand(parent: Command): void {
   parent
@@ -234,14 +234,14 @@ Examples:
           }
           // Replace the flat cost-tier upper bound with what the run will
           // cost so agents can gate spend precisely: Seedance's token-accurate
-          // estimate, or list price x the usage a metering provider (Kling)
-          // records. Other providers fall back to the tier bound.
+          // estimate, list price x the usage Kling records at submission, or
+          // the most a Grok or Omni request can bill. Others keep the tier bound.
           let costUsd: number | undefined;
           if (provider === "seedance") {
             costUsd = realRunCost(provider, options).costUsd;
           } else {
             try {
-              costUsd = await meteredVideoCostUsd(provider, {
+              costUsd = await expectedVideoCostUsd(provider, {
                 prompt,
                 model: modelSpec.id,
                 durationSec: parseFloat(options.duration),

@@ -69,6 +69,7 @@ Prices are per 1M tokens (input / cached input / output) below the 200k-prompt l
 - `-1.5` text-to-video runs text-to-image then image-to-video internally (docs).
 - Only classic `grok-imagine-video` edits and extends: `-1.5` and `-1.5-lite` answer `POST /videos/extensions` with 400 "Video extension is not supported for this model"; the extension output is the source clip plus the new segment (2 s + 2 s = 4.04 s) (probe, 2026-10-04).
 - No cancel endpoint is documented for videos; `DELETE /videos/{id}` is not in the REST reference (docs, not probed).
+- Billing at 720p is above the pricing page's flat per-second rates ($0.05 classic, $0.08 1.5, $0.02 lite): 1.5-lite 3 s at 720p billed $0.09; a classic 2 s extension of a 720p clip billed $0.17 and a 5 s edit $0.40, so the catalog prices classic at $0.085/s for 720p. An extension bills the added seconds, an edit its whole output; both work on a `-1.5-lite` source, through classic (probe, 2026-11-16).
 - `grok-imagine-image-2.0` doc headline says $0.04 but the default (`auto`) serves `medium` for edits, which bills $0.06+ (docs, probe).
 - `21:9` and `5:2` image ratios are accepted by `grok-imagine-image-2.0` (docs).
 - Our code comment says float `duration` fails with a 422; docs now say numbers and strings are accepted, but send integers anyway.

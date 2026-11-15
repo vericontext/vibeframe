@@ -148,7 +148,8 @@ By default the video is written next to the parent's output as `<name>-extended.
 
 These calls are paid.
 `--dry-run` shows the provider, the output path, and the cost estimate; `--max-cost <usd>` refuses before any request when the estimate is above it.
-Grok and Omni do not say ahead of time what a continuation will bill, so the estimate is the tier upper bound; the take records what the provider reported.
+The estimate is the most the continuation can bill: for Grok, the seconds added (an extension) or the longest edit output (8.7 s) at the continuation model's 720p rate; for Omni, the 10 s clip ceiling in video tokens plus the earlier clip read as context.
+The take records what the provider billed: xAI reports the charge, and Omni's token usage is priced from the catalog.
 
 ## Review findings point at takes
 

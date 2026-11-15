@@ -52,17 +52,31 @@ export async function openVideoGenerator(provider: string, apiKey?: string): Pro
 }
 
 /**
- * What a video request would cost, priced from the model catalog with the
- * usage its provider would meter (`VideoGenerator.usageFor`): for dry runs,
- * so the estimate matches what the real run reports. Undefined when the
- * provider does not meter its submissions or the catalog cannot price it.
- * Opens no connection and needs no key; throws the `ProviderError` the
- * provider would refuse the request with.
+ * What a video request is expected to cost, priced from the model catalog:
+ * for dry runs and spend caps. A provider that meters its submissions
+ * (`VideoGenerator.usageFor`, Kling) gives the usage the real run records,
+ * so the figure matches what it reports; one that meters the finished job
+ * (`estimateUsage`, Grok and Omni) gives the most the request can bill.
+ * Undefined when the provider gives neither, cannot estimate this request,
+ * or the catalog cannot price it. Opens no connection and needs no key;
+ * throws the `ProviderError` a `usageFor` provider would refuse the request with.
  */
-export async function meteredVideoCostUsd(provider: string, request: VideoRequest): Promise<number | undefined> {
+export async function expectedVideoCostUsd(provider: string, request: VideoRequest): Promise<number | undefined> {
   const generator = await createVideoGenerator(provider.toLowerCase(), "");
-  if (!generator.usageFor) return undefined;
-  const usd = priceRecord({ ...generator.usageFor(request), at: Date.now() });
+  let usage;
+  if (generator.usageFor) {
+    usage = generator.usageFor(request);
+  } else if (generator.estimateUsage) {
+    try {
+      usage = generator.estimateUsage(request);
+    } catch {
+      // The provider cannot estimate this request; callers fall back to the tier bound.
+      return undefined;
+    }
+  } else {
+    return undefined;
+  }
+  const usd = priceRecord({ ...usage, at: Date.now() });
   return usd === undefined ? undefined : Number(usd.toFixed(6));
 }
 

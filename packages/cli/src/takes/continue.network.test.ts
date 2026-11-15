@@ -130,7 +130,7 @@ describe("take extend", () => {
   it("dry run reports provider, output, and the estimate without a request", async () => {
     const parentId = await grokTake();
     const before = net.requests.length;
-    const plan = await executeTakeContinue(options(parentId, { dryRun: true }));
+    const plan = await executeTakeContinue(options(parentId, { dryRun: true, duration: 2 }));
     expect(plan).toMatchObject({
       success: true,
       dryRun: true,
@@ -138,7 +138,8 @@ describe("take extend", () => {
       parentTakeId: parentId,
       provider: "grok",
       output: join(project, "renders", "boat-extended.mp4"),
-      estimate: { usd: 5, basis: "upper-bound" },
+      // 2 added seconds at the continuation model's 720p rate: what xAI billed for one (probe).
+      estimate: { usd: 0.17, basis: "estimate" },
     });
     expect(net.requests).toHaveLength(before);
     expect(existsSync(join(project, "renders", "boat-extended.mp4"))).toBe(false);
@@ -171,6 +172,11 @@ describe("take edit", () => {
         return jsonResponse({
           id,
           status: "completed",
+          model: "gemini-omni-1.1-flash",
+          // The usage shape of a real 10 s interaction (probe, 2026-11-16); a follow-up turn reads the first clip as input.
+          usage: id === "int-1"
+            ? { total_input_tokens: 11, total_cached_tokens: 0, total_output_tokens: 57_920, total_thought_tokens: 432 }
+            : { total_input_tokens: 58_000, total_cached_tokens: 0, total_output_tokens: 57_920, total_thought_tokens: 400 },
           steps: [{ type: "model_output", content: [{ type: "video", mime_type: "video/mp4", uri: `https://${OMNI}/v1beta/files/${id}:download?alt=media` }] }],
         });
       })
@@ -185,6 +191,15 @@ describe("take edit", () => {
       take: { via: "cli", command: "generate video", cwd: project },
     });
     expect(generated.takeId).toBeDefined();
+    // Omni bills tokens; the take prices them from the catalog ($1.50 in, $17.50 per 1M out, thinking as output).
+    const first = readTake(generated.takeId!).cost;
+    expect(first.basis).toBe("metered");
+    expect(first.usd).toBeCloseTo(11 * 1.5e-6 + (57_920 + 432) * 17.5e-6, 5);
+
+    const plan = await executeTakeContinue(options(generated.takeId!, { continuation: "edit", prompt: "make it dusk", dryRun: true }));
+    if (!plan.success) throw new Error(plan.error);
+    expect(plan.estimate.basis).toBe("estimate");
+    expect(plan.estimate.usd).toBeCloseTo((3 + 58_000) * 1.5e-6 + 60_000 * 17.5e-6, 5);
 
     const result = await executeTakeContinue(options(generated.takeId!, { continuation: "edit", prompt: "make it dusk", command: "take edit" }));
     if (!result.success) throw new Error(result.error);
@@ -193,7 +208,11 @@ describe("take edit", () => {
     expect(turn.body).toMatchObject({ previous_interaction_id: "int-1", input: "make it dusk" });
     expect(result.outputPath).toBe(join(project, "lantern-edited.mp4"));
     expect(readFileSync(result.outputPath!)).toEqual(videoBytes("int-2"));
-    expect(readTake(result.takeId!)).toMatchObject({ parent: generated.takeId, operation: "edit", provider: "omni", status: "completed" });
+    const edit = readTake(result.takeId!);
+    expect(edit).toMatchObject({ parent: generated.takeId, operation: "edit", provider: "omni", status: "completed", cost: { basis: "metered" } });
+    expect(edit.cost.usd).toBeCloseTo(58_000 * 1.5e-6 + (57_920 + 400) * 17.5e-6, 5);
+    // The estimate is a ceiling: the longest clip plus the earlier clip read as context.
+    expect(plan.estimate.usd).toBeGreaterThanOrEqual(edit.cost.usd);
   });
 });
 
@@ -234,10 +253,11 @@ describe("refusals happen before any provider request", () => {
   it("for an estimate above --max-cost, naming the cap that would pass", async () => {
     const parentId = await grokTake();
     const before = net.requests.length;
-    const result = await executeTakeContinue(options(parentId, { maxCostUsd: 1 }));
+    // The default extension adds 6 s: 6 x $0.085.
+    const result = await executeTakeContinue(options(parentId, { maxCostUsd: 0.2 }));
     expect(result.success).toBe(false);
     if (result.success) return;
-    expect(result.failure).toMatchObject({ code: "COST_CAP_EXCEEDED", retryWith: [`vibe take extend ${parentId} --max-cost 5 --json`] });
+    expect(result.failure).toMatchObject({ code: "COST_CAP_EXCEEDED", retryWith: [`vibe take extend ${parentId} --max-cost 0.51 --json`] });
     expect(net.requests).toHaveLength(before);
   });
 });
@@ -282,7 +302,8 @@ describe("surfaces", () => {
     const dispatch = buildMcpDispatcher(manifest);
     const before = net.requests.length;
     const plan = JSON.parse((await dispatch("take_edit", { takeId: parentId, prompt: "make it dusk", dryRun: true })).content[0].text);
-    expect(plan).toMatchObject({ dryRun: true, provider: "grok", costUsd: 5 });
+    // An edit keeps the source length, at most 8.7 s: 8.7 x $0.085.
+    expect(plan).toMatchObject({ dryRun: true, provider: "grok", costUsd: 0.7395 });
     expect(net.requests).toHaveLength(before);
 
     const done = JSON.parse((await dispatch("take_edit", { takeId: parentId, prompt: "make it dusk" })).content[0].text) as { takeId: string };

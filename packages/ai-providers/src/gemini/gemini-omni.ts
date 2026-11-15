@@ -25,7 +25,7 @@
 
 import type { ProviderConfig } from "../interface/index.js";
 import { defaultModel } from "../catalog/catalog.js";
-import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest, VideoUsage } from "../video/contract.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
 import { providerRequest } from "../shared/http.js";
 import { resolveVideoModel } from "../video/models.js";
@@ -50,7 +50,29 @@ interface InteractionResponse {
   steps?: Array<{ type?: string; content?: InteractionContent[] }>;
   output_video?: InteractionContent;
   error?: { code?: number | string; message?: string; status?: string };
+  model?: string;
+  /** What the interaction consumed; Omni bills tokens (docs: $1.50 in, $17.50 per 1M video out). */
+  usage?: {
+    total_input_tokens?: number;
+    total_cached_tokens?: number;
+    total_output_tokens?: number;
+    total_thought_tokens?: number;
+  };
 }
+
+/**
+ * Video tokens Omni emits per second at 720p and below: 57,920 for a 10 s
+ * clip (probe, 2026-11-16), matching the docs' "about $0.10/s" at $17.50 per
+ * 1M. Omni picks 3-10 s itself, so an estimate takes the 10 s ceiling.
+ */
+const VIDEO_TOKENS_PER_SECOND = 5_800;
+const MAX_CLIP_SECONDS = 10;
+/** Allowance for the reasoning tokens Omni bills as output (432 on the probe). */
+const THOUGHT_TOKENS = 2_000;
+/** Allowance per inline frame. */
+const FRAME_TOKENS = 2_000;
+/** Resolutions Omni renders natively; 1080p and 4k are upscaled and their token use is not documented. */
+const ESTIMATED_RESOLUTIONS: readonly string[] = ["360p", "720p"];
 
 const STATUS: Record<string, VideoJobState["status"]> = {
   in_progress: "processing",
@@ -149,6 +171,42 @@ export class OmniProvider implements VideoGenerator {
     return { provider: this.id, id: created.id, model, submittedAt: new Date().toISOString() };
   }
 
+  /**
+   * The longest clip Omni can return for `request`, in the tokens it bills.
+   * A continuation also reads the earlier clip as context, counted as input.
+   */
+  estimateUsage(request: VideoRequest): VideoUsage {
+    const model = resolveVideoModel(this.id, request.model).id;
+    const resolution = RESOLUTIONS.includes(request.resolution ?? "") ? request.resolution! : "720p";
+    if (!ESTIMATED_RESOLUTIONS.includes(resolution)) {
+      throw new ProviderError({
+        kind: "unsupported",
+        provider: this.id,
+        message: `Omni's token use at ${resolution} (upscaled) is not documented, so it cannot be estimated.`,
+      });
+    }
+    const clip = MAX_CLIP_SECONDS * VIDEO_TOKENS_PER_SECOND;
+    const frames = request.image ? (request.lastFrame ? 2 : 1) : 0;
+    const input = Math.ceil(request.prompt.length / 4) + frames * FRAME_TOKENS + (request.from ? clip : 0);
+    return { provider: this.id, kind: "video", model, amount: { unit: "tokens", input, output: clip + THOUGHT_TOKENS } };
+  }
+
+  /** The interaction's billed tokens, once it is terminal. Thinking bills as output. */
+  private usageOf(interaction: InteractionResponse, job: VideoJob): VideoUsage | undefined {
+    const usage = interaction.usage;
+    if (!usage || typeof usage.total_output_tokens !== "number") return undefined;
+    return {
+      provider: this.id,
+      kind: "video",
+      model: interaction.model ?? job.model,
+      amount: {
+        unit: "tokens",
+        input: usage.total_input_tokens ?? 0,
+        output: usage.total_output_tokens + (usage.total_thought_tokens ?? 0),
+      },
+    };
+  }
+
   async getVideoJob(job: VideoJob): Promise<VideoJobState> {
     const apiKey = this.requireKey();
     const response = await providerRequest(this.id, `${API_ROOT}/v1beta/interactions/${job.id}`, {
@@ -157,9 +215,12 @@ export class OmniProvider implements VideoGenerator {
     const interaction = (await response.json()) as InteractionResponse;
     const status = STATUS[interaction.status ?? ""] ?? "processing";
 
+    const usage = status === "processing" ? undefined : this.usageOf(interaction, job);
+    const billed = usage ? { usage } : {};
     if (status === "failed") {
       const error = interaction.error;
       return {
+        ...billed,
         status,
         error: classifyProviderError({
           provider: this.id,
@@ -168,13 +229,14 @@ export class OmniProvider implements VideoGenerator {
         }).toJSON(),
       };
     }
-    if (status !== "completed") return { status };
+    if (status !== "completed") return { ...billed, status };
 
     const video = findOmniVideo(interaction);
     const fileId = video?.uri ? fileIdFromUri(video.uri) : undefined;
     if (!fileId) {
       // Omni's safety filter can finish an interaction with no video.
       return {
+        ...billed,
         status: "failed",
         error: new ProviderError({
           kind: "moderation",
@@ -192,11 +254,12 @@ export class OmniProvider implements VideoGenerator {
     if (fileState === "PROCESSING") return { status: "processing", progress: 95 };
     if (fileState !== "ACTIVE") {
       return {
+        ...billed,
         status: "failed",
         error: new ProviderError({ kind: "provider", provider: this.id, message: `Omni video file ended in state ${fileState}.` }).toJSON(),
       };
     }
-    return { status: "completed", progress: 100, videoUrl: `${API_ROOT}/download/v1beta/files/${fileId}:download?alt=media` };
+    return { ...billed, status: "completed", progress: 100, videoUrl: `${API_ROOT}/download/v1beta/files/${fileId}:download?alt=media` };
   }
 
   /** Background interactions cancel with `POST /interactions/{id}/cancel`. */

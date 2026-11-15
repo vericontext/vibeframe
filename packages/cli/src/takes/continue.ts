@@ -17,7 +17,7 @@ import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path
 import { createVideoGenerator, type VideoContinuation, type VideoJob } from "@vibeframe/ai-providers";
 
 import { executeVideoContinue } from "../commands/ai-video.js";
-import { meteredVideoCostUsd } from "../commands/_shared/video-jobs.js";
+import { expectedVideoCostUsd } from "../commands/_shared/video-jobs.js";
 import { defaultOutputPath } from "../commands/_shared/default-output.js";
 import {
   ExitCode,
@@ -107,7 +107,7 @@ function defaultOutput(take: Take, storeProject: string | undefined, continuatio
 
 async function estimateCost(provider: string, options: TakeContinueOptions, source: VideoJob): Promise<TakeContinueEstimate> {
   try {
-    const usd = await meteredVideoCostUsd(provider, {
+    const usd = await expectedVideoCostUsd(provider, {
       prompt: options.prompt ?? "",
       durationSec: options.duration,
       from: { job: source, kind: options.continuation },
