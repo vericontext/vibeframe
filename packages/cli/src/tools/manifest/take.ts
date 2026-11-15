@@ -3,8 +3,8 @@
  * @description Read the take record: every paid generation, its inputs and
  *   outputs, its provider session, and what it cost with the basis of that
  *   figure; promote an earlier take back into a project's beat slot (free,
- *   no provider calls); and extend or edit a video take through its
- *   provider session (paid).
+ *   no provider calls); prune take media copies (free, local); and extend
+ *   or edit a video take through its provider session (paid).
  */
 
 import { z } from "zod";
@@ -12,6 +12,7 @@ import { z } from "zod";
 import { defineTool, failedTool, type AnyTool } from "../define-tool.js";
 import { executeTakeList, executeTakeLog, executeTakeShow } from "../../takes/query.js";
 import { executeTakePromote } from "../../takes/promote.js";
+import { executeTakePrune } from "../../takes/prune.js";
 import { executeTakeContinue, type TakeContinueResult } from "../../takes/continue.js";
 import { TAKE_SLOTS } from "../../takes/take.js";
 
@@ -123,6 +124,30 @@ export const takePromoteTool = defineTool({
   },
 });
 
+export const takePruneTool = defineTool({
+  name: "take_prune",
+  category: "take",
+  cost: "free",
+  title: "Prune Take Media",
+  annotations: { readOnly: false, destructive: true, openWorld: false },
+  description:
+    "Remove a project's take media copies (.vibeframe/media/) that no take refers to, and stale temp files. With slotsOnly, also remove the copies of takes that do not fill a beat slot now; those takes stay recorded but can be promoted only while their output file is unchanged (listed in unpromotable). Never touches take records or slot files. Free; run with dryRun first.",
+  schema: z.object({
+    projectDir: z.string().optional().describe("Project to prune. Defaults to the project around the workspace."),
+    slotsOnly: z.boolean().optional().describe("Also remove the copies of takes that do not fill a slot now."),
+    dryRun: z.boolean().optional().describe("Report what would be removed without removing it."),
+  }),
+  async execute(args, ctx) {
+    const result = await executeTakePrune({ ...args, cwd: ctx.workingDirectory });
+    if (!result.success) return failedTool(result, "Could not prune take media");
+    return {
+      success: true,
+      data: result as unknown as Record<string, unknown>,
+      humanLines: [`${result.dryRun ? "Would remove" : "Removed"} ${result.removed.length} file(s), ${result.freedBytes} bytes; kept ${result.kept}`],
+    };
+  },
+});
+
 const CONTINUE = {
   takeId: z.string().describe("Video take id, e.g. take_mh2k1x0a_1f2e3d4c"),
   projectDir: z.string().optional().describe("Project to look for the take in first."),
@@ -192,6 +217,7 @@ export const takeTools: readonly AnyTool[] = [
   takeShowTool as unknown as AnyTool,
   takeLogTool as unknown as AnyTool,
   takePromoteTool as unknown as AnyTool,
+  takePruneTool as unknown as AnyTool,
   takeExtendTool as unknown as AnyTool,
   takeEditTool as unknown as AnyTool,
 ];

@@ -3820,6 +3820,32 @@ exports[`CLI --describe schemas (drift detection) > vibe take promote --describe
 }
 `;
 
+exports[`CLI --describe schemas (drift detection) > vibe take prune --describe 1`] = `
+{
+  "cost": "free",
+  "description": "Remove take media copies no take refers to (--slots-only: keep only the copies of takes in a slot)",
+  "name": "take.prune",
+  "parameters": {
+    "properties": {
+      "dryRun": {
+        "description": "Show what would be removed without removing it",
+        "type": "boolean",
+      },
+      "project": {
+        "description": "Project to prune (default: the one around the current directory)",
+        "type": "string",
+      },
+      "slotsOnly": {
+        "description": "Also remove the copies of takes that do not fill a beat slot now; they can no longer be promoted from a copy",
+        "type": "boolean",
+      },
+    },
+    "type": "object",
+  },
+  "surface": "advanced",
+}
+`;
+
 exports[`CLI --describe schemas (drift detection) > vibe take show --describe 1`] = `
 {
   "cost": "free",

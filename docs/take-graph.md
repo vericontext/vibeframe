@@ -47,6 +47,13 @@ Takes with the same bytes share one copy.
 `.vibeframe/media/` is not committed; the take files are.
 A global take keeps no copy: its output is the file you asked for.
 
+`vibe take prune` removes copies no take refers to, and temp files a crashed copy left behind (older than an hour).
+Every take stays promotable.
+`vibe take prune --slots-only` also removes the copies of takes that do not fill a beat slot now; those takes stay recorded, and can be promoted only while their output file is unchanged.
+The result names them in `unpromotable`.
+A copy shared with a take in a slot is kept.
+Prune never touches take records or slot files; `--dry-run` shows what would go.
+
 Set `VIBE_TAKES=off` to stop recording.
 
 ## When a take is written
@@ -172,7 +179,7 @@ A project with no takes reviews exactly as before.
 
 ## Commands
 
-`list`, `show`, `log`, and `promote` are free and make no provider calls.
+`list`, `show`, `log`, `promote`, and `prune` are free and make no provider calls.
 `extend` and `edit` call the take's provider.
 
 ```bash
@@ -184,16 +191,16 @@ vibe take log --since 2026-11-01 --json     # spend here, split by basis
 vibe take log --global                      # spend across every project on this machine
 vibe take promote take_mh2k1x0a_1f2e3d4c --dry-run --json
 vibe take promote take_mh2k1x0a_1f2e3d4c    # put it back into its beat slot
+vibe take prune --dry-run                   # media copies no take refers to
+vibe take prune --slots-only --json         # also copies of takes not in a slot
 vibe take extend take_mh2k1x0a_1f2e3d4c --duration 6 --dry-run --json
 vibe take edit take_mh2k1x0a_1f2e3d4c --prompt "make it dusk" --max-cost 2
 ```
 
-MCP hosts get the same as `take_list`, `take_show`, `take_log`, `take_promote`, `take_extend`, and `take_edit`.
+MCP hosts get the same as `take_list`, `take_show`, `take_log`, `take_promote`, `take_prune`, `take_extend`, and `take_edit`.
 Commands that record a take return its `takeId` in `data`.
 
 ## What comes next
 
 Takes are the base of the take graph: branching, comparing, and promoting generations.
-Planned on top of this format:
-
-- pruning `.vibeframe/media/` copies no take refers to.
+Comparing takes side by side is not built yet.

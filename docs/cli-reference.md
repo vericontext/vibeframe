@@ -121,7 +121,7 @@ surface, and inspect `replacement` on legacy commands before using them.
 | ------------ | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public**   |    38 | `generate.image` · `generate.video` · `generate.narration` · `generate.sound-effect` · `generate.music` · `generate.thumbnail` · `edit.silence-cut` · `edit.caption` · `edit.noise-reduce` · `edit.jump-cut` · +28 more |
 | **Agent**    |     8 | `storyboard.list` · `storyboard.get` · `storyboard.set` · `storyboard.move` · `run` · `scene.lint` · `scene.repair` · `context`                                                                                         |
-| **Advanced** |    31 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +21 more   |
+| **Advanced** |    32 | `generate.motion` · `generate.video-cancel` · `generate.video-extend` · `edit.fade` · `edit.translate-srt` · `edit.motion-overlay` · `edit.grade` · `edit.text-overlay` · `edit.speed-ramp` · `edit.image` · +22 more   |
 | **Legacy**   |     0 | -                                                                                                                                                                                                                       |
 | **Internal** |     2 | `scene.install-skill` · `scene.compose-prompts`                                                                                                                                                                         |
 
@@ -133,7 +133,7 @@ listed in their command sections for compatibility.
 
 | Tier           | Count | Examples                                                                                                                                                                    | Per-call cost                                                                                     |
 | -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Free**       |    36 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +28 more             | FFmpeg only, no API call                                                                          |
+| **Free**       |    37 | `audio.duck` · `design.validate` · `detect.beats` · `detect.scenes` · `detect.silence` · `edit.noise-reduce` · `edit.upscale` · `generate.thumbnail` · +29 more             | FFmpeg only, no API call                                                                          |
 | **Low**        |    18 | `audio.transcribe` · `edit.caption` · `edit.jump-cut` · `edit.silence-cut` · `generate.music` · `generate.narration` · `generate.sound-effect` · `inspect.media` · +10 more | $0.01–$0.10 per call                                                                              |
 | **High**       |     7 | `audio.dub` · `edit.reframe` · `generate.image` · `remix.auto-shorts` · `remix.highlights` · `edit.image` · `generate.motion`                                               | $1–$5 per call                                                                                    |
 | **Very High**  |     4 | `generate.video` · `generate.video-extend` · `take.edit` · `take.extend`                                                                                                    | $5–$50+ per call                                                                                  |
@@ -1652,6 +1652,20 @@ Cost tier: `free`
 - `beat` _(string)_ - Beat to fill (default: the beat the take was made for)
 - `asset` _(string)_ _(narration \| backdrop \| keyframe \| video \| music)_ - Slot to fill: narration, backdrop, keyframe, video, music (default: the slot the take was made for)
 - `dryRun` _(boolean)_ - Show what would change without writing
+
+#### `vibe take prune`
+
+Remove take media copies no take refers to (--slots-only: keep only the copies of takes in a slot)
+
+Product surface: `advanced`
+
+Cost tier: `free`
+
+**Parameters:**
+
+- `project` _(string)_ - Project to prune (default: the one around the current directory)
+- `slotsOnly` _(boolean)_ - Also remove the copies of takes that do not fill a beat slot now; they can no longer be promoted from a copy
+- `dryRun` _(boolean)_ - Show what would be removed without removing it
 
 #### `vibe take show`
 
