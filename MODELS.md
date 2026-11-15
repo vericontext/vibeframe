@@ -53,10 +53,10 @@ Prices are list prices. Commands report `costUsd` as metered usage (tokens, char
 | seedance | **Seedance 2.0** (default) | `seedance-2.0` | `quality`, `2.0` | GA | $0.3034 / second (720p 16:9) | 4-15 s, native audio |
 | seedance | Seedance 2.0 Fast | `seedance-2.0-fast` | `fast` | GA | $0.2419 / second (720p 16:9) | 4-15 s, up to 720p, native audio |
 | seedance | Seedance 2.5 | `seedance-2.5` | `2.5` | GA | $0.473 / second (720p 16:9) | Opt-in; 4-30 s, native audio |
-| omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $0.1 / second (720p) | Google video default; the model picks 3-10 s; native audio |
-| grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
-| grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p) | 1-15 s, native audio |
-| grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.05 / second (480p) | Previous generation; the only Grok model that edits and extends videos |
+| omni | **Gemini Omni 1.1 Flash** (default) | `gemini-omni-1.1-flash` |  | GA | $1.5 in / $17.5 out per 1M tokens (video out about $0.10/s at 720p) | Google video default; the model picks 3-10 s; native audio; billed in tokens, metered from the interaction |
+| grok | **Grok Imagine Video 1.5** (default) | `grok-imagine-video-1.5` | `1.5` | GA | $0.14 / second (720p; 480p $0.08) | 1-15 s, native audio; 720p unless `--resolution` says otherwise |
+| grok | Grok Imagine Video 1.5 Lite | `grok-imagine-video-1.5-lite` | `lite`, `1.5-lite` | GA | $0.03 / second (720p; 480p $0.02) | 1-15 s, native audio |
+| grok | Grok Imagine Video | `grok-imagine-video` | `classic` | Legacy | $0.085 / second (720p, from billed edits and extensions; 480p $0.05) | Previous generation; the only Grok model that edits and extends videos |
 | kling | **Kling v3** (default) | `kling-v3` | `v3` | GA | $0.084 / second (`std` 720p, silent; 1080p $0.112) | 3-15 s, multi-shot; `std` 720p, `pro` 1080p |
 | kling | Kling 4.0 | `kling-4.0` | `4.0` | GA | $0.157 / second (720p, no input video; 1080p $0.235) | Opt-in; 3-30 s, native audio, first and last frame; needs a single API key, not an ACCESS:SECRET pair |
 | kling | Kling 3.0 Turbo | `kling-3.0-turbo` | `3.0-turbo` | GA | $0.112 / second (720p, audio included; 1080p $0.14) | 3-15 s, native audio, first frame only; needs a single API key, not an ACCESS:SECRET pair |

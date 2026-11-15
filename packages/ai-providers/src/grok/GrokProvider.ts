@@ -1,6 +1,6 @@
 import type { AIProvider, AICapability, ProviderConfig } from "../interface/types.js";
 import { defaultModel, findModel, modelAliases } from "../catalog/catalog.js";
-import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest } from "../video/contract.js";
+import type { VideoContinuation, VideoGenerator, VideoJob, VideoJobState, VideoRequest, VideoUsage } from "../video/contract.js";
 import { fromBase64, type ImageGenerator, type ImageRequest, type ImageResultSet } from "../image/contract.js";
 import { resolveCatalogModel } from "../video/models.js";
 import { ProviderError, classifyProviderError } from "../shared/errors.js";
@@ -63,6 +63,8 @@ const CONTINUATION_MODEL: GrokVideoModel = "grok-imagine-video";
 /** xAI defaults video to 480p when `resolution` is omitted; ask for 720p instead. */
 const DEFAULT_VIDEO_RESOLUTION = "720p";
 const GROK_VIDEO_RESOLUTIONS = ["480p", "720p", "1080p"];
+/** An edit keeps the source clip's length, capped at 8.7 s, at no more than 720p (docs). */
+const EDIT_MAX_SECONDS = 8.7;
 
 /**
  * Grok video creation response
@@ -232,6 +234,24 @@ export class GrokProvider implements AIProvider, VideoGenerator, ImageGenerator 
     });
     const data = (await response.json()) as GrokCreateResponse;
     return { provider: this.id, id: data.request_id, model, submittedAt: new Date().toISOString() };
+  }
+
+  /**
+   * The seconds `request` bills at its resolution, priced from the catalog.
+   * xAI reports the real charge on the finished job. An extension bills the
+   * added seconds and an edit its output (the source's length, at most
+   * 8.7 s), both on the continuation model at 720p (probe, 2026-11-16).
+   */
+  estimateUsage(request: VideoRequest): VideoUsage {
+    if (request.from) {
+      const seconds =
+        request.from.kind === "extend" ? Math.round(Math.min(10, Math.max(2, request.durationSec ?? 6))) : EDIT_MAX_SECONDS;
+      return { provider: this.id, kind: "video", model: CONTINUATION_MODEL, size: "720p", amount: { unit: "seconds", count: seconds } };
+    }
+    const model = resolveVideoModel(this.id, request.model).id;
+    const size = GROK_VIDEO_RESOLUTIONS.includes(request.resolution ?? "") ? request.resolution! : DEFAULT_VIDEO_RESOLUTION;
+    const seconds = Math.round(Math.min(15, Math.max(1, request.durationSec || 5)));
+    return { provider: this.id, kind: "video", model, size, amount: { unit: "seconds", count: seconds } };
   }
 
   async getVideoJob(job: VideoJob): Promise<VideoJobState> {

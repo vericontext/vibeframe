@@ -3888,7 +3888,7 @@ exports[`envelope shape (--dry-run --json) > generate image (low cost, OpenAI de
 exports[`envelope shape (--dry-run --json) > generate video (high cost, async) 1`] = `
 {
   "command": "generate video",
-  "costUsd": 5,
+  "costUsd": 0.7,
   "data": {
     "params": {
       "duration": "5",

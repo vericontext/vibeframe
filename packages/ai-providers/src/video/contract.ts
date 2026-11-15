@@ -109,6 +109,16 @@ export interface VideoGenerator {
    * in which case callers fall back to an estimate.
    */
   usageFor?(request: VideoRequest): VideoUsage;
+  /**
+   * What `request` is expected to bill, for a provider that meters the
+   * finished job (`VideoJobState.usage`) rather than the submission: from
+   * its documented limits and list price, taking the longest output the
+   * request can produce. For dry runs and spend caps only; never recorded.
+   * Makes no request and needs no credentials. Throws `ProviderError` when
+   * it cannot say (an unpriced resolution), so callers fall back to the
+   * command's tier bound.
+   */
+  estimateUsage?(request: VideoRequest): VideoUsage;
 }
 
 /** A video submission's billed usage, as `recordUsage` takes it. */
