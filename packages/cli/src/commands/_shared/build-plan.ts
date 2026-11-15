@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { getApiKeyFromConfig } from "../../config/index.js";
 import { PROVIDER_ENV_VARS } from "../../config/schema.js";
 import { loadEnv } from "../../utils/api-key.js";
+import { expectedVideoCostUsd } from "./video-jobs.js";
 import {
   isReadyAssetReference,
   resolveGenericAssetReference,
@@ -197,6 +198,34 @@ export function backdropCostUsd(quality: "standard" | "hd"): number {
   return quality === "hd" ? 0.2 : 0.05;
 }
 const VIDEO_COST_USD = 5;
+
+/**
+ * A build clip's expected cost: Seedance from its token formula, any other
+ * provider from what it says the request can bill (`expectedVideoCostUsd`),
+ * else the tier bound. A build clip is 16:9 at the provider's default
+ * resolution, animated from the beat's keyframe when it has one.
+ */
+async function videoCostUsd(
+  provider: string,
+  clip: { prompt: string; durationSec: number; fromKeyframe: boolean }
+): Promise<number> {
+  if (provider === "seedance") {
+    return estimateSeedanceVideoCostUsd({ durationSec: clip.durationSec, resolution: "720p", aspectRatio: "16:9" });
+  }
+  try {
+    const usd = await expectedVideoCostUsd(provider, {
+      prompt: clip.prompt,
+      durationSec: clip.durationSec,
+      aspectRatio: "16:9",
+      // A placeholder: the build passes the keyframe file itself.
+      ...(clip.fromKeyframe ? { image: "data:image/png;base64,plan" } : {}),
+    });
+    if (usd !== undefined) return usd;
+  } catch {
+    // A request the provider would refuse is reported by the build itself; price it at the bound.
+  }
+  return VIDEO_COST_USD;
+}
 const MUSIC_COST_USD = 0.5;
 const ELEVENLABS_NARRATION_COST_USD = 0.05;
 /** gpt-4o-mini-tts is ~$0.015/min of audio; a beat is ~10–20s. Includes retry headroom. */
@@ -339,6 +368,31 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     retryWith.push(...resolution.retryWith);
   };
 
+  // A `provider:` cue pins a beat's video provider, as it does in the build.
+  const beatVideoProvider = (cue: BeatCues): string => {
+    const pinned = stringOrUndefined(cue.provider);
+    return pinned ? (parseBuildVideoProvider(pinned) ?? pinned) : resolved.video.resolved;
+  };
+  // What each beat's clip is expected to cost, asked of its provider before the
+  // (synchronous) per-beat plan below; the same figure `generate video --dry-run` gives.
+  const videoCosts = new Map<string, number>();
+  if (includeAssets && !skipVideo) {
+    for (const beat of sourceBeats) {
+      const cue = beat.cues ?? {};
+      const prompt = stringOrUndefined(cue.video) ?? stringOrUndefined(cue.keyframe);
+      if (!prompt) continue;
+      const fromKeyframe = Boolean(stringOrUndefined(cue.keyframe)) && !skipKeyframe;
+      videoCosts.set(
+        beat.id,
+        await videoCostUsd(beatVideoProvider(cue), {
+          prompt,
+          durationSec: normalizeVideoDuration(beat.duration),
+          fromKeyframe,
+        })
+      );
+    }
+  }
+
   const beats = sourceBeats.map((beat) => {
     const cue = beat.cues ?? {};
     const voice = stringOrUndefined(cue.voice) ?? resolved.voice;
@@ -365,11 +419,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
     // `video:` cue (the keyframe prompt then supplies the motion prompt too).
     const videoCue = videoPrompt ?? videoReference?.raw ?? keyframePrompt;
     const musicCue = musicPrompt ?? musicReference?.raw;
-    // A `provider:` cue pins this beat's video provider, as it does in the build.
-    const videoProviderCue = stringOrUndefined(cue.provider);
-    const videoProvider = videoProviderCue
-      ? (parseBuildVideoProvider(videoProviderCue) ?? videoProviderCue)
-      : resolved.video.resolved;
+    const videoProvider = beatVideoProvider(cue);
     const narrationCost = narrationCostUsd(resolved.narration.resolved);
     const narrationCache =
       narrationText && !narrationReference
@@ -488,14 +538,7 @@ export async function createBuildPlan(opts: CreateBuildPlanOptions): Promise<Bui
             reference: videoReference,
             projectDir,
             force: opts.force,
-            cost:
-              videoProvider === "seedance"
-                ? estimateSeedanceVideoCostUsd({
-                    durationSec: normalizeVideoDuration(beat.duration),
-                    resolution: "720p",
-                    aspectRatio: "16:9",
-                  })
-                : VIDEO_COST_USD,
+            cost: videoCosts.get(beat.id) ?? VIDEO_COST_USD,
             active: includeAssets,
           })
         : null;
