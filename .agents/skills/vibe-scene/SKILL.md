@@ -127,6 +127,11 @@ Gemini Omni; Kling legacy models extend only). Both are paid: run
 `--dry-run --json` first, confirm the spend with the user, and pass
 `--max-cost`. The result is a new take for the same slot; promote it to use it.
 
+Review reports link findings to takes: an issue about one beat lists the
+takes filling its slots in `issues[].takes`, and a finding about generated
+content adds `take edit` / `take promote` actions to `nextActions`. Use those
+rather than regenerating the whole beat.
+
 ## Narration Word-Sync
 
 During `vibe build`, generated narration is transcribed at the word level

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
+import { withReviewTakes } from "../../takes/review-links.js";
 import { validateStoryboardMarkdown } from "./storyboard-edit.js";
 import type { Beat } from "./storyboard-parse.js";
 import { readProjectConfig } from "./project-config.js";
@@ -422,8 +423,9 @@ function designPlaceholderIssues(design: string): ReviewIssue[] {
 async function maybeWriteProjectReport(
   projectDir: string,
   opts: ProjectInspectOptions,
-  result: ProjectInspectResult
+  unlinked: ProjectInspectResult
 ): Promise<ProjectInspectResult> {
+  const result = await withReviewTakes(projectDir, unlinked);
   if (opts.writeReport === false) return result;
   const reportPath = opts.outputPath
     ? resolve(process.cwd(), opts.outputPath)

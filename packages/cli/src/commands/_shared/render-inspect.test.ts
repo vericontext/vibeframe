@@ -64,6 +64,21 @@ describe("render inspect parsers", () => {
     ]);
   });
 
+  it("closes a freeze still running at the last frame at the video's duration", () => {
+    // ffmpeg logs only freeze_start when the video ends frozen.
+    const out = `
+[freezedetect @ 0x123] lavfi.freezedetect.freeze_start: 1.25
+[freezedetect @ 0x123] lavfi.freezedetect.freeze_duration: 1
+[freezedetect @ 0x123] lavfi.freezedetect.freeze_end: 2.25
+[freezedetect @ 0x123] lavfi.freezedetect.freeze_start: 4
+`;
+    expect(parseFreezedetectOutput(out, 6.5)).toEqual([
+      { start: 1.25, end: 2.25, duration: 1 },
+      { start: 4, end: 6.5, duration: 2.5 },
+    ]);
+    expect(parseFreezedetectOutput(out)).toEqual([{ start: 1.25, end: 2.25, duration: 1 }]);
+  });
+
   it("maps static frame ranges to beat-level host-agent issues", () => {
     const issue = staticFrameIssueForRange(
       { start: 0.25, end: 4.5, duration: 4.25 },

@@ -346,6 +346,13 @@ function printInspectSummary(
         : "";
     console.log(`  ${tag} ${chalk.dim(`[${issue.code}]`)}${loc} ${issue.message}`);
     if (issue.suggestedFix) console.log(`       ${chalk.dim(issue.suggestedFix)}`);
+    for (const take of issue.takes ?? []) {
+      const notes = [take.provider];
+      if (take.continuations?.length) notes.push(`can ${take.continuations.join(" or ")}`);
+      const earlier = take.alternatives?.length ?? 0;
+      if (earlier > 0) notes.push(`${earlier} earlier ${earlier === 1 ? "take" : "takes"}`);
+      console.log(`       ${chalk.dim(`${take.asset} take: ${take.takeId} (${notes.join("; ")})`)}`);
+    }
   }
 }
 

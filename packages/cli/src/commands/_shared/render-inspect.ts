@@ -5,6 +5,7 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { executeReview, type ReviewResult } from "../ai-review.js";
 import type { VideoReviewFeedback } from "../ai-edit.js";
 import { commandExists, execSafe } from "../../utils/exec-safe.js";
+import { withReviewTakes } from "../../takes/review-links.js";
 import { readProjectConfig } from "./project-config.js";
 import { parseStoryboard } from "./storyboard-parse.js";
 import {
@@ -183,7 +184,12 @@ export function parseSilencedetectOutput(output: string): TimeRange[] {
   return ranges;
 }
 
-export function parseFreezedetectOutput(output: string): TimeRange[] {
+/**
+ * Freeze ranges from ffmpeg freezedetect output. A freeze still running at the
+ * last frame is logged with a start and no end, so it is closed at
+ * `videoDurationSec` when that is known.
+ */
+export function parseFreezedetectOutput(output: string, videoDurationSec?: number): TimeRange[] {
   const ranges: TimeRange[] = [];
   let start: number | undefined;
   let duration: number | undefined;
@@ -211,6 +217,9 @@ export function parseFreezedetectOutput(output: string): TimeRange[] {
       start = undefined;
       duration = undefined;
     }
+  }
+  if (start !== undefined && videoDurationSec !== undefined && videoDurationSec > start) {
+    ranges.push({ start, end: videoDurationSec, duration: Number((videoDurationSec - start).toFixed(3)) });
   }
   return ranges;
 }
@@ -603,7 +612,7 @@ export async function inspectRender(opts: RenderInspectOptions): Promise<RenderI
     }
 
     try {
-      checks.staticFrames = await detectStaticFrames(videoPath);
+      checks.staticFrames = await detectStaticFrames(videoPath, checks.durationSec);
       for (const range of checks.staticFrames) {
         const beat = beatForRange(range, beatTimings);
         issues.push(staticFrameIssueForRange(range, beatTimings, videoPath));
@@ -864,8 +873,9 @@ function makeRenderResult(
 async function maybeWriteRenderReport(
   projectDir: string,
   opts: RenderInspectOptions,
-  result: RenderInspectResult
+  unlinked: RenderInspectResult
 ): Promise<RenderInspectResult> {
+  const result = await withReviewTakes(projectDir, unlinked);
   if (opts.writeReport === false) return result;
   const reportPath = opts.outputPath
     ? resolve(process.cwd(), opts.outputPath)
@@ -1177,13 +1187,13 @@ async function detectLongSilences(videoPath: string): Promise<TimeRange[]> {
   return parseSilencedetectOutput(output);
 }
 
-async function detectStaticFrames(videoPath: string): Promise<TimeRange[]> {
+async function detectStaticFrames(videoPath: string, videoDurationSec?: number): Promise<TimeRange[]> {
   const output = await ffmpegNull(videoPath, [
     "-vf",
     `freezedetect=n=-60dB:d=${STATIC_FRAME_MIN_DURATION_SEC}`,
     "-an",
   ]);
-  return parseFreezedetectOutput(output);
+  return parseFreezedetectOutput(output, videoDurationSec);
 }
 
 async function ffmpegNull(input: string, filterArgs: string[]): Promise<string> {
