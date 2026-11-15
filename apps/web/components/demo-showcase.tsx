@@ -45,15 +45,15 @@ function FlagshipCard() {
       <div className="p-5">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <PlayCircle className="w-4 h-4" />
-          Flagship render - one character, many scenes
+          One character in every scene
         </div>
         <h3 className="text-xl font-semibold text-foreground">
-          Chasing Light - one photographer across a single arctic night
+          Chasing Light: one photographer across a single arctic night
         </h3>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Trek, first aurora, the whole sky, dawn - the same character throughout. Character sheet →
-          image storyboard → image-to-video → composed render, generated end-to-end by{" "}
-          <code>vibe build</code>.
+          A trek, the first aurora, the whole sky lit up, and dawn, with the same photographer in
+          each shot. <code>vibe build</code> generated it end to end: a character sheet, a still
+          for each scene, image-to-video from each still, then the composed render.
         </p>
       </div>
     </article>

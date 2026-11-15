@@ -25,6 +25,7 @@ import { DemoShowcase } from "../components/demo-showcase";
  */
 const DOCS_PROJECTS_URL =
   "https://github.com/vericontext/vibeframe/blob/main/docs/projects.md";
+const DOCS_TAKES_URL = "https://github.com/vericontext/vibeframe/blob/main/docs/take-graph.md";
 
 export default function LandingPage() {
   return (
@@ -82,20 +83,22 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-2xl sm:text-3xl font-semibold text-foreground/90 mb-6 animate-fade-in-up delay-75">
-            Your keys. Your bill. Your limit.
+            It runs on your provider keys and stops before your budget.
           </p>
 
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 animate-fade-in-up delay-100">
             VibeFrame gives Claude Code, Codex, or Cursor the commands to plan a video, generate the
-            assets from{" "}
-            <span className="text-foreground font-medium">Seedance, Runway, Kling, and Gemini Omni</span> on
-            your own provider keys, and render a finished MP4. Every paid step sits behind a dry run
-            and a hard{" "}
+            assets with{" "}
+            <span className="text-foreground font-medium">
+              Seedance, Grok, Runway, Kling, and Gemini Omni
+            </span>{" "}
+            on your own provider keys, and render a finished MP4. Every paid step has a dry run and a
+            hard{" "}
             <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-sm">
               --max-cost
             </code>{" "}
-            ceiling, and every failure comes back as machine-readable recovery actions instead of a
-            stack trace.
+            ceiling, every generation is recorded with what it cost, and a failed step returns JSON
+            recovery actions the agent can run next.
           </p>
 
           <div className="grid lg:grid-cols-[1.35fr_0.65fr] gap-4 max-w-5xl mx-auto mb-10 text-left animate-fade-in-up delay-150">
@@ -136,30 +139,56 @@ export default function LandingPage() {
                 </code>
                 <code className="text-muted-foreground">{"}\n"}</code>
                 <code className="text-green-400">
-                  {"# stderr, exit 1 - the agent stops instead of guessing"}
+                  {"# stderr, exit 1 - the agent stops instead of guessing\n\n"}
+                </code>
+                <code className="text-muted-foreground">
+                  {"# after the real run: what each generation billed\n"}
+                </code>
+                <code className="text-foreground">vibe take log{"\n"}</code>
+                <code className="text-muted-foreground">
+                  {"$8.47 over 14 take(s) (film/.vibeframe/takes)\n"}
+                </code>
+                <code className="text-muted-foreground">
+                  {"  billing $7.95 · estimate $0.5200 · upper bound $0.0000"}
                 </code>
               </pre>
             </div>
             <div className="grid gap-3">
               {[
-                ["Intent", "STORYBOARD.md", "Beats, narration, cues", "#project-file-roles"],
-                ["Design", "DESIGN.md", "Palette, type, motion", "#project-file-roles"],
+                [
+                  "Intent",
+                  "STORYBOARD.md",
+                  "Beats, narration, cues",
+                  `${DOCS_PROJECTS_URL}#project-file-roles`,
+                ],
+                [
+                  "Design",
+                  "DESIGN.md",
+                  "Palette, type, motion",
+                  `${DOCS_PROJECTS_URL}#project-file-roles`,
+                ],
                 [
                   "Build",
                   "build-report.json",
                   "What it cost, where it stopped",
-                  "#build-and-review-reports",
+                  `${DOCS_PROJECTS_URL}#build-and-review-reports`,
                 ],
                 [
                   "Review",
                   "review-report.json",
                   "What is wrong, who fixes it",
-                  "#build-and-review-reports",
+                  `${DOCS_PROJECTS_URL}#build-and-review-reports`,
                 ],
-              ].map(([label, file, blurb, anchor]) => (
+                [
+                  "Record",
+                  ".vibeframe/takes/",
+                  "Every generation and its cost",
+                  DOCS_TAKES_URL,
+                ],
+              ].map(([label, file, blurb, href]) => (
                 <a
                   key={file}
-                  href={`${DOCS_PROJECTS_URL}${anchor}`}
+                  href={href}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-border/60 bg-secondary/35 px-4 py-3 transition-colors hover:border-primary/60 hover:bg-secondary/60"
@@ -185,7 +214,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground -mt-4 mb-8 animate-fade-in-up delay-200">
-            No API key needed to try it - the whole pipeline runs locally for $0.
+            You can try it without an API key: the whole pipeline runs locally for $0.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
@@ -214,8 +243,8 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-muted-foreground animate-fade-in-up delay-300">
-            Desktop extension: open the downloaded .mcpb, pick a workspace folder, done - no
-            terminal needed.
+            For the desktop extension, open the downloaded .mcpb and pick a workspace folder. You
+            do not need a terminal.
           </p>
         </div>
       </section>
@@ -304,8 +333,8 @@ export default function LandingPage() {
                 vibe setup --scope project && vibe build launch --max-cost 12 --json
               </code>
               <p className="text-xs text-muted-foreground mt-3">
-                BYO-key generation on Seedance, Runway, Kling, or Gemini Omni. Over the ceiling it refuses
-                and hands back recovery actions.
+                Generation on Seedance, Grok, Runway, Kling, or Gemini Omni with your keys. Over the
+                ceiling it refuses and returns recovery actions.
               </p>
             </div>
             <div className="bg-secondary/50 border border-border/50 rounded-xl p-5">
@@ -354,10 +383,9 @@ export default function LandingPage() {
                 vibe init
               </div>
               <p className="text-sm text-muted-foreground">
-                Writes one <code className="text-primary">AGENTS.md</code> (plus{" "}
-                <code className="text-primary">CLAUDE.md</code>, which just imports it). That is the
-                whole contract - Codex, Cursor, Aider, Gemini CLI, OpenCode and any other
-                bash-capable agent read the same file.
+                Writes one <code className="text-primary">AGENTS.md</code>, plus a{" "}
+                <code className="text-primary">CLAUDE.md</code> that imports it. Codex, Cursor,
+                Aider, Gemini CLI, OpenCode, and any other bash-capable agent read that same file.
               </p>
             </div>
             <div className="bg-secondary/40 border border-border/50 rounded-xl p-5">
@@ -368,8 +396,8 @@ export default function LandingPage() {
                 Adds typed MCP tools for the three hosts that support them:{" "}
                 <code className="text-primary">.mcp.json</code>,{" "}
                 <code className="text-primary">.codex/config.toml</code>,{" "}
-                <code className="text-primary">.cursor/mcp.json</code>. Optional - the CLI works
-                without it.
+                <code className="text-primary">.cursor/mcp.json</code>. This is optional; the CLI
+                works without it.
               </p>
             </div>
           </div>
@@ -397,11 +425,11 @@ export default function LandingPage() {
                   <MessageSquare className="w-6 h-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP Ready</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">MCP tools</h2>
                   <p className="text-muted-foreground">
-                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, Claude
-                    Code, and Codex project configs. MCP is optional; use it when your host prefers
-                    typed JSON-RPC tool calls over shell commands.
+                    {process.env.NEXT_PUBLIC_MCP_TOOLS} tools for Claude Desktop, Cursor, Claude Code,
+                    and Codex. MCP is optional; use it when your host prefers typed tool calls to
+                    shell commands.
                   </p>
                 </div>
               </div>
@@ -443,55 +471,54 @@ export default function LandingPage() {
       <section className="py-20 px-4 border-t border-border/50 relative">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Primary path and escape hatches</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Build a project, or run one command</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Start with the priced build: dry-run first, generate under the cap. Drop into
-              primitives only when an agent needs one asset, one edit, or one reproducible
-              pipeline.
+              Start with the priced build: dry-run it, then generate under the cap. Use the
+              single commands when an agent needs one asset, one edit, or a repeatable pipeline.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <PipelineCard
               icon={<Film className="w-6 h-6" />}
-              title="Build Under a Cap"
+              title="Build under a cap"
               command="vibe build my-video --max-cost 12 --json"
-              description="STORYBOARD.md + DESIGN.md to generated assets, scenes, reports - refuses over the ceiling"
+              description="Turns STORYBOARD.md and DESIGN.md into assets, scenes, and reports, and refuses to start over the ceiling"
               gradient="from-blue-500 to-purple-500"
             />
             <PipelineCard
               icon={<Sparkles className="w-6 h-6" />}
-              title="Frontier Generation"
+              title="One clip"
               command="vibe generate video"
-              description="One clip on Seedance, Runway, Kling, or Gemini Omni - your keys, dry-run priced"
+              description="Seedance, Grok, Runway, Kling, or Gemini Omni on your keys, priced by a dry run first"
               gradient="from-purple-500 to-pink-500"
             />
             <PipelineCard
               icon={<Zap className="w-6 h-6" />}
-              title="Auto Highlights + Shorts"
+              title="Highlights and shorts"
               command="vibe remix highlights"
-              description="Long video → best moments, or vertical shorts with captions"
+              description="Finds the best moments in a long video, or cuts vertical shorts with captions"
               gradient="from-orange-500 to-yellow-500"
             />
             <PipelineCard
               icon={<MessageSquare className="w-6 h-6" />}
-              title="Captions + Dub"
+              title="Captions and dubbing"
               command="vibe remix animated-caption"
-              description="Word-by-word captions, or transcribe → translate → TTS with vibe audio dub"
+              description="Word-by-word captions; vibe audio dub transcribes, translates, and re-voices"
               gradient="from-pink-500 to-red-500"
             />
             <PipelineCard
               icon={<Layers className="w-6 h-6" />}
-              title="Video as Code"
+              title="YAML pipelines"
               command="vibe run promo.yaml --dry-run"
-              description="Declarative YAML pipelines with budget guards, checkpoints, and --resume"
+              description="Multi-step pipelines with a budget, checkpoints, and --resume"
               gradient="from-green-500 to-emerald-500"
             />
             <PipelineCard
               icon={<Wand2 className="w-6 h-6" />}
-              title="Review + Repair"
+              title="Review and repair"
               command="vibe inspect render --cheap"
-              description="Machine-readable review with nextActions and deterministic repair"
+              description="A JSON review that names the take behind each problem and the next command to run"
               gradient="from-green-500 to-teal-500"
             />
           </div>
@@ -505,8 +532,8 @@ export default function LandingPage() {
             Open source frontier video generation for coding agents.
           </h2>
           <p className="text-muted-foreground text-lg mb-8">
-            MIT licensed · v{process.env.NEXT_PUBLIC_VERSION} · your keys, your bill, your ceiling
-            - CLI, MCP tools, JSON reports, and recovery contracts.
+            MIT licensed, v{process.env.NEXT_PUBLIC_VERSION}. A CLI and MCP server that runs on your
+            keys under your spend ceiling.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

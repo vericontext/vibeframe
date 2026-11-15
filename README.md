@@ -3,8 +3,9 @@
 **Let your coding agent generate real video, on your own provider keys, under a spend ceiling it cannot cross.**
 
 VibeFrame is a CLI and MCP server for Claude Code, Codex, Cursor, or any bash-capable agent.
-It turns a written brief into a plan, generates the assets from frontier models (Seedance, Runway, Kling, Gemini Omni), and renders a finished MP4.
-Every paid step sits behind a dry run and a hard `--max-cost` ceiling, and every failure comes back as machine-readable recovery actions instead of a stack trace.
+It turns a written brief into a plan, generates the assets with frontier models (Seedance, Grok, Runway, Kling, Gemini Omni), and renders a finished MP4.
+Every paid step has a dry run and a hard `--max-cost` ceiling.
+When a step fails, the agent gets JSON recovery actions it can run next.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
@@ -13,7 +14,7 @@ Every paid step sits behind a dry run and a hard `--max-cost` ceiling, and every
 ![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
 
 One photographer across a single arctic night, 1080p, generated end to end.
-▶ **[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4)**
+[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4).
 
 ## Know the price before anything is spent
 
@@ -37,17 +38,30 @@ vibe build film --dry-run --max-cost 3 --json
 }
 ```
 
-The envelope goes to stderr and the command exits 1, so an agent loop stops instead of guessing.
-`retryWith` gives it the two cheaper ways forward it can take without asking you, and `data.plan` carries the priced plan the refusal was based on, so it never has to re-run just to learn the estimate.
+The envelope goes to stderr and the command exits 1, so an agent loop stops there.
+`retryWith` lists two cheaper commands the agent can run without asking you, and `data.plan` holds the priced plan behind the refusal, so the agent does not have to re-run anything to learn the estimate.
 
-The same dry run names the keys each stage would need, so you find out what a video costs before you own an account:
+The same dry run names the keys each stage would need, so you can price a video before you sign up with any provider:
 
 ```text
 Keyframe generation will need openai (OPENAI_API_KEY), but no key/config is available.
 Video generation will need seedance (FAL_API_KEY), but no key/config is available.
 ```
 
-Your keys, your bill, your ceiling.
+## Every paid call is on record
+
+Each generation is saved as a take: the prompt and parameters, the input and output files by hash, the provider job, and what it cost.
+The cost says where the figure came from, so you can tell a provider's bill from an estimate.
+
+```bash
+vibe take list --beat dawn          # every take made for one scene
+vibe take log --since 2026-11-01    # spend, split into billing and estimates
+vibe take promote <take id>         # put an earlier, better take back into the build
+vibe take edit <take id> --prompt "make it dusk" --dry-run   # revise a Grok or Omni video in place
+```
+
+Review reports name the take behind each problem, so a fix can be a free promote or one edit instead of a whole new scene.
+The format is in [docs/take-graph.md](docs/take-graph.md).
 
 ## Where VibeFrame fits
 
@@ -59,13 +73,13 @@ It wraps lower-level composition engines rather than replacing them:
 | [Hyperframes](https://github.com/heygen-com/hyperframes) | HTML/CSS/JS scene composition and deterministic browser capture.                  |
 | VibeFrame                                                | Frontier-model generation on your own keys, dry runs and the hard `--max-cost` ceiling, storyboard/design files, build reports, render inspection, edit/remix commands, and host-agent guidance. |
 
-Read that table as one sentence: scene composition is delegated, generation is not.
-If the job is only HTML scene authoring and rendering, use Hyperframes directly - it is the better tool for that, and `vibe scene install-skill` installs its skill for you either way.
-Reach for VibeFrame when the job involves paid generation: frontier image and video models, character continuity across scenes, narration, cost ceilings, build reports, or editing steps around the composition layer.
+VibeFrame hands scene composition to Hyperframes and does the generation itself.
+If you only need HTML scenes rendered to video, use Hyperframes directly; `vibe scene install-skill` installs its skill either way.
+Use VibeFrame when the job includes paid generation: frontier image and video models, one character across many scenes, narration, cost ceilings, build reports, or edits around the composition.
 
-One consequence worth knowing before you install: the whole pipeline runs locally for $0 without a provider key, because that free half is the delegated half - Kokoro narration, agent-authored HTML/CSS scenes, headless Chrome plus FFmpeg.
-It is the cheapest way to see whether the workflow fits you, and the full walkthrough is in [docs/hyperframes.md](docs/hyperframes.md#the-zero-key-render-start-to-finish).
-It is not the point of the tool: the paid generation path below is.
+Without a provider key the pipeline still runs locally for $0, using Kokoro narration, HTML/CSS scenes your agent writes, and headless Chrome with FFmpeg.
+That is the cheapest way to check whether the workflow suits you, and [docs/hyperframes.md](docs/hyperframes.md#the-zero-key-render-start-to-finish) walks through it.
+The paid generation path below is what VibeFrame is built for.
 
 VibeFrame is not affiliated with HeyGen.
 See [CREDITS.md](CREDITS.md) for dependency and provenance notes.
@@ -77,18 +91,18 @@ curl -fsSL https://vibeframe.ai/install.sh | bash
 vibe doctor
 ```
 
-Needs **Node.js 20+, FFmpeg, and Chrome** (or Chromium).
+It needs Node.js 20+, FFmpeg, and Chrome (or Chromium).
 `vibe doctor` verifies all three and lists which commands each provider key unlocks.
 
-Generation is the only thing that needs a key.
-FFmpeg edits, Kokoro narration, scene composition, detection, and rendering are all local.
-Add `OPENAI_API_KEY`, `FAL_API_KEY`, `GOOGLE_API_KEY`, `RUNWAY_API_SECRET`, or `KLING_API_KEY` for the providers you actually use, via `vibe setup` or the environment.
+Only generation needs a key.
+FFmpeg edits, Kokoro narration, scene composition, detection, and rendering all run locally.
+Add `OPENAI_API_KEY`, `FAL_API_KEY`, `XAI_API_KEY`, `GOOGLE_API_KEY`, `RUNWAY_API_SECRET`, or `KLING_API_KEY` for the providers you use, with `vibe setup` or in the environment.
 
 <details>
 <summary>Package names, config locations, and building from source</summary>
 
 The CLI is published as [`@vibeframe/cli`](https://www.npmjs.com/package/@vibeframe/cli) (binary `vibe`) and the MCP server as [`@vibeframe/mcp-server`](https://www.npmjs.com/package/@vibeframe/mcp-server).
-There is no bare `vibeframe` npm package from this project - that name belongs to an unrelated package, so `npx vibeframe` will not run this tool.
+The bare `vibeframe` npm package belongs to an unrelated project, so `npx vibeframe` will not run this tool.
 
 The installer places the CLI under the XDG data directory (`~/.local/share/vibeframe` by default).
 User-scope keys live in `~/.vibeframe/config.yaml`; `vibe setup --scope project` writes `./.vibeframe/config.yaml`.
@@ -117,7 +131,7 @@ What `init` produces is a project you then own:
 
 ```text
 launch/
-  STORYBOARD.md     title, duration, aspect, providers, cast - and the direction prose
+  STORYBOARD.md     title, duration, aspect, providers, cast, and the direction prose
   DESIGN.md         palette, typography, layout, motion, transitions
   scenes/
     01-hook.md      one scene per file, in play order
@@ -125,7 +139,7 @@ launch/
     03-close.md
 ```
 
-Each scene is a markdown file. Its frontmatter carries the cues, its body carries the direction:
+Each scene is a markdown file. The frontmatter holds the cues and the body holds the direction:
 
 ```markdown
 ---
@@ -140,23 +154,23 @@ voice: "alloy"
 Open on the terminal. Let the storyboard cues land before the camera moves.
 ```
 
-A cue's value is either a prompt to generate from, or a project-relative path to a file you already have - `video: "media/broll.mp4"` above reuses your footage instead of generating any.
+A cue's value is either a prompt to generate from or a project-relative path to a file you already have. `video: "media/broll.mp4"` above reuses your footage, so nothing is generated for it.
 
-Scenes play in filename order, so `vibe storyboard move` reorders by renumbering. Edit the files directly, or ask a coding agent to research and revise them.
-The rest is convention: `media/` for footage you supply, `assets/` for generated ones, `renders/` for output, and `vibe.config.json` for the provider, model, and quality contract.
+Scenes play in filename order, and `vibe storyboard move` reorders them by renumbering. Edit the files yourself, or ask a coding agent to research and revise them.
+By convention `media/` holds footage you supply, `assets/` holds generated files, `renders/` holds output, and `vibe.config.json` sets the provider, model, and quality.
 
 Add `--json` to any command for structured output.
 `plan`, `build`, `preview`, `render`, and both `inspect` commands take `--beat <id>` to work one beat at a time instead of rebuilding everything.
 `storyboard`, `status`, and `scene repair` cover editing beats, polling async work, and deterministic fixes.
 
-Those five are the common cues; there are fifteen in all, and `vibe storyboard validate` warns on anything outside them.
+Those five are the common cues. There are fifteen in all, and `vibe storyboard validate` warns about anything else.
 Profiles (`--profile minimal | agent | full`), [the full cue vocabulary](docs/projects.md#the-cue-vocabulary), and the whole project flow are in [docs/projects.md](docs/projects.md).
 
-## What the spend buys: one character, many scenes
+## One character across many scenes
 
-Generating four shots that look like the same film is the hard part, and it is what the paid path is for.
-Declare a character pool in `STORYBOARD.md` and reference it from individual scenes.
-VibeFrame generates the character sheet once and reuses it as the reference image for Seedance image-to-video, so the character stays consistent across scenes.
+The hard part of generated video is making four shots look like the same film.
+Declare a character pool in `STORYBOARD.md` and name characters in individual scenes.
+VibeFrame generates each character sheet once and reuses it as the reference image for Seedance image-to-video, so the character looks the same in every scene.
 
 `STORYBOARD.md` declares who exists:
 
@@ -181,8 +195,8 @@ video: "slow tilt up as the aurora ripples and pulses overhead"
 ```
 
 Each scene pairs a `keyframe` still with a `video` motion prompt.
-Generate the cheap image storyboard first, review it, then animate only the stills you approve.
-That is also the cheapest way to keep a run under its ceiling, since stills cost a fraction of the video.
+Generate the stills first, review them, then animate only the ones you approve.
+Stills cost a fraction of the video, so this also keeps a run under its ceiling.
 
 ```bash
 vibe build my-film --skip-video   # keyframe stills only (cheap) - review them first
@@ -209,13 +223,13 @@ vibe remix highlights demo-process.mp4 -d 60 -o highlight.mp4
 vibe audio duck bgm.mp3 --voice highlight.mp4 -o bgm-ducked.mp3
 ```
 
-For reproducible multi-step workflows, `vibe run pipeline.yaml` executes a budgeted YAML pipeline with `--dry-run` and `--resume`.
+For repeatable multi-step work, `vibe run pipeline.yaml` runs a YAML pipeline with a budget, `--dry-run`, and `--resume`.
 Worked examples of all of the above are in [docs/recipes.md](docs/recipes.md).
 
 ## Drive it from an agent
 
-Use your host's agent loop as the outer loop, drive the CLI with `--json`, and use `build-report.json` and `review-report.json` as loop state.
-The forward pass is the build flow above; what makes it a loop is the recovery pass:
+Your host's agent loop is the outer loop. It drives the CLI with `--json` and keeps `build-report.json` and `review-report.json` as its state.
+The build flow above is the forward pass. The recovery pass looks like this:
 
 ```text
 "fix quality issues from the render review"
@@ -226,10 +240,10 @@ The forward pass is the build flow above; what makes it a loop is the recovery p
 -> vibe inspect render launch --cheap --json
 ```
 
-`inspect` returns pre-classified `nextActions`: run `safeToAutoRun:true` automatically, ask before `requiresConfirmation:true`, and use `retryWith` only as a fallback.
-`fixOwner` says who acts - `"vibe"` means the CLI repairs it deterministically, `"host-agent"` means the outer loop or a human edits the source files.
+`inspect` returns classified `nextActions`: run the `safeToAutoRun:true` ones automatically, ask before `requiresConfirmation:true`, and use `retryWith` only as a fallback.
+`fixOwner` says who acts. `"vibe"` means the CLI can repair it deterministically; `"host-agent"` means the outer loop or a person edits the source files.
 
-You do not have to write any of that into your prompt.
+You do not have to put any of this in your prompt.
 `vibe context` prints it, so "read `vibe context`, then build `launch/` from `brief.md` under `--max-cost 5`" is enough to start a host agent.
 The full contract with a worked report is in [docs/projects.md](docs/projects.md#host-agent-loop).
 
@@ -244,8 +258,8 @@ vibe guide                          # workflow guides (motion | scene | pipeline
 
 ## Connect your host
 
-`vibe init` writes one `AGENTS.md` (plus a `CLAUDE.md` that imports it).
-That is the whole contract: Codex, Cursor, Aider, Gemini CLI, OpenCode, and any other bash-capable agent read the same file, and there is no per-host scaffold.
+`vibe init` writes one `AGENTS.md`, plus a `CLAUDE.md` that imports it.
+Codex, Cursor, Aider, Gemini CLI, OpenCode, and any other bash-capable agent read that same file, so there is no per-host setup.
 
 The CLI is the primary runtime; MCP is for hosts that prefer typed tool calls.
 `vibe host` prints config by default, and `--write` applies it:
@@ -257,7 +271,7 @@ vibe host setup claude-desktop ~/dev/videos --write   # pass the workspace dir
 vibe host doctor all --json                           # verify what landed
 ```
 
-**Claude Desktop users:** install the prebuilt extension instead of editing JSON.
+In Claude Desktop, install the prebuilt extension instead of editing JSON.
 Download [vibeframe.mcpb](https://github.com/vericontext/vibeframe/releases/latest/download/vibeframe.mcpb), drop it into **Settings → Extensions**, then pick a workspace folder.
 
 To wire `@vibeframe/mcp-server` (binary `vibeframe-mcp`) by hand, add:
@@ -273,12 +287,13 @@ To wire `@vibeframe/mcp-server` (binary `vibeframe-mcp`) by hand, add:
 }
 ```
 
-Tool, resource, and prompt details are in [packages/mcp-server/README.md](packages/mcp-server/README.md).
+The tool list is in [packages/mcp-server/README.md](packages/mcp-server/README.md).
 
 ## Reference
 
 - [docs/projects.md](docs/projects.md): project files, profiles, characters, keyframes, and the host agent loop.
 - [docs/recipes.md](docs/recipes.md): worked end-to-end examples.
+- [docs/take-graph.md](docs/take-graph.md): the take record, spend by basis, promote, extend, edit, and prune.
 - [docs/hyperframes.md](docs/hyperframes.md): where VibeFrame ends and the composition engine begins, plus the zero-key render.
 - [docs/ai-video-prompting.md](docs/ai-video-prompting.md): prompt craft for image and video models.
 - [MODELS.md](MODELS.md): provider and model reference.
