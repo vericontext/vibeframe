@@ -51,8 +51,9 @@ const CLI_TREE: Record<string, string[]> = {
   design: ["validate"],
   status: ["job", "project"],
   // The take record: list/show/log read it, promote fills a beat slot,
-  // extend/edit continue a video take through its provider session.
-  take: ["list", "show", "log", "promote", "extend", "edit"],
+  // prune removes media copies, extend/edit continue a video take through
+  // its provider session.
+  take: ["list", "show", "log", "promote", "prune", "extend", "edit"],
 };
 
 // Top-level CLI commands with no manifest equivalent — pure ergonomics
@@ -141,6 +142,7 @@ const CLI_TO_MANIFEST: Record<string, string | null> = {
   "take show":      "take_show",
   "take log":       "take_log",
   "take promote":   "take_promote",
+  "take prune":     "take_prune",
   "take extend":    "take_extend",
   "take edit":      "take_edit",
 };

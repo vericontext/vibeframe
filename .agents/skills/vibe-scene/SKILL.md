@@ -118,7 +118,9 @@ vibe take promote <take id>
 
 Later builds keep a promoted slot until that beat's cue is edited or
 `vibe build --force` runs. `vibe take log --json` totals what the project
-spent, split into provider billing and estimates. See `docs/take-graph.md`.
+spent, split into provider billing and estimates. `vibe take prune --dry-run`
+shows media copies safe to remove (`--slots-only` frees more, but those takes
+can no longer be promoted from a copy; ask first). See `docs/take-graph.md`.
 
 A beat video that is close but not right can be continued instead of
 regenerated: `vibe take extend <take id>` adds time after its last frame,

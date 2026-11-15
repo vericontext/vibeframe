@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { localMinute } from "./take.js";
+import { formatBytes, localMinute } from "./take.js";
 
 describe("take list times", () => {
   it("shows a stored UTC time in the reader's time zone", () => {
@@ -11,5 +11,13 @@ describe("take list times", () => {
 
   it("leaves an unparseable time as it is", () => {
     expect(localMinute("not a time")).toBe("not a time");
+  });
+});
+
+describe("take prune sizes", () => {
+  it("reads in B, KB, or MB", () => {
+    expect(formatBytes(100)).toBe("100 B");
+    expect(formatBytes(2_500)).toBe("2.5 KB");
+    expect(formatBytes(16_000_000)).toBe("16.0 MB");
   });
 });

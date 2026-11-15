@@ -275,7 +275,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | ------- | ------------------------------------------------------------------------- |
 | `guide` | Cross-host guides for motion, scene, pipeline, and architecture workflows |
 
-### Takes (6)
+### Takes (7)
 
 | Tool           | Description                                                                                  |
 | -------------- | -------------------------------------------------------------------------------------------- |
@@ -283,6 +283,7 @@ Tool names are MCP-side. Your host typically prefixes them (e.g. Claude shows th
 | `take_show`    | Show one take in full: prompt, inputs and outputs with sha256, provider session, cost        |
 | `take_log`     | Total spend by provider, model, and kind, split into billing and estimates                   |
 | `take_promote` | Put an earlier take back into a project's beat slot; later builds keep it                    |
+| `take_prune`   | Remove take media copies no take refers to (or, with slotsOnly, not in a slot)               |
 | `take_extend`  | Extend a video take from its last frame through its provider session (paid)                  |
 | `take_edit`    | Revise a video take with a prompt through its provider session (paid)                        |
 

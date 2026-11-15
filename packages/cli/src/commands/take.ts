@@ -17,6 +17,7 @@ import { upperBoundCost } from "./_shared/actual-cost.js";
 import { createAndWriteJobRecord } from "./_shared/status-jobs.js";
 import { executeTakeList, executeTakeLog, executeTakeShow, type TakeScope } from "../takes/query.js";
 import { executeTakePromote } from "../takes/promote.js";
+import { executeTakePrune } from "../takes/prune.js";
 import { executeTakeContinue, type TakeContinueResult } from "../takes/continue.js";
 import type { VideoContinuation } from "@vibeframe/ai-providers";
 import { TAKE_SLOTS, type TakeKind, type TakeSlot } from "../takes/take.js";
@@ -60,7 +61,7 @@ export function localMinute(iso: string, timeZone?: string): string {
 }
 
 export const takeCommand = new Command("take")
-  .description("List, inspect, total, promote, and continue the record of every paid generation (takes)")
+  .description("List, inspect, total, promote, continue, and prune the record of every paid generation (takes)")
   .addHelpText("after", `
 A take is one generation as it happened: prompt, parameters, inputs and
 outputs by hash, provider session, parent take, and cost with its basis
@@ -79,6 +80,10 @@ session (Grok and Gemini Omni extend and edit; Kling's legacy models
 extend). The result is a new take whose parent is the one continued, made
 for the same beat slot, so 'take promote' can put it into the build.
 
+A project take keeps a copy of its output in .vibeframe/media/ so it can be
+promoted back. 'take prune' removes copies no take refers to; with
+--slots-only, also the copies of takes not in a slot now.
+
 Examples:
   $ vibe take list --json
   $ vibe take list --beat 2 --kind video
@@ -88,6 +93,8 @@ Examples:
   $ vibe take edit take_mh2k1x0a_1f2e3d4c --prompt "make it dusk" --max-cost 2
   $ vibe take log --since 2026-11-01 --json
   $ vibe take log --global
+  $ vibe take prune --dry-run
+  $ vibe take prune --slots-only --json
 `);
 
 takeCommand
@@ -225,6 +232,47 @@ takeCommand
     }
   });
 
+/** A size in the unit that reads best: B, KB, or MB. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1_000) return `${bytes} B`;
+  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
+takeCommand
+  .command("prune")
+  .description("Remove take media copies no take refers to (--slots-only: keep only the copies of takes in a slot)")
+  .option("--project <dir>", "Project to prune (default: the one around the current directory)")
+  .option("--slots-only", "Also remove the copies of takes that do not fill a beat slot now; they can no longer be promoted from a copy")
+  .option("--dry-run", "Show what would be removed without removing it")
+  .action(async (options) => {
+    const startedAt = Date.now();
+    try {
+      const result = await executeTakePrune({
+        cwd: process.cwd(),
+        projectDir: options.project,
+        slotsOnly: options.slotsOnly === true,
+        dryRun: options.dryRun === true,
+      });
+      if (!result.success) exitWithError(result.failure);
+      if (isJsonMode()) {
+        outputSuccess({ command: "take prune", startedAt, dryRun: result.dryRun, data: result as unknown as Record<string, unknown> });
+        return;
+      }
+      const verb = result.dryRun ? "Would remove" : "Removed";
+      console.log(`${verb} ${result.removed.length} file(s), ${formatBytes(result.freedBytes)}, from ${result.mediaDir}; kept ${result.kept}`);
+      for (const file of result.removed) {
+        const owners = file.takeIds ? ` (${file.takeIds.join(", ")})` : "";
+        console.log(chalk.dim(`  ${file.reason.padEnd(12)} ${file.file}  ${formatBytes(file.bytes)}${owners}`));
+      }
+      if (result.unpromotable.length > 0) {
+        console.log(chalk.yellow(`  ${result.unpromotable.length} take(s) ${result.dryRun ? "would lose" : "lost"} their copy and can be promoted only while their output file is unchanged.`));
+      }
+    } catch (error) {
+      exitWithError(failureFromError(error, "Could not prune take media", { fallback: "general" }));
+    }
+  });
+
 function registerContinuation(continuation: VideoContinuation): void {
   const extend = continuation === "extend";
   const cmd = takeCommand
@@ -340,4 +388,4 @@ function printPlan(plan: TakeContinueResult): void {
 registerContinuation("extend");
 registerContinuation("edit");
 
-applyTiers(takeCommand, { list: "free", show: "free", log: "free", promote: "free", extend: "very-high", edit: "very-high" });
+applyTiers(takeCommand, { list: "free", show: "free", log: "free", promote: "free", prune: "free", extend: "very-high", edit: "very-high" });
