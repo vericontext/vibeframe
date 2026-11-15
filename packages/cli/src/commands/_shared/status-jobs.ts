@@ -6,6 +6,7 @@ import { dirname, join, parse, relative, resolve } from "node:path";
 import { VIDEO_GENERATOR_PROVIDERS, recordUsage, type VideoJob, type VideoUsage } from "@vibeframe/ai-providers";
 import { executeVideoStatus } from "../ai-video.js";
 import { executeMusicStatus } from "../generate/music-status.js";
+import { settleSubmittedTake } from "../../takes/settle.js";
 import type { BuildAssetKind } from "./build-cache.js";
 import { writeAssetMetadata } from "./build-asset-metadata.js";
 import type { ReviewAction, ReviewActionCostTier, ReviewFixOwner } from "./review-report.js";
@@ -66,6 +67,8 @@ export interface JobRecord {
    * the first time a refresh sees it, which is also when it is metered.
    */
   usage?: VideoUsage;
+  /** The take recorded when the job was submitted; a refresh that sees the job finish settles it. */
+  takeId?: string;
   progress?: number;
   resultUrl?: string;
   beatId?: string;
@@ -101,6 +104,7 @@ export interface CreateJobRecordOptions {
   providerTaskId: string;
   providerTaskType?: "text2video" | "image2video";
   providerJob?: VideoJob;
+  takeId?: string;
   projectDir?: string;
   workingDirectory?: string;
   command: string;
@@ -143,6 +147,8 @@ export interface JobStatusResult {
   updatedAt: string;
   progress?: JobProgress;
   result: JobResult | null;
+  /** The job's take; settled once the job finished. */
+  takeId?: string;
   job: JobRecord;
   refreshed: boolean;
   live: {
@@ -224,6 +230,7 @@ export interface JobSummary {
   resultUrl?: string;
   beatId?: string;
   outputPath?: string;
+  takeId?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -311,6 +318,7 @@ export function createJobRecord(opts: CreateJobRecordOptions): JobRecord {
     providerTaskId: opts.providerTaskId,
     providerTaskType: opts.providerTaskType,
     providerJob: opts.providerJob,
+    takeId: opts.takeId,
     progress: opts.progress,
     resultUrl: opts.resultUrl,
     beatId: opts.beatId,
@@ -380,6 +388,30 @@ export async function listJobRecords(projectDir: string): Promise<JobRecord[]> {
   return records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/**
+ * Settle the take a finished job was submitted under: its status, output,
+ * and reported charge. Returns a warning when the take could not be written;
+ * the job refresh itself still succeeds.
+ */
+async function settleJobTake(record: JobRecord): Promise<string | undefined> {
+  if (!record.takeId) return undefined;
+  const terminal = record.status === "completed" || record.status === "failed" || record.status === "cancelled";
+  if (!terminal) return undefined;
+  try {
+    await settleSubmittedTake({
+      takeId: record.takeId,
+      cwd: record.workingDirectory,
+      status: record.status === "completed" ? "completed" : "failed",
+      outputPath: record.outputPath,
+      usage: record.usage,
+      error: record.error,
+    });
+    return undefined;
+  } catch (error) {
+    return `Take ${record.takeId} not settled: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
 export async function refreshJobRecord(
   record: JobRecord,
   opts: RefreshJobOptions = {}
@@ -446,7 +478,11 @@ export async function refreshJobRecord(
       await maybeCacheOutput(updated);
       await maybeWriteCompletedAssetMetadata(updated);
     }
-    if (opts.write !== false) await writeJobRecord(updated);
+    if (opts.write !== false) {
+      await writeJobRecord(updated);
+      const settled = await settleJobTake(updated);
+      if (settled) warnings.push(settled);
+    }
     return makeJobStatusResult(updated, {
       refreshed: true,
       live,
@@ -596,6 +632,7 @@ export function summarizeJob(record: JobRecord): JobSummary {
     resultUrl: record.resultUrl,
     beatId: record.beatId,
     outputPath: record.outputPath,
+    takeId: record.takeId,
     error: record.error,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -628,6 +665,7 @@ export function makeJobStatusResult(
     updatedAt: record.updatedAt,
     progress: jobProgress(record),
     result: jobResult(record),
+    takeId: record.takeId,
     job: record,
     refreshed: opts.refreshed,
     live: opts.live,
@@ -830,6 +868,7 @@ async function maybeWriteCompletedAssetMetadata(record: JobRecord): Promise<void
       cachePath: record.cachePath
         ? projectRelativePath(record.projectDir, record.cachePath)
         : undefined,
+      takeId: record.takeId,
     });
   } catch {
     // Metadata writes should not hide provider status refresh success.

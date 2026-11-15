@@ -227,7 +227,7 @@ export function registerMusicCommand(parent: Command): void {
 
       // Replicate --no-wait: record the job so `vibe status job` can finish it.
       if (result.taskId && !result.outputPath) {
-        const job = await recordMusicNoWaitJob({ provider: "replicate", providerTaskId: result.taskId, prompt });
+        const job = await recordMusicNoWaitJob({ provider: "replicate", providerTaskId: result.taskId, prompt, takeId: result.takeId });
         if (isJsonMode()) {
           outputSuccess({
             command: "generate music",
@@ -267,6 +267,7 @@ async function recordMusicNoWaitJob(opts: {
   provider: string;
   providerTaskId: string;
   prompt: string;
+  takeId?: string;
 }): Promise<JobRecord> {
   return createAndWriteJobRecord({
     jobType: "generate-music",
@@ -275,6 +276,7 @@ async function recordMusicNoWaitJob(opts: {
     status: "running",
     command: "generate music --no-wait",
     prompt: opts.prompt,
+    takeId: opts.takeId,
   });
 }
 

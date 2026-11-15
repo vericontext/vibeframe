@@ -61,6 +61,11 @@ A call refused before any request leaves no take: bad input, a missing key, or a
 Image providers report no usage, so a failed image call leaves no take.
 A Replicate music job returned without waiting is a `submitted` take with no output.
 
+A `submitted` take is settled by `vibe status job` (or the `status_job` MCP tool).
+The job record names the take it was submitted under; the refresh that sees the job finish fills the take in once: `status` becomes `completed` or `failed`, the downloaded file is added to `outputs` (and preserved, for a project take), a charge the provider reported replaces the estimate, and `settledAt` records when.
+This covers `generate video --no-wait`, `take extend` and `take edit` with `--no-wait`, `generate music --no-wait`, and a build whose video wait ran out; a build slot the job fills points at the settled take.
+A take is otherwise never rewritten, and a settled take is not settled again.
+
 ## Cost and its basis
 
 Every take records a dollar figure and the basis for it.
@@ -69,9 +74,9 @@ The basis says how far to trust the figure.
 | Basis | Meaning | Example |
 | --- | --- | --- |
 | `reported` | The provider said what it charged | xAI `cost_in_usd_ticks`, Runway `cost.credits` |
-| `metered` | Units we measured, times the catalog list price | Kling seconds at the billed resolution, ElevenLabs characters, Gemini TTS audio seconds; Kokoro narration is metered at its list price of $0 |
+| `metered` | Units we measured, times the catalog list price | Kling seconds at the billed resolution, Omni tokens, ElevenLabs characters, Gemini TTS audio seconds; Kokoro narration is metered at its list price of $0 |
 | `estimate` | A formula over the request | Seedance token formula, image list price per image |
-| `upper-bound` | The command's cost tier ceiling, when nothing better exists | Omni video today |
+| `upper-bound` | The command's cost tier ceiling, when nothing better exists | A video job handed back still running, until `vibe status job` settles it with the provider's charge |
 
 `reported` and `metered` figures are billing.
 `estimate` and `upper-bound` figures are not, and `vibe take log` keeps them separate.
@@ -100,7 +105,9 @@ Fields marked optional are left out when they do not apply.
 | `cost` | `{ usd, basis, usage? }` | See above |
 | `origin` | `{ via, command, cwd, beatId?, asset? }` | `via` is `cli`, `mcp`, `pipeline`, or `build`; `command` is the command or tool name; `beatId` and `asset` name the beat slot a build made it for |
 | `error` | `{ message, kind? }`, optional | Why a failed take failed; `kind` is the provider error kind |
+| `settledAt` | ISO time, optional | When `vibe status job` settled a `submitted` take |
 
+A settled take appends a second ledger line; the later line counts.
 A ledger line holds `takeId`, `createdAt`, `store` (the takes directory), `projectDir` (for a project take), `kind`, `operation`, `status`, `provider`, `model`, `usd`, and `basis`.
 
 ## Beat slots and promotion
@@ -189,4 +196,4 @@ Commands that record a take return its `takeId` in `data`.
 Takes are the base of the take graph: branching, comparing, and promoting generations.
 Planned on top of this format:
 
-- a video job a build leaves running is finished by `vibe status job`, which does not yet record the finished output on a take.
+- pruning `.vibeframe/media/` copies no take refers to.

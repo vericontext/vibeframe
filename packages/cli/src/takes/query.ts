@@ -144,15 +144,19 @@ export async function executeTakeList(scope: TakeScope, filter: TakeFilter & { l
   return { mode: found.mode, store: found.store, total: found.rows.length, takes: found.rows.slice(0, limit) };
 }
 
-/** One take by id: the current project's store, then the global store, then wherever the ledger says it is. */
-export async function executeTakeShow(id: string, scope: TakeScope): Promise<{ take: Take; store: string } | undefined> {
-  const stores = [storeOf(scope), globalTakeStore()];
-  const direct = await readTake(id, stores);
-  if (direct) return { take: direct.take, store: direct.store.dir };
+/** One take by id and its store: the current project's store, then the global store, then wherever the ledger says it is. */
+export async function findTake(id: string, scope: TakeScope): Promise<{ take: Take; store: TakeStore } | undefined> {
+  const direct = await readTake(id, [storeOf(scope), globalTakeStore()]);
+  if (direct) return direct;
   const entry = (await readLedger()).find((e) => e.takeId === id);
   if (!entry) return undefined;
-  const elsewhere = await readTake(id, [{ mode: entry.projectDir ? "project" : "global", dir: entry.store, projectDir: entry.projectDir }]);
-  return elsewhere ? { take: elsewhere.take, store: elsewhere.store.dir } : undefined;
+  return readTake(id, [{ mode: entry.projectDir ? "project" : "global", dir: entry.store, projectDir: entry.projectDir }]);
+}
+
+/** One take by id, with the directory of the store holding it. */
+export async function executeTakeShow(id: string, scope: TakeScope): Promise<{ take: Take; store: string } | undefined> {
+  const found = await findTake(id, scope);
+  return found ? { take: found.take, store: found.store.dir } : undefined;
 }
 
 export interface SpendGroup {

@@ -2469,6 +2469,11 @@ async function dispatchVideo(
   if (!job) {
     await recordJob(activeProvider, result.job ?? { provider: activeProvider, id: result.taskId, model: "", submittedAt: "" });
   }
+  // The take was written after submission; name it so `vibe status job` settles it.
+  if (result.takeId && job!.takeId !== result.takeId) {
+    job = { ...job!, takeId: result.takeId };
+    await writeJobRecord(job);
+  }
   const pendingJob = job!;
   ctx.onProgress({ type: "video-pending", beatId: beat.id, jobId: pendingJob.id, provider: pendingJob.provider });
   return {
@@ -2580,6 +2585,7 @@ async function dispatchMusic(beat: Beat, ctx: BeatDispatchContext): Promise<Prim
       workingDirectory: ctx.projectDir,
       command: "build --stage assets",
       prompt,
+      takeId: result.takeId,
       beatId: beat.id,
       outputPath: abs,
       cachePath: cacheAbs,

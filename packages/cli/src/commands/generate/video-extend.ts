@@ -82,6 +82,7 @@ export function registerVideoExtendCommand(parent: Command): void {
               command: "vibe generate video-extend",
               prompt: options.prompt,
               outputPath: output,
+              takeId: result.takeId,
             })
           : undefined;
 
