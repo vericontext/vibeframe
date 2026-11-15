@@ -156,7 +156,9 @@ function videoOutcome(
     session: result.job,
     outputs: result.outputPath ? [result.outputPath] : [],
     ...(status === "failed" ? { error: { message: result.error ?? "Video generation failed", ...(result.errorKind ? { kind: result.errorKind } : {}) } } : {}),
-    fallbackCost: fallback,
+    // Providers do not bill a failed job unless they report a charge, which is
+    // metered and priced instead; without one the failure cost nothing.
+    fallbackCost: status === "failed" ? () => ({ usd: 0, basis: "estimate" }) : fallback,
   };
 }
 

@@ -37,6 +37,12 @@ const VALID_IMAGE_PROVIDERS = ["openai", "gemini", "grok"] as const;
 const VALID_VIDEO_PROVIDERS: readonly BuildVideoProvider[] = BUILD_VIDEO_PROVIDERS;
 const VALID_MUSIC_PROVIDERS: BuildMusicProvider[] = ["elevenlabs", "replicate"];
 
+/** Whether any part of a build's cost is an estimate rather than a provider charge or metered usage. */
+function buildCostEstimated(result: { costUsd?: number; stageReports?: Record<string, { costUsd: number; costEstimated?: boolean }> }): boolean {
+  if (!result.stageReports) return (result.costUsd ?? 0) > 0;
+  return Object.values(result.stageReports).some((stage) => stage.costUsd > 0 && stage.costEstimated !== false);
+}
+
 export const buildCommand = new Command("build")
   .description("Build a VibeFrame video project from STORYBOARD.md")
   .argument("[project-dir]", "Video project directory", ".")
@@ -261,7 +267,7 @@ Advanced equivalent: \`vibe scene build\`.`
     if (!result.success) {
       spinner?.fail(`Build failed: ${result.error}`);
       if (isJsonMode()) {
-        outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: (result.costUsd ?? 0) > 0, data: buildFailureData(result) });
+        outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: buildCostEstimated(result), data: buildFailureData(result) });
         process.exitCode = 1;
         return;
       }
@@ -276,8 +282,8 @@ Advanced equivalent: \`vibe scene build\`.`
     }
 
     if (isJsonMode() || isQuietMode()) {
-      // The build report keeps its own per-stage cost (list-price estimates); the envelope repeats it.
-      outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: (result.costUsd ?? 0) > 0, data: { ...result } });
+      // The envelope repeats the build report's cost: the assets stage sums its takes (provider charges where reported).
+      outputSuccess({ command: "build", startedAt, costUsd: result.costUsd ?? 0, costEstimated: buildCostEstimated(result), data: { ...result } });
       return;
     }
 

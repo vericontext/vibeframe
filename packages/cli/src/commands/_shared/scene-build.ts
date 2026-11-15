@@ -107,6 +107,7 @@ import { resolveTtsProvider, TtsKeyMissingError, type TtsProviderName } from "./
 import { resolveSceneBuildMode, type SceneBuildMode } from "./scene-build-mode.js";
 import { writeImageFile } from "../../utils/image-file.js";
 import { estimateImageCostUsd } from "./image-cost.js";
+import { buildSpend } from "../../takes/query.js";
 import { withTake, type TakeContext } from "../../takes/record.js";
 import type { TakeSlot } from "../../takes/take.js";
 import {
@@ -344,6 +345,8 @@ export interface BuildBeatSummary {
 export interface StageReport {
   status: "pending" | "skipped" | "done" | "failed" | "needs-author" | "pending-jobs";
   costUsd: number;
+  /** False when every figure in `costUsd` is a provider charge or metered usage. */
+  costEstimated?: boolean;
   warnings: string[];
   retryWith: string[];
 }
@@ -683,6 +686,7 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
   let characterCostUsd = 0;
   if (shouldRunStage(selectedStage, "assets")) {
     onProgress({ type: "phase-start", phase: "primitives" });
+    const assetsStartedAt = new Date();
 
     // Generate the character sheets referenced by any beat once, up front, so
     // both reference-to-video (dispatchVideo) and keyframe edits
@@ -751,8 +755,12 @@ export async function executeSceneBuild(opts: SceneBuildOptions): Promise<SceneB
       : pendingJobs.length > 0
         ? "pending-jobs"
         : "done";
+    // What this run's generations cost is what their takes recorded: the
+    // provider's charge where it reported one, else the take's estimate.
+    const spent = await buildSpend(projectDir, assetsStartedAt);
     stageReports.assets.costUsd =
-      estimateActualAssetCost(beatOutcomes, opts.imageQuality ?? "hd") + characterCostUsd;
+      spent?.usd ?? estimateActualAssetCost(beatOutcomes, opts.imageQuality ?? "hd") + characterCostUsd;
+    stageReports.assets.costEstimated = spent ? spent.estimated : true;
     stageReports.assets.retryWith = pendingJobs.map(
       (job) => `vibe status job ${job.id} --project ${projectDir} --json`
     );

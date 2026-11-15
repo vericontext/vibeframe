@@ -228,3 +228,20 @@ export async function executeTakeLog(scope: TakeScope, filter: TakeFilter = {}):
     failed: { takes: failed.takes, usd: round(failed.usd) },
   };
 }
+
+/**
+ * What the takes a project build recorded since `since` cost, and whether any
+ * of that figure is an estimate rather than billing. Undefined when takes are
+ * off or the run recorded none.
+ */
+export async function buildSpend(projectDir: string, since: Date): Promise<{ usd: number; takes: number; estimated: boolean } | undefined> {
+  if (process.env.VIBE_TAKES === "off") return undefined;
+  const from = since.toISOString();
+  const made = (await listTakes(projectTakeStore(projectDir))).filter((take) => take.origin.via === "build" && take.createdAt >= from);
+  if (made.length === 0) return undefined;
+  return {
+    usd: round(made.reduce((sum, take) => sum + take.cost.usd, 0)),
+    takes: made.length,
+    estimated: made.some((take) => take.cost.basis === "estimate" || take.cost.basis === "upper-bound"),
+  };
+}
