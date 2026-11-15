@@ -258,12 +258,12 @@ export default function LandingPage() {
               <span>What it produces</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Generated end to end by <code className="text-primary">vibe build</code>.
+              Generated with <code className="text-primary">vibe build</code>.
             </h2>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              1080p, four scenes, one consistent character.{" "}
+              One character across four scenes, and one clip's take history.{" "}
               <Link href="#install-to-mp4" className="text-primary hover:underline">
-                Here is how it was made
+                How it was made
               </Link>
               .
             </p>
