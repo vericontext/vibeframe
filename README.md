@@ -11,10 +11,11 @@ When a step fails, the agent gets JSON recovery actions it can run next.
 [![CI](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml/badge.svg)](https://github.com/vericontext/vibeframe/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/vericontext/vibeframe)](https://github.com/vericontext/vibeframe/stargazers)
 
-![One consistent character across a directed arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
+![One consistent character across an arctic night: a trek under the stars, the first aurora, the whole sky ablaze, and the walk home at dawn](docs/media/showcase-aurora.gif)
 
-One photographer across a single arctic night, 1080p, generated end to end.
-[Watch the full render](https://github.com/vericontext/vibeframe/releases/download/v0.113.11/vibeframe-showcase.mp4).
+One photographer across a single arctic night: four keyframe stills from one character sheet, animated with Grok image-to-video, cut with `vibe assemble` over a generated score.
+It cost about $4.50: $2.84 billed by xAI for the four clips, an estimated $1.59 for the character sheet and stills, and $0.05 metered for the score.
+[Watch the full cut](https://github.com/vericontext/vibeframe/releases/download/v0.116.4/vibeframe-showcase-v2.mp4).
 
 ## Know the price before anything is spent
 
@@ -52,6 +53,8 @@ Video generation will need seedance (FAL_API_KEY), but no key/config is availabl
 
 Each generation is saved as a take: the prompt and parameters, the input and output files by hash, the provider job, and what it cost.
 The cost says where the figure came from, so you can tell a provider's bill from an estimate.
+
+![One Grok clip as three takes: generated, extended by two seconds through the same provider session, then edited into a snowy night, each labeled with what it billed](docs/media/take-graph.gif)
 
 ```bash
 vibe take list --beat dawn          # every take made for one scene
@@ -170,7 +173,8 @@ Profiles (`--profile minimal | agent | full`), [the full cue vocabulary](docs/pr
 
 The hard part of generated video is making four shots look like the same film.
 Declare a character pool in `STORYBOARD.md` and name characters in individual scenes.
-VibeFrame generates each character sheet once and reuses it as the reference image for Seedance image-to-video, so the character looks the same in every scene.
+VibeFrame generates each character sheet once and edits every scene's keyframe still from it, so the character looks the same in every scene.
+Pin the video provider with `providers.video` or a scene's `provider:` cue: Seedance refuses stills with a realistic face, while Grok, Kling, and Runway animate them.
 
 `STORYBOARD.md` declares who exists:
 
