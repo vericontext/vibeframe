@@ -39,6 +39,26 @@ function usd(value: number): string {
   return `$${value.toFixed(value < 1 ? 4 : 2)}`;
 }
 
+/** A take time as `YYYY-MM-DD HH:MM` in the reader's time zone (takes store UTC). */
+export function localMinute(iso: string, timeZone?: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(at)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
 export const takeCommand = new Command("take")
   .description("List, inspect, total, promote, and continue the record of every paid generation (takes)")
   .addHelpText("after", `
@@ -104,7 +124,7 @@ takeCommand
         const where = take.beatId ? ` beat ${take.beatId}${take.asset ? ` ${take.asset}` : ""}` : "";
         const held = take.inSlot ? chalk.green(take.inSlot.promoted ? "  [in slot, promoted]" : "  [in slot]") : "";
         console.log(
-          `${chalk.bold(take.id)}  ${take.createdAt.slice(0, 16).replace("T", " ")}  ${take.kind} ${take.operation}  ${take.provider}${take.model ? `/${take.model}` : ""}  ${take.status}  ${usd(take.usd)} (${take.basis})${where}${held}`,
+          `${chalk.bold(take.id)}  ${localMinute(take.createdAt)}  ${take.kind} ${take.operation}  ${take.provider}${take.model ? `/${take.model}` : ""}  ${take.status}  ${usd(take.usd)} (${take.basis})${where}${held}`,
         );
       }
       if (result.total > result.takes.length) console.log(chalk.dim(`${result.takes.length} of ${result.total} shown; use --limit for more.`));
