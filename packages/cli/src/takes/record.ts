@@ -73,7 +73,7 @@ export interface TakeRequest {
 }
 
 /** A project take stores paths relative to its project, so the record moves with it. */
-function storedPath(path: string, projectDir: string | undefined): string {
+export function storedPath(path: string, projectDir: string | undefined): string {
   const absolute = resolve(path);
   if (!projectDir) return absolute;
   const rel = relative(projectDir, absolute);
@@ -97,7 +97,7 @@ export function costOf(usage: UsageRecord[], fallback: () => Pick<TakeCost, "usd
  * be promoted after its slot file was regenerated. A copy-on-write clone
  * where the filesystem supports it (APFS, Btrfs), a plain copy otherwise.
  */
-async function preserveOutput(projectDir: string, source: string, file: TakeFile): Promise<void> {
+export async function preserveOutput(projectDir: string, source: string, file: TakeFile): Promise<void> {
   const target = takeMediaPath(projectDir, file);
   if (existsSync(target)) return;
   await mkdir(dirname(target), { recursive: true });

@@ -113,6 +113,7 @@ function printJobStatus(result: JobStatusResult): void {
   if (job.progress !== undefined) console.log(`  Progress:  ${job.progress}%`);
   if (job.resultUrl) console.log(`  Result:    ${job.resultUrl}`);
   if (job.outputPath) console.log(`  Output:    ${job.outputPath}`);
+  if (job.takeId) console.log(`  Take:      ${job.takeId}${chalk.dim(" (vibe take show " + job.takeId + ")")}`);
   if (job.error) console.log(`  Error:     ${chalk.red(job.error)}`);
   if (result.warnings.length > 0) {
     console.log();

@@ -25,7 +25,7 @@ export const statusJobTool = defineTool({
   title: "Check Job Status",
   annotations: { readOnly: false, destructive: false, openWorld: true },
   description:
-    "Read one local async job record and optionally refresh supported provider status. Supports Runway/Kling video and Replicate music live checks. Also tracks long-running MCP build/render jobs (jobType build/render, provider local): their records are updated in-process — on completion result.payload carries the full tool result; status 'unknown' means the MCP server restarted mid-job (check build-report.json / render-report.json on disk).",
+    "Read one local async job record and optionally refresh supported provider status. Supports live checks for every video provider and Replicate music. When a provider job finishes, settles the take it was submitted under (takeId): its output, status, and the provider's charge. Also tracks long-running MCP build/render jobs (jobType build/render, provider local): their records are updated in-process — on completion result.payload carries the full tool result; status 'unknown' means the MCP server restarted mid-job (check build-report.json / render-report.json on disk).",
   schema: z.object({
     jobId: z.string().describe("Local job id returned by a no-wait command."),
     projectDir: z.string().optional().describe("Project directory containing .vibeframe/jobs. Defaults to nearest project root; in MCP hosts, relative paths resolve under the configured server workspace."),

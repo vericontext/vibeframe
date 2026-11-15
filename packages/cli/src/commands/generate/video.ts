@@ -348,6 +348,7 @@ Examples:
             command: "generate video --no-wait",
             prompt,
             outputPath: output,
+            takeId: result.takeId,
           });
           spinner?.succeed(chalk.green(`Generation started: ${providerLabel} task ${result.taskId}`));
           if (isJsonMode()) {

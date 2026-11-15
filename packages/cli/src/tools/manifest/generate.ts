@@ -197,6 +197,7 @@ export const generateMusicTool = defineTool({
         workingDirectory: ctx.workingDirectory,
         command: "generate_music wait=false",
         prompt: args.prompt,
+        takeId: result.takeId,
       });
     }
     return {
@@ -378,6 +379,7 @@ export const generateVideoTool = defineTool({
         command: "generate_video wait=false",
         prompt: args.prompt,
         outputPath: output,
+        takeId: result.takeId,
       });
     }
     // Same cost as the CLI envelope: a metered job (Kling) leaves costUsd to
@@ -401,7 +403,6 @@ export const generateVideoTool = defineTool({
         ...(result.takeId ? { takeId: result.takeId } : {}),
         ...(cost.costUsd !== undefined ? { costUsd: cost.costUsd, costEstimated: cost.costEstimated } : {}),
         jobId: job?.id,
-        ...(result.takeId ? { takeId: result.takeId } : {}),
         ...(result.takeError ? { warnings: [result.takeError] } : {}),
         statusCommand: job
           ? `vibe status job ${job.id} --project ${job.projectDir} --json`

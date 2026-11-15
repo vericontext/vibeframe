@@ -296,6 +296,7 @@ function registerContinuation(continuation: VideoContinuation): void {
               command: `vibe ${command}`,
               prompt: result.prompt,
               outputPath: result.output,
+              takeId: result.takeId,
             })
           : undefined;
       if (isJsonMode()) {

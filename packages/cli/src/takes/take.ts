@@ -114,6 +114,8 @@ export interface Take {
   cost: TakeCost;
   origin: TakeOrigin;
   error?: { message: string; kind?: string };
+  /** When a `submitted` take was settled by `vibe status job` (its outputs, status, and cost filled in). */
+  settledAt?: string;
 }
 
 /** One line of the global ledger: enough to total spend without opening takes. */
@@ -205,7 +207,11 @@ export async function hashFile(path: string): Promise<TakeFile> {
   };
 }
 
-/** Write a take to its store and append its ledger line. A take is written once. */
+/**
+ * Write a take to its store and append its ledger line. A take is written
+ * once, except that a `submitted` take is written once more when it settles;
+ * the ledger then holds two lines for it, and the later one counts.
+ */
 export async function writeTake(take: Take, store: TakeStore): Promise<string> {
   await mkdir(store.dir, { recursive: true });
   const path = join(store.dir, `${take.id}.json`);
@@ -270,7 +276,7 @@ export async function readTake(id: string, stores: TakeStore[]): Promise<{ take:
   return undefined;
 }
 
-/** Every ledger line, oldest first. Malformed lines are skipped. */
+/** Every take's ledger line, oldest first; a settled take's later line replaces its first. Malformed lines are skipped. */
 export async function readLedger(): Promise<LedgerEntry[]> {
   let text: string;
   try {
@@ -278,15 +284,15 @@ export async function readLedger(): Promise<LedgerEntry[]> {
   } catch {
     return [];
   }
-  const entries: LedgerEntry[] = [];
+  const entries = new Map<string, LedgerEntry>();
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     try {
       const entry = JSON.parse(line) as LedgerEntry;
-      if (typeof entry.takeId === "string" && typeof entry.usd === "number") entries.push(entry);
+      if (typeof entry.takeId === "string" && typeof entry.usd === "number") entries.set(entry.takeId, entry);
     } catch {
       // A torn line from a crash mid-append.
     }
   }
-  return entries;
+  return [...entries.values()];
 }
